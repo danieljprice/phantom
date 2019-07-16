@@ -90,15 +90,14 @@ end subroutine set_abundances
 !  evolve the chemistry and moments
 !
 !-----------------------------------------------------------------------
-subroutine evolve_chem(dt, r, v, T, rho, Jstar, K, mu, S)
+subroutine evolve_chem(dt, r, v, T, rho, JKmuS)
 !all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
  real, intent(in) :: dt, r, v, T, rho
- real, intent(inout) :: Jstar, K(0:3)
- real, intent(out) :: mu, S
+ real, intent(inout) :: JKmuS(7)
 
  real :: pC, pC2, pC2H, pC2H2, nH_tot, epsC
- real :: JstarS, taustar, taugr
+ real :: JstarS, taustar, taugr, S
  real :: Jstar_new, K_new(0:3)
  real :: nH, nH2, v1
  real, parameter :: A0 = 20.7d-16
@@ -106,33 +105,34 @@ subroutine evolve_chem(dt, r, v, T, rho, Jstar, K, mu, S)
  real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  nH_tot = rho/mass_per_H
- epsC = eps(iC) - K(3)/(r**2*v*nH_tot)
+ epsC = eps(iC) - JKmuS(5)/(r**2*v*nH_tot)
  if (T > 450.) then
-    call chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, mu)
+    call chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(6))
     S = pC/psat_C(T)
     if (S > Scrit) then
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
        JstarS = JstarS * r**2*v
-       call evol_K(K, Jstar, JstarS, taustar, taugr, dt, Jstar_new, K_new)
+       call evol_K(JKmuS(1), JKmuS(2:5), JstarS, taustar, taugr, dt, Jstar_new, K_new)
     else
-       Jstar_new = Jstar
-       K_new(:) = K
+       Jstar_new = JKmuS(1)
+       K_new(0:3) = JKmuS(2:5)
     endif
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
     nH = 0.
     nH2 = nH_tot/2.
-    mu = (1.+4.*eps(iHe))*nH_tot/(nH+nH2+eps(iHe)*nH_tot)
+    JKmuS(6) = (1.+4.*eps(iHe))*nH_tot/(nH+nH2+eps(iHe)*nH_tot)
     pC2H2 = .5*(epsC-eps(iOx))*nH_tot * kboltz * T
     pC2H = 0.
     S = 0.
     v1 = sqrt(kboltz*T/(8.*pi*atomic_mass_unit*12.01))
 !      v1 = vfactor*sqrt(T)
     taugr = kboltz*T/(A0*v1*sqrt(2.)*alpha2*(pC2H+pC2H2))
-    call evol_K(K, 0., 0., 1., taugr, dt, Jstar_new, K_new)
+    call evol_K(0., JKmuS(2:5), 0., 1., taugr, dt, Jstar_new, K_new)
  endif
- Jstar = Jstar_new
- K(:) = K_new(:)
+ JKmuS(1) = Jstar_new
+ JKmuS(2:5) = K_new(0:3)
+ JKmuS(7) = S
 end subroutine evolve_chem
 
 !-----------------------------------------------------------------------
@@ -157,7 +157,7 @@ subroutine calc_kappa_dust(K3, Mdot_cgs, kappa_planck, kappa_rosseland)
  kappa_planck    = Qplanck_abs * fC
  kappa_rosseland = Qross_ext * fC
  !should add gas contribution
- !!!kappa_rosseland = kappa_rosseland + 2.d-4
+ !!!kappa_rosseland = kappa_rosseland + kappa_gas
 end subroutine calc_kappa_dust
 
 !----------------------------
@@ -211,9 +211,9 @@ end subroutine nucleation
 !  Compute evolution of the moments
 !
 !------------------------------------
-subroutine evol_K(K, Jstar, JstarS, taustar, taugr, dt, Jstar_new, K_new)
+subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
 ! all quantities are in cgs
- real, intent(in) :: K(0:3), Jstar, JstarS, taustar, taugr, dt
+ real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
  real :: d, i0, i1, i2, i3, i4, i5, dK3

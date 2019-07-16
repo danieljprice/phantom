@@ -182,9 +182,10 @@ end subroutine write_options_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
- use h2cooling, only:read_options_h2cooling
- use coolfunc,  only:read_options_coolfunc
- use io,        only:fatal
+ use h2cooling,    only:read_options_h2cooling
+ use coolfunc,     only:read_options_coolfunc
+ use wind_cooling, only:read_options_windcooling
+ use io,           only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -211,7 +212,11 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
     if (h2chemistry) call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
-    if (icooling==3) call read_options_coolfunc(name,valstring,imatch,igotallcf,ierr)
+    if (windcooling) then
+       call read_options_windcooling(name,valstring,imatch,igotallh2,ierr)
+    elseif (icooling==3) then
+       call read_options_coolfunc(name,valstring,imatch,igotallcf,ierr)
+    endif
  end select
 
  if (igotallh2 .and. ngot >= 1) igotall = .true.

@@ -86,12 +86,12 @@ end subroutine setup_wind
 !-----------------------------------------------------------------------
 subroutine init_wind(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use options,        only:icooling
  use physcon,        only:pi,Rg
  use io,             only:fatal
  use eos,            only:gmw
 #ifndef ISOTHERMAL
  use wind_cooling,   only:calc_cooling_rate
+ use options,        only:icooling
 #endif
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
@@ -142,15 +142,15 @@ end subroutine init_wind
 subroutine wind_step(state)
 ! all quantities in cgs
 
- use options,        only:icooling
  use wind_equations, only:evolve_hydro
  use physcon,        only:pi,Rg
 #ifndef ISOTHERMAL
  use wind_cooling,   only:calc_cooling_rate
+ use options,        only:icooling
 #endif
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnq_dlnT
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT
 
  rvT(1) = state%r
  rvT(2) = state%v
@@ -247,89 +247,6 @@ subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
  !cs = state%c/unit_velocity
  !rho = Mdot_cgs *utime/(umass*4.*pi*r**2*v)
 end subroutine dust_free_wind_profile
-
-!-----------------------------------------------------------------------
-!
-!  Integrate the steady wind equation and save variables to file
-!
-!-----------------------------------------------------------------------
-subroutine save_windprofile(r0, v0, T0, tsonic, filename)
- use units,    only:utime
- use timestep, only:tmax
- real, intent(in) :: r0, v0, T0, tsonic
- character(*), intent(in) :: filename
-
- real :: dt_print,time_end,dt_stop
- type(wind_state) :: state
- logical :: written
- integer :: n
-
- time_end = tmax*utime*2.
- call init_wind(r0, v0, T0, time_end, state)
- open(unit=1337,file=filename)
- call filewrite_header(1337)
- call filewrite_state(1337, state)
-
- n = 1
- dt_stop = max(dtmin,time_end*1.d-6)
- dt_print = max(min(tsonic/10.,state%time_end/256.),state%time_end/5000.)
- do while(state%time < time_end .and. state%dt > dt_stop .and. state%Tg > Tdust_stop)
-    call wind_step(state)
-    written = .false.
-    if (state%time > n*dt_print) then
-       n = floor(state%time/dt_print)+1
-       call filewrite_state(1337, state)
-       written = .true.
-    endif
- enddo
- if (.not. written) call filewrite_state(1337, state) ! write last state
- if (state%time/state%time_end < .1) then
-    write(*,'(/,"[WARNING] wind integration failed : t/tend = ",f7.5,/)') state%time/state%time_end
- endif
- close(1337)
-end subroutine save_windprofile
-
-
-subroutine filewrite_header(iunit)
- integer, intent(in) :: iunit
-
- if (wind_type == 4) then
-    write(iunit,'("#",11x,a1,10(a20))') 't','r','v','T','c','p','rho','mu','alpha','a','Q'
- else
-    write(iunit,'("#",11x,a1,9(a20))') 't','r','v','T','c','p','rho','mu','alpha','a'
- endif
-end subroutine filewrite_header
-
-subroutine state_to_array(state, array)
- type(wind_state), intent(in) :: state
- real, intent(out) :: array(11)
-
- array(1) = state%time
- array(2) = state%r
- array(3) = state%v
- array(4) = state%Tg
- array(5) = state%c
- array(6) = state%p
- array(7) = state%rho
- array(8) = state%mu
- array(9) = state%alpha
- array(10) = state%a
- if (wind_type == 4) array(11) = state%Q
-end subroutine state_to_array
-
-subroutine filewrite_state(iunit, state)
- integer, intent(in) :: iunit
- type(wind_state), intent(in) :: state
-
- real :: array(11)
- call state_to_array(state, array)
- if (wind_type == 4) then
-    write(iunit, '(20E20.10E3)') array(1:11)
- else
-    write(iunit, '(19E20.10E3)') array(1:10)
- endif
-end subroutine filewrite_state
-
 
 !-----------------------------------------------------------------------
 !
@@ -453,14 +370,97 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(7) = state%alpha
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f7.1," alpha =",f5.3)') &
+ write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f8.1," alpha =",f5.3)') &
       sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
 
-endif
+ endif
  !save 1D initial profile for comparison
  write (*,'("Saving 1D model : ")')
  call save_windprofile(r0, v0, T0, sonic(4),'windprofile1D.dat')
 
 end subroutine get_initial_wind_speed
+
+!-----------------------------------------------------------------------
+!
+!  Integrate the steady wind equation and save variables to file
+!
+!-----------------------------------------------------------------------
+subroutine save_windprofile(r0, v0, T0, tsonic, filename)
+ use units,    only:utime
+ use timestep, only:tmax
+ real, intent(in) :: r0, v0, T0, tsonic
+ character(*), intent(in) :: filename
+
+ real :: dt_print,time_end
+ type(wind_state) :: state
+ logical :: written
+ integer :: n,iter
+
+ time_end = tmax*utime*2.
+ call init_wind(r0, v0, T0, time_end, state)
+ open(unit=1337,file=filename)
+ call filewrite_header(1337)
+ call filewrite_state(1337, state)
+
+ n = 1
+ iter = 0
+ dt_print = max(min(tsonic/10.,time_end/256.),time_end/5000.)
+ do while(state%time < time_end .and. iter < 1000000 .and. state%Tg > Tdust_stop)
+    iter = iter+1
+    call wind_step(state)
+    written = .false.
+    if (state%time > n*dt_print) then
+       n = floor(state%time/dt_print)+1
+       call filewrite_state(1337, state)
+       written = .true.
+    endif
+ enddo
+ if (.not. written) call filewrite_state(1337, state) ! write last state
+ if (state%time/time_end < .4) then
+    write(*,'(/,"[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5," Tgas = ",f6.0," iter = ",i7,/)') &
+         state%time/time_end,state%dt/time_end,state%Tg,iter
+ endif
+ close(1337)
+end subroutine save_windprofile
+
+subroutine filewrite_header(iunit)
+ integer, intent(in) :: iunit
+
+ if (wind_type == 4) then
+    write(iunit,'("#",11x,a1,10(a20))') 't','r','v','T','c','p','rho','mu','alpha','a','Q'
+ else
+    write(iunit,'("#",11x,a1,9(a20))') 't','r','v','T','c','p','rho','mu','alpha','a'
+ endif
+end subroutine filewrite_header
+
+subroutine state_to_array(state, array)
+ type(wind_state), intent(in) :: state
+ real, intent(out) :: array(11)
+
+ array(1) = state%time
+ array(2) = state%r
+ array(3) = state%v
+ array(4) = state%Tg
+ array(5) = state%c
+ array(6) = state%p
+ array(7) = state%rho
+ array(8) = state%mu
+ array(9) = state%alpha
+ array(10) = state%a
+ if (wind_type == 4) array(11) = state%Q
+end subroutine state_to_array
+
+subroutine filewrite_state(iunit, state)
+ integer, intent(in) :: iunit
+ type(wind_state), intent(in) :: state
+
+ real :: array(11)
+ call state_to_array(state, array)
+ if (wind_type == 4) then
+    write(iunit, '(20E20.10E3)') array(1:11)
+ else
+    write(iunit, '(19E20.10E3)') array(1:10)
+ endif
+end subroutine filewrite_state
 
 end module dust_free_wind

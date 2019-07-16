@@ -18,7 +18,7 @@
 !  RUNTIME PARAMETERS:
 !    bowen_Tcond        -- dust condensation temperature (K)
 !    bowen_delta        -- condensation temperature range (K)
-!    bowen_kappa        -- constant gas opacity (cm²/g)
+!    kappa_gas        -- constant gas opacity (cm²/g)
 !    bowen_kmax         -- maximum dust opacity (cm²/g)
 !    iboundary_spheres  -- number of boundary spheres (integer)
 !    iwind_resolution   -- if<>0 set number of particles on the sphere, reset particle mass
@@ -65,7 +65,7 @@ module inject
  real, public::    bowen_kmax = 2.7991
  real, public::    bowen_Tcond = 1500.
  real, public::    bowen_delta = 60.
- real, public::    bowen_kappa = 2.d-4
+ real, public::    kappa_gas = 2.d-4
 #ifdef BOWEN
  integer, public:: sonic_type = 0
  real, public::    star_Teff = 3000.
@@ -257,7 +257,7 @@ subroutine init_inject(ierr)
  endif
 
 #ifdef BOWEN
- call setup_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+ call setup_bowen(u_to_temperature_ratio,kappa_gas,bowen_kmax,star_Lum,wind_injection_radius,&
       bowen_Tcond,bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,&
       iboundary_spheres*particles_per_sphere)
  rho_ini = wind_mass_rate / (4.*pi*wind_injection_radius**2*wind_velocity)
@@ -296,16 +296,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use physcon,      only:pi
  use io,           only:fatal
- use eos,          only:gmw
 #ifdef BOWEN
  use bowen_dust,   only:pulsating_wind_profile
 #elif NUCLEATION
- use dusty_wind,   only:evolve_gail,dusty_wind_profile
- use part,         only:partJstarKmu
+ use dusty_wind,   only:dusty_wind_profile
 #else
  use dust_free_wind, only:dust_free_wind_profile
 #endif
- use units,        only:udist
+! use units,        only:udist
  use part,         only:igas,iboundary,nptmass
  use injectutils,  only:inject_geodesic_sphere
  real,    intent(in)    :: time, dtlast
@@ -314,10 +312,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart
- real    :: local_time, GM, r, v, u, rho, e, mu, mass_lost, x0(3), v0(3) !, cs2max, dr, dp
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3) !, cs2max, dr, dp
 #ifdef NUCLEATION
- real :: Jstar, K(0:3), cs
- integer :: j
+ real :: JKmuS(7)
 #elif BOWEN
  real :: surface_radius
 #endif
@@ -332,13 +329,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     v0 = 0.
     GM = 0.
  endif
-
-#ifdef NUCLEATION
- !compute the values of K, Jstar and mu for the released particles & update u (if T=cst and mu has changed)
- call evolve_gail(dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,partJstarKmu,npart)
-#else
- mu = gmw
-#endif
 
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1
  inner_sphere = floor(time/time_between_spheres)
@@ -356,14 +346,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     local_time = time - (i-abs(shift_spheres)) * time_between_spheres
 
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
+    v = wind_velocity
 #ifdef BOWEN
+    r = Rstar
     call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, sphere_number, &
          inner_sphere,inner_boundary_sphere)
-#endif
-    v = wind_velocity
-#ifdef NUCLEATION
+#elif NUCLEATION
     r = Rstar
-    call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, wind_temperature, Jstar, K, mu, cs)
+    call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, wind_temperature, JKmuS)
 #else
     r = wind_injection_radius
     call dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
@@ -377,34 +367,28 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (i > inner_sphere) then
        ! boundary sphere
        first_particle = (iboundary_spheres-i+inner_sphere)*particles_per_sphere+1
+#ifdef NUCLEATION
+      call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
+            npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
+#else
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
-#ifdef NUCLEATION
-       do j=first_particle,first_particle+particles_per_sphere-1
-          partJstarKmu(1,j) = Jstar
-          partJstarKmu(2:5,j) = K(0:3)
-          partJstarKmu(6,j) = mu
-       enddo
 #endif
     else
        ! ejected particles
 #ifdef NUCLEATION
-       do j=npart+1,npart+particles_per_sphere
-          partJstarKmu(1,j) = Jstar
-          partJstarKmu(2:5,j) = K(0:3)
-          partJstarKmu(6,j) = mu
-       enddo
-#endif
+       call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
+            npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
+#else
        call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
             npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
+#endif
        ! update the sink particle mass
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
           xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres
        endif
-       print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,iboundary_spheres,outer_sphere,npart,time,local_time,&
-            r/xyzmh_ptmass(5,1),v,xyzmh_ptmass(5,1),u
-       !stop
-
+       print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,iboundary_spheres,&
+            outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,xyzmh_ptmass(5,1),u
     endif
     !cs2max = max(cs2max,gamma*(gamma-1)*u)
  enddo
@@ -480,7 +464,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_alpha,'wind_alpha','fraction of the gravitational acceleration imparted to the gas',iunit)
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
 #ifndef ISOTHERMAL
- write(iunit,"(/,a)") '# options controlling dust and cooling'
+ write(iunit,"(/,a)") '# options controlling dust'
  call write_inopt(star_Lum/solarl,'star_Lum','central star luminosity (Lsun)',iunit)
  call write_inopt(star_Teff,'star_Teff','central star effective temperature (K)',iunit)
  call write_inopt(wind_type,'wind_type','stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling)',iunit)
@@ -488,8 +472,8 @@ subroutine write_options_inject(iunit)
 #ifdef NUCLEATION
  call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
 #endif
-#if defined (BOWEN) || defined(NUCLEATION)
- call write_inopt(bowen_kappa,'bowen_kappa','constant gas opacity (cm²/g)',iunit)
+ call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
+#if defined (BOWEN)
  call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
  call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
  call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
@@ -567,22 +551,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) star_Teff
     ngot = ngot + 1
     if (star_Teff < 0.)    call fatal(label,'invalid setting for star_Teff (<0)')
- case('bowen_kappa')
-    read(valstring,*,iostat=ierr) bowen_kappa
+ case('kappa_gas')
+    read(valstring,*,iostat=ierr) kappa_gas
     ngot = ngot + 1
-    if (bowen_kappa < 0.)    call fatal(label,'invalid setting for bowen_kappa (<0)')
- case('bowen_kmax')
-    read(valstring,*,iostat=ierr) bowen_kmax
-    ngot = ngot + 1
-    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
- case('bowen_Tcond')
-    read(valstring,*,iostat=ierr) bowen_Tcond
-    ngot = ngot + 1
-    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
- case('bowen_delta')
-    read(valstring,*,iostat=ierr) bowen_delta
-    ngot = ngot + 1
-    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
+    if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
  case('wind_type')
     read(valstring,*,iostat=ierr) wind_type
     ngot = ngot + 1
@@ -601,6 +573,18 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
     ngot = ngot + 1
     if (wind_osc_vamplitude_km_s <= 0. .and. wind_velocity_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
+ case('bowen_kmax')
+    read(valstring,*,iostat=ierr) bowen_kmax
+    ngot = ngot + 1
+    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
+ case('bowen_Tcond')
+    read(valstring,*,iostat=ierr) bowen_Tcond
+    ngot = ngot + 1
+    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
+ case('bowen_delta')
+    read(valstring,*,iostat=ierr) bowen_delta
+    ngot = ngot + 1
+    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
 #endif
 #ifdef NUCLEATION
  case('wind_CO_ratio')
@@ -616,7 +600,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #else
  noptions = 14
 #ifdef NUCLEATION
- noptions = 19
+ noptions = 16
 #elif ISOTHERMAL
  noptions = 9
 #endif

@@ -94,7 +94,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
 #ifdef NUCLEATION
- use part,           only:partJstarKmu
+ use part,           only:nucleation
+ use dusty_wind,     only:evolve_dust
 #endif
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
@@ -107,7 +108,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef WIND
 ! use eos,            only:gamma
  use wind_equations, only:energy_profile
- use wind_cooling,   only:dust_energy_cooling
+ use wind_cooling,   only:wind_energy_cooling
  use inject,         only:wind_type
 #endif
 #ifdef IND_TIMESTEPS
@@ -329,7 +330,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predict_sph
-
 !$omp end parallel do
 !
 ! recalculate all SPH forces, and new timestep
@@ -376,7 +376,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef WIND
 !$omp shared(wind_type) &
 #ifdef NUCLEATION
-!$omp shared(partJstarKmu) &
+!$omp shared(nucleation) &
 #endif
 #endif
 #ifdef KROME
@@ -471,22 +471,32 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(2,i) = vyi
           vxyzu(3,i) = vzi
           !--this is the energy equation if non-isothermal
+#ifndef WIND
           if (maxvxyzu >= 4) then
              vxyzu(4,i) = eni
-#ifdef WIND
-             if (icooling > 3) then
-#ifdef DUSTFREE
-                !only H0 cooling
-                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph)
-#else
-!                call dust_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph, gamma, Teq, partJstarKmu(6,i), partJstarKmu(4,i), kappa)
-#endif
-             endif
-#else
              if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
-#endif
           endif
-
+#else
+#ifdef KROME
+          !evolve chemical composition and determnie new internal energy
+          call update_krome(dtsph,xyzh(:,i),vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),&
+               species_abund(:,i),gamma_chem(i),mu_chem(i))
+#else
+#ifdef NUCLEATION
+          !evolve dust chemistry and compute dust cooling
+          call evolve_dust(wind_type,dtsph, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
+#else
+          if (icooling > 3) then
+            !only H0 cooling
+             call wind_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph)
+          endif
+#endif
+          !the temperature profile being imposed, the internal energy is also fixed
+          if (wind_type == 2) then
+             vxyzu(4,i) = energy_profile(xyzh(:,i))
+          endif
+#endif
+#endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
@@ -495,17 +505,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
-#endif
        endif
-#ifdef KROME
-       call update_krome(dtsph,xyzh(:,i),vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),species_abund(:,i),gamma_chem(i),mu_chem(i))
-#endif
-#ifdef WIND
-       !the temperature profile being imposed, the internal energy is also fixed
-       if (wind_type == 2) then
-          vxyzu(4,i) = energy_profile(xyzh(:,i))
-       endif
-#endif
     enddo corrector
 !$omp enddo
 !$omp end parallel

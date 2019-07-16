@@ -339,7 +339,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
- use part,  only:partJstarKmu,nucleation_label
+ use part,  only:nucleation,nucleation_label
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -443,10 +443,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 
 #ifdef NUCLEATION
  if (.not. allocated(f)) allocate(f(npart))
-  !$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,partJstarKmu)
+  !$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,nucleation)
  do i = 1,npart
     f(i) = (xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)*sqrt(vxyzu(1,i)**2+vxyzu(2,i)**2+vxyzu(3,i)**2)*udist**2*unit_velocity
-    partJstarKmu(1:5,i) = partJstarKmu(1:5,i)/f(i)
+    nucleation(1:5,i) = nucleation(1:5,i)/f(i)
  enddo
  !omp end parallel do
 #endif
@@ -550,7 +550,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NUCLEATION
 
-       call write_array(1,partJstarKmu,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
+       call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
 #endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -602,9 +602,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  call end_threadwrite(id)
 
 #ifdef NUCLEATION
-!$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,partJstarKmu)
+!$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,nucleation)
  do i = 1,npart
-    partJstarKmu(1:5,i) = partJstarKmu(1:5,i)*f(i)
+    nucleation(1:5,i) = nucleation(1:5,i)*f(i)
  enddo
 !omp end parallel do
  if (allocated(f)) deallocate(f)
@@ -1253,7 +1253,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part, only:species_abund,species_abund_label
 #endif
 #ifdef NUCLEATION
- use part, only:partJstarKmu,nucleation_label
+ use part, only:nucleation,nucleation_label
 #endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
@@ -1357,7 +1357,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(species_abund,species_abund_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
 #ifdef NUCLEATION
-             call read_array(partJstarKmu,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)

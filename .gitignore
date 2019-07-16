@@ -14,5 +14,6 @@ build/phantom-version.h
 */*/*~
 *.bindata
 *.pyc
+*.gz
 #*
 .#*

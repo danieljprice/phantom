@@ -151,15 +151,15 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine setup_bowen(u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+subroutine setup_bowen(u_to_temperature_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_injection_radius,&
        bowen_Cprime, bowen_Tcond, bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_temperature_ratio,bowen_kappa,bowen_kmax,star_Lum,wind_injection_radius,&
+ real, intent(in)  :: u_to_temperature_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_injection_radius,&
          bowen_Cprime, bowen_Tcond, bowen_delta, star_Teff, wind_osc_vamplitude,wind_osc_period
 
- kappa_gas = bowen_kappa / (udist**2/umass)
+ kappa_gas = kappa_gas_in / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
  L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)

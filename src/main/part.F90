@@ -157,9 +157,9 @@ module part
 !--Dust formation - theory of moments
 !
 #ifdef NUCLEATION
- integer, parameter :: n_nucleation = 6
- real, allocatable :: partJstarKmu(:,:)
- character(len=*), parameter :: nucleation_label(6) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   '/)
+ integer, parameter :: n_nucleation = 7
+ real, allocatable :: nucleation(:,:)
+ character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    '/)
 #endif
 !
 !--Chemistry with KROME
@@ -383,7 +383,7 @@ subroutine allocate_part
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
 #ifdef NUCLEATION
- call allocate_array('partJstarKmu', partJstarKmu, 6, maxsp)
+ call allocate_array('nucleation', nucleation, 7, maxsp)
 #endif
 #ifdef KROME
  call allocate_array('species_abund', species_abund, krome_nmols, maxp)
@@ -446,7 +446,7 @@ subroutine deallocate_part
  deallocate(istsactive)
  deallocate(ibin_sts)
 #ifdef NUCLEATION
- deallocate(partJstarKmu)
+ deallocate(nucleation)
 #endif
 #ifdef KROME
  deallocate(species_abund)
@@ -929,7 +929,7 @@ subroutine copy_particle_all(src,dst)
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
 #ifdef NUCLEATION
- partJstarKmu(:,dst) = partJstarKmu(:,src)
+ nucleation(:,dst) = nucleation(:,src)
 #endif
 #ifdef KROME
  species_abund(:,dst)  = species_abund(:,src)

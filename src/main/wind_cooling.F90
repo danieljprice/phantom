@@ -25,7 +25,8 @@ module wind_cooling
  implicit none
  character(len=*), parameter :: label = 'wind_cooling'
 
- public :: init_windcooling,calc_cooling_rate,dust_energy_cooling,write_options_windcooling
+ public :: init_windcooling,calc_cooling_rate,wind_energy_cooling,read_options_windcooling,&
+      write_options_windcooling
  logical, public :: calc_Teq
  real, public::    bowen_Cprime = 3.000d-5
 
@@ -43,10 +44,10 @@ contains
 !  calculate cooling rates
 !
 !-----------------------------------------------------------------------
-subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, gamma, mu, K2, kappa)
+subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
 ! all quantities in cgs
  real, intent(in) :: rho, T
- real, intent(in), optional :: Teq, gamma, mu, K2, kappa
+ real, intent(in), optional :: Teq, mu, K2, kappa
  real, intent(out) :: Q, dlnQ_dlnT
  real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
@@ -60,7 +61,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, gamma, mu, K2, kappa)
  dlnQ_col_dust = 0.
  dlnQ_relax_Stefan = 0.
  if (cool_radiation_H0) call cooling_neutral_hydrogen(T, rho, Q_H0, dlnQ_H0)
- if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho, gamma, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (cool_collisions_dust)  call cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (cool_relaxation_Stefan) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
  Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
@@ -118,12 +119,13 @@ end subroutine init_windcooling
 !  Bowen 1988 cooling term
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Teq, rho, wind_gamma, mu, Q, dlnQ_dlnT)
- use physcon, only: Rg
- real, intent(in) :: T, Teq, rho, wind_gamma, mu
+subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, Q, dlnQ_dlnT)
+ use eos,     only:gamma
+ use physcon, only:Rg
+ real, intent(in) :: T, Teq, rho, mu
  real, intent(out) :: Q,dlnQ_dlnT
 
- Q = Rg/((wind_gamma-1.)*mu)*rho*(Teq-T)/Cprime
+ Q = Rg/((gamma-1.)*mu)*rho*(Teq-T)/Cprime
  dlnQ_dlnT = -T/(Teq-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
@@ -230,41 +232,39 @@ end subroutine set_Tcool
 !   dust cooling using Townsend method to avoid the timestep constraints
 !
 !-----------------------------------------------------------------------
-subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
+subroutine wind_energy_cooling (u, rho, dt, mu_in, Teq, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg,kboltz
   use units,   only:unit_density,unit_ergg,utime
   real, intent(in) :: rho, dt
-  real, intent(in), optional :: Teq, K2, kappa, gam_in, mu_in
+  real, intent(in), optional :: Teq, K2, kappa, mu_in
   real, intent(inout) :: u
 
-  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,dt_cgs,rho_cgs,gam,mu,du
+  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,dt_cgs,rho_cgs,mu,du
   integer :: k
 
-  if (.not.present(gam_in)) then
-     gam = gamma
+  if (.not.present(mu_in)) then
      mu = gmw
   else
-     gam = gam_in
      mu = mu_in
   endif
 
-  T = (gam-1.)*u/Rg*mu*unit_ergg
+  T = (gamma-1.)*u/Rg*mu*unit_ergg
 
   if (T < T_floor) then
      Temp = T_floor
   elseif (T > Tref) then
-     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, gam, mu, K2, kappa)
-     Temp = T+(gam-1.)*mu*Q*dt_cgs/Rg
+     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, mu, K2, kappa)
+     Temp = T+(gamma-1.)*mu*Q*dt_cgs/Rg
   else
      dt_cgs = dt*utime
      rho_cgs = rho*unit_density
-     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, gam, mu, K2, kappa)
+     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, mu, K2, kappa)
      Y = 0.
      k = nT
      do while (Tgrid(k) > T)
         k = k-1
-        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, gam, mu, K2, kappa)
+        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, mu, K2, kappa)
         if (abs(dlnQ_dlnT-1.) < 1.d-13) then
            y = y - dlnQref_dlnT*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
            !y = y - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
@@ -276,7 +276,7 @@ subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
      enddo
 
      yk = y
-     !call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, gam, mu, K2, kappa)
+     !call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, mu, K2, kappa)
 
      if (abs(dlnQ_dlnT-1.) < 1.d-13) then
         !y = yk + Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/T)
@@ -286,8 +286,8 @@ subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
         y = yk + dlnQref_dlnT*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
      endif
 
-     !dy = mu*(gam-1.)/Rg*Qref/Tref*dt_cgs
-     dy = mu*(gam-1.)/Rg*dlnQref_dlnT/Tref*dt_cgs
+     !dy = mu*(gamma-1.)/Rg*Qref/Tref*dt_cgs
+     dy = mu*(gamma-1.)/Rg*dlnQref_dlnT/Tref*dt_cgs
      y = y + dy
 !compute Yinv
      if (abs(dlnQ_dlnT-1.) < 1.d-10) then
@@ -302,14 +302,14 @@ subroutine dust_energy_cooling (u, rho, dt, gam_in, mu_in, Teq, K2, kappa)
      endif
   endif
 
-  du = Rg*(Temp-T)/((gam-1.)*mu*unit_ergg)
+  du = Rg*(Temp-T)/((gamma-1.)*mu*unit_ergg)
   if (abs(du/u) > .1) then
      !print *,u,dlnQ_dlnT,T,temp,rho_cgs
      !stop
   endif
   u = u+du
 
-end subroutine
+end subroutine wind_energy_cooling
 
 !-----------------------------------------------------------------------
 !+
@@ -325,5 +325,29 @@ subroutine write_options_windcooling(iunit)
 #endif
 
 end subroutine write_options_windcooling
+
+subroutine read_options_windcooling(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+
+ imatch  = .true.
+#ifdef NUCLEATION
+ igotall = .false.  ! cooling options are compulsory
+ select case(trim(name))
+ case('bowen_Cprime')
+    read(valstring,*,iostat=ierr) bowen_Cprime
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ if (ngot >= 1) igotall = .true.
+#else
+ igotall = .true.
+#endif
+
+end subroutine read_options_windcooling
 
 end module wind_cooling

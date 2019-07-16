@@ -38,11 +38,14 @@ contains
 !  Inject or update a particle into the simulation.
 !+
 !-----------------------------------------------------------------------
-subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu)
+subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
  use part, only:maxp,iamtype,iphase,maxvxyzu
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
+#ifdef NUCLEATION
+ use part, only:nucleation
+#endif
  use io,   only:fatal
 #ifdef IND_TIMESTEPS
  use part,         only:ibin
@@ -50,6 +53,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 #endif
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
+ real,    intent(in), optional :: JKmuS(:)
  integer, intent(in)    :: particle_number
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
@@ -96,6 +100,9 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  if (maxgradh==maxp) gradh(:,particle_number) = 0.
 #ifdef IND_TIMESTEPS
  ibin(particle_number) = nbinmax
+#endif
+#ifdef NUCLEATION
+ nucleation(:,particle_number) = JKmuS(:)
 #endif
 end subroutine
 
