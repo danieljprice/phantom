@@ -40,7 +40,7 @@ subroutine test_rwdump(ntests,npass)
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndusttypes
  use dim,             only:maxp,maxdusttypes
  use memory,          only:allocate_memory,deallocate_memory
- use testutils,       only:checkval
+ use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
  use eos,             only:gamma,polyk
@@ -194,12 +194,11 @@ subroutine test_rwdump(ntests,npass)
     if (test_speed) call getused(t1)
     if (itest==2) then
        if (id==master) write(*,"(/,a)") '--> checking read_dump'
-       ntests = ntests + 1
        nfailed = 0
        call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        call checkval(ierr,is_small_dump,0,nfailed(1),'read_dump returns is_small_dump error code')
-       if (all(nfailed==0)) npass = npass + 1
+       call update_test_scores(ntests,nfailed,npass)
 
        if (id==master) write(*,"(/,a)") '--> checking read_smalldump'
        call read_smalldump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
@@ -240,8 +239,7 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bexty,Bextywas,tiny(Bexty),nfailed(19),'Bexty')
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     call barrier_mpi()
 
@@ -277,8 +275,7 @@ subroutine test_rwdump(ntests,npass)
        call checkval(ngas,iphase,igas,0,nfailed(17),'particle type 1')
        call checkval(ndust,iphase(npart-ndust+1:npart),idust,0,nfailed(18),'particle type 2')
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     if (id==master) write(*,"(/,a)") '--> checking sink particle arrays'
     nfailed = 0
@@ -291,8 +288,7 @@ subroutine test_rwdump(ntests,npass)
                         nfailed(nsinkproperties+j),vxyz_ptmass_label(j))
        enddo
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     call barrier_mpi()
 
