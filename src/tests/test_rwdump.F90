@@ -37,7 +37,7 @@ subroutine test_rwdump(ntests,npass)
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndustsmall
+                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndusttypes
  use dim,             only:maxp,maxdusttypes
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval
@@ -50,6 +50,7 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
+ use options,         only:use_dustfrac
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(64)
  integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
@@ -114,8 +115,10 @@ subroutine test_rwdump(ntests,npass)
           poten(i) = 15._4
        endif
        if (use_dust) then
+          use_dustfrac = .true.
           ndustsmall = maxdusttypes
-          dustfrac(:,i) = 16._4
+          ndusttypes = ndustsmall
+          dustfrac(:,i) = 0.16_4
        endif
     enddo
     nptmass = 10
@@ -266,7 +269,7 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dust) then
           do i = 1,ndustsmall
-             call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
+             call checkval(npart,dustfrac(i,:),0.16,real(epsilon(0._4)),nfailed(16),'dustfrac')
           enddo
        endif
     endif
