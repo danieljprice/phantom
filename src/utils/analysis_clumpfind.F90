@@ -108,10 +108,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  call read_analysis_options(dumpfile)
 
- if(skipsmalldumps) then
+ if (skipsmalldumps) then
 
     ! Skip small dumps (as they do not include velocity data)
-    if(sum(vxyzu(1,:)) < tiny(vxyzu) .and. &
+    if (sum(vxyzu(1,:)) < tiny(vxyzu) .and. &
         sum(vxyzu(2,:))< tiny(vxyzu) .and. &
         sum(vxyzu(3,:)) < tiny(vxyzu)) then
        print*, 'Skipping clumpfind analysis for small dumps (velocity data missing)'
@@ -130,7 +130,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  neighbourfile = 'neigh_'//TRIM(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
- if(existneigh.eqv..true.) then
+ if (existneigh.eqv..true.) then
     print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
@@ -158,7 +158,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 ! Add potential contribution from all sinks first
 
- if(sinkpotential) call add_sink_potential(npart)
+ if (sinkpotential) call add_sink_potential(npart)
 
  dpoten = ABS(dpoten)
 
@@ -240,7 +240,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     percent = 100.0*REAL(l)/REAL(npart)
 
-    if(percent>percentcount) THEN
+    if (percent>percentcount) then
        write(*,'(I3," % complete")') INT(percentcount)
        percentcount = percentcount +10.0
     ENDIF
@@ -251,7 +251,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     ! Only calculate for gas particles
 
-    if(maxphase==maxp) then
+    if (maxphase==maxp) then
        call get_partinfo(iphase(ipart), iactivei,iamdusti,iamtypei)
        iamgasi = (iamtypei ==igas)
     else
@@ -262,10 +262,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
 
     ! If particle isn't a gas particle, skip it
-    if(.not.iamgasi) cycle over_parts
+    if (.not.iamgasi) cycle over_parts
 
     ! If particle not already in a clump
-    IF(member(ipart)==0) THEN
+    IF(member(ipart)==0) then
        !print*, 'Checking neighbours'
 
        ! Reset array for counting neighbour particle clump membership
@@ -273,7 +273,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        !        Check if its neighbours are in a clump
        do jpart=1,neighcount(ipart)
-          if(neighcount(ipart) > neighmax) cycle
+          if (neighcount(ipart) > neighmax) cycle
           iclump = member(neighb(ipart,jpart))
 
           IF(iclump>0) then
@@ -285,7 +285,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ! Compare neighbour membership, identify clump with most neighbours as members
        ! This is now particle ipart's host clump
 
-       IF(sum(neighclump)/=0) THEN
+       IF(sum(neighclump)/=0) then
           maxclump = maxloc(neighclump)
           call add_particle_to_clump(ipart,maxclump(1))
        ENDIF
@@ -296,10 +296,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     IF(member(ipart)==0.and.neighcount(ipart)>neighcrit) call initialise_clump(ipart)
 
 ! If particle is already in a clump, then add any neighbours not in a clump
-    IF(member(ipart)>0) THEN
+    IF(member(ipart)>0) then
 
        do jpart=1,neighcount(ipart)
-          if(neighcount(ipart) > neighmax) cycle
+          if (neighcount(ipart) > neighmax) cycle
           IF(member(neighb(ipart,jpart))==0) call add_particle_to_clump(neighb(ipart,jpart), member(ipart))
        enddo
     endif
@@ -402,7 +402,7 @@ subroutine read_analysis_options(dumpfile)
  inputfile = 'clumpfind.options'
  inquire(file=inputfile, exist=inputexist)
 
- if(inputexist) then
+ if (inputexist) then
 
     print '(a,a,a)', "File ",inputfile, " found: reading analysis options"
 
@@ -417,7 +417,7 @@ subroutine read_analysis_options(dumpfile)
 ! If this is a file from a previous run, then we need to be careful
 ! about what the previous dump was
 
-    if(trim(dumpfile)==trim(firstdumpfile)) then
+    if (trim(dumpfile)==trim(firstdumpfile)) then
        write(10,*) trim(dumpfile), "    Previous SPH dump analysed"
        runningclumpmax = 0
     else
@@ -427,10 +427,10 @@ subroutine read_analysis_options(dumpfile)
 
     close(10)
 
-    if(boundchoice=='y' .or. boundchoice=='Y') checkbound=.true.
-    if(sinkchoice=='y' .or. sinkchoice=='Y') sinkpotential=.true.
-    if(skipchoice=='y' .or. skipchoice=='Y') skipsmalldumps=.true.
-    if(trim(firstdumpfile)==trim(dumpfile)) firstdump = .true.
+    if (boundchoice=='y' .or. boundchoice=='Y') checkbound=.true.
+    if (sinkchoice=='y' .or. sinkchoice=='Y') sinkpotential=.true.
+    if (skipchoice=='y' .or. skipchoice=='Y') skipsmalldumps=.true.
+    if (trim(firstdumpfile)==trim(dumpfile)) firstdump = .true.
 
  else
 
@@ -442,9 +442,9 @@ subroutine read_analysis_options(dumpfile)
     call prompt('Do you want to include sink contribution to the potential?', sinkpotential,.true.)
     call prompt('Do you want to skip small dumps (missing velocity data)? ',skipsmalldumps,.true.)
 
-    if(checkbound) boundchoice = 'y'
-    if(sinkpotential) sinkchoice = 'y'
-    if(skipsmalldumps) skipchoice = 'y'
+    if (checkbound) boundchoice = 'y'
+    if (sinkpotential) sinkchoice = 'y'
+    if (skipsmalldumps) skipchoice = 'y'
 
 ! Write choices to new inputfile
 
@@ -457,31 +457,31 @@ subroutine read_analysis_options(dumpfile)
     close(10)
  endif
 
- if(checkbound) then
+ if (checkbound) then
     print '(a)', 'Clumps will be checked for gravitational boundness'
  else
     print '(a)', 'Clumps will NOT be checked for gravitational boundness'
  endif
 
- if(sinkpotential) then
+ if (sinkpotential) then
     print '(a)', 'Contribution of sinks to the potential will be added'
  else
     print '(a)', 'Contribution of sinks to the potential will NOT be added'
  endif
 
- if(skipsmalldumps) then
+ if (skipsmalldumps) then
     print '(a)', 'Skipping small dumps'
  else
     print '(a)', 'NOT skipping small dumps'
  endif
 
- if(firstdump) then
+ if (firstdump) then
     print '(a)', 'This is the first dump to be analysed'
  else
     print '(a)', 'This is not the first dump - will attempt to link clump IDs to previous dump'
  endif
 
- if(checkbound .and. .not.(skipsmalldumps)) then
+ if (checkbound .and. .not.(skipsmalldumps)) then
     print*, 'ERROR in read_analysis_options!'
     print*, 'Cannot check boundness using small dumps!'
     print*, 'Please rerun, either choosing to check boundness or to use small dumps, not both'
@@ -606,11 +606,11 @@ subroutine create_sink_clumps(npart, xyzh)
            (xyzh(2,ipart) - xyzmh_ptmass(2,iptmass))**2 + &
            (xyzh(3,ipart) - xyzmh_ptmass(3,iptmass))**2)
 
-       if(sep < clumpsep .and.member(ipart)==0) then
+       if (sep < clumpsep .and.member(ipart)==0) then
 
           call add_particle_to_clump(ipart,iptmass)
 
-          if(first) then
+          if (first) then
              clump(iptmass)%mbp = ipart
              first = .false.
           endif
@@ -726,7 +726,7 @@ subroutine remove_particle_from_clump(ipart,iclump)
  use part, only: vxyzu, massoftype,igas
  integer, intent(in) :: ipart,iclump
 
- if(member(ipart)/=iclump) then
+ if (member(ipart)/=iclump) then
     print*, 'Particle ',ipart, ' not in clump ', iclump, ': not removing ', member(ipart)
     return
  endif
@@ -776,7 +776,7 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh)
 
     ! Ignore clumps that are bound
 
-    if(clump(iclump)%bound < 1) cycle over_clumps
+    if (clump(iclump)%bound < 1) cycle over_clumps
 
     originalnum = clump(iclump)%num
 
@@ -789,7 +789,7 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh)
 
     separations: do ipart=1,npart
 
-       if(member(ipart)/=iclump) cycle separations
+       if (member(ipart)/=iclump) cycle separations
 
        counter = counter + 1
        iorig(counter) = ipart
@@ -814,21 +814,21 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh)
        call remove_particle_from_clump(ipart,iclump)
        call calc_clump_boundness(iclump)
 
-       if(clump(iclump)%bound < 1.0) exit
+       if (clump(iclump)%bound < 1.0) exit
 
     enddo remove_particles
 
     ! If all particles removed, clump not written to file - log number of deleted clumps
-    if(clump(iclump)%num ==0) then
+    if (clump(iclump)%num ==0) then
        print*, 'Clump ',iclump,' totally unbound: deleting'
        clump(iclump)%ID = -1
        deletedclumps = deletedclumps+1
     endif
 
     ! Deallocate arrays for next clump
-    if(allocated(separr)) deallocate(separr)
-    if(allocated(iseparr)) deallocate(iseparr)
-    if(allocated(iorig)) deallocate(iorig)
+    if (allocated(separr)) deallocate(separr)
+    if (allocated(iseparr)) deallocate(iseparr)
+    if (allocated(iorig)) deallocate(iorig)
 
  enddo over_clumps
 
@@ -874,7 +874,7 @@ subroutine print_clump_data
 
  do iclump=1,nclump
 
-    if(clump(iclump)%num==0) cycle
+    if (clump(iclump)%num==0) cycle
 
     print fmt, clump(iclump)%ID, clump(iclump)%num, clump(iclump)%r(1), clump(iclump)%r(2), clump(iclump)%r(3), &
 clump(iclump)%mass, clump(iclump)%size, clump(iclump)%kinetic, clump(iclump)%potential, clump(iclump)%thermal, &
@@ -912,7 +912,7 @@ subroutine write_clump_data(nclump,deletedclumps,npart, time,dumpfile,tag)
  write(10,*) nclump-deletedclumps, time
 
  do iclump=1,nclump
-    if(clump(iclump)%ID>0) then
+    if (clump(iclump)%ID>0) then
        write(10,*) clump(iclump)%ID, clump(iclump)%r(:),clump(iclump)%v(:),clump(iclump)%mass, &
         clump(iclump)%size, clump(iclump)%num, &
         clump(iclump)%mbp, clump(iclump)%pointmass, clump(iclump)%kinetic, &
@@ -1010,7 +1010,7 @@ subroutine merger_tree(npart,dumpfile)
 
  ! Clear IDs of clumps in this dump (except for sinks)
  do jclump=1,nclump
-    if(clump(jclump)%pointmass==0) clump(jclump)%ID = 0
+    if (clump(jclump)%pointmass==0) clump(jclump)%ID = 0
  enddo
 
 
@@ -1027,7 +1027,7 @@ subroutine merger_tree(npart,dumpfile)
  do iclump = 1,noldclump
 
     ! If this clump begun by a sink, find it in the current dump --> automatically linked
-    if(oldclump(iclump)%pointmass/=0) then
+    if (oldclump(iclump)%pointmass/=0) then
 
        ! Otherwise use the MBP
     else
@@ -1035,26 +1035,26 @@ subroutine merger_tree(npart,dumpfile)
        ! clump in current dump containing MBP from previous dump
        jclump = member(oldclump(iclump)%mbp)
 
-       if(jclump==0 .or. clump(jclump)%num==0 .or.clump(jclump)%pointmass >0) cycle ! What if iclump not found in new dump? TODO
+       if (jclump==0 .or. clump(jclump)%num==0 .or.clump(jclump)%pointmass >0) cycle ! What if iclump not found in new dump? TODO
 
        ! Now check that 50% of the membership of iclump is in jclump
        memberfraction = 0.0
 
        do ipart=1,npart
 
-          if(oldmember(ipart)/=iclump) cycle
-          if(member(ipart)==jclump) then
+          if (oldmember(ipart)/=iclump) cycle
+          if (member(ipart)==jclump) then
              memberfraction = memberfraction + 1
           endif
        enddo
 
-       if(oldclump(iclump)%num > 0.0) then
+       if (oldclump(iclump)%num > 0.0) then
           memberfraction = memberfraction/real(oldclump(iclump)%num)
        else
           memberfraction = 0.0
        endif
 
-       if(memberfraction>0.5) then
+       if (memberfraction>0.5) then
           clump(jclump)%ID = oldclump(iclump)%ID
        endif
     endif
@@ -1064,10 +1064,10 @@ subroutine merger_tree(npart,dumpfile)
 
 ! Now check for clumps that have no progenitor in the previous timestep
  IDmax = maxval(clump(:)%ID)
- if(IDmax > runningclumpmax) runningclumpmax = IDmax
+ if (IDmax > runningclumpmax) runningclumpmax = IDmax
 
  do jclump=1,nclump
-    if(clump(jclump)%ID==0 .and. clump(jclump)%num>0) then
+    if (clump(jclump)%ID==0 .and. clump(jclump)%num>0) then
        runningclumpmax = runningclumpmax +1
        clump(jclump)%ID = runningclumpmax
     endif
@@ -1095,7 +1095,7 @@ end subroutine merger_tree
 
 subroutine check_clump_max
 
- if(nclump>nclumpmax) then
+ if (nclump>nclumpmax) then
     print '(a)', 'ERROR: total clump number exceeds maximum clump number:'
     print '(a,i6,1x,i6)', 'nclump, nclumpmax: ', nclump, nclumpmax
     print '(a)', 'Please recompile with higher nclumpmax'
@@ -1184,7 +1184,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
     i = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if(i<=0) cycle over_cells
+    if (i<=0) cycle over_cells
 
     ! Get neighbour list for the cell
 
@@ -1199,12 +1199,12 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
 
     over_parts: do while(i /=0)
        !print*, i, icell, ncells
-       if(i<0) then ! i<0 indicates inactive particles
+       if (i<0) then ! i<0 indicates inactive particles
           i = ll(abs(i))
           cycle over_parts
        endif
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -1221,7 +1221,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        ! do not compute neighbours for boundary particles
-       if(iamtypei ==iboundary) cycle over_parts
+       if (iamtypei ==iboundary) cycle over_parts
 
 
        ! Fill neighbour list for this particle
@@ -1233,7 +1233,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           j = abs(listneigh(ineigh))
 
           ! Skip self-references
-          if(i==j) cycle over_neighbours
+          if (i==j) cycle over_neighbours
 
           dx = xyzh(1,i) - xyzh(1,j)
           dy = xyzh(2,i) - xyzh(2,j)
@@ -1250,10 +1250,10 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           hj21 = hj1*hj1
           q2j = rij2*hj21
 
-          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             if (neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
              !$omp end critical
           endif is_sph_neighbour
 
@@ -1314,7 +1314,7 @@ subroutine neighbours_stats(npart)
  print*, 'The maximum neighbour count is ', maximum
  print*, 'The minimum neighbour count is ', minimum
 
- if(maximum > neighmax) then
+ if (maximum > neighmax) then
     print*, 'WARNING! Neighbour count too large for allocated arrays'
  endif
 
@@ -1367,12 +1367,12 @@ subroutine read_neighbours(neighbourfile,npart)
 
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
 
- if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
+ if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
 
  read(2) (neighcount(i), i=1,npart)
  do i=1,npart
 
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        read(2) (neighb(i,j), j=1,neighmax)
     else
@@ -1384,7 +1384,7 @@ subroutine read_neighbours(neighbourfile,npart)
 
  call neighbours_stats(npart)
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File Read incomplete: neighbour count exceeds array size'
  else
     print*, 'File Read Complete'
@@ -1423,7 +1423,7 @@ subroutine write_neighbours(neighbourfile,npart)
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        print*, 'neighbour overload: ', neighcount(i), neighmax
        write(2) (neighb(i,j), j=1,neighmax)
@@ -1435,7 +1435,7 @@ subroutine write_neighbours(neighbourfile,npart)
  close(2)
 
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File write incomplete: neighbour count exceeds array size'
  else
     print*, 'File Write Complete'
