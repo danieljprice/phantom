@@ -42,7 +42,7 @@ subroutine test_ptmass(ntests,npass)
                     ispinx,ispiny,ispinz,dustprop,ddustprop,poten,rhoh
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force,tolv
- use testutils,       only:checkval,checkvalf
+ use testutils,       only:checkval,checkvalf,update_test_scores
  use setbinary,       only:set_binary
  use step_lf_global,  only:step,init_step
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
@@ -172,13 +172,11 @@ subroutine test_ptmass(ntests,npass)
           !
           ! check that no errors occurred when setting up disc
           !
-          ntests = ntests + 1
           nfailed = 0
           call check_setup(nerr,nwarn)
           call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
           !call checkval(nwarn,0,0,nfailed(2),'no warnings during disc setup')
-          if (all(nfailed(1:2)==0)) npass = npass + 1
-
+          call update_test_scores(ntests,nfailed,npass)
        endif
 
        tolv = 1.e3
@@ -228,15 +226,13 @@ subroutine test_ptmass(ntests,npass)
        !
        nfailed(:) = 0
        if (itest==1) then
-          ntests = ntests + 1
           call checkval(epot_sinksink,-m1*m1*massr/a,epsilon(0.),nfailed(1),'potential energy')
-          if (nfailed(1)==0) npass = npass + 1
+          call update_test_scores(ntests,nfailed,npass)
           !
           !--check initial angular momentum on the two sinks is correct
           !
-          ntests = ntests + 1
           call checkval(angtot,m1*m1*massr*sqrt(a/(m1 + m1*massr)),1.e6*epsilon(0.),nfailed(1),'angular momentum')
-          if (nfailed(1)==0) npass = npass + 1
+          call update_test_scores(ntests,nfailed,npass)
        endif
        !
        !--determine number of steps per orbit for information
@@ -293,9 +289,8 @@ subroutine test_ptmass(ntests,npass)
        !
        !--check energy conservation
        !
-       ntests = ntests + 3
        do i=1,3
-          if (nfailed(i)==0) npass = npass + 1
+          call update_test_scores(ntests,nfailed(i:i),npass)
        enddo
     enddo binary_tests
 
@@ -345,10 +340,9 @@ subroutine test_ptmass(ntests,npass)
     etotin   = etot
     totmomin = totmom
     angmomin = angtot
-    ntests = ntests + 1
 
     call checkval(epot,m1*m1*massr*(phisoft)/h_soft_sinksink,2.*epsilon(0.),nfailed(1),'potential energy')
-    if (nfailed(1)==0) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:1),npass)
 
     C_force = 0.25
     dt      = 0.3*C_force*dtsinksink
@@ -378,8 +372,7 @@ subroutine test_ptmass(ntests,npass)
     call checkval(etotin+errmax,etotin,2.e-9,nfailed(3),'total energy')
 !    call checkval(      ,r_max,1.e-10,nfailed(4),'radius')
 
-    ntests = ntests + 1
-    if (all(nfailed(1:4)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:4),npass)
 
     ! Reset sink softening
     h_soft_sinksink = 0.0
@@ -467,11 +460,10 @@ subroutine test_ptmass(ntests,npass)
     call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
     call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
 
-    ntests = ntests + 4
-    if (all(nfailed(1:2)==0)) npass = npass + 1
-    if (all(nfailed(3:5)==0)) npass = npass + 1
-    if (all(nfailed(6:8)==0)) npass = npass + 1
-    if (all(nfailed(9:11)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:2),npass)
+    call update_test_scores(ntests,nfailed(3:5),npass)
+    call update_test_scores(ntests,nfailed(6:8),npass)
+    call update_test_scores(ntests,nfailed(9:11),npass)
 
     !--compute energies after accretion event
     nfailed(:) = 0
@@ -479,9 +471,8 @@ subroutine test_ptmass(ntests,npass)
     call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
     call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
     !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
-    ntests = ntests + 2
-    if (nfailed(3)==0) npass = npass + 1
-    if (nfailed(2)==0) npass = npass + 1
+    call update_test_scores(ntests,nfailed(3:3),npass)
+    call update_test_scores(ntests,nfailed(2:2),npass)
 
  endif testaccretion
 !
@@ -568,8 +559,7 @@ subroutine test_ptmass(ntests,npass)
              itestp = -1 ! set itest = -1 on other threads
              call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
           endif
-          ntests = ntests + 1
-          if (nfailed(1)==0) npass = npass + 1
+          call update_test_scores(ntests,nfailed(1:1),npass)
        endif
        !
        ! check energies before insertion of sink
@@ -598,9 +588,7 @@ subroutine test_ptmass(ntests,npass)
        !
        nfailed(:) = 0
        call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
-
+       call update_test_scores(ntests,nfailed,npass)
        !
        ! check that linear and angular momentum and energy is conserved
        !
@@ -610,8 +598,8 @@ subroutine test_ptmass(ntests,npass)
        call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
        !call checkval(etot,etotin,1.e-6,nfailed(1),'total energy')
-       ntests = ntests + 1
-       if (all(nfailed==0)) npass = npass + 1
+       call update_test_scores(ntests,nfailed,npass)
+
        iverbose = 0
        call finish_ptmass(nptmass)
     enddo

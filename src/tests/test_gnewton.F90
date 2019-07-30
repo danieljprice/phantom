@@ -34,7 +34,7 @@ subroutine test_gnewton(ntests,npass)
  use io,              only:id,master
  use part,            only:xyzh,vxyzu
  use timestep,        only:C_force
- use testutils,       only:checkval
+ use testutils,       only:checkval,update_test_scores
  use physcon,         only:solarm,solarr,c,pi
  use options,         only:iexternalforce
  use units,           only:set_units,udist,utime
@@ -143,8 +143,7 @@ subroutine test_gnewton(ntests,npass)
 
     call checkval(precang,2.*(pign-real(pi)),1.e-5,nfailed(3),'precession angle')
 
-    ntests = ntests + 1
-    if (all(nfailed(1:3)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:3),npass)
 
  endif testrelatorbit
 
