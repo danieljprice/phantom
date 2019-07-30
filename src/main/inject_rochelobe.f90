@@ -143,7 +143,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 !
 !-- Place particles
 !
- if(npartoftype(igas)<8) then
+ if (npartoftype(igas)<8) then
     particles_to_place = 8-npartoftype(igas)      ! Seems to need at least eight gas particles to not crash
  else
     particles_to_place = max(0, int(0.5 + (time*Mdotcode/massoftype(igas)) - npartoftype(igas) ))

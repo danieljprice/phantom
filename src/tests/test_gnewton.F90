@@ -216,7 +216,7 @@ real function rf(x,y,z)
  real :: alamb,ave,delx,dely,delz,e2,e3,sqrtx,sqrty,sqrtz,xt,yt,zt
  real :: errmax
 
- if(min(x,y,z) < 0..or.min(x+y,x+z,y+z) < tiny(x) .or.max(x,y,z) > huge(x)) print*,"invalid arguments in rf"
+ if (min(x,y,z) < 0..or.min(x+y,x+z,y+z) < tiny(x) .or.max(x,y,z) > huge(x)) print*,"invalid arguments in rf"
  xt=x
  yt=y
  zt=z

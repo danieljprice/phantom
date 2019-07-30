@@ -850,7 +850,7 @@ subroutine get_coord_limits(rad,xin,xout,xmin,xmax,itypein)
     xmax(1) = r + rad
     if (r > 0. .and. xmin(1) > 0.) then
        rcyl = sqrt(xin(1)**2 + xin(2)**2)
-       if(rcyl > rad) then
+       if (rcyl > rad) then
           dphi = asin(rad/rcyl)
           xmin(2) = xout(2)-dphi
           xmax(2) = xout(2)+dphi
