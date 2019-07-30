@@ -176,9 +176,9 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
  if (label=='dens') then
     call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
- else if (label=='force') then
+ elseif (label=='force') then
     call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
- else if (label=='link') then
+ elseif (label=='link') then
     call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
  endif
 

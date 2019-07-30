@@ -251,10 +251,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*) 'H_R_ref = ',H_R_ref
  write(*,*) 'Sig0    = ',Sig0
  write(*,*) 'cs0     = ',cs0*udist/utime
- if(R_warp /= 0.) &
+ if (R_warp /= 0.) &
  write(*,*) 'Rwarp   = ',R_warp
  write(*,*) 'p_index = ',p_index
- if(R_c /= 0.) &
+ if (R_c /= 0.) &
  write(*,*) 'R_c     = ',R_c
  write(*,*) 'q_index = ',q_index
  write(*,*) 'G       = ',G
@@ -279,10 +279,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     write(*,*) 'H_R_in  = ',H_R_in_dust
     write(*,*) 'H_R_out = ',H_R_out_dust
     write(*,*) 'H_R_ref = ',H_R_ref_dust
-    if(R_warp_dust/=0.) &
+    if (R_warp_dust/=0.) &
     write(*,*) 'Rwarp   = ',R_warp_dust
     write(*,*) 'p_index = ',p_index_dust
-    if(R_cdust/=0.) &
+    if (R_cdust/=0.) &
     write(*,*) 'R_c     = ',R_cdust
     write(*,*) 'G       = ',G
     write(*,*) 'M_disc  = ',M_disc_dust
@@ -395,7 +395,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     H(i)     = cs(i)/omega(i)
  enddo
 
- if (R_warp/=0.)then
+ if (R_warp/=0.) then
     iwarp=3
  else
     iwarp=2
@@ -405,9 +405,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  nptmassinit = 1
 
 ! if the central star is represented by by external force
- if(iexternalforce /= 0) nptmassinit = 0
+ if (iexternalforce /= 0) nptmassinit = 0
 
- if(nptmass > nptmassinit)then
+ if (nptmass > nptmassinit) then
     do i = nptmassinit+1,nptmass
        write(*,*)"Planet",i-nptmassinit,"mass",xyzmh_ptmass(4,i)*umass/jupiterm,"Jupiter mass, radius",&
      sqrt(dot_product(xyzmh_ptmass(1:iwarp,i),xyzmh_ptmass(1:iwarp,i)))*udist/au,"au"," coords xy ",&
@@ -510,7 +510,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           area = (pi*((rad(ii) + dreven/2.)**2 - (rad(ii) - dreven/2.)**2))
        endif
 
-       if(iphase(i) == igas) then
+       if (iphase(i) == igas) then
 
           sigmagas(ii) = sigmagas(ii) + pgasmass/area
           if (use_dustfrac) sigmadust(:,ii) = sigmadust(:,ii) + pdustmass(:)/area
@@ -556,7 +556,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           else
              icutgas(ii) = icutgas(ii) + 1
           endif
-       elseif(iphase(i) == idust) then
+       elseif (iphase(i) == idust) then
           do j=1,ndusttypes
              sigmadust(j,ii) = sigmadust(j,ii) + pdustmass(j)/area
 
@@ -611,7 +611,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  ! Computing Hgas, Hdust, vrgas, vrdust
  do i = 1,nr
     meaneta(i)  = sum(etabin(1:ninbin(i),i))/real(ninbin(i))
-    if(ninbin(i) > 1)then
+    if (ninbin(i) > 1) then
        if (print_part_in_bin) print*,'The # of particles in bin',i,'is',ninbin(i)-icutgas(i)
        meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
        meanrhog(i)  = sum(rhogbin(1:ninbin(i),i))/(real(ninbin(i))-icutgas(i))
@@ -653,7 +653,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  do i = 1,nr
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
-    if(Ltot/=0.) then
+    if (Ltot/=0.) then
        unitlx(i) = Lx(i)/Ltot
        unitly(i) = Ly(i)/Ltot
        unitlz(i) = Lz(i)/Ltot
@@ -668,7 +668,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nr
-    if(ninbin(i) == 0) then
+    if (ninbin(i) == 0) then
        lx(i) = 0.
        ly(i) = 0.
        lz(i) = 0.
@@ -819,7 +819,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Write the data to the file
  do i=1,nr
-    if(i /= 1.and.i /= nr) then
+    if (i /= 1.and.i /= nr) then
        psi_x = (unitlx(i+1)-unitlx(i-1))/(rad(i+1)-rad(i-1))
        psi_y = (unitly(i+1)-unitly(i-1))/(rad(i+1)-rad(i-1))
        psi_z = (unitlz(i+1)-unitlz(i-1))/(rad(i+1)-rad(i-1))
@@ -975,7 +975,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*) '--------------------------------------------------------------------------------'
 
 ! Printing the information for the planet as a function of time
- if(nptmass>nptmassinit)then
+ if (nptmass>nptmassinit) then
     do i=nptmassinit+1,nptmass
        write(filename,"(a,i3.3)")"planet_",i-1
        if (numfile==0) then

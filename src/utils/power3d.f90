@@ -144,7 +144,7 @@ subroutine power3d (ft,mx,my,mz,pk,xk,nk,mk,ptot,compensate,do_average,fty,ftz)
           kk = sqrt(k2)
           if (compensate == 0.) then
              fk = 1.
-          else if (compensate == 2.) then
+          elseif (compensate == 2.) then
              fk = k2
           else
              fk = kk**compensate

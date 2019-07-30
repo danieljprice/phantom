@@ -546,7 +546,7 @@ subroutine test_drag(ntests,npass)
  time  = 0.
  npart = 0
  npartoftype(:) = 0
- if (maxvxyzu < 4)then
+ if (maxvxyzu < 4) then
     ieos = 1
     polyk = 1.
  else
@@ -600,7 +600,7 @@ subroutine test_drag(ntests,npass)
 ! call derivatives
 !
  idrag=1
- if(idrag==2) K_code = 100.
+ if (idrag==2) K_code = 100.
 
  fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&

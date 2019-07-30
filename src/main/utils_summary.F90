@@ -389,7 +389,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     if ( dtsum_wall > real(3600.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(3600.0,kind=4),' hours       **|'
-    else if ( dtsum_wall > real(60.0,kind=4) ) then
+    elseif ( dtsum_wall > real(60.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(60.0,kind=4),  ' minutes     **|'
     else
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall,                    ' seconds     **|'

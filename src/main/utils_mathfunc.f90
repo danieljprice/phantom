@@ -460,7 +460,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     dk0=-1.0d+300
     dk1=-1.0d+300
     return
- else if (x <= 18.0d0) then
+ elseif (x <= 18.0d0) then
     bi0=1.0d0
     r=1.0d0
     do k=1,50

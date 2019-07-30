@@ -415,15 +415,15 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
     if (Nmega==1) then
        if (Nsts == 1) then
           icase = iNosts
-       else if (Nsts==Nreal) then
+       elseif (Nsts==Nreal) then
           icase = iNostsSml
-       else if (Nsts > nnu .or. Nsts > Nreal) then
+       elseif (Nsts > nnu .or. Nsts > Nreal) then
           icase = iNostsBig
           Nsts  = Nreal
        else
           icase = iNsts
        endif
-    else if (Nmega > 1) then
+    elseif (Nmega > 1) then
        if (Nsts == 1 .or. Nsts*Nmega >= Nreal) then
           icase = iNostsBig
           Nmega = 1
