@@ -65,9 +65,9 @@
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
-!    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
-!    timestep, units, vectorutils
+!    growth, infile_utils, io, kernel, memory, options, part, physcon,
+!    prompting, set_dust, set_dust_options, setbinary, setdisc, setflyby,
+!    spherical, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -198,6 +198,7 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use memory, only:allocate_memory
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -226,6 +227,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ call allocate_memory(np + sum(np_dust), part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -402,7 +405,7 @@ subroutine set_default_options()
  gsizemincgs = 1.e-3
 
  !--resolution
- np = 500000
+ np = 1000000
  np_dust = np/maxdustlarge/5
 
  !--planets
@@ -585,10 +588,10 @@ subroutine equation_of_state(gamma)
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif(iuse_disc(2))then
+          elseif (iuse_disc(2))then
              qfacdisc = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
@@ -1500,7 +1503,7 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
        elseif (accrplanet(i) > 0.5) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
-       elseif(accrplanet(i)*Hill(i) > accr1) then
+       elseif (accrplanet(i)*Hill(i) > accr1) then
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
@@ -1742,15 +1745,15 @@ subroutine setup_interactive()
        ! the equations below, however changing them here is not enough. They need
        ! to be changed also in the the setpart function.
        !--------------------------------------------------------------------------
-       if(.not. use_global_iso) then
+       if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
              H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
              H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
           else
-             if(iuse_disc(2))then
+             if (iuse_disc(2))then
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
@@ -2088,7 +2091,7 @@ subroutine write_setupfile(filename)
           if (itapergas(i)) then
              if (itapersetgas(i)==0) then
                 taper_string = 'exp[-(R/R_c)^(2-p)]'
-             else if(itapersetgas(i)==1) then
+             else if (itapersetgas(i)==1) then
                 taper_string = '[1-exp(R-R_out)]'
              endif
           endif
