@@ -2614,17 +2614,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     ! one fluid dust timestep
-    if (use_dustfrac .and. iamgasi .and. minval(dustfraci) > 0. &
-        .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
-       tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
-       dtdustdenom = dustfracisum*tseff*spsoundi**2
-       if (dtdustdenom > tiny(dtdustdenom)) then
-          dtdusti = C_force*hi*hi/dtdustdenom
-       else
-          dtdusti = bignumber
+    dtdusti = bignumber
+    if (use_dustfrac .and. iamgasi) then
+       if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
+          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
+          dtdustdenom = dustfracisum*tseff*spsoundi**2
+          if (dtdustdenom > tiny(dtdustdenom)) then
+             dtdusti = C_force*hi*hi/dtdustdenom
+          endif
        endif
-    else
-       dtdusti = bignumber
     endif
 
     ! stopping time
