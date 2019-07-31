@@ -276,17 +276,17 @@ subroutine binpos_write(time,dt)
  if (xyzh(4,ipartatrad)  >  tiny(xyzh)) then ! IF ACTIVE
     write(igpos,'(4(es18.10,1x))')time, xyzh(1,ipartatrad),xyzh(2,ipartatrad),xyzh(3,ipartatrad)
 
- elseif(xyzh(4,ipartatrad) < -tiny(xyzh)) then !ACCRETED
+ elseif (xyzh(4,ipartatrad) < -tiny(xyzh)) then !ACCRETED
     close(unit=igpos)
     !---Look for new particle to follow and create new file
     !--choose the gas particle at radius=gasrad
 
     do i=1,npart
        ri=sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
-       if(ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
+       if (ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
           ipartatrad=i
           exit
-       elseif(i==npart)  then
+       elseif (i==npart)  then
           ipartatrad=npart
        endif
     enddo
@@ -348,10 +348,10 @@ subroutine binpos_init(ibinposi,evfile)
 
     ri=sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
 
-    if(ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
+    if (ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
        ipartatrad=i
        exit
-    elseif(i==npart)  then
+    elseif (i==npart)  then
        ipartatrad=npart
     endif
 
@@ -380,7 +380,7 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  integer, intent(in)      :: nr
  integer                  :: i
 
- if(size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
 
  dr = (rmax-rmin)/real(nr-1)
  do i=1,nr

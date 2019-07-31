@@ -232,7 +232,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     if (rhoi < rhocrit0pwp) then
        gammai  = gamma0pwp
        ponrhoi = k0pwp*rhoi**(gamma0pwp-1.)
-    else if (rhoi < rhocrit1pwp) then
+    elseif (rhoi < rhocrit1pwp) then
        gammai  = gamma1pwp
        ponrhoi = k1pwp*rhoi**(gamma1pwp-1.)
     elseif (rhoi < rhocrit2pwp) then
@@ -363,7 +363,7 @@ real function gamma_pwp(rhoi)
 
  if (rhoi < rhocrit0pwp) then
     gamma_pwp = gamma0pwp
- else if (rhoi < rhocrit1pwp) then
+ elseif (rhoi < rhocrit1pwp) then
     gamma_pwp = gamma1pwp
  elseif (rhoi < rhocrit2pwp) then
     gamma_pwp = gamma2pwp

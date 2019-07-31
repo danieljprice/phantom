@@ -247,7 +247,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nr
-    if(ninbin(i)==0) then
+    if (ninbin(i)==0) then
        lx(i)=0.0
        ly(i)=0.0
        lz(i)=0.0
@@ -280,7 +280,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        17,'|B|'
 
  do i=1,nr
-    if(i /= 1.and.i /= nr) then
+    if (i /= 1.and.i /= nr) then
        psi_x=(unitlx(i+1)-unitlx(i-1))/(rad(i+1)-rad(i-1))
        psi_y=(unitly(i+1)-unitly(i-1))/(rad(i+1)-rad(i-1))
        psi_z=(unitlz(i+1)-unitlz(i-1))/(rad(i+1)-rad(i-1))

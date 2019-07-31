@@ -140,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
     if (npmax < 300000) then
        np = npmax
-    else if (npmax < 1000000) then
+    elseif (npmax < 1000000) then
        np = 300000
     else
        np = 1000000

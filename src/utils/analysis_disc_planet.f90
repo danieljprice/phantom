@@ -188,7 +188,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  dr = (rmax-rmin)/real(nr-1)
 
 ! Calculating and printing information for the planet
- if(nptmass>nptmassinit)then
+ if (nptmass>nptmassinit) then
     do i=nptmassinit+1,nptmass
        write(filename,"(a,i3.3)")"planet_",i-1
        inquire(file=filename,exist=iexist)

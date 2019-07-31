@@ -577,7 +577,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  enddo
  if (i==1) then
     rdisc = 0.0
- else if (i==npart+1) then
+ elseif (i==npart+1) then
     rdisc = huge(rdisc)
  else
     rdisc = sqrt(rad2(j))
@@ -620,9 +620,9 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
  ! Modify the number of particles in ring if there are too few high density particles
  if (ndens > 4*ninring) then
     ninring_loc = ninring
- else if (ndens > ninring) then
+ elseif (ndens > ninring) then
     ninring_loc = int(0.25*ninring)
- else if (ndens > 0.5*ninring) then
+ elseif (ndens > 0.5*ninring) then
     ninring_loc = int(0.1*ninring)
  else
     write(*,'(a,I6,a)') "There are ",ndens," particles above the density threhhold.  Assuming no disc"
@@ -1182,7 +1182,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
              if (etahall > 0.0) then
                 Dbins(iDetaHp,j) = Dbins(iDetaHp,j) + etahall
                 ibins(3,      j) = ibins(3,      j) + 1
-             else if (etahall < 0.0) then
+             elseif (etahall < 0.0) then
                 Dbins(iDetaHn,j) = Dbins(iDetaHn,j) + etahall
                 ibins(4,      j) = ibins(4,      j) + 1
              endif
@@ -1216,7 +1216,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                 Hbins(k,iHnmion)  = Hbins(k,iHnmion)  + data_out( 9)
                 if (etahall > 0.0) then
                    Hbins(k,iHehallp)  = Hbins(k,iHehallp)  + etahall
-                else if (etahall < 0.0) then
+                elseif (etahall < 0.0) then
                    Hbins(k,iHehalln)  = Hbins(k,iHehalln)  + etahall
                 endif
              enddo

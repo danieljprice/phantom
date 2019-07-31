@@ -722,13 +722,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
           call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dthall) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dthall) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining Courant timestep')
           call summary_variable('dt',iosumdth,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining Courant timestep')
           call summary_variable('dt',iosumdto,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
           call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
        endif
