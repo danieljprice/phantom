@@ -74,7 +74,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
- real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma
+ real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma, XL1, U1, lsutime
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
  integer :: i_part,part_type,s1,wall_i,particles_to_place
 
@@ -94,45 +94,50 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  x0 = (m1*x1 + m2*x2)/(m1 + m2)
  q  = m2/m1
  mu = 1./(1 + q)
- radL1      = L1_point(m1/m2)                     ! find L1 point given binary mass ratio
+ radL1      = L1_point(1./q)                     ! find L1 point given binary mass ratio
+ XL1        = 1-mu-radL1
+ lsutime = ((m1+m2)/(r12**3))**(-1./2)*utime
 
 !
 !--quantities related to the gas injection at/near L1
 !
+ print*, "DEBUG: gmw=",gmw
  Porb      = twopi * sqrt( (r12*udist)**3 / (gg*(m1+m2)*umass) )
  print*, "DEBUG: Porb=",Porb/3600," h"
  eps = Porb/(twopi*r12*udist) * (gastemp*kboltz/(gmw*mass_proton_cgs))**0.5
  print*, "DEBUG: eps=",eps
- A  = mu / abs(radL1 - 1. + mu)**3 + (1. - mu)/abs(radL1 + mu)**3! See Lubow & Shu 1975, eq 13
+ A  = mu / abs(XL1 - 1. + mu)**3 + (1. - mu)/abs(XL1 + mu)**3! See Lubow & Shu 1975, eq 13
  print*, "DEBUG: A=",A
  theta_s = -acos( -4./(3.*A)+(1-8./(9.*A))**0.5)/2.              ! See Lubow & Shu 1975, eq 24
  print*, "DEBUG: theta_s=",theta_s*180/3.14159265358979323," deg"
- xyzL1(1:3) = xyzmh_ptmass(1:3,1) + radL1*dr(:)   ! set as vector position
+ xyzL1(1:3) = XL1*dr(:)   ! set as vector position
  print*, "DEBUG: xyzL1=",xyzL1*udist/1e5," km"
  r0L1 = dist(xyzL1, (/0., 0., 0./))               ! distance from L1 to center of mass
  print*, "DEBUG: r0L1=",r0L1*udist/1e5," km"
  r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
  print*, "DEBUG: r2L1=",r2L1*udist/1e5," km"
- s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps*0.5   ! last factor still a "magic number". Fix.
+ s = (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps/200.0   ! last factor still a "magic number". Fix.
  print*, "DEBUG: s=",s*udist/1e5," km"
  smag = sqrt(dot_product(s,s))
  xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
- spd_inject = abs((3.*A)/(4*eps)*dist(xyzinj,xyzL1)*sin(2*theta_s))  !L&S75 eq 23b
- print*, "DEBUG: spd_inject=",spd_inject*udist/(utime*1e2)," m/s"
+ U1 = 3*A*sin(2*theta_s)/(4*lsutime/utime)
+ print*, "DEBUG: U1=", U1/utime, "/s"
+ spd_inject = U1*dist(xyzinj,xyzL1)  !L&S75 eq 23b
+ print*, "DEBUG: spd_inject=",spd_inject*udist/(1e2*utime)," m/s"
  lm12 = (A - 2. + sqrt(A*(9.*A - 8.)))/2.                        ! See Heerlein+99, eq A8
  lm32 = lm12 - A + 2.                                            ! See Heerlein+99, eq A15
  lm1  = sqrt(A)
  print*, "DEBUG:: lm12=",lm12,"lm32=",lm32,"lm1=",lm1
 
- !call phi_derivs(phinns,phizzs,xyzL1,x1(1),x2(1),theta_s,m1,m2,mu,r12,Porb)
+ call phi_derivs(phinns,phizzs,xyzL1,x1(1),x2(1),theta_s,m1,m2,mu,r12,Porb)
  !sw_chi = (A + 2.*A*phizzs*smag/(lm12 + 2.*A))/r12**2                          !H+99 eq A5
- sw_chi = (15/udist)**(-2)
+ sw_chi = (1e9/udist)**(-2)
  !sw_gamma = (lm32 + (12.*lm1/r0L1 - phinns)*lm32*smag/(2.*lm32 + lm12))/r12**2 !H+99 eq A13
- sw_gamma = (15/udist)**(-2)
+ sw_gamma = (1e9/udist)**(-2)
 
  print*,"DEBUG: phizzs*smag=",phizzs*smag
- print*,' DEBUG: chi is ',sw_chi,' gamma is ',sw_gamma,' in code units'
+ print*,' DEBUG: chi is ',sw_chi**(-0.5),' gamma is ',sw_gamma**(-0.5),' in code units'
  print*,' DEBUG: chi is ',sw_chi**(-0.5)*udist/1e5,' gamma is ',sw_gamma**(-0.5)*udist/1e5,' in km'
 !-- mass of gas particles is set by mass accretion rate and particle injection rate
 !
@@ -152,7 +157,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  do wall_i=0,particles_to_place-1
     ! calculate particle offset
     theta_rand = ran2(s1)*twopi
-    r_rand = rayleigh_deviate(s1)*sw_chi/udist
+    r_rand = rayleigh_deviate(s1)*(sw_chi**(-0.5))
     dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
     ! with a Gaussian density distribution
     part_type = igas
