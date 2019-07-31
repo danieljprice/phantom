@@ -185,10 +185,12 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
  !
  !--the number of bins should only decrease when bins are synchronised
  !
- if (nbinmax < nbinmaxprev .and. mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
-    write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),' when changing nbinmax from ', &
-                    nbinmaxprev,'->',nbinmax
-    call die
+ if (nbinmax < nbinmaxprev) then
+    if (mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
+       write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),&
+         ' when changing nbinmax from ',nbinmaxprev,'->',nbinmax
+       call die
+    endif
  endif
  if (nbinmax > nbinmaxprev) then
     istepfrac = istepfrac*2**(nbinmax-nbinmaxprev)
