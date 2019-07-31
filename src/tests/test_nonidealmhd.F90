@@ -30,7 +30,7 @@
 !+
 !--------------------------------------------------------------------------
 module testnimhd
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:use_sts
@@ -44,6 +44,11 @@ module testnimhd
 #endif
 
 contains
+
+!--------------------------------------------------------------------------
+!+
+!  unit tests of non-ideal MHD
+!+
 !--------------------------------------------------------------------------
 subroutine test_nonidealmhd(ntests,npass)
  integer, intent(inout) :: ntests,npass
@@ -92,7 +97,6 @@ subroutine test_wavedamp(ntests,npass)
                           dustprop,ddustprop,pxyzu,dens,metrics
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
- use testutils,      only:checkval
  use eos,            only:ieos,polyk,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
@@ -243,10 +247,10 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_wavedamp
+
 !--------------------------------------------------------------------------
 !+
 !  Tests the Hall effect in a standing shock
@@ -479,9 +483,7 @@ subroutine test_standingshock(ntests,npass)
  call checkval(L2b,0.0,  tolb,  nerr(3),'B_y error on standing shock, compared to analytics')
  call checkval(valid_dt, .true.,nerr(4),'dt to ensure above valid default')
  call checkval(valid_bdy,.true.,nerr(5),'Boundary particles are correctly initialised')
-
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_standingshock
 !--------------------------------------------------------------------------
@@ -617,8 +619,7 @@ subroutine test_narrays(ntests,npass)
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
 
  enddo
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_narrays
 !--------------------------------------------------------------------------

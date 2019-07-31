@@ -33,6 +33,7 @@ module testutils
  use part,     only:isdead
  implicit none
  public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
+ public :: update_test_scores
 
  private
 
@@ -65,6 +66,22 @@ module testutils
  real, parameter :: smallval = 1.e-6
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  update numbers of tests and number of passes depending
+!  on whether any sub-tests failed
+!+
+!----------------------------------------------------------------
+subroutine update_test_scores(ntests,nfailed,npass)
+ integer, intent(inout) :: ntests
+ integer, intent(in)    :: nfailed(:)
+ integer, intent(inout) :: npass
+
+ ntests = ntests + 1
+ if (all(nfailed==0)) npass = npass + 1
+
+end subroutine update_test_scores
 
 !----------------------------------------------------------------
 !+

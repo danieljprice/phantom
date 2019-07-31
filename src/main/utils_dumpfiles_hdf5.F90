@@ -334,10 +334,10 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
        call write_to_hdf5(divBsymm(1:npart),'divBsymm',group_id,errors(16))
     endif
     if (array_options%mhd_nonideal) then
-       call write_to_hdf5(eta_nimhd(1,1:npart),'eta_{OR}',group_id,errors(17))
-       call write_to_hdf5(eta_nimhd(2,1:npart),'eta_{HE}',group_id,errors(18))
-       call write_to_hdf5(eta_nimhd(3,1:npart),'eta_{AD}',group_id,errors(19))
-       call write_to_hdf5(eta_nimhd(4,1:npart),'ne/n'    ,group_id,errors(20))
+       call write_to_hdf5(eta_nimhd(1,1:npart),'eta_OR', group_id,errors(17))
+       call write_to_hdf5(eta_nimhd(2,1:npart),'eta_HE', group_id,errors(18))
+       call write_to_hdf5(eta_nimhd(3,1:npart),'eta_AD', group_id,errors(19))
+       call write_to_hdf5(eta_nimhd(4,1:npart),'ne_on_n',group_id,errors(20))
     endif
  endif
 
@@ -351,9 +351,9 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
     endif
  endif
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(dustprop(1,1:npart),'grainsize',group_id,errors(24))
-    call write_to_hdf5(dustprop(2,1:npart),'graindens',group_id,errors(25))
-    call write_to_hdf5(dustprop(3,1:npart),'vrel/vfrag',group_id,errors(26))
+    call write_to_hdf5(dustprop(1,1:npart),'grainsize',    group_id,errors(24))
+    call write_to_hdf5(dustprop(2,1:npart),'graindens',    group_id,errors(25))
+    call write_to_hdf5(dustprop(3,1:npart),'vrel_on_vfrag',group_id,errors(26))
     ! call write_to_hdf5(dustprop(4,:),'dv_dust',group_id,errors())
     call write_to_hdf5(St(1:npart),'St',group_id,errors(27))
  endif
@@ -432,9 +432,9 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
     call write_to_hdf5(real(dustfrac(:,1:npart),kind=4),'dustfrac',group_id,errors(6))
  endif
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(real(dustprop(1,1:npart),kind=4),'grainsize',group_id,errors(7))
-    call write_to_hdf5(real(dustprop(2,1:npart),kind=4),'graindens',group_id,errors(8))
-    call write_to_hdf5(real(dustprop(3,1:npart),kind=4),'vrel/vfrag',group_id,errors(9))
+    call write_to_hdf5(real(dustprop(1,1:npart),kind=4),'grainsize',    group_id,errors(7))
+    call write_to_hdf5(real(dustprop(2,1:npart),kind=4),'graindens',    group_id,errors(8))
+    call write_to_hdf5(real(dustprop(3,1:npart),kind=4),'vrel_on_vfrag',group_id,errors(9))
     ! call write_to_hdf5(real(dustprop(4,1:npart),kind=4),'dv_dust',group_id,errors())
     call write_to_hdf5(real(St(1:npart),kind=4),'St',group_id,errors(10))
  endif
@@ -669,9 +669,9 @@ subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
  endif
  if (array_options%use_dustfrac) call read_from_hdf5(deltav,'deltavxyz',group_id,got_arrays%got_deltav,errors(14))
  if (array_options%use_dustgrowth) then
-    call read_from_hdf5(dustprop(1,:),'grainsize',group_id,got_arrays%got_dustprop(1),errors(15))
-    call read_from_hdf5(dustprop(2,:),'graindens',group_id,got_arrays%got_dustprop(2),errors(16))
-    call read_from_hdf5(dustprop(3,:),'vrel/vfrag',group_id,got_arrays%got_dustprop(3),errors(17))
+    call read_from_hdf5(dustprop(1,:),'grainsize',    group_id,got_arrays%got_dustprop(1),errors(15))
+    call read_from_hdf5(dustprop(2,:),'graindens',    group_id,got_arrays%got_dustprop(2),errors(16))
+    call read_from_hdf5(dustprop(3,:),'vrel_on_vfrag',group_id,got_arrays%got_dustprop(3),errors(17))
     ! call read_from_hdf5(dustprop(4,:),'dv_dust',group_id,got_dv_dust,errors())
     call read_from_hdf5(St,'St',group_id,got_arrays%got_St,errors(18))
  endif
