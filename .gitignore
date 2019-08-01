@@ -11,3 +11,4 @@ build/phantom-version.h
 */*/*~
 *.bindata
 *.pyc
+*.optrpt

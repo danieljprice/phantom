@@ -78,7 +78,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
 
  omp_threads = omp_get_max_threads()
  ! call omp_set_dynamic(.false.)
- ! call omp_set_num_threads(1)
+ call omp_set_num_threads(1)
 
  if (use_mcfost) then
     if (.not.init_mcfost) then
@@ -160,7 +160,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
             if (iamtype(iphase(i)) /= igas) cycle
          endif
          radiation(inumph,i) = n_packets(i)
-         if (radiation(inumph,i) > 1e3) then
+         if (radiation(inumph,i) > 1e2) then
             radiation(ithick,i) = 0.
          else
             radiation(ithick,i) = 1.
@@ -213,7 +213,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
 
     if (allocated(dudt)) deallocate(dudt)
 
-    ! call omp_set_num_threads(omp_threads)
+    call omp_set_num_threads(omp_threads)
     ! call omp_set_dynamic(.true.)
     call deinit_mcfost_phantom()
     write(*,*) "End of analysis mcfost"

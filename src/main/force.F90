@@ -1508,7 +1508,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radenj = radiation(iradxi,j)
                 radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
                 radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                ! radlambdaj = 1./3.
+                !radlambdaj = 1./3.
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2139,7 +2139,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
           cell%xpartvec(iradlambdai,cell%npcell)     = &
              (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          ! cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          !cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2760,18 +2760,24 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (do_radiation.and.iamgasi) then
-       radiation(idflux,i) = fsum(idradi)
-       c_code        = c/unit_velocity
-       radkappai     = xpartveci(iradkappai)
-       radlambdai    = xpartveci(iradlambdai)
-       ! eq30 Whitehouse & Bate 2004
-       dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
-       ! horrible hack to ensure that the rad energy is positive after the integration
-       if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
-          dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
-          call warning('force','radiation may become negative, limiting timestep')
+       if (radiation(ithick,i) < 0.5) then
+          radiation(idflux,i) = 0
+          dtradi = bignumber
+       else
+          radiation(idflux,i) = fsum(idradi)
+          c_code        = c/unit_velocity
+          radkappai     = xpartveci(iradkappai)
+          radlambdai    = xpartveci(iradlambdai)
+          ! eq30 Whitehouse & Bate 2004
+          dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+          ! horrible hack to ensure that the rad energy is positive after the
+          ! integration
+          if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
+             dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
+             call warning('force','radiation may become negative, limitingtimestep')
+          endif
+          radiation(idtrad,i) = dtradi
        endif
-       radiation(idtrad,i) = dtradi
     else
        dtradi = bignumber
     endif
