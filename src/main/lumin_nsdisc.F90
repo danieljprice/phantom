@@ -142,17 +142,6 @@ subroutine get_grid_bins( r, zt, rbin, ztbin, phi, phibin )
  C = 2.*(zmin-zmax)/nz
 
  select case(rad_trans)
- case(0,1)
-    if ( zt < (thetamin+thetamax)/2. ) then
-       ztbin = int( (sqrt( (nth*B)**2 + 4*nth*B*(zt-thetamin) ) + nth*B)/(2.*B) )
-    else
-       ztnew = thetamin + thetamax - zt
-       ztbin = int( (sqrt( (nth*B)**2 + 4*nth*B*(ztnew-thetamin) ) + nth*B)/(2.*B) )
-       ztbin = nth-ztbin-1
-    endif
-    if ( ztbin < 0 .or. ztbin>nth-1 ) then
-       call fatal( 'lumin_nsdisc', 'Array out of bounds error in get_grid_bins (theta)' )
-    endif
  case(2)
     if ( zt < (zmin+zmax)/2. ) then
        ztbin = int( (sqrt( (nz*C)**2 + 4*nz*C*(zt-zmin) ) + nz*C)/(2.*C) )
@@ -163,8 +152,19 @@ subroutine get_grid_bins( r, zt, rbin, ztbin, phi, phibin )
     endif
     if ( ztbin>nz ) ztbin = nz
     if ( ztbin<0 ) ztbin = 0
-
+ case default ! 0,1
+    if ( zt < (thetamin+thetamax)/2. ) then
+       ztbin = int( (sqrt( (nth*B)**2 + 4*nth*B*(zt-thetamin) ) + nth*B)/(2.*B) )
+    else
+       ztnew = thetamin + thetamax - zt
+       ztbin = int( (sqrt( (nth*B)**2 + 4*nth*B*(ztnew-thetamin) ) + nth*B)/(2.*B) )
+       ztbin = nth-ztbin-1
+    endif
+    if ( ztbin < 0 .or. ztbin>nth-1 ) then
+       call fatal( 'lumin_nsdisc', 'Array out of bounds error in get_grid_bins (theta)' )
+    endif
  end select
+
  phibin = int( phi*nph/twopi)
  if ( rbin>nr-1 ) rbin=nr-1        ! Avoids segfaults for distant particles
  if ( rbin<0 ) rbin = 0            ! Avoids segfaults for accreted particles
@@ -867,7 +867,6 @@ real function bilin_interp( array, r, theta, phi )
  integer :: tbin1, tbin2, pbin1, pbin2, tbin0, pbin0, rbin0
 
  bilin_interp = 0.
- tbin0=0
  if ( r>rmin) then
     call get_grid_bins( r, theta, rbin0, tbin0, phi, pbin0 )
  else
