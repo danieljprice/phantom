@@ -43,7 +43,7 @@ subroutine test_derivs(ntests,npass,string)
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
  use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
- use kernel,       only:radkern
+ use kernel,       only:radkern,kernelname
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
@@ -90,7 +90,7 @@ subroutine test_derivs(ntests,npass,string)
  real(kind=4)      :: tused
  integer           :: nfailed(21),i,j,npartblob,nparttest
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
- logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
+ logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
  real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
  integer(kind=8)   :: nptot
@@ -134,6 +134,7 @@ subroutine test_derivs(ntests,npass,string)
  case default
     testall = .true.
  end select
+ testgradh = (maxgradh==maxp .and. index(kernelname,'cubic') > 0)
 
  iprint = 6
  iverbose = max(iverbose,2)
@@ -214,9 +215,7 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
        call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
     endif
-    if (maxgradh==maxp) then
-       call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
-    endif
+    if (testgradh) call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
     if (maxvxyzu==4) then
        call checkvalf(np,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
        call checkvalf(np,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
@@ -231,7 +230,7 @@ subroutine test_derivs(ntests,npass,string)
     !--also check that the number of neighbours is correct
     !
 #ifdef PERIODIC
-    if (id==master) then
+    if (id==master .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(11),'mean nneigh')
@@ -292,9 +291,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkvalf(np,xyzh,divcurlv(icurlvyi,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
           call checkvalf(np,xyzh,divcurlv(icurlvzi,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
-       if (maxgradh==maxp) then
-          call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
-       endif
+       if (testgradh) call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
        if (maxvxyzu==4) then
           call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
           call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
@@ -477,14 +474,16 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
-       call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh')
-       call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh')
        if (testall) then
           nexact = nptot  ! should be no iterations here
           call checkval(nrhocalc,nexact,0,nfailed(17),'n density calcs')
        endif
-       nexact = nptot*int(realneigh)
-       call checkval(nactual,nexact,0,nfailed(18),'total nneigh')
+       if (index(kernelname,'cubic') > 0) then
+          call checkval(actualmean,real(int(realneigh)),tiny(0.),nfailed(15),'mean nneigh')
+          call checkval(maxactual,int(realneigh),0,nfailed(16),'max nneigh')
+          nexact = nptot*int(realneigh)
+          call checkval(nactual,nexact,0,nfailed(18),'total nneigh')
+       endif
     endif
 #endif
     !
@@ -502,7 +501,7 @@ subroutine test_derivs(ntests,npass,string)
        dekin = reduceall_mpi('+',dekin)
        nfailed(:) = 0
        if (maxdvdx==maxp) then
-          tol = 1.52e-6
+          tol = 1.7e-6
        else
           tol = 5.e-12
        endif
@@ -561,8 +560,8 @@ subroutine test_derivs(ntests,npass,string)
           graindensk = graindens(j)
 #endif
           call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-5,nfailed(3),'deps/dt')
-          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,5.e-4,nfailed(4),'du/dt')
-          call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,2.3e-5,nfailed(5),'deltavx')
+          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,1.e-3,nfailed(4),'du/dt')
+          call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,1.01e-3,nfailed(5),'deltavx')
        enddo
 
        call update_test_scores(ntests,nfailed,npass)
@@ -624,10 +623,7 @@ subroutine test_derivs(ntests,npass,string)
 !--calculate derivatives with MHD forces ON, zero pressure
 !
  testmhd: if (testmhdderivs .or. testall) then
-    ! obtain smoothing lengths
-    call set_linklist(npart,nactive,xyzh,vxyzu)
-    call densityiterate(2,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                      Bevol,stressmax,fxyzu,fext,alphaind,gradh)
+    if (.not.testall) call get_derivs    ! obtain smoothing lengths
 #ifdef IND_TIMESTEPS
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
@@ -763,7 +759,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
           call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB')
           call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x')
-          call checkvalf(np,xyzh,dBevol(2,:),dpsidy,8.5e-4,nfailed(4),'gradpsi_y')
+          call checkvalf(np,xyzh,dBevol(2,:),dpsidy,9.3e-4,nfailed(4),'gradpsi_y')
           call checkvalf(np,xyzh,dBevol(3,:),dpsidz,2.e-3,nfailed(5),'gradpsi_z')
           !--can't do dpsi/dt check because we use vsigdtc = max over neighbours
           !call checkvalf(np,xyzh,dBevol(4,:),dpsidt,6.e-3,nfailed(6),'dpsi/dt')
@@ -893,7 +889,7 @@ subroutine test_derivs(ntests,npass,string)
     !--also check that the number of neighbours is correct
     !
 #ifdef PERIODIC
-    if (id==master) then
+    if (id==master .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 57.466651861721814
        call checkval(actualmean,realneigh,1.e-17,nfailed(10),'mean nneigh')
@@ -2698,11 +2694,12 @@ real function deltavx_func(xyzhi)
 end function deltavx_func
 
 subroutine rcut_checkmask(rcut,xyzh,npart,checkmask)
+ use part, only:isdead_or_accreted
  real,    intent(in)  :: rcut
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: npart
  logical, intent(out) :: checkmask(:)
- real                 :: rcut2, xi,yi,zi,r2
+ real                 :: rcut2,xi,yi,zi,hi,r2
  integer              :: i,ncheck
 
  ncheck = 0
@@ -2712,8 +2709,9 @@ subroutine rcut_checkmask(rcut,xyzh,npart,checkmask)
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
+    hi = xyzh(4,i)
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < rcut2) then
+    if (.not.isdead_or_accreted(hi) .and. r2 < rcut2) then
        checkmask(i) = .true.
        ncheck = ncheck + 1
     endif
