@@ -1,4 +1,4 @@
-#!/opt/local/bin/python2.7
+#!/Users/dprice/anaconda3/bin/python3
 #---------------------------------------------------------------
 #
 #  Daniel Price's automatic smoothing kernel generation script
@@ -103,7 +103,7 @@ def getkernelfuncs(w,R):
            parg[i] = (ep, c)
        tuple(parg)
        dpotdh = Piecewise(*parg)
-    
+
     return (dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh)
 
 #---------------------------------------------
@@ -184,20 +184,20 @@ def doublehump5(wref,R):
 ##############################################
 
 #-------------------------------------------------------
-# function to print the variance and standard deviation 
+# function to print the variance and standard deviation
 # of a kernel, and to print these relative to the cubic
 #-------------------------------------------------------
 def printvariances(w,R):
     var, relvar, reldev = getvar(w,R)
-    print "\nVariance of kernel in 1, 2, 3D:"
-    print var[0],var[1],var[2]
-    print "\nVariance and standard dev relative to cubic:"
-    print relvar[0],relvar[1],relvar[2]
-    print reldev[0],reldev[1],reldev[2]
-    print "\nKernel radius required to get same std. dev as cubic:"
-    print 2/reldev[0],2/reldev[1],2/reldev[2]
-    print "\neta = 1.2 is equivalent to:"
-    print 1.2/reldev[0],1.2/reldev[1],1.2/reldev[2]
+    print ("\nVariance of kernel in 1, 2, 3D:")
+    print (var[0],var[1],var[2])
+    print ("\nVariance and standard dev relative to cubic:")
+    print (relvar[0],relvar[1],relvar[2])
+    print (reldev[0],reldev[1],reldev[2])
+    print ("\nKernel radius required to get same std. dev as cubic:")
+    print (2/reldev[0],2/reldev[1],2/reldev[2])
+    print ("\neta = 1.2 is equivalent to:")
+    print (1.2/reldev[0],1.2/reldev[1],1.2/reldev[2])
     return
 
 #-----------------------------------------------------------
@@ -205,20 +205,20 @@ def printvariances(w,R):
 #-----------------------------------------------------------
 def printkernel(w,R):
     dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh = getkernelfuncs(w,R)
-    print "\n%s W:" %name
-    print w
-    print "\nFirst derivative:"
-    print dw
-    print "\n2nd derivative:"
-    print d2w
-    print "\nnormalisation:"
-    print "[ %s, %s, %s ]" %(c1D,c2D,c3D)
-    print "\n3D normalisation of artificial viscosity term:"
+    print ("\n%s W:" %name)
+    print (w)
+    print ("\nFirst derivative:")
+    print (dw)
+    print ("\n2nd derivative:")
+    print (d2w)
+    print ("\nnormalisation:")
+    print ("[ %s, %s, %s ]" %(c1D,c2D,c3D))
+    print ("\n3D normalisation of artificial viscosity term:")
     avnorm = -sympify(2)*pi/15*c3D*integrate(q*q*q*dw,(q,0,R))
-    print avnorm
-    print "\n2D normalisation of artificial viscosity term:"
+    print (avnorm)
+    print ("\n2D normalisation of artificial viscosity term:")
     avnorm = -pi/8*c2D*integrate(q*q*dw,(q,0,R))
-    print avnorm
+    print (avnorm)
     printvariances(w,R)
     return
 
@@ -226,14 +226,14 @@ def printkernel(w,R):
 # print start of a LaTeX table containing kernel information
 #-------------------------------------------------------------
 def printheader_latex():
-    print "\\begin{tabular}{|l|l|l|l|l|l|l|l|}\n"
-    print "\\hline\nName & Functional form & C$_{1D}$ & C$_{2D}$ & C$_{3D}$ & $\sigma^2_{1D}$ & $\sigma^2_{2D}$ & $\sigma^2_{3D}$\\\\ \n"
+    print ("\\begin{tabular}{|l|l|l|l|l|l|l|l|}\n")
+    print ("\\hline\nName & Functional form & C$_{1D}$ & C$_{2D}$ & C$_{3D}$ & $\sigma^2_{1D}$ & $\sigma^2_{2D}$ & $\sigma^2_{3D}$\\\\ \n")
 
 #-----------------------------------------------------------
 # print end of a LaTeX table containing kernel information
 #-----------------------------------------------------------
 def printfooter_latex():
-    print "\\hline\\end{tabular}\n"
+    print ("\\hline\\end{tabular}\n")
 
 #---------------------------------------------------------------
 # print contents of a LaTeX table containing kernel information
@@ -241,9 +241,9 @@ def printfooter_latex():
 def printkernel_latex(w,R):
     c1D, c2D, c3D = getnorm(w,R)
     var, relvar, reldev = getvar(w,R)
-    print "\\hline\n%s & $" %fmttex(name)
-    print latex(w)
-    print "$ & $%s$ & $%s$ & $%s$ & $%s$ & $%s$ & $%s$ \\\\" %(latex(c1D),latex(c2D),latex(c3D),latex(var[0]),latex(var[1]),latex(var[2]))
+    print ("\\hline\n%s & $" %fmttex(name))
+    print (latex(w))
+    print ("$ & $%s$ & $%s$ & $%s$ & $%s$ & $%s$ & $%s$ \\\\" %(latex(c1D),latex(c2D),latex(c3D),latex(var[0]),latex(var[1]),latex(var[2])))
     return
 
 #--------------------------------
@@ -265,7 +265,7 @@ def fmt(e):
     # note that \g<0> gives first matching argument in the regex
     # rules are: (not **n)(not 0.123)(match ab0123) or (not *n with one digit)
     s = re.sub("((?!\*\*\d+)(?!\D\D\d+\.)\D\D\d+)|((!?\*\d+)\D\d+)|(/\d+)|((?!^\.\d+)^\d+)|((?!^-\d+\.)^-\d+)","\g<0>.", s)
-    
+
     # replace 15*x with 15.*x as long as it is not **15*x
     s = re.sub("(?!\*\d+)(\D\d+)\*","\g<1>.*", s)
 
@@ -309,7 +309,7 @@ def fmte(e,useqsub,useodd):
        s = re.sub("q\*\*8","q8", s)
        if (useodd):
           s = re.sub("q\*\*9","q9", s)
-          s = re.sub("q\*\*7","q7", s)    
+          s = re.sub("q\*\*7","q7", s)
           s = re.sub("q\*\*5","q5", s)
           s = re.sub("q\*\*3","q3", s)
        else:
@@ -405,7 +405,7 @@ def stripcond(e):
 # print FORTRAN77 comment line
 #-------------------------------
 def printc(s):
-    print "c\nc--%s\nc" %(s)
+    print ("c\nc--%s\nc" %(s))
     return s
 
 #---------------------------------
@@ -414,27 +414,27 @@ def printc(s):
 def printkernel_ndspmhd(w,R,name):
     useoddq = False
     dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh = getkernelfuncs(w,R)
-    print "!"
-    print "!--%s (auto-generated by kernels.py)" %name
-    print "!"
-    print "    kernellabel = '%s' \n" %name
-    print "    radkern = %.1f" %(R)
-    print "    radkern2 = radkern*radkern"
-    print "    dq2table = radkern2/real(ikern)"
-    print "    select case(ndim)"
-    print "      case(1)"
-    print "         cnormk = %s" %fmt(c1D)
-    print "      case(2)"
-    print "         cnormk = %s" %fmt(c2D)
-    print "      case(3)"
-    print "         cnormk = %s" %fmt(c3D)
-    print "    end select"
-    print "    do i=0,ikern"
-    print "       q2 = i*dq2table"
-    print "       q4 = q2*q2"
-    print "       q6 = q4*q2"
-    print "       q8 = q4*q4"
-    print "       q = sqrt(q2)"
+    print ("!")
+    print ("!--%s (auto-generated by kernels.py)" %name)
+    print ("!")
+    print ("    kernellabel = '%s' \n" %name)
+    print ("    radkern = %.1f" %(R))
+    print ("    radkern2 = radkern*radkern")
+    print ("    dq2table = radkern2/real(ikern)")
+    print ("    select case(ndim)")
+    print ("      case(1)")
+    print ("         cnormk = %s" %fmt(c1D))
+    print ("      case(2)")
+    print ("         cnormk = %s" %fmt(c2D))
+    print ("      case(3)")
+    print ("         cnormk = %s" %fmt(c3D))
+    print ("    end select")
+    print ("    do i=0,ikern")
+    print ("       q2 = i*dq2table")
+    print ("       q4 = q2*q2")
+    print ("       q6 = q4*q2")
+    print ("       q8 = q4*q4")
+    print ("       q = sqrt(q2)")
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            (de, dc) = dw.args[i]
@@ -443,21 +443,21 @@ def printkernel_ndspmhd(w,R,name):
            (pe,pc) = pot.args[i]
            (pdhe,pdhc) = dpotdh.args[i]
            if i == 0:
-              print "       if (%s) then" %fmt(c)
+              print ("       if (%s) then" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print "       else"
+              print ("       else")
            else:
-              print "       elseif (%s) then" %fmt(c)
-           print "          wkern(i)     = %s " %fmtn(e)
-           print "          grwkern(i)   = %s " %fmtn(de)
-           print "          grgrwkern(i) = %s " %fmtn(d2e)
-           print "          fsoft(i)     = %s " %fmtn(fe)
-           print "          potensoft(i) = %s " %fmtn(pe)
-           print "          dphidh(i)    = %s " %fmtn(pdhe)
-       print "       endif"
+              print ("       elseif (%s) then" %fmt(c))
+           print ("          wkern(i)     = %s " %fmtn(e))
+           print ("          grwkern(i)   = %s " %fmtn(de))
+           print ("          grgrwkern(i) = %s " %fmtn(d2e))
+           print ("          fsoft(i)     = %s " %fmtn(fe))
+           print ("          potensoft(i) = %s " %fmtn(pe))
+           print ("          dphidh(i)    = %s " %fmtn(pdhe))
+       print ("       endif")
     else:
-       print w
-    print "    enddo\n"
+       print (w)
+    print ("    enddo\n")
 
 #---------------------------------
 # print kernel code for sphNG
@@ -465,51 +465,51 @@ def printkernel_ndspmhd(w,R,name):
 def printkernel_sphNG(w,R,name):
     import datetime
     dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh = getkernelfuncs(w,R)
-    print "      SUBROUTINE ktable"
-    print "c*********************************************************"
-    print "c  This subroutine builds a table for the kernel,"
-    print "c  the gradient of the kernel, the mass fraction,"
-    print "c  and the potential energy."
-    print "c  The entry is v**2."
-    print "c"
-    print "c  DO NOT EDIT: AUTO-GENERATED by kernels.py"
-    print "c  KERNEL NAME: %s " %name
-    print "c  AUTHOR: kernels.py, by Daniel Price"
-    print "c  GENERATED:",datetime.datetime.now()
-    print "c"
-    print "c*********************************************************"
-    print "      IMPLICIT NONE ! because life is worth living"
-    print "      INCLUDE 'idim'\n"
-    print "      REAL*8 sum, v2max, q, q2, q3, q4, q5, q6, q7, q8, q9"
-    print "      INTEGER i"
-    print "\n      INCLUDE 'COMMONS/physcon'"
-    print "      INCLUDE 'COMMONS/kerne'"
-    print "      INCLUDE 'COMMONS/table'"
-    print "      INCLUDE 'COMMONS/logun'"
-    print "      INCLUDE 'COMMONS/debug'"
+    print ("      SUBROUTINE ktable")
+    print ("c*********************************************************")
+    print ("c  This subroutine builds a table for the kernel,")
+    print ("c  the gradient of the kernel, the mass fraction,")
+    print ("c  and the potential energy.")
+    print ("c  The entry is v**2.")
+    print ("c")
+    print ("c  DO NOT EDIT: AUTO-GENERATED by kernels.py")
+    print ("c  KERNEL NAME: %s " %name)
+    print ("c  AUTHOR: kernels.py, by Daniel Price")
+    print ("c  GENERATED:",datetime.datetime.now())
+    print ("c")
+    print ("c*********************************************************")
+    print ("      IMPLICIT NONE ! because life is worth living")
+    print ("      INCLUDE 'idim'\n")
+    print ("      REAL*8 sum, v2max, q, q2, q3, q4, q5, q6, q7, q8, q9")
+    print ("      INTEGER i")
+    print ("\n      INCLUDE 'COMMONS/physcon'")
+    print ("      INCLUDE 'COMMONS/kerne'")
+    print ("      INCLUDE 'COMMONS/table'")
+    print ("      INCLUDE 'COMMONS/logun'")
+    print ("      INCLUDE 'COMMONS/debug'")
     printc("Allow for tracing flow")
-    print "      IF (itrace.EQ.'all') WRITE(iprint, 99001)"
-    print "99001 FORMAT (' entry subroutine ktable')"
+    print ("      IF (itrace.EQ.'all') WRITE(iprint, 99001)")
+    print ("99001 FORMAT (' entry subroutine ktable')")
     printc("Maximum interaction length and step size")
-    print "      radkernel = %.1f" %(R)
+    print ("      radkernel = %.1f" %(R))
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            if (c != True and i < 2):
-              print "      part%ikernel = %s" %(i+1,stripcond(c))
-    print "      v2max = radkernel*radkernel"
-    print "      dvtable = v2max/itable"
-    print "      ddvtable = itable/v2max"
+              print ("      part%ikernel = %s" %(i+1,stripcond(c)))
+    print ("      v2max = radkernel*radkernel")
+    print ("      dvtable = v2max/itable")
+    print ("      ddvtable = itable/v2max")
     printc("Build tables")
-    print "      DO i=0,itable"
-    print "         q2 = i*dvtable"
-    print "         q = sqrt(q2)"
-    print "         q3 = q*q2"
-    print "         q4 = q*q3"
-    print "         q5 = q*q4"
-    print "         q6 = q*q5"
-    print "         q7 = q*q6"
-    print "         q8 = q*q7"
-    print "         q9 = q*q8"
+    print ("      DO i=0,itable")
+    print ("         q2 = i*dvtable")
+    print ("         q = sqrt(q2)")
+    print ("         q3 = q*q2")
+    print ("         q4 = q*q3")
+    print ("         q5 = q*q4")
+    print ("         q6 = q*q5")
+    print ("         q7 = q*q6")
+    print ("         q8 = q*q7")
+    print ("         q9 = q*q8")
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            (de, dc) = dw.args[i]
@@ -518,41 +518,41 @@ def printkernel_sphNG(w,R,name):
            (pe,pc) = pot.args[i]
            (pdhe,pdhc) = dpotdh.args[i]
            if i == 0:
-              print "         IF (%s) THEN" %fmt(c)
+              print ("         IF (%s) THEN" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print "         ELSE"
+              print ("         ELSE")
            else:
-              print "         ELSEIF (%s) THEN" %fmt(c)
-           print "            sum = %s" %fmts(e)
-           print "            wij(i) = sum"
-           print "            sum = %s" %fmts(de)
-           print "            grwij(i) = sum"
-           print "            sum = %s" %fmts(q*q*fe)
-           print "            fmass(i) = sum"
-           print "            sum = %s" %fmts(pe)
-           print "            fpoten(i) = sum"
-           print "            sum = %s" %fmts(-pdhe)
-           print "            dphidh(i) = sum"
-       print "         ENDIF"
-    print "      ENDDO"
+              print ("         ELSEIF (%s) THEN" %fmt(c))
+           print ("            sum = %s" %fmts(e))
+           print ("            wij(i) = sum")
+           print ("            sum = %s" %fmts(de))
+           print ("            grwij(i) = sum")
+           print ("            sum = %s" %fmts(q*q*fe))
+           print ("            fmass(i) = sum")
+           print ("            sum = %s" %fmts(pe))
+           print ("            fpoten(i) = sum")
+           print ("            sum = %s" %fmts(-pdhe))
+           print ("            dphidh(i) = sum")
+       print ("         ENDIF")
+    print ("      ENDDO")
     printc("Normalisation constant")
-    print "      cnormk = %s" %fmt(c3D)
-    print "      selfnormkernel = %s" %fmt(w.subs(q,0))
-    print "      part1potenkernel = 0.0 ! term already included in fpoten above"
-    print "      part2potenkernel = 0.0 ! see above"
+    print ("      cnormk = %s" %fmt(c3D))
+    print ("      selfnormkernel = %s" %fmt(w.subs(q,0)))
+    print ("      part1potenkernel = 0.0 ! term already included in fpoten above")
+    print ("      part2potenkernel = 0.0 ! see above")
     #--double hump normalisation
     wdrag = piecewise_fold(w*q*q)
     c3Ddrag = sympify(1)/(integrate(4*pi*q*q*wdrag,(q,0,R)))
     printc("For dust/gas drag, need double humped kernel")
-    print "      doublehumpnormk = %s" %fmt(c3Ddrag)
-    print "\n      RETURN"
-    print "      END"
+    print ("      doublehumpnormk = %s" %fmt(c3Ddrag))
+    print ("\n      RETURN")
+    print ("      END")
 
 #-------------------------------------------------
 # print q4 = q2*q2 and similar definitions
 # e.g. if the string q4 is found in the function
 #-------------------------------------------------
-def print_defs(indent,*args):    
+def print_defs(indent,*args):
     import re
     gotq4 = False
     # look for q4, q6, q8 in function string
@@ -565,7 +565,7 @@ def print_defs(indent,*args):
              doPrint = True
        # print definition
        if (doPrint):
-          print " "*indent+"q%i = q%i*q2" %(i,i-2)
+          print (" "*indent+"q%i = q%i*q2" %(i,i-2))
 
 #----------------------------------------
 # print code declarations of q4, q6 etc.
@@ -577,16 +577,16 @@ def print_decl(w):
         printQ = False
         for i, (e, c) in enumerate(w.args):
             if (re.search(qstr,fmtp(e))):
-               printQ = True             
+               printQ = True
         if (printQ):
            if (len(str) > 0):
               str = str+", "+qstr
            else:
               str = qstr
     if (len(str) > 0):
-       print " real :: %s\n" %(str)
+       print (" real :: %s\n" %(str))
     else:
-       print ""
+       print ("")
 
 #---------------------------------
 # print kernel code for Phantom
@@ -602,128 +602,128 @@ def printkernel_phantom(w,R,name):
     wdrag = piecewise_fold(w*q*q)
     c3Ddrag = sympify(1)/(integrate(4*pi*q*q*wdrag,(q,0,R)))
     lb = "!"+"-"*62
-    print "!--------------------------------------------------------------------------!"
-    print "! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !"
-    print "! Copyright (c) 2007-2014 The Authors (see AUTHORS)                        !"
-    print "! See LICENCE file for usage and distribution conditions                   !"
-    print "! http://users.monash.edu.au/~dprice/phantom                               !"
-    print "!--------------------------------------------------------------------------!"
-    print "!+"
-    print "!  MODULE: kernel"
-    print "!"
-    print "!  DESCRIPTION:"
-    print "!   This module implements the %s kernel" %name
-    print "!   DO NOT EDIT - auto-generated by kernels.py"
-    print "!"
-    print "!  REFERENCES: None"
-    print "!"
-    print "!  OWNER: Daniel Price"
-    print "!"
-    print "!  $Id:$"
-    print "!"
-    print "!  RUNTIME PARAMETERS: None"
-    print "!"
-    print "!  DEPENDENCIES: physcon"
-    print "!"
-    print "!  GENERATED:",datetime.datetime.now()
-    print "!+"
-    print "!--------------------------------------------------------------------------"
-    print "module kernel"
-    print " use physcon, only:pi"
-    print " implicit none"
-    print " character(len=%i), public :: kernelname = '%s'" %(len(name),name)
-    print " real, parameter, public  :: radkern  = %s" %fmt(R)
-    print " real, parameter, public  :: radkern2 = %s" %fmt(R*R)
-    print " real, parameter, public  :: cnormk = %s" %fmt(c3D)
-    print " real, parameter, public  :: wab0 = %s, gradh0 = -3.*wab0" %fmt(w0)
-    print " real, parameter, public  :: dphidh0 = %s" %fmtp(dpotdh0)
-    print " real, parameter, public  :: cnormk_drag = %s " %fmt(c3Ddrag)
+    print ("!--------------------------------------------------------------------------!")
+    print ("! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !")
+    print ("! Copyright (c) 2007-2014 The Authors (see AUTHORS)                        !")
+    print ("! See LICENCE file for usage and distribution conditions                   !")
+    print ("! http://users.monash.edu.au/~dprice/phantom                               !")
+    print ("!--------------------------------------------------------------------------!")
+    print ("!+")
+    print ("!  MODULE: kernel")
+    print ("!")
+    print ("!  DESCRIPTION:")
+    print ("!   This module implements the %s kernel" %name)
+    print ("!   DO NOT EDIT - auto-generated by kernels.py")
+    print ("!")
+    print ("!  REFERENCES: None")
+    print ("!")
+    print ("!  OWNER: Daniel Price")
+    print ("!")
+    print ("!  $Id:$")
+    print ("!")
+    print ("!  RUNTIME PARAMETERS: None")
+    print ("!")
+    print ("!  DEPENDENCIES: physcon")
+    print ("!")
+    print ("!  GENERATED:",datetime.datetime.now())
+    print ("!+")
+    print ("!--------------------------------------------------------------------------")
+    print ("module kernel")
+    print (" use physcon, only:pi")
+    print (" implicit none")
+    print (" character(len=%i), public :: kernelname = '%s'" %(len(name),name))
+    print (" real, parameter, public  :: radkern  = %s" %fmt(R))
+    print (" real, parameter, public  :: radkern2 = %s" %fmt(R*R))
+    print (" real, parameter, public  :: cnormk = %s" %fmt(c3D))
+    print (" real, parameter, public  :: wab0 = %s, gradh0 = -3.*wab0" %fmt(w0))
+    print (" real, parameter, public  :: dphidh0 = %s" %fmtp(dpotdh0))
+    print (" real, parameter, public  :: cnormk_drag = %s " %fmt(c3Ddrag))
     var, relvar, reldev = getvar(w,R)
-    print " real, parameter, public  :: hfact_default = %.1f " %(1.2/reldev[2])
+    print (" real, parameter, public  :: hfact_default = %.1f " %(1.2/reldev[2]))
     #print " real, parameter, public  :: hfact_default = %s " %fmt(reldev[2])
-    print "\ncontains\n"
-    print "pure subroutine get_kernel(q2,q,wkern,grkern)"
-    print " real, intent(in)  :: q2,q"
-    print " real, intent(out) :: wkern,grkern"
+    print ("\ncontains\n")
+    print ("pure subroutine get_kernel(q2,q,wkern,grkern)")
+    print (" real, intent(in)  :: q2,q")
+    print (" real, intent(out) :: wkern,grkern")
     print_decl(w)
-    print " !--%s" %name
+    print (" !--%s" %name)
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            (de, dc) = dw.args[i]
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(e),fmtp(de))
-           print "    wkern  = %s" %fmtp(e)
-           print "    grkern = %s" %fmtp(de)
-       print " endif"
+           print ("    wkern  = %s" %fmtp(e))
+           print ("    grkern = %s" %fmtp(de))
+       print (" endif")
     else:
-       print w
-    print "\nend subroutine get_kernel\n"
-    print "pure elemental real function wkern(q2,q)"
-    print " real, intent(in) :: q2,q"
+       print (w)
+    print ("\nend subroutine get_kernel\n")
+    print ("pure elemental real function wkern(q2,q)")
+    print (" real, intent(in) :: q2,q")
     print_decl(w)
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(e))
-           print "    wkern = %s" %fmtp(e)
-       print " endif"
+           print ("    wkern = %s" %fmtp(e))
+       print (" endif")
     else:
        print_defs(4,w)
-       print "    wkern = %s" %w
-    print "\nend function wkern\n"
-    print "pure elemental real function grkern(q2,q)"
-    print " real, intent(in) :: q2,q"
+       print ("    wkern = %s" %w)
+    print ("\nend function wkern\n")
+    print ("pure elemental real function grkern(q2,q)")
+    print (" real, intent(in) :: q2,q")
     print_decl(dw)
     if isinstance(dw, Piecewise):
        for i, (e, c) in enumerate(dw.args):
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(e))
-           print "    grkern = %s" %fmtp(e)
-       print " endif"
+           print ("    grkern = %s" %fmtp(e))
+       print (" endif")
     else:
        print_defs(4,fmtp(dw))
-       print "    grkern = %s " %fmtp(dw)
-    print "\nend function grkern\n"
-    print "pure subroutine get_kernel_grav1(q2,q,wkern,grkern,dphidh)"
-    print " real, intent(in)  :: q2,q"
-    print " real, intent(out) :: wkern,grkern,dphidh"
+       print ("    grkern = %s " %fmtp(dw))
+    print ("\nend function grkern\n")
+    print ("pure subroutine get_kernel_grav1(q2,q,wkern,grkern,dphidh)")
+    print (" real, intent(in)  :: q2,q")
+    print (" real, intent(out) :: wkern,grkern,dphidh")
     print_decl(dpotdh)
     if isinstance(w, Piecewise):
        for i, (e, c) in enumerate(w.args):
            (de, dc) = dw.args[i]
            (dphie, dphic) = dpotdh.args[i]
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(w.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(e),fmtp(de),fmtp(dphie))
-           print "    wkern  = %s" %fmtp(e)
-           print "    grkern = %s" %fmtp(de)
-           print "    dphidh = %s" %fmtp(dphie)
-       print " endif"
+           print ("    wkern  = %s" %fmtp(e))
+           print ("    grkern = %s" %fmtp(de))
+           print ("    dphidh = %s" %fmtp(dphie))
+       print (" endif")
     else:
        print_defs(4,fmtp(w),fmtp(dw),fmtp(dpotdh))
-       print "    wkern  = %s" %fmtp(w)
-       print "    grkern = %s" %fmtp(dw)
-       print "    dphidh = %s" %fmtp(dpotdh)
-    print "\nend subroutine get_kernel_grav1\n"
+       print ("    wkern  = %s" %fmtp(w))
+       print ("    grkern = %s" %fmtp(dw))
+       print ("    dphidh = %s" %fmtp(dpotdh))
+    print ("\nend subroutine get_kernel_grav1\n")
 #    print "pure subroutine get_kernel_grav2(q2,q,grkern,potensoft,fsoft)"
 #    print " real, intent(in)  :: q2,q"
 #    print " real, intent(out) :: grkern,potensoft,fsoft\n"
@@ -747,52 +747,52 @@ def printkernel_phantom(w,R,name):
 #       print "    potensoft = %s" %fmtp(pot)
 #       print "    fsoft     = %s" %fmtp(fsoft)
 #    print "\nend subroutine get_kernel_grav2\n"
-    print "pure subroutine kernel_softening(q2,q,potensoft,fsoft)"
-    print " real, intent(in)  :: q2,q"
-    print " real, intent(out) :: potensoft,fsoft"
+    print ("pure subroutine kernel_softening(q2,q,potensoft,fsoft)")
+    print (" real, intent(in)  :: q2,q")
+    print (" real, intent(out) :: potensoft,fsoft")
     print_decl(pot)
     if isinstance(dw, Piecewise):
        for i, (de, c) in enumerate(dw.args):
            (pote, potc) = pot.args[i]
            (fe, fc) = fsoft.args[i]
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(dw.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(pote),fmtp(fe))
-           print "    potensoft = %s" %fmtp(pote)
-           print "    fsoft     = %s" %fmtp(fe)
-       print " endif"
+           print ("    potensoft = %s" %fmtp(pote))
+           print ("    fsoft     = %s" %fmtp(fe))
+       print (" endif")
     else:
-       print "    potensoft = %s" %fmtp(pot)
-       print "    fsoft     = %s" %fmtp(fsoft)
-    print "\nend subroutine kernel_softening\n"
-    print "!------------------------------------------"
-    print "! double-humped version of the kernel for"
-    print "! use in drag force calculations"
-    print "!------------------------------------------"
-    print "pure elemental real function wkern_drag(q2,q)"
-    print " real, intent(in) :: q2,q"
+       print ("    potensoft = %s" %fmtp(pot))
+       print ("    fsoft     = %s" %fmtp(fsoft))
+    print ("\nend subroutine kernel_softening\n")
+    print ("!------------------------------------------")
+    print ("! double-humped version of the kernel for")
+    print ("! use in drag force calculations")
+    print ("!------------------------------------------")
+    print ("pure elemental real function wkern_drag(q2,q)")
+    print (" real, intent(in) :: q2,q")
     print_decl(wdrag)
-    print " !--double hump %s kernel" %name
+    print (" !--double hump %s kernel" %name)
     if isinstance(wdrag, Piecewise):
        for i, (e, c) in enumerate(wdrag.args):
            if i == 0:
-              print " if (%s) then" %fmt(c)
+              print (" if (%s) then" %fmt(c))
            elif i == len(wdrag.args)-1 and c == True:
-              print " else"
+              print (" else")
            else:
-              print " elseif (%s) then" %fmt(c)
+              print (" elseif (%s) then" %fmt(c))
            print_defs(4,fmtp(e))
-           print "    wkern_drag = %s" %fmtp(e)
-       print " endif"
+           print ("    wkern_drag = %s" %fmtp(e))
+       print (" endif")
     else:
        print_defs(4,fmtp(wdrag))
-       print "    wkern_drag = %s" %fmtp(wdrag)
-    print "\nend function wkern_drag\n"
-    print "end module kernel"
+       print ("    wkern_drag = %s" %fmtp(wdrag))
+    print ("\nend function wkern_drag\n")
+    print ("end module kernel")
 
 def printalltex():
     R = sympify(2)
@@ -806,7 +806,7 @@ def print_stddevs():
     for x in m4, m5, m6, w2_1D, w4_1D, w6_1D, w2, w4, w6, intm4, intm5, intm6, int2m4, int3m4, f6:
        f, name = x(R)
        reldev = getreldev(f,R)
-       print x.__name__,1.0/reldev[0],1.0/reldev[1],1.0/reldev[2]
+       print (x.__name__,1.0/reldev[0],1.0/reldev[1],1.0/reldev[2])
 
 
 #####################################
@@ -920,7 +920,7 @@ def f6(R):
     return(f,'Ferrers n=6')
 
 ########################################################
-#  The actual program 
+#  The actual program
 #  Change the lines below to print the kernel you want
 ########################################################
 
