@@ -50,6 +50,10 @@ subroutine get_and_print_gitinfo(iunit)
  if (.not.iexist) then
     filename='../bin/'//trim(filename)
     inquire(file=filename,exist=iexist)
+    if (.not.iexist) then
+       filename='./bin/'//trim(filename)
+       inquire(file=filename,exist=iexist)
+    endif
  endif
  io_local = 0
  if (iexist) open(unit=igit,file=filename,status='old',iostat=io_local)
