@@ -605,7 +605,7 @@ subroutine test_derivs(ntests,npass,string)
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
           call checkval(massoftype(1)*(dekin + deint + dedust),0.,6.5e-15,nfailed(1),'energy conservation (dE=0)')
           do i=1,ndustsmall
-             call checkval(massoftype(1)*(dmdust(i)),0.,1.e-15,nfailed(2),'dust mass conservation')
+             call checkval(massoftype(1)*(dmdust(i)),0.,1.1e-15,nfailed(2),'dust mass conservation')
           enddo
           call update_test_scores(ntests,nfailed(1:1),npass)
        endif
