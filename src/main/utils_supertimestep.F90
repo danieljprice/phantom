@@ -321,9 +321,6 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
  integer                       :: i,j,k,Nmega
  logical                       :: calc_dtau
 
- nu          = 0.2       ! to avoid compiler warnings
- dtdiff_used = dtdiff_in ! to avoid compiler warnings
-
  ! Determine the number of real steps required;
  ! if Nmegasts_done > 0, then this is the real steps remaining
  Nreal = int(dt_next/dtdiff_in) + 1
@@ -386,6 +383,10 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
  real                   :: dtau_local
  logical                :: find_dtdiff
 
+ ! default values, to avoid compiler warnings
+ nu_local = 0.2
+ dtdiff_out = dtdiff_in ! to avoid compiler warnings
+
  ! Determine values for super-timestepping
  if (dt > dtdiff_in .and. dtdiff_in > tiny(dtdiff_in) .and. dtdiff_in < bigdt) then
     find_dtdiff = .true.
@@ -440,7 +441,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
  endif
 
 end subroutine sts_get_Ndtdiff
-!
+
 subroutine sts_update_i_nmega(i,Nmega)
  integer, intent(inout) :: i,Nmega
  i = i + 1
@@ -470,10 +471,11 @@ end function sts_get_dtdiff
 pure function sts_get_dtau(j,N,nu0,dtdiff_in)
  integer, intent(in)  :: j,N
  real,    intent(in)  :: nu0,dtdiff_in
- real                 :: sts_get_dtau,pibytwo
+ real                 :: sts_get_dtau
+ real, parameter      :: pibytwo = 2.*atan(1.)
 
- pibytwo      = 1.5707963268d0
- sts_get_dtau = dtdiff_in /((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
+ sts_get_dtau = dtdiff_in /&
+                ((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
 
 end function sts_get_dtau
 !----------------------------------------------------------------
