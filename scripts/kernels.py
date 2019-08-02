@@ -37,7 +37,7 @@ def intconst(g):
        for i, (e, c) in reversed(list(enumerate(g.args))):
            if i < len(g.args) - 1:
               (ep, cp) = garg[i+1]
-              s = "%s" %c
+              s = ("%s" %c)
               qval = sympify(s.split()[2])
               ge = simplify(e + (ep.subs(q,qval) - e.subs(q,qval)))
               garg[i] = (ge,c)
@@ -59,7 +59,7 @@ def getkernelfuncs(w,R):
     fsoft = piecewise_fold(4*pi*c3D*integrate(f*q*q,q)/q**2)
     farg = list(fsoft.args)
     lastarg = len(fsoft.args) - 1
-    farg[lastarg] = (sympify(1)/q**2,fsoft.args[lastarg].cond)
+    farg[lastarg] = (sympify(1/(q*q)),fsoft.args[lastarg].cond)
     #
     #--work out the integration constant for the force softening
     #  by matching the different parts of the piecewise function
@@ -68,16 +68,18 @@ def getkernelfuncs(w,R):
        for i, (e, c) in reversed(list(enumerate(fsoft.args))):
            if i < lastarg:
               (ep, cp) = farg[i+1]
-              s = "%s" %c
+              s = ("%s" %c)
               qval = sympify(s.split()[2])
               fe = simplify(e + qval**2*(ep.subs(q,qval) - e.subs(q,qval))/q**2)
               farg[i] = (fe,c)
     tuple(farg)
     fsoft = Piecewise(*farg)
+
     #
     #--potential function
     #
     pot = integrate(fsoft,q)
+    #print (' GOT pot ',pot)
     #
     #--work out the integration constant for the potential
     #
@@ -86,8 +88,8 @@ def getkernelfuncs(w,R):
        for i, (e, c) in reversed(list(enumerate(pot.args))):
            if i < len(pot.args) - 1:
               (ep, cp) = parg[i+1]
-              s = "%s" %c
-              qval = s.split()[2]
+              s = ("%s" %c)
+              qval = sympify(s.split()[2])
               pote = simplify(e + (ep.subs(q,qval) - e.subs(q,qval)))
               parg[i] = (pote,c)
     tuple(parg)
@@ -119,6 +121,25 @@ def getvar(w,R):
     reldev = (sqrt(1.0*relvar[0]),sqrt(1.0*relvar[1]),sqrt(1.0*relvar[2]))
     return (var,relvar,reldev)
 
+#---------------------------------------------
+# get proportionality factor in artificial viscosity
+#---------------------------------------------
+def get_avdiss(w,R):
+    dw  = diff(w,q)
+    c1D, c2D, c3D = getnorm(w,R)
+    # see equation B21 in Meru & Bate 2012
+    avdiss_mg83 = integrate(-2*pi/15*c3D*q**3*dw,(q,0,R))
+    avdiss_m97 = integrate(-2*pi/15*c3D*q**4*dw,(q,0,R))
+    ratio = avdiss_m97/avdiss_mg83
+    return (avdiss_mg83,avdiss_m97,ratio)
+
+def print_avdiss(w,R):
+    a, b, c = get_avdiss(w,R)
+    print ("art visc factor (MG83) = ",a)
+    print ("art visc factor (M97)  = ",b)
+    print (" ratio = ",c,float(c))
+    return
+
 #-------------------------------------------------------
 # function to get the standard deviation of the kernel
 # scaled relative to the cubic spline
@@ -135,7 +156,7 @@ def intkernel(wref,R):
     f, name = wref(R)
     g = piecewise_fold(integrate(-q*f,q))
     g = intconst(g)
-    name = "Integrated %s" %(name)
+    name = ("Integrated %s" %(name))
     return(g,name)
 
 def intkernel2(wref,R):
@@ -144,7 +165,7 @@ def intkernel2(wref,R):
     g = intconst(g)
     g = piecewise_fold(integrate(-q*g,q))
     g = intconst(g)
-    name = "Twice-integrated %s" %(name)
+    name = ("Twice-integrated %s" %(name))
     return(g,name)
 
 def intkernel3(wref,R):
@@ -155,25 +176,25 @@ def intkernel3(wref,R):
     g = intconst(g)
     g = piecewise_fold(integrate(-q*g,q))
     g = intconst(g)
-    name = "Triple-integrated %s" %(name)
+    name = ("Triple-integrated %s" %(name))
     return(g,name)
 
 def doublehump(wref,R):
     f, name = wref(R)
     g = piecewise_fold(f*q*q)
-    name = "Double-hump %s" %(name)
+    name = ("Double-hump %s" %(name))
     return(g,name)
 
 def doublehump3(wref,R):
     f, name = wref(R)
     g = piecewise_fold(f*q*q*q)
-    name = "Double-hump-on-steroids %s" %(name)
+    name = ("Double-hump-on-steroids %s" %(name))
     return(g,name)
 
 def doublehump5(wref,R):
     f, name = wref(R)
     g = piecewise_fold(f*q*q*q*q*q)
-    name = "Double-hump-on-overdrive %s" %(name)
+    name = ("Double-hump-on-overdrive %s" %(name))
     return(g,name)
 
 ##############################################
@@ -260,7 +281,7 @@ def fmttex(s):
 #-------------------------------------------------------------------------------
 def fmt(e):
     import re
-    s = "%s" %e
+    s = ("%s" %e)
     # add decimal points to numbers, but not if powers like q**2 (or *2 with one digit)
     # note that \g<0> gives first matching argument in the regex
     # rules are: (not **n)(not 0.123)(match ab0123) or (not *n with one digit)
@@ -273,11 +294,11 @@ def fmt(e):
     #
     # expand if it makes it shorter
     #
-    h = "%s" %(expand(f))
+    h = ("%s" %(expand(f)))
     #f = h
     if (len(h) <= len(s)):
        f = h
-    g = "%s" %simplify(f)
+    g = ("%s" %simplify(f))
 
     # replace 1.4000000 with 1.4
     g = re.sub("(\.[1-9]*)(0+)(\D|$)","\g<1>\g<3>", g)
@@ -294,12 +315,12 @@ def fmt(e):
 #------------------------------------------------------------------------
 def fmte(e,useqsub,useodd):
     import re
-    s = "%s" %fmt(e)
+    s = ("%s" %fmt(e))
     #fs = ""
     #for arg in (split(s,' ')):
     #    fs = fs+arg
     f = sympify(s)
-    g = "%s" %simplify(f)
+    g = ("%s" %simplify(f))
     if len(g) <= len(s) + 1:
        s = g
     if (useqsub):
@@ -338,7 +359,7 @@ def wrapit(s,indent):
            pos = 72
        hunk = s[:pos]
        rest = s[pos:].lstrip()
-       s = "%s &\n" %(hunk) + " "*indent
+       s = ("%s &\n" %(hunk) + " "*indent)
        while len(rest) > 0:
            pos = rest.rfind(" ", 0, 66)
            if pos == -1 or len(rest) < 66:
@@ -346,9 +367,9 @@ def wrapit(s,indent):
            hunk = rest[:pos]
            rest = rest[pos:].lstrip()
            if len(rest) > 0:
-              s = "%s%s &\n" %(s,hunk) + " "*indent
+              s = ("%s%s &\n" %(s,hunk) + " "*indent)
            else:
-              s = "%s%s" % (s,hunk)
+              s = ("%s%s" % (s,hunk))
     return s
 
 #------------------------------------
@@ -362,7 +383,7 @@ def wrapf77(s,indent):
            pos = maxl
        hunk = s[:pos]
        rest = s[pos:].lstrip()
-       s = "%s \n" %(hunk) + "     &"+ " "*(indent-6)
+       s = ("%s \n" %(hunk) + "     &"+ " "*(indent-6))
        while len(rest) > 0:
            pos = rest.rfind(" ", 0, (maxl-6))
            if pos == -1 or len(rest) < (maxl-6):
@@ -370,9 +391,9 @@ def wrapf77(s,indent):
            hunk = rest[:pos]
            rest = rest[pos:].lstrip()
            if len(rest) > 0:
-              s = "%s%s\n" %(s,hunk) + "     &"+" "*(indent-6)
+              s = ("%s%s\n" %(s,hunk) + "     &"+" "*(indent-6))
            else:
-              s = "%s%s" % (s,hunk)
+              s = ("%s%s" % (s,hunk))
     return s
 
 #---------------------------------------------------------
@@ -381,23 +402,23 @@ def wrapf77(s,indent):
 #---------------------------------------------------------
 
 def fmtp(e):
-    s = "%s" %fmte(e,True,False)
+    s = ("%s" %fmte(e,True,False))
     s = wrapit(s,17)
     return s
 
 def fmtn(e):
-    s = "%s" %fmte(e,True,False)
+    s = ("%s" %fmte(e,True,False))
     s = wrapit(s,25)
     return s
 
 def fmts(e):
-    s = "%s" %fmte(e,True,True)
+    s = ("%s" %fmte(e,True,True))
     s = wrapf77(s,18)
     return s
 
 def stripcond(e):
     import re
-    s = "%s" %fmt(e,True,True)
+    s = ("%s" %fmt(e,True,True))
     s = re.sub("q|<|>|\s","",s)
     return s
 
@@ -557,7 +578,7 @@ def print_defs(indent,*args):
     gotq4 = False
     # look for q4, q6, q8 in function string
     for i in (4,6,8):
-       str = "q%i" %i
+       str = ("q%i" %i)
        doPrint = False
        # match in any functions about to be printed
        for arg in args:
@@ -596,17 +617,19 @@ def printkernel_phantom(w,R,name):
     dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh = getkernelfuncs(w,R)
     w0 = w.subs(q,0)
     dpotdh0 = dpotdh.subs(q,0)
+    #print("GOT dpotdh0",simplify(dpotdh0))
     #
     #--double-hump kernel used in drag routines, with normalisation
     #
     wdrag = piecewise_fold(w*q*q)
     c3Ddrag = sympify(1)/(integrate(4*pi*q*q*wdrag,(q,0,R)))
+    avm83, avm97, avratio = get_avdiss(w,R)
     lb = "!"+"-"*62
     print ("!--------------------------------------------------------------------------!")
     print ("! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !")
-    print ("! Copyright (c) 2007-2014 The Authors (see AUTHORS)                        !")
+    print ("! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !")
     print ("! See LICENCE file for usage and distribution conditions                   !")
-    print ("! http://users.monash.edu.au/~dprice/phantom                               !")
+    print ("! http://phantomsph.bitbucket.io/                                          !")
     print ("!--------------------------------------------------------------------------!")
     print ("!+")
     print ("!  MODULE: kernel")
@@ -641,6 +664,7 @@ def printkernel_phantom(w,R,name):
     var, relvar, reldev = getvar(w,R)
     print (" real, parameter, public  :: hfact_default = %.1f " %(1.2/reldev[2]))
     #print " real, parameter, public  :: hfact_default = %s " %fmt(reldev[2])
+    print (" real, parameter, public  :: av_factor = %s" %fmt(avratio))
     print ("\ncontains\n")
     print ("pure subroutine get_kernel(q2,q,wkern,grkern)")
     print (" real, intent(in)  :: q2,q")
@@ -932,11 +956,12 @@ R = sympify(2)
 
 # define which kernel to use
 #f, name = sinq(R,3)
-f, name = m4(R)
-#f, name = w2(R)
+#f, name = m5(R)
+f, name = w6(R)
 
+#print_avdiss(f,R)
 #printvariances(f,R)
-#f, name = doublehump5(m4,R)
+#f, name = doublehump(m6,R)
 
 # print the desired output
 #printkernel(f,R)

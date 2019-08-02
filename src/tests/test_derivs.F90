@@ -362,9 +362,15 @@ subroutine test_derivs(ntests,npass,string)
           call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
           call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
        endif
-       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,3.2e-2,nfailed(3),'art. visc force(x)',checkmask)
-       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,2.4e-2,nfailed(4),'art. visc force(y)',checkmask)
-       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,2.4e-2,nfailed(5),'art. visc force(z)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(3),'art. visc force(x)',checkmask)
+       do i=1,np
+          write(10,*) xyzh(1,i),fxyzu(1,i)
+       enddo
+       do i=1,np
+          write(11,*) xyzh(1,i),forceavx(xyzh(:,i))
+       enddo
+       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(4),'art. visc force(y)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(5),'art. visc force(z)',checkmask)
 
        call update_test_scores(ntests,nfailed,npass)
 #ifdef IND_TIMESTEPS
@@ -1699,6 +1705,7 @@ end function forcefuncz
 real function forceavx(xyzhi)
  use eos,     only:gamma,polyk
  use options, only:alpha
+ use kernel,  only:av_factor
  real, intent(in) :: xyzhi(4)
  real :: spsoundi,fac,coeff1,coeff2
 
@@ -1710,7 +1717,11 @@ real function forceavx(xyzhi)
 #ifdef DISC_VISCOSITY
  fac = alpha*spsoundi*xyzhi(4)
 #else
- fac = 0.5*alpha*spsoundi*xyzhi(4)
+ if (divvfunc(xyzhi) < 0.) then
+    fac = alpha*spsoundi*xyzhi(4)*av_factor
+ else
+    fac = 0.
+ endif
 #endif
  coeff1 = fac*0.1
  coeff2 = fac*0.2
@@ -1723,6 +1734,7 @@ end function forceavx
 real function forceavy(xyzhi)
  use eos,     only:gamma,polyk
  use options, only:alpha !,beta
+ use kernel,  only:av_factor
  real, intent(in) :: xyzhi(4)
  real :: spsoundi,fac,coeff1,coeff2
 
@@ -1734,7 +1746,11 @@ real function forceavy(xyzhi)
 #ifdef DISC_VISCOSITY
  fac = alpha*spsoundi*xyzhi(4)
 #else
- fac = 0.5*alpha*spsoundi*xyzhi(4)
+ if (divvfunc(xyzhi) < 0.) then
+    fac = alpha*spsoundi*xyzhi(4)*av_factor
+ else
+    fac = 0.
+ endif
 #endif
  coeff1 = fac*0.1
  coeff2 = fac*0.2
@@ -1747,6 +1763,7 @@ end function forceavy
 real function forceavz(xyzhi)
  use eos,     only:gamma,polyk
  use options, only:alpha
+ use kernel,  only:av_factor
  real, intent(in) :: xyzhi(4)
  real :: spsoundi,fac,coeff1,coeff2
 
@@ -1758,7 +1775,11 @@ real function forceavz(xyzhi)
 #ifdef DISC_VISCOSITY
  fac = alpha*spsoundi*xyzhi(4)
 #else
- fac = 0.5*alpha*spsoundi*xyzhi(4)
+ if (divvfunc(xyzhi) < 0.) then
+    fac = alpha*spsoundi*xyzhi(4)*av_factor
+ else
+    fac = 0.
+ endif
 #endif
  coeff1 = fac*0.1
  coeff2 = fac*0.2
