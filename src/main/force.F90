@@ -1152,7 +1152,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
 #ifdef DUSTGROWTH
-       sqdv2 = sqrt(dvx*dvx + dvy*dvy + dvz*dz)
+       sqdv2 = sqrt(dvx*dvx + dvy*dvy + dvz*dvz)
 #endif
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
