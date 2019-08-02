@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module testutils
- use mpiutils, only:reduce_mpi
+ use mpiutils, only:reduce_mpi,barrier_mpi
  use io,       only:id,master
  implicit none
  public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
@@ -76,6 +76,7 @@ subroutine update_test_scores(ntests,nfailed,npass)
 
  ntests = ntests + 1
  if (all(nfailed==0)) npass = npass + 1
+ call barrier_mpi()
 
 end subroutine update_test_scores
 
@@ -551,7 +552,7 @@ subroutine checkvalbuf_start(label)
  character(len=*), intent(in) :: label
 
  call print_testinfo(trim(label))
- write(*,"(a)")
+ if (id==master) write(*,"(a)")
 
  return
 end subroutine checkvalbuf_start
