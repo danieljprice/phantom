@@ -198,7 +198,6 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use memory, only:allocate_memory
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -227,8 +226,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
-
- call allocate_memory(np + sum(np_dust), part_only=.true.)
 
  !--setup units
  call setup_units()
