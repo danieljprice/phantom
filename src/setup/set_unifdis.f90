@@ -479,7 +479,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 !
 !--initialise random number generator
 !
-    if(present(inputiseed))then
+    if (present(inputiseed)) then
        iseed = inputiseed
     else
        iseed = -43587

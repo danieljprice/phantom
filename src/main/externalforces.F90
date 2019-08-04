@@ -49,6 +49,8 @@ module externalforces
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
+ logical, public :: extract_iextern_from_hdr = .false.
+
  !
  ! enumerated list of external forces
  !

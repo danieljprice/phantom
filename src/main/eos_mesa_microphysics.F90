@@ -131,7 +131,7 @@ subroutine read_opacity_mesa(x,z)
  ! Chooses the Z values from the available values which is greater than the input Z
  nz2=mesa_opacs_nz
  do zz=2,mesa_opacs_nz-1
-    if(mesa_opacs_zs(zz) >= z) then
+    if (mesa_opacs_zs(zz) >= z) then
        nz2=zz
        exit
     endif
@@ -143,7 +143,7 @@ subroutine read_opacity_mesa(x,z)
  ! Same for X
  nx2=mesa_opacs_nx
  do xx=2,mesa_opacs_nx-1
-    if(mesa_opacs_xs(xx) >= x) then
+    if (mesa_opacs_xs(xx) >= x) then
        nx2=xx
        exit
     endif
@@ -372,7 +372,7 @@ subroutine read_eos_mesa(x,z,ierr)
  ! Chooses the Z values from the available values which is greater than the input Z
  nz2=mesa_eos_nz
  do i=2,mesa_eos_nz-1
-    if(mesa_eos_z(i) >= z) then
+    if (mesa_eos_z(i) >= z) then
        nz2=i
        exit
     endif
@@ -384,11 +384,11 @@ subroutine read_eos_mesa(x,z,ierr)
 
  ! Seems to do the same as above, except for X. I can't quite figure out the weird if statements.
  do j=2,mesa_eos_nh
-    if(mesa_eos_h(j) > x.or.j==mesa_eos_nh) then
+    if (mesa_eos_h(j) > x.or.j==mesa_eos_nh) then
        nx2=j
-       if(j==2.and.mesa_eos_data_exists(i,j-2)==0) then
+       if (j==2.and.mesa_eos_data_exists(i,j-2)==0) then
           nx2=3
-       else if(j==mesa_eos_nh.and.mesa_eos_data_exists(i,mesa_eos_nh-1)==0) then
+       elseif (j==mesa_eos_nh.and.mesa_eos_data_exists(i,mesa_eos_nh-1)==0) then
           nx2=mesa_eos_nh-1
        endif
        exit

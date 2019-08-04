@@ -51,12 +51,8 @@ subroutine test_step(ntests,npass)
  use viscosity,       only:irealvisc
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
- use testutils,       only:checkval,checkvalf
+ use testutils,       only:checkval,checkvalf,update_test_scores
  use domain,          only:i_belong
-#endif
-#ifdef IND_TIMESTEPS
- use timestep_ind, only: nbinmax
- use part,         only: ibin
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
@@ -152,8 +148,7 @@ subroutine test_step(ntests,npass)
        call checkval(npart,dBevol(3,:),0.,tiny(0.),nfailed(8),'dBevolz/dt')
        if (maxBevol==4) call checkval(npart,dBevol(4,:),0.,tiny(0.),nfailed(9),'dpsi/dt')
     endif
-    ntests = ntests + 1
-    if (all(nfailed(:)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
  enddo
 
  if (id==master) write(*,"(/,a)") '<-- STEP TEST COMPLETE'

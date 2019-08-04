@@ -53,6 +53,10 @@ module extern_binary
 
  real, private :: x1,y1,x2,y2
 
+ ! Required for HDF5 compatibility
+ real, public :: a0 = 0.
+ real, public :: direction = 0.
+
 contains
 
 !----------------------------------------------

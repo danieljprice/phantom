@@ -298,7 +298,7 @@ subroutine check_dust_method(dust_method,ichange_method)
                    grainsize,graindens,ndusttypes
  integer,          intent(inout) :: dust_method
  logical,          intent(out)   :: ichange_method
- integer :: i,l,iregime,ierr,icheckdust
+ integer :: i,l,iregime,ierr,icheckdust(maxdusttypes)
  real    :: r,rhogasi,rhodusti,rhoi,dustfracisum,spsoundi
  real    :: dustfraci(maxdusttypes),tsi(maxdusttypes)
  character(len=120) :: string
@@ -309,7 +309,7 @@ subroutine check_dust_method(dust_method,ichange_method)
  call init_drag(ierr)
 
  dustfraci(:) = 0.
- icheckdust = 0
+ icheckdust(:) = 0
  do i=1,npart
     r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
     if (use_dustfrac) then
@@ -321,8 +321,8 @@ subroutine check_dust_method(dust_method,ichange_method)
        do l=1,ndusttypesinp
           rhodusti = rhoi*dustfraci(l)
           call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
+          if (tsi(l) > xyzh(4,i)/spsoundi) icheckdust(l) = icheckdust(l) + 1
        enddo
-       if (any(tsi(1:ndusttypes) > xyzh(4,i)/spsoundi)) icheckdust = icheckdust + 1
     endif
  enddo
 
@@ -330,9 +330,9 @@ subroutine check_dust_method(dust_method,ichange_method)
  if (trim(string)=='yes') iforce_dust_method = .true.
 
  ichange_method = .false.
- if (real(icheckdust)/real(npart) > 0.1 .and. .not.iforce_dust_method) then
+ if (any(real(icheckdust)/real(npart) > 0.1) .and. .not.iforce_dust_method) then
     if (dust_method == 1) then
-       use_dustfrac = .false.
+       ! use_dustfrac = .false.
        ichange_method = .true.
        dust_method = 2
     endif
@@ -345,6 +345,12 @@ subroutine check_dust_method(dust_method,ichange_method)
     print*,'    We suggest you switch to the "two-fluid" method. You can set the'
     print*,'    environment variable IFORCE_DUST_METHOD=yes to not see this message'
     print*,'    again.'
+    print*,''
+    do l=1,ndusttypesinp
+       write(*,'(a,I2,a,F4.0,a)') "     Particles for grainsize(", l, &
+          ") not satisfying the condition: ",  &
+          real(icheckdust(l))/real(npart)*100,"%"
+    enddo
     print*,''
     print*,'-------------------------------------------------------------------------------'
     print*,''

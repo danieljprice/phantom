@@ -32,7 +32,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: evwrite, io, io_summary, part, step_lf_global, timestep,
+!  DEPENDENCIES: io, io_summary, part, step_lf_global, timestep,
 !    timestep_ind, timestep_sts
 !+
 !--------------------------------------------------------------------------
@@ -63,7 +63,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
                            sts_initialise_activity,sts_set_active_particles,nnu
  use io,             only: fatal
  use step_lf_global, only: step
- use evwrite,        only: write_evfile
  integer, intent(inout) :: npart,nactive
  integer, intent(in)    :: iprint
  real,    intent(in)    :: time,dt
@@ -136,7 +135,6 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
     !
     ! Call step
     call step(npart,nactive,timei,dtau0,dtextforce,dtnew)
-    !  call write_evfile(timei,dtau)
     call summary_counter(iosum_nsts)
     dtsum      = dtsum + dtau0
     timei      = timei + dtau0
@@ -184,9 +182,9 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  if (iverbose>=1) then
     if (icase_sts==iNsts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNmegasts) then
+    elseif (icase_sts==iNmegasts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts*Nmega = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
+    elseif (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
        write(iprint,20)      &
        'Super-timestepping: Disabled.  Using Nreal = ',Nreal,' at time = ',time
     else
@@ -204,16 +202,16 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
     call summary_variable('sts',iosumsts  ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnn,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsi ,0,real(Nviaibin)     )
- else if (icase_sts==iNmegasts) then
+ elseif (icase_sts==iNmegasts) then
     call summary_variable('sts',iosumstsm ,0,real(Nmegasts_next))
     call summary_variable('sts',iosumstsr ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnm,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsri,0,real(Nviaibin)     )
- else if (icase_sts==iNostsSml) then
+ elseif (icase_sts==iNostsSml) then
     call summary_variable('sts',iosumstsd ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsns,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsdi,0,real(Nviaibin)     )
- else if (icase_sts==iNostsBig) then
+ elseif (icase_sts==iNostsBig) then
     call summary_variable('sts',iosumstso ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnl,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsoi,0,real(Nviaibin)     )

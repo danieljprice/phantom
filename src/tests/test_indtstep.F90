@@ -32,7 +32,7 @@ contains
 subroutine test_indtstep(ntests,npass)
  use io,              only:id,master
 #ifdef IND_TIMESTEPS
- use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
+ use testutils,       only:checkvalbuf,checkvalbuf_end,checkval,update_test_scores
  use timestep_ind,    only:change_nbinmax,get_newbin,maxbins,istepfrac,nbinmax
  use io,              only:iverbose
 #endif
@@ -51,7 +51,6 @@ subroutine test_indtstep(ntests,npass)
  !
  !--test that the get_newbin routine returns the correct timestep bin
  !
- ntests = ntests + 1
  nfailed(:) = 0
  dtmax = 1.
  istepfrac = 0
@@ -71,7 +70,7 @@ subroutine test_indtstep(ntests,npass)
  !--check dt = 0.
  call get_newbin(0.,dtmax,ibini)
  call checkval(int(ibini),maxbins,0,nfailed(32),'bin for dt = 0')
- if (all(nfailed==0)) npass = npass + 1
+ call update_test_scores(ntests,nfailed,npass)
 
  ncheck  = 0
  nfailed = 0
@@ -80,7 +79,6 @@ subroutine test_indtstep(ntests,npass)
  iverbose = 0
 
  if (id==master) print "(/,a)",' ---> checking change_nbinmax routine'
- ntests = ntests + 2
  !
  !--loop over all possible timestep bins
  !
@@ -126,8 +124,8 @@ subroutine test_indtstep(ntests,npass)
 
  call checkvalbuf_end('increasing nbins keeps step fraction',ncheck(1),nfailed(1),errmax1,tiny(0.))
  call checkvalbuf_end('decreasing nbins keeps step fraction',ncheck(2),nfailed(2),errmax2,tiny(0.))
- if (nfailed(1)==0) npass = npass + 1
- if (nfailed(2)==0) npass = npass + 1
+ call update_test_scores(ntests,nfailed(1:1),npass)
+ call update_test_scores(ntests,nfailed(2:2),npass)
 
  ! reset nbinmax to avoid problems with subsequent tests
  nbinmax = 0

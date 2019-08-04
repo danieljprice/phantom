@@ -24,7 +24,7 @@
 !+
 !--------------------------------------------------------------------------
 module testgrowth
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_growth
@@ -55,14 +55,13 @@ subroutine test_growth(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> testing growth initialisation'
 
  nfailed = 0
- ntests  = ntests + 1
  do ifrag=0,2
     do isnow=0,2
        call init_growth(ierr)
        call checkval(ierr,0,0,nfailed(ifrag+isnow+1),'growth initialisation')
     enddo
  enddo
- if (all(nfailed==0)) npass = npass + 1
+ call update_test_scores(ntests,nfailed,npass)
 
  !
  ! GROWINGBOX test
@@ -128,6 +127,7 @@ subroutine test_growingbox(ntests,npass)
  real                   :: Stj
  real                   :: s
  real                   :: Vt
+ real                   :: vrel
  real                   :: vrelonvfrag
  real                   :: csb(10000)
  real                   :: cs_snow
@@ -152,7 +152,7 @@ subroutine test_growingbox(ntests,npass)
  integer                :: nerr(9)
  integer                :: ierr
 
- real, parameter        :: tols = 5.e-4
+ real, parameter        :: tols = 5.e-5
 
  logical                :: do_output = .false.
 
@@ -369,9 +369,11 @@ subroutine test_growingbox(ntests,npass)
  dustprop(1,:) = sinit
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- vfragin       = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
- vfragout      = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel > vfrag : fragmentation
+ vrel          = sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)
+ vfragin       = 10**vrel ! vrel < vfrag : growth
+ vfragout      = 0.1*vrel ! vrel > vfrag : fragmentation
  isnow         = 1
+ ifrag         = 1
  rsnow         = 0.2
 
  t = 0
@@ -385,8 +387,8 @@ subroutine test_growingbox(ntests,npass)
     t     = t + dt
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-    si    = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
-    so    = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+    si    = sinit + rhozero/dens*vrel*t
+    so    = sinit - rhozero/dens*vrel*t
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,csb,npart,'snowline_pos_')
     do j=1,npart
        r  = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
@@ -394,8 +396,8 @@ subroutine test_growingbox(ntests,npass)
        if (r > rsnow) call checkvalbuf(dustprop(1,j)/so,1.,10*tols,'size',nerr(7),ncheck(7),errmax(7))
     enddo
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),10*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7),10*tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(6),nerr(6),errmax(6),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(7),nerr(7),errmax(7),tols)
  !
  ! testing growth inside the snow line and fragmentation outside of it
  !
@@ -406,8 +408,6 @@ subroutine test_growingbox(ntests,npass)
  dustprop(1,:) = sinit
  dustprop(3,:) = 0.
  dustprop(4,:) = 0.
- vfragin       = vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel < vfrag : growth
- vfragout      = 1/vrelonvfrag*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1) ! vrel > vfrag : fragmentation
  isnow         = 2
  Tsnow         = 300000.
  ieos          = 3
@@ -434,18 +434,18 @@ subroutine test_growingbox(ntests,npass)
     do j=1,npart
        csb(j)   = get_spsound(ieos,xyzh(:,j),rhozero,vxyzu(:,j))
        Vt       = sqrt(2**(0.5)*shearparam*Ro)*csb(j)
-       s_in(j)  = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
-       s_out(j) = sinit - rhozero/dens*sqrt(2.)*Vt*sqrt(Stj)/(Stj+1)*t
+       vrel     = sqrt(2.)*Vt*sqrt(Stj)/(1+Stj)
+       s_in(j)  = sinit + rhozero/dens*vrel*t
+       s_out(j) = sinit - rhozero/dens*vrel*t
        if (csb(j) > cs_snow) call checkvalbuf(dustprop(1,j)/s_in(j),1.,10*tols,'size',nerr(8),ncheck(8),errmax(8))
        if (csb(j) < cs_snow) call checkvalbuf(dustprop(1,j)/s_out(j),1.,10*tols,'size',nerr(9),ncheck(9),errmax(9))
     enddo
     if (do_output) call write_file(i,dt,xyzh,dustprop/sinit,csb/cs_snow,npart,'snowline_temp_')
  enddo
- call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),10*tols)
- call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),10*tols)
+ call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),tols)
+ call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),tols)
 
- if (all(nerr(1:9)==0)) npass = npass + 1
- ntests = ntests + 1
+ call update_test_scores(ntests,nerr(1:9),npass)
 
 end subroutine test_growingbox
 
@@ -470,7 +470,7 @@ subroutine check_interpolations(ntests,npass)
  use mpiutils,       only:reduceall_mpi
  use physcon,        only:au,solarm,Ro
  use viscosity,      only:shearparam
- use units,          only:set_units,unit_velocity
+ use units,          only:set_units
 
  integer,intent(inout) :: ntests,npass
 
@@ -481,21 +481,24 @@ subroutine check_interpolations(ntests,npass)
  integer         :: npart_previous
  integer         :: i
  integer         :: j
- integer         :: k
  integer         :: nsteps
- integer         :: ncheck(24)
- integer         :: nerr(24)
+ integer         :: modu
+ integer         :: noutputs
+ integer         :: ncheck(4)
+ integer         :: nerr(4)
+
+ logical         :: do_output = .false.
 
  real            :: deltax
  real            :: dz
  real            :: hfact
  real            :: totmass
  real            :: rhozero
- real            :: errmax(24)
+ real            :: errmax(4)
  real            :: dtext_dum
- real            :: Stcomp
+ real            :: Stcomp(20000)
  real            :: cscomp
- real            :: s
+ real            :: s(20000)
  real            :: r
  real            :: sinit
  real            :: dens
@@ -506,14 +509,16 @@ subroutine check_interpolations(ntests,npass)
  real            :: dtnew
  real            :: dv
  real            :: Vt
+ real            :: vini
 
- real, parameter :: tolst = 5.e-3
- real, parameter :: tolcs = 5.e-3
- real, parameter :: tols  = 5.e-3
+ real, parameter :: tolst = 5.e-4
+ real, parameter :: tolcs = 5.e-4
+ real, parameter :: tols  = 5.e-4
  real, parameter :: toldv = 5.e-3
 
  sinit = 1.
  dens  = 1.
+ vini  = 1.
 
  write(*,"(/,a)")'--> testing INTERPOLATIONS'
 
@@ -545,7 +550,7 @@ subroutine check_interpolations(ntests,npass)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
        vxyzu(:,i)       = 0.
-       if (itype == idust) vxyzu(1,i) = 1.
+       if (itype == idust) vxyzu(1,i) = vini
        fext(:,i)           = 0.
        if (mhd) Bevol(:,i) = 0.
        if (use_dust) then
@@ -571,69 +576,52 @@ subroutine check_interpolations(ntests,npass)
  shearparam = 0.01
  iinterpol  = .true.
  dv         = 0.
- dt         = 1.e-3
- nsteps     = 100
- tmax       = nsteps*dt
+ dt         = 5.e-3
+ tmax       = 0.1
+ nsteps     = int(tmax/dt)
+ noutputs   = 200
+ if (noutputs > nsteps) noutputs = nsteps
+ modu       = int(nsteps/noutputs)
  ncheck(:)  = 0
  nerr(:)    = 0
  errmax(:)  = 0.
 
  call init_step(npart,t,dtmax)
 
+ t                   = 0.
+ K_code              = 0.5
+ cscomp              = 1.
+ polyk               = cscomp**2.
+
  !
- ! call derivs the first time around
+ ! run dustybox problem
  !
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
-
- do k=1,6
-
-    t                   = 0.
-    K_code              = 10.**(-k+3.5)
-    cscomp              = (10.**(k/2.+1.))/unit_velocity
-    polyk               = cscomp**2.
-
-    write(*,"(/,a,es8.1,a,es8.2,a)")'-------- St ~ ',1./(2.*K_code),' , cs = ',cscomp*unit_velocity,' m/s --------'
-
-    !
-    ! run dustybox problem
-    !
-    do i=1,nsteps
-       t     = t + dt
-       dtext = dt
-       call step(npart,npart,t,dt,dtext,dtnew)
-       do j=1,npart
-          if (iamdust(iphase(j))) then
-             r      = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
-             Stcomp = 1./(2.*K_code*r**(1.5))
-             s      = sinit + rhozero/dens*sqrt(2.**(3./2.)*Ro*shearparam)*cscomp*sqrt(Stcomp)/(1+Stcomp)*t
-             Vt = sqrt(sqrt(2.)*Ro*shearparam)*cscomp
-             dv     = exp(-2.*K_code*t)/Vt
-             call checkvalbuf(St(j)/Stcomp,1.,tolst,'St',nerr(k),ncheck(k),errmax(k))
-             call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(k+6),ncheck(k+6),errmax(k+6))
-             !call checkvalbuf(dustprop(4,j)/dv,1.,toldv,'dv',nerr(k+12),ncheck(k+12),errmax(k+12))
-             call checkvalbuf(dustprop(1,j)/s,1.,tols,'size',nerr(k+18),ncheck(k+18),errmax(k+18))
-          endif
-       enddo
-    enddo
-    call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(k),nerr(k),errmax(k),tolst)
-    call checkvalbuf_end('sound speed interpolation match exact solution',ncheck(k+6),nerr(k+6),errmax(k+6),tolcs)
-    !call checkvalbuf_end('dv interpolation match exact solution',ncheck(k+12),nerr(k+12),errmax(k+12),toldv)
-    call checkvalbuf_end('size integration match exact solution',ncheck(k+18),nerr(k+18),errmax(k+18),tols)
-
+ do i=1,nsteps
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
     do j=1,npart
-       St(j)            = 0.
-       vxyzu(:,j)       = 0.
        if (iamdust(iphase(j))) then
-          dustprop(1,j) = sinit
-          csound(j)     = 0.
-          vxyzu(1,j)    = 1.
+          r         = sqrt(xyzh(1,j)**2+xyzh(2,j)**2+xyzh(3,j)**2)
+          Stcomp(j) = 1./(2.*K_code*r**(1.5))
+          Vt        = sqrt(sqrt(2.)*Ro*shearparam)*cscomp
+          s(j)      = sinit + rhozero/dens*sqrt(2.)*Vt*sqrt(Stcomp(j))/(1+Stcomp(j))*t
+          dv        = vini*exp(-2.*K_code*t)
+          call checkvalbuf(St(j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
+          call checkvalbuf(csound(j)/cscomp,1.,tolcs,'csound',nerr(2),ncheck(2),errmax(2))
+          call checkvalbuf(dustprop(4,j)/dv,1.,toldv,'dv',nerr(3),ncheck(3),errmax(3))
+          if (vini == 0.) call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(4),ncheck(4),errmax(4))
        endif
     enddo
+    if (do_output .and. mod(i,modu)==0) call write_file_err(i,dt,xyzh,dustprop,s,St,&
+                                           Stcomp,csound,cscomp,dv,npart,"blah_")
+    t = t + dt
  enddo
+ call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(1),nerr(1),errmax(1),tolst)
+ call checkvalbuf_end('sound speed interpolation match exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
+ call checkvalbuf_end('dv interpolation match exact solution',ncheck(3),nerr(3),errmax(3),toldv)
+ if (vini == 0.) call checkvalbuf_end('size integration match exact solution',ncheck(4),nerr(4),errmax(4),tols)
 
- ntests = ntests + 1
- if (all(nerr(1:24)==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:4),npass)
 
 end subroutine check_interpolations
 !---------------------------------------------------
@@ -660,6 +648,29 @@ subroutine write_file(step,dt,xyzh,dustprop,cs,npart,prefix)
  close(lu)
 
 end subroutine write_file
+
+subroutine write_file_err(step,dt,xyzh,dustprop,scomp,St,Stcomp,cs,cscomp,dvcomp,npart,prefix)
+ use part,                     only:iamdust,iphase
+ real, intent(in)              :: dt,dvcomp,cscomp
+ real, intent(in)              :: xyzh(:,:),dustprop(:,:),cs(:),St(:),Stcomp(:),scomp(:)
+ character(len=*), intent(in)  :: prefix
+ integer, intent(in)           :: npart,step
+ character(len=30)             :: filename,str
+ integer                       :: i,lu
+
+ write(str,"(i000.4)") step
+ filename = prefix//trim(adjustl(str))//'.txt'
+ open(newunit=lu,file=filename,status='replace')
+ write(lu,*) step*dt
+ write(lu,*) "x   y   z   s   scomp   St   Stcomp   cs   cscomp   dv   dvcomp"
+ do i=1,npart
+    if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),dustprop(1,i),&
+       scomp(i),St(i),Stcomp(i),cs(i),cscomp,dustprop(4,i),dvcomp
+ enddo
+ close(lu)
+
+end subroutine write_file_err
+
 #endif
 #endif
 

@@ -669,12 +669,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           if (do_sigmapringle) then
              term_pr = 0.
           else
-             if (smooth_sigma .and. R > R_in) then
-                !--R < R_in can happen because of disc shifting
-                term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(R/R_in) - 1.))
-             else
-                term_pr = -cs**2*(1.5+p_index+q_index)
-             endif
+             ! NB: We do NOT correct for the smoothing of the inner disc profile in
+             ! the orbital speed (as we did previously), this produces a strong response
+             ! which is not desired. Instead we allow a non-zero vr in the inner disc
+             term_pr = -cs**2*(1.5+p_index+q_index)
           endif
           if (term + term_pr < 0.) then
              call fatal('set_disc', 'set_disc_velocities: '// &
@@ -888,10 +886,10 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
- if(itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
+ if (itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
- if(itype == igas)then
+ if (itype == igas) then
     vxyzutmp = 0.
     T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
     call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
@@ -913,7 +911,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- if(itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if (itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
