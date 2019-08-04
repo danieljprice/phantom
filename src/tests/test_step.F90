@@ -53,10 +53,6 @@ subroutine test_step(ntests,npass)
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
 #endif
-#ifdef IND_TIMESTEPS
- use timestep_ind, only: nbinmax
- use part,         only: ibin
-#endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
