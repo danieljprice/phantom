@@ -333,7 +333,7 @@ logical function summary_printnow()
  if ( iosum_print /= 0 ) then
     if (mod(iosum_nstep(iosum_nreal),iosum_print)==0 .or. &
         (dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print)) then
-      summary_printnow = .true.
+       summary_printnow = .true.
     endif
  endif
 
