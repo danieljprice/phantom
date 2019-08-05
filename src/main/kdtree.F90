@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,maxp_hard,ncellsmax,minpart
+ use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi

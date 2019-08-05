@@ -74,7 +74,8 @@ module setup
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
-                            iext_einsteinprec,iext_corot_binary,iext_corotate
+                            iext_einsteinprec,iext_corot_binary,iext_corotate,&
+                            update_externalforce
  use extern_binary,    only:binarymassr,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
@@ -90,7 +91,7 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,isetdust,dustbinfrac
+                            ndusttypesinp,isetdust,dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
 
  implicit none
@@ -182,8 +183,12 @@ module setup
  character(len=20) :: dist_unit,mass_unit
 
  !--time
+ real    :: tinitial
  real    :: deltat
  integer :: norbits
+
+ !--other
+ logical :: ichange_method
 
 contains
 
@@ -216,6 +221,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set default options
  call set_default_options()
 
+ !--set time
+ time = tinitial
+
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
 
@@ -241,7 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call calculate_disc_mass()
 
  !--setup disc(s)
- call setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,npartoftype,massoftype,xyzh,vxyzu)
+ call setup_discs(id,fileprefix,hfact,gamma,npart,polyk,npartoftype,massoftype,xyzh,vxyzu)
 
  !--planet atmospheres
  call planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
@@ -250,7 +258,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call initialise_dustprop(npart)
 
  !--check dust method for validity
- call check_dust_method_valid(id,npart)
+ call check_dust_method(dust_method,ichange_method)
 
  !--print information about the angular momenta
  call print_angular_momentum(npart,xyzh,vxyzu)
@@ -288,6 +296,9 @@ end subroutine setpart
 subroutine set_default_options()
 
  integer :: i
+
+ !--time
+ tinitial = 0.
 
  !--units
  dist_unit = 'au'
@@ -391,7 +402,7 @@ subroutine set_default_options()
  gsizemincgs = 1.e-3
 
  !--resolution
- np = 500000
+ np = 1000000
  np_dust = np/maxdustlarge/5
 
  !--planets
@@ -574,10 +585,10 @@ subroutine equation_of_state(gamma)
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif(iuse_disc(2))then
+          elseif (iuse_disc(2)) then
              qfacdisc = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
@@ -722,6 +733,7 @@ subroutine setup_central_objects()
        blackhole_spin_angle = bhspinangle*(pi/180.0)
        mcentral             = m1
     end select
+    call update_externalforce(iexternalforce,tinitial,0.)
  case (1)
     select case (nsinks)
     case (1)
@@ -902,14 +914,13 @@ end subroutine calculate_disc_mass
 ! Set up the discs
 !
 !--------------------------------------------------------------------------
-subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
+subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                        npartoftype,massoftype,xyzh,vxyzu)
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
- real,              intent(out)   :: time
  real,              intent(out)   :: hfact
  real,              intent(in)    :: gamma
  integer,           intent(out)   :: npart
@@ -929,7 +940,6 @@ subroutine setup_discs(id,fileprefix,time,hfact,gamma,npart,polyk,&
  character(len=100) :: prefix
  character(len=100) :: dustprefix(maxdusttypes)
 
- time  = 0.
  hfact = hfact_default
  incl    = incl*(pi/180.0)
  posangl = posangl*(pi/180.0)
@@ -1308,28 +1318,6 @@ end subroutine initialise_dustprop
 
 !--------------------------------------------------------------------------
 !
-! Check the chosen dust method for validity
-!
-!--------------------------------------------------------------------------
-subroutine check_dust_method_valid(id,npart)
- use set_dust_options, only:check_dust_method
- integer, intent(in) :: id
- integer, intent(in) :: npart
-
- logical :: ichange_method
-
- call check_dust_method(dust_method,ichange_method)
- if (ichange_method .and. id==master) then
-    np_dust = npart/5
-    call write_setupfile(filename)
-    print "(/,a)",' >>> please rerun the setup routine <<<'
-    stop
- endif
-
-end subroutine check_dust_method_valid
-
-!--------------------------------------------------------------------------
-!
 ! Print angular momentum information
 !
 !--------------------------------------------------------------------------
@@ -1512,7 +1500,7 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
        elseif (accrplanet(i) > 0.5) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
-       elseif(accrplanet(i)*Hill(i) > accr1) then
+       elseif (accrplanet(i)*Hill(i) > accr1) then
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
@@ -1754,15 +1742,15 @@ subroutine setup_interactive()
        ! the equations below, however changing them here is not enough. They need
        ! to be changed also in the the setpart function.
        !--------------------------------------------------------------------------
-       if(.not. use_global_iso) then
+       if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
              H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
              H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
           else
-             if(iuse_disc(2))then
+             if (iuse_disc(2)) then
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
@@ -1903,10 +1891,10 @@ subroutine setup_interactive()
  if (setplanets==1) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==1) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     deltat  = 0.01
     norbits = 1
     call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
@@ -2100,7 +2088,7 @@ subroutine write_setupfile(filename)
           if (itapergas(i)) then
              if (itapersetgas(i)==0) then
                 taper_string = 'exp[-(R/R_c)^(2-p)]'
-             else if(itapersetgas(i)==1) then
+             elseif (itapersetgas(i)==1) then
                 taper_string = '[1-exp(R-R_out)]'
              endif
           endif
@@ -2177,7 +2165,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# timestepping'
  if (setplanets==1) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
  else
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
@@ -2483,6 +2471,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real    :: sigma_gas
  real    :: sigma_dust
 
+ dust_to_gas = 0.
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -2512,7 +2501,6 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
           dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-
     dustfrac(:,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(:)
 
  enddo

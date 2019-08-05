@@ -7,7 +7,7 @@
 #  Written by: Daniel Price Jan. 2018 (revised Feb 2019)
 #
 #--------------------------------------------------------
-webdir=$PWD/web;
+webdir=$PWD/phantomsph.bitbucket.org;
 outdir=$webdir/nightly/stats/;
 if [ -d $outdir ]; then
    dir=$outdir;

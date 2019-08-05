@@ -101,8 +101,12 @@ module ptmass
 contains
 !----------------------------------------------------------------
 !+
-!  if (tofrom==.true.)  acceleration from/to gas particles due to sink particles
-!  if (tofrom==.false.) acceleration on gas due to sink particles (but not vice-versa)
+!  if (tofrom==.true.)  Acceleration from/to gas particles due to sink particles;
+!                       required in initial.F90 & step_leapfrog.F90 to update all accelerations
+!  if (tofrom==.false.) Acceleration on gas due to sink particles (but not vice-versa);
+!                       this is typically used to calculate phi (in compute_energies in
+!                       energies.F90); in this case, fxi,fyi,fzi should be dummy input
+!                       variables that do not affect the sink's motion.
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
@@ -819,7 +823,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
- use io_summary, only:summary_variable_rhomax,summary_ptmass_fail
+ use io_summary, only:summary_variable_rhomax,summary_ptmass_fail, &
+                      inosink_notgas,inosink_divv,inosink_h,inosink_active, &
+                      inosink_therm,inosink_grav,inosink_Etot,inosink_poten,inosink_max
  use mpiutils, only:reduceall_mpi,bcast_mpi,reduceloc_mpi
  integer,         intent(inout) :: nptmass
  integer,         intent(in)    :: npart,itest
@@ -848,13 +854,13 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: pmassi,pmassj,pmassk,ponrhoj,rhoj,spsoundj
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real(4) :: divvi,potenj_min,poteni
- integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail7(7),id_rhomax
+ integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
  logical :: accreted,iactivej,isdustj,iactivek,isdustk,calc_exact_epot
 
- ifail  = 0
- ifail7 = 0
- poteni = 0._4
- potenj_min = huge(poteni)
+ ifail       = 0
+ ifail_array = 0
+ poteni      = 0._4
+ potenj_min  = huge(poteni)
 !
 ! find the location of the maximum density across
 ! all MPI threads
@@ -862,8 +868,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  rhomax = 0.
  if (itest > 0 .and. itest <= npart) then
     iphasei = iphase(itest)
-    itype = iamtype(iphasei)
-    rhomax = rhoh(xyzh(4,itest),massoftype(itype))
+    itype   = iamtype(iphasei)
+    rhomax  = rhoh(xyzh(4,itest),massoftype(itype))
  endif
  call reduceloc_mpi('max',rhomax,id_rhomax)
 !
@@ -927,25 +933,25 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  ! CHECK 0: make sure particle is a gas particle (sanity check, should be unnecessary)
  if (itype /= igas) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because not a gas particle'
-    call summary_ptmass_fail(5)
+    call summary_ptmass_fail(inosink_notgas)
     if (.not. record_created) return
-    ifail7(5) = 1
+    ifail_array(inosink_notgas) = 1
  endif
 
  ! CHECK 1: divv < 0
  if (divvi > 0._4) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because div v > 0'
-    call summary_ptmass_fail(6)
+    call summary_ptmass_fail(inosink_divv)
     if (.not. record_created) return
-    ifail7(6) = 1
+    ifail_array(inosink_divv) = 1
  endif
 
  ! CHECK 2: 2h < h_acc
  if (hi > 0.5*h_acc) then
     if (iverbose >= 1) write(iprint,"(/,1x,a,es10.3,a,es10.3,a)") 'ptmass_create: FAILED because 2h > h_acc (',h_acc,')'
-    call summary_ptmass_fail(7)
+    call summary_ptmass_fail(inosink_h)
     if (.not. record_created) return
-    ifail7(7) = 1
+    ifail_array(inosink_h) = 1
  endif
 
  h_acc2 = h_acc*h_acc
@@ -1015,8 +1021,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 #ifdef IND_TIMESTEPS
        ibin_wake(j) = max(ibin_wake(j),ibin_itest)
-       if (.not.iactivej .or. ifail==1) then
-          ifail = 1
+       if (.not.iactivej .or. ifail==inosink_active) then
+          ifail = inosink_active
           cycle over_neigh
        endif
 #endif
@@ -1147,17 +1153,17 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  endif
  !
  !--Update tracking array & reset ifail if required
- !  Note that if ifail7(5,6,7)==1 and record_created==.false., this subroutine will
- !  already have been exited, and this loop will never be reached
+ !  Note that if ifail_array(inosink_notgas,inosink_divv,inosink_h)==1 and record_created==.false.,
+ !  this subroutine will already have been exited, and this loop will never be reached
  if ( record_created ) then
-    if ( ifail==1 ) then
-       ifail7(1) = 1
-    elseif (ifail7(5)==1) then
-       ifail = 5
-    elseif (ifail7(6)==1) then
-       ifail = 6
-    elseif (ifail7(7)==1) then
-       ifail = 7
+    if ( ifail==inosink_active ) then
+       ifail_array(inosink_active) = 1
+    elseif (ifail_array(inosink_notgas)==1) then
+       ifail = inosink_notgas
+    elseif (ifail_array(inosink_divv)==1) then
+       ifail = inosink_divv
+    elseif (ifail_array(inosink_h)==1) then
+       ifail = inosink_h
     endif
  endif
  !
@@ -1167,7 +1173,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  !
  ! Continue checks (non-sensical for ifail==1 since energies not completely calculated)
  !
- if (ifail==0 .or. (record_created .and. ifail > 1)) then
+ if (ifail==0 .or. (record_created .and. ifail /= inosink_active)) then
     ! finish computing energies
     ekin  = 0.5*ekin
     erotx = 0.5*erotx
@@ -1191,21 +1197,21 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        ! CHECK 4: ratio of thermal to gravitational energy alpha <= 1/2 (Eq. 2.9 of BBP95)
        alpha_grav = abs(etherm/epot)
        if (alpha_grav > 0.5) then
-          ifail     = 2
-          ifail7(2) = 1
+          ifail     = inosink_therm
+          ifail_array(inosink_therm) = 1
        endif
 
        ! CHECK 5: ratio of thermal to grav plus ratio of rotational to grav energy <= 1 (Eq. 2.10 of BBP95)
        alphabeta_grav = alpha_grav + abs(erot/epot)
        if (alphabeta_grav > 1.0) then
-          ifail     = 3
-          ifail7(3) = 1
+          ifail     = inosink_grav
+          ifail_array(inosink_grav) = 1
        endif
 
        ! CHECK 7: particle i is at minimum in potential
        if (poteni > potenj_min) then
-          ifail = 5
-          ifail7(5) = 1
+          ifail = inosink_poten
+          ifail_array(inosink_poten) = 1
        endif
     else
        alpha_grav     = 0.0
@@ -1215,8 +1221,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! CHECK 6: total energy of clump is < 0
     etot = ekin + etherm + epot
     if (etot > 0.) then
-       ifail     = 4
-       ifail7(4) = 1
+       ifail     = inosink_Etot
+       ifail_array(inosink_Etot) = 1
     endif
  else
     alpha_grav     = 0.0
@@ -1228,23 +1234,23 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
  if (iverbose >= 1 .and. id==id_rhomax) then
     select case(ifail)
-    case(5)
-       write(iprint,"(/,1x,a,'phi = ',es10.3,' min =',es10.3)") &
-       'ptmass_create: FAILED because not at potential minimum ',poteni,potenj_min
-    case(4)
-       write(iprint,"(/,1x,a,es10.3)") &
-       'ptmass_create: FAILED because total energy > 0, etot = ',etot
-    case(3)
-       write(iprint,"(/,1x,a,2es10.3)") &
-       'ptmass_create: FAILED because alpha_grav + beta_grav > 1, alpha, beta = ',alpha_grav, abs(erot/epot)
-    case(2)
-       write(iprint,"(/,1x,a,es10.3)") &
-       'ptmass_create: FAILED because thermal energy/grav energy > 0.5: alpha_grav = ',alpha_grav
-    case(1)
-       write(iprint,"(/,1x,a)") &
-       'ptmass_create: FAILED because not all particles within h_acc are active'
     case(0)
        write(iprint,"(1x,a)") 'ptmass_create: OK'
+    case(inosink_active)
+       write(iprint,"(/,1x,a)") &
+       'ptmass_create: FAILED because not all particles within h_acc are active'
+    case(inosink_therm)
+       write(iprint,"(/,1x,a,es10.3)") &
+       'ptmass_create: FAILED because thermal energy/grav energy > 0.5: alpha_grav = ',alpha_grav
+    case(inosink_grav)
+       write(iprint,"(/,1x,a,2es10.3)") &
+       'ptmass_create: FAILED because alpha_grav + beta_grav > 1, alpha, beta = ',alpha_grav, abs(erot/epot)
+    case(inosink_Etot)
+       write(iprint,"(/,1x,a,es10.3)") &
+       'ptmass_create: FAILED because total energy > 0, etot = ',etot
+    case(inosink_poten)
+       write(iprint,"(/,1x,a,'phi = ',es10.3,' min =',es10.3)") &
+       'ptmass_create: FAILED because not at potential minimum ',poteni,potenj_min
     case default
        write(iprint,"(/,1x,a)") 'ptmass_create: FAILED (unknown reason)'
     end select
@@ -1318,8 +1324,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  endif
  ! print details to file, if requested
  if (record_created) then
-    write(iscfile,'(es18.10,1x,3(i18,1x),5(es18.9,1x),7(i18,1x))') &
-       time,nptmass+1,itest,nneigh,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,ifail7
+    write(iscfile,'(es18.10,1x,3(i18,1x),5(es18.9,1x),8(i18,1x))') &
+       time,nptmass+1,itest,nneigh,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,ifail_array
     call flush(iscfile)
  endif
 
@@ -1358,8 +1364,8 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  if (record_created) then
     filename = trim(pt_prefix)//"SinkCreated"//trim(pt_suffix)
     open(unit=iscfile,file=trim(filename),form='formatted',status='replace')
-    write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 10-17: 0 = T, 1 = F")')
-    write(iscfile,"('#',16(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 10-18: 0 = T, 1 = F")')
+    write(iscfile,"('#',17(1x,'[',i2.2,1x,a11,']',2x))") &
            1,'time', &
            2,'nptmass+1', &
            3,'itest',     &
@@ -1369,13 +1375,14 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
            7,'alpha',     &
            8,'alphabeta', &
            9,'etot',      &
-          10,'all active',&
-          11,'alpha < 0', &
-          12,'a+b <= 1',  &
-          13,'etot < 0',  &
-          14,'is gas',    &
-          15,'div v < 0', &
-          16,'2h < h_acc'
+          10,'is gas',    &
+          11,'div v < 0', &
+          12,'2h < h_acc',&
+          13,'all active',&
+          14,'alpha < 0', &
+          15,'a+b <= 1',  &
+          16,'etot < 0',  &
+          17,'pot_min'
  else
     iscfile = -abs(iscfile)
  endif
@@ -1387,15 +1394,15 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
     open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
     write(ipafile,'("# Data of accreted particles")')
     write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'time',  &
-          2,'sinki', &
-          3,'angx',  &
-          4,'angy',  &
-          5,'angz',  &
-          6,'mpart', &
-          7,'msink', &
-          8,'mu',    &
-          9,'dx',    &
+           1,'time', &
+           2,'sinki',&
+           3,'angx', &
+           4,'angy', &
+           5,'angz', &
+           6,'mpart',&
+           7,'msink',&
+           8,'mu',   &
+           9,'dx',   &
           10,'dy',   &
           11,'dz',   &
           12,'dvx',  &

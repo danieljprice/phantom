@@ -36,14 +36,18 @@ contains
 !  Returns the full path to the data file
 !+
 !----------------------------------------------------------------
-function find_datafile(filename,dir,env_var,url) result(filepath)
+function find_datafile(filename,dir,env_var,url,verbose) result(filepath)
  character(len=*), intent(in) :: filename
  character(len=*), intent(in), optional :: dir,env_var,url
+ logical,          intent(in), optional :: verbose
  character(len=120) :: filepath
  character(len=120) :: mydir,env_dir,my_url
  character(len=40)  :: my_env_var
- logical :: iexist
+ logical :: iexist,isverbose
  integer :: ierr
+
+ isverbose = .true.
+ if (present(verbose)) isverbose = verbose
 !
 !  We search for the file by:
 !
@@ -66,7 +70,8 @@ function find_datafile(filename,dir,env_var,url) result(filepath)
     if (len_trim(env_dir) > 0) then
        mydir = trim(env_dir)
        if (present(dir)) mydir = trim(mydir)//'/'//trim(dir)//'/'
-       print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//' (from '//trim(my_env_var)//' setting)'
+       if (isverbose) print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//&
+                                  ' (from '//trim(my_env_var)//' setting)'
        filepath = trim(mydir)//trim(filename)
        inquire(file=trim(filepath),exist=iexist)
        if (.not.iexist) then
@@ -84,15 +89,16 @@ function find_datafile(filename,dir,env_var,url) result(filepath)
              if (ierr == 0) then
                 inquire(file=trim(filepath),exist=iexist)
                 if (.not.iexist) then
-                   print "(a)",' ERROR: downloaded file '//trim(filename)//' does not exist in '//trim(filepath)
+                   if (isverbose) print "(a)",' ERROR: downloaded file '//trim(filename)// &
+                                              ' does not exist in '//trim(filepath)
                    ierr = 1
                    filepath = trim(filename)
                 else
-                   print "(a)",' DOWNLOADED '//trim(filename)//' TO '//trim(filepath)
+                   if (isverbose) print "(a)",' DOWNLOADED '//trim(filename)//' TO '//trim(filepath)
                 endif
              else
                 filepath = trim(filename)
-                print "(a)",' ERROR downloading file'
+                if (isverbose) print "(a)",' ERROR downloading file'
              endif
           endif
        endif
@@ -100,9 +106,10 @@ function find_datafile(filename,dir,env_var,url) result(filepath)
        if (present(dir)) then
           if (len_trim(dir) > 0) mydir = trim(dir)//'/'
        endif
-       print "(3(/,1x,a),/)",'* Looking for '//trim(filename)//' in current directory  *', &
-                             '* Set '//trim(my_env_var)//' environment variable to read files *', &
-                             '* from the $('//trim(my_env_var)//')/'//trim(mydir)//' directory  *'
+       if (isverbose) then
+          print "(3(/,1x,a),/)",'* DATAFILE NOT FOUND: '//trim(filename)//' (not in current directory)  *', &
+                                '* PLEASE TYPE "export '//trim(my_env_var)//'=/where/the/code/is" IN YOUR TERMINAL'
+       endif
        filepath = trim(filename)
     endif
  endif

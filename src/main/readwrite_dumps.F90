@@ -797,21 +797,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 
  call free_header(hdr,ierr)
-
- !
- !--Allocate main arrays
- !
-#ifdef INJECT_PARTICLES
- call allocate_memory(maxp_hard)
-#else
- if (.not. use_moddump) then
-    call allocate_memory(int(nparttot / nprocs))
- else
-    ! This is required for the cases when particles will be added during moddump
-    call allocate_memory(maxp_hard)
- endif
-#endif
-
 !
 !--arrays
 !
@@ -857,6 +842,22 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 !
     if (present(headeronly)) then
        if (headeronly) return
+    endif
+
+    if (iblock==1) then
+!
+!--Allocate main arrays
+!
+#ifdef INJECT_PARTICLES
+       call allocate_memory(maxp_hard)
+#else
+       if (.not. use_moddump) then
+          call allocate_memory(int(nparttot / nprocs))
+       else
+          ! This is required for the cases when particles will be added during moddump
+          call allocate_memory(maxp_hard)
+       endif
+#endif
     endif
 !
 !--determine if extra dust quantites should be read
@@ -1190,11 +1191,11 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                extradust,tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol, &
-                      store_temperature,use_dustgrowth,maxdusttypes
+                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
-                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St
+                      tstop_label,deltav_label,temperature,dustprop,dustprop_label,St,divcurlv,divcurlv_label
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1209,7 +1210,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
- logical               :: got_psi,got_temp,got_dustprop(3),got_St
+ logical               :: got_psi,got_temp,got_dustprop(3),got_St,got_divcurlv(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1232,6 +1233,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_temp      = .false.
  got_dustprop  = .false.
  got_St        = .false.
+ got_divcurlv  = .false.
 
  ndustfraci = 0
  ntstopi    = 0
@@ -1287,7 +1289,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-
+             !
+             ! read divcurlv if it is in the file
+             !
+             if (ndivcurlv >= 1) call read_array(divcurlv,divcurlv_label,got_divcurlv,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read gravitational potential if it is in the file
              !
@@ -1326,26 +1331,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
 
 end subroutine read_phantom_arrays
-
-!--------------------------------------------------------------------
-!+
-!  small utility to see if a parameter is different between the
-!  code and the dump file
-!+
-!-------------------------------------------------------------------
-subroutine checkparam(valfile,valcode,string)
- use io, only:iprint,id,master
- real,             intent(in) :: valfile,valcode
- character(len=*), intent(in) :: string
-
- if (id==master) then
-    if (abs(valfile-valcode) > tiny(valcode)) then
-       write(iprint,*) 'comment: '//trim(string)//' was ',valfile,' now ',valcode
-    endif
- endif
-
- return
-end subroutine checkparam
 
 !------------------------------------------------------------
 !+
@@ -1685,11 +1670,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 
 !--non-MPI dumps
  if (nprocs==1) then
-    if (nparttoti > maxp_hard) then
-       write (*,*) 'ERROR in readdump: number of particles exceeds MAXP: recompile with MAXP=',nparttoti
-       ierr = 4
-       return
-    elseif (nparttoti > huge(npart)) then
+    if (nparttoti > huge(npart)) then
        write (*,*) 'ERROR in readdump: number of particles exceeds 32 bit limit, must use int(kind=8)''s ',nparttoti
        ierr = 4
        return
@@ -1721,7 +1702,6 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     write(iprint,*) 'ERROR reading units from dump file, assuming default'
     call set_units()  ! use default units
  endif
-
 !--default real
  call unfill_rheader(hdr,phantomdump,ntypesinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
@@ -1875,13 +1855,12 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use io,             only:id,master
  use dim,            only:maxvxyzu,use_dust
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
- use options,        only:ieos,tolh,alpha,alphau,alphaB,iexternalforce
- use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,mhd,periodic,&
-                          maxtypes,grainsize,graindens
+ use options,        only:ieos,iexternalforce
+ use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
+                          maxtypes,grainsize,graindens,ndusttypes
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
- use externalforces, only:read_headeropts_extern
+ use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
  type(dump_h), intent(in)  :: hdr
@@ -1900,8 +1879,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
- call checkparam(dtmaxi,dtmax,'dtmax')
-
  call extract('gamma',gamma,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
  call extract('RK2',rk2,hdr,ierr)
@@ -1923,22 +1900,14 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     call extract('tolh',tolhfile,hdr,ierr)
     call extract('C_cour',C_courfile,hdr,ierr)
     call extract('C_force',C_forcefile,hdr,ierr)
-    call checkparam(hfactfile,hfact,'hfact')
-    call checkparam(tolhfile,tolh,'tolh')
-    call checkparam(C_courfile,C_cour,'C_cour')
-    call checkparam(C_forcefile,C_force,'C_force')
-
     call extract('alpha',alphafile,hdr,ierr)
-    call checkparam(alphafile,alpha,'alpha')
     if (maxvxyzu >= 4) then
        call extract('alphau',alphaufile,hdr,ierr)
-       call checkparam(alphaufile,alphau,'alphau')
     else
        alphaufile = 0.
     endif
     if (mhd) then
        call extract('alphaB',alphaBfile,hdr,ierr)
-       call checkparam(alphaBfile,alphaB,'alphaB')
     endif
     call extract('polyk2',polyk2,hdr,ierr)
     call extract('qfacdisc',qfacdisc,hdr,ierr)
@@ -1957,6 +1926,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
        ierr = 4
     endif
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
+    if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then
        call read_headeropts_extern(iexternalforce,hdr,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
@@ -2015,20 +1985,19 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('etot_in',    etot_in,    hdr,ierrs(2))
  call extract('angtot_in',  angtot_in,  hdr,ierrs(3))
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
- call extract('mdust_in',   mdust_in,   hdr,ierrs(5))
- if (any(ierrs(1:5) /= 0)) then
+ call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(5))
+ if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
  endif
-
  if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then
     write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
  endif
 
  !--pull grain size and density arrays
  if (use_dust) then
-    call extract('grainsize',grainsize,hdr,ierrs(1))
-    call extract('graindens',graindens,hdr,ierrs(2))
+    call extract('grainsize',grainsize(1:ndusttypes),hdr,ierrs(1))
+    call extract('graindens',graindens(1:ndusttypes),hdr,ierrs(2))
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif

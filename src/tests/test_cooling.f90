@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 module testcooling
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_cooling
@@ -128,7 +128,7 @@ subroutine test_coolfunc(ntests,npass)
  use testutils, only:checkvalbuf,checkvalbuf_start
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 100
- integer :: i,k,ndiff,ncheck
+ integer :: i,k,ndiff(1),ncheck
  real    :: table(nt),val
  logical :: my_test
 
@@ -142,7 +142,6 @@ subroutine test_coolfunc(ntests,npass)
 
  ndiff = 0
  ncheck = 0
- ntests = ntests + 1
  call checkvalbuf_start('table(i) < val < table(i+1)')
  do i=1,nt-1
     val = i+0.5
@@ -150,10 +149,10 @@ subroutine test_coolfunc(ntests,npass)
     !print*,k,table(k),val,table(k+1)
     if (k < nt) then
        my_test = (val > table(k) .and. val < table(k+1))
-       call checkvalbuf(my_test,.true.,'table(i) < val < table(i+1)',ndiff,ncheck)
+       call checkvalbuf(my_test,.true.,'table(i) < val < table(i+1)',ndiff(1),ncheck)
     endif
  enddo
- if (ndiff==0) npass = npass + 1
+ call update_test_scores(ntests,ndiff,npass)
 
 end subroutine test_coolfunc
 
