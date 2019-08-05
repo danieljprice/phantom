@@ -1026,8 +1026,8 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
     if (rtmp3d2 < rthresh2 .or. rtmp2 < rdisc2 .or. map_all_R .or. anglei > 0.0) then
        !--Properties of the particle
        vxi = vxyzu(1,i)
-       vzi = vxyzu(2,i)
-       vyi = vxyzu(3,i)
+       vyi = vxyzu(2,i)
+       vzi = vxyzu(3,i)
        if (mhd) then
           Bxi = Bxyz(1,i)
           Byi = Bxyz(2,i)
