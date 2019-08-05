@@ -65,9 +65,9 @@
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, memory, options, part, physcon,
-!    prompting, set_dust, set_dust_options, setbinary, setdisc, setflyby,
-!    spherical, timestep, units, vectorutils
+!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
+!    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
+!    timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup

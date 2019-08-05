@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testeos

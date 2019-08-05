@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: datautils
+!  DEPENDENCIES: datautils, io, mpiutils
 !+
 !--------------------------------------------------------------------------
 module datafiles
