@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: eos_shen
@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Zachary Pellow
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
@@ -84,7 +84,7 @@ subroutine eos_shen_NL3(rin_cgs,tin_cgs,yin,p,spsound)
  if (rin>1.e-8) then
     !the value is inside shen
     call cubic_readeos_simp(tin,yin,rin,p)
- else if (rin<=1.e-8) then
+ elseif (rin<=1.e-8) then
     !the value is outside shen
     rin_tmp=rin*(amu/(fmtocm**3))
     turning_point=(Log10(tin)+2.373)/0.331+2
@@ -588,7 +588,7 @@ subroutine sound_speed_comb(rin,tin,yin,spsound)
 
  if (rin>1.e-1) then
     call sound_speed_rel(rin,tin,yin,spsound)
- else if (Log10(rin_tmp)>turning_point) then
+ elseif (Log10(rin_tmp)>turning_point) then
     call sound_speed_clas(rin,tin,yin,spsound)
  else
     call sound_speed_clas(10**(turning_point)*((fmtocm**3)/amu),tin,yin,spsound)
