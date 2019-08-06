@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -191,13 +191,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  print "(a, I9)", 'This requires a minimum particle number of ',nprequired
 
- if(nprequired > npmax) then
+ if (nprequired > npmax) then
     print*, 'ERROR: Not enough particle memory to resolve grid'
     print*, 'Recompile and run with higher MAXP'
     stop
  endif
 
- if(nprequired > np) then
+ if (nprequired > np) then
     print*, 'Input particle number insufficient to resolve grid'
     np = nprequired
     print*, 'New input particle number: ',np
@@ -251,7 +251,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print "(1x,50('-'))"
  fmt = "((a,1pg10.3,3x,1pg10.3),a)"
  print fmt,' Total mass       : ',totmass,totmass*umass,' g'
- if(rcut > 0.0)  print fmt,' Cutting radius   : ',rcut,rcut*udist,' cm'
+ if (rcut > 0.0)  print fmt,' Cutting radius   : ',rcut,rcut*udist,' cm'
  print fmt,' Mean Density     : ',rhozero,rhozero*unit_density,' g/cm^3'
  print fmt,' Sound Speed      : ',cs,cs*udist/utime,' cm/s'
  print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
@@ -291,7 +291,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           psep = (massoftype(igas)/rhogrid(ix,iy,iz))**(1.0/3.0)
 
           ! If rcut < 0, then don't cut out a sphere
-          if(rcut<0.0) then
+          if (rcut<0.0) then
              call set_unifdis('random',id,master,xface(ix),xface(ix)+dx(ix),&
                   yface(iy),yface(iy)+dy(iy),zface(iz),zface(iz)+dz(iz),psep,&
                   hfact,npart,xyzh,nptot=npart_total,inputiseed=iseed,verbose=.false.)
@@ -430,7 +430,7 @@ subroutine read_gridfile(igridunit,gridfile, mpartmin,totmass)
               dx(ix), dy(iy), dz(iz), rhogrid(ix,iy,iz)
 
           mcell = rhogrid(ix,iy,iz)*dx(ix)*dy(iy)*dz(iz)
-          if(mcell < mpartmin .and. mcell >0.0) mpartmin = mcell
+          if (mcell < mpartmin .and. mcell >0.0) mpartmin = mcell
           totmass = totmass + mcell
 
        enddo

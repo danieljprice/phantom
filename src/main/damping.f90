@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: damping
@@ -51,9 +51,9 @@ subroutine calc_damp(time, damp_fac, idamp)
 
  if (idamp == 0) then
     damp_fac = 0.
- else if (idamp == 1) then
+ elseif (idamp == 1) then
     damp_fac = damp
- else if (idamp == 2) then
+ elseif (idamp == 2) then
     tdyn_star = tdyn_s / utime
     tau1 = tdyn_star * 0.1
     tau2 = tdyn_star

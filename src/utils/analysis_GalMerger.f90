@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -94,6 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ngas      = 0
  ndm       = 0
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase) &
 !$omp shared(npart,xyzh,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi,pmassi,rhoi) &
 !$omp reduction(+:xpos1,ypos1,zpos1,xpos2,ypos2,zpos2,totmass1,totmass2) &
@@ -132,11 +133,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              ypos2    = ypos2    + pmassi*yi
              zpos2    = zpos2    + pmassi*zi
           endif
-       else if (itype==idarkmatter) then
+       elseif (itype==idarkmatter) then
           rhodmX  = max(rhodmX,rhoi)
           rhodmA  =     rhodmA+rhoi
           ndm     = ndm + 1
-       else if (itype==igas) then
+       elseif (itype==igas) then
           rhogasX = max(rhogasX,rhoi)
           rhogasA =     rhogasA+rhoi
           ngas    = ngas + 1
@@ -168,4 +169,3 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 end module
-

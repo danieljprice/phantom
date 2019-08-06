@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: initial
@@ -21,9 +21,9 @@
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
 !    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
 !    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
-!    growth, h2cooling, initial_params, io, io_summary, linklist, mf_write,
-!    mpi, mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
-!    ptmass, readwrite_dumps, readwrite_infile, setup, sort_particles,
+!    growth, h2cooling, initial_params, inject, io, io_summary, linklist,
+!    mf_write, mpi, mpiutils, nicil, nicil_sup, omputils, options, part,
+!    photoevap, ptmass, readwrite_dumps, readwrite_infile, sort_particles,
 !    timestep, timestep_ind, timestep_sts, timing, units, writeheader
 !+
 !--------------------------------------------------------------------------
@@ -46,7 +46,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:maxp
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -125,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,damp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -188,12 +187,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef MPI
  use balance,          only:balancedomains
- use domain,           only:ibelong
+ use part,             only:ibelong
+#endif
+#ifdef INJECT_PARTICLES
+ use inject,           only:init_inject,inject_particles
 #endif
  use writeheader,      only:write_codeinfo,write_header
- use eos,              only:gamma,polyk,ieos,init_eos
- use part,             only:hfact,h2chemistry
- use setup,            only:setpart
+ use eos,              only:ieos,init_eos
+ use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling
  use cooling,          only:init_cooling
@@ -201,24 +202,25 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use units,            only:unit_density
  use centreofmass,     only:get_centreofmass
- use energies,         only:etot,angtot,totmom,mdust,xyzcom
+ use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
- integer         :: ierr,i,j,idot,nerr,nwarn,ialphaloc
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
- real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dummy(3)
- real            :: stressmax
+ real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
+ real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
+ real            :: dummy(3)
 #ifdef NONIDEALMHD
  real            :: gmw_old,gmw_new
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
  integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold,fileprefix
+ character(len=len(dumpfile)) :: dumpfileold
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
@@ -230,12 +232,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--read parameters from the infile
 !
  call read_infile(infile,logfile,evfile,dumpfile)
-!
-!--initialise alpha's (after the infile has been read)
-!
- if (maxalpha==maxp) then
-    alphaind(:,:) = real4(alpha)
- endif
+
 !
 !--initialise log output
 !
@@ -253,24 +250,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--read particle setup from dumpfile
 !
- if (trim(dumpfile)=='setup') then
-    write(iprint,"(72('-'))")
-    idot = index(infile,'.in')
-    if (idot <= 1) idot = len_trim(infile)
-    dumpfile = infile(1:idot-1)//'_00000.tmp'
-    fileprefix = infile(1:idot-1)
-    write(iprint,"(72('-'))")
-    call setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
-    call check_setup(nerr,nwarn) ! sanity check output of setpart
-    if (nwarn > 0) call warning('initial','warnings during particle setup',var='warnings',ival=nwarn)
-    if (nerr > 0)  call fatal('initial','errors in particle setup',var='errors',ival=nerr)
- else
-    call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
-    if (ierr /= 0) call fatal('initial','error reading dumpfile')
-    call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
-    if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
-    if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
- endif
+ call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
+ if (ierr /= 0) call fatal('initial','error reading dumpfile')
+ call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
+ if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
+ if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
 !
 !--initialise values for non-ideal MHD
 !
@@ -353,10 +337,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ncount(:) = 0
     do i=1,npart
        itype = iamtype(iphase(i))
-       !-- Initialise dust properties to none for gas particles
-#ifdef DUSTGROWTH
-       if (itype==igas) dustprop(:,i) = 0.
-#endif
        if (itype < 1 .or. itype > maxtypes) then
           call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
        else
@@ -406,6 +386,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtcourant = huge(dtcourant)
  dtforce   = huge(dtforce)
 #endif
+ dtinject  = huge(dtinject)
 
 !
 !--balance domains prior to starting calculation
@@ -498,6 +479,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
 !
+!--inject particles at t=0, and get timestep constraint on this
+!
+#ifdef INJECT_PARTICLES
+ call init_inject(ierr)
+ if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,dtinject)
+#endif
+!
 !--calculate (all) derivatives the first time around
 !
  dtnew_first   = dtmax  ! necessary in case ntot = 0
@@ -513,7 +503,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           if (.not.isdead_or_accreted(xyzh(4,i))) then
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
+!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
@@ -534,7 +527,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--set initial timestep
 !
 #ifndef IND_TIMESTEPS
- dt = dtnew_first
+ dt = min(dtnew_first,dtinject)
  if (id==master) then
     write(iprint,*) 'dt(forces)    = ',dtforce
     write(iprint,*) 'dt(courant)   = ',dtcourant
@@ -568,6 +561,46 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call binpos_write(time, dt)
 #endif
 !
+!--Determine the maximum separation of particles
+ xmax = -huge(xmax)
+ ymax = -huge(ymax)
+ zmax = -huge(zmax)
+ xmin =  huge(xmin)
+ ymin =  huge(ymin)
+ zmin =  huge(zmin)
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh) &
+ !$omp private(i) &
+ !$omp reduction(min:xmin,ymin,zmin) &
+ !$omp reduction(max:xmax,ymax,zmax)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xmin = min(xmin,xyzh(1,i))
+       ymin = min(ymin,xyzh(2,i))
+       zmin = min(zmin,xyzh(3,i))
+       xmax = max(xmax,xyzh(1,i))
+       ymax = max(ymax,xyzh(2,i))
+       zmax = max(zmax,xyzh(3,i))
+    endif
+ enddo
+ !$omp end parallel do
+ dx = abs(xmax - xmin)
+ dy = abs(ymax - ymin)
+ dz = abs(zmax - zmin)
+!
+!--Print box sizes and masses
+!
+ if (get_conserv > 0.0) then
+    write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+ else
+    write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+ endif
+ write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
+ write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
+ write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
+ write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+ write(iprint,'(a)') ' '
+!
 !--Set initial values for continual verification of conservation laws
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
 !
@@ -576,22 +609,32 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    get_conserv = -1.
-    write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
+    write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
+    write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
  endif
- write(iprint,'(2x,a,es18.6)')   'Initial total energy:     ', etot_in
- write(iprint,'(2x,a,es18.6)')   'Initial angular momentum: ', angtot_in
- write(iprint,'(2x,a,es18.6)')   'Initial linear momentum:  ', totmom_in
+ write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
+ write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+ write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
 #ifdef DUST
  dust_label = 'dust'
  call make_tags_unique(ndusttypes,dust_label)
  do i=1,ndusttypes
     write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
  enddo
- write(iprint,'(2x,a,es18.6)')   'Initial total dust mass:  ', sum(mdust_in(:))
+ write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
 #endif
+!
+!--Print warnings of units if values are not reasonable
+ tolu = 1.0d2
+ toll = 1.0d-2
+ if (get_conserv > 0.0) then
+    get_conserv = -1.
+    if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
+    if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
+    if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+    call warning('initial','consider changing code-units to have box length closer to unity')
+ endif
 !
 !--write initial conditions to output file
 !  if the input file ends in .tmp or .init
@@ -599,7 +642,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  iposinit = index(dumpfile,'.init')
  ipostmp  = index(dumpfile,'.tmp')
  if (iposinit > 0 .or. ipostmp > 0) then
+#ifdef HDF5
+    dumpfileold = trim(dumpfile)//'.h5'
+#else
     dumpfileold = dumpfile
+#endif
     if (iposinit > 0) then
        dumpfile = trim(dumpfile(1:iposinit-1))
     else

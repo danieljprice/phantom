@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: inject
@@ -27,7 +27,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'asteroidwind'
 
- public :: inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  private
 
@@ -36,8 +36,27 @@ module inject
  real :: vlag          = 0.1        ! percentage lag in velocity of wind
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
 
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+end subroutine init_inject
+
+!-----------------------------------------------------------------------
+!+
+!  Inject particles
+!+
+!-----------------------------------------------------------------------
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,        only:fatal
  use part,      only:nptmass,massoftype,igas,hfact,ihsoft
  use partinject,only:add_or_update_particle
@@ -48,6 +67,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat
  integer :: i,ipart,npinject,seed
  real    :: dmdt,dndt,rasteroid,h,u,speed
@@ -84,7 +104,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
 !-- How many particles do we need to inject?
 !   (Seems to need at least eight gas particles to not crash) <-- This statement may or may not be true...
 !
- if(npartoftype(igas)<8) then
+ if (npartoftype(igas)<8) then
     npinject = 8-npartoftype(igas)
  else
     npinject = max(0, int(0.5 + (time*dmdt/massoftype(igas)) - npartoftype(igas) ))
@@ -103,6 +123,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npar
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
 
 end subroutine inject_particles
 

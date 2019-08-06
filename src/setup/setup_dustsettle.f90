@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -107,11 +107,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--grainsizes
           call prompt('Enter minimum grain size in cm',smincgs,0.)
           call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-          call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
-          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
           !--mass distribution
           call prompt('Enter power-law index, e.g. MRN',sindex)
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
           !--grain density
           call prompt('Enter grain density in g/cm^3',graindens(1),0.)
           graindens(1:ndusttypes) = graindens(1)/umass*udist**3

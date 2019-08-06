@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testlink
@@ -41,8 +41,9 @@ subroutine test_link(ntests,npass)
  use random,   only:ran2
  use domain,   only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
- use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end
- use linklist,        only:set_linklist,get_neighbour_list,ifirstincell,ncells
+ use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
+ use kdtree,          only:inodeparts,inoderange
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use linklist, only:dcellx,dcelly,dcellz
@@ -52,7 +53,6 @@ subroutine test_link(ntests,npass)
 #ifdef IND_TIMESTEPS
  use part,     only:iphase_soa
 #endif
- use kdtree,   only:inodeparts,inoderange
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
@@ -63,7 +63,7 @@ subroutine test_link(ntests,npass)
  integer                :: nparttot
  integer(kind=8)        :: nptot
 #ifdef IND_TIMESTEPS
- integer                :: npartincell,nfail1,nfail2,ierrmax
+ integer                :: npartincell,ierrmax
  logical                :: hasactive
 #endif
  integer                :: maxneighi,minneigh,iseed,nlinktest,itest,ndead
@@ -177,10 +177,8 @@ subroutine test_link(ntests,npass)
 !
 !--check that the number of cells is non-zero
 !
-    ntests = ntests + 1
     call checkval((ncells>0),.true.,nfailed(1),'ncells > 0')
-    if (nfailed(1)==0) npass = npass + 1
-
+    call update_test_scores(ntests,nfailed(1:1),npass)
 !
 !--check the assignment of positive or negative
 !  to the head of the cell that specifies whether
@@ -190,13 +188,12 @@ subroutine test_link(ntests,npass)
     if (itest /= 2) then
        ncheck1 = 0
        ncheck2 = 0
-       nfail1 = 0
-       nfail2 = 0
+       nfailed = 0
        call checkvalbuf_start('active/inactive cells')
        !!$omp parallel do default(none) &
        !!$omp shared(ncells,ifirstincell,iphase,ll) &
        !!$omp private(i,activecell,hasactive,iactivei,npartincell) &
-       !!$omp reduction(+:nfailed1,nfailed2,ncheck1,ncheck2)
+       !!$omp reduction(+:nfail,ncheck1,ncheck2)
        do icell=1,int(ncells)
           if (ifirstincell(icell) < 0) then
              activecell = .false.
@@ -211,24 +208,22 @@ subroutine test_link(ntests,npass)
                 iactivei = iactive(iphase_soa(i))
                 if (iactivei) hasactive = .true.
                 if (.not.activecell) then
-                   call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfail1,ncheck1)
+                   call checkvalbuf(iactivei,.false.,'inactive cell contains active particle',nfailed(1),ncheck1)
                 endif
              enddo
              if (activecell .and. npartincell > 0) then
-                call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfail2,ncheck2)
+                call checkvalbuf(hasactive,.true.,'active cell has at least one active particle',nfailed(2),ncheck2)
              endif
           endif not_empty
        enddo
        !!$omp end parallel do
        ierrmax = 0
        if (ncheck1 > 0) then
-          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfail1,ierrmax,0,npart)
+          call checkvalbuf_end('inactive cells have no active particles',ncheck1,nfailed(1),ierrmax,0,npart)
        endif
-       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfail2,ierrmax,0,npart)
+       call checkvalbuf_end('active cells have at least one active particle',ncheck2,nfailed(2),ierrmax,0,npart)
 
-       ntests = ntests + 2
-       if (nfail1==0) npass = npass + 1
-       if (nfail2==0) npass = npass + 1
+       call update_test_scores(ntests,nfailed(1:2),npass)
     endif
 #endif
 
@@ -400,9 +395,7 @@ subroutine test_link(ntests,npass)
        write(*,"(1x,2(a,i6),a,f9.2)") 'max nneigh = ',maxneighi,&
     ' min nneigh = ',minneigh,' mean = ',meanneigh/real(ncheck2)
 
-       ntests = ntests + 2
-       if (nfailed(1)==0) npass = npass + 1
-       if (nfailed(2)==0) npass = npass + 1
+       call update_test_scores(ntests,nfailed(1:2),npass)
 
     endif dochecks
 
@@ -433,13 +426,12 @@ subroutine test_link(ntests,npass)
     npartoftype(:) = 0
     npartoftype(igas) = npart
 
-    ntests = ntests + 1
     call set_linklist(npart,npart,xyzh,vxyzu)
     !
     !--check that the number of cells is non-zero
     !
     call checkval((ncells>0),.true.,nfailed(1),'ncells > 0')
-    if (nfailed(1)==0) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:1),npass)
 
  enddo
 

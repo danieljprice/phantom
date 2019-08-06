@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  neighbourfile = 'neigh_'//TRIM(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
- if(existneigh.eqv..true.) then
+ if (existneigh.eqv..true.) then
     print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
@@ -111,7 +111,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     ! Only calculate for gas particles
 
-    if(maxphase==maxp) then
+    if (maxphase==maxp) then
        call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
        iamgasi = (iamtypei ==igas)
     else
@@ -121,7 +121,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        iamgasi = .true.
     endif
 
-    if(.not.iamgasi) cycle over_parts
+    if (.not.iamgasi) cycle over_parts
 
     iwrite = iwrite +1
 
@@ -161,7 +161,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 ! 4. Write to eigenvalue and eigenvector files
 !*********************************************
 
- if(num==0) then
+ if (num==0) then
     ndigits = 1
  else
     ndigits = int(log10(real(num)))+1
@@ -263,7 +263,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
     i = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if(i<=0) cycle over_cells
+    if (i<=0) cycle over_cells
 
     ! Get neighbour list for the cell
 
@@ -278,12 +278,12 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
 
     over_parts: do while(i /=0)
        !print*, i, icell, ncells
-       if(i<0) then ! i<0 indicates inactive particles
+       if (i<0) then ! i<0 indicates inactive particles
           i = ll(abs(i))
           cycle over_parts
        endif
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -300,7 +300,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        ! do not compute neighbours for boundary particles
-       if(iamtypei ==iboundary) cycle over_parts
+       if (iamtypei ==iboundary) cycle over_parts
 
 
        ! Fill neighbour list for this particle
@@ -312,7 +312,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           j = abs(listneigh(ineigh))
 
           ! Skip self-references
-          if(i==j) cycle over_neighbours
+          if (i==j) cycle over_neighbours
 
           dx = xyzh(1,i) - xyzh(1,j)
           dy = xyzh(2,i) - xyzh(2,j)
@@ -329,10 +329,10 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           hj21 = hj1*hj1
           q2j = rij2*hj21
 
-          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             if (neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
              !$omp end critical
           endif is_sph_neighbour
 
@@ -393,7 +393,7 @@ subroutine neighbours_stats(npart)
  print*, 'The maximum neighbour count is ', maximum
  print*, 'The minimum neighbour count is ', minimum
 
- if(maximum > neighmax) then
+ if (maximum > neighmax) then
     print*, 'WARNING! Neighbour count too large for allocated arrays'
  endif
 
@@ -449,12 +449,12 @@ subroutine read_neighbours(neighbourfile,npart)
 
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
 
- if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
+ if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
 
  read(2) (neighcount(i), i=1,npart)
  do i=1,npart
 
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        read(2) (neighb(i,j), j=1,neighmax)
     else
@@ -466,7 +466,7 @@ subroutine read_neighbours(neighbourfile,npart)
 
  call neighbours_stats(npart)
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File Read incomplete: neighbour count exceeds array size'
  else
     print*, 'File Read Complete'
@@ -505,7 +505,7 @@ subroutine write_neighbours(neighbourfile,npart)
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        write(2) (neighb(i,j), j=1,neighmax)
     else
@@ -516,7 +516,7 @@ subroutine write_neighbours(neighbourfile,npart)
  close(2)
 
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File write incomplete: neighbour count exceeds array size'
  else
     print*, 'File Write Complete'
@@ -557,7 +557,7 @@ subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
 
     j = neighb(ipart,k)
 
-    if(maxphase==maxp) then
+    if (maxphase==maxp) then
        call get_partinfo(iphase(j), iactivei,iamdusti,iamtypei)
        iamgasi = (iamtypei ==igas)
     else
@@ -567,8 +567,8 @@ subroutine calc_velocitysheartensor(ipart,tensor, xyzh,vxyzu)
        iamgasi = .true.
     endif
 
-    if(ipart==j) cycle
-    if(.not.iamgasi) cycle
+    if (ipart==j) cycle
+    if (.not.iamgasi) cycle
 
     ! Calculate gradient of SPH kernel
     ! Separation of particles
@@ -756,7 +756,7 @@ subroutine jacobi_eigenvalue ( n, a, it_max, v, d, it_num, rot_num )
 !
 !  Otherwise, apply a rotation.
 !
-          else if ( thresh <= abs ( a(p,q) ) ) then
+          elseif ( thresh <= abs ( a(p,q) ) ) then
 
              h = d(q) - d(p)
              term = abs ( h ) + gapq

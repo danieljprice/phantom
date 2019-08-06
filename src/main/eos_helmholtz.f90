@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: eos_helmholtz
@@ -120,7 +120,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine eos_helmholtz_init(ierr)
- use io,        only:warning
+ use io,        only:warning,id,master
  use datafiles, only:find_phantom_datafile
  integer, intent(out) :: ierr
  character(len=120) :: filename
@@ -186,14 +186,13 @@ subroutine eos_helmholtz_init(ierr)
 
  call eos_helmholtz_calc_AbarZbar()
 
-
  ! find the table datafile
  filename = find_phantom_datafile('helm_data.tab', 'eos/helmholtz')
 
  ! open the table datafile
  open(newunit=iunit,file=trim(filename),status='old',iostat=ierr)
  if (ierr /= 0) then
-    call warning('eos_helmholtz','could not find helm_table.dat to initialise eos')
+    if (id==master) call warning('eos_helmholtz','could not find helm_table.dat to initialise eos')
     ierr = 1
     return
  endif
@@ -201,7 +200,7 @@ subroutine eos_helmholtz_init(ierr)
  ! check that the full datafile is there, not just the text git-lfs pointer
  read(iunit,*,iostat=ierr) line
  if (line(1:7) == 'version') then
-    call warning('eos_helmoltz','full datafile not present. Download using git-lfs')
+    if (id==master) call warning('eos_helmoltz','full datafile not present. Download using git-lfs')
     ierr = 1
     return
  else

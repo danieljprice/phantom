@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -463,7 +463,7 @@ subroutine calculate_midplane_profile(dumpfile,xyzh,vxyzu,npart,iunit,particlema
                 bincountmaj(j) = bincountmaj(j) + 1
                 vinbinmaj  (j) = vinbinmaj  (j) + angv(i)
                 alphabinmaj(j) = alphabinmaj(j) + alphaind(1,i)
-             else if (theta(i) < (thetaminor+dtheta) .and. theta(i) > (thetaminor-dtheta)) then
+             elseif (theta(i) < (thetaminor+dtheta) .and. theta(i) > (thetaminor-dtheta)) then
                 bincountmin(j) = bincountmin(j) + 1
                 vinbinmin  (j) = vinbinmin  (j) + angv(i)
                 alphabinmin(j) = alphabinmin(j) + alphaind(1,i)
@@ -598,9 +598,9 @@ subroutine jacobi(a,n,np,d,v,nrot)
           sm=sm+abs(a(ip,iq))
 14     enddo
 15  enddo
-    if(sm==0.)return
+    if (sm==0.)return
 !The normal return, which relies on quadratic convergence to machine  underflow.
-    if(i < 4)then
+    if (i < 4) then
        tresh=0.2*sm/n**2
 !...on the first  three sweeps.
     else
@@ -611,18 +611,18 @@ subroutine jacobi(a,n,np,d,v,nrot)
        do 21,iq=ip+1,n
           g=100.*abs(a(ip,iq))
 !After four sweeps, skip the rotation if the off-diagonal element is small.
-          if((i > 4).and.(abs(d(ip))+g==abs(d(ip))).and.(abs(d(iq))+g==abs(d(iq))))then
+          if ((i > 4).and.(abs(d(ip))+g==abs(d(ip))).and.(abs(d(iq))+g==abs(d(iq)))) then
              a(ip,iq)=0.
-          else if(abs(a(ip,iq)) > tresh)then
+          elseif (abs(a(ip,iq)) > tresh) then
              h=d(iq)-d(ip)
-             if(abs(h)+g==abs(h))then
+             if (abs(h)+g==abs(h)) then
                 t=a(ip,iq)/h
 !t=1/(2(theta))
              else
                 theta=0.5*h/a(ip,iq)
 !Equation  (11.1.10).
                 t=1./(abs(theta)+sqrt(1.+theta**2))
-                if(theta < 0.)t=-t
+                if (theta < 0.)t=-t
              endif
              c=1./sqrt(1+t**2)
              s=t*c

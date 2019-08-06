@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testgravity
@@ -34,14 +34,13 @@ subroutine test_gravity(ntests,npass,string)
  use io,        only:id,master
 #ifdef GRAVITY
  use dim,       only:maxp
- use io,        only:iverbose
  use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
                      alphaind,maxalpha,dustprop,ddustprop, &
                      divcurlv,divcurlB,dBevol,gradh,poten,&
                      iphase,isetphase,maxphase,dustfrac,ddustevol,temperature,labeltype
  use eos,       only:polyk,gamma
  use options,   only:ieos,alpha,alphau,alphaB,tolh
- use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
+ use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use spherical, only:set_sphere
  use deriv,     only:derivs
  use physcon,   only:pi
@@ -110,8 +109,7 @@ subroutine test_gravity(ntests,npass,string)
     call checkval(f0(2),fexact(2),1.1e-4,nfailed(2),'fy taylor series about f0')
     call checkval(f0(3),fexact(3),9.e-5,nfailed(3),'fz taylor series about f0')
     call checkval(phi,phiexact,8.e-4,nfailed(4),'phi taylor series about f0')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about distant node'
     totmass = 5.
@@ -166,8 +164,7 @@ subroutine test_gravity(ntests,npass,string)
     call checkval(f0(2),fexact(2),1.5e-6,nfailed(2),'fy taylor series about f0')
     call checkval(f0(3),fexact(3),1.6e-5,nfailed(3),'fz taylor series about f0')
     call checkval(phi,phiexact,5.9e-6,nfailed(4),'phi taylor series about f0')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     if (id==master) write(*,"(/,a)") '--> checking results of compute_fnode routine'
     !
@@ -194,8 +191,7 @@ subroutine test_gravity(ntests,npass,string)
     call checkval(fnode(12),d2f(3,1),1.e-3,nfailed(16),'d^2fz/dx^2')
     call checkval(fnode(17),d2f(3,2),1.2e-3,nfailed(17),'d^2fz/dy^2')
     call checkval(fnode(19),d2f(3,3),1.e-3,nfailed(18),'d^2fz/dz^2')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about both current and distant nodes'
     x0 = 0.                      ! position of nearest node centre
@@ -226,9 +222,7 @@ subroutine test_gravity(ntests,npass,string)
     call checkval(f0(2),fexact(2),1.4e-4,nfailed(2),'fy taylor series about f0')
     call checkval(f0(3),fexact(3),3.2e-4,nfailed(3),'fz taylor series about f0')
     call checkval(phi,phiexact,9.7e-4,nfailed(4),'phi taylor series about f0')
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
-
+    call update_test_scores(ntests,nfailed,npass)
  endif
 
  testsum: if (testdirectsum .or. testall) then
@@ -290,8 +284,6 @@ subroutine test_gravity(ntests,npass,string)
           alphaB = 0.
           tolh = 1.e-5
           if (maxalpha==maxp)  alphaind(:,:) = 0.
-
-          ntests = ntests + 1
 !
 !--calculate derivatives
 !
@@ -315,8 +307,7 @@ subroutine test_gravity(ntests,npass,string)
              epot = epot + poten(i)
           enddo
           call checkval(epot,phitot,4.8e-4,nfailed(4),'potential')
-
-          if (all(nfailed(1:4)==0)) npass = npass + 1
+          call update_test_scores(ntests,nfailed(1:4),npass)
        endif
     enddo
 !

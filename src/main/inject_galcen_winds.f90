@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: inject
@@ -31,7 +31,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'galcen_winds'
 
- public :: inject_particles, write_options_inject, read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  !integer :: wind_type = 1
  real :: outer_boundary = 20.
@@ -49,14 +49,27 @@ module inject
  integer, private :: iseed = -666
 
 contains
+!-----------------------------------------------------------------------
+!+
+!  Initialize global variables or arrays needed for injection routine
+!+
+!-----------------------------------------------------------------------
+subroutine init_inject(ierr)
+ integer, intent(out) :: ierr
+ !
+ ! return without error
+ !
+ ierr = 0
+
+end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling injection at the L1 point.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-           npart,npartoftype)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npartoftype,dtinject)
  use io,        only:fatal,iverbose
  use part,      only:massoftype,igas,ihacc,i_tlast
  use partinject,only:add_or_update_particle
@@ -69,6 +82,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
+ real,    intent(out)   :: dtinject
  real :: r2,Mcut,Mdot_fac,vel_fac,Minject,Mdot_code,tlast
  real :: xyzi(3),vxyz(3),xyz_star(3),vxyz_star(3),dir(3)
  real :: rr,phi,theta,cosphi,sinphi,costheta,sintheta
@@ -110,8 +124,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
 !    evaluate to false an awfully large number of times.  Needs to be after
 !    dumpfile ('time') and wind data (Mdots) have been read in.
 !
- if(first_iteration) then
-    if(time /= 0) then   ! only if restarting
+ if (first_iteration) then
+    if (time /= 0) then   ! only if restarting
        do i=nskip+1,nptmass
           j = i - nskip ! position in wind table
           total_particles_injected(i) = int(wind(i_Mdot,j)*Mdot_fac * time / massoftype(igas))
@@ -171,7 +185,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     !    particles this timestep; this way, fractional particles/timestep can
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
-    if(ninject > 0) then
+    if (ninject > 0) then
        do k=1,ninject
           !
           ! get random position on sphere
@@ -209,6 +223,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
     print*,'npart = ',npart
     print*,'tpi = ',total_particles_injected(1:nptmass)
  endif
+ !
+ !-- no constraint on timestep
+ !
+ dtinject = huge(dtinject)
 
 end subroutine inject_particles
 

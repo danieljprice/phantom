@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: energies
@@ -31,12 +31,12 @@ module energies
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,xyzcom(3)
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead
+ integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
@@ -94,7 +94,7 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,mtot,dm
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
@@ -128,6 +128,8 @@ subroutine compute_energies(t)
  angz = 0.
  iu   = 4
  np   = 0
+ vrms = 0.
+ rmsmach = 0.
  npgas   = 0
  xmomacc = 0.
  ymomacc = 0.
@@ -138,6 +140,8 @@ subroutine compute_energies(t)
  mgas    = 0.
  mdust   = 0.
  mgas    = 0.
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -147,13 +151,14 @@ subroutine compute_energies(t)
  call initialise_ev_data(ev_data)
 !
 !$omp parallel default(none) &
+!$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha) &
+!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
@@ -174,9 +179,10 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
 #endif
-!$omp reduction(+:np,npgas,xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
+!$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
+!$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
-!$omp reduction(+:ekin,etherm,emag,epot)
+!$omp reduction(+:ekin,etherm,emag,epot,vrms,rmsmach)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -242,7 +248,7 @@ subroutine compute_energies(t)
        ! kinetic energy & rms velocity
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
        ekin = ekin + pmassi*v2i
-       call ev_data_update(ev_data_thread,iev_vrms,v2i)        ! vrms = vrms + v2i
+       vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
        ! note: for efficiency, centre of mass is from the previous time energies was called
@@ -305,15 +311,18 @@ subroutine compute_energies(t)
              else
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
              endif
+             if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
+             if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then
                 !--thermal energy using polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma-1.)*gasfrac
-             else if (ieos==9) then
+             elseif (ieos==9) then
                 !--thermal energy using piecewise polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
              endif
+             if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
           ! entropy
@@ -334,8 +343,8 @@ subroutine compute_energies(t)
           if (track_lum) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
 #endif
 
-          ! rms mach number (rmsmach = rmsmach + v2i/spsoundi**2)
-          if (spsoundi > 0.) call ev_data_update(ev_data_thread,iev_rmsmach,v2i/spsoundi**2)
+          ! rms mach number
+          if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2
 
           ! max of dissipation parameters
           if (maxalpha==maxp) then
@@ -540,6 +549,9 @@ subroutine compute_energies(t)
  else
     dnpgas = 0.
  endif
+ !--Number of gas particles without a sound speed or energy
+ np_cs_eq_0 = reduce_fn('+',np_cs_eq_0)
+ np_e_eq_0  = reduce_fn('+',np_e_eq_0)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)
@@ -572,6 +584,11 @@ subroutine compute_energies(t)
  angz = reduce_fn('+',angz)
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
 
+ vrms    = reduce_fn('+',vrms)
+ rmsmach = reduce_fn('+',rmsmach)
+ vrms    = sqrt(vrms*dnptot)
+ rmsmach = sqrt(rmsmach*dnpgas)
+
  !--fill in the relevant array elements for energy & momentum
  ev_data(iev_sum,iev_time  ) = t
  ev_data(iev_sum,iev_ekin  ) = ekin
@@ -587,6 +604,8 @@ subroutine compute_energies(t)
  do i=1,ndusttypes
     ev_data(iev_sum,iev_dm(i)) = mdust(i)
  enddo
+ ev_data(iev_sum,iev_vrms   ) = vrms
+ ev_data(iev_sum,iev_rmsmach) = rmsmach
  xyzcom(1) = xcom
  xyzcom(2) = ycom
  xyzcom(3) = zcom
@@ -617,10 +636,6 @@ subroutine compute_energies(t)
     if (np_rho(idarkmatter) > 0) ev_data(iev_ave,iev_rhop(5)) = ev_data(iev_ave,iev_rhop(5))*real(npgas)/real(np_rho(idarkmatter))
     if (np_rho(ibulge)      > 0) ev_data(iev_ave,iev_rhop(6)) = ev_data(iev_ave,iev_rhop(6))*real(npgas)/real(np_rho(ibulge))
  endif
- ev_data(iev_sum,iev_vrms   ) = sqrt(ev_data(iev_sum,iev_vrms   )*dnptot)
- ev_data(iev_sum,iev_rmsmach) = sqrt(ev_data(iev_sum,iev_rmsmach)*dnpgas)
- vrms    = ev_data(iev_sum,iev_vrms)
- rmsmach = ev_data(iev_sum,iev_rmsmach)
 
  if (iexternalforce > 0) then
     xmomacc   = reduce_fn('+',xmomacc)

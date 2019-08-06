@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: rho_profile
@@ -175,7 +175,7 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,npts,ierr)
        if (iter==0) then
           rhocentre = rhocentre * (mstar_in/mstar)**(1./3.)
           lastsign  = int( sign(1.0,mstar_in-mstar) )
-       else if (iter==1) then
+       elseif (iter==1) then
           drho      = 0.1*rhocentre*lastsign
           lastsign  = int( sign(1.0,mstar_in-mstar) )
        else
@@ -283,7 +283,7 @@ real function get_dPdrho(rho)
  elseif (rho < rhocrit1pwp) then
     gamma = gamma1pwp
     polyk = polyk1
- else if (rho < rhocrit2pwp) then
+ elseif (rho < rhocrit2pwp) then
     gamma = gamma2pwp
     polyk = polyk2
  else

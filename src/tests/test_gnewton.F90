@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testgnewton
@@ -34,7 +34,7 @@ subroutine test_gnewton(ntests,npass)
  use io,              only:id,master
  use part,            only:xyzh,vxyzu
  use timestep,        only:C_force
- use testutils,       only:checkval
+ use testutils,       only:checkval,update_test_scores
  use physcon,         only:solarm,solarr,c,pi
  use options,         only:iexternalforce
  use units,           only:set_units,udist,utime
@@ -143,8 +143,7 @@ subroutine test_gnewton(ntests,npass)
 
     call checkval(precang,2.*(pign-real(pi)),1.e-5,nfailed(3),'precession angle')
 
-    ntests = ntests + 1
-    if (all(nfailed(1:3)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:3),npass)
 
  endif testrelatorbit
 
@@ -217,7 +216,7 @@ real function rf(x,y,z)
  real :: alamb,ave,delx,dely,delz,e2,e3,sqrtx,sqrty,sqrtz,xt,yt,zt
  real :: errmax
 
- if(min(x,y,z) < 0..or.min(x+y,x+z,y+z) < tiny(x) .or.max(x,y,z) > huge(x)) print*,"invalid arguments in rf"
+ if (min(x,y,z) < 0..or.min(x+y,x+z,y+z) < tiny(x) .or.max(x,y,z) > huge(x)) print*,"invalid arguments in rf"
  xt=x
  yt=y
  zt=z

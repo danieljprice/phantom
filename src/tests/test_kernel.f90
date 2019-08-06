@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testkernel
@@ -33,7 +33,7 @@ subroutine test_kernel(ntests,npass)
  use io,        only:id,master
  use kernel,    only:kernelname,get_kernel,wkern,grkern,wab0,gradh0,radkern,radkern2,cnormk, &
                      kernel_softening,get_kernel_grav1,dphidh0
- use testutils, only:checkvalbuf,checkvalbuf_end,checkval
+ use testutils, only:checkvalbuf,checkvalbuf_end,checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer, parameter :: n = 200
  integer, parameter :: stderr = 0
@@ -47,32 +47,27 @@ subroutine test_kernel(ntests,npass)
 !
 !--check that wab0 and gradh0 are equal to values at q=zero
 !
- ntests = ntests + 1
  call get_kernel(0.,0.,wval,grkernval)
  call checkval(wab0,wval,tiny(0.),nerr(1),'wab0 = wab(0)')
- if (nerr(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:1),npass)
 
- ntests = ntests + 1
  gradhval = -3.*wval
  call checkval(gradh0,gradhval,tiny(0.),nerr(1),'gradh0 = -3.*wab(0)')
- if (nerr(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:1),npass)
 
  ! test get_kernel_grav1 routine
- ntests = ntests + 1
  call get_kernel_grav1(0.,0.,wval,grkernval,dphidh)
  call checkval(dphidh0,dphidh,tiny(0.),nerr(1),'dphidh0 = dphidh(0)')
- if (nerr(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:1),npass)
 !
 !--check that radkern2 = radkern**2
 !
- ntests = ntests + 1
  call checkval(radkern2,radkern**2,tiny(0.),nerr(1),'radkern2 = radkern*radkern')
- if (nerr(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:1),npass)
 !
 !--check that all three functions give consistent answers
 !  for q=0..radkern2
 !
- ntests = ntests + nktest
  errmax = 0.
  dq = radkern/real(n-1)
  !open(unit=1,file='kernelfunc-'//trim(kernelname)//'.out',status='replace')
@@ -116,7 +111,7 @@ subroutine test_kernel(ntests,npass)
  enddo
  !close(unit=1)
  do i=1,nktest
-    if (nerr(i)==0) npass = npass + 1
+    call update_test_scores(ntests,nerr(i:i),npass)
  enddo
 
  call checkvalbuf_end('get_kernel == wkern',ncheck(1),nerr(1),errmax(1),tiny(0.))

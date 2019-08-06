@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: balance
@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, domain, io, mpi, mpiutils, part, timing
+!  DEPENDENCIES: dim, io, mpi, mpiutils, part, timing
 !+
 !--------------------------------------------------------------------------
 #ifdef MPI
@@ -102,8 +102,7 @@ end subroutine balance_init
 !----------------------------------------------------------------
 subroutine balancedomains(npart)
  use io,     only:id,master,iverbose,fatal
- use domain, only:ibelong
- use part,   only:shuffle_part,count_dead_particles
+ use part,   only:shuffle_part,count_dead_particles,ibelong
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
  implicit none
@@ -166,8 +165,7 @@ end subroutine balancedomains
 !-----------------------------------------------------------------------
 subroutine recv_part(replace)
  use io,      only:fatal,id
- use part,    only:isdead,unfill_buffer,maxp,ll,ideadhead
- use domain,  only:ibelong
+ use part,    only:isdead,unfill_buffer,maxp,ll,ideadhead,ibelong
  implicit none
  logical, intent(in), optional :: replace
  logical :: igotpart
@@ -272,7 +270,6 @@ end subroutine send_part
 !+
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
- use dim, only:maxp
  use io,  only:id,nprocs,fatal,iverbose
  implicit none
  integer, intent(out)            :: npart

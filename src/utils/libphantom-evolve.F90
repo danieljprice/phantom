@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: evolvesplit
@@ -60,7 +60,6 @@ subroutine evol_init()
 #ifdef IND_TIMESTEPS
  use part,             only:ibin
  use timestep_ind,     only:istepfrac,nbinmax
- use timestep,         only:restartonshortest
 #endif
 
 #ifdef IND_TIMESTEPS
@@ -88,7 +87,7 @@ subroutine evol_init()
 ! first time through, move all particles on shortest timestep
 ! then allow them to gradually adjust levels
 !
- if (time < tiny(time) .or. restartonshortest) then
+ if (time < tiny(time)) then
     !$omp parallel do schedule(static) private(i)
     do i=1,npart
        ibin(i) = nbinmax

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: mf_write
@@ -276,17 +276,17 @@ subroutine binpos_write(time,dt)
  if (xyzh(4,ipartatrad)  >  tiny(xyzh)) then ! IF ACTIVE
     write(igpos,'(4(es18.10,1x))')time, xyzh(1,ipartatrad),xyzh(2,ipartatrad),xyzh(3,ipartatrad)
 
- elseif(xyzh(4,ipartatrad) < -tiny(xyzh)) then !ACCRETED
+ elseif (xyzh(4,ipartatrad) < -tiny(xyzh)) then !ACCRETED
     close(unit=igpos)
     !---Look for new particle to follow and create new file
     !--choose the gas particle at radius=gasrad
 
     do i=1,npart
        ri=sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
-       if(ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
+       if (ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
           ipartatrad=i
           exit
-       elseif(i==npart)  then
+       elseif (i==npart)  then
           ipartatrad=npart
        endif
     enddo
@@ -348,10 +348,10 @@ subroutine binpos_init(ibinposi,evfile)
 
     ri=sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
 
-    if(ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
+    if (ri<(gasrad+0.1) .and. ri>(gasrad-0.1))  then
        ipartatrad=i
        exit
-    elseif(i==npart)  then
+    elseif (i==npart)  then
        ipartatrad=npart
     endif
 
@@ -380,7 +380,7 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  integer, intent(in)      :: nr
  integer                  :: i
 
- if(size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
 
  dr = (rmax-rmin)/real(nr-1)
  do i=1,nr
@@ -435,7 +435,7 @@ subroutine read_discparams(filename,R_in,R_out,H_R,p_index,q_index,M_star,iunit,
  if (ierr /= 0) return
  call read_inopt(R_out,'R_out',db,ierr)
  if (ierr /= 0) return
- call read_inopt(H_R,'H_R',db,ierr)
+ call read_inopt(H_R,'H/R_ref',db,ierr)
  if (ierr /= 0) return
  call read_inopt(p_index,'p_index',db,ierr)
  if (ierr /= 0) return

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  PROGRAM: time_average_pspec
@@ -95,7 +95,7 @@ program time_average_pspec
           if (nbins /= nbinsprev) then
              print "(a)",' ERROR: number of bins has changed between files, skipping file'
              cycle over_files
-          elseif(.not.all(xval(1:nbins)==xvalprev(1:nbins))) then
+          elseif (.not.all(xval(1:nbins)==xvalprev(1:nbins))) then
              print "(a)",' ERROR: location of bins has changed between files, skipping file'
              cycle over_files
           endif

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -108,8 +108,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call read_setupfile(filename,ierr)
     call set_units(dist=udist,mass=umass,G=1.)
 
-    if(ierr/=0) then
-       if(id==master) call write_setupfile(filename)
+    if (ierr/=0) then
+       if (id==master) call write_setupfile(filename)
        stop
     endif
 
@@ -263,7 +263,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     rpart = sqrt(xyzh(1,i)*xyzh(1,i) + xyzh(2,i)*xyzh(2,i))
     midsep = abs(rpart - R_mid)
-    if(midsep > annulus_halfwidth) then
+    if (midsep > annulus_halfwidth) then
        call set_particle_type(i,iboundary)
        nboundary = nboundary+1
     endif
@@ -396,7 +396,7 @@ real function sigma0(Mdisc, Rinner, Router, p_index)
  sigma0 = Mdisc/(2.0*3.141592654)
  exponent = 2.0-p_index
 
- if(p_index==2.0) then
+ if (p_index==2.0) then
     sigma0 = sigma0*log(Rinner/Router)
  else
     sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)

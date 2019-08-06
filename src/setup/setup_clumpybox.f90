@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -289,8 +289,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! Shift the sphere slightly from the centre
 
        xsphere(i,iclump) = xsphere(i,iclump) + (-1.0 + 2.0*ran2(iseed))*r_clump/10.0
-       !if(abs(xsphere(i,iclump)-xmaxi(i))<r_clump) xsphere(i,iclump) = xmaxi(i)-1.1*r_clump
-       !if(abs(xsphere(i,iclump)-xmini(i))<r_clump) xsphere(i,iclump) = xmini(i) + 1.1*r_clump
+       !if (abs(xsphere(i,iclump)-xmaxi(i))<r_clump) xsphere(i,iclump) = xmaxi(i)-1.1*r_clump
+       !if (abs(xsphere(i,iclump)-xmini(i))<r_clump) xsphere(i,iclump) = xmini(i) + 1.1*r_clump
 !       xsphere(i,iclump) = xmini(i) + ran2(iseed)*(xmaxi(i)-xmini(i)) Alternative case without discretising
     enddo
  enddo
@@ -339,7 +339,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  npart_medium = int(vol_box/psep_box**(3.0))
 
- if(npart+ npart_medium > npmax) then
+ if (npart+ npart_medium > npmax) then
     print "(a)", 'Warning! Low density medium particles will exceed maxp'
     print*, npart, npart_medium, npmax, psep_box,vol_box
  endif
@@ -384,7 +384,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
        sep = sqrt(dr(1)*dr(1) + dr(2)*dr(2)+dr(3)*dr(3))
 
-       if(sep<r_clump) then
+       if (sep<r_clump) then
           ninside = ninside+1
           vxyzu(4,ipart) = 1.5*polyk
 
@@ -436,7 +436,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
 ! Set B fields using standard set_Bfield routine outside of setpart
- if(mhd) ihavesetupB = .false.
+ if (mhd) ihavesetupB = .false.
  !
  !--set default runtime parameters
  !

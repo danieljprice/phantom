@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: readwrite_infile
@@ -66,7 +66,7 @@ module readwrite_infile
                      alpha,alphau,alphaB,beta,avdecayconst,damp, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
-                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file
+                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
  use timestep,  only:dtwallmax,tolv
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -210,6 +210,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iwritein)
  if (use_Voronoi_limits_file) call write_inopt(Voronoi_limits_file,'Voronoi_limits_file',&
       'Limit file for the Voronoi tesselation',iwritein)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+      'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -229,7 +231,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
- if(.not.use_dustfrac) call write_options_growth(iwritein)
+ if (.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
 #endif
 
@@ -258,7 +260,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,maxp,gravity
+ use dim,             only:maxvxyzu,maxptmass,gravity
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:use_entropy,read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -426,6 +428,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('Voronoi_limits_file')
        read(valstring,*,iostat=ierr) Voronoi_limits_file
        use_Voronoi_limits_file = .true.
+    case('use_mcfost_stars')
+       read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
 #endif
     case default
        imatch = .false.

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testkdtree
@@ -33,14 +33,14 @@ module testkdtree
 contains
 
 subroutine test_kdtree(ntests,npass)
- use dim,       only:ncellsmax,maxp
+ use dim,       only:maxp
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
  use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
  use kernel,    only:hfact_default
  use kdtree,    only:maketree,revtree,kdnode,empty_tree
  use unifdis,   only:set_unifdis
- use testutils, only:checkvalbuf,checkvalbuf_end
+ use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
  use timing,    only:print_time,getused
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
@@ -144,8 +144,7 @@ subroutine test_kdtree(ntests,npass)
     call checkvalbuf_end('qyz',nchecked(11),nfailed(11),errmax(11),tol)
     call checkvalbuf_end('qzz',nchecked(12),nfailed(12),errmax(12),tol)
 #endif
-    ntests = ntests + 1
-    if (all(nfailed(:)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     deallocate(old_tree)
  endif

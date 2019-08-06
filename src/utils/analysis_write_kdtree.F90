@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -144,7 +144,7 @@ subroutine read_kdtree_file(dumpfile)
 ! Read header
  read(10) filetag, ncells
 
- if(filetag=='gravity') then
+ if (filetag=='gravity') then
     print'(a)', 'Tree from a gravity run'
  else
     print '(a)', 'Tree from a non-gravity run'

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -55,7 +55,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  print*,' Hello Hauke, time in file = ',time
  open( unit=106, file='radial.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening radial.out'
+ if ( ierr /= 0 ) stop 'error opening radial.out'
 
  call make_beta_grids( xyzh, particlemass, npart )
 
@@ -74,7 +74,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  close( 106 )
  open( unit=106, file='radialinterp.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening radialinterp.out'
+ if ( ierr /= 0 ) stop 'error opening radialinterp.out'
 
  write(106,*), "#r_rad rbin theta thetabin r_cyl z rho tau beta"
  Lstar=1
@@ -100,7 +100,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  close(106)
 
  open( unit=106, file='applied.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening applied.out'
+ if ( ierr /= 0 ) stop 'error opening applied.out'
 
  write(106,*), "#x y z r_cyl beta r_bin th_bin"
 
@@ -108,7 +108,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
     r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
-    if( r>1 ) then
+    if ( r>1 ) then
 
        call get_grid_bins( r, acos(abs(xyzh(3,ipart))/r), rbin, tbin )
        write(106,*), xyzh(1,ipart), xyzh(2,ipart), xyzh(3,ipart), r, &

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testlum
@@ -31,7 +31,7 @@ module testlum
 contains
 
 subroutine test_lum(ntests,npass)
- use dim,      only:maxp,periodic,lightcurve,maxalpha
+ use dim,      only:periodic,lightcurve
  use io,       only:id,master
 #ifdef LIGHTCURVE
  use io,       only:iverbose
@@ -39,12 +39,13 @@ subroutine test_lum(ntests,npass)
                     igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
                     Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB
  use eos,             only:gamma,polyk
- use testutils,       only:checkval,checkvalf
+ use testutils,       only:checkval,checkvalf,update_test_scores
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
  use setdisc,         only:set_disc
  use deriv,           only:derivs
  use timing,          only:getused
 #ifndef DISC_VISCOSITY
+ use dim,             only:maxp
  use part,            only:alphaind,maxalpha
  use options,         only:alphau,alphaB
  use viscosity,       only:irealvisc,shearfunc,dt_viscosity,shearparam
@@ -61,7 +62,7 @@ subroutine test_lum(ntests,npass)
  real                   :: totlum_saved(2),dtext_dum,etot_saved(2),diff,alpha_in
  real                   :: time
  real(kind=4) :: t1,t2
- integer                :: nfail,ii
+ integer                :: nfail(1),ii
 #endif
 
 !#ifdef DISC_VISCOSITY
@@ -89,7 +90,6 @@ subroutine test_lum(ntests,npass)
  time = 0.0
  hfact = 1.2
  totlum_saved = 7.0
- ntests = 4
  iexternalforce = 1
  iverbose = 0
  ieos = 2
@@ -181,8 +181,8 @@ subroutine test_lum(ntests,npass)
     ! enddo
 
     diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)
-    call checkval(totlum_saved(1),totlum_saved(2),0.01,nfail,'totlum')
-    if (nfail==0) npass = npass + 1
+    call checkval(totlum_saved(1),totlum_saved(2),0.01,nfail(1),'totlum')
+    call update_test_scores(ntests,nfail(1:1),npass)
 #endif
     nactive = npart !for later
  enddo

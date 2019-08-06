@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: evwrite
@@ -120,8 +120,8 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
  endif
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
- call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  's', i,j)
- call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     's', i,j)
+ call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)
@@ -306,7 +306,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
 
  if (len(label)>11 .and. (cxmn=='0' .or. cxmn=='s') ) then
     label0 = label(1:11)
- else if (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
+ elseif (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
     label0 = label(1:9)
  else
     label0 = label
@@ -316,7 +316,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
     if (cxmn=='x') ext = "max"
     if (cxmn=='a') ext = "ave"
     if (cxmn=='n') ext = "min"
- else if (len(label)<=9) then
+ elseif (len(label)<=9) then
     if (cxmn=='x') ext = "X"
     if (cxmn=='a') ext = "A"
     if (cxmn=='n') ext = "N"

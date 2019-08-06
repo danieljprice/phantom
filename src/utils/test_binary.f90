@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testbinary
@@ -75,7 +75,7 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  write(lu,"('#',3(3x,a))") 'x','y','z'
  write(lu,*) xyz(1:3,2) - xyz(1:3,1)
 
- write(*,"(6(a,'=',g6.2,1x),a,'=',g8.1,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs
+ write(*,"(6(a,'=',1pg8.3,1x),a,'=',1pg8.3,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs
  !print*,'period = ',period
  call get_f(m1,m2,xyz,fxyz)
  tsep = 0.

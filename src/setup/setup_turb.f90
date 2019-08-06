@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -43,7 +43,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,maxdustsmall
+ use dim,          only:use_dust,maxdustsmall,maxp_hard,maxvxyzu
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
@@ -58,6 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
+
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -68,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
- integer :: ipart,i,maxp,maxvxyzu
+ integer :: ipart,i
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0
@@ -96,11 +97,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--setup particles
 !
- maxp = size(xyzh(1,:))
- maxvxyzu = size(vxyzu(:,1))
  if (id==master) then
     npartx = 64
-    call prompt('Enter number of particles in x ',npartx,16,nint((maxp)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_hard)**(1/3.)))
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
@@ -155,11 +154,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !--grainsizes
        call prompt('Enter minimum grain size in cm',smincgs,0.)
        call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-       call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
-       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
        !--mass distribution
        call prompt('Enter power-law index, e.g. MRN',sindex)
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+       grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
        !--grain density
        call prompt('Enter grain density in g/cm^3',graindens(1),0.)
        graindens(1:ndusttypes) = graindens(1)/umass*udist**3

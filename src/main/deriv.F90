@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: deriv
@@ -43,7 +43,7 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                   dustfrac,ddustevol,temperature,time,dt,dtnew)
- use dim,            only:maxp,maxvxyzu
+ use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -58,7 +58,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,           only:massoftype
 #endif
 #ifdef DUSTGROWTH
- use growth,                only:get_growth_rate
+ use growth,         only:get_growth_rate
+ use part,           only:St,csound
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -80,12 +81,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- logical, parameter :: itiming = .true.
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
  tcpu1 = 0.
- if (itiming) call get_timings(t1,tcpu1)
+ call get_timings(t1,tcpu1)
  tlast = t1
  tcpulast = tcpu1
 !
@@ -142,7 +142,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  !
  ! compute growth rate of dust particles with respect to their positions
  !
- call get_growth_rate(npart,xyzh,vxyzu,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,vxyzu,csound,St,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 !
 ! set new timestep from Courant/forces condition
@@ -176,21 +176,19 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
  if (label=='dens') then
     call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
- else if (label=='force') then
+ elseif (label=='force') then
     call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
- else if (label=='link') then
+ elseif (label=='link') then
     call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
  endif
 
- if (itiming .and. iverbose >= 2) then
-    if (id==master) then
-       if (present(start)) then
-          call log_timing(label,t2-tlast,tcpu,start=.true.)
-       elseif (present(lunit)) then
-          call log_timing(label,t2-tlast,tcpu,iunit=lunit)
-       else
-          call log_timing(label,t2-tlast,tcpu)
-       endif
+ if (iverbose >= 2 .and. id==master) then
+    if (present(start)) then
+       call log_timing(label,t2-tlast,tcpu,start=.true.)
+    elseif (present(lunit)) then
+       call log_timing(label,t2-tlast,tcpu,iunit=lunit)
+    else
+       call log_timing(label,t2-tlast,tcpu)
     endif
  endif
  tlast = t2

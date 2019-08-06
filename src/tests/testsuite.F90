@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: test
@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, mpiutils, options, testcooling, testcorotate,
+!  DEPENDENCIES: io, io_summary, options, testcooling, testcorotate,
 !    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
 !    testgravity, testgrowth, testindtstep, testkdtree, testkernel,
 !    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
@@ -36,6 +36,7 @@ contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io,           only:iprint,id,master,iverbose
+ use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
  use testlink,     only:test_link
@@ -61,7 +62,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgeometry, only:test_geometry
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
- use mpiutils,     only:barrier_mpi
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -72,6 +72,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: usefsqrt,usefinvsqrt
 #endif
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
+
+ call summary_initialise
 
  iprint = 6
  iverbose = max(iverbose,2)
@@ -160,14 +162,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  end select
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
- call barrier_mpi()
 #endif
 !
 !--test kernel module
 !
  if (dokernel.or.testall) then
     call test_kernel(ntests,npass)
-    call barrier_mpi()
  endif
 !
 !--test of linklist/neighbour finding module
@@ -175,7 +175,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dolink.or.testall) then
     call test_link(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of derivs module
@@ -183,7 +182,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (doderivs.or.testall) then
     call test_derivs(ntests,npass,string)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of equation of state module
@@ -191,7 +189,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (doeos.or.testall) then
     call test_eos(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of equation of state module
@@ -199,7 +196,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (docooling.or.testall) then
     call test_cooling(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of kdtree module
@@ -207,7 +203,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dokdtree.or.testall) then
     call test_kdtree(ntests,npass)
     call set_default_options
-    call barrier_mpi()
  endif
 !
 !--test of self-gravity
@@ -215,7 +210,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dogravity.or.testall) then
     call test_gravity(ntests,npass,string)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of dust module
@@ -223,7 +217,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dodust.or.testall) then
     call test_dust(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of dust growth module
@@ -231,7 +224,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dogrowth.or.testall) then
     call test_growth(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of non-ideal MHD
@@ -239,7 +231,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (donimhd.or.testall) then
     call test_nonidealmhd(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of readwrite_dumps module
@@ -247,7 +238,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dorwdump.or.testall) then
     call test_rwdump(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of step module
@@ -255,7 +245,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dostep.or.testall) then
     call test_step(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of ind tstep module
@@ -263,7 +252,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (doindtstep.or.testall) then
     call test_indtstep(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of external forces module
@@ -271,7 +259,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (doexternf.or.testall) then
     call test_externf(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of ptmass module
@@ -279,7 +266,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (doptmass.or.testall) then
     call test_ptmass(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of gnewton module
@@ -287,7 +273,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dognewton.or.testall) then
     call test_gnewton(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of corotate module
@@ -295,7 +280,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (docorotate.or.testall) then
     call test_corotate(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of set_disc module
@@ -303,7 +287,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--test of geometry module
@@ -311,14 +294,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dogeom.or.testall) then
     call test_geometry(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !
  if (dosedov.or.testall) then
     call test_sedov(ntests,npass)
-    call barrier_mpi()
  endif
 
  if (last .and. id==master) then

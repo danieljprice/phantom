@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: kernel
@@ -35,6 +35,7 @@ module kernel
  real, parameter, public  :: dphidh0 = 239./210.
  real, parameter, public  :: cnormk_drag = 1./(168.*pi)
  real, parameter, public  :: hfact_default = 1.0
+ real, parameter, public  :: av_factor = 2771./1890.
 
 contains
 

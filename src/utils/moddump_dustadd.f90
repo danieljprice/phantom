@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: moddump
@@ -28,7 +28,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,          only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth
+ use dim,          only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth,update_max_sizes
  use part,         only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge,&
                         grainsize,graindens,dustfrac
  use set_dust,     only:set_dustfrac,set_dustbinfrac
@@ -80,10 +80,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     !--grainsizes
     call prompt('Enter minimum grain size in cm',smincgs,0.)
     call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-    call logspace(grainsize(1:ndusttypes),smincgs,smaxcgs)
     !--mass distribution
     call prompt('Enter power-law index, e.g. MRN',sindex)
-    call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes))
+    call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
     !--grain density
     call prompt('Enter grain density in g/cm^3',graindens(1),0.)
     graindens = graindens(1)
@@ -121,6 +120,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     use_dustfrac = .false.
     ndustlarge = ndusttypes
     np_dust = np_gas/np_ratio
+    npart = np_gas + np_dust*ndustlarge
+
+    call update_max_sizes(npart)
 
     do i=1,ndustlarge
 
@@ -145,8 +147,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
 
     enddo
-
-    npart = np_gas + np_dust*ndustlarge
 
     if (use_dustgrowth) then
        call set_dustprop(npart)

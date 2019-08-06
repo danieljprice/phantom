@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -284,10 +284,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if ((isphere==imesa .or. isphere==ikepler) .and. (ieos==10)) then
              vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
              presi = yinterp(pres(1:npts),r(1:npts),ri)
-          else if ((isphere==imesa .or. isphere==ikepler) .and. (ieos/=10)) then
+          elseif ((isphere==imesa .or. isphere==ikepler) .and. (ieos/=10)) then
              presi = yinterp(pres(1:npts),r(1:npts),ri)
              vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-          else if (isphere==ihelmholtz .and. ieos==15) then
+          elseif (isphere==ihelmholtz .and. ieos==15) then
              ! set internal energy according to Helmholtz eos
              xi    = xyzh(1,i)
              yi    = xyzh(2,i)
@@ -569,7 +569,7 @@ subroutine write_dist(item_in,dist_in,udist)
 
  if ( abs(1.0-solarr/udist) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in,' R_sun'
- else if ( abs(1.0-km/udist) < 1.0d-4) then
+ elseif ( abs(1.0-km/udist) < 1.0d-4) then
     write(*,'(2(a,Es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in,' km'
  else
     write(*,'(a,Es12.5,a)')    item_in, dist_in*udist,' cm'

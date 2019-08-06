@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code                             !
-! Copyright (c) 2007-2018 Daniel Price and contributors (see AUTHORS file)     !
-! http://users.monash.edu.au/~dprice/phantom                                   !
+! Copyright (c) 2007-2019 Daniel Price and contributors (see AUTHORS file)     !
+! http://phantomsph.bitbucket.io/                                              !
 !------------------------------------------------------------------------------!
 
 Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code

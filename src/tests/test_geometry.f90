@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testgeometry
@@ -22,7 +22,7 @@
 !+
 !--------------------------------------------------------------------------
 module testgeometry
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_geometry
@@ -42,7 +42,7 @@ subroutine test_geometry(ntests,npass)
  integer, intent(inout) :: ntests,npass
  real    :: xin(3),xout(3),xtmp(3),tol
  real    :: vecin(3),vecout(3),vectmp(3),xmin(3),xmax(3),rad
- integer :: igeom,ndim,ierr,ndiff,nerr,itest
+ integer :: igeom,ndim,ierr,ndiff(2),itest
 
  if (id==master) write(*,"(/,a)") '--> TESTING GEOMETRY MODULE'
 !
@@ -51,7 +51,6 @@ subroutine test_geometry(ntests,npass)
 !
  ndim = 3
  tol = small_number !3.*epsilon(0.)
- nerr = 0
  xin   = (/5.,6.,7./)
  vecin = (/2.,3.,4./)
 
@@ -63,7 +62,7 @@ subroutine test_geometry(ntests,npass)
     case default
        if (id==master) write(*,"(/,a)") '--> checking transforms for coords and vectors are reversible'
     end select
-    nerr = 0
+    ndiff = 0
     do igeom=1,maxcoordsys
        ! forward
        call coord_transform(xin,ndim,1,xout,ndim,igeom,ierr)
@@ -73,30 +72,25 @@ subroutine test_geometry(ntests,npass)
        call coord_transform(xout,ndim,igeom,xtmp,ndim,1,ierr)
        call vector_transform(xout,vecout,ndim,igeom,vectmp,ndim,1,ierr)
 
-       call checkval(3,xtmp,xin,tol,ndiff,trim(labelcoordsys(igeom)))
-       nerr = nerr + ndiff
-
-       call checkval(3,vectmp,vecin,tol,ndiff,trim(labelcoordsys(igeom)))
-       nerr = nerr + ndiff
+       call checkval(3,xtmp,xin,tol,ndiff(1),trim(labelcoordsys(igeom)))
+       call checkval(3,vectmp,vecin,tol,ndiff(2),trim(labelcoordsys(igeom)))
     enddo
-    ntests = ntests + 1
-    if (nerr==0) npass = npass + 1
+    call update_test_scores(ntests,ndiff,npass)
  enddo
 !
 ! check that routines that allegedly do the same thing actually do
 !
  if (id==master) write(*,"(/,a)") '--> testing get_coord_limits matches coord_transform'
+ ndiff = 0
  do igeom=1,maxcoordsys
     xmin = 0.
     xmax = 1.
     rad = 0.1
     call get_coord_limits(rad,xin,xout,xmin,xmax,igeom)
     call coord_transform(xin,ndim,1,xtmp,ndim,igeom,ierr)
-    call checkval(3,xout,xtmp,tol,ndiff,trim(labelcoordsys(igeom)))
-    nerr = nerr + ndiff
+    call checkval(3,xout,xtmp,tol,ndiff(1),trim(labelcoordsys(igeom)))
  enddo
- ntests = ntests + 1
- if (nerr==0) npass = npass + 1
+ call update_test_scores(ntests,ndiff,npass)
 
  if (id==master) write(*,"(/,a)") '<-- GEOMETRY TEST COMPLETE'
 

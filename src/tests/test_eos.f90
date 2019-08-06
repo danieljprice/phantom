@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testeos
@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testeos
@@ -59,9 +60,9 @@ end subroutine test_eos
 !+
 !----------------------------------------------------------
 subroutine test_init(ntests, npass)
- use eos,       only:maxeos,init_eos,isink,polyk
+ use eos,       only:maxeos,init_eos,isink,polyk,polyk2
  use io,        only:id,master
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(maxeos)
  integer :: ierr,ieos
@@ -71,13 +72,13 @@ subroutine test_init(ntests, npass)
  if (id==master) write(*,"(/,a)") '--> testing equation of state initialisation'
 
  nfailed = 0
- ntests  = ntests + 1
 
  ! ieos=6 is for an isothermal disc around a sink particle, use isink=1
  isink = 1
 
  ! ieos=8, barotropic eos, requires polyk to be set to avoid undefined
  polyk = 0.1
+ polyk2 = 0.1
 
  ! ieos=10 and 15, MESA and Helmholtz eos, require table read from files
  call get_environment_variable('PHANTOM_DIR',pdir)
@@ -90,7 +91,7 @@ subroutine test_init(ntests, npass)
     if (ieos==16 .and. .not. got_phantom_dir) cycle ! skip Shen
     call checkval(ierr,0,0,nfailed(ieos),'eos initialisation')
  enddo
- if (all(nfailed==0)) npass = npass + 1
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_init
 
@@ -103,8 +104,9 @@ end subroutine test_init
 subroutine test_barotropic(ntests, npass)
  use eos,       only:equationofstate,rhocrit1cgs,polyk,polyk2,eosinfo,init_eos
  use io,        only:id,master,stdout
- use testutils, only:checkvalbuf,checkvalbuf_start,checkvalbuf_end
+ use testutils, only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
  use units,     only:unit_density
+ use mpiutils,  only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: i,ierr,maxpts,ierrmax,ieos
@@ -121,15 +123,15 @@ subroutine test_barotropic(ntests, npass)
 
  call init_eos(ieos, ierr)
  if (ierr /= 0) then
-    write(*,"(/,a)") '--> skipping barotropic eos test due to init_eos() fail'
+    if (id==master) write(*,"(/,a)") '--> skipping barotropic eos test due to init_eos() fail'
     return
  endif
 
- ntests  = ntests + 1
  nfailed = 0
  ncheck  = 0
 
- call eosinfo(ieos,stdout)
+ if (id==master) call eosinfo(ieos,stdout)
+ call barrier_mpi
  call checkvalbuf_start('equation of state is continuous')
 
  maxpts = 5000
@@ -150,7 +152,7 @@ subroutine test_barotropic(ntests, npass)
  call checkvalbuf_end('p/rho is continuous',ncheck(1),nfailed(1),ierrmax,0,maxpts)
  !call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
 
- if (nfailed(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_barotropic
 

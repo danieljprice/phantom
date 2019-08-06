@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: io_summary
@@ -77,6 +77,16 @@ module io_summary
  !  Number of steps
  integer, parameter :: iosum_nreal = maxiosum+1  ! number of 'real' steps taken
  integer, parameter :: iosum_nsts  = maxiosum+2  ! number of 'actual' steps (including STS) taken
+ !  Reason sink particle was not created
+ integer, parameter :: inosink_notgas = 1  ! not gas particles
+ integer, parameter :: inosink_divv   = 2  ! div v > 0
+ integer, parameter :: inosink_h      = 3  ! 2h > h_acc
+ integer, parameter :: inosink_active = 4  ! not all particles are active
+ integer, parameter :: inosink_therm  = 5  ! E_therm/E_grav > 0.5
+ integer, parameter :: inosink_grav   = 6  ! a_grav+b_grav > 1
+ integer, parameter :: inosink_Etot   = 7  ! E_tot > 0
+ integer, parameter :: inosink_poten  = 8  ! Not minimum potential
+ integer, parameter :: inosink_max    = 8  ! Number of failure reasons
  !
  !  Frequency of output based number of steps; 0 to turn off; if < 0 then every 2**{-iosum_nprint} steps
  integer,         parameter :: iosum_nprint  = 0
@@ -88,13 +98,13 @@ module io_summary
  integer(kind=8),   private :: iosum_npart(maxiosum)
  integer,           private :: iosum_nstep(maxiosum+2)
  real,              private :: iosum_ave  (maxiosum  ), iosum_max  (maxiosum)
- integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(7,maxrhomx)
+ integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(inosink_max,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
  logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
- character(len=19), private :: freason(8)
+ character(len=19), private :: freason(9)
  !
  !--Public values and arrays
  integer, public  :: iosum_ptmass(5,maxisink)
@@ -120,14 +130,15 @@ subroutine summary_initialise
  else
     iosum_print = iosum_nprint
  endif
- freason(1) = 'not all active:    '
- freason(2) = 'E_therm/E_grav>0.5:'
- freason(3) = 'a_grav+b_grav > 1: '
- freason(4) = 'E_tot > 0:         '
- freason(5) = 'Not gas:           '
- freason(6) = 'div v > 0:         '
- freason(7) = '2h > h_acc:        '
- freason(8) = '                   '
+ freason(inosink_notgas) = 'Not gas:           '
+ freason(inosink_divv)   = 'div v > 0:         '
+ freason(inosink_h)      = '2h > h_acc:        '
+ freason(inosink_active) = 'not all active:    '
+ freason(inosink_therm)  = 'E_therm/E_grav>0.5:'
+ freason(inosink_grav)   = 'a_grav+b_grav > 1: '
+ freason(inosink_Etot)   = 'E_tot > 0:         '
+ freason(inosink_poten)  = 'Not pot_min:       '
+ freason(inosink_max+1)  = '                   '
  !
 end subroutine summary_initialise
 !----------------------------------------------------------------
@@ -316,13 +327,16 @@ end subroutine summary_accrete_fail
 !+
 !----------------------------------------------------------------
 logical function summary_printnow()
- !
+
  summary_printnow = .false.
- !
- if ( ( iosum_print /= 0 .and. mod(iosum_nstep(iosum_nreal),iosum_print)==0 ) .or. &
-      ( dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print) )                   &
-   summary_printnow = .true.
- !
+
+ if ( iosum_print /= 0 ) then
+    if (mod(iosum_nstep(iosum_nreal),iosum_print)==0 .or. &
+        (dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print)) then
+       summary_printnow = .true.
+    endif
+ endif
+
 end function summary_printnow
 !----------------------------------------------------------------
 !+
@@ -378,7 +392,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     if ( dtsum_wall > real(3600.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(3600.0,kind=4),' hours       **|'
-    else if ( dtsum_wall > real(60.0,kind=4) ) then
+    elseif ( dtsum_wall > real(60.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(60.0,kind=4),  ' minutes     **|'
     else
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall,                    ' seconds     **|'
@@ -563,12 +577,12 @@ subroutine summary_printout(iprint,nptmass)
        do while( findfail )
           if ( iosum_rxf(j,i)==0 ) then
              j = j + 1
-             if (j==8) findfail = .false.
+             if (j==inosink_max+1) findfail = .false.
           else
              findfail = .false.
           endif
        enddo
-       if (j == 8) then
+       if (j == inosink_max+1) then
           ! only one particle tested and it is accreted
           write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|','|'
        else
@@ -577,8 +591,8 @@ subroutine summary_printout(iprint,nptmass)
            '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|',freason(j),iosum_rxf(j,i),'|'
        endif
        ! for the above particle, list the remaining reasons it failed to form a sink
-       if (j < 7) then
-          do k = j+1,7
+       if (j < inosink_max) then
+          do k = j+1,inosink_max
              if (iosum_rxf(k,i)/=0) write(iprint,150) '|','|','|','|','|',freason(k),iosum_rxf(k,i),'|'
           enddo
        endif

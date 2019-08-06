@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -161,7 +161,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        omegaR  = 0.5*sqrt( -quadb*quadb - 4.0*quada*quadc )
        hoft    = h0*abs(sin(omegaR*time))*exp(omegaI*time)
        pdiffR  = 0.0
-    else if (halltest) then
+    elseif (halltest) then
        !--Solution to the Hall wave equation (Sano & Stone)
        write(*,*) "Hall effect being tested"
        write(*,*) "Calculating analytical results using (B_0,rho,eta_hall,k/pi,v_amp) = " &

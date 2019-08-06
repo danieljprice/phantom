@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: power
@@ -144,7 +144,7 @@ subroutine power3d (ft,mx,my,mz,pk,xk,nk,mk,ptot,compensate,do_average,fty,ftz)
           kk = sqrt(k2)
           if (compensate == 0.) then
              fk = 1.
-          else if (compensate == 2.) then
+          elseif (compensate == 2.) then
              fk = k2
           else
              fk = kk**compensate

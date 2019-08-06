@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: teststep
@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, eos, io, mpiutils, options, part, physcon,
-!    step_lf_global, testutils, timestep, timing, unifdis, viscosity
+!    step_lf_global, testutils, timestep, timestep_ind, timing, unifdis,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module teststep
@@ -39,7 +40,7 @@ subroutine test_step(ntests,npass)
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv,maxgradh, &
+ use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv, &
                     Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
                     maxphase,mhd,maxBevol,igas
  use unifdis,  only:set_unifdis
@@ -50,7 +51,11 @@ subroutine test_step(ntests,npass)
  use viscosity,       only:irealvisc
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
- use testutils,       only:checkval,checkvalf
+ use testutils,       only:checkval,checkvalf,update_test_scores
+#ifdef IND_TIMESTEPS
+ use part,            only:ibin
+ use timestep_ind,    only:nbinmax
+#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
@@ -117,6 +122,14 @@ subroutine test_step(ntests,npass)
  dt      = 2.0/(nsteps)
  dtmax   = dt
  t = 0.
+
+ ! If using individual timesteps, ibin may be uninitialised
+#ifdef IND_TIMESTEPS
+ do i = 1, npart
+    ibin(i) = nbinmax
+ enddo
+#endif
+
  call init_step(npart,t,dtmax)
 
  nfailed(:) = 0
@@ -137,8 +150,7 @@ subroutine test_step(ntests,npass)
        call checkval(npart,dBevol(3,:),0.,tiny(0.),nfailed(8),'dBevolz/dt')
        if (maxBevol==4) call checkval(npart,dBevol(4,:),0.,tiny(0.),nfailed(9),'dpsi/dt')
     endif
-    ntests = ntests + 1
-    if (all(nfailed(:)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
  enddo
 
  if (id==master) write(*,"(/,a)") '<-- STEP TEST COMPLETE'

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  PROGRAM: lombperiod
@@ -84,7 +84,7 @@ program lombperiod
  open(unit=iunitout,file=trim(outname),status='replace',form='formatted')
 
  !--Check if inputfile present
- if(ierr/=0) then
+ if (ierr/=0) then
     print*, "Couldn't find input file!"
     stop
  endif
@@ -110,9 +110,9 @@ program lombperiod
  do while(ierr==0)
 
     read(443,*,iostat=ierr)time(k),dat(k)
-    if(time1>time(k)) then
+    if (time1>time(k)) then
        cycle
-    elseif(time1<time(k) .and. time2>time(k)) then
+    elseif (time1<time(k) .and. time2>time(k)) then
        k=k+1
     endif
  enddo

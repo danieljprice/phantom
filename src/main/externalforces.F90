@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: externalforces
@@ -48,6 +48,8 @@ module externalforces
  real, public :: eps_soft = 0.d0
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
+
+ logical, public :: extract_iextern_from_hdr = .false.
 
  !
  ! enumerated list of external forces

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: unifdis
@@ -464,7 +464,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 !
 !--initialise random number generator
 !
-    if(present(inputiseed))then
+    if (present(inputiseed)) then
        iseed = inputiseed
     else
        iseed = -43587

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testsetdisc
@@ -38,7 +38,7 @@ subroutine test_setdisc(ntests,npass)
                       divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustevol,dustprop,ddustprop,temperature
  use eos,        only:polyk,gamma
  use options,    only:ieos,alpha,alphau,alphaB
- use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
+ use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use deriv,      only:derivs
  use timing,     only:getused,printused
  use setdisc,    only:set_disc
@@ -46,8 +46,8 @@ subroutine test_setdisc(ntests,npass)
  use units,      only:set_units
  integer, intent(inout) :: ntests,npass
  integer :: nparttot
- integer :: nfailed,ncheck
- integer :: i,nerr,nwarn,nfail
+ integer :: nfailed(3),ncheck
+ integer :: i,nerr,nwarn
  real :: time,dtext_dum
  real(kind=4) :: t1,t2
  logical :: testall
@@ -103,16 +103,15 @@ subroutine test_setdisc(ntests,npass)
     alphau = 0.
     alphaB = 0.
     if (maxalpha==maxp)  alphaind = 0.
-    ntests = ntests + 1
 !
 !--check that set_disc passes check_setup routine
 !
-    ntests = ntests + 2
     call check_setup(nerr,nwarn)
-    call checkval(nerr,0,0,nfail,'setup errors')
-    if (nfail==0) npass = npass + 1
-    call checkval(nwarn,0,0,nfail,'setup warnings')
-    if (nfail==0) npass = npass + 1
+    call checkval(nerr,0,0,nfailed(1),'setup errors')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+
+    call checkval(nwarn,0,0,nfailed(1),'setup warnings')
+    call update_test_scores(ntests,nfailed(1:1),npass)
 !
 !--calculate derivatives
 !
@@ -135,10 +134,10 @@ subroutine test_setdisc(ntests,npass)
        fr    = dot_product(fxyzu(1:3,i),runit) - 1./rcyl**2
        vphi  = vxyzu(1,i)*(-xi(2)/rcyl) + vxyzu(2,i)*(xi(1)/rcyl)
        sum   = (vphi**2)/rcyl + fr
-       call checkvalbuf(sum,0.,3.1e-1,'centrifugal balance vphi**2/r = force_r',nfailed,ncheck,errmax)
+       call checkvalbuf(sum,0.,3.1e-1,'centrifugal balance vphi**2/r = force_r',nfailed(1),ncheck,errmax)
     enddo
-    call checkvalbuf_end('vphi**2/r = force_r',ncheck,nfailed,errmax,3.1e-1)
-    if (nfailed==0) npass = npass + 1
+    call checkvalbuf_end('vphi**2/r = force_r',ncheck,nfailed(1),errmax,3.1e-1)
+    call update_test_scores(ntests,nfailed(1:1),npass)
 
  endif testvelocities
 

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: evolve
@@ -36,11 +36,11 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
- use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal
+ use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
@@ -59,10 +59,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind
+                            print_dtlog_ind,get_newbin
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
- use io,               only:fatal,warning
  use step_lf_global,   only:init_step
 #else
  use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
@@ -114,7 +113,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
- real            :: tprint,tzero,dtmaxold
+ real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
@@ -145,6 +144,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nsteplast = 0
  tzero     = time
  dtlast    = 0.
+ dtinject  = huge(dtinject)
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
 
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
                            ipdv_heating==1 .and. ishock_heating==1 &
@@ -175,6 +177,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  else
     dtmax_log_dratio = 0.0
  endif
+
 #ifdef IND_TIMESTEPS
  use_global_dt = .false.
  istepfrac     = 0
@@ -257,8 +260,15 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef IND_TIMESTEPS
     npart_old=npart
 #endif
-    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype)
+    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
 #ifdef IND_TIMESTEPS
+    ! find timestep bin associated with dtinject
+    nbinmaxprev = nbinmax
+    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+    endif
+    ! put all injected particles on shortest bin
     do iloop=npart_old+1,npart
        ibin(iloop) = nbinmax
        twas(iloop) = time + 0.5*get_dt(dtmax,ibin(iloop))
@@ -358,7 +368,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
-    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor/=0) then
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
        call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
        dt_changed = .true.
     endif
@@ -376,11 +386,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
     dtprint = min(tprint,tmax) - time + epsilon(dtmax)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
 #endif
 
 !    if (abs(dt) < 1e-8*dtmax) then
@@ -429,6 +439,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           do j = 1,ndustsmall
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
+       endif
+       if (np_e_eq_0 > 0) then
+          call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
+       endif
+       if (np_cs_eq_0 > 0) then
+          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position
@@ -753,7 +769,7 @@ subroutine print_timer(lu,label,my_timer,time_between_dumps)
        write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
             label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
             my_timer%wall/time_between_dumps*100.
-    else if (time_between_dumps > 120.0) then
+    elseif (time_between_dumps > 120.0) then
        write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
             label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
             my_timer%wall/time_between_dumps*100.

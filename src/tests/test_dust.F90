@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: testdust
@@ -22,13 +22,14 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, io, kernel,
-!    mpiutils, options, part, physcon, random, set_dust, step_lf_global,
-!    table_utils, testutils, timestep, unifdis, units, vectorutils
+!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, growth, io,
+!    kernel, mpiutils, options, part, physcon, random, set_dust,
+!    step_lf_global, table_utils, testutils, timestep, unifdis, units,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module testdust
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_dust
@@ -48,10 +49,13 @@ subroutine test_dust(ntests,npass)
  use mpiutils,    only:barrier_mpi
  use options,     only:use_dustfrac
  use table_utils, only:logspace
+#ifdef DUSTGROWTH
+ use growth,      only:init_growth
+#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef DUST
- integer :: nfailed(2),ierr,iregime
+ integer :: nfailed(3),ierr,iregime
  real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
@@ -61,13 +65,16 @@ subroutine test_dust(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> testing drag initialisation'
 
  nfailed = 0
- ntests = ntests + 1
  gamma = 5./3.
  do idrag=1,2
     call init_drag(ierr)
     call checkval(ierr,0,0,nfailed(idrag),'drag initialisation')
  enddo
- if (all(nfailed==0)) npass = npass + 1
+#ifdef DUSTGROWTH
+ call init_growth(ierr)
+ call checkval(ierr,0,0,nfailed(3),'growth initialisation')
+#endif
+ call update_test_scores(ntests,nfailed,npass)
 
  idrag = 1
  rhoi = 1.e-13/unit_density
@@ -78,8 +85,7 @@ subroutine test_dust(ntests,npass)
  rhodusti = 0.5*rhoi
  call get_ts(idrag,grainsizei,graindensi,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  call checkval(iregime,1,0,nfailed(1),'deltav=0 gives Epstein drag')
- ntests = ntests + 1
- if (nfailed(1)==0) npass = npass + 1
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
  !
  ! Test transition between Epstein/Stokes drag
@@ -284,8 +290,7 @@ subroutine test_dustybox(ntests,npass)
  call checkvalbuf_end('gas accel matches exact solution',   ncheck(4),nerr(4),errmax(4),tolfg)
  call checkvalbuf_end('kinetic energy decay matches exact',ncheck(5),nerr(5),errmax(5),tol)
 
- ntests = ntests + 1
- if (all(nerr(1:5)==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:5),npass)
 
 end subroutine test_dustybox
 
@@ -422,7 +427,10 @@ subroutine test_dustydiffuse(ntests,npass)
  do i=1,npart
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)*rhoh(xyzh(4,i),massoftype(igas)))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+    dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !    dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
@@ -440,7 +448,10 @@ subroutine test_dustydiffuse(ntests,npass)
        dustevol(:,i) = dustevol(:,i) + dt*ddustevol(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
-       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/rhoh(xyzh(4,i),massoftype(igas))
+!------------------------------------------------
+!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+       dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !       dustfrac(1:ndustsmall,i) = sin(dustevol(:,i))**2
@@ -481,8 +492,7 @@ subroutine test_dustydiffuse(ntests,npass)
     if (do_output .and. any(abs(t_write-time) < 0.01*dt)) call write_file(time,xyzh,dustfrac,npart)
  enddo
  call checkvalbuf_end('dust diffusion matches exact solution',ncheck(1),nerr(1),errmax(1),tol)
- ntests = ntests + 1
- if (nerr(1) == 0) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:1),npass)
 
  !
  ! clean up dog poo
@@ -499,7 +509,7 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha
+ use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
  use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
@@ -518,7 +528,7 @@ subroutine test_drag(ntests,npass)
  use units,       only:udist,unit_density
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,j,nfailed,itype,iseed,npart_previous,iu
+ integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dtnew,dekin,deint
 
@@ -536,7 +546,7 @@ subroutine test_drag(ntests,npass)
  time  = 0.
  npart = 0
  npartoftype(:) = 0
- if (maxvxyzu < 4)then
+ if (maxvxyzu < 4) then
     ieos = 1
     polyk = 1.
  else
@@ -581,12 +591,16 @@ subroutine test_drag(ntests,npass)
  enddo
 
  if (mhd) Bevol = 0.
-
+ if (use_dustgrowth) then
+    dustprop(:,:) = 0.
+    dustprop(1,:) = grainsize(1)
+    dustprop(2,:) = graindens(1)
+ endif
 !
 ! call derivatives
 !
  idrag=1
- if(idrag==2) K_code = 100.
+ if (idrag==2) K_code = 100.
 
  fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
@@ -612,19 +626,23 @@ subroutine test_drag(ntests,npass)
     endif
  enddo
 
- nfailed=0
- call checkval(da(1),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(x)')
- call checkval(da(2),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(y)')
- call checkval(da(3),0.,7.e-7,nfailed,'acceleration from drag conserves momentum(z)')
- if (.not.periodic) then
-    call checkval(dl(1),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(x)')
-    call checkval(dl(2),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(y)')
-    call checkval(dl(3),0.,1.e-9,nfailed,'acceleration from drag conserves angular momentum(z)')
- endif
- if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed,'acceleration from drag conserves energy')
+ da = reduceall_mpi('+', da)
+ dl = reduceall_mpi('+', dl)
+ dekin = reduceall_mpi('+', dekin)
+ deint = reduceall_mpi('+', deint)
 
- ntests = ntests + 1
- if (nfailed==0) npass = npass + 1
+ nfailed=0
+ call checkval(da(1),0.,7.e-7,nfailed(1),'acceleration from drag conserves momentum(x)')
+ call checkval(da(2),0.,7.e-7,nfailed(2),'acceleration from drag conserves momentum(y)')
+ call checkval(da(3),0.,7.e-7,nfailed(3),'acceleration from drag conserves momentum(z)')
+ if (.not.periodic) then
+    call checkval(dl(1),0.,1.e-9,nfailed(4),'acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,1.e-9,nfailed(5),'acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,1.e-9,nfailed(6),'acceleration from drag conserves angular momentum(z)')
+ endif
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed(7),'acceleration from drag conserves energy')
+
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_drag
 
@@ -639,7 +657,7 @@ subroutine test_epsteinstokes(ntests,npass)
  use physcon,   only:years,kb_on_mh,pi
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
- integer :: iregime,i,j,nfailed,ncheck
+ integer :: iregime,i,j,nfailed(1),ncheck
  integer, parameter :: npts=1001, nrhopts = 11
  real :: rhogas,spsoundi,tsi,ts1,deltav,tol,grainsizei,graindensi
  real :: smin,smax,ds,rhomin,rhomax,drho,psi,exact,err,errmax
@@ -679,14 +697,13 @@ subroutine test_epsteinstokes(ntests,npass)
        call get_ts(idrag,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
        !print*,'s = ',grainsizei,' ts = ',tsi*utime/years,',yr ',iregime
 
-       if (i > 1) call checkvalbuf((tsi-ts1)/abs(tsi),0.,tol,'ts is continuous into Stokes regime',nfailed,ncheck,errmax)
+       if (i > 1) call checkvalbuf((tsi-ts1)/abs(tsi),0.,tol,'ts is continuous into Stokes regime',nfailed(1),ncheck,errmax)
        ts1 = tsi
        if (write_output) write(lu,*) grainsizei,tsi*utime/years,iregime
     enddo
     if (write_output) close(lu)
-    call checkvalbuf_end('ts is continuous into Stokes regime: '//trim(filename),ncheck,nfailed,errmax,tol)
-    ntests = ntests + 1
-    if (nfailed==0) npass = npass + 1
+    call checkvalbuf_end('ts is continuous into Stokes regime: '//trim(filename),ncheck,nfailed(1),errmax,tol)
+    call update_test_scores(ntests,nfailed(1:1),npass)
  enddo
 
  !
@@ -715,9 +732,8 @@ subroutine test_epsteinstokes(ntests,npass)
     if (write_output) write(lu,*) deltav/spsoundi,tsi/ts1,iregime
  enddo
  err = sqrt(err/npts)
- ntests = ntests + 1
- call checkval(err,0.,3.9e-3,nfailed,'Epstein drag formula matches non-linear solution')
- if (nfailed==0) npass = npass + 1
+ call checkval(err,0.,3.9e-3,nfailed(1),'Epstein drag formula matches non-linear solution')
+ call update_test_scores(ntests,nfailed(1:1),npass)
 
  if (write_output) close(lu)
 

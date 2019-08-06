@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setdisc
@@ -115,6 +115,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
+ logical :: exponential_taper_alternative,exponential_taper_dust_alternative
 
  !
  !--set problem parameters
@@ -161,13 +162,17 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(ismooth)) smooth_surface_density = ismooth
 
  exponential_taper = .false.
+ exponential_taper_alternative = .false.
  if (present(indexprofile)) then
     if (indexprofile==1) exponential_taper = .true.
+    if (indexprofile==2) exponential_taper_alternative = .true.
  endif
 
  exponential_taper_dust = .false.
+ exponential_taper_dust_alternative = .false.
  if (present(indexprofiledust)) then
     if (indexprofiledust==1) exponential_taper_dust = .true.
+    if (indexprofiledust==2) exponential_taper_dust_alternative = .true.
  endif
 
  aspin = 0.
@@ -248,8 +253,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !    1 = exponentially tapered power law
  !    2 = smoothed power law
  !    3 = both tapered and smoothed
- !    4 = warped surface density
-! sigmaprofile=4
+ !    4 = alternative taper
+ !    5 = alternative taper with smoothing
  sigmaprofile = 0
  if (exponential_taper) then
     sigmaprofile = 1
@@ -259,11 +264,10 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        R_c = R_out
     endif
  endif
-! ignore smooth_surface_density if sigmaprofile=4
- if (sigmaprofile /= 4) then
-    if (smooth_surface_density) sigmaprofile = 2
-    if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
- endif
+ if (smooth_surface_density) sigmaprofile = 2
+ if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
+ if (exponential_taper_alternative) sigmaprofile = 4
+ if (exponential_taper_alternative .and. smooth_surface_density) sigmaprofile = 5
  !--mixture
  if (do_mixture) then
     sigmaprofiledust = 0
@@ -277,6 +281,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     endif
     if (smooth_surface_density) sigmaprofiledust = 2
     if (smooth_surface_density .and. exponential_taper_dust) sigmaprofiledust = 3
+    if (exponential_taper_dust_alternative) sigmaprofiledust = 4
+    if (exponential_taper_dust_alternative .and. smooth_surface_density) sigmaprofiledust = 5
  endif
  !
  !--disc mass and sigma normalisation
@@ -512,10 +518,10 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  fr_max = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
     if (do_mixture) then
        if (R>=R_indust .and. R<=R_outdust) then
-          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
        endif
     endif
     fr_max = max(fr_max,f_val)
@@ -538,11 +544,11 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     do while (randtest > f)
        R = R_in + (R_out - R_in)*ran2(iseed)
        randtest = fr_max*ran2(iseed)
-       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c)
+       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
        sigma = f/R
        if (do_mixture) then
           if (R>=R_indust .and. R<=R_outdust) then
-             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_c_dust)
+             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
              f     = f + fmixt
              sigmamixt = fmixt/R
           endif
@@ -663,12 +669,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           if (do_sigmapringle) then
              term_pr = 0.
           else
-             if (smooth_sigma .and. R > R_in) then
-                !--R < R_in can happen because of disc shifting
-                term_pr = -cs**2*(1.5+p_index+q_index - 0.5/(sqrt(R/R_in) - 1.))
-             else
-                term_pr = -cs**2*(1.5+p_index+q_index)
-             endif
+             ! NB: We do NOT correct for the smoothing of the inner disc profile in
+             ! the orbital speed (as we did previously), this produces a strong response
+             ! which is not desired. Instead we allow a non-zero vr in the inner disc
+             term_pr = -cs**2*(1.5+p_index+q_index)
           endif
           if (term + term_pr < 0.) then
              call fatal('set_disc', 'set_disc_velocities: '// &
@@ -857,20 +861,20 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  if (R_warp > 0.) then
     call write_inopt(get_HonR(R_warp,cs0,q_index,star_m,1.),'H/R_warp','disc aspect ratio H/R at R=R_warp',iunit)
  endif
- sig = sigma_norm*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_c)
+ sig = sigma_norm*scaled_sigma(R_in,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_in','surface density (g/cm^2) at R=R_in',iunit)
- sig = sigma_norm*scaled_sigma(R_ref,sigmaprofile,p_index,R_ref,R_in,R_c)
+ sig = sigma_norm*scaled_sigma(R_ref,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_ref','surface density (g/cm^2) at R=R_ref',iunit)
- sig = sigma_norm*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_c)
+ sig = sigma_norm*scaled_sigma(R_out,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_out','surface density (g/cm^2) at R=R_out',iunit)
  dR = (R_out-R_in)/real(maxbins-1)
  sig = 0.
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    sig = max(sig,sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_c))
+    sig = max(sig,sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c))
  enddo
  sig = sig*umass/udist**2
  call write_inopt(sig,'sig_max','maximum surface density (g/cm^2)',iunit)
@@ -882,10 +886,10 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(star_m,'M_star','mass of central star',iunit)
  call write_inopt(disc_m,'M_disc','disc mass',iunit)
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
- if(itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
+ if (itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
  call init_eos(ieos,ierr)
- if(itype == igas)then
+ if (itype == igas) then
     vxyzutmp = 0.
     T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
     call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
@@ -907,7 +911,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- if(itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if (itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
@@ -922,7 +926,10 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') exp[-(R/',R_c,')^(2-',p_index,')] (1 - sqrt(',R_in,'/R))'
  elseif (sigmaprofile==4) then
     write(iunit, "(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
-         sigma_norm*umass/udist**2,' g/cm^2 (R/',R_in,')^(-0.5)(1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
+         sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') (1-exp(R-',R_out,'))'
+ elseif (sigmaprofile==5) then
+    write(iunit, "(a,es9.2,a,f5.1,a,f4.1,a,f5.1,a,f4.1,a,f4.1,a,/)") '# Surface density      = ',&
+         sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') (1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
  endif
  write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
 
@@ -1051,29 +1058,36 @@ end subroutine get_honH
 !------------------------------------------------------------------------
 !
 ! returns surface density (sigma) at any value of R for a given profile
-! scaled by the normalisation value sigma_norm defined below
+! with an arbitrary scaling
 !
 ! sigmaprofile options:
 !
 !    0) power law
-!         sigma = sigma_norm * (R/Rref)^-p
+!         sigma ~ (R/Rref)^-p
 !
 !    1) exponentially tapered power law
-!         sigma = sigma_norm * (R/Rref)^-p * exp[-(R/Rc)^(2-p)]
+!         sigma ~ (R/Rref)^-p * exp[-(R/Rc)^(2-p)]
 !
 !    2) smoothed power law
-!         sigma = sigma_norm * (R/Rref)^-p * (1 - sqrt(Rin/R))
+!         sigma ~ (R/Rref)^-p * (1 - sqrt(Rin/R))
 !
 !    3) both tapered and smoothed
-!         sigma = sigma_norm * (R/Rref)^-p * exp[-(R/Rc)^(2-p)] * (1 - sqrt(Rin/R))
+!         sigma ~ (R/Rref)^-p * exp[-(R/Rc)^(2-p)] * (1 - sqrt(Rin/R))
 !
-!    todo: accept any surface density profile from function or file
+!    4) alternative taper
+!         sigma ~ (R/Rref)^-p * [1 - exp(R-Rout)]
+!
+!    5) alternative taper with smoothing
+!         sigma ~ (R/Rref)^-p * [1 - exp(R-Rout)] * (1 - sqrt(Rin/R))
+!
+!    TODO: accept any surface density profile from function or file
 !
 !------------------------------------------------------------------------
-function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
- real,           intent(in)  :: R,R_ref,pindex
- real, optional, intent(in)  :: R_in,R_c
- integer,        intent(in)  :: sigmaprofile
+function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
+ real,    intent(in)  :: R,R_ref,pindex
+ real,    intent(in)  :: R_in,R_out,R_c
+ integer, intent(in)  :: sigmaprofile
+
  real :: sigma
 
  select case (sigmaprofile)
@@ -1086,7 +1100,9 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c) result(sigma)
  case (3)
     sigma = (R/R_ref)**(-pindex)*exp(-(R/R_c)**(2.-pindex))*(1.-sqrt(R_in/R))
  case (4)
-    sigma = (R/R_in)**(-pindex)*(1-sqrt(R_in/R))*(1-exp(R-20)) !R_out = 20.
+    sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
+ case (5)
+    sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
@@ -1116,7 +1132,7 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
  dR = (R_out-R_in)/real(maxbins-1)
  do i=1,maxbins
     R = R_in + (i-1)*dR
-    sigma = sigma_norm * scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_c)
+    sigma = sigma_norm * scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c)
     !--disc mass
     dM = 2.*pi*R*sigma*dR
     disc_m = disc_m + dM

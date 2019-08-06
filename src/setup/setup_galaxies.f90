@@ -1,26 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!  This module crudely initialises two galaxies.  It simply reads in
-!  data from a run made using Hydra.  Units being read in are
-!  1e5M_sun, kpc, 1e5yr.  The former two remain the same here, while
-!  the time-unit is modified such that G == 1.
+!  This module initialises two galaxies.  It reads in
+!  data from a run made using Hydra (Couchman, Thomas & Pearce 1995;
+!  Thacker & Couchman 2006).  Units being read in are 1e5M_sun, kpc, 1e5yr
+!  and converted to more reasonable units.
 !
 !  REFERENCES:
-!    Kuijken & Dubinski (1995), MNRAS.
-!    Widrow & Dubinski (2005), ApJ.
-!    Widrow et al. (2008), ApJ.
-!    Wurster & Thacker (2013a), MNRAS.
-!    Wurster & Thacker (2013b), MNRAS.
+!    Kuijken K., Dubinski J., 1995, MNRAS, 277, 1341
+!    Widrow L. M., Dubinski J., 2005, ApJ, 631, 838
+!    Widrow L. M., Pym B., Dubinski J., 2008, ApJ, 679, 1239
+!    Wurster J. & Thacker R., 2013, MNRAS, 431, 2513
+!    Wurster J. & Thacker R., 2013, MNRAS, 431, 539
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use timestep,     only:tmax,dtmax
  use physcon,      only:solarm,years,kpc
- use units,        only:set_units,udist,utime
+ use units,        only:set_units,udist,utime,umass
  use part,         only:set_particle_type,igas,istar,idarkmatter,iamtype,iphase
  use boundary,     only:set_boundary
  use prompting,    only:prompt
@@ -67,6 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  character(len=120)               :: filename
  integer                          :: i,ro,ndark,nstar,ngas,itype,ctrd,ctrs,ctrg,ierr,lu
+ real                             :: time_in,dist_in,mass_in
  real                             :: massdark,massstar,massgas
  real                             :: polykset
  real, allocatable                :: utmp(:)
@@ -119,10 +120,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (itype== 0) then
           call set_particle_type(i,idarkmatter)
           ctrd = ctrd + 1
-       else if (itype==-1) then
+       elseif (itype==-1) then
           call set_particle_type(i,istar)
           ctrs = ctrs + 1
-       else if (itype== 1) then
+       elseif (itype== 1) then
           call set_particle_type(i,igas)
           ctrg = ctrg + 1
        else
@@ -137,22 +138,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ctrd/=ndark) call fatal('setup','read in incorrect number of dark matter particles')
  if (ctrs/=nstar) call fatal('setup','read in incorrect number of star particles')
  if (ctrg/=ngas ) call fatal('setup','read in incorrect number of gas particles')
- npartoftype = 0
+ npartoftype              = 0
  npartoftype(idarkmatter) = ndark
- npartoftype(istar) = nstar
- npartoftype(igas) = ngas
- massoftype = 0.0
+ npartoftype(istar)       = nstar
+ npartoftype(igas)        = ngas
+ massoftype              = 0.0
  massoftype(idarkmatter) = massdark
- massoftype(istar) = massstar
- massoftype(igas) = massgas
+ massoftype(istar)       = massstar
+ massoftype(igas)        = massgas
  !
- ! set units
+ ! Units
  !
- call set_units(dist=kpc,mass=1.0d5*solarm,G = 1.0d0)
- !
- ! reset velocity with new time unit (read in with t = 1d5years)
- !
- vxyzu(1:3,:) = vxyzu(1:3,:)*utime/(1.0d5*years)
+ mass_in = 1.0d5*solarm
+ dist_in = kpc
+ time_in = 1.0d5*years
+ call set_units(dist=10.*kpc,mass=1.0d12*solarm,G = 1.0d0)
+ xyzh         = xyzh*dist_in/udist
+ vxyzu(1:3,:) = vxyzu(1:3,:)*(utime/udist)/(time_in/dist_in)
+ massoftype   = massoftype*mass_in/umass
  !
  ! set energies (if not isothermal)
  !
@@ -165,7 +168,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (utmp(i)==0) then
              vxyzu(4,i) = polyk/(gamma * (gamma-1.0))
           else
-             vxyzu(4,i) = utmp(i)*(utime/(1.0d5*years))**2
+             vxyzu(4,i) = utmp(i)*(utime/time_in)**2
           endif
        else
           vxyzu(4,i) = 0.0
@@ -180,10 +183,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  filename=trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
- time        = time*(1.0d5*years)/utime
+ time = time*(time_in)/utime
  if (.not. iexist) then
-    tmax      = (0.1500d10*years)/utime
-    dtmax     = (0.0005d10*years)/utime
+    tmax  = (0.1500d10*years)/utime
+    dtmax = (0.0005d10*years)/utime
  endif
 
  write(*,'(1x,a,I10)')     'n_total:             ',npart

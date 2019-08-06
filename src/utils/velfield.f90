@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: velfield
@@ -173,7 +173,7 @@ double precision function ran3(idum)
  dimension ma(55)
  save
  data iff/0/
- if(idum < 0.or.iff==0)then
+ if (idum < 0.or.iff==0) then
     iff=1
     mj=mseed-iabs(idum)
     mj=mod(mj,mbig)
@@ -183,13 +183,13 @@ double precision function ran3(idum)
        ii=mod(21*i,55)
        ma(ii)=mk
        mk=mj-mk
-       if(mk < mz)mk=mk+mbig
+       if (mk < mz)mk=mk+mbig
        mj=ma(ii)
 100 continue
     do 200 k=1,4
        do 300 i=1,55
           ma(i)=ma(i)-ma(1+mod(i+30,55))
-          if(ma(i) < mz)ma(i)=ma(i)+mbig
+          if (ma(i) < mz)ma(i)=ma(i)+mbig
 300    continue
 200 continue
     inext=0
@@ -197,11 +197,11 @@ double precision function ran3(idum)
     idum=1
  endif
  inext=inext+1
- if(inext==56)inext=1
+ if (inext==56)inext=1
  inextp=inextp+1
- if(inextp==56)inextp=1
+ if (inextp==56)inextp=1
  mj=ma(inext)-ma(inextp)
- if(mj < mz)mj=mj+mbig
+ if (mj < mz)mj=mj+mbig
  ma(inext)=mj
  ran3=mj*fac
  return
@@ -237,7 +237,7 @@ double precision function ran4(idum)
  dimension ma(55)
  save
  data iff/0/
- if (idum < 0.or.iff==0)then
+ if (idum < 0.or.iff==0) then
     iff=1
     mj=mseed-iabs(idum)
     mj=mod(mj,mbig)
@@ -247,13 +247,13 @@ double precision function ran4(idum)
        ii=mod(21*i,55)
        ma(ii)=mk
        mk=mj-mk
-       if(mk < mz)mk=mk+mbig
+       if (mk < mz)mk=mk+mbig
        mj=ma(ii)
     enddo
     do k=1,4
        do i=1,55
           ma(i)=ma(i)-ma(1+mod(i+30,55))
-          if(ma(i) < mz)ma(i)=ma(i)+mbig
+          if (ma(i) < mz)ma(i)=ma(i)+mbig
        enddo
     enddo
     inext=0
@@ -261,11 +261,11 @@ double precision function ran4(idum)
     idum=1
  endif
  inext=inext+1
- if(inext==56)inext=1
+ if (inext==56)inext=1
  inextp=inextp+1
- if(inextp==56)inextp=1
+ if (inextp==56)inextp=1
  mj=ma(inext)-ma(inextp)
- if(mj < mz)mj=mj+mbig
+ if (mj < mz)mj=mj+mbig
  ma(inext)=mj
  ran4=mj*fac
  return

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: timestep_ind
@@ -105,7 +105,7 @@ end subroutine init_ibin
 !----------------------------------------------------------------
 subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  use io,   only:iprint,fatal
- use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active
+ use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
  integer,         intent(in)    :: npart
  integer,         intent(out)   :: nactive,nalive
  integer(kind=1), intent(inout) :: iphase(maxp),ibin(maxp)
@@ -120,12 +120,13 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
 !$omp shared(npart,nbinmax,ibin,iprint,istepfrac,iphase,xyzh) &
 !$omp private(i,itype,iactivei,ibini) &
 !$omp reduction(+:nactive,nalive)
-!$omp do
+!$omp do schedule(guided,10)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        nalive = nalive + 1
        itype  = iamtype(iphase(i))
-       !
+       ! boundary particles are never active
+       if (itype==iboundary) ibin(i) = 0
        ibini = ibin(i)
        !--sanity check
        if (ibini > nbinmax) then
@@ -145,6 +146,7 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
 !$omp end parallel
  !
  !--Determine the current maximum ibin that is active
+ !
  i       = 0
  ibinnow = nbinmax
  do while (ibinnow == nbinmax .and. i < nbinmax)
@@ -153,13 +155,13 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  enddo
  !
  !--Determine activity to determine if stressmax needs to be reset
+ !
  if (nactive==nalive) then
     all_active = .true.
  else
     all_active = .false.
  endif
- !
- return
+
 end subroutine set_active_particles
 #endif
 
@@ -183,10 +185,12 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
  !
  !--the number of bins should only decrease when bins are synchronised
  !
- if (nbinmax < nbinmaxprev .and. mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
-    write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),' when changing nbinmax from ', &
-                    nbinmaxprev,'->',nbinmax
-    call die
+ if (nbinmax < nbinmaxprev) then
+    if (mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
+       write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),&
+         ' when changing nbinmax from ',nbinmaxprev,'->',nbinmax
+       call die
+    endif
  endif
  if (nbinmax > nbinmaxprev) then
     istepfrac = istepfrac*2**(nbinmax-nbinmaxprev)
@@ -298,7 +302,7 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
        ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
        ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
     enddo
- else if (dtmax_ifactor < 0) then
+ elseif (dtmax_ifactor < 0) then
     dtmax    = -dtmax*dtmax_ifactor
     ibin_rat = -int((log10(real(-dtmax_ifactor)-1.0)/log10(2.0))+1,kind=1)
     do i = nbins,abs(ibin_rat),-1
@@ -368,7 +372,7 @@ subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
        np = np + 1
        ibini = ibin(i)
        if (ibini > nbinmax .or. ibini < 0) then
-          call error('write_bin','timestep bin exceeds maximum',i,var='ibin',ival=ibini)
+          call error('write_bin','timestep bin exceeds maximum',var='ibin',ival=ibini)
           cycle over_part
        endif
        ninbin(ibini) = ninbin(ibini) + 1

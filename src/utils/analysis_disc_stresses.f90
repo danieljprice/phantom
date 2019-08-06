@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -82,9 +82,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 ! Read analysis options
  call read_analysis_options
 
- if(mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
+ if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
- if(gravity) then
+ if (gravity) then
 ! Calculate gravitational forces for all particles (gradient of the potential)
     call calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  else
@@ -129,7 +129,7 @@ subroutine read_analysis_options
  inputfile = 'disc_stresses.options'
  inquire(file=inputfile, exist=inputexist)
 
- if(inputexist) then
+ if (inputexist) then
 
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
 
@@ -191,7 +191,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  logical :: iactivei,iamdusti, iamgasi,existneigh
  character(100) :: neighbourfile
 
- if(allocated(gravxyz))deallocate(gravxyz)
+ if (allocated(gravxyz))deallocate(gravxyz)
  allocate(gravxyz(3,npart))
 
  gravxyz(:,:) = 0.0
@@ -201,7 +201,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  neighbourfile = 'neigh_'//TRIM(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
- if(existneigh.eqv..true.) then
+ if (existneigh.eqv..true.) then
     print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
@@ -228,10 +228,10 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
     over_neighbours: do k = 1, neighcount(ipart)
 
-       if(k>neighmax) exit over_neighbours
+       if (k>neighmax) exit over_neighbours
        j = neighb(ipart,k)
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(j), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -241,8 +241,8 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
           iamgasi = .true.
        endif
 
-       if(ipart==j) cycle
-       if(.not.iamgasi) cycle
+       if (ipart==j) cycle
+       if (.not.iamgasi) cycle
 
        ! Calculate gradient of SPH kernel
        ! Separation of particles
@@ -342,7 +342,7 @@ subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
         vxyzu(1,ipart)*sin(phipart(ipart))
 
     ! Now gravitational forces
-    if(gravity) then
+    if (gravity) then
        gr(ipart) = gravxyz(1,ipart)*cos(phipart(ipart)) + &
            gravxyz(2,ipart)*sin(phipart(ipart))
 
@@ -351,7 +351,7 @@ subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
     endif
 
     ! Finally, B-Fields
-    if(mhd) then
+    if (mhd) then
        Br(ipart) = Bxyz(1,ipart)*cos(phipart(ipart)) + &
            Bxyz(2,ipart)*sin(phipart(ipart))
        Bphi(ipart) = Bxyz(2,ipart)*cos(phipart(ipart)) - &
@@ -421,7 +421,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
        if (ibin > nbins) ibin=0
        if (ibin < 1)  ibin=0
 
-       if(ibin<=0) cycle
+       if (ibin<=0) cycle
 
        nbinned = nbinned +1
 
@@ -505,12 +505,12 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  Keplog = 1.5
  unit_force = (unit_velocity/utime)
 
- if(gravity) then
+ if (gravity) then
     gr(:) = gr(:)*unit_force
     gphi(:) = gphi(:)*unit_force
  endif
 
- if(mhd) then
+ if (mhd) then
     Br(:) = Br(:)*unit_Bfield
     Bphi(:) = Bphi(:)*unit_Bfield
  endif
@@ -518,7 +518,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
     ibin = ipartbin(ipart)
 
-    if(ibin<=0) cycle
+    if (ibin<=0) cycle
 
     cs2 = gamma*(gamma-1)*vxyzu(4,ipart)*unit_velocity*unit_velocity
 
@@ -530,9 +530,9 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     alpha_art(ibin) = alpha_art(ibin) + alphaind(1,ipart)*xyzh(4,ipart)*udist
 
-    if(gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
+    if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
 
-    if(mhd) alpha_mag(ibin) = alpha_mag(ibin) + Br(ipart)*Bphi(ipart)/rhopart
+    if (mhd) alpha_mag(ibin) = alpha_mag(ibin) + Br(ipart)*Bphi(ipart)/rhopart
 
  enddo
 
@@ -544,42 +544,42 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     cs2 = csbin(ibin)*csbin(ibin)
 
     ! calculate epicyclic frequency
-    if(ibin>1) then
+    if (ibin>1) then
        epicyc(ibin) = (rad(ibin)*rad(ibin)*omega(ibin)-rad(ibin-1)*rad(ibin-1)*omega(ibin-1))/(rad(ibin)-rad(ibin-1))
     else
        epicyc(ibin) = rad(ibin)*omega(ibin)
     endif
 
-    if(epicyc(ibin)*omega(ibin)>=0.0) then
+    if (epicyc(ibin)*omega(ibin)>=0.0) then
        epicyc(ibin) = sqrt(2.0*epicyc(ibin)*omega(ibin)/rad(ibin))
     else
        epicyc(ibin) = -sqrt(2.0*abs(epicyc(ibin)*omega(ibin))/rad(ibin))
     endif
 
-    if(sigma(ibin)>0.0) then
+    if (sigma(ibin)>0.0) then
        toomre_q(ibin) = csbin(ibin)*omega(ibin)/(pi*gg*sigma(ibin))
     else
        toomre_q(ibin) = 1.0e30
     endif
 
-    if(abs(omega(ibin))>0.0) then
+    if (abs(omega(ibin))>0.0) then
        H(ibin) = csbin(ibin)/omega(ibin)
     else
        H(ibin) = 1.0e30
     endif
 
-    if(ninbin(ibin) >0) then
+    if (ninbin(ibin) >0) then
        alpha_reyn(ibin) =alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
        alpha_art(ibin) = 0.1*alpha_art(ibin)/(ninbin(ibin)*H(ibin))
 
-       if(gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
-       if(mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
+       if (gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
+       if (mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
 
     else
        alpha_reyn(ibin) = 0.0
        alpha_art(ibin) = 0.0
-       if(gravity) alpha_grav(ibin) = 0.0
-       if(mhd) alpha_mag(ibin) = 0.0
+       if (gravity) alpha_grav(ibin) = 0.0
+       if (mhd) alpha_mag(ibin) = 0.0
     endif
  enddo
 
@@ -715,6 +715,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
  ! Loop over cells
 
  !$omp parallel default(none) &
+ !$omp shared(maxp,maxphase) &
  !$omp shared(ncells,ll,ifirstincell,npart) &
  !$omp shared(xyzh,vxyzu,iphase) &
  !$omp shared(neighcount,neighb) &
@@ -729,11 +730,11 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
     i = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if(i<=0) cycle over_cells
+    if (i<=0) cycle over_cells
 
     ! Get neighbour list for the cell
 
-    if(gravity) then
+    if (gravity) then
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.,f=fgrav)
     else
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
@@ -744,12 +745,12 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
 
     over_parts: do while(i /=0)
        !print*, i, icell, ncells
-       if(i<0) then ! i<0 indicates inactive particles
+       if (i<0) then ! i<0 indicates inactive particles
           i = ll(abs(i))
           cycle over_parts
        endif
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -766,7 +767,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        ! do not compute neighbours for boundary particles
-       if(iamtypei ==iboundary) cycle over_parts
+       if (iamtypei ==iboundary) cycle over_parts
 
 
        ! Fill neighbour list for this particle
@@ -778,7 +779,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           j = abs(listneigh(ineigh))
 
           ! Skip self-references
-          if(i==j) cycle over_neighbours
+          if (i==j) cycle over_neighbours
 
           dx = xyzh(1,i) - xyzh(1,j)
           dy = xyzh(2,i) - xyzh(2,j)
@@ -795,10 +796,10 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           hj21 = hj1*hj1
           q2j = rij2*hj21
 
-          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             if (neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
              !$omp end critical
           endif is_sph_neighbour
 
@@ -859,7 +860,7 @@ subroutine neighbours_stats(npart)
  print*, 'The maximum neighbour count is ', maximum
  print*, 'The minimum neighbour count is ', minimum
 
- if(maximum > neighmax) then
+ if (maximum > neighmax) then
     print*, 'WARNING! Neighbour count too large for allocated arrays'
  endif
 
@@ -912,12 +913,12 @@ subroutine read_neighbours(neighbourfile,npart)
 
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
 
- if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
+ if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
 
  read(2) (neighcount(i), i=1,npart)
  do i=1,npart
 
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        read(2) (neighb(i,j), j=1,neighmax)
     else
@@ -929,7 +930,7 @@ subroutine read_neighbours(neighbourfile,npart)
 
  call neighbours_stats(npart)
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File Read incomplete: neighbour count exceeds array size'
  else
     print*, 'File Read Complete'
@@ -968,7 +969,7 @@ subroutine write_neighbours(neighbourfile,npart)
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        write(2) (neighb(i,j), j=1,neighmax)
     else
@@ -979,7 +980,7 @@ subroutine write_neighbours(neighbourfile,npart)
  close(2)
 
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File write incomplete: neighbour count exceeds array size'
  else
     print*, 'File Write Complete'

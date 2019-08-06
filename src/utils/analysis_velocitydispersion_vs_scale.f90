@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: analysis
@@ -109,7 +109,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  neighbourfile = 'neigh_'//TRIM(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
- if(existneigh.eqv..true.) then
+ if (existneigh.eqv..true.) then
     print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
@@ -130,7 +130,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  rhopart(:) = 0.0
 
  do ipart=1,npart
-    if(maxphase==maxp) then
+    if (maxphase==maxp) then
        call get_partinfo(iphase(ipart), iactivei,iamdusti,iamtypei)
        iamgasi = (iamtypei ==igas)
     else
@@ -140,7 +140,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        iamgasi = .true.
     endif
 
-    if(.not.iamgasi) cycle
+    if (.not.iamgasi) cycle
     rhopart(ipart) = rhoh(xyzh(4,ipart), massoftype(igas))
  enddo
 
@@ -187,7 +187,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     do j=1,npart
 
        percent = 100.0*real(j)/real(npart)
-       if(percent> percentcount) then
+       if (percent> percentcount) then
           write(*,'(f5.1,a)') percentcount, '% complete'
           percentcount = percentcount + 10.0
        endif
@@ -195,10 +195,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        ipart = rhosort(npart-j+1)
 
        ! If particle has zero density, skip
-       if(rhopart(ipart) < 1.0e-20) cycle
+       if (rhopart(ipart) < 1.0e-20) cycle
 
        ! If the size scale is less than 2h, skip
-       if(rscale < 2.0*xyzh(4,ipart)) cycle
+       if (rscale < 2.0*xyzh(4,ipart)) cycle
 
        ! Find all particles within a distance rscale
        ! That haven't already been found (checked=1)
@@ -208,7 +208,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        !print*, 'Done'
 
        ! if number of particles in range less than mean neighbour number, then skip
-       if(ninside < meanneigh) cycle
+       if (ninside < meanneigh) cycle
 
        ! calculate mean velocity in this volume (in x-direction)
        ! Calculate energies - kinetic, gravitational, thermal, magnetic
@@ -232,8 +232,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
           ekin(ipart) = ekin(ipart) + 0.5*pmassi*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
           etherm(ipart) = etherm(ipart) + pmassi*utherm(vxyzu(4,jpart),rhoj)
-          if(gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
-          if(mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
+          if (gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
+          if (mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
 
        enddo
 
@@ -261,8 +261,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     ekin(:) = ekin(:)/volume_scale
     etherm(:) = etherm(:)/volume_scale
-    if(gravity) egrav(:) = egrav(:)/volume_scale
-    if(mhd) emag(:) = emag(:)/volume_scale
+    if (gravity) egrav(:) = egrav(:)/volume_scale
+    if (mhd) emag(:) = emag(:)/volume_scale
 
     ! Now calculate expectation value, variance of velocity dispersion
     ! Expectation and variance of energies as well TODO
@@ -280,7 +280,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
        vmeansum = sum(vmean(:,ipart))
        vdispsum = sum(vdisp(:,ipart))
-       if(vmeansum<1.0e-10 .and. vdispsum < 1.0e-10) cycle
+       if (vmeansum<1.0e-10 .and. vdispsum < 1.0e-10) cycle
        ncalculated = ncalculated + 1
 
        do k=1,3
@@ -289,16 +289,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
        ekin_exp = ekin_exp + ekin(ipart)
        etherm_exp = etherm_exp + etherm(ipart)
-       if(gravity) egrav_exp = egrav_exp + egrav(ipart)
-       if(mhd) emag_exp = emag_exp + emag(ipart)
+       if (gravity) egrav_exp = egrav_exp + egrav(ipart)
+       if (mhd) emag_exp = emag_exp + emag(ipart)
 
     enddo
 
     vdisp_exp(:) = vdisp_exp(:)/real(ncalculated)
     ekin_exp = ekin_exp/real(ncalculated)
     etherm_exp = etherm_exp/real(ncalculated)
-    if(gravity) egrav_exp = egrav_exp/real(ncalculated)
-    if(mhd) emag_exp = emag_exp/real(ncalculated)
+    if (gravity) egrav_exp = egrav_exp/real(ncalculated)
+    if (mhd) emag_exp = emag_exp/real(ncalculated)
 
     vdisp_var(:) = 0.0
     ekin_var = 0.0
@@ -312,7 +312,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
        vmeansum = sum(vmean(:,ipart))
        vdispsum = sum(vdisp(:,ipart))
-       if(vmeansum<1.0e-10 .and. vdispsum < 1.0e-10) cycle
+       if (vmeansum<1.0e-10 .and. vdispsum < 1.0e-10) cycle
 
        ncalculated = ncalculated+1
        do k=1,3
@@ -322,16 +322,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
        ekin_var = ekin_var + (ekin_exp - ekin(ipart))*(ekin_exp - ekin(ipart))
        etherm_var = etherm_var + (etherm_exp - etherm(ipart))*(etherm_exp - etherm(ipart))
-       if(gravity) egrav_var = egrav_var + (egrav_exp - egrav(ipart))*(egrav_exp - egrav(ipart))
-       if(mhd) emag_var = emag_var + (emag_exp - emag(ipart))*(emag_exp - emag(ipart))
+       if (gravity) egrav_var = egrav_var + (egrav_exp - egrav(ipart))*(egrav_exp - egrav(ipart))
+       if (mhd) emag_var = emag_var + (emag_exp - emag(ipart))*(emag_exp - emag(ipart))
 
     enddo
 
     vdisp_var(:) = sqrt(vdisp_var(:)/real(ncalculated-1))
     ekin_var = sqrt(ekin_var/real(ncalculated-1))
     etherm_var = sqrt(etherm_var/real(ncalculated-1))
-    if(gravity) egrav_var = sqrt(egrav_var/real(ncalculated-1))
-    if(mhd) emag_var = sqrt(emag_var/real(ncalculated-1))
+    if (gravity) egrav_var = sqrt(egrav_var/real(ncalculated-1))
+    if (mhd) emag_var = sqrt(emag_var/real(ncalculated-1))
 
     ! Write this data to file
     call write_output_data(iunit,output)
@@ -365,7 +365,7 @@ subroutine read_analysis_options
  inputfile = 'velocitydispersion_vs_scale.options'
  inquire(file=inputfile, exist=inputexist)
 
- if(inputexist) then
+ if (inputexist) then
 
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
 
@@ -448,8 +448,8 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
  do while(jpart < nstack .and. nstack < npart)
 
 
-    if(checked(jpart)==1) cycle ! Skip particles that have already been calculated
-    if(rhopart(jpart) < 1.0e-20) cycle ! Skip particles that have zero density
+    if (checked(jpart)==1) cycle ! Skip particles that have already been calculated
+    if (rhopart(jpart) < 1.0e-20) cycle ! Skip particles that have zero density
 
     ! Calculate separation
     sep = (xyzh(1,ipart)-xyzh(1,jpart))*(xyzh(1,ipart)-xyzh(1,jpart)) + &
@@ -458,16 +458,16 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
     sep = sqrt(sep)
 
     ! If particle closer than rscale, add it to the particle list
-    if(sep < d) then
+    if (sep < d) then
        ninside = ninside +1
        particlelist(ninside) = jpart
     endif
 
     ! If particle within the tolerance distance, then add its neighbours to the stack for testing
-    if(sep < tolerance*d) then
+    if (sep < tolerance*d) then
 
        do l=1,neighcount(jpart)
-          if(nstack==npart) exit
+          if (nstack==npart) exit
           nstack = nstack+1
           teststack(nstack) = neighb(jpart,l)
        enddo
@@ -638,11 +638,11 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
     i = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if(i<=0) cycle over_cells
+    if (i<=0) cycle over_cells
 
     ! Get neighbour list for the cell
 
-    if(gravity) then
+    if (gravity) then
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.,f=fgrav)
     else
        call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
@@ -653,12 +653,12 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
 
     over_parts: do while(i /=0)
        !print*, i, icell, ncells
-       if(i<0) then ! i<0 indicates inactive particles
+       if (i<0) then ! i<0 indicates inactive particles
           i = ll(abs(i))
           cycle over_parts
        endif
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -675,7 +675,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        ! do not compute neighbours for boundary particles
-       if(iamtypei ==iboundary) cycle over_parts
+       if (iamtypei ==iboundary) cycle over_parts
 
 
        ! Fill neighbour list for this particle
@@ -687,7 +687,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           j = abs(listneigh(ineigh))
 
           ! Skip self-references
-          if(i==j) cycle over_neighbours
+          if (i==j) cycle over_neighbours
 
           dx = xyzh(1,i) - xyzh(1,j)
           dy = xyzh(2,i) - xyzh(2,j)
@@ -704,10 +704,10 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           hj21 = hj1*hj1
           q2j = rij2*hj21
 
-          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             if (neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
              !$omp end critical
           endif is_sph_neighbour
 
@@ -768,7 +768,7 @@ subroutine neighbours_stats(npart)
  print*, 'The maximum neighbour count is ', maximum
  print*, 'The minimum neighbour count is ', minimum
 
- if(maximum > neighmax) then
+ if (maximum > neighmax) then
     print*, 'WARNING! Neighbour count too large for allocated arrays'
  endif
 
@@ -824,12 +824,12 @@ subroutine read_neighbours(neighbourfile,npart)
 
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
 
- if(neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
+ if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
 
  read(2) (neighcount(i), i=1,npart)
  do i=1,npart
 
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        read(2) (neighb(i,j), j=1,neighmax)
     else
@@ -841,7 +841,7 @@ subroutine read_neighbours(neighbourfile,npart)
 
  call neighbours_stats(npart)
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File Read incomplete: neighbour count exceeds array size'
  else
     print*, 'File Read Complete'
@@ -880,7 +880,7 @@ subroutine write_neighbours(neighbourfile,npart)
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        write(2) (neighb(i,j), j=1,neighmax)
     else
@@ -891,7 +891,7 @@ subroutine write_neighbours(neighbourfile,npart)
  close(2)
 
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File write incomplete: neighbour count exceeds array size'
  else
     print*, 'File Write Complete'
