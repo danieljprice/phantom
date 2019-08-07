@@ -280,7 +280,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dogr.or.testall) then
     call test_gr(ntests,npass)
     call set_default_options ! restore defaults
-    call barrier_mpi()
  endif
 #else
 !

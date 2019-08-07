@@ -21,7 +21,7 @@ end subroutine test_gr
 
 ! Indivdual test subroutines start here
 subroutine test_precession(ntests,npass)
- use testutils,    only:checkval
+ use testutils,    only:checkval,update_test_scores
  use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
 #ifdef KERR
  use metric,       only:a
@@ -61,14 +61,13 @@ subroutine test_precession(ntests,npass)
  call checkval(xyz(2),-45.576259888019351,postol,nerr(5),'error in final y position')
  call checkval(xyz(3),0.0                ,postol,nerr(6),'error in final z position')
 
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_precession
 
 subroutine test_inccirc(ntests,npass)
  use physcon,   only:pi
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use metric_tools, only:imetric,imet_kerr
 #ifdef KERR
  use metric,    only:a
@@ -128,8 +127,7 @@ subroutine test_inccirc(ntests,npass)
  call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
  call checkval(rfinal   ,r         ,5.08e-6,nerr(4),'error in final r position')
 
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_inccirc
 
@@ -345,7 +343,7 @@ end subroutine test_metric_i
 
 subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy
- use testutils,       only:checkval,checkvalbuf
+ use testutils,       only:checkval,checkvalbuf,update_test_scores
  use metric_tools,    only:pack_metric
  use eos,             only:gamma
  real, intent(in) :: x(1:3),v(1:3),dens,u,p
@@ -354,11 +352,10 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  real :: rho,pmom(1:3),en
  real :: v_out(1:3),dens_out,u_out,p_out
  real, parameter :: tol = 4.e-12
- integer :: nerrors, ierr, j
+ integer :: nerrors(1), ierr, j
  integer :: ncheck
  real :: errmax
 
- ntests = ntests + 1
  nerrors = 0
 
  ! Used for initial guess in conservative2primitive
@@ -372,28 +369,29 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
  call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_entropy,gamma)
 
  ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
- call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors,ncheck)
+ call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors(1),ncheck)
  ! nerrors = nerrors + n_error
 
  ! call checkval(3,v_out,v,tol,n_error,'v_out = v')
  do j=1,3
-    call checkvalbuf(v_out(j),v(j),tol,'[F]: v_out',nerrors,ncheck,errmax)
+    call checkvalbuf(v_out(j),v(j),tol,'[F]: v_out',nerrors(1),ncheck,errmax)
     ! nerrors = nerrors + n_error
  enddo
 
  ! call checkval(dens_out,dens,tol,n_error,'dens_out = dens')
- call checkvalbuf(dens_out,dens,tol,'[F]: dens_out',nerrors,ncheck,errmax)
+ call checkvalbuf(dens_out,dens,tol,'[F]: dens_out',nerrors(1),ncheck,errmax)
  ! nerrors = nerrors + n_error
 
  ! call checkval(u_out,u,tol,n_error,'u_out = u')
- call checkvalbuf(u_out,u,tol,'[F]: u_out',nerrors,ncheck,errmax)
+ call checkvalbuf(u_out,u,tol,'[F]: u_out',nerrors(1),ncheck,errmax)
  ! nerrors = nerrors + n_error
 
  ! call checkval(p_out,p,tol,n_error,'p_out = p')
- call checkvalbuf(p_out,p,tol,'[F]: p_out',nerrors,ncheck,errmax)
+ call checkvalbuf(p_out,p,tol,'[F]: p_out',nerrors(1),ncheck,errmax)
  ! nerrors = nerrors + n_error
 
- if (nerrors/=0) then
+ call update_test_scores(ntests,nerrors,npass)
+ if (nerrors(1)/=0) then
     print*,'-- cons2prim test failed with'
     print*,'  - IN:'
     print*,'     x    =',x
@@ -407,8 +405,6 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
     print*,'     u    =',u_out
     print*,'     p    =',p_out
     print*,''
- else
-    npass = npass + 1
  endif
 end subroutine test_cons2prim_i
 
