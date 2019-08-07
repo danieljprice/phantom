@@ -2261,7 +2261,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
- real    :: dTdui,dTdui_cgs
+ real    :: dTdui,dTdui_cgs,rho_cgs
 #ifdef LIGHTCURVE
  real    :: dudt_radi
 #endif
@@ -2435,20 +2435,21 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (use_entropy) then
+          if (use_entropy) then ! here eni is the entropy
              if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
              endif
-          elseif (ieos==16) then
-             if (damp==0) then
-                call eos_shen_get_dTdu(rhoi * unit_density,eni,0.05,dTdui_cgs)
+          elseif (ieos==16) then ! here eni is the temperature
+             if (abs(damp) < tiny(damp)) then
+                rho_cgs = rhoi * unit_density
+                call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
                 dTdui = dTdui_cgs / unit_ergg
                 !use cgs
                 fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
              else
                 fxyz4 = 0.
              endif
-          else
+          else ! eni is the internal energy
              fac = rhoi/rhogasi
              pdv_work = ponrhoi*rho1i*drhodti
              if (ipdv_heating > 0) then
