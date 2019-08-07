@@ -144,7 +144,7 @@ subroutine read_kdtree_file(dumpfile)
 ! Read header
  read(10) filetag, ncells
 
- if(filetag=='gravity') then
+ if (filetag=='gravity') then
     print'(a)', 'Tree from a gravity run'
  else
     print '(a)', 'Tree from a non-gravity run'

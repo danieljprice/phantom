@@ -312,7 +312,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
 
  if (len(label)>11 .and. (cxmn=='0' .or. cxmn=='s') ) then
     label0 = label(1:11)
- else if (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
+ elseif (len(label)>9 .and. (cxmn=='x' .or. cxmn=='a' .or. cxmn=='n')) then
     label0 = label(1:9)
  else
     label0 = label
@@ -322,7 +322,7 @@ subroutine fill_ev_header(ev_fmt,label,cxmn,j,joffset)
     if (cxmn=='x') ext = "max"
     if (cxmn=='a') ext = "ave"
     if (cxmn=='n') ext = "min"
- else if (len(label)<=9) then
+ elseif (len(label)<=9) then
     if (cxmn=='x') ext = "X"
     if (cxmn=='a') ext = "A"
     if (cxmn=='n') ext = "N"

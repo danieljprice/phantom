@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testeos
@@ -87,6 +88,7 @@ subroutine test_init(ntests, npass)
     call init_eos(ieos,ierr)
     if (ieos==10 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. .not. got_phantom_dir) cycle ! skip helmholtz
+    if (ieos==16 .and. .not. got_phantom_dir) cycle ! skip Shen
     call checkval(ierr,0,0,nfailed(ieos),'eos initialisation')
  enddo
  call update_test_scores(ntests,nfailed,npass)
@@ -104,6 +106,7 @@ subroutine test_barotropic(ntests, npass)
  use io,        only:id,master,stdout
  use testutils, only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
  use units,     only:unit_density
+ use mpiutils,  only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: i,ierr,maxpts,ierrmax,ieos
@@ -120,14 +123,15 @@ subroutine test_barotropic(ntests, npass)
 
  call init_eos(ieos, ierr)
  if (ierr /= 0) then
-    write(*,"(/,a)") '--> skipping barotropic eos test due to init_eos() fail'
+    if (id==master) write(*,"(/,a)") '--> skipping barotropic eos test due to init_eos() fail'
     return
  endif
 
  nfailed = 0
  ncheck  = 0
 
- call eosinfo(ieos,stdout)
+ if (id==master) call eosinfo(ieos,stdout)
+ call barrier_mpi
  call checkvalbuf_start('equation of state is continuous')
 
  maxpts = 5000

@@ -54,7 +54,6 @@ subroutine write_codeinfo(iunit)
 !
  call get_and_print_gitinfo(iunit)
 
- return
 end subroutine write_codeinfo
 
 !-----------------------------------------------------------------
@@ -96,7 +95,6 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  integer(kind=8),  intent(in), optional :: ntot
  character(len=10) :: startdate, starttime
  character(len=11) :: parttype
-! real :: have,hmin,hmax,v2i,B2i,pri,ponrhoi,spsoundi,rhoi
 
 !-----------------------------------------------------------------------
 ! 1st header after options have been read, but before particle setup
@@ -134,15 +132,15 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           if (npartoftype(i) > 0) then
              if (i==igas) then
                 parttype = "gas"
-             else if (i==idust) then
+             elseif (i==idust) then
                 parttype = "dust"
-             else if (i==iboundary) then
+             elseif (i==iboundary) then
                 parttype = "boundary"
-             else if (i==istar) then
+             elseif (i==istar) then
                 parttype = "star"
-             else if (i==idarkmatter) then
+             elseif (i==idarkmatter) then
                 parttype = "dark matter"
-             else if (i==ibulge) then
+             elseif (i==ibulge) then
                 parttype = "bulge star"
              endif
              write(iprint,"(1x,3a,i12,a,es14.6)") &

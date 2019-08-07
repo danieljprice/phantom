@@ -39,7 +39,7 @@ subroutine test_lum(ntests,npass)
                     igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
                     Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,pxyzu,dens,metrics
  use eos,             only:gamma,polyk
- use testutils,       only:checkval,checkvalf
+ use testutils,       only:checkval,checkvalf,update_test_scores
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
  use setdisc,         only:set_disc
  use deriv,           only:derivs

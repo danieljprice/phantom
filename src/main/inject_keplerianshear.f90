@@ -129,7 +129,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 ! If this is the first run, injection zone empty and needs to be filled
 
- if(firstrun) then
+ if (firstrun) then
     ngas_initial = npartoftype(igas)
     replenish = .true.
     ninjectmax = int(ngas_initial*injp%phi_inject/injp%phimax)
@@ -138,23 +138,23 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     print*, 'First timestep: initialising queue'
  endif
 
- if(nqueue< nqueuecrit) then
+ if (nqueue< nqueuecrit) then
     print*, 'Queue nearly empty: replenishing'
     replenish=.true. ! If a small number of particles in queue, replenishment required
  endif
 
- if(npartoftype(igas) < int(0.9*ngas_initial) .and. nqueue < ninjectmax) then
+ if (npartoftype(igas) < int(0.9*ngas_initial) .and. nqueue < ninjectmax) then
     print*, 'Simulation domain depleted: replenishing'
     replenish = .true.
  endif
 
- if(injp%phimax>0.9*pi) replenish=.false.
+ if (injp%phimax>0.9*pi) replenish=.false.
 
 ! Number of particles to inject must be proportional to number in simulation
 
 
 
- if(firstrun) then
+ if (firstrun) then
     ninject = ninjectmax
  else
     ninject = ngas_initial - npartoftype(igas)
@@ -171,10 +171,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  injected = 0
 
- if(replenish) then
+ if (replenish) then
     call replenish_injection_zone(ninject, time,dtlast, injected)
     print*, injected, ' particles injected '
-    if(firstrun) then
+    if (firstrun) then
        nqueuecrit = int(ninject/2)
        firstrun = .false.
     endif
@@ -360,21 +360,21 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
 
 
 ! Set dead particles
-    if(dead_zone) then
+    if (dead_zone) then
        call kill_particle(i)
        nkill = nkill+1
     endif
 
 ! Set boundary particles
-    if(buffer_zone.or.radial_boundary) then
+    if (buffer_zone.or.radial_boundary) then
        call set_particle_type(i,iboundary)
        nboundary = nboundary+1
-       if(injection_zone) nqueue = nqueue+1
-       if(exit_zone) nexit = nexit+1
+       if (injection_zone) nqueue = nqueue+1
+       if (exit_zone) nexit = nexit+1
     endif
 
 ! Set living particles
-    if(simulation_domain) then
+    if (simulation_domain) then
        call set_particle_type(i,igas)
        ndomain = ndomain+1
     endif
@@ -450,7 +450,7 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
 
     call calc_polar_coordinates(rpart,phipart,xyzh_inject(1,i), xyzh_inject(2,i))
 
-    if(rpart <=injp%R_mid) then
+    if (rpart <=injp%R_mid) then
        phi_rot = -2.0*phipart
        call rotate_particle_z(xyzh_inject(:,i), vxyzu_inject(:,i), phi_rot)
     endif
@@ -496,7 +496,7 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
 
 !print*, abs(injp%phimax-phipart), omega, tcross, omega*tcross
 
-    if(abs(injp%phimax-phipart) > omega*tcross) then
+    if (abs(injp%phimax-phipart) > omega*tcross) then
 
        i_part = i_part+1
        call add_or_update_particle(part_type, xyzh_inject(1:3,i), vxyzu_inject(1:3,i), xyzh_inject(4,i), &
@@ -582,7 +582,7 @@ real function sigma0(Mdisc, Rinner, Router, p_index)
 
  sigma0 = Mdisc/(2.0*3.141592654)
  exponent = 2.0-p_index
- if(p_index==2.0) then
+ if (p_index==2.0) then
     sigma0 = sigma0*log(Rinner/Router)
  else
     sigma0 = sigma0*exponent/(Router**exponent - Rinner**exponent)

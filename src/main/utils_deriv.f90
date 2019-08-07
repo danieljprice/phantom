@@ -32,27 +32,24 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
  if (label=='dens') then
     call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
- else if (label=='force') then
+ elseif (label=='force') then
     call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
- else if (label=='link') then
+ elseif (label=='link') then
     call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
- else if (label=='extf') then
-    call increment_timer(timer_extf,t2-tlast,tcpu2-tcpulast)
  endif
 
- if (iverbose >= 2) then
-    if (id==master) then
-       if (present(start)) then
-          call log_timing(label,t2-tlast,tcpu,start=.true.)
-       elseif (present(lunit)) then
-          call log_timing(label,t2-tlast,tcpu,iunit=lunit)
-       else
-          call log_timing(label,t2-tlast,tcpu)
-       endif
+ if (iverbose >= 2 .and. id==master) then
+    if (present(start)) then
+       call log_timing(label,t2-tlast,tcpu,start=.true.)
+    elseif (present(lunit)) then
+       call log_timing(label,t2-tlast,tcpu,iunit=lunit)
+    else
+       call log_timing(label,t2-tlast,tcpu)
     endif
  endif
  tlast = t2
  tcpulast = tcpu2
 
 end subroutine do_timing
+
 end module derivutils

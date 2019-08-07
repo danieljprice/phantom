@@ -238,7 +238,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
- if(.not.use_dustfrac) call write_options_growth(iwritein)
+ if (.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
 #endif
 
@@ -593,7 +593,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. ieos /= 15)) &
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. ieos /= 15 .and. ieos /= 16)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')

@@ -280,9 +280,9 @@ subroutine bytes2human(bytes, sizestring)
 
  if (bytes > 1073741824.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1073741824.0, ' GB'
- else if (bytes > 1048576.0) then
+ elseif (bytes > 1048576.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1048576.0, ' MB'
- else if (bytes > 1024.0) then
+ elseif (bytes > 1024.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1024.0, ' KB'
  else
     write(sizestring, '(f8.3, a3)') bytes, ' B '

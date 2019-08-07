@@ -138,7 +138,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
     h_smooth(i) = h_smooth(i)/no_u_pts(i)/h_pressure
 
-    if(no_u_pts(i)==0) then
+    if (no_u_pts(i)==0) then
        vr(i)=0.
        sigma(i)=0.
     endif

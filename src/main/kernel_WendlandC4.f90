@@ -35,6 +35,7 @@ module kernel
  real, parameter, public  :: dphidh0 = 55./32.
  real, parameter, public  :: cnormk_drag = 6435./(2048.*pi)
  real, parameter, public  :: hfact_default = 1.5
+ real, parameter, public  :: av_factor = 35./36.
 
 contains
 

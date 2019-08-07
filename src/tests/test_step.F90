@@ -52,10 +52,10 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
-#endif
 #ifdef IND_TIMESTEPS
- use timestep_ind, only: nbinmax
- use part,         only: ibin
+ use part,            only:ibin
+ use timestep_ind,    only:nbinmax
+#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
