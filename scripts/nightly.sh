@@ -276,6 +276,8 @@ write_htmlfile_gittag_and_mailfile ()
       failtext=${failtext/ and /};
       gittag="${failtext/ and /}fail-$datetag";
       gittag="${gittag/ and /}";
+      # delete duplicate words
+      gittag="${gittag/setupsetup/setup}";
    else
       if [ "X$warnings" != "X" ]; then
          gotissues=1;
