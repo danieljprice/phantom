@@ -1425,6 +1425,13 @@ subroutine amuse_set_ieos(ieos_in)
     ieos = ieos_in
 end subroutine
 
+subroutine amuse_set_polyk(polyk_in)
+    use eos, only:polyk
+    implicit none
+    integer, intent(in) :: polyk_in
+    polyk = polyk_in
+end subroutine
+
 subroutine amuse_set_mu(mu_in)
     use eos, only:gmw
     implicit none
@@ -1630,6 +1637,13 @@ subroutine amuse_get_ieos(ieos_out)
     implicit none
     integer, intent(out) :: ieos_out
     ieos_out = ieos
+end subroutine
+
+subroutine amuse_get_polyk(polyk_out)
+    use eos, only:polyk
+    implicit none
+    integer, intent(out) :: polyk_out
+    polyk_out = polyk
 end subroutine
 
 subroutine amuse_get_mu(mu_out)
