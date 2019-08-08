@@ -24,7 +24,7 @@
 !+
 !--------------------------------------------------------------------------
 module testgrowth
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_growth
@@ -55,14 +55,13 @@ subroutine test_growth(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> testing growth initialisation'
 
  nfailed = 0
- ntests  = ntests + 1
  do ifrag=0,2
     do isnow=0,2
        call init_growth(ierr)
        call checkval(ierr,0,0,nfailed(ifrag+isnow+1),'growth initialisation')
     enddo
  enddo
- if (all(nfailed==0)) npass = npass + 1
+ call update_test_scores(ntests,nfailed,npass)
 
  !
  ! GROWINGBOX test
@@ -446,8 +445,7 @@ subroutine test_growingbox(ntests,npass)
  call checkvalbuf_end('size match exact solution (in)',ncheck(8),nerr(8),errmax(8),tols)
  call checkvalbuf_end('size match exact solution (out)',ncheck(9),nerr(9),errmax(9),tols)
 
- if (all(nerr(1:9)==0)) npass = npass + 1
- ntests = ntests + 1
+ call update_test_scores(ntests,nerr(1:9),npass)
 
 end subroutine test_growingbox
 
@@ -623,8 +621,7 @@ subroutine check_interpolations(ntests,npass)
  call checkvalbuf_end('dv interpolation match exact solution',ncheck(3),nerr(3),errmax(3),toldv)
  if (vini == 0.) call checkvalbuf_end('size integration match exact solution',ncheck(4),nerr(4),errmax(4),tols)
 
- ntests = ntests + 1
- if (all(nerr(1:4)==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:4),npass)
 
 end subroutine check_interpolations
 !---------------------------------------------------

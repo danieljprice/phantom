@@ -1482,16 +1482,34 @@ ifeq ($(USEMPI), yes)
 else
     RUNMPI=
 endif
+
 #
 # HDF5 libraries (if required)
+#
+# Requires two directories:
+#   - include for Fortran .mod files
+#   - lib for the shared library .so files
+#
+# Often both directories are under one root,
+# e.g. HDF5ROOT= /usr/local/opt/hdf5
+# In this case just set HDF5ROOT for your machine.
+#
+# However, sometimes these directories are separate,
+# then you must set both HDF5INCLUDE and HDF5LIB.
 #
 ifeq ($(HDF5), yes)
 ifeq (X$(HDF5ROOT), X)
     HDF5ROOT= /usr/local/opt/hdf5
 endif
-    FFLAGS+= -I$(HDF5ROOT)/include
-    LDFLAGS+= -L$(HDF5ROOT)/lib -lhdf5 -lhdf5_fortran
-    CCFLAGS+= -I$(HDF5ROOT)/include
+ifeq (X$(HDF5INCLUDE), X)
+    HDF5INCLUDE= $(HDF5ROOT)/include
+endif
+ifeq (X$(HDF5LIB), X)
+    HDF5LIB= $(HDF5ROOT)/lib
+endif
+    FFLAGS+= -I$(HDF5INCLUDE)
+    CCFLAGS+= -I$(HDF5INCLUDE)
+    LDFLAGS+= -L$(HDF5LIB) -lhdf5 -lhdf5_fortran
     FPPFLAGS+= -DHDF5
 endif
 
@@ -1554,7 +1572,7 @@ endif
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
+SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos.F90
 
 ifeq ($(HDF5), yes)
 SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90
@@ -2067,7 +2085,7 @@ cleanmultirun:
 #----------------------------------------------------
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
-SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
+SRCBIN = prompting.f90 dtype_kdtree.F90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
          mpi_utils.F90 utils_allocate.f90 part.F90 mpi_domain.F90 set_binary.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}

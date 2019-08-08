@@ -270,7 +270,6 @@ end subroutine send_part
 !+
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
- use dim, only:maxp
  use io,  only:id,nprocs,fatal,iverbose
  implicit none
  integer, intent(out)            :: npart

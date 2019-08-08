@@ -973,13 +973,13 @@ subroutine init_h2cooling
 !
     if (temp  <  5d0) then
        cltab(1,itemp) = tiny(cltab)
-    else if (temp  <  1d2) then
+    elseif (temp  <  1d2) then
        h2n2 = 0.25d0 * 5d0 * exp(-h2e20 / temp)
        h2n3 = 0.75d0 * (7d0 / 3d0) * exp(-h2e31 / temp)
        f    = 2.94d-11 * h2e20 * h2n2 * kboltz + &
               4.76d-10 * h2e31 * h2n3 * kboltz
        cltab(1,itemp) = max(f, tiny(f))
-    else if (temp  >  1d4) then
+    elseif (temp  >  1d4) then
        cltab(1,itemp) = 1d1**(-18.253d0)
     endif
 !
@@ -994,9 +994,9 @@ subroutine init_h2cooling
 !
     if (temp  <  5d0) then
        cltab(2,itemp) = tiny(cltab)
-    else if (temp  <  1d2) then
+    elseif (temp  <  1d2) then
        cltab(2,itemp) = (fpara  * h2q02 * h2e20 + fortho * h2q13 * h2e31) * kboltz
-    else if (temp  >  1d4) then
+    elseif (temp  >  1d4) then
        cltab(2,itemp) = 1d1**(-21.943d0)
     endif
 !
@@ -1010,9 +1010,9 @@ subroutine init_h2cooling
 !
     if (temp  <  5d0) then
        cltab(3,itemp) = tiny(cltab)
-    else if (temp  <  1d2) then
+    elseif (temp  <  1d2) then
        cltab(3,itemp) = (fpara  * h2q02 * h2e20  +  fortho * h2q13 * h2e31) * kboltz
-    else if (temp  >  1d4) then
+    elseif (temp  >  1d4) then
        cltab(3,itemp) = 1d1**(-22.758d0)
     endif
 !
@@ -1167,7 +1167,7 @@ subroutine init_h2cooling
 ! 1 -> 0
     if (temp  <  194) then
        cltab(27,itemp) = 6.38d-11 * (temp**0.40)
-    else if (temp  <  3686) then
+    elseif (temp  <  3686) then
        cltab(27,itemp) = 7.75d-12 * (temp**0.80)
     else
        cltab(27,itemp) = 2.65d-10 * (temp**0.37)
@@ -1175,7 +1175,7 @@ subroutine init_h2cooling
 ! 2 -> 0
     if (temp  <  511) then
        cltab(28,itemp) = 6.10d-13 * (temp**1.10)
-    else if (temp  <  7510) then
+    elseif (temp  <  7510) then
        cltab(28,itemp) = 2.12d-12 * (temp**0.90)
     else
        cltab(28,itemp) = 4.49d-10 * (temp**0.30)

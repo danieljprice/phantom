@@ -124,8 +124,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 !    evaluate to false an awfully large number of times.  Needs to be after
 !    dumpfile ('time') and wind data (Mdots) have been read in.
 !
- if(first_iteration) then
-    if(time /= 0) then   ! only if restarting
+ if (first_iteration) then
+    if (time /= 0) then   ! only if restarting
        do i=nskip+1,nptmass
           j = i - nskip ! position in wind table
           total_particles_injected(i) = int(wind(i_Mdot,j)*Mdot_fac * time / massoftype(igas))
@@ -185,7 +185,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !    particles this timestep; this way, fractional particles/timestep can
     !    accumulate and eventually inject a particle, making Mdot more accurate
     !
-    if(ninject > 0) then
+    if (ninject > 0) then
        do k=1,ninject
           !
           ! get random position on sphere

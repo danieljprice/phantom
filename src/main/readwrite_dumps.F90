@@ -1857,10 +1857,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
-                          maxtypes,grainsize,graindens
+                          maxtypes,grainsize,graindens,ndusttypes
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use externalforces, only:read_headeropts_extern
+ use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
  type(dump_h), intent(in)  :: hdr
@@ -1926,6 +1926,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
        ierr = 4
     endif
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
+    if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then
        call read_headeropts_extern(iexternalforce,hdr,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
@@ -1984,8 +1985,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  call extract('etot_in',    etot_in,    hdr,ierrs(2))
  call extract('angtot_in',  angtot_in,  hdr,ierrs(3))
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
- call extract('mdust_in',   mdust_in,   hdr,ierrs(5))
- if (any(ierrs(1:5) /= 0)) then
+ call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(5))
+ if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
  endif
@@ -1995,8 +1996,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
 
  !--pull grain size and density arrays
  if (use_dust) then
-    call extract('grainsize',grainsize,hdr,ierrs(1))
-    call extract('graindens',graindens,hdr,ierrs(2))
+    call extract('grainsize',grainsize(1:ndusttypes),hdr,ierrs(1))
+    call extract('graindens',graindens(1:ndusttypes),hdr,ierrs(2))
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
     endif

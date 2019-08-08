@@ -31,7 +31,7 @@ contains
 
 subroutine test_corotate(ntests,npass)
  use io,              only:id,master
- use testutils,       only:checkval
+ use testutils,       only:checkval,update_test_scores
  use extern_corotate, only:get_centrifugal_force,get_coriolis_force,omega_corotate
  integer, intent(inout) :: ntests,npass
  logical                :: test_centrifugal,test_coriolis
@@ -61,8 +61,7 @@ subroutine test_corotate(ntests,npass)
     call checkval(fz,0.,epsilon(fz),nfailed(3),'fz=0')
     call checkval(phi,-0.5*omega_corotate**2*(r(1)**2 + r(2)**2),2.*epsilon(phi),nfailed(4),'phi=1/2 Omega^2 R^2')
 
-    ntests = ntests + 1
-    if (all(nfailed(1:4)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:4),npass)
 
  endif testcentrifugal
 
@@ -84,8 +83,7 @@ subroutine test_corotate(ntests,npass)
     call checkval(f(3),0.,epsilon(fz),nfailed(3),'fz=0')
     !call checkval(phi,-omega_corotate*(v(2)*r(1) - v(1)*r(2)),epsilon(phi),nfailed(4),'phi=Omega(vy*x-vx*y)')
 
-    ntests = ntests + 1
-    if (all(nfailed(1:4)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed(1:4),npass)
 
  endif testcoriolis
 
