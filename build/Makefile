@@ -685,7 +685,7 @@ ifeq ($(SETUP), amuse)
     SETUPFILE= #velfield_fromcubes.f90 setup_cluster.f90
     MODFILE= #moddump_default.f90
     ANALYSIS= #phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
-    ISOTHERMAL=yes
+    ISOTHERMAL=no
     MHD=no
     GRAVITY=yes
     IND_TIMESTEPS=no # Change this later
