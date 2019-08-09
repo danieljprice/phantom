@@ -281,13 +281,13 @@ program phantom2grid
 ! call pgimag(coldens,npixx,npixy,1,npixx,1,npixy,0.0,datmax,trans)
 ! call pgend
 !
-!--write to the output files, using Spyros' naming convention
+!--write to the output files, using Spyros naming convention
 !
     select case(label(ioutformat))
     case('spyros')
 !
-!--construct output filenames, using Spyros' naming convention
-!  (t=2 is 020, t=12 is 120)
+!--construct output filenames, using Spyros naming convention
+!  t=2 is 020, t=12 is 120
 !
        ifile = nint(10.*time)
        write(fileprefix,"(a6,i3.3,'_',i3.3)") dumpfile(1:2)//'_ic_',npixx,ifile

@@ -81,12 +81,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- logical, parameter :: itiming = .true.
  real(kind=4)       :: t1,tcpu1,tlast,tcpulast
 
  t1 = 0.
  tcpu1 = 0.
- if (itiming) call get_timings(t1,tcpu1)
+ call get_timings(t1,tcpu1)
  tlast = t1
  tcpulast = tcpu1
 !
@@ -177,21 +176,19 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
  if (label=='dens') then
     call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
- else if (label=='force') then
+ elseif (label=='force') then
     call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
- else if (label=='link') then
+ elseif (label=='link') then
     call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
  endif
 
- if (itiming .and. iverbose >= 2) then
-    if (id==master) then
-       if (present(start)) then
-          call log_timing(label,t2-tlast,tcpu,start=.true.)
-       elseif (present(lunit)) then
-          call log_timing(label,t2-tlast,tcpu,iunit=lunit)
-       else
-          call log_timing(label,t2-tlast,tcpu)
-       endif
+ if (iverbose >= 2 .and. id==master) then
+    if (present(start)) then
+       call log_timing(label,t2-tlast,tcpu,start=.true.)
+    elseif (present(lunit)) then
+       call log_timing(label,t2-tlast,tcpu,iunit=lunit)
+    else
+       call log_timing(label,t2-tlast,tcpu)
     endif
  endif
  tlast = t2

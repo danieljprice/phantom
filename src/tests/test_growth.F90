@@ -24,7 +24,7 @@
 !+
 !--------------------------------------------------------------------------
 module testgrowth
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
  public :: test_growth
@@ -55,14 +55,13 @@ subroutine test_growth(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> testing growth initialisation'
 
  nfailed = 0
- ntests  = ntests + 1
  do ifrag=0,2
     do isnow=0,2
        call init_growth(ierr)
        call checkval(ierr,0,0,nfailed(ifrag+isnow+1),'growth initialisation')
     enddo
  enddo
- if (all(nfailed==0)) npass = npass + 1
+ call update_test_scores(ntests,nfailed,npass)
 
  !
  ! The return of the dustybox test
@@ -265,8 +264,7 @@ subroutine dustybox_thereturn(ntests,npass)
  call checkvalbuf_end('Stokes number interpolation match exact number',ncheck(3),nerr(3),errmax(3),tolst)
  call checkvalbuf_end('dv interpolation match exact solution',ncheck(4),nerr(4),errmax(4),toldv)
 
- ntests = ntests + 1
- if (all(nerr(1:4)==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:4),npass)
 
 end subroutine dustybox_thereturn
 
@@ -465,8 +463,7 @@ subroutine The_big_laiboxi(ntests,npass)
  call checkvalbuf_end('sound speed interpolation match exact number',ncheck(3),nerr(3),errmax(3),tols)
  call checkvalbuf_end('rhogas interpolation match exact number',ncheck(4),nerr(4),errmax(4),tolrho)
 
- ntests = ntests + 1
- if (all(nerr(1:4)==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr(1:4),npass)
 
 end subroutine The_big_laiboxi
 

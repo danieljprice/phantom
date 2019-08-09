@@ -174,7 +174,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (use_ohm ) call prompt('Set C_OR.',C_OR)
           if (use_hall) call prompt('Set C_HE.',C_HE)
           if (use_ambi) call prompt('Set C_AD.',C_AD)
-       else if (eta_const_type==icnstphys) then
+       elseif (eta_const_type==icnstphys) then
           if (use_ohm .or. use_hall) then
              call prompt('Set the electron number density (cgs).',n_e_cnst)
           endif

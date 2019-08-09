@@ -33,7 +33,7 @@ contains
 subroutine test_externf(ntests,npass)
  use io,       only:id,master
  use part,     only:npart,xyzh,hfact,massoftype,igas
- use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
+ use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use externalforces, only:externalforcetype,externalforce,accrete_particles, &
                           was_accreted,iexternalforce_max,initialise_externalforces,&
                           accradius1,update_externalforce,is_velocity_dependent,&
@@ -136,9 +136,8 @@ subroutine test_externf(ntests,npass)
           call checkvalbuf_end('fextx = -grad phi',ncheck(2),nfailed(2),xerrmax,tolf)
           call checkvalbuf_end('fexty = -grad phi',ncheck(3),nfailed(3),yerrmax,tolf)
           call checkvalbuf_end('fextz = -grad phi',ncheck(4),nfailed(4),zerrmax,tolf)
-          ntests = ntests + 2
-          if (nfailed(1)==0) npass = npass + 1
-          if (all(nfailed(2:4)==0)) npass = npass + 1
+          call update_test_scores(ntests,nfailed(1:1),npass)
+          call update_test_scores(ntests,nfailed(2:4),npass)
        endif
 
        nfailed(:) = 0
@@ -153,7 +152,7 @@ subroutine test_externf(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> testing accrete_particles routine'
     xi(:) = 0.
     pmassi = 1./1000.
-    nfail1 = 0
+    nfailed = 0
     ncheck(1) = 0
     !call checkvalbuf_start('accreted=was_accreted')
     do iextf=1,iexternalforce_max
@@ -162,9 +161,8 @@ subroutine test_externf(ntests,npass)
        call checkvalbuf(was_accreted(iextf,xi(4)),accreted,'accrete/=was_accreted',nfail1,ncheck(1))
     enddo
     ierrmax = 0
-    call checkvalbuf_end('accreted=was_accreted for all externf',ncheck(1),nfail1,ierrmax,0)
-    ntests = ntests + 1
-    if (nfail1==0) npass = npass + 1
+    call checkvalbuf_end('accreted=was_accreted for all externf',ncheck(1),nfailed(1),ierrmax,0)
+    call update_test_scores(ntests,nfailed,npass)
  endif test2
 !
 !--Test 3: check that the update_leapfrog_vdependent routines are correct

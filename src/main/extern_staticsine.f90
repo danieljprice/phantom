@@ -122,7 +122,7 @@ subroutine read_options_staticsine(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
 
     ! Prevent overly large values of inclination
-    if(inclination > twopi) then
+    if (inclination > twopi) then
        inclination = mod(inclination,twopi)
        print"(a,es10.3)", 'Inclination> 2pi, set to mod(inclination,2pi)= ',inclination
     endif

@@ -99,7 +99,7 @@ subroutine energ_cooling(icool,ui,dudti,xi,yi,zi,rhoi,vxyzui,dt)
     !
     !crate = cooling_rate_sd93(temp) !*unit_ergg/utime
     !crate = cooling_rate_sd93(temp)*unit_ergg/utime
-    if(temp > 1.e4) then
+    if (temp > 1.e4) then
        fac = unit_ergg/utime/umass*udist**3
        crate = cooling_rate_sd93(temp)/atomic_mass_unit**2/fac
 !write(*,*) 'cooling debug: ',vxyzui(4),dudti,crate,dudti+crate

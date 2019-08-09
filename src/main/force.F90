@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, fastmath, growth,
-!    io, io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce,
-!    mpiutils, nicil, options, part, physcon, ptmass, stack, timestep,
-!    timestep_ind, timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
+!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
+!    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -725,13 +725,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
           call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dthall) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dthall) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining Courant timestep')
           call summary_variable('dt',iosumdth,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining Courant timestep')
           call summary_variable('dt',iosumdto,0,0.0,0.0, .true. )
-       else if (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
+       elseif (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
           if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
           call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
        endif
@@ -2198,8 +2198,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use fastmath,       only:finvsqrt
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
- use eos,            only:use_entropy,gamma
- use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac
+ use eos,            only:use_entropy,gamma,ieos
+ use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx
 #ifdef IND_TIMESTEPS
@@ -2216,6 +2216,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
+ use units,          only:unit_ergg,unit_density
+ use eos_shen,       only:eos_shen_get_dTdu
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
@@ -2265,6 +2267,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
+ real    :: dTdui,dTdui_cgs,rho_cgs
 #ifdef LIGHTCURVE
  real    :: dudt_radi
 #endif
@@ -2443,11 +2446,21 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (use_entropy) then
+          if (use_entropy) then ! here eni is the entropy
              if (ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
              endif
-          else
+          elseif (ieos==16) then ! here eni is the temperature
+             if (abs(damp) < tiny(damp)) then
+                rho_cgs = rhoi * unit_density
+                call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
+                dTdui = dTdui_cgs / unit_ergg
+                !use cgs
+                fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
+             else
+                fxyz4 = 0.
+             endif
+          else ! eni is the internal energy
              fac = rhoi/rhogasi
              pdv_work = ponrhoi*rho1i*drhodti
              if (ipdv_heating > 0) then
@@ -2637,17 +2650,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     ! one fluid dust timestep
-    if (use_dustfrac .and. iamgasi .and. minval(dustfraci) > 0. &
-        .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
-       tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
-       dtdustdenom = dustfracisum*tseff*spsoundi**2
-       if (dtdustdenom > tiny(dtdustdenom)) then
-          dtdusti = C_force*hi*hi/dtdustdenom
-       else
-          dtdusti = bignumber
+    dtdusti = bignumber
+    if (use_dustfrac .and. iamgasi) then
+       if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
+          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
+          dtdustdenom = dustfracisum*tseff*spsoundi**2
+          if (dtdustdenom > tiny(dtdustdenom)) then
+             dtdusti = C_force*hi*hi/dtdustdenom
+          endif
        endif
-    else
-       dtdusti = bignumber
     endif
 
     ! stopping time

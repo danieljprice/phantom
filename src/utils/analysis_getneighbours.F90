@@ -114,7 +114,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     i = ifirstincell(icell)
 
     ! Skip empty/inactive cells
-    if(i<=0) cycle over_cells
+    if (i<=0) cycle over_cells
 
     ! Get neighbour list for the cell
 
@@ -129,12 +129,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     over_parts: do while(i /=0)
        !print*, i, icell, ncells
-       if(i<0) then ! i<0 indicates inactive particles
+       if (i<0) then ! i<0 indicates inactive particles
           i = ll(abs(i))
           cycle over_parts
        endif
 
-       if(maxphase==maxp) then
+       if (maxphase==maxp) then
           call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
           iamgasi = (iamtypei ==igas)
        else
@@ -151,7 +151,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
 
        ! do not compute neighbours for boundary particles
-       if(iamtypei ==iboundary) cycle over_parts
+       if (iamtypei ==iboundary) cycle over_parts
 
 
        ! Fill neighbour list for this particle
@@ -163,7 +163,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           j = abs(listneigh(ineigh))
 
           ! Skip self-references
-          if(i==j) cycle over_neighbours
+          if (i==j) cycle over_neighbours
 
           dx = xyzh(1,i) - xyzh(1,j)
           dy = xyzh(2,i) - xyzh(2,j)
@@ -180,10 +180,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           hj21 = hj1*hj1
           q2j = rij2*hj21
 
-          is_sph_neighbour: if(q2i < radkern2 .or. q2j < radkern2) then
+          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
              !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if(neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
+             if (neighcount(i) <=neighmax) neighb(i,neighcount(i)) = j
              !$omp end critical
           endif is_sph_neighbour
 
@@ -245,7 +245,7 @@ subroutine neighbours_stats(npart)
  print*, 'The maximum neighbour count is ', maximum
  print*, 'The minimum neighbour count is ', minimum
 
- if(maximum > neighmax) then
+ if (maximum > neighmax) then
     print*, 'WARNING! Neighbour count too large for allocated arrays'
  endif
 
@@ -305,7 +305,7 @@ subroutine write_neighbours(neighbourfile,npart)
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart
-    if(neighcount(i) > neighmax) then
+    if (neighcount(i) > neighmax) then
        neigh_overload = .true.
        write(2) (neighb(i,j), j=1,neighmax)
     else
@@ -316,7 +316,7 @@ subroutine write_neighbours(neighbourfile,npart)
  close(2)
 
 
- if(neigh_overload) then
+ if (neigh_overload) then
     print*, 'WARNING! File write incomplete: neighbour count exceeds array size'
  else
     print*, 'File Write Complete'

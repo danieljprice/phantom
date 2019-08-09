@@ -289,7 +289,7 @@ subroutine track_period(time,pos,ival)
     period(ival  ,iperiod(ival)) = pos
     period(ival+4,iperiod(ival)) = time
     nextP  (ival) = .true.
- else if (pos > 0.0 .and. nextP  (ival)) then
+ elseif (pos > 0.0 .and. nextP  (ival)) then
     iperiod(ival) = iperiod(ival) + 1
     nextP  (ival) = .false.
  endif

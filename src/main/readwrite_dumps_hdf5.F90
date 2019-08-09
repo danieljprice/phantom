@@ -22,9 +22,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, eos, gitinfo, initial_params, io,
-!    lumin_nsdisc, memory, mpiutils, options, part, setup_params, timestep,
-!    units, utils_dumpfiles_hdf5
+!  DEPENDENCIES: boundary, dim, eos, extern_binary, extern_gwinspiral,
+!    externalforces, gitinfo, initial_params, io, lumin_nsdisc, memory,
+!    mpiutils, options, part, setup_params, timestep, units,
+!    utils_dumpfiles_hdf5
 !+
 !--------------------------------------------------------------------------
 #ifdef PHANTOM2HDF5
@@ -43,7 +44,8 @@ module readwrite_dumps
                                 read_hdf5_arrays,        &
                                 header_hdf5,             &
                                 got_arrays_hdf5,         &
-                                arrays_options_hdf5
+                                arrays_options_hdf5,     &
+                                externalforce_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
@@ -157,6 +159,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use timestep,       only:dtmax,C_cour,C_force
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_binary,  only:binary_posvel,a0,direction,accretedmass1,accretedmass2
+ use extern_gwinspiral, only:Nstar
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  logical,          intent(in) :: fulldump
@@ -173,9 +178,12 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  character(len=30) :: string
  character(len=9)  :: dumptype
  integer :: error
+ real :: posmh(10)
+ real :: vels(6)
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
+ type (externalforce_hdf5) :: extern
 
  if (id==master) then
     if (fulldump) then
@@ -357,8 +365,24 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  hdr%utime = utime
  hdr%unit_Bfield = unit_Bfield
 
+ ! contstruct external force derived type
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    extern%Nstar = Nstar
+ case(iext_binary,iext_corot_binary)
+    call binary_posvel(t,posmh,vels)
+    extern%xyzmh1 = posmh(1:5)
+    extern%xyzmh2 = posmh(6:10)
+    extern%vxyz1 = vels(1:3)
+    extern%vxyz2 = vels(4:6)
+    extern%accretedmass1 = accretedmass1
+    extern%accretedmass2 = accretedmass2
+    extern%a0 = a0
+    extern%direction = direction
+ end select
+
  ! write the header to the HDF file
- call write_hdf5_header(hdf5_file_id,hdr,error)
+ call write_hdf5_header(hdf5_file_id,hdr,extern,error)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
  ! create options derived type for writing arrays
@@ -367,45 +391,50 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  array_options%ind_timesteps = ind_timesteps
  array_options%gravity = gravity
  array_options%mhd = mhd
+ array_options%mhd_nonideal = mhd_nonideal
  array_options%use_dust = use_dust
  array_options%use_dustfrac = use_dustfrac
  array_options%use_dustgrowth = use_dustgrowth
  array_options%h2chemistry = h2chemistry
+ array_options%lightcurve = lightcurve
+ array_options%prdrag = prdrag
  array_options%store_temperature = store_temperature
  array_options%maxBevol = maxBevol
  array_options%ndivcurlB = ndivcurlB
  array_options%ndivcurlv = ndivcurlv
+ array_options%ndustsmall = ndustsmall
+ array_options%ndustlarge = ndustlarge
 
  ! write the arrays to file
  if (fulldump) then
-    call write_hdf5_arrays(hdf5_file_id,                        & ! File ID
-                           error,                               & ! Error code
-                           npart,                               & ! # particles
-                           nptmass,                             & ! # sinks
-                           xyzh,                                & !---------
-                           vxyzu,                               & !
-                           iphase,                              & !
-                           pressure,                            & !
-                           alphaind,                            & !
-                           dtind,                               & !
-                           poten,                               & !
-                           xyzmh_ptmass,                        & !
-                           vxyz_ptmass,                         & !
-                           Bxyz,                                & !
-                           Bevol,                               & ! Arrays
-                           divcurlB,                            & !
-                           divBsymm,                            & !
-                           eta_nimhd,                           & !
-                           dustfrac(1:ndustsmall+ndustlarge,:), & !
-                           tstop(1:ndustsmall,:),               & !
-                           deltav(:,1:ndustsmall,:),            & !
-                           dustprop,                            & !
-                           st,                                  & !
-                           abundance,                           & !
-                           temperature,                         & !
-                           divcurlv,                            & !
-                           luminosity,                          & !
-                           beta_pr,                             & !---------
+    call write_hdf5_arrays(hdf5_file_id, & ! File ID
+                           error,        & ! Error code
+                           npart,        & ! # particles
+                           nptmass,      & ! # sinks
+                           xyzh,         & !---------
+                           vxyzu,        & !
+                           iphase,       & !
+                           pressure,     & !
+                           alphaind,     & !
+                           dtind,        & !
+                           poten,        & !
+                           xyzmh_ptmass, & !
+                           vxyz_ptmass,  & !
+                           Bxyz,         & !
+                           Bevol,        & ! Arrays
+                           divcurlB,     & !
+                           divBsymm,     & !
+                           eta_nimhd,    & !
+                           dustfrac,     & !
+                           tstop,        & !
+                           deltav,       & !
+                           dustprop,     & !
+                           st,           & !
+                           abundance,    & !
+                           temperature,  & !
+                           divcurlv,     & !
+                           luminosity,   & !
+                           beta_pr,      & !---------
                            array_options)                         ! Options
  else
     call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
@@ -440,12 +469,12 @@ end subroutine write_dump
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature,nsinkproperties
+                          h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
@@ -457,6 +486,9 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_gwinspiral, only:Nstar
+ use extern_binary,  only:a0,direction,accretedmass1,accretedmass2
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -473,6 +505,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
  type (got_arrays_hdf5) :: got_arrays
+ type (externalforce_hdf5) :: extern
 
  errors(:) = 0
 
@@ -482,8 +515,11 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call fatal('read_dump',trim(dumpfile)//'.h5 does not exist')
  endif
 
- call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+ call read_hdf5_header(hdf5_file_id,hdr,extern,errors(2))
 
+ !
+ !--Set values from header
+ !
  fileident = hdr%fileident
  isink = hdr%isink
  nptmass = hdr%nptmass
@@ -529,13 +565,23 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  utime = hdr%utime
  unit_Bfield = hdr%unit_Bfield
 
- !
- !--Set values from header
- !
  call set_units_extra()
  ndusttypes = ndustsmall + ndustlarge
 
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Set values from external forces
+ !
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    Nstar = extern%Nstar
+ case(iext_binary,iext_corot_binary)
+    a0 = extern%a0
+    direction = extern%direction
+    accretedmass1 = extern%accretedmass1
+    accretedmass2 = extern%accretedmass2
+ end select
 
  !
  !--Allocate main arrays
@@ -543,7 +589,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs))
+ if (.not. use_moddump) then
+    call allocate_memory(int(npart / nprocs))
+ else
+    ! This is required for the cases when particles will be added during moddump
+    call allocate_memory(maxp_hard)
+ endif
 #endif
 
 #ifdef ISOTHERMAL
@@ -633,9 +684,15 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
+#ifdef INJECT_PARTICLES
+ use dim,            only:maxp_hard
+#endif
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
+ use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
+ use extern_gwinspiral, only:Nstar
+ use extern_binary,  only:a0,direction,accretedmass1,accretedmass2
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -652,11 +709,15 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
  type (got_arrays_hdf5) :: got_arrays
+ type (externalforce_hdf5) :: extern
 
  call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
 
- call read_hdf5_header(hdf5_file_id,hdr,errors(2))
+ call read_hdf5_header(hdf5_file_id,hdr,extern,errors(2))
 
+ !
+ !--Set values from header
+ !
  fileident = hdr%fileident
  isink = hdr%isink
  nptmass = hdr%nptmass
@@ -702,13 +763,23 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  utime = hdr%utime
  unit_Bfield = hdr%unit_Bfield
 
- !
- !--Set values from header
- !
  call set_units_extra()
  ndusttypes = ndustsmall + ndustlarge
 
  call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+
+ !
+ !--Set values from external forces
+ !
+ select case(hdr%iexternalforce)
+ case(iext_gwinspiral)
+    Nstar = extern%Nstar
+ case(iext_binary,iext_corot_binary)
+    a0 = extern%a0
+    direction = extern%direction
+    accretedmass1 = extern%accretedmass1
+    accretedmass2 = extern%accretedmass2
+ end select
 
  !
  !--Allocate main arrays

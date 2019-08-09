@@ -95,7 +95,7 @@ program mflow
        print*,trim(filename)//' --> '//trim(outfile)
        nthfile=trim(filename(1:imf))//'-'//trim(nth)//'.mflow'
 
-       if(nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
+       if (nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
        open(unit=iout,file=trim(outfile),status='replace',form='formatted')
 
        ierr=1
@@ -130,10 +130,10 @@ program mflow
 
           datprev(:)=dat(5:ncols)
           tprev=dat(1)
-          if(ierr==0) write(iout,formatout) dat(1),ndump,datflow
+          if (ierr==0) write(iout,formatout) dat(1),ndump,datflow
 
-          if(nthtime) then
-             if(ndump==inttime)then
+          if (nthtime) then
+             if (ndump==inttime) then
                 open(unit=nthoutput,file=trim(nthfile),status='replace',form='formatted')
                 write(nthoutput,"('#',(1x,a17),es18.10)")"time:",dat(1)
                 do nthcount=1,nrad

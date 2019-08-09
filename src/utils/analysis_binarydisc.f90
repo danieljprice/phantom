@@ -220,7 +220,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     rmin = 0.99*rmin
     rmax = 1.01*rmax
 
-    if(j == ipri)then
+    if (j == ipri) then
        r1=0.1*a
        r2=0.2*a
        r3=0.3*a

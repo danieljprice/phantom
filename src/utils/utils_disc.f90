@@ -230,7 +230,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nbin
-    if(ninbin(i)==0 .or. ninbin(i)==1) then
+    if (ninbin(i)==0 .or. ninbin(i)==1) then
        lx(i)=0.0
        ly(i)=0.0
        lz(i)=0.0
@@ -243,7 +243,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  enddo
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
- if(rotate) then
+ if (rotate) then
     if (nptmass /= 0) then
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
     else
@@ -252,19 +252,19 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
     temp = (/L_tot(1),L_tot(2),0./)
     temp_mag = sqrt(dot_product(temp,temp))
-    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
+    rotate_about_z = -acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
 
     ! Rotate second about y-axis
     L_tot_mag = sqrt(dot_product(L_tot,L_tot))
     rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
 
-    call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
+    call rotatevec(L_tot,(/0.,0.,1.0/),rotate_about_z)
     call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
     do i=1,nbin
        temp(1) = unitlx(i)
        temp(2) = unitly(i)
        temp(3) = unitlz(i)
-       call rotatevec(temp,(/0.,0.,1.0/),-rotate_about_z)
+       call rotatevec(temp,(/0.,0.,1.0/),rotate_about_z)
        call rotatevec(temp,(/0.,1.0,0./),rotate_about_y)
        unitlx(i) = temp(1)
        unitly(i) = temp(2)
@@ -273,13 +273,13 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  endif
 
  do i=1,nbin
-    if(i /= 1.and.i /= nbin) then
+    if (i /= 1.and.i /= nbin) then
        psi_x=(unitlx(i+1)-unitlx(i-1))/(bin(i+1)-bin(i-1))
        psi_y=(unitly(i+1)-unitly(i-1))/(bin(i+1)-bin(i-1))
        psi_z=(unitlz(i+1)-unitlz(i-1))/(bin(i+1)-bin(i-1))
        psi(i)=sqrt(psi_x**2 + psi_y**2 + psi_z**2)*bin(i)
     else
-       psi=0.
+       psi(i)=0.
     endif
     if (ninbin(i) > 0) then
        tilt(i)  = acos(unitlz(i))
