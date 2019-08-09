@@ -2168,7 +2168,8 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+      'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
  close(iunit)
