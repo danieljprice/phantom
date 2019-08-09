@@ -124,7 +124,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,damp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&

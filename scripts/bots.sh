@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Script to automatically perform various maintenance
-# tasks on Phantom source files and commit the 
+# tasks on Phantom source files and commit the
 # changes to the code
 #
 # Current bots implemented are:
@@ -75,6 +75,7 @@ for edittype in $bots_to_run; do
            #echo $srcdir;
            for file in $listoffiles; do
                out="$tmpdir/$file"
+#               echo "FILE=$file OUT=$out";
                case $edittype in
                'tabs' )
                  sed 's/	/        /g' $file > $out;;
@@ -105,6 +106,8 @@ for edittype in $bots_to_run; do
                      -e 's/EXP(/exp(/g' \
                      -e 's/LOG(/log(/g' \
                      -e 's/READ(/read(/g' \
+                     -e 's/IF (/if (/g' \
+                     -e 's/) THEN/) then/g' \
                      -e 's/ENDDO/enddo/g' \
                      -e 's/END DO/end do/g' \
                      -e 's/END PARALLEL/end parallel/g' \
@@ -130,7 +133,10 @@ for edittype in $bots_to_run; do
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
                  sed -e 's/end if/endif/g' \
-                     -e 's/end do/enddo/g' $file > $out;;
+                     -e 's/end do/enddo/g' \
+                     -e 's/else if/elseif/g' \
+                     -e 's/if(/if (/g' \
+                     -e 's/)then/) then/g' $file > $out;;
                'header' )
                  $scriptdir/header.pl --headerfile=$headerfile --programfile=$programfile --replace $file > $out;;
                'authors' )
@@ -179,7 +185,7 @@ for edittype in $bots_to_run; do
     'shout' )
       msg='[format-bot] F77-style SHOUTING removed';;
     'endif' )
-      msg='[format-bot] end if -> endif; end do -> enddo';;
+      msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
     'header' )
       msg='[header-bot] updated file headers';;
     'authors' )
@@ -187,7 +193,7 @@ for edittype in $bots_to_run; do
     'indent' )
       msg='[indent-bot] standardised indentation';;
     esac
-    if [[ "X$filelist" != "X" ]]; then 
+    if [[ "X$filelist" != "X" ]]; then
        if [[ $docommit == 0 ]]; then
           echo "$msg";
        fi
@@ -201,7 +207,7 @@ done
 if [[ $docommit == 1 ]]; then
    git push;
 else
-   if [[ "X$allfiles" != "X" ]]; then 
+   if [[ "X$allfiles" != "X" ]]; then
       if [[ $applychanges == 0 ]]; then
          echo; echo "To apply changes use:";
          echo; echo "$0 --apply";

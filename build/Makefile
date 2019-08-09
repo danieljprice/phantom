@@ -1009,7 +1009,6 @@ ifeq ($(MCFOST), yes)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
     FPPFLAGS+= -DMCFOST
-    INCLUDE+=
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(SYSTEM) \
 	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
@@ -1561,7 +1560,7 @@ endif
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
+SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos.F90
 
 ifeq ($(HDF5), yes)
 SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90
@@ -2074,7 +2073,7 @@ cleanmultirun:
 #----------------------------------------------------
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
-SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
+SRCBIN = prompting.f90 dtype_kdtree.F90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
          mpi_utils.F90 utils_allocate.f90 part.F90 mpi_domain.F90 set_binary.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}

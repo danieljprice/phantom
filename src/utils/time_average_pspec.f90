@@ -95,7 +95,7 @@ program time_average_pspec
           if (nbins /= nbinsprev) then
              print "(a)",' ERROR: number of bins has changed between files, skipping file'
              cycle over_files
-          elseif(.not.all(xval(1:nbins)==xvalprev(1:nbins))) then
+          elseif (.not.all(xval(1:nbins)==xvalprev(1:nbins))) then
              print "(a)",' ERROR: location of bins has changed between files, skipping file'
              cycle over_files
           endif
