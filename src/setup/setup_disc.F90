@@ -86,7 +86,8 @@ module setup
 #endif
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
-                            ndustlarge,grainsize,graindens,nptmass,iamtype
+                            ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
+                            VrelVf
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -1299,11 +1300,11 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
-          dustprop(3,i) = 0.
-          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
+       dustgasprop(:,i) = 0.
+       VrelVf(i)        = 0.
     enddo
  endif
 
