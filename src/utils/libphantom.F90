@@ -850,6 +850,7 @@ subroutine amuse_initialize_code()
     call code_init()
     call set_defaults()
     call set_units(dist=1.,mass=1.,G=1.)
+    call amuse_set_polyk(8.11716011329)
 end subroutine
 
 subroutine amuse_cleanup_code()
@@ -1428,7 +1429,7 @@ end subroutine
 subroutine amuse_set_polyk(polyk_in)
     use eos, only:polyk
     implicit none
-    integer, intent(in) :: polyk_in
+    double precision, intent(in) :: polyk_in
     polyk = polyk_in
 end subroutine
 
@@ -1642,7 +1643,7 @@ end subroutine
 subroutine amuse_get_polyk(polyk_out)
     use eos, only:polyk
     implicit none
-    integer, intent(out) :: polyk_out
+    double precision, intent(out) :: polyk_out
     polyk_out = polyk
 end subroutine
 
