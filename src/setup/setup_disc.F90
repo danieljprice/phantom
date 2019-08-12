@@ -396,11 +396,11 @@ subroutine set_default_options()
  ifrag = 1
  isnow = 0
  rsnow = 100.
- Tsnow = 20.
+ Tsnow = 150.
  vfragSI = 15.
  vfraginSI = 5.
  vfragoutSI = 15.
- gsizemincgs = 1.e-3
+ gsizemincgs = 5.e-3
 
  !--resolution
  np = 1000000

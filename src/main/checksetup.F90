@@ -506,6 +506,10 @@ subroutine check_setup_growth(npart,nerror)
     do j=1,2
        if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
     enddo
+    if (any(dustprop(:,i) /= dustprop(:,i))) then
+       print*,'NaNs in dust properties (dustprop array)'
+       nerror = nerror + 1
+    endif
  enddo
 
  do j=1,2
