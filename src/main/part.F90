@@ -63,7 +63,7 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:) !- size a intrinsic density
+ real, allocatable :: dustprop(:,:) !- size and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
  real, allocatable :: VrelVf(:)
  character(len=*), parameter :: dustprop_label(2) = (/'grainsize ','graindens '/)

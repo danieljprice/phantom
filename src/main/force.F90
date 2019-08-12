@@ -141,8 +141,8 @@ contains
 !  compute all forces and rates of change on the particles
 !+
 !----------------------------------------------------------------
-subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustfrac,ddustevol,&
-                 ipart_rhomax,dt,stressmax,temperature)
+subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustgasprop,&
+                 dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -181,7 +181,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
@@ -201,6 +200,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  real,         intent(inout) :: vxyzu(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(in)    :: dustprop(:,:)
+ real,         intent(inout) :: dustgasprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:)
  real,         intent(in)    :: Bevol(:,:)
@@ -342,6 +342,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(ncells,ll,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
+!$omp shared(dustgasprop) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(divcurlv) &
@@ -452,7 +453,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     else
 #endif
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -527,7 +528,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        endif
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -788,7 +789,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
- use growth,      only:iinterpol
  use kernel,      only:wkern,cnormk
 #endif
 #endif
@@ -1576,19 +1576,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
 #ifdef DUSTGROWTH
-                   if (usej .and. iinterpol) then
-                      if (q2i < q2j) then
-                         winter = wkern(q2i,qi)*hi21*hi1*cnormk
-                      else
-                         winter = wkern(q2j,qj)*hj21*hj1*cnormk
-                      endif
-                      fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
-                      fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
-                      fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
-                      fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                      fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
-                      !fsum(itsi) = fsum(itsi) + pmassj/rhoj*tsijtmp*winter
+                   if (q2i < q2j) then
+                      winter = wkern(q2i,qi)*hi21*hi1*cnormk
+                   else
+                      winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
+                   fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
+                   fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
+                   fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
+                   fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
+                   fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
+                   !fsum(itsi) = fsum(itsi) + pmassj/rhoj*tsijtmp*winter
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -1813,7 +1811,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real(kind=4),       intent(in)    :: divcurlB(:,:)
  real(kind=4),       intent(in)    :: dvdx(:,:)
  real,               intent(in)    :: Bevol(:,:)
- real,               intent(in)    :: dustfrac(:,:),dustprop(:,:)
+ real,               intent(in)    :: dustfrac(:,:)
+ real,               intent(in)    :: dustprop(:,:)
  real,               intent(in)    :: eta_nimhd(:,:)
  real,               intent(inout) :: temperature(:)
  real(kind=4),       intent(in)    :: alphaind(:,:)
@@ -2180,7 +2179,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2223,8 +2222,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
 #ifdef DUSTGROWTH
  use dust,           only:idrag,get_ts
- use part,           only:dustgasprop,Omega_k
- use growth,         only:iinterpol
+ use part,           only:Omega_k
 #endif
 
  integer,            intent(in)    :: icall
@@ -2240,6 +2238,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: dBevol(:,:)
  real,               intent(out)   :: ddustevol(:,:)
  real,               intent(out)   :: deltav(:,:,:)
+ real,               intent(out)   :: dustgasprop(:,:)
 
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
@@ -2286,7 +2285,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
  real    :: tstopint,gsizei,gdensi
  integer :: ireg
- !real    :: ri
 #endif
  integer               :: ip,i
 
@@ -2596,15 +2594,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     else ! not gas
 #ifdef DUSTGROWTH
-       if (use_dust .and. iamdusti .and. iinterpol) then
+       if (iamdusti) then
           !- return interpolations to their respective arrays
-          if ((fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) > 0.) then
-             dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
-          else
-             dustgasprop(4,i) = 0.
-          endif
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
           dustgasprop(1,i) = fsum(icsi) !- sound speed
+
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)
           gdensi           = xpartveci(igraindensi)
@@ -2612,8 +2607,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           call get_ts(idrag,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
                dustgasprop(4,i)**2,tstopint,ireg)
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
-          !ri               = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
-          ! dustgasprop(3,i)= fsum(itsi) * Omega_k(i)
+          !dustgasprop(3,i)= fsum(itsi) * Omega_k(i)
        endif
 #endif
 

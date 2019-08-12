@@ -59,7 +59,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
- use part,           only:dustgasprop
+ use part,           only:dustgasprop,VrelVf
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -136,13 +136,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,&
-            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
+            dustgasprop,dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
- ! compute growth rate of dust particles with respect to their positions
+ ! compute growth rate of dust particles
  !
- call get_growth_rate(npart,xyzh,dustgasprop,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 !
 ! set new timestep from Courant/forces condition

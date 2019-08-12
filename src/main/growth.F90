@@ -41,7 +41,6 @@ module growth
  !--Default values for the growth and fragmentation of dust in the input file
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
- logical, public        :: iinterpol    = .true.
 
  real, public           :: gsizemincgs  = 5.e-3
  real, public           :: rsnow        = 100.
@@ -172,10 +171,11 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,dustgasprop,dustprop,dsdt)
- use part,            only:get_pmass,rhoh,idust,iamtype,iphase,isdead_or_accreted,VrelVf
+subroutine get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,dsdt)
+ use part,            only:get_pmass,rhoh,idust,iamtype,iphase,isdead_or_accreted
  real, intent(in)     :: dustprop(:,:),dustgasprop(:,:)
  real, intent(in)     :: xyzh(:,:)
+ real, intent(inout)  :: VrelVf(:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
@@ -235,7 +235,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,VrelVf,dustgasprop)
  integer              :: izone
 
  !--compute turbulent velocity
- Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ Vt   = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
  !--compute vrel
  vrel = vrelative(dustgasprop,Vt)
  !
@@ -463,6 +463,8 @@ real function vrelative(dustgasprop,Vt)
  real             :: Sc
 
  vrelative = 0.
+ Sc        = 0.
+
  !--compute Schmidt number Sc
  if (Vt > 0. .and. dustgasprop(4) > 0.) then
     Sc = (1. + dustgasprop(3)) * sqrt(1. + (dustgasprop(4)/Vt)**2)

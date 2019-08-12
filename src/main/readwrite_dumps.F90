@@ -446,7 +446,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
        if (use_dustgrowth) then
-          call write_array(1,dustprop(1,:),dustprop_label(1),npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,dustgasprop(3,:),dustgasprop_label(3),npart,k,ipass,idump,nums,ierrs(3))
        endif
@@ -659,7 +659,7 @@ subroutine write_smalldump(t,dumpfile)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
-          call write_array(1,dustprop(1,:),dustprop_label(1),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           call write_array(1,dustgasprop(3,:),dustgasprop_label(3),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
@@ -1264,6 +1264,11 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (use_dustgrowth) then
+                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(VrelVf,VrelVf_label,got_VrelVf,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(dustgasprop(3,:),dustgasprop_label(3),got_St,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then
                    ndustfraci = ndustfraci + 1
@@ -1283,11 +1288,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    call read_array(deltav(:,ndustveli,:),deltav_label,got_deltav(:,ndustveli), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 endif
-             endif
-             if (use_dustgrowth) then
-                call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(VrelVf,VrelVf_label,got_VrelVf,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(dustgasprop(3,:),dustgasprop_label(3),got_St,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (h2chemistry) then
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1416,9 +1416,9 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_St
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
- logical,         intent(in)    :: got_psi, got_temp
+ logical,         intent(in)    :: got_psi,got_temp
  integer(kind=1), intent(inout) :: iphase(:)
- real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
+ real,            intent(inout) :: vxyzu(:,:),Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
@@ -1538,6 +1538,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
     write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    return
+ endif
+ if (use_dustgrowth .and. .not.got_dustprop(1)) then
+    write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
     return
  endif
  if (use_dustgrowth .and. .not.got_VrelVf) then
