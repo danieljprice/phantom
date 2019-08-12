@@ -72,11 +72,8 @@ subroutine test_growth(ntests,npass)
  !
  ! the infamous Laibe 2008-inspired test
  !
- call The_big_laiboxi(ntests,npass)
+ call The_big_laiboxi(ntests,npass) !- Nobody calls me Laiboxi. You got the wrong guy. I'm the dude, man.
  call barrier_mpi()
- call system("say Nobody calls me Leboxi.")
- call system("say You got the wrong guy.")
- call system("say I am the dude, man.")
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
 #else
@@ -102,7 +99,7 @@ subroutine dustybox_thereturn(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,qfacdisc,get_spsound
  use dust,           only:K_code,idrag,init_drag
- use growth,         only:ifrag,iinterpol
+ use growth,         only:ifrag
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust
@@ -219,7 +216,6 @@ subroutine dustybox_thereturn(ntests,npass)
  alphamax   = 0.
  iverbose   = 0
  shearparam = 1.
- iinterpol  = .true.
  dv         = 0.
  dt         = 1.e-3
  tmax       = 0.1
@@ -232,7 +228,7 @@ subroutine dustybox_thereturn(ntests,npass)
  errmax(:)  = 0.
 
  t                   = 0.
- K_code              = 0.35
+ K_code              = 5.
 
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
              Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
@@ -285,7 +281,7 @@ subroutine The_big_laiboxi(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:K_code,idrag,init_drag
- use growth,         only:ifrag,iinterpol,init_growth
+ use growth,         only:ifrag,init_growth
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust
@@ -403,11 +399,10 @@ subroutine The_big_laiboxi(ntests,npass)
  alpha      = 0.
  alphamax   = 0.
  iverbose   = 0
- shearparam = 1.e-1
- iinterpol  = .true.
+ shearparam = 5.e-2
  dv         = 0.
- dt         = 5.e-4
- tmax       = 0.05
+ dt         = 1.e-3
+ tmax       = 0.2
  nsteps     = int(tmax/dt)
  noutputs   = 50
  if (noutputs > nsteps) noutputs = nsteps
