@@ -60,7 +60,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
- use part,           only:dustgasprop,VrelVf
+ use part,           only:VrelVf
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
