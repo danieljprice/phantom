@@ -159,7 +159,7 @@ subroutine dustybox_thereturn(ntests,npass)
  dens  = 1.
  vini  = 1.
 
- write(*,"(/,a)")'--> testing DUSTYBOX 2, THE RETURN'
+ write(*,"(/,a)")'--> testing DUSTYBOX 2, THE return'
 
  nptmass           = 1
  xyzmh_ptmass(4,1) = 1.
