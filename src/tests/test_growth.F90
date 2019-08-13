@@ -50,7 +50,7 @@ subroutine test_growth(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
 
-    call set_units(mass=solarm,dist=au,G=1.d0)
+ call set_units(mass=solarm,dist=au,G=1.d0)
 
  if (id==master) write(*,"(/,a)") '--> testing growth initialisation'
 
@@ -435,8 +435,8 @@ subroutine The_big_laiboxi(ntests,npass)
  !
  do i=1,nsteps
     dtext = dt
- !if (do_output .and. mod(i,modu)==0) !call write_file_err(i,t,xyzh,dustprop*udist,s*udist,St,Stcomp,&
- !csound,cscomp,dv,npart,"Laiboxi_")
+    !if (do_output .and. mod(i,modu)==0) !call write_file_err(i,t,xyzh,dustprop*udist,s*udist,St,Stcomp,&
+    !csound,cscomp,dv,npart,"Laiboxi_")
     call step(npart,npart,t,dt,dtext,dtnew)
     t = t + dt
     do j=1,npart
@@ -508,7 +508,7 @@ subroutine write_file_err(step,t,xyzh,dustprop,scomp,St,Stcomp,cs,cscomp,dvcomp,
  do i=1,npart
     if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),0.5,dustprop(1,i),&
     scomp(i),St(i),Stcomp(i),cs(i),cscomp(i),dustprop(4,i),dvcomp
- !if (iamgas(iphase(i))) write(lulu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i)
+    !if (iamgas(iphase(i))) write(lulu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i)
  enddo
  close(lu)
  !close(lulu)
