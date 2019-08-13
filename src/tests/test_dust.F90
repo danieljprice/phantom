@@ -32,7 +32,13 @@ module testdust
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
- public :: test_dust, test_dustybox
+ public :: test_dust
+
+#ifdef DUST
+#ifdef DUSTGROWTH
+ public :: test_dustybox
+#endif
+#endif
 
  private
 

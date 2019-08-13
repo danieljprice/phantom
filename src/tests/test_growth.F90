@@ -26,7 +26,11 @@
 module testgrowth
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
+#ifdef DUST
+#ifdef DUSTGROWTH
  use testdust,  only:test_dustybox
+#endif
+#endif
  implicit none
  public :: test_growth
 
