@@ -51,7 +51,7 @@ subroutine test_growth(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
 
-    call set_units(mass=solarm,dist=au,G=1.d0)
+ call set_units(mass=solarm,dist=au,G=1.d0)
 
  if (id==master) write(*,"(/,a)") '--> testing growth initialisation'
 

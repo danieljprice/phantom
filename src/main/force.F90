@@ -24,7 +24,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
 !    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
 !    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
