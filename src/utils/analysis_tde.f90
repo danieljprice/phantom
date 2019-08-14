@@ -82,6 +82,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(*,*)
 
  nbins = int(sqrt(real(npart)))
+ if (nbins > nmaxbins) nbins = nmaxbins
+
  call tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
 
  open(iunit,file=output)
