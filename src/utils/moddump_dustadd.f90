@@ -68,7 +68,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     maxdust = maxdustsmall
  elseif (dust_method==2) then
     maxdust = maxdustlarge
-    call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1,10)
+    call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1)
     !--We do not care if modulo(npart,np_ratio) is stricly zero, since npart can
     !  be a weird value depdending on the simulation it comes from.
  endif

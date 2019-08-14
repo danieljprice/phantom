@@ -110,11 +110,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #endif
-#ifdef DUSTGROWTH
- use growth,         only:check_dustprop
-#endif
  use timing,         only:increment_timer,get_timings
  use derivutils,     only:timer_extf
+ use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -208,6 +206,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -346,6 +345,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
+
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -529,6 +530,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
+    if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
     if (gr) then
        call check_velocity_error(errmax,p2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
@@ -578,9 +580,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo
        !$omp end parallel do
 
-#ifdef DUSTGROWTH
-       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
-#endif
+       call check_dustprop(npart,dustprop(1,:))
 
 !
 !   get new force using updated velocity: no need to recalculate density etc.

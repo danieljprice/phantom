@@ -34,6 +34,12 @@ module testdust
  implicit none
  public :: test_dust
 
+#ifdef DUST
+#ifdef DUSTGROWTH
+ public :: test_dustybox
+#endif
+#endif
+
  private
 
 contains
@@ -150,10 +156,22 @@ subroutine test_dustybox(ntests,npass)
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use kernel,         only:kernelname
+#ifdef DUSTGROWTH
+ use part,           only:dustgasprop,dustprop
+ use growth,         only:ifrag
+#endif
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx, itype, npart_previous, i, j, nsteps, ncheck(5), nerr(5)
- real :: deltax, dz, hfact, totmass, rhozero, errmax(5), dtext_dum
+ integer :: nx, itype, npart_previous, i, j, nsteps
+ real :: deltax, dz, hfact, totmass, rhozero, dtext_dum
+#ifdef DUSTGROWTH
+ integer         :: ncheck(6), nerr(6)
+ real            :: errmax(6)
+ real, parameter :: toldv = 2.e-4
+#else
+ integer :: ncheck(5), nerr(5)
+ real    :: errmax(5)
+#endif
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
  real :: tol,tolvg,tolfg,tolfd
@@ -170,6 +188,11 @@ subroutine test_dustybox(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC and -DDUST)'
     return
  endif
+
+#ifdef DUSTGROWTH
+ if (id==master) write(*,"(/,a)") '--> Adding dv interpolation test'
+#endif
+
  !
  ! setup for dustybox problem
  !
@@ -182,6 +205,7 @@ subroutine test_dustybox(ntests,npass)
  totmass = rhozero*dxbound*dybound*dzbound
  npart = 0
  fxyzu = 0.
+ dustprop = 0.
  ddustprop = 0.
  ddustevol = 0.
  dBevol = 0.
@@ -239,6 +263,9 @@ subroutine test_dustybox(ntests,npass)
  K_code = 0.35
  ieos = 1
  idrag = 2
+#ifdef DUSTGROWTH
+ ifrag = -1
+#endif
  polyk = 1.
  gamma = 1.
  alpha = 0.
@@ -275,6 +302,9 @@ subroutine test_dustybox(ntests,npass)
        if (iamdust(iphase(j))) then
           call checkvalbuf(vxyzu(1,j),vd,tol,'vd',nerr(1),ncheck(1),errmax(1))
           call checkvalbuf(fxyzu(1,j),fd,tolfd,'fd',nerr(2),ncheck(2),errmax(2))
+#ifdef DUSTGROWTH
+          call checkvalbuf(dustgasprop(4,j),deltav,toldv,'dv',nerr(6),ncheck(6),errmax(6))
+#endif
        else
           call checkvalbuf(vxyzu(1,j),vg,tolvg,'vg',nerr(3),ncheck(3),errmax(3))
           call checkvalbuf(fxyzu(1,j),-fd,tolfg,'fg',nerr(4),ncheck(4),errmax(4))
@@ -290,8 +320,15 @@ subroutine test_dustybox(ntests,npass)
  call checkvalbuf_end('gas velocities match exact solution',ncheck(3),nerr(3),errmax(3),tolvg)
  call checkvalbuf_end('gas accel matches exact solution',   ncheck(4),nerr(4),errmax(4),tolfg)
  call checkvalbuf_end('kinetic energy decay matches exact',ncheck(5),nerr(5),errmax(5),tol)
+#ifdef DUSTGROWTH
+ call checkvalbuf_end('interpolated dv matches exact solution',ncheck(6),nerr(6),errmax(6),toldv)
+#endif
 
+#ifdef DUSTGROWTH
+ call update_test_scores(ntests,nerr(1:6),npass)
+#else
  call update_test_scores(ntests,nerr(1:5),npass)
+#endif
 
 end subroutine test_dustybox
 
