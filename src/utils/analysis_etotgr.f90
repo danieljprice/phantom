@@ -27,11 +27,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     gcov  = metrics(:,:,1,i)
     call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
     u = vxyzu(4,i)
-    e = pdotv + (1.+u)/U0
-    etot = etot + e - 1.
+    e = pmass*(pdotv + (1.+u)/U0 - 1.)
+    etot = etot + e
  enddo
 
- write(1,*) time,pmass*etot
+ write(1,*) time,etot
 
 end subroutine do_analysis
 
