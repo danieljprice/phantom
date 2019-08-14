@@ -141,9 +141,9 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                           alphaind,rhoh,divBsymm,maxphase,iphase,nptmass,    &
                           xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,      &
                           divcurlv,divcurlB,poten,dustfrac,deltav,tstop,     &
-                          dustprop,temperature,St,ndustsmall,luminosity,     &
-                          eta_nimhd,massoftype,hfact,Bextx,Bexty,Bextz,      &
-                          ndustlarge,idust,grainsize,graindens,              &
+                          dustprop,temperature,VrelVf,dustgasprop,ndustsmall,&
+                          luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty, &
+                          Bextz,ndustlarge,idust,grainsize,graindens,        &
                           h2chemistry,lightcurve,maxBevol,                   &
                           ndivcurlB,ndivcurlv
 #ifdef IND_TIMESTEPS
@@ -358,8 +358,10 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  hdr%angtot_in = angtot_in
  hdr%totmom_in = totmom_in
  hdr%mdust_in = reshape(mdust_in,shape(hdr%mdust_in),pad=[0.0])
- hdr%grainsize = reshape(grainsize,shape(hdr%grainsize),pad=[0.0])
- hdr%graindens = reshape(graindens,shape(hdr%graindens),pad=[0.0])
+ if (.not. use_dustgrowth) then
+    hdr%grainsize = reshape(grainsize,shape(hdr%grainsize),pad=[0.0])
+    hdr%graindens = reshape(graindens,shape(hdr%graindens),pad=[0.0])
+ endif
  hdr%udist = udist
  hdr%umass = umass
  hdr%utime = utime
@@ -429,7 +431,8 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                            tstop,        & !
                            deltav,       & !
                            dustprop,     & !
-                           st,           & !
+                           VrelVf,       & !
+                           dustgasprop,  & !
                            abundance,    & !
                            temperature,  & !
                            divcurlv,     & !
@@ -447,7 +450,8 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                                  Bxyz,         & !
                                  dustfrac,     & ! Arrays
                                  dustprop,     & !
-                                 st,           & !
+                                 VrelVf,       & !
+                                 dustgasprop,  & !
                                  abundance,    & !
                                  luminosity,   & !--------
                                  array_options)  ! Options
@@ -479,7 +483,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop, &
-                          tstop,St,temperature,abundance,ndusttypes
+                          tstop,dustgasprop,VrelVf,temperature,abundance,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -558,8 +562,10 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  angtot_in = hdr%angtot_in
  totmom_in = hdr%totmom_in
  mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
- grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
- graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ if (.not. use_dustgrowth) then
+    grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+    graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ endif
  udist = hdr%udist
  umass = hdr%umass
  utime = hdr%utime
@@ -629,20 +635,20 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  if (.not.smalldump) then
     allocate(dtind(npart))
-    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
-                          vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
-                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,array_options,got_arrays)
+    call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,        &
+                          vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten,     &
+                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,VrelVf,        &
+                          dustgasprop,temperature,abundance,array_options,got_arrays)
 
-    call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype, &
-                      alpha,tfile,got_arrays%got_iphase,got_arrays%got_xyzh,  &
-                      got_arrays%got_vxyzu,got_arrays%got_alpha,              &
-                      got_arrays%got_abund,got_arrays%got_dustfrac,           &
-                      got_arrays%got_sink_data,got_arrays%got_sink_vels,      &
-                      got_arrays%got_Bxyz,got_arrays%got_psi,                 &
-                      got_arrays%got_dustprop,got_arrays%got_St,              &
-                      got_arrays%got_temp,iphase,xyzh,vxyzu,alphaind,         &
-                      xyzmh_ptmass,Bevol,iprint,ierr)
+    call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype,  &
+                      alpha,tfile,got_arrays%got_iphase,got_arrays%got_xyzh,   &
+                      got_arrays%got_vxyzu,got_arrays%got_alpha,               &
+                      got_arrays%got_abund,got_arrays%got_dustfrac,            &
+                      got_arrays%got_sink_data,got_arrays%got_sink_vels,       &
+                      got_arrays%got_Bxyz,got_arrays%got_psi,                  &
+                      got_arrays%got_dustprop,got_arrays%got_VrelVf,            &
+                      got_arrays%got_St,got_arrays%got_temp,iphase,xyzh,vxyzu, &
+                      alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
@@ -680,7 +686,8 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,        &
-                          dustprop,tstop,St,temperature,abundance,ndusttypes
+                          dustprop,tstop,VrelVf,temperature,abundance,      &
+                          ndusttypes,dustgasprop
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -756,8 +763,10 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  angtot_in = hdr%angtot_in
  totmom_in = hdr%totmom_in
  mdust_in = reshape(hdr%mdust_in,shape(mdust_in),pad=[0.0])
- grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
- graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ if (.not. use_dustgrowth) then
+    grainsize = reshape(hdr%grainsize,shape(grainsize),pad=[0.0])
+    graindens = reshape(hdr%graindens,shape(graindens),pad=[0.0])
+ endif
  udist = hdr%udist
  umass = hdr%umass
  utime = hdr%utime
@@ -823,8 +832,8 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  if (smalldump) then
     call read_hdf5_arrays(hdf5_file_id,errors(4),npart,nptmass,iphase,xyzh,    &
                           vxyzu,xyzmh_ptmass,vxyz_ptmass,dtind,alphaind,poten, &
-                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,        &
-                          temperature,abundance,array_options,got_arrays)
+                          Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,VrelVf,    &
+                          dustgasprop,temperature,abundance,array_options,got_arrays)
 
 #ifdef IND_TIMESTEPS
     if (size(dt_in)/=size(dtind)) call error('read_smalldump','problem reading individual timesteps')
@@ -867,11 +876,11 @@ end subroutine checkparam
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
-subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype, &
-                        alphafile,tfile,got_iphase,got_xyzh,got_vxyzu,        &
-                        got_alpha,got_abund,got_dustfrac,got_sink_data,       &
-                        got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_St,   &
-                        got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,     &
+subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype,    &
+                        alphafile,tfile,got_iphase,got_xyzh,got_vxyzu,           &
+                        got_alpha,got_abund,got_dustfrac,got_sink_data,          &
+                        got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf,  &
+                        got_St,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass, &
                         Bevol,iprint,ierr)
 
  use dim,        only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry, &
@@ -888,7 +897,7 @@ subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype, &
                                    got_alpha,got_dustprop(:),      &
                                    got_St,got_abund,got_dustfrac,  &
                                    got_sink_data(:),got_sink_vels, &
-                                   got_Bxyz,got_psi,got_temp
+                                   got_Bxyz,got_psi,got_temp,got_VrelVf
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:), Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -1001,7 +1010,7 @@ subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype, &
     write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
     return
  endif
- if (use_dustgrowth .and. .not.got_dustprop(3)) then
+ if (use_dustgrowth .and. .not.got_VrelVf) then
     write(*,*) 'ERROR! using dustgrowth, but no ratio vrel/vfrag found in dump file'
     return
  endif
