@@ -432,6 +432,7 @@ ifeq ($(SETUP), bondi)
     ISOTHERMAL=yes
 endif
 ifeq ($(SETUP), grbondi)
+    FPPFLAGS=-DPRIM2CONS_FIRST
     SETUPFILE=bondiexact_gr.f90 setup_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic
