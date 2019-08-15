@@ -998,16 +998,19 @@ endif
 #    SRCGROWTH = growth.F90
 #endif
 
+#---  live feedback from mcfost
 ifeq ($(MCFOST), yes)
-#   live feedback from mcfost
     ANALYSIS= analysis_mcfost.f90
     LIVE_ANALYSIS=yes
     ISOTHERMAL=no
     MCFOST=yes
 
+    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(SYSTEM)
+    MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
+
     FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
-#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
+    LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(SYSTEM) \
+	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
 
 

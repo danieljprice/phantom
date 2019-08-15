@@ -24,7 +24,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
 !    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
 !    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
@@ -125,9 +125,11 @@ module forces
        ideltavyiend   = 16 + 4*(maxdustsmall-1), &
        ideltavzi      = 17 + 4*(maxdustsmall-1), &
        ideltavziend   = 17 + 5*(maxdustsmall-1), &
-       idvi           = 18 + 5*(maxdustsmall-1), &
-       iSti           = 19 + 5*(maxdustsmall-1), &
-       icsi           = 20 + 5*(maxdustsmall-1)
+       idvix          = 18 + 5*(maxdustsmall-1), &
+       idviy          = 19 + 5*(maxdustsmall-1), &
+       idviz          = 20 + 5*(maxdustsmall-1), &
+       idensgasi      = 21 + 5*(maxdustsmall-1), &
+       icsi           = 22 + 5*(maxdustsmall-1)
 
  private
 
@@ -138,8 +140,8 @@ contains
 !  compute all forces and rates of change on the particles
 !+
 !----------------------------------------------------------------
-subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
-                 ipart_rhomax,dt,stressmax,temperature)
+subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustgasprop,&
+                 dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
                         mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -178,7 +180,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use units,        only:unit_density
 #endif
 #ifdef DUST
- !use dust,         only:get_ts
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
@@ -195,10 +196,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
- real,         intent(inout) :: vxyzu(:,:),dustprop(:,:)
+ real,         intent(inout) :: vxyzu(:,:)
  real,         intent(in)    :: dustfrac(:,:)
+ real,         intent(in)    :: dustprop(:,:)
+ real,         intent(inout) :: dustgasprop(:,:)
  real,         intent(inout) :: temperature(:)
- real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:),ddustprop(:,:)
+ real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
  real(kind=4), intent(inout) :: divcurlv(:,:)
@@ -338,7 +341,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 !$omp shared(ncells,ll,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
-!$omp shared(ddustprop) &
+!$omp shared(dustgasprop) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(divcurlv) &
@@ -441,7 +444,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                      dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                      dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
 #ifdef MPI
     if (do_export) then
@@ -449,7 +452,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     else
 #endif
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -490,8 +493,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
                          cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
-                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                         dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd,temperature, &
+                         dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
 
        cell%remote_export(id+1) = .false.
 
@@ -524,7 +527,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        endif
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -758,7 +761,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           ifilledcellcache,realviscosity,useresistiveheat, &
                           xyzh,vxyzu,Bevol,iphasei,iphase,massoftype, &
                           divcurlB,eta_nimhd, temperature, &
-                          dustfrac,gradh,divcurlv,alphaind, &
+                          dustfrac,dustprop,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself)
@@ -782,10 +785,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
- use part,        only:dustprop,ndustsmall,grainsize,graindens
+ use part,        only:ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
- use growth,      only:iinterpol
  use kernel,      only:wkern,cnormk
 #endif
 #endif
@@ -812,6 +814,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: Bevol(:,:)
  real(kind=4),    intent(in)    :: divcurlB(:,:)
  real,            intent(in)    :: dustfrac(:,:)
+ real,            intent(in)    :: dustprop(:,:)
  integer(kind=1), intent(in)    :: iphasei
  integer(kind=1), intent(in)    :: iphase(:)
  real,            intent(in)    :: massoftype(:)
@@ -853,7 +856,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: projvstar,epstsj!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
- real    :: ri,winter,sqdv2
+ real    :: winter
 #endif
 #endif
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
@@ -1151,9 +1154,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        dvz = xpartveci(ivzi) - vxyzu(3,j)
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
-#ifdef DUSTGROWTH
-       sqdv2 = sqrt(dvx*dvx + dvy*dvy + dvz*dvz)
-#endif
+
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
           tempj = 0.0
@@ -1574,17 +1575,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (use_dustgrowth) then
                    call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
 #ifdef DUSTGROWTH
-                   if (usej .and. iinterpol) then
-                      if (q2i < q2j) then
-                         winter = wkern(q2i,qi)*hi21*hi1*cnormk
-                      else
-                         winter = wkern(q2j,qj)*hj21*hj1*cnormk
-                      endif
-                      fsum(idvi) = fsum(idvi) + pmassj/rhoj*sqdv2*winter
-                      ri         = sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)
-                      fsum(iSti) = fsum(iSti) + pmassj/rhoj*tsijtmp*winter/(ri**1.5)
-                      fsum(icsi) = fsum(icsi) + pmassj/rhoj*spsoundj*winter
+                   if (q2i < q2j) then
+                      winter = wkern(q2i,qi)*hi21*hi1*cnormk
+                   else
+                      winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
+                   fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
+                   fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
+                   fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
+                   fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
+                   fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -1809,7 +1809,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real(kind=4),       intent(in)    :: divcurlB(:,:)
  real(kind=4),       intent(in)    :: dvdx(:,:)
  real,               intent(in)    :: Bevol(:,:)
- real,               intent(in)    :: dustfrac(:,:),dustprop(:,:)
+ real,               intent(in)    :: dustfrac(:,:)
+ real,               intent(in)    :: dustprop(:,:)
  real,               intent(in)    :: eta_nimhd(:,:)
  real,               intent(inout) :: temperature(:)
  real(kind=4),       intent(in)    :: alphaind(:,:)
@@ -2056,7 +2057,7 @@ end subroutine start_cell
 
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, temperature, &
-                        dustfrac,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
+                        dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache)
  use io,          only:error
 #ifdef MPI
  use io,          only:id
@@ -2080,6 +2081,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real(kind=4),    intent(in)     :: alphaind(:,:)
  real,            intent(in)     :: eta_nimhd(:,:)
  real,            intent(in)     :: dustfrac(:,:)
+ real,            intent(in)     :: dustprop(:,:)
  real,            intent(inout)  :: temperature(:)
  real(kind=4),    intent(in)     :: gradh(:,:)
  integer(kind=1), intent(inout)  :: ibin_wake(:)
@@ -2165,7 +2167,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          .true.,realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
                          divcurlB,eta_nimhd, temperature, &
-                         dustfrac,gradh,divcurlv,alphaind, &
+                         dustfrac,dustprop,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
                          ignoreself)
@@ -2175,7 +2177,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustevol,deltav, &
+                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2217,8 +2219,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:luminosity
 #endif
 #ifdef DUSTGROWTH
- use part,           only:dustprop,St,csound
- use growth,         only:iinterpol
+ use dust,           only:idrag,get_ts
+ use part,           only:Omega_k
 #endif
 
  integer,            intent(in)    :: icall
@@ -2234,6 +2236,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: dBevol(:,:)
  real,               intent(out)   :: ddustevol(:,:)
  real,               intent(out)   :: deltav(:,:,:)
+ real,               intent(out)   :: dustgasprop(:,:)
 
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
@@ -2276,6 +2279,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  integer(kind=1)       :: ibin_neighi
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
+#endif
+#ifdef DUSTGROWTH
+ real    :: tstopint,gsizei,gdensi
+ integer :: ireg
 #endif
  integer               :: ip,i
 
@@ -2585,12 +2592,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     else ! not gas
 #ifdef DUSTGROWTH
-       if (use_dust .and. iamdusti .and. iinterpol) then
-          dustprop(4,i) = abs(fsum(idvi))
-          St(i)         = fsum(iSti)
-          csound(i)     = fsum(icsi)
-       else
-          dustprop(4,i) = 0.
+       if (iamdusti) then
+          !- return interpolations to their respective arrays
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
+          dustgasprop(2,i) = fsum(idensgasi) !- rhogas
+          dustgasprop(1,i) = fsum(icsi) !- sound speed
+
+          !- get the Stokes number with get_ts using the interpolated quantities
+          rhoi             = xpartveci(irhoi)
+          gdensi           = xpartveci(igraindensi)
+          gsizei           = xpartveci(igrainsizei)
+          call get_ts(idrag,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
+               dustgasprop(4,i)**2,tstopint,ireg)
+          dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
        endif
 #endif
 

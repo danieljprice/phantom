@@ -63,10 +63,13 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:)
- real, allocatable :: csound(:) !- sound speed around each dust particles
- real, allocatable :: St(:)
- character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','  dv/Vt   '/)
+ real, allocatable :: dustprop(:,:) !- size and intrinsic density
+ real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
+ real, allocatable :: VrelVf(:)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainsize ','graindens '/)
+ character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','  St  ','  dv  '/)
+ character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+ logical, public             :: this_is_a_test = .false.
 !
 !--storage in divcurlv
 !
@@ -164,6 +167,7 @@ module part
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
 !
@@ -309,15 +313,15 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
- call allocate_array('dustprop', dustprop, 4, maxp_growth)
- call allocate_array('St', St, maxp_growth)
- call allocate_array('csound', csound, maxp_growth)
+ call allocate_array('dustprop', dustprop, 2, maxp_growth)
+ call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, maxp_growth)
  call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
- call allocate_array('ddustprop', ddustprop, 4, maxp_growth)
+ call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
@@ -335,7 +339,7 @@ subroutine allocate_part
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
- call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
+ call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
@@ -365,8 +369,8 @@ subroutine deallocate_part
  deallocate(Bevol)
  deallocate(Bxyz)
  deallocate(dustprop)
- deallocate(St)
- deallocate(csound)
+ deallocate(dustgasprop)
+ deallocate(VrelVf)
  deallocate(abundance)
  deallocate(temperature)
  deallocate(dustfrac)
@@ -447,7 +451,9 @@ subroutine init_part
  endif
  !-- Initialise dust properties to zero
 #ifdef DUSTGROWTH
- dustprop(:,i) = 0.
+ dustprop(:,:)    = 0.
+ dustgasprop(:,:) = 0.
+ VrelVf(:)        = 0.
 #endif
 
 end subroutine init_part
@@ -1331,5 +1337,39 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
 
  return
 end subroutine
+
+!----------------------------------------------------------------
+ !+
+ !  Returns keplerian rotational frequency of particle i
+ !+
+ !----------------------------------------------------------------
+real function Omega_k(i)
+ integer, intent(in)  :: i
+ real                 :: m_star,r
+ integer              :: j
+
+ m_star = 0.
+ r      = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+
+ !- WARNING: for nptmass = 2 mstar is the sum of both stars by default.
+ !- Be careful: this would be relatively okay for a close binary but not for something like a flyby.
+ select case(nptmass)
+ case(1)
+    m_star    = xyzmh_ptmass(4,nptmass)
+ case(2)
+    do j=1,nptmass
+       m_star = m_star + xyzmh_ptmass(4,j)
+    enddo
+ end select
+
+ if (r > 0. .and. m_star > 0.) then
+    Omega_k = sqrt(m_star/r) / r
+ elseif (this_is_a_test) then
+    Omega_k = 1/(r**1.5)
+ else
+    Omega_k = 0.
+ endif
+
+end function Omega_k
 
 end module part

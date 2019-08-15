@@ -41,11 +41,10 @@ module growth
  !--Default values for the growth and fragmentation of dust in the input file
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
- logical, public        :: iinterpol    = .true.
 
- real, public           :: gsizemincgs  = 1.e-3
+ real, public           :: gsizemincgs  = 5.e-3
  real, public           :: rsnow        = 100.
- real, public           :: Tsnow        = 20.
+ real, public           :: Tsnow        = 150.
  real, public           :: vfragSI      = 15.
  real, public           :: vfraginSI    = 5.
  real, public           :: vfragoutSI   = 15.
@@ -143,7 +142,7 @@ subroutine print_growthinfo(iprint)
 
  if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
  if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
- if (ifrag == 2) write(iprint,"(a)")    ' Using growth with Kobayashi fragmentation model '
+ if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
  if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
  if (ifrag > 0) then
     write(iprint,"(2(a,1pg10.3),a)")' grainsizemin = ',gsizemincgs,' cm = ',grainsizemin,' (code units)'
@@ -167,46 +166,49 @@ end subroutine print_growthinfo
 
 !-----------------------------------------------------------------------
 !+
-!  Main routine that make the dust grow and shatter.
-!  It is currently available only for the
+!  Main routine that returns ds/dt and calculate Vrel/Vfrag.
+!  This growth model is currently only available for the
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,cs,St,dustprop,dsdt)
- use part,            only:get_pmass,rhoh,idust,iamtype,iphase,maxvxyzu,isdead_or_accreted
- real, intent(inout)  :: dustprop(:,:),vxyzu(:,:)
- real, intent(in)     :: xyzh(:,:),St(:),cs(:)
+subroutine get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,dsdt)
+ use part,            only:get_pmass,rhoh,idust,iamtype,iphase,isdead_or_accreted
+ real, intent(in)     :: dustprop(:,:),dustgasprop(:,:)
+ real, intent(in)     :: xyzh(:,:)
+ real, intent(inout)  :: VrelVf(:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
  real                 :: rhod,vrel
  integer              :: i,iam
 
+ vrel = 0.
+ rhod = 0.
+
  !--get ds/dt over all dust particles
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
 
-       if (iam==idust) then
+       if (iam == idust) then
 
           rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
 
-          call get_vrelonvfrag(xyzh(:,i),vrel,dustprop(:,i),cs(i),St(i))
+          call get_vrelonvfrag(xyzh(:,i),vrel,VrelVf(i),dustgasprop(:,i))
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
-          !  dustprop(3) = vrel/vfrag, dustprop(4) = (vd - vg)/Vt
           !
           !--if statements to compute ds/dt
           !
           if (ifrag == -1) dsdt(i) = 0.
-          if ((dustprop(3,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
+          if ((VrelVf(i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
              dsdt(i) = rhod/dustprop(2,i)*vrel
-          elseif (dustprop(3,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+          elseif (VrelVf(i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
              select case(ifrag)
              case(1)
                 dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
              case(2)
-                dsdt(i) = -rhod/dustprop(2,i)*vrel*(dustprop(3,i)**2)/(1+dustprop(3,i)**2) ! Kobayashi model
+                dsdt(i) = -rhod/dustprop(2,i)*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
           endif
        endif
@@ -222,35 +224,35 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vrel,dustprop,cs,St)
+subroutine get_vrelonvfrag(xyzh,vrel,VrelVf,dustgasprop)
  use viscosity,       only:shearparam
- use physcon,         only:Ro
+ use physcon,         only:Ro,roottwo
  real, intent(in)     :: xyzh(:)
- real, intent(in)     :: cs,St
- real, intent(inout)  :: dustprop(:)
- real, intent(out)    :: vrel
+ real, intent(in)     :: dustgasprop(:)
+ real, intent(inout)  :: vrel
+ real, intent(out)    :: VrelVf
  real                 :: Vt
  integer              :: izone
 
  !--compute turbulent velocity
- Vt = sqrt(sqrt(2.)*Ro*shearparam)*cs
+ Vt   = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
  !--compute vrel
- vrel = vrelative(St,dustprop(4),Vt)
+ vrel = vrelative(dustgasprop,Vt)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- dustprop(3) = 0. ! default value
+ VrelVf = 0. ! default value
  if (ifrag == 0) then
-    if (vref > 0.) dustprop(3) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+    if (vref > 0.) VrelVf = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
  elseif (ifrag > 0) then
-    call comp_snow_line(xyzh,cs,izone)
+    call comp_snow_line(xyzh,dustgasprop(1),izone)
     select case(izone)
     case(2)
-       if (vfragout > 0.) dustprop(3) = vrel/vfragout
+       if (vfragout > 0.) VrelVf = vrel/vfragout
     case(1)
-       if (vfragin > 0.) dustprop(3) = vrel/vfragin
+       if (vfragin > 0.) VrelVf = vrel/vfragin
     case default
-       if (vfrag > 0.) dustprop(3) = vrel/vfrag
+       if (vfrag > 0.) VrelVf = vrel/vfrag
     end select
  endif
 
@@ -259,7 +261,7 @@ end subroutine get_vrelonvfrag
 !----------------------------------------------------------------------------
 !+
 ! Get the location of a given particle (dust or gas or mixture) with respect
-! to a (or more) snow line(s)
+! to a snow line. (You can add more with this structure)
 !+
 !----------------------------------------------------------------------------
 subroutine comp_snow_line(xyzh,cs,izone)
@@ -400,18 +402,18 @@ subroutine read_growth_setup_options(db,nerr)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-    call read_inopt(grainsizemin,'grainsizemin',db,min=1.e-5,errcount=nerr)
+    call read_inopt(gsizemincgs,'grainsizemin',db,min=1.e-5,errcount=nerr)
     select case(isnow)
     case(0)
-       call read_inopt(vfrag,'vfrag',db,min=0.,errcount=nerr)
+       call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
     case(1)
        call read_inopt(rsnow,'rsnow',db,min=0.,errcount=nerr)
-       call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-       call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       call read_inopt(vfraginSI,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragoutSI,'vfragout',db,min=0.,errcount=nerr)
     case(2)
        call read_inopt(Tsnow,'Tsnow',db,min=0.,errcount=nerr)
-       call read_inopt(vfragin,'vfragin',db,min=0.,errcount=nerr)
-       call read_inopt(vfragout,'vfragout',db,min=0.,errcount=nerr)
+       call read_inopt(vfraginSI,'vfragin',db,min=0.,errcount=nerr)
+       call read_inopt(vfragoutSI,'vfragout',db,min=0.,errcount=nerr)
     end select
  endif
 
@@ -419,7 +421,7 @@ end subroutine read_growth_setup_options
 
 !-----------------------------------------------------------------------
 !+
-!  Update dustprop and make sure dustprop(1,:) isn't too small
+!  In case of fragmentation, limit sizes to a minimum value
 !+
 !-----------------------------------------------------------------------
 subroutine check_dustprop(npart,size)
@@ -455,17 +457,21 @@ subroutine set_dustprop(npart)
 end subroutine set_dustprop
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
-real function vrelative(St,dv,Vt)
- real, intent(in) :: St,dv,Vt
+real function vrelative(dustgasprop,Vt)
+ use physcon,     only:roottwo
+ real, intent(in) :: dustgasprop(:),Vt
  real             :: Sc
 
  vrelative = 0.
+ Sc        = 0.
+
  !--compute Schmidt number Sc
- if (abs(Vt) > 0.) then
-    Sc = (1.+St)*sqrt(1.+dv**2/Vt**2)
-    !--then compute vrel
-    if (Sc > 0.) vrelative = sqrt(2.)*Vt*sqrt(Sc-1.)/(Sc)
+ if (Vt > 0. .and. dustgasprop(4) > 0.) then
+    Sc = (1. + dustgasprop(3)) * sqrt(1. + (dustgasprop(4)/Vt)**2)
+ else
+    Sc = 1. + dustgasprop(3)
  endif
+ if (Sc > 0.) vrelative = roottwo*Vt*sqrt(Sc-1.)/(Sc)
 
 end function vrelative
 

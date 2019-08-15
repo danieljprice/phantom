@@ -26,42 +26,41 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Ratm_in          -- inner atmosphere radius (planet radii)
-!    Ratm_out         -- outer atmosphere radius (planet radii)
-!    accr1            -- central star accretion radius
-!    accr2            -- perturber accretion radius
-!    alphaSS          -- desired alphaSS
-!    atm_type         -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin           -- black hole spin
-!    bhspinangle      -- black hole spin angle (deg)
-!    binary_O         -- Omega, PA of ascending node (deg)
-!    binary_a         -- binary semi-major axis
-!    binary_e         -- binary eccentricity
-!    binary_f         -- f, initial true anomaly (deg,180=apastron)
-!    binary_i         -- i, inclination (deg)
-!    binary_w         -- w, argument of periapsis (deg)
-!    deltat           -- output interval as fraction of orbital period
-!    dist_unit        -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec       -- include Einstein precession
-!    flyby_O          -- position angle of ascending node (deg)
-!    flyby_a          -- distance of minimum approach
-!    flyby_d          -- initial distance (units of dist. min. approach)
-!    flyby_i          -- inclination (deg)
-!    ibinary          -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential       -- potential (1=central point mass,
-!    m1               -- central star mass
-!    m2               -- perturber mass
-!    mass_unit        -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits          -- maximum number of orbits at outer disc
-!    np               -- number of gas particles
-!    nplanets         -- number of planets
-!    nsinks           -- number of sinks
-!    ramp             -- Do you want to ramp up the planet mass slowly?
-!    rho_core         -- planet core density (cgs units)
-!    setplanets       -- add planets? (0=no,1=yes)
-!    surface_force    -- model m1 as planet with surface
-!    use_mcfost       -- use the mcfost library
-!    use_mcfost_stars -- Fix the stellar parameters to mcfost values or update using sink mass
+!    Ratm_in       -- inner atmosphere radius (planet radii)
+!    Ratm_out      -- outer atmosphere radius (planet radii)
+!    accr1         -- central star accretion radius
+!    accr2         -- perturber accretion radius
+!    alphaSS       -- desired alphaSS
+!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
+!    bhspin        -- black hole spin
+!    bhspinangle   -- black hole spin angle (deg)
+!    binary_O      -- Omega, PA of ascending node (deg)
+!    binary_a      -- binary semi-major axis
+!    binary_e      -- binary eccentricity
+!    binary_f      -- f, initial true anomaly (deg,180=apastron)
+!    binary_i      -- i, inclination (deg)
+!    binary_w      -- w, argument of periapsis (deg)
+!    deltat        -- output interval as fraction of orbital period
+!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec    -- include Einstein precession
+!    flyby_O       -- position angle of ascending node (deg)
+!    flyby_a       -- distance of minimum approach
+!    flyby_d       -- initial distance (units of dist. min. approach)
+!    flyby_i       -- inclination (deg)
+!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential    -- potential (1=central point mass,
+!    m1            -- central star mass
+!    m2            -- perturber mass
+!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits       -- maximum number of orbits at outer disc
+!    np            -- number of gas particles
+!    nplanets      -- number of planets
+!    nsinks        -- number of sinks
+!    ramp          -- Do you want to ramp up the planet mass slowly?
+!    rho_core      -- planet core density (cgs units)
+!    setplanets    -- add planets? (0=no,1=yes)
+!    surface_force -- model m1 as planet with surface
+!    use_mcfost    -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -87,7 +86,8 @@ module setup
 #endif
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
-                            ndustlarge,grainsize,graindens,nptmass,iamtype
+                            ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
+                            VrelVf
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -395,11 +395,11 @@ subroutine set_default_options()
  ifrag = 1
  isnow = 0
  rsnow = 100.
- Tsnow = 20.
+ Tsnow = 150.
  vfragSI = 15.
  vfraginSI = 5.
  vfragoutSI = 15.
- gsizemincgs = 1.e-3
+ gsizemincgs = 5.e-3
 
  !--resolution
  np = 1000000
@@ -1306,11 +1306,11 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
-          dustprop(3,i) = 0.
-          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
+       dustgasprop(:,i) = 0.
+       VrelVf(i)        = 0.
     enddo
  endif
 
@@ -1834,21 +1834,6 @@ subroutine setup_interactive()
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
        print "(a)",  '================================'
        call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
-       select case(ifrag)
-       case(0)
-          print "(a)",'-----------'
-          print "(a)",'Pure growth'
-          print "(a)",'-----------'
-       case(1)
-          print "(a)",'----------------------'
-          print "(a)",'Growth + fragmentation'
-          print "(a)",'----------------------'
-       case(2)
-          print "(a)",'----------------------------------------'
-          print "(a)",'Growth + Kobayashi`s fragmentation model'
-          print "(a)",'----------------------------------------'
-       case default
-       end select
        if (ifrag > 0) then
           call prompt('Enter minimum allowed grain size in cm',gsizemincgs)
           call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
@@ -1861,8 +1846,6 @@ subroutine setup_interactive()
              call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
-    elseif (use_dustgrowth .and. dust_method == 1) then
-       print "(a)",'growth and fragmentation not available for one fluid method'
     endif
  endif
 
@@ -2175,7 +2158,8 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+      'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
  close(iunit)

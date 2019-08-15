@@ -503,12 +503,16 @@ subroutine check_setup_growth(npart,nerror)
  nbad = 0
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
-    do j=1,4
+    do j=1,2
        if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
     enddo
+    if (any(dustprop(:,i) /= dustprop(:,i))) then
+       print*,'NaNs in dust properties (dustprop array)'
+       nerror = nerror + 1
+    endif
  enddo
 
- do j=1,4
+ do j=1,2
     if (nbad(j) > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1

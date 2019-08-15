@@ -50,6 +50,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use timestep,       only:dtcourant,dtforce,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
+ use part,           only:dustgasprop
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -59,7 +60,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
- use part,           only:St,csound
+ use part,           only:VrelVf
 #endif
  use part,         only:mhd,gradh,alphaind,igas
  use timing,       only:get_timings
@@ -135,14 +136,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,&
+            dustgasprop,dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
- ! compute growth rate of dust particles with respect to their positions
+ ! compute growth rate of dust particles
  !
- call get_growth_rate(npart,xyzh,vxyzu,csound,St,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 !
 ! set new timestep from Courant/forces condition
