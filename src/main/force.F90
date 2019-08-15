@@ -129,8 +129,7 @@ module forces
        idviy          = 19 + 5*(maxdustsmall-1), &
        idviz          = 20 + 5*(maxdustsmall-1), &
        idensgasi      = 21 + 5*(maxdustsmall-1), &
-       icsi           = 22 + 5*(maxdustsmall-1), &
-       itsi           = 23 + 5*(maxdustsmall-1)
+       icsi           = 22 + 5*(maxdustsmall-1)
 
  private
 
@@ -1586,7 +1585,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
                    fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
-                   !fsum(itsi) = fsum(itsi) + pmassj/rhoj*tsijtmp*winter
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -2607,7 +2605,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           call get_ts(idrag,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
                dustgasprop(4,i)**2,tstopint,ireg)
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
-          !dustgasprop(3,i)= fsum(itsi) * Omega_k(i)
        endif
 #endif
 
