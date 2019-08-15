@@ -1834,21 +1834,6 @@ subroutine setup_interactive()
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
        print "(a)",  '================================'
        call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
-       select case(ifrag)
-       case(0)
-          print "(a)",'-----------'
-          print "(a)",'Pure growth'
-          print "(a)",'-----------'
-       case(1)
-          print "(a)",'----------------------'
-          print "(a)",'Growth + fragmentation'
-          print "(a)",'----------------------'
-       case(2)
-          print "(a)",'----------------------------------------'
-          print "(a)",'Growth + Kobayashi`s fragmentation model'
-          print "(a)",'----------------------------------------'
-       case default
-       end select
        if (ifrag > 0) then
           call prompt('Enter minimum allowed grain size in cm',gsizemincgs)
           call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
@@ -1861,8 +1846,6 @@ subroutine setup_interactive()
              call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
-    elseif (use_dustgrowth .and. dust_method == 1) then
-       print "(a)",'growth and fragmentation not available for one fluid method'
     endif
  endif
 

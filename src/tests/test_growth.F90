@@ -77,7 +77,7 @@ subroutine test_growth(ntests,npass)
  !
  ! the infamous Laibe 2008-inspired test
  !
- call The_big_laiboxi(ntests,npass) !- Nobody calls me Laiboxi. You got the wrong guy. I'm the dude, man.
+ call The_big_laiboxi(ntests,npass)
  call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
@@ -165,6 +165,8 @@ subroutine The_big_laiboxi(ntests,npass)
  dens  = 1./unit_density
 
  write(*,"(/,a)")'--> testing THE BIG LAIBOXI'
+ write(*,"(/,a)")"- Nobody calls me Laiboxi. You got the wrong guy. I'm the dude, man. -"
+
 
  !
  ! initialise
@@ -298,17 +300,17 @@ subroutine The_big_laiboxi(ntests,npass)
           guillaume = (8.+9.*time*time+3.*time*sqrt(16.+9.*time*time))**(1./3.)
           Stcomp(j) = guillaume/2. + 2./guillaume - 2.
           s(j)      = Stcomp(j)/(sqrt(pi*gamma/8)*dens/(2*rhozero*cscomp(j))*Omega_k(j))
-          call checkvalbuf(dustgasprop(3,j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
-          call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
-          call checkvalbuf(dustgasprop(1,j)/cscomp(j),1.,tolcs,'csound',nerr(3),ncheck(3),errmax(3))
-          call checkvalbuf(dustgasprop(2,j)/rhozero,1.,tolrho,'rhogas',nerr(4),ncheck(4),errmax(4))
+          call checkvalbuf(dustgasprop(3,j),Stcomp(j),tolst,'St',nerr(1),ncheck(1),errmax(1))
+          call checkvalbuf(dustprop(1,j),s(j),tols,'size',nerr(2),ncheck(2),errmax(2))
+          call checkvalbuf(dustgasprop(1,j),cscomp(j),tolcs,'csound',nerr(3),ncheck(3),errmax(3))
+          call checkvalbuf(dustgasprop(2,j),rhozero,tolrho,'rhogas',nerr(4),ncheck(4),errmax(4))
        endif
     enddo
  enddo
- call checkvalbuf_end('Stokes number interpolation match exact solution',ncheck(1),nerr(1),errmax(1),tolst)
- call checkvalbuf_end('size interpolation match exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
- call checkvalbuf_end('sound speed interpolation match exact number',ncheck(3),nerr(3),errmax(3),tols)
- call checkvalbuf_end('rhogas interpolation match exact number',ncheck(4),nerr(4),errmax(4),tolrho)
+ call checkvalbuf_end('Stokes number interpolations match exact solution',ncheck(1),nerr(1),errmax(1),tolst)
+ call checkvalbuf_end('sizes evaluation matches exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
+ call checkvalbuf_end('sound speed interpolation matches exact number',ncheck(3),nerr(3),errmax(3),tols)
+ call checkvalbuf_end('rhogas interpolation matches exact number',ncheck(4),nerr(4),errmax(4),tolrho)
 
  call update_test_scores(ntests,nerr(1:4),npass)
 
