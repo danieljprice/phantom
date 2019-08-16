@@ -146,7 +146,7 @@ module dump_utils
 
  ! generic interface for reading arrays from dumpfile
  interface read_array_from_file
-  module procedure read_array_from_file, read_array_from_file_r4
+  module procedure read_array_from_file_r8, read_array_from_file_r4
  end interface read_array_from_file
 
  private
@@ -2090,11 +2090,11 @@ end subroutine open_dumpfile_rh
 !  in the file
 !+
 !-----------------------------------------------------
-subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
+subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
  integer,               intent(in) :: iunit
  character(len=*),      intent(in) :: filename
  character(len=*),      intent(in) :: tag
- real,    intent(out) :: array(:)
+ real(kind=8),          intent(out) :: array(:)
  integer, intent(out) :: ierr
  integer, intent(in), optional :: use_block
  integer, parameter :: maxarraylengths = 12
@@ -2143,7 +2143,7 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
 
  close(iunit)
 
-end subroutine read_array_from_file
+end subroutine read_array_from_file_r8
 
 !-----------------------------------------------------
 !+
