@@ -597,7 +597,7 @@ endif
 ifeq ($(SETUP), balsarakim)
 #   Balsara-Kim 2004
     PERIODIC=yes
-    SETUPFILE= setup_unifdis.f90
+    SETUPFILE= setup_unifdis.F90
     MHD=yes
     KNOWN_SETUP=yes
     SRCINJECT=inject_sne.f90
