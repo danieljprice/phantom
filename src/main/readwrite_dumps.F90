@@ -1707,7 +1707,20 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
  endif
  if (id==master) write(*,*) 'npart(total) = ',nparttot
-
+!
+!--number of dust species
+!
+ if (use_dust) then
+    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
+    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
+    ndusttypes = ndustsmall + ndustlarge
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading number of small/large grain types from file header'
+    endif
+ endif
+!
+!--units
+!
  call extract('udist',udist,hdr,ierrs(1))
  call extract('umass',umass,hdr,ierrs(2))
  call extract('utime',utime,hdr,ierrs(3))
@@ -1720,16 +1733,6 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 !--default real
  call unfill_rheader(hdr,phantomdump,ntypesinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
-
- if (use_dust) then
-    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
-    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
-    ndusttypes = ndustsmall + ndustlarge
-    if (any(ierrs(1:2) /= 0)) then
-       write(*,*) 'ERROR reading number of small/large grain types from file header'
-    endif
- endif
-
  if (ierr /= 0) return
 
  if (id==master) write(iprint,*) 'time = ',tfile
