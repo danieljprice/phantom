@@ -933,7 +933,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
  endif
 
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -943,13 +943,23 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  return
 
 100 close (idisk1)
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
  return
 
 end subroutine read_dump
 
+subroutine check_npartoftype(npartoftype,npart)
+ integer, intent(inout) :: npartoftype(:)
+ integer, intent(in)    :: npart
+
+ if (sum(npartoftype)==0) then
+    print*,'WARNING: npartoftype not set in file, ASSUMING ALL PARTICLES ARE GAS'
+    npartoftype(1) = npart
+ endif
+
+end subroutine check_npartoftype
 !--------------------------------------------------------------------
 !+
 !  subroutine to read a small dump from file, as written
@@ -1167,7 +1177,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     endif
  enddo
 
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -1177,7 +1187,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  return
 
 100 close (idisk1)
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
  return

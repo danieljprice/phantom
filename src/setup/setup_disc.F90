@@ -1042,6 +1042,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
 
           npart = npart + npingasdisc
+          npartoftype(igas) = npartoftype(igas) + npingasdisc
 
        else
 

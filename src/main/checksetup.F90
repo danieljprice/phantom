@@ -46,7 +46,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust,Bxyz,ndustsmall
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac
@@ -59,6 +59,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu
+ integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -85,6 +86,10 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
  if (sum(npartoftype) > maxp) then
     print*,'Error in setup: sum(npartoftype) > maxp ',sum(npartoftype(:))
+    nerror = nerror + 1
+ endif
+ if (sum(npartoftype) /= npart) then
+    print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
  if (gamma <= 0.) then
@@ -125,6 +130,28 @@ subroutine check_setup(nerror,nwarn,restart)
        iphase(1:npart) = isetphase(igas,iactive=.true.)
     elseif (any(iphase(1:npart)==0)) then
        print*,'Error in setup: types need to be assigned to all particles (or none)'
+       nerror = nerror + 1
+    endif
+!
+!--Check that the numbers of each type add up correctly
+!
+    ncount(:) = 0
+    nbad = 0
+    do i=1,npart
+       itype = iamtype(iphase(i))
+       if (itype < 1 .or. itype > maxtypes) then
+          nbad = nbad + 1
+       else
+          ncount(itype) = ncount(itype) + 1
+       endif
+    enddo
+    if (nbad > 0) then
+       print*,'ERROR: unknown value of particle type on ',nbad,' particles'
+       nerror = nerror + 1
+    endif
+    if (any(ncount /= npartoftype)) then
+       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
     endif
 !
