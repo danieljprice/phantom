@@ -583,8 +583,7 @@ subroutine write_smalldump(t,dumpfile)
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
-                      dustprop,dustprop_label,dustfrac_label,ndusttypes,VrelVf,&
-                      VrelVf_label,dustgasprop,dustgasprop_label
+                      dustprop,dustprop_label,dustfrac_label,ndusttypes
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -660,8 +659,6 @@ subroutine write_smalldump(t,dumpfile)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-          call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
-          call write_array(1,dustgasprop(3,:),dustgasprop_label(3),npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
           call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -1225,31 +1222,31 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
- logical               :: got_psi,got_temp,got_dustprop(2),got_VrelVf,got_St,got_divcurlv(4)
+ logical               :: got_psi,got_temp,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
 !
 !--read array type 1 arrays
 !
- got_iphase    = .false.
- got_xyzh      = .false.
- got_vxyzu     = .false.
- got_dustfrac  = .false.
- got_tstop     = .false.
- got_deltav    = .false.
- got_abund     = .false.
- got_alpha     = .false.
- got_poten     = .false.
- got_sink_data = .false.
- got_sink_vels = .false.
- got_Bxyz      = .false.
- got_psi       = .false.
- got_temp      = .false.
- got_dustprop  = .false.
- got_VrelVf    = .false.
- got_St        = .false.
- got_divcurlv  = .false.
+ got_iphase      = .false.
+ got_xyzh        = .false.
+ got_vxyzu       = .false.
+ got_dustfrac    = .false.
+ got_tstop       = .false.
+ got_deltav      = .false.
+ got_abund       = .false.
+ got_alpha       = .false.
+ got_poten       = .false.
+ got_sink_data   = .false.
+ got_sink_vels   = .false.
+ got_Bxyz        = .false.
+ got_psi         = .false.
+ got_temp        = .false.
+ got_dustprop    = .false.
+ got_VrelVf      = .false.
+ got_dustgasprop = .false.
+ got_divcurlv    = .false.
 
  ndustfraci = 0
  ntstopi    = 0
@@ -1277,7 +1274,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(VrelVf,VrelVf_label,got_VrelVf,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(dustgasprop(3,:),dustgasprop_label(3),got_St,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(dustgasprop(3,:),dustgasprop_label(3),got_dustgasprop(3),ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then
@@ -1341,7 +1338,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                   got_St,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
 100 continue
@@ -1413,7 +1410,7 @@ end subroutine check_block_header
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                        got_St,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                        got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
@@ -1424,7 +1421,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_St
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_psi,got_temp
  integer(kind=1), intent(inout) :: iphase(:)
@@ -1558,7 +1555,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
     return
  endif
- if (use_dustgrowth .and. .not.got_St) then
+ if (use_dustgrowth .and. .not.got_dustgasprop(3)) then
     write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
     return
  endif
