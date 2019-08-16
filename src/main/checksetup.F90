@@ -46,7 +46,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamdust,Bxyz,ndustsmall
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac
@@ -59,6 +59,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu
+ integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
@@ -85,6 +86,10 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
  if (sum(npartoftype) > maxp) then
     print*,'Error in setup: sum(npartoftype) > maxp ',sum(npartoftype(:))
+    nerror = nerror + 1
+ endif
+ if (sum(npartoftype) /= npart) then
+    print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
  if (gamma <= 0.) then
@@ -125,6 +130,28 @@ subroutine check_setup(nerror,nwarn,restart)
        iphase(1:npart) = isetphase(igas,iactive=.true.)
     elseif (any(iphase(1:npart)==0)) then
        print*,'Error in setup: types need to be assigned to all particles (or none)'
+       nerror = nerror + 1
+    endif
+!
+!--Check that the numbers of each type add up correctly
+!
+    ncount(:) = 0
+    nbad = 0
+    do i=1,npart
+       itype = iamtype(iphase(i))
+       if (itype < 1 .or. itype > maxtypes) then
+          nbad = nbad + 1
+       else
+          ncount(itype) = ncount(itype) + 1
+       endif
+    enddo
+    if (nbad > 0) then
+       print*,'ERROR: unknown value of particle type on ',nbad,' particles'
+       nerror = nerror + 1
+    endif
+    if (any(ncount /= npartoftype)) then
+       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
     endif
 !
@@ -324,6 +351,10 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
     endif
  endif
+!
+!--check dust grid is sensible
+!
+ if (use_dustfrac) call check_setup_dustgrid(nerror,nwarn)
 !
 !--check dust fraction is 0->1 if one fluid dust is used
 !
@@ -530,6 +561,44 @@ subroutine check_setup_growth(npart,nerror)
  enddo
 
 end subroutine check_setup_growth
+
+!------------------------------------------------------------------
+!+
+! check dust grain properties are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_dustgrid(nerror,nwarn)
+ use part,    only:grainsize,graindens,ndustsmall,ndustlarge,ndusttypes
+ use units,   only:udist
+ use physcon, only:km
+ integer, intent(inout) :: nerror,nwarn
+ integer :: i
+
+ if (ndusttypes /= ndustsmall + ndustlarge) then
+    print*,'ERROR: nsmall + nlarge ',ndustsmall+ndustlarge,&
+           ' not equal to ndusttypes: ',ndusttypes
+    nerror = nerror + 1
+ endif
+ do i=1,ndusttypes
+    if (grainsize(i) <= 0.) then
+       print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
+       nerror = nerror + 1
+    endif
+ enddo
+ do i=1,ndusttypes
+    if (grainsize(i) > 10.*km/udist) then
+       print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
+       nwarn = nwarn + 1
+    endif
+ enddo
+ do i=1,ndusttypes
+    if (graindens(i) <= 0.) then
+       print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_dustgrid
 
 #ifdef GR
 subroutine check_gr(npart,nerror,xyzh,vxyzu)

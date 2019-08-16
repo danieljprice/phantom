@@ -937,7 +937,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     call convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
  endif
 
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -947,13 +947,23 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  return
 
 100 close (idisk1)
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
  return
 
 end subroutine read_dump
 
+subroutine check_npartoftype(npartoftype,npart)
+ integer, intent(inout) :: npartoftype(:)
+ integer, intent(in)    :: npart
+
+ if (sum(npartoftype)==0) then
+    print*,'WARNING: npartoftype not set in file, ASSUMING ALL PARTICLES ARE GAS'
+    npartoftype(1) = npart
+ endif
+
+end subroutine check_npartoftype
 !--------------------------------------------------------------------
 !+
 !  subroutine to read a small dump from file, as written
@@ -1171,7 +1181,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
     endif
  enddo
 
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -1181,7 +1191,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  return
 
 100 close (idisk1)
- if (sum(npartoftype)==0) npartoftype(1) = npart
+ call check_npartoftype(npartoftype,npart)
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
  ierr = 666
  return
@@ -1716,7 +1726,20 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     call extract('npartoftype',npartoftype(1:ntypesinfile),hdr,ierr1)
  endif
  if (id==master) write(*,*) 'npart(total) = ',nparttot
-
+!
+!--number of dust species
+!
+ if (use_dust) then
+    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
+    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
+    ndusttypes = ndustsmall + ndustlarge
+    if (any(ierrs(1:2) /= 0)) then
+       write(*,*) 'ERROR reading number of small/large grain types from file header'
+    endif
+ endif
+!
+!--units
+!
  call extract('udist',udist,hdr,ierrs(1))
  call extract('umass',umass,hdr,ierrs(2))
  call extract('utime',utime,hdr,ierrs(3))
@@ -1729,16 +1752,6 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
 !--default real
  call unfill_rheader(hdr,phantomdump,ntypesinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
-
- if (use_dust) then
-    call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
-    call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
-    ndusttypes = ndustsmall + ndustlarge
-    if (any(ierrs(1:2) /= 0)) then
-       write(*,*) 'ERROR reading number of small/large grain types from file header'
-    endif
- endif
-
  if (ierr /= 0) return
 
  if (id==master) write(iprint,*) 'time = ',tfile
