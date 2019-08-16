@@ -36,15 +36,25 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io, only:warning,iprint
+ use dump_utils, only:read_array_from_file
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
- real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr
  integer :: i,iline,ierr
  logical :: iexist
+ real(4) :: luminosity(npart)
+
+ call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
+ if (ierr/=0) then
+    write(*,*)
+    write(*,'("WARNING: could not read luminosity from file. It will be set to zero")')
+    write(*,*)
+    luminosity = 0.
+ endif
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
@@ -84,18 +94,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  nbins = int(sqrt(real(npart)))
  if (nbins > nmaxbins) nbins = nmaxbins
 
- call tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+ call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'e',    &
        2,'dn/de',&
        3,'tr',   &
-       4,'dndt'
+       4,'dndt', &
+       5,'r',    &
+       6,'dlumdr'
 
  do i = 1,nbins
-    write(iunit,'(4(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i)
+    write(iunit,'(6(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i),rbins(i),dlumdr(i)
  enddo
 
 end subroutine do_analysis
@@ -105,13 +117,13 @@ end subroutine do_analysis
 !-- Actual subroutine where the analysis is done!
 !
 !--------------------------------------------------------------------------------------------------------------------
-subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
+subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr)
  use part, only:isdead_or_accreted
  integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt
+ real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
+ real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr
  integer :: i
- real    :: eps(npart),tr(npart),r,v2,trmin
+ real    :: eps(npart),tr(npart),r(npart),v2,trmin
 
  !
  !-- Compute the specific energy and return time of each particles, store in an array
@@ -119,10 +131,10 @@ subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
  tr  = 0.
  eps = 0.
  do i=1,npart
+    r(i)   = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       r      = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
        v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-       eps(i) = v2/2. - mh/r                                     !-- Specific energy
+       eps(i) = v2/2. - mh/r(i)                                  !-- Specific energy
        if (eps(i)<0.) then
           tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
        else
@@ -135,6 +147,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,ebins,dnde,tbins,dndt)
  call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
  trmin = treturn(mh,minval(eps))
  call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
+ call hist(npart,r,rbins,dlumdr,minval(r),700.,nbins,luminosity)
 
 end subroutine tde_analysis
 
@@ -154,10 +167,11 @@ end function treturn
 !
 !-- General function to compute a histogram
 !
-subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins)
+subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,yarray)
  use sortutils, only:indexx
  integer, intent(in) :: np,n_bins
  real, intent(in)    :: xarray(np),xmin,xmax
+ real, intent(in), optional :: yarray(np)
  real, intent(out)   :: xhist(n_bins),yhist(n_bins)
  integer :: indx(np),i,ibin,j
  real    :: dx,xright
@@ -185,7 +199,11 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins)
  do i=1,np
     j = indx(i)                        ! sorted index
     if (xarray(j)<xright) then
-       yhist(ibin) = yhist(ibin) + 1.  ! add to bin
+       if (present(yarray)) then
+          yhist(ibin) = yhist(ibin) + yarray(j)  ! add to bin (sum up quantity in bin)
+       else
+          yhist(ibin) = yhist(ibin) + 1.  ! add to bin (just count the number of particles in bin)
+       endif
     else
        ibin    = ibin + 1              ! go to next bin
        xright  = xright  + dx          ! increase the upper bin upper value
