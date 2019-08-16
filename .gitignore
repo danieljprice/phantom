@@ -11,3 +11,5 @@ build/phantom-version.h
 */*/*~
 *.bindata
 *.pyc
+*.js
+.DS_Store
