@@ -325,6 +325,10 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
  endif
 !
+!--check dust grid is sensible
+!
+ if (use_dustfrac) call check_setup_dustgrid(nerror,nwarn)
+!
 !--check dust fraction is 0->1 if one fluid dust is used
 !
  if (use_dustfrac) then
@@ -520,5 +524,43 @@ subroutine check_setup_growth(npart,nerror)
  enddo
 
 end subroutine check_setup_growth
+
+!------------------------------------------------------------------
+!+
+! check dust grain properties are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_dustgrid(nerror,nwarn)
+ use part,    only:grainsize,graindens,ndustsmall,ndustlarge,ndusttypes
+ use units,   only:udist
+ use physcon, only:km
+ integer, intent(inout) :: nerror,nwarn
+ integer :: i
+
+ if (ndusttypes /= ndustsmall + ndustlarge) then
+    print*,'ERROR: nsmall + nlarge ',ndustsmall+ndustlarge,&
+           ' not equal to ndusttypes: ',ndusttypes
+    nerror = nerror + 1
+ endif
+ do i=1,ndusttypes
+    if (grainsize(i) <= 0.) then
+       print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
+       nerror = nerror + 1
+    endif
+ enddo
+ do i=1,ndusttypes
+    if (grainsize(i) > 10.*km/udist) then
+       print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
+       nwarn = nwarn + 1
+    endif
+ enddo
+ do i=1,ndusttypes
+    if (graindens(i) <= 0.) then
+       print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_dustgrid
 
 end module checksetup
