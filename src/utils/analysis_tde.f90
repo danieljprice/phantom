@@ -31,22 +31,25 @@ module analysis
  integer :: nbins
  real    :: mh
  integer, parameter :: nmaxbins = 5000
+ real    :: rmax
 
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use io, only:warning,iprint
+ use io,         only:warning,iprint
  use dump_utils, only:read_array_from_file
+ use prompting,  only:prompt
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
- real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr
+ real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf
  integer :: i,iline,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
+ logical, save :: first = .true.
 
  call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
  if (ierr/=0) then
@@ -54,6 +57,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(*,'("WARNING: could not read luminosity from file. It will be set to zero")')
     write(*,*)
     luminosity = 0.
+ else if (first) then
+    rmax  = 700.
+    call prompt('Enter value for rmax when binning luminosity',rmax,0.)
+    first = .false.
  endif
 
 ! Print the analysis being done
@@ -94,20 +101,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  nbins = int(sqrt(real(npart)))
  if (nbins > nmaxbins) nbins = nmaxbins
 
- call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr)
+ call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'e',    &
        2,'dn/de',&
        3,'tr',   &
        4,'dndt', &
        5,'r',    &
-       6,'dlumdr'
+       6,'dlumdr',&
+       7,'lumcdf'
 
  do i = 1,nbins
-    write(iunit,'(6(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i),rbins(i),dlumdr(i)
+    write(iunit,'(7(es18.10,1X))') ebins(i),dnde(i),tbins(i),dndt(i),rbins(i),dlumdr(i),lumcdf(i)
  enddo
 
 end subroutine do_analysis
@@ -117,11 +125,11 @@ end subroutine do_analysis
 !-- Actual subroutine where the analysis is done!
 !
 !--------------------------------------------------------------------------------------------------------------------
-subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr)
+subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf)
  use part, only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
- real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr
+ real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf
  integer :: i
  real    :: eps(npart),tr(npart),r(npart),v2,trmin
 
@@ -147,7 +155,18 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  call hist(npart,eps,ebins,dnde,minval(eps),maxval(eps),nbins)
  trmin = treturn(mh,minval(eps))
  call hist(npart,tr,tbins,dndt,trmin,trmin*100.,nbins)
- call hist(npart,r,rbins,dlumdr,minval(r),700.,nbins,luminosity)
+ call hist(npart,r,rbins,dlumdr,0.,rmax,nbins,luminosity)
+
+ do i=1,nbins
+    lumcdf(i) = sum(dlumdr(1:i))
+ enddo
+
+ !-- Normalise
+ if (.not.lumcdf(nbins)<tiny(0.)) then
+    lumcdf = lumcdf/lumcdf(nbins)
+ else
+    lumcdf = 0.
+ endif
 
 end subroutine tde_analysis
 
