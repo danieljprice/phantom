@@ -84,9 +84,6 @@ SRCPHOTO=
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
-#
-# -DSORT                ! whether or not to sort particles
-#
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
 #----------------------------------------------------------------
@@ -719,7 +716,7 @@ endif
 ifeq ($(SETUP), balsarakim)
 #   Balsara-Kim 2004
     PERIODIC=yes
-    SETUPFILE= setup_unifdis.f90
+    SETUPFILE= setup_unifdis.F90
     MHD=yes
     KNOWN_SETUP=yes
     SRCINJECT=inject_sne.f90
@@ -846,7 +843,6 @@ ifeq ($(SETUP), BHL)
 # Bondi-Hoyle-Lyttleton setup
     SETUPFILE= setup_BHL.f90
     SRCINJECT= inject_BHL.f90
-    FPPFLAGS= -DNOWARNRESTRICTEDHJUMP
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
 endif
@@ -887,7 +883,6 @@ ifeq ($(SETUP), sgdisc)
 #   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
     ANALYSIS = analysis_disc_stresses.f90
 #    ANALYSIS = ${LINKLIST} analysis_getneighbours.f90
-    DIMFILE= dim_disc.f90
     KNOWN_SETUP=yes
 endif
 
@@ -899,16 +894,6 @@ ifeq ($(SETUP), dustysgdisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
-endif
-
-ifeq ($(SETUP), sgdiscsector)
-#   self-gravitating disc sector
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    SETUPFILE= setup_discsector.f90
-    SRCINJECT= inject_keplerianshear.f90
-    DIMFILE= dim_disc.f90
-    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), dustsettle)
@@ -1018,13 +1003,6 @@ ifeq ($(SETUP), default)
     PERIODIC=yes
     DUST=yes
 endif
-
-#ifeq ($(SETUP), clumpybox) # [buildbot skip]
-#    KNOWN_SETUP=yes
-#    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
-#    ANALYSIS = adaptivemesh.f90 interpolate3D_amr.f90 analysis_pdfs_dhf.f90
-#    SETUPFILE= setup_fromgrid.f90
-#endif
 
 ifeq ($(SETUP), galaxies)
 #   Read in data created from Wurster&Thacker(2013a,b)
@@ -1387,10 +1365,6 @@ endif
 
 ifeq ($(OPENMP), yes)
     FFLAGS += ${OMPFLAGS}
-endif
-
-ifeq ($(SORT), yes)
-    FPPFLAGS += -DSORT
 endif
 
 ifeq ($(PERIODIC), yes)
