@@ -505,6 +505,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
              if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
           endif
+#endif
        endif
     enddo corrector
 !$omp enddo
