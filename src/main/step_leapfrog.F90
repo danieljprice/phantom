@@ -117,13 +117,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
-#ifdef DUSTGROWTH
- use growth,         only:check_dustprop
-#endif
 #ifdef KROME
  use krome_interface, only: update_krome
  use part,            only: gamma_chem,mu_chem,species_abund
 #endif
+ use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -213,6 +211,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -330,7 +329,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo predict_sph
-!$omp end parallel do
+ !$omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
+
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -510,6 +511,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
+    if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
+
     call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
 
     if (.not.converged .and. npart > 0) then
@@ -545,9 +548,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo
        !$omp end parallel do
 
-#ifdef DUSTGROWTH
-       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
-#endif
+       call check_dustprop(npart,dustprop(1,:))
 
 !
 !   get new force using updated velocity: no need to recalculate density etc.

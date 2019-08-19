@@ -144,6 +144,11 @@ module dump_utils
    read_array_real8, read_array_real8arr
  end interface read_array
 
+ ! generic interface for reading arrays from dumpfile
+ interface read_array_from_file
+  module procedure read_array_from_file_r8, read_array_from_file_r4
+ end interface read_array_from_file
+
  private
 
 contains
@@ -2030,40 +2035,29 @@ end subroutine read_array_real8arr
 
 !-----------------------------------------------------
 !+
-!  The following routine can be used to read a single
-!  array matching a particular tag from the main blocks
-!  in the file
+!  Internal utility to open file and
+!  extract minimum necessary
+!  information from the file header in order to
+!  read arrays from the main file blocks
+!  Use instead of open_dumpfile_r
 !+
 !-----------------------------------------------------
-subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
- integer,               intent(in) :: iunit
- character(len=*),      intent(in) :: filename
- character(len=*),      intent(in) :: tag
- real,    intent(out) :: array(:)
- integer, intent(out) :: ierr
- integer, intent(in), optional :: use_block
- integer, parameter :: maxarraylengths = 12
- integer(kind=8) :: number8(maxarraylengths)
- integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
- integer :: nblocks,narraylengths,nblockarrays,number,my_block
- integer :: intarr(maxphead)
- character(len=lentag) :: tagarr(maxphead)
+subroutine open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ integer,          intent(in)  :: iunit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: nblocks,narraylengths,ierr
  character(len=lenid)  :: fileid
+ character(len=lentag) :: tagarr(maxphead)
+ integer :: intarr(maxphead)
+ integer :: number,i
 
- if (present(use_block)) then
-    my_block = use_block
- else
-    my_block = 1 ! match from block 1 by default
- endif
- array = 0.
-
- ! open file for read
  call open_dumpfile_r(iunit,filename,fileid,ierr,requiretags=.true.)
  if (ierr /= 0) return
 
  ! read nblocks from int header
  read(iunit,iostat=ierr) number
  nblocks = 1
+ narraylengths = 1
  if (number >= 5) then
     if (number > maxphead) number = maxphead
     read(iunit,iostat=ierr) tagarr(1:number)
@@ -2086,10 +2080,41 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
  read (iunit, iostat=ierr) number
  if (ierr /= 0) return
  narraylengths = number/nblocks
-! print*,' got nblocks = ',nblocks,' narraylengths = ',narraylengths
 
- ! skip each block that is too small
- nblockarrays = narraylengths*nblocks
+end subroutine open_dumpfile_rh
+
+!-----------------------------------------------------
+!+
+!  The following routine can be used to read a single
+!  array matching a particular tag from the main blocks
+!  in the file
+!+
+!-----------------------------------------------------
+subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
+ integer,               intent(in) :: iunit
+ character(len=*),      intent(in) :: filename
+ character(len=*),      intent(in) :: tag
+ real(kind=8),          intent(out) :: array(:)
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: use_block
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ integer :: nblocks,narraylengths,my_block
+
+ character(len=lentag) :: mytag
+
+ if (present(use_block)) then
+    my_block = use_block
+ else
+    my_block = 1 ! match from block 1 by default
+ endif
+ array = 0.
+
+ ! open file for read and get minimal information from header
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ if (ierr /= 0) return
+
  do iblock = 1,nblocks
     call read_block_header(narraylengths,number8,nums,iunit,ierr)
     do j=1,narraylengths
@@ -2098,17 +2123,16 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
              !print*,' data type ',i,' arrays = ',nums(i,j)
              do k=1,nums(i,j)
                 if (i==i_real) then
-                   read(iunit, iostat=ierr) tagarr(1)
-                   if (trim(tagarr(1))==trim(tag)) then
+                   read(iunit, iostat=ierr) mytag
+                   if (trim(mytag)==trim(tag)) then
                       read(iunit, iostat=ierr) array(1:min(int(number8(j)),size(array)))
-                      print*,'->',tagarr(1)
+                      print*,'->',mytag
                    else
-                      print*,'  ',tagarr(1)
+                      print*,'  ',mytag
                       read(iunit, iostat=ierr)
                    endif
                 else
-                   read(iunit, iostat=ierr) tagarr(1) ! tag
-                   !print*,tagarr(1)
+                   read(iunit, iostat=ierr) mytag ! tag
                    read(iunit, iostat=ierr) ! array
                 endif
              enddo
@@ -2119,6 +2143,67 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
 
  close(iunit)
 
-end subroutine read_array_from_file
+end subroutine read_array_from_file_r8
+
+!-----------------------------------------------------
+!+
+!  The following routine can be used to read a single
+!  array matching a particular tag from the main blocks
+!  in the file
+!+
+!-----------------------------------------------------
+subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block)
+ integer,               intent(in) :: iunit
+ character(len=*),      intent(in) :: filename
+ character(len=*),      intent(in) :: tag
+ real(kind=4), intent(out) :: array(:)
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: use_block
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ integer :: nblocks,narraylengths,my_block
+ character(len=lentag) :: mytag
+
+ if (present(use_block)) then
+    my_block = use_block
+ else
+    my_block = 1 ! match from block 1 by default
+ endif
+ array = 0.
+
+ ! open file for read
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ if (ierr /= 0) return
+
+ do iblock = 1,nblocks
+    call read_block_header(narraylengths,number8,nums,iunit,ierr)
+    do j=1,narraylengths
+       if (j==my_block) then
+          do i=1,ndatatypes
+             !print*,' data type ',i,' arrays = ',nums(i,j)
+             do k=1,nums(i,j)
+                if (i==i_real4) then
+                   read(iunit, iostat=ierr) mytag
+                   if (trim(mytag)==trim(tag)) then
+                      read(iunit, iostat=ierr) array(1:min(int(number8(j)),size(array)))
+                      print*,'->',mytag
+                   else
+                      print*,'  ',mytag
+                      read(iunit, iostat=ierr)
+                   endif
+                else
+                   read(iunit, iostat=ierr) mytag ! tag
+                   read(iunit, iostat=ierr) ! array
+                endif
+             enddo
+          enddo
+       endif
+    enddo
+ enddo
+
+ close(iunit)
+
+end subroutine read_array_from_file_r4
 
 end module dump_utils

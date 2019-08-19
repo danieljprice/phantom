@@ -771,7 +771,7 @@ subroutine print_timer(lu,label,my_timer,time_between_dumps)
        write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
             label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
             my_timer%wall/time_between_dumps*100.
-    else if (time_between_dumps > 120.0) then
+    elseif (time_between_dumps > 120.0) then
        write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
             label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
             my_timer%wall/time_between_dumps*100.

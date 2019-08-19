@@ -160,7 +160,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        if (ii < 1)  cycle
 
        mass(ii)=mass(ii)+pmass
-       if(ii==1)then
+       if (ii==1) then
           area=pi*(dr/2)**2
        else
           area = (pi*((rad(ii)+dr/2.)**2-(rad(ii)- dr/2.)**2))
@@ -195,7 +195,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  enddo
 
  do i=1,nr
-    if(sigmavphi(i)==0)then
+    if (sigmavphi(i)==0) then
        e1(i)=0
     else
        e1(i)=sqrt(sigmavrcosi(i)**2+sigmavrsini(i)**2)/abs(sigmavphi(i))
@@ -235,7 +235,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        z(ii,j(ii))= abs(xyzh(3,i))
        j(ii)=j(ii)+1
-       if(j(ii)>ninbin(ii)+1)then
+       if (j(ii)>ninbin(ii)+1) then
           print*, 'out of array limit (ii,j(ii),ninbin(ii):)',ii,j(ii),ninbin(ii)
        endif
 
@@ -286,7 +286,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nr
-    if(ninbin(i)<2) then
+    if (ninbin(i)<2) then
        unitlx(i)=0.0
        unitly(i)=0.0
        unitlz(i)=0.0
@@ -320,7 +320,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  print*,"Number of particles in each bin:"
 
- if(comment)then
+ if (comment) then
     do i=1, nr
        print*,"i, ninbin(i),Hperc(i):",i,ninbin(i),Hperc(i)
     enddo
@@ -411,7 +411,7 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  integer, intent(in)      :: nr
  integer                  :: i
 
- if(size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
 
  dr = (rmax-rmin)/real(nr-1)
  do i=1,nr

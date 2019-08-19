@@ -196,7 +196,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==16) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==16 .or. ieos == 19) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -231,7 +231,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
- if(.not.use_dustfrac) call write_options_growth(iwritein)
+ if (.not.use_dustfrac) call write_options_growth(iwritein)
 #endif
 #endif
 
@@ -567,8 +567,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
-#if !defined (MCFOST) && !defined (WIND)
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 .and. ieos /= 15 .and. ieos /= 16)) &
+#ifndef MCFOST
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 &
+       .and. ieos /= 15 .and. ieos /= 16)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')

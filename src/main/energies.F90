@@ -329,7 +329,7 @@ subroutine compute_energies(t)
              if (ieos==2 .and. gamma > 1.001) then
                 !--thermal energy using polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma-1.)*gasfrac
-             else if (ieos==9) then
+             elseif (ieos==9) then
                 !--thermal energy using piecewise polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
              endif

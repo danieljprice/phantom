@@ -92,7 +92,7 @@ subroutine set_default_options
 
  ! equation of state
  if (use_krome) then
-    ieos = 16
+    ieos = 19
  else if (maxvxyzu==4) then
     ieos = 2
  else

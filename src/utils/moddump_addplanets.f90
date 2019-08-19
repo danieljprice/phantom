@@ -54,7 +54,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  do i=1,nptmass
 !  print *,' sink mass: ',i,', xyzmh = ',xyzmh_ptmass(:,i)
     rsinkmass(i) = sqrt( xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2)
-    if(i==1) then
+    if (i==1) then
        print *,' -Sink mass ',i,' (central star):'
 !   print *,'    distance from the origin: ',rsinkmass(i)
        print *,'    mass: ', xyzmh_ptmass(4,i)

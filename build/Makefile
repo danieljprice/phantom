@@ -86,9 +86,6 @@ SRCPHOTO=
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
-#
-# -DSORT                ! whether or not to sort particles
-#
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
 #----------------------------------------------------------------
@@ -206,23 +203,9 @@ ifeq ($(SETUP), turbdrive)
     ISOTHERMAL=yes
 endif
 
-ifeq ($(SETUP), turbsubsonic)
-#   subsonic, driven turbulence
-    FPPFLAGS= -DPERIODIC -DSTIR_FROM_FILE -DCORRECT_MEAN_FORCE
-    SETUPFILE= setup_unifdis.F90
-    SRCTURB= forcing.F90
-    MULTIRUNFILE= multirun_mach.f90
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=no
-    CURLV=yes
-    USE_STRAIN_TENSOR=yes
-endif
-
 ifeq ($(SETUP), taylorgreen)
 #   Taylor-Green vortex problem
-    FPPFLAGS= -DPERIODIC -DCURLV -DUSE_STRAIN_TENSOR
+    FPPFLAGS= -DPERIODIC -DCURLV
     SETUPFILE= setup_taylorgreen.f90
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
@@ -242,7 +225,6 @@ ifeq ($(SETUP), turb)
     CURLV         = yes
     MHD           = no
     DUST          = no
-    USE_STRAIN_TENSOR = yes
 endif
 
 ifeq ($(SETUP), wd)
@@ -258,7 +240,8 @@ endif
 
 ifeq ($(SETUP), photoevap)
 # Mark Hutchison
-    FPPFLAGS= -DDISC_VISCOSITY -DPHOTO
+    DISC_VISCOSITY=yes
+    FPPFLAGS= -DPHOTO
     SETUPFILE= setup_photoevap.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -268,11 +251,7 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    ifeq ($(DISC_VISCOSITY), no)
-        FPPFLAGS=
-    else
-        FPPFLAGS= -DDISC_VISCOSITY
-    endif
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
@@ -283,7 +262,7 @@ endif
 
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
-    FPPFLAGS= -DDISC_VISCOSITY
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     KNOWN_SETUP=yes
@@ -294,9 +273,10 @@ endif
 
 ifeq ($(SETUP), lightcurvedisc)
 #   adiabatic disc with lightcurve
-    FPPFLAGS= -DDISC_VISCOSITY -DLIGHTCURVE
+    FPPFLAGS= -DLIGHTCURVE
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
+    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
@@ -304,8 +284,8 @@ ifeq ($(SETUP), lightcurvedisc)
 endif
 
 ifeq ($(SETUP), gwdisc)
-#   locally isothermal discs
-    FPPFLAGS= -DDISC_VISCOSITY
+#   disc around inspiralling binary with gravitational wave decay
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
     MAXP=2000000
@@ -318,11 +298,12 @@ endif
 
 ifeq ($(SETUP), nshwdisc)
 #   disc around a neutron star
-    FPPFLAGS= -DDISC_VISCOSITY -DPRDRAG
+    FPPFLAGS= -DPRDRAG
     SETUPFILE= setup_nsdisc.f90
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
     ISOTHERMAL=yes
+    DISC_VISCOSITY=yes
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     NCELLSMAX=3*maxp
@@ -337,7 +318,7 @@ endif
 
 ifeq ($(SETUP), binarydiscMFlow)
 #   binarydiscMFlow setup
-    FPPFLAGS= -DMFLOW -DUSE_STRAIN_TENSOR #-DVMFLOW  #-DDISC_VISCOSITY# -DBINPOS
+    FPPFLAGS= -DMFLOW #-DVMFLOW -DBINPOS
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
@@ -425,14 +406,14 @@ endif
 
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), shock)
 #   sod shock tube test
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DOUBLEPRECISION=yes
     KERNEL=quintic
@@ -442,7 +423,7 @@ endif
 
 ifeq ($(SETUP), dustyshock)
 #   sod shock tube test
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DUST=yes
     DOUBLEPRECISION=yes
@@ -453,7 +434,7 @@ endif
 
 ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DOUBLEPRECISION=yes
     MHD=yes
@@ -463,7 +444,7 @@ endif
 
 ifeq ($(SETUP), nimhdshock)
 #   non-ideal mhd standing and C shock tests
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DOUBLEPRECISION=yes
     MHD=yes
@@ -478,11 +459,11 @@ endif
 
 ifeq ($(SETUP), dustydisc)
 #   locally isothermal dusty discs
-    FPPFLAGS= -DDISC_VISCOSITY
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
     DUST=yes
+    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
@@ -490,7 +471,7 @@ endif
 
 ifeq ($(SETUP), growingdisc)
 #   locally isothermal dusty discs with growth and fragmentation
-    FPPFLAGS= -DDISC_VISCOSITY
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -503,7 +484,7 @@ endif
 
 ifeq ($(SETUP), dustybox)
 #   dust in a box
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_dustybox.f90
     MODFILE= moddump_dustadd.f90
     ISOTHERMAL=yes
@@ -515,7 +496,7 @@ endif
 
 ifeq ($(SETUP), dustysedov)
 #   Sedov blast wave test with dust
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_dustysedov.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
@@ -525,7 +506,7 @@ endif
 
 ifeq ($(SETUP), dustywave)
 #   dust in a box
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_wave.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
@@ -536,7 +517,7 @@ endif
 
 ifeq ($(SETUP), wave)
 #   linear wave
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_wave.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
@@ -545,7 +526,7 @@ endif
 
 ifeq ($(SETUP), wavedamp)
 #   Wave damping test as per Choi et al (2009)
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_wavedamp.f90
     ISOTHERMAL=yes
     NONIDEALMHD=yes
@@ -560,7 +541,7 @@ endif
 
 ifeq ($(SETUP), sedov)
 #   Sedov blast wave test
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_sedov.f90
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
@@ -569,7 +550,7 @@ endif
 
 ifeq ($(SETUP), blob)
 #   Blob evaporation problem
-    FPPFLAGS= -DPERIODIC#-DSORT
+    PERIODIC=yes
     SETUPFILE= setup_blob.f90
     DOUBLEPRECISION= no
     KNOWN_SETUP=yes
@@ -577,14 +558,14 @@ endif
 
 ifeq ($(SETUP), kh)
 #   Kelvin-Helmholtz problem
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_kh.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), mhdrotor)
 #   MHD rotor problem
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_mhdrotor.f90
     MHD=yes
     KNOWN_SETUP=yes
@@ -592,7 +573,7 @@ endif
 
 ifeq ($(SETUP), jadvect)
 #   MHD current loop advection problem
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_jadvect.f90
     MHD=yes
     KNOWN_SETUP=yes
@@ -600,7 +581,7 @@ endif
 
 ifeq ($(SETUP), alfven)
 #   MHD circularly polarised Alfven wave problem
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_alfvenwave.f90
     MHD=yes
     KNOWN_SETUP=yes
@@ -609,7 +590,7 @@ endif
 
 ifeq ($(SETUP), orstang)
 #   Orszag-Tang vortex
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_orstang.f90
     MHD=yes
     KNOWN_SETUP=yes
@@ -617,8 +598,8 @@ endif
 
 ifeq ($(SETUP), balsarakim)
 #   Balsara-Kim 2004
-    FPPFLAGS= -DPERIODIC
-    SETUPFILE= setup_unifdis.f90
+    PERIODIC=yes
+    SETUPFILE= setup_unifdis.F90
     MHD=yes
     KNOWN_SETUP=yes
     SRCINJECT=inject_sne.f90
@@ -629,7 +610,7 @@ endif
 
 ifeq ($(SETUP), mhdvortex)
 #   Balsara (2004) MHD vortex
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_mhdvortex.f90
     MHD=yes
     KNOWN_SETUP=yes
@@ -637,7 +618,7 @@ endif
 
 ifeq ($(SETUP), mhdsine)
 #   MHD sine wave
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     SETUPFILE= setup_mhdsine.f90
     NONIDEALMHD=no
     MHD=yes
@@ -756,7 +737,6 @@ ifeq ($(SETUP), BHL)
 # Bondi-Hoyle-Lyttleton setup
     SETUPFILE= setup_BHL.f90
     SRCINJECT= inject_BHL.f90
-    FPPFLAGS= -DNOWARNRESTRICTEDHJUMP
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
 endif
@@ -797,7 +777,6 @@ ifeq ($(SETUP), sgdisc)
 #   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
     ANALYSIS = analysis_disc_stresses.f90
 #    ANALYSIS = ${LINKLIST} analysis_getneighbours.f90
-    DIMFILE= dim_disc.f90
     KNOWN_SETUP=yes
 endif
 
@@ -809,16 +788,6 @@ ifeq ($(SETUP), dustysgdisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
-endif
-
-ifeq ($(SETUP), sgdiscsector)
-#   self-gravitating disc sector
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    SETUPFILE= setup_discsector.f90
-    SRCINJECT= inject_keplerianshear.f90
-    DIMFILE= dim_disc.f90
-    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), dustsettle)
@@ -834,7 +803,7 @@ endif
 
 ifeq ($(SETUP), test)
 #   default setup for tests
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     KNOWN_SETUP=yes
     CONST_ARTRES=yes
     CURLV=yes
@@ -845,15 +814,14 @@ endif
 
 ifeq ($(SETUP), test2)
 #   default setup for tests
-    FPPFLAGS= -DDISC_VISCOSITY
+    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
-    USE_STRAIN_TENSOR=yes
 endif
 
 ifeq ($(SETUP), testcyl)
 #   default setup for tests
-    FPPFLAGS= -DDISC_VISCOSITY
+    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     CONST_ARTRES=yes
@@ -862,7 +830,7 @@ endif
 
 ifeq ($(SETUP), testkd)
 #   default setup for tests
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     CONST_ARTRES=yes
@@ -909,7 +877,7 @@ endif
 
 ifeq ($(SETUP), testlum)
 #   Lense-Thirring setup
-    FPPFLAGS= -DLIGHTCURVE -DUSE_STRAIN_TENSOR
+    FPPFLAGS= -DLIGHTCURVE
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
@@ -918,16 +886,9 @@ endif
 ifeq ($(SETUP), default)
     KNOWN_SETUP=yes
     SETUPFILE= setup_unifdis.F90
-    FPPFLAGS= -DPERIODIC
+    PERIODIC=yes
     DUST=yes
 endif
-
-#ifeq ($(SETUP), clumpybox) # [buildbot skip]
-#    KNOWN_SETUP=yes
-#    ANALYSIS = ${LINKLIST} analysis_velocitydispersion_vs_scale.f90
-#    ANALYSIS = adaptivemesh.f90 interpolate3D_amr.f90 analysis_pdfs_dhf.f90
-#    SETUPFILE= setup_fromgrid.f90
-#endif
 
 ifeq ($(SETUP), galaxies)
 #   Read in data created from Wurster&Thacker(2013a,b)
@@ -985,7 +946,7 @@ endif
 
 ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
 #   live feedback from mcfost, superseded by mcfost setup
-    FPPFLAGS= -DDISC_VISCOSITY
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_mcfostcmdline.f90
     LIVE_ANALYSIS=yes
@@ -1011,16 +972,19 @@ endif
 #    SRCGROWTH = growth.F90
 #endif
 
+#---  live feedback from mcfost
 ifeq ($(MCFOST), yes)
-#   live feedback from mcfost
     ANALYSIS= analysis_mcfost.f90
     LIVE_ANALYSIS=yes
     ISOTHERMAL=no
     MCFOST=yes
 
+    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(SYSTEM)
+    MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
+
     FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)
-#    LDFLAGS+=  ~/mcfost/src/libtmp/*.o  ~/mcfost/src/*.o  $(LIBCXX)
+    LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(SYSTEM) \
+	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
 
 
@@ -1289,10 +1253,6 @@ ifeq ($(OPENMP), yes)
     FFLAGS += ${OMPFLAGS}
 endif
 
-ifeq ($(SORT), yes)
-    FPPFLAGS += -DSORT
-endif
-
 ifeq ($(PERIODIC), yes)
     FPPFLAGS += -DPERIODIC
 endif
@@ -1357,10 +1317,6 @@ endif
 
 ifeq ($(CURLV), yes)
     FPPFLAGS += -DCURLV
-endif
-
-ifeq ($(USE_STRAIN_TENSOR), yes)
-    FPPFLAGS += -DUSE_STRAIN_TENSOR
 endif
 
 ifeq ($(IND_TIMESTEPS), yes)
@@ -1579,7 +1535,7 @@ endif
 SRCCHEM+= wind_cooling.F90 coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_helmholtz.f90 eos.F90
+SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos.F90
 
 ifeq ($(HDF5), yes)
 SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90

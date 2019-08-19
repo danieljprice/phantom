@@ -26,42 +26,41 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Ratm_in          -- inner atmosphere radius (planet radii)
-!    Ratm_out         -- outer atmosphere radius (planet radii)
-!    accr1            -- central star accretion radius
-!    accr2            -- perturber accretion radius
-!    alphaSS          -- desired alphaSS
-!    atm_type         -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin           -- black hole spin
-!    bhspinangle      -- black hole spin angle (deg)
-!    binary_O         -- Omega, PA of ascending node (deg)
-!    binary_a         -- binary semi-major axis
-!    binary_e         -- binary eccentricity
-!    binary_f         -- f, initial true anomaly (deg,180=apastron)
-!    binary_i         -- i, inclination (deg)
-!    binary_w         -- w, argument of periapsis (deg)
-!    deltat           -- output interval as fraction of orbital period
-!    dist_unit        -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec       -- include Einstein precession
-!    flyby_O          -- position angle of ascending node (deg)
-!    flyby_a          -- distance of minimum approach
-!    flyby_d          -- initial distance (units of dist. min. approach)
-!    flyby_i          -- inclination (deg)
-!    ibinary          -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential       -- potential (1=central point mass,
-!    m1               -- central star mass
-!    m2               -- perturber mass
-!    mass_unit        -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits          -- maximum number of orbits at outer disc
-!    np               -- number of gas particles
-!    nplanets         -- number of planets
-!    nsinks           -- number of sinks
-!    ramp             -- Do you want to ramp up the planet mass slowly?
-!    rho_core         -- planet core density (cgs units)
-!    setplanets       -- add planets? (0=no,1=yes)
-!    surface_force    -- model m1 as planet with surface
-!    use_mcfost       -- use the mcfost library
-!    use_mcfost_stars -- Fix the stellar parameters to mcfost values or update using sink mass
+!    Ratm_in       -- inner atmosphere radius (planet radii)
+!    Ratm_out      -- outer atmosphere radius (planet radii)
+!    accr1         -- central star accretion radius
+!    accr2         -- perturber accretion radius
+!    alphaSS       -- desired alphaSS
+!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
+!    bhspin        -- black hole spin
+!    bhspinangle   -- black hole spin angle (deg)
+!    binary_O      -- Omega, PA of ascending node (deg)
+!    binary_a      -- binary semi-major axis
+!    binary_e      -- binary eccentricity
+!    binary_f      -- f, initial true anomaly (deg,180=apastron)
+!    binary_i      -- i, inclination (deg)
+!    binary_w      -- w, argument of periapsis (deg)
+!    deltat        -- output interval as fraction of orbital period
+!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec    -- include Einstein precession
+!    flyby_O       -- position angle of ascending node (deg)
+!    flyby_a       -- distance of minimum approach
+!    flyby_d       -- initial distance (units of dist. min. approach)
+!    flyby_i       -- inclination (deg)
+!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential    -- potential (1=central point mass,
+!    m1            -- central star mass
+!    m2            -- perturber mass
+!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits       -- maximum number of orbits at outer disc
+!    np            -- number of gas particles
+!    nplanets      -- number of planets
+!    nsinks        -- number of sinks
+!    ramp          -- Do you want to ramp up the planet mass slowly?
+!    rho_core      -- planet core density (cgs units)
+!    setplanets    -- add planets? (0=no,1=yes)
+!    surface_force -- model m1 as planet with surface
+!    use_mcfost    -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -87,7 +86,8 @@ module setup
 #endif
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
-                            ndustlarge,grainsize,graindens,nptmass,iamtype
+                            ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
+                            VrelVf
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -395,14 +395,14 @@ subroutine set_default_options()
  ifrag = 1
  isnow = 0
  rsnow = 100.
- Tsnow = 20.
+ Tsnow = 150.
  vfragSI = 15.
  vfraginSI = 5.
  vfragoutSI = 15.
- gsizemincgs = 1.e-3
+ gsizemincgs = 5.e-3
 
  !--resolution
- np = 500000
+ np = 1000000
  np_dust = np/maxdustlarge/5
 
  !--planets
@@ -585,10 +585,10 @@ subroutine equation_of_state(gamma)
           !--locally isothermal prescription from Farris et al. (2014) for binary system
           ieos = 14
           print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif(iuse_disc(2))then
+          elseif (iuse_disc(2)) then
              qfacdisc = qindex(2)
              call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
           endif
@@ -1042,6 +1042,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
 
           npart = npart + npingasdisc
+          npartoftype(igas) = npartoftype(igas) + npingasdisc
 
        else
 
@@ -1306,11 +1307,11 @@ subroutine initialise_dustprop(npart)
        if (iamtype(iphase(i))==idust) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
-          dustprop(3,i) = 0.
-          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
+       dustgasprop(:,i) = 0.
+       VrelVf(i)        = 0.
     enddo
  endif
 
@@ -1500,7 +1501,7 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet < 1/20 Hill radius: unnecessarily small')
        elseif (accrplanet(i) > 0.5) then
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
-       elseif(accrplanet(i)*Hill(i) > accr1) then
+       elseif (accrplanet(i)*Hill(i) > accr1) then
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
        endif
        print *, ''
@@ -1742,15 +1743,15 @@ subroutine setup_interactive()
        ! the equations below, however changing them here is not enough. They need
        ! to be changed also in the the setpart function.
        !--------------------------------------------------------------------------
-       if(.not. use_global_iso) then
+       if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if(iuse_disc(1)) then
+          if (iuse_disc(1)) then
              call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
              H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
              H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
           else
-             if(iuse_disc(2))then
+             if (iuse_disc(2)) then
                 call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
                 H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
                 H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
@@ -1834,21 +1835,6 @@ subroutine setup_interactive()
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
        print "(a)",  '================================'
        call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
-       select case(ifrag)
-       case(0)
-          print "(a)",'-----------'
-          print "(a)",'Pure growth'
-          print "(a)",'-----------'
-       case(1)
-          print "(a)",'----------------------'
-          print "(a)",'Growth + fragmentation'
-          print "(a)",'----------------------'
-       case(2)
-          print "(a)",'----------------------------------------'
-          print "(a)",'Growth + Kobayashi`s fragmentation model'
-          print "(a)",'----------------------------------------'
-       case default
-       end select
        if (ifrag > 0) then
           call prompt('Enter minimum allowed grain size in cm',gsizemincgs)
           call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
@@ -1861,8 +1847,6 @@ subroutine setup_interactive()
              call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
-    elseif (use_dustgrowth .and. dust_method == 1) then
-       print "(a)",'growth and fragmentation not available for one fluid method'
     endif
  endif
 
@@ -1891,10 +1875,10 @@ subroutine setup_interactive()
  if (setplanets==1) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==1) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     deltat  = 0.01
     norbits = 1
     call prompt('Enter time between dumps as fraction of flyby time',deltat,0.)
@@ -2088,7 +2072,7 @@ subroutine write_setupfile(filename)
           if (itapergas(i)) then
              if (itapersetgas(i)==0) then
                 taper_string = 'exp[-(R/R_c)^(2-p)]'
-             else if(itapersetgas(i)==1) then
+             elseif (itapersetgas(i)==1) then
                 taper_string = '[1-exp(R-R_out)]'
              endif
           endif
@@ -2165,7 +2149,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# timestepping'
  if (setplanets==1) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
- else if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
  else
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
@@ -2175,7 +2159,8 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+      'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
  close(iunit)

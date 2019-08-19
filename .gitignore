@@ -17,3 +17,5 @@ build/phantom-version.h
 *.gz
 #*
 .#*
+*.js
+.DS_Store

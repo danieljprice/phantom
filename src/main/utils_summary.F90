@@ -327,13 +327,16 @@ end subroutine summary_accrete_fail
 !+
 !----------------------------------------------------------------
 logical function summary_printnow()
- !
+
  summary_printnow = .false.
- !
- if ( ( iosum_print /= 0 .and. mod(iosum_nstep(iosum_nreal),iosum_print)==0 ) .or. &
-      ( dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print) )                   &
-   summary_printnow = .true.
- !
+
+ if ( iosum_print /= 0 ) then
+    if (mod(iosum_nstep(iosum_nreal),iosum_print)==0 .or. &
+        (dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print)) then
+       summary_printnow = .true.
+    endif
+ endif
+
 end function summary_printnow
 !----------------------------------------------------------------
 !+
@@ -389,7 +392,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     if ( dtsum_wall > real(3600.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(3600.0,kind=4),' hours       **|'
-    else if ( dtsum_wall > real(60.0,kind=4) ) then
+    elseif ( dtsum_wall > real(60.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(60.0,kind=4),  ' minutes     **|'
     else
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall,                    ' seconds     **|'

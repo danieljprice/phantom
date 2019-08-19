@@ -230,7 +230,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nbin
-    if(ninbin(i)==0 .or. ninbin(i)==1) then
+    if (ninbin(i)==0 .or. ninbin(i)==1) then
        lx(i)=0.0
        ly(i)=0.0
        lz(i)=0.0
@@ -243,7 +243,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  enddo
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
- if(rotate) then
+ if (rotate) then
     if (nptmass /= 0) then
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
     else
@@ -273,7 +273,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  endif
 
  do i=1,nbin
-    if(i /= 1.and.i /= nbin) then
+    if (i /= 1.and.i /= nbin) then
        psi_x=(unitlx(i+1)-unitlx(i-1))/(bin(i+1)-bin(i-1))
        psi_y=(unitly(i+1)-unitly(i-1))/(bin(i+1)-bin(i-1))
        psi_z=(unitlz(i+1)-unitlz(i-1))/(bin(i+1)-bin(i-1))

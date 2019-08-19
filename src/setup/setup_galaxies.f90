@@ -120,10 +120,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (itype== 0) then
           call set_particle_type(i,idarkmatter)
           ctrd = ctrd + 1
-       else if (itype==-1) then
+       elseif (itype==-1) then
           call set_particle_type(i,istar)
           ctrs = ctrs + 1
-       else if (itype== 1) then
+       elseif (itype== 1) then
           call set_particle_type(i,igas)
           ctrg = ctrg + 1
        else

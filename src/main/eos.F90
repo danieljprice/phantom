@@ -50,13 +50,13 @@
 !    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
 !    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
 !
-!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, infile_utils, io, part,
-!    physcon, units
+!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, eos_shen, infile_utils, io,
+!    part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module eos
  implicit none
- integer, parameter, public :: maxeos = 16
+ integer, parameter, public :: maxeos = 19
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -117,9 +117,10 @@ contains
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local)
  use io,    only:fatal,error,warning
  use part,  only:xyzmh_ptmass
- use units,   only:unit_density,unit_pressure,unit_ergg
+ use units,   only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
+ use eos_shen, only: eos_shen_NL3
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -129,7 +130,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(in)   , optional :: gamma_local
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai
- real :: cgsrhoi, cgseni, cgspgas, pgas, gam1
+ real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
  integer :: ierr
 
  select case(eos_type)
@@ -236,7 +237,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (rhoi < rhocrit0pwp) then
        gammai  = gamma0pwp
        ponrhoi = k0pwp*rhoi**(gamma0pwp-1.)
-    else if (rhoi < rhocrit1pwp) then
+    elseif (rhoi < rhocrit1pwp) then
        gammai  = gamma1pwp
        ponrhoi = k1pwp*rhoi**(gamma1pwp-1.)
     elseif (rhoi < rhocrit2pwp) then
@@ -293,7 +294,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
 !--variable gamma
 !
- case(16)
+ case(19)
 
     if (present(gamma_local)) then
        ponrhoi  = (gamma_local-1.)*eni
@@ -302,6 +303,23 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        call fatal('eos','invoking KROME to calculate local gamma but variable '&
                         'not passed in equationofstate (bad value for eos?)')
     endif
+
+ case(16)
+!
+!--shen eos
+!
+
+!    if (present(enei)) then
+    cgsrhoi = rhoi * unit_density
+    !note eni is actually tempi
+    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
+    spsoundi=cgsspsoundi / unit_velocity
+    pgas = cgspgas / unit_pressure
+    ponrhoi = pgas / rhoi
+!    else
+!       call fatal('eos','tried to call NL3 eos without passing temperature')
+!    endif
+
 
 
  case default
@@ -429,7 +447,7 @@ real function gamma_pwp(rhoi)
 
  if (rhoi < rhocrit0pwp) then
     gamma_pwp = gamma0pwp
- else if (rhoi < rhocrit1pwp) then
+ elseif (rhoi < rhocrit1pwp) then
     gamma_pwp = gamma1pwp
  elseif (rhoi < rhocrit2pwp) then
     gamma_pwp = gamma2pwp
@@ -449,6 +467,7 @@ subroutine init_eos(eos_type,ierr)
  use io,       only:error,warning
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
+ use eos_shen, only:init_eos_shen_NL3
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -554,6 +573,10 @@ subroutine init_eos(eos_type,ierr)
  case(15)
 
     call eos_helmholtz_init(ierr)
+
+ case(16)
+
+    call init_eos_shen_NL3(ierr)
 
  end select
  done_init_eos = .true.

@@ -125,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,idamp,alpha,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -225,7 +225,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
- integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
@@ -262,8 +261,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
  if (ierr /= 0) call fatal('initial','error reading dumpfile')
  call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
- if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
- if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+ if (nwarn > 0) then
+    print "(a)"
+    call warning('initial','WARNINGS from particle data in file',var='# of warnings',ival=nwarn)
+ endif
+ if (nerr > 0)  call fatal('initial','errors in particle data from file',var='# of errors',ival=nerr)
 !
 !--initialise values for non-ideal MHD
 !
@@ -298,12 +300,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
  endif
 
- if (sum(npartoftype) /= npart) then
-    print *, 'npartoftype = ', npartoftype(1:maxtypes)
-    print *, 'npart = ', npart
-    call fatal('setup','sum of npartoftype  /=  npart')
- endif
-
 #ifdef DRIVING
 !
 !--initialise turbulence driving
@@ -320,7 +316,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising growth variables')
 #endif
 #endif
-
 !
 !--initialise cooling function
 !
@@ -339,25 +334,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
-!
-!--Check that the numbers of each type add up correctly
-!
- if (maxphase == maxp) then
-    ncount(:) = 0
-    do i=1,npart
-       itype = iamtype(iphase(i))
-       if (itype < 1 .or. itype > maxtypes) then
-          call fatal('initial','unknown value for itype from iphase array',i,var='iphase',ival=int(iphase(i)))
-       else
-          ncount(itype) = ncount(itype) + 1
-       endif
-    enddo
-    if (any(ncount /= npartoftype)) then
-       write(iprint,*) 'ncount,',ncount,'npartoftype,',npartoftype
-       call fatal('initial','sum of types in iphase is not equal to npartoftype')
-    endif
- endif
-
 !
 !--The code works in B/rho as its conservative variable, but writes B to dumpfile
 !  So we now convert our primitive variable read, B, to the conservative B/rho

@@ -133,11 +133,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              ypos2    = ypos2    + pmassi*yi
              zpos2    = zpos2    + pmassi*zi
           endif
-       else if (itype==idarkmatter) then
+       elseif (itype==idarkmatter) then
           rhodmX  = max(rhodmX,rhoi)
           rhodmA  =     rhodmA+rhoi
           ndm     = ndm + 1
-       else if (itype==igas) then
+       elseif (itype==igas) then
           rhogasX = max(rhogasX,rhoi)
           rhogasA =     rhogasA+rhoi
           ngas    = ngas + 1
