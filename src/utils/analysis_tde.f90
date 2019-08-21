@@ -201,12 +201,14 @@ end function treturn
 !
 subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,yarray)
  use sortutils, only:indexx
+ use io,        only:warning
  integer, intent(in) :: np,n_bins
  real, intent(in)    :: xarray(np),xmin,xmax
  real, intent(in), optional :: yarray(np)
  real, intent(out)   :: xhist(n_bins),yhist(n_bins)
- integer :: indx(np),i,ibin,j
- real    :: dx,xright
+ integer :: indx(np),i,ibin,j,nbinned
+ logical :: binned
+ real    :: dx,xleft,xright,xi
 
 ! Sort the array (return sorted indices)
  call indexx(np,xarray,indx)
@@ -224,24 +226,50 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,yarray)
 
 ! Start at first bin
  ibin   = 1
-! Upper value of starting bin
+! Lower and Upper values of starting bin
+ xleft  = xmin
  xright = xmin + dx
+
+ nbinned = 0
 
 ! Loop over particles in sorted order
  do i=1,np
-    j = indx(i)                        ! sorted index
-    if (xarray(j)<xright) then
-       if (present(yarray)) then
-          yhist(ibin) = yhist(ibin) + yarray(j)  ! add to bin (sum up quantity in bin)
-       else
-          yhist(ibin) = yhist(ibin) + 1.  ! add to bin (just count the number of particles in bin)
+    j  = indx(i)                        ! sorted index
+    xi = xarray(j)
+    binned = .false.
+    if (xi<xmin) cycle    ! skip particles below xmin
+    if (xi/=xi)  cycle    ! skip particles with NaN
+
+    do while (.not.binned.and.ibin<=n_bins)
+
+       if (xleft<=xi.and.xi<=xright) then ! add to bin
+
+          if (present(yarray)) then ! sum the quantity
+             yhist(ibin) = yhist(ibin) + yarray(j)
+
+          else ! just count the number
+             yhist(ibin) = yhist(ibin) + 1.
+
+          endif
+
+          nbinned = nbinned + 1
+          binned  = .true.
+
+       else ! go to next bin
+          ibin    = ibin + 1
+          xleft   = xright                ! increase the lower bin value
+          xright  = xright  + dx          ! increase the upper bin value
+
        endif
-    else
-       ibin    = ibin + 1              ! go to next bin
-       xright  = xright  + dx          ! increase the upper bin upper value
-    endif
-    if (ibin > n_bins) exit
+
+    enddo
+
  enddo
+
+ !--- Warn the user if not all the particles were placed in bins.
+ if (nbinned/=np) then
+    call warning('analysis '//analysistype,'Not all particles were binned! n_not_binned',ival=np-nbinned)
+ endif
 
 ! Create the x axis array for the histogram, use the bin centre as the bin value
  xhist(1) = xmin+dx/2.
