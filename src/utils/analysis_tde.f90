@@ -151,14 +151,12 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  eps = 0.
  do i=1,npart
     r(i)   = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-       eps(i) = v2/2. - mh/r(i)                                  !-- Specific energy
-       if (eps(i)<0.) then
-          tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
-       else
-          tr(i) = 0.
-       endif
+    v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+    eps(i) = v2/2. - mh/r(i)                                  !-- Specific energy
+    if (eps(i)<0.) then
+       tr(i) = treturn(mh,eps(i))                             !-- Return time, only set if energy is negative
+    else
+       tr(i) = 0.
     endif
  enddo
 
