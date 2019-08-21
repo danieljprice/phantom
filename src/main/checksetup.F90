@@ -49,7 +49,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 kill_particle,shuffle_part,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,calc_gravitwaves!added for gws part
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
@@ -284,6 +284,16 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nerror = nerror + 1
     endif
+ endif
+!
+!--check that if ccode=1 that all particles are gas particles
+!  otherwise warn that gravitational wave strain calculation is wrong
+!
+ if (calc_gravitwaves) then
+   if (any(npartoftype(2:) > 0)) then
+      print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
+      nwarn = nwarn + 1
+   endif
  endif
 !
 !--sanity checks on magnetic field

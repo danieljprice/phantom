@@ -25,6 +25,7 @@
 module centreofmass
  implicit none
  public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
+ public :: get_centreofmass_accel
 
  private
 
@@ -163,6 +164,80 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
 
  return
 end subroutine get_centreofmass
+
+!----------------------------------------------------------------
+!+
+!  Subroutine to compute com acceleration
+!+
+!----------------------------------------------------------------
+subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+ use io,       only:id,master
+ use dim,      only:maxphase,maxp
+ use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted
+ use mpiutils, only:reduceall_mpi
+ real,         intent(out) :: acom(3)
+ integer,      intent(in)  :: npart
+ real,         intent(in)  :: xyzh(:,:),fxyzu(:,:),fext(:,:)
+ integer,      intent(in),  optional :: nptmass
+ real,         intent(in),  optional :: xyzmh_ptmass(:,:), fxyz_ptmass(:,:)
+ integer :: i
+ real :: hi
+ real(kind=8) :: dm,pmassi,totmass
+
+
+ acom(:) = 0.
+ totmass = 0.
+
+!$omp parallel default(none) &
+!$omp shared(maxphase,maxp,id) &
+!$omp shared(xyzh,fxyzu,fext,npart) &
+!$omp shared(massoftype,iphase,nptmass) &
+!$omp shared(xyzmh_ptmass,fxyz_ptmass) &
+!$omp private(i,pmassi,hi) &
+!$omp reduction(+:acom) &
+!$omp reduction(+:totmass)
+!$omp do
+ do i=1,npart
+    hi = xyzh(4,i)
+    if (.not.isdead_or_accreted(hi)) then
+       if (maxphase==maxp) then
+          pmassi = massoftype(iamtype(iphase(i)))
+       else
+          pmassi = massoftype(igas)
+       endif
+       totmass = totmass + pmassi
+       acom(1) = acom(1) + pmassi*(fxyzu(1,i) + fext(1,i))
+       acom(2) = acom(2) + pmassi*(fxyzu(2,i) + fext(2,i))
+       acom(3) = acom(3) + pmassi*(fxyzu(3,i) + fext(3,i))
+    endif
+ enddo
+!$omp enddo
+!
+! add acceleration from sink particles
+!
+if (id==master) then
+ !$omp do
+ do i=1,nptmass
+    pmassi = xyzmh_ptmass(4,i)
+    totmass = totmass + pmassi
+    acom(1) = acom(1) + pmassi*fxyz_ptmass(1,i)
+    acom(2) = acom(2) + pmassi*fxyz_ptmass(2,i)
+    acom(3) = acom(3) + pmassi*fxyz_ptmass(3,i)
+ enddo
+ !$omp enddo
+endif
+!$omp end parallel
+
+ acom = reduceall_mpi('+',acom)
+ totmass = reduceall_mpi('+',totmass)
+ if (totmass > tiny(totmass)) then
+    dm = 1.d0/totmass
+ else
+    dm = 0.d0
+ endif
+ acom = acom*dm
+
+end subroutine get_centreofmass_accel
 
 !----------------------------------------------------------------
 !+

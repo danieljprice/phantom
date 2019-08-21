@@ -252,11 +252,11 @@ logical, parameter :: gr = .false.
 !--------------------
 ! Gravitational wave strain
 !--------------------
-#ifdef GWS
-logical, parameter :: gws = .true.
-#else
-logical, parameter :: gws = .false.
-#endif
+!#ifdef GWS
+!logical, parameter :: gws = .true.
+!#else
+!logical, parameter :: gws = .false.
+!#endif
 
 !--------------------
 ! Supertimestepping

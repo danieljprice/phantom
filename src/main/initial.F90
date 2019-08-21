@@ -115,7 +115,7 @@ end subroutine initialise
 !  routine which starts a Phantom run
 !+
 !----------------------------------------------------------------
-subroutine startrun(infile,logfile,evfile,dumpfile)
+subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes
  use deriv,            only:derivs
@@ -214,6 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
+ logical,          intent(in), optional :: noread
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
@@ -225,43 +226,48 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  real            :: gmw_old,gmw_new
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
- logical         :: iexist
+ logical         :: iexist,read_input_files
  integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
+
+ read_input_files = .true.
+ if (present(noread)) read_input_files = .not.noread
+
+ if (read_input_files) then
 !
 !--do preliminary initialisation
 !
- call initialise
+    call initialise
 !
 !--read parameters from the infile
 !
- call read_infile(infile,logfile,evfile,dumpfile)
-
+    call read_infile(infile,logfile,evfile,dumpfile)
 !
 !--initialise log output
 !
- if (iprint /= 6 .and. id==master) then
-    open(unit=iprint,file=logfile,form='formatted',status='replace')
+    if (iprint /= 6 .and. id==master) then
+       open(unit=iprint,file=logfile,form='formatted',status='replace')
 !
 !--write opening "splash screen" to logfile
 !
-    call write_codeinfo(iprint)
-    call print_cpuinfo(iprint)
- endif
- if (id==master) write(iprint,"(a)") ' starting run '//trim(infile)
+       call write_codeinfo(iprint)
+       call print_cpuinfo(iprint)
+    endif
+    if (id==master) write(iprint,"(a)") ' starting run '//trim(infile)
 
- if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
+    if (id==master) call write_header(1,infile,evfile,logfile,dumpfile)
 !
 !--read particle setup from dumpfile
 !
- call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
- if (ierr /= 0) call fatal('initial','error reading dumpfile')
- call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
- if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
- if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+    call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
+    if (ierr /= 0) call fatal('initial','error reading dumpfile')
+    call check_setup(nerr,nwarn,restart=.true.) ! sanity check what has been read from file
+    if (nwarn > 0) call warning('initial','warnings from particle data in file',var='warnings',ival=nwarn)
+    if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+ endif
 !
 !--initialise values for non-ideal MHD
 !
@@ -596,7 +602,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--write second header to logfile/screen
 !
- if (id==master) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
+ if (id==master .and. read_input_files) call write_header(2,infile,evfile,logfile,dumpfile,ntot)
 
  call init_evfile(ievfile,evfile,.true.)
  call write_evfile(time,dt)
@@ -777,11 +783,11 @@ subroutine endrun
 !--close ev, log& ptmass-related files
 !
  close(unit=ievfile)
- close(unit=iprint)
  close(unit=imflow)  ! does not matter if not open
  close(unit=ivmflow)
  close(unit=ibinpos)
  close(unit=igpos)
+ if (iprint /= 6) close(unit=iprint)
 
  if (iscfile > 0) close(unit=iscfile)
  if (ipafile > 0) close(unit=ipafile)

@@ -30,6 +30,7 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
+ use units
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i
  real               :: time
@@ -85,7 +86,7 @@ program phantomanalysis
        call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,headeronly=.true.)
        if (ierr==0) print "(a,/)",' (finished reading file -- this analysis reads the header only)'
     else
-       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,dustydisc=.true.)
+       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)!,dustydisc=.true.)
     endif
 
     if (ierr==is_small_dump) then
@@ -114,6 +115,7 @@ program phantomanalysis
        print "(a,f6.2,a)",' WARNING! hfact = ',hfact,' from dump file, resetting to 1.2'
        hfact = 1.2
     endif
+    print*,'HERE ',udist,umass,utime
 
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)

@@ -27,8 +27,8 @@
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
- use dim, only: maxdusttypes,maxdustsmall
-use units, only:utime
+ use dim,       only: maxdusttypes,maxdustsmall
+ use units,     only:utime
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
@@ -43,7 +43,7 @@ use units, only:utime
                                iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(8)
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -54,6 +54,9 @@ use units, only:utime
  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
  real,             public :: ev_data(4,0:inumev),erot_com(6)
+#ifdef GR
+real, allocatable, private :: axyz(:,:)
+#endif
 
 contains
 
@@ -65,11 +68,11 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
-                          maxdusttypes,gws
+                          maxdusttypes!!!!,gws removed for now
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
@@ -77,11 +80,12 @@ subroutine compute_energies(t)
  use part,           only:pxyzu,metrics,metricderivs
  use part,           only:fxyzu,fext
  use gravwaveutils,  only:calculate_strain
+ use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac
+ use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac,calc_gravitwaves,calc_gravitwaves_gr!,tidal_disruption !!!!calculation of gws
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
@@ -114,7 +118,7 @@ subroutine compute_energies(t)
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
- real    :: erotxi,erotyi,erotzi,fdum(3)
+ real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3)
  real    :: ethermi
 #ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
@@ -123,7 +127,8 @@ subroutine compute_energies(t)
  integer :: i,j,itype,ierr,iu
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
- real    :: axyz(3,npart),hx,hp,hxx,hpp
+ real    :: hx(4),hp(4)
+! real    :: theta
 
  ! initialise values
  itype  = igas
@@ -168,6 +173,14 @@ subroutine compute_energies(t)
  endif
  np_rho      = 0
  call initialise_ev_data(ev_data)
+#ifdef GR
+ if (.not.allocated(axyz)) then
+    allocate(axyz(3,npart))
+ elseif (size(axyz(3,:)) < npart) then
+    deallocate(axyz)
+    allocate(axyz(3,npart))
+ endif
+#endif
 !
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
@@ -183,10 +196,11 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp shared(temperature,grainsize,graindens,ndustsmall) &
+!$omp shared(calc_gravitwaves) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
 #ifdef GR
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
-!$omp shared(metrics) &
+!$omp shared(metrics,axyz) &
 #endif
 !$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -641,9 +655,9 @@ subroutine compute_energies(t)
  ycom = ycom * dm
  zcom = zcom * dm
 
- xmom = reduce_fn('+',xmom)
- ymom = reduce_fn('+',ymom)
- zmom = reduce_fn('+',zmom)
+ xmom = reduce_fn('+',xmom)*dm
+ ymom = reduce_fn('+',ymom)*dm
+ zmom = reduce_fn('+',zmom)*dm
  totmom = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
 
  angx = reduce_fn('+',angx)
@@ -729,22 +743,41 @@ subroutine compute_energies(t)
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
- if (gws) then
-#ifdef GR
-    call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
-#else
-    axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
-#endif
+ if (calc_gravitwaves) then
     pmassi = massoftype(igas)
-    call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
-    hx  = reduce_fn('+',hx)
-    hp  = reduce_fn('+',hp)
-    hxx = reduce_fn('+',hxx)
-    hpp = reduce_fn('+',hpp)
-    ev_data(iev_sum,iev_gws(1)) = hx
-    ev_data(iev_sum,iev_gws(2)) = hp
-    ev_data(iev_sum,iev_gws(3)) = hxx
-    ev_data(iev_sum,iev_gws(4)) = hpp
+    x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
+#ifdef GR
+     calc_gravitwaves_gr=.true.
+    !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
+    !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
+    call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,fext)
+    print*, 'buongiorno'
+#else
+   print*,'pmassi', pmassi
+   if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
+      x0 = (/xcom,ycom,zcom/)
+      v0 = (/xmom,ymom,zmom/)
+      call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+   endif
+    call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,fext)
+#endif
+    hx(1)  = reduce_fn('+',hx(1))
+    hp(1)  = reduce_fn('+',hp(1))
+    hx(2)  = reduce_fn('+',hx(2))
+    hp(2)  = reduce_fn('+',hp(2))
+    hx(3)  = reduce_fn('+',hx(3))
+    hp(3)  = reduce_fn('+',hp(3))
+    hx(4)  = reduce_fn('+',hx(4))
+    hp(4)  = reduce_fn('+',hp(4))
+
+    ev_data(iev_sum,iev_gws(1)) = hx(1)
+    ev_data(iev_sum,iev_gws(2)) = hp(1)
+    ev_data(iev_sum,iev_gws(3)) = hx(2)
+    ev_data(iev_sum,iev_gws(4)) = hp(2)
+    ev_data(iev_sum,iev_gws(5)) = hx(3)
+    ev_data(iev_sum,iev_gws(6)) = hp(3)
+    ev_data(iev_sum,iev_gws(7)) = hx(4)
+    ev_data(iev_sum,iev_gws(8)) = hp(4)
  endif
 
  return

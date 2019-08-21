@@ -289,7 +289,8 @@ ifeq ($(SETUP), grtde)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     GRAVITY=yes
-    ANALYSIS=analysis_tde.f90
+#    ANALYSIS=analysis_tde.f90
+    ANALYSIS=$(OBJDERIV) analysis_gws.f90
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -301,6 +302,7 @@ ifeq ($(SETUP), srpolytrope)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     MODFILE=moddump_polytrope.f90
+    
 endif
 
 ifeq ($(SETUP), grdisc)
@@ -461,7 +463,8 @@ endif
 ifeq ($(SETUP), tde)
 #   tidal disruption simulations
     SETUPFILE= setup_star.f90
-    ANALYSIS=analysis_tde.f90
+#    ANALYSIS=analysis_tde.f90
+    ANALYSIS=$(OBJDERIV) analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
     MODFILE=moddump_tidal.f90
@@ -471,7 +474,8 @@ endif
 ifeq ($(SETUP), polytrope)
 #   single (option 2) or binary (option 3) polytrope test
     SETUPFILE= setup_star.f90
-    ANALYSIS= density_profiles.o analysis_polytropes.f90
+#    ANALYSIS=density_profiles.o analysis_polytropes.f90
+    ANALYSIS=$(OBJDERIV) analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
     MODFILE=moddump_binarystar.f90
@@ -1805,6 +1809,12 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # to ensure that this is always up to date before compiling anything else.
 physcon.o: .make_mathflags
 
+# these are sources for anything that calls derivs routine--if you want to call derivs in the analysis #file
+SRCDERIV= utils_omp.F90 utils_cpuinfo.f90 utils_timing.f90 checksetup.F90 initial.F90 ptmass.F90 \
+          utils_summary.F90 coolfunc.F90 cooling.f90 damping.f90 energies.F90 evwrite.F90 writeheader.f90 \
+          readwrite_infile.f90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 
+OBJDERIV1= $(SRCDERIV:.f90=.o)
+OBJDERIV= $(OBJDERIV1:.F90=.o)
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #

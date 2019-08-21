@@ -82,8 +82,10 @@ contains
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
  use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve, &
-                      use_CMacIonize,gws
- use options,   only: calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+                      use_CMacIonize!,gws removed for now--for gws
+ use options,   only: calc_erot,ishock_heating,ipdv_heating,use_dustfrac,calc_gravitwaves !!!!calculation of gws
+ use physcon,   only:c !!add this for gws calculation
+ use units,     only:utime, udist !!! add also udist for the check on ccode--gor gws
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
  use viscosity, only: irealvisc
@@ -93,6 +95,8 @@ subroutine init_evfile(iunit,evfile,open_file)
  character(len= 27)             :: ev_fmt
  character(len= 11)             :: dustname
  integer                        :: i,j,k
+ real :: ccode !!!add c in phantom units--for gws
+
  !
  !--Initialise additional variables
  !
@@ -217,11 +221,20 @@ subroutine init_evfile(iunit,evfile,open_file)
  if (use_CMacIonize) then
     call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
  endif
- if (gws) then
-    call fill_ev_tag(ev_fmt,iev_gws(1),'hx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(2),'hp','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(3),'hxx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(4),'hpp','0',i,j)
+ ! calculate gravitational wave strain, but only
+ ! if code is run in relativistic units (c=1)
+ ccode=c*utime/udist
+ print*, 'sto usando questo ciao'
+ if (abs(ccode-1.) < tiny(1.)) calc_gravitwaves = .true.
+ if (calc_gravitwaves) then
+    call fill_ev_tag(ev_fmt,iev_gws(1),'hx_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(2),'hp_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(3),'hx_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(4),'hp_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(5),'hx_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(6),'hp_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(7),'hx_{90}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(8),'hp_{90}','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)

@@ -1714,6 +1714,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  call extract('udist',udist,hdr,ierrs(1))
  call extract('umass',umass,hdr,ierrs(2))
  call extract('utime',utime,hdr,ierrs(3))
+ print*,' GOT ',udist,umass,utime
  if (all(ierrs(1:3)==0)) then
     call set_units_extra()
  else
