@@ -157,7 +157,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  do i=1,npart
     r(i)   = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    call cross_product3D(r(i),vxyzu(1:3,i),Li)
+    call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
     Langm(i) = sqrt(dot_product(Li,Li))
     eps(i) = v2/2. - mh/r(i)                                  !-- Specific energy
     if (eps(i)<0.) then
