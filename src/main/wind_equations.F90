@@ -118,7 +118,7 @@ end subroutine RK4_step_dr
 
 !--------------------------------------------------------------------------
 !
-!  Time derivative of dv/dr and dT/dr, for Runge-Kutta (stationary solution)
+!  Space derivative dv/dr and dT/dr, for Runge-Kutta (stationary solution)
 !
 !--------------------------------------------------------------------------
 subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)

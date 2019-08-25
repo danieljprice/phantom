@@ -262,7 +262,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  use physcon,  only:Rg,Gg,au,years
  integer, intent(in) :: stype
  real, intent(in) :: r0, T0
- real, intent(inout) :: v0
+ real, intent(out) :: v0
  real, intent(out) :: sonic(8)
 
  type(wind_state) :: state
@@ -370,7 +370,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(7) = state%alpha
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theoric = ",f7.3," Ts =",f8.1," alpha =",f5.3)') &
+ write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theory = ",f7.3," Ts =",f8.1," alpha =",f5.3)') &
       sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
 
  endif

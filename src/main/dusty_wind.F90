@@ -416,7 +416,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  use physcon,  only:Rg,Gg,au,years
  integer, intent(in) :: stype
  real, intent(in) :: r0, T0
- real, intent(inout) :: v0
+ real, intent(out) :: v0
  real, intent(out) :: sonic(8)
 
  type(wind_state) :: state
@@ -437,6 +437,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
        alpha_max = 0.
     endif
     print *, "[get_initial_wind_speed] Looking for initial velocity."
+    print *, ' * stype      = ',stype
     print *, ' * unit(au)   = ',udist/au
     print *, ' * Mstar      = ',Mstar_cgs/1.9891d33
     print *, ' * Twind      = ',T0
@@ -454,7 +455,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     print *, ' * alpha_max  = ',alpha_max
     print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
  endif
- write (*,'("Computing 1D model with v0 (km/s) =",f9.3,"  r0/R* = ",f7.3)') cs/1e5,r0/Rstar_cgs
+ !write (*,'("Computing 1D model with v0 (km/s) =",f9.3,"  r0/R* = ",f7.3)') cs/1e5,r0/Rstar_cgs
 
  if (stype == 1) then
 
@@ -475,13 +476,13 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     icount = icount+1
  enddo
  if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Lower bound found for v0 :', v0min
+ if (iverbose>1) print *, 'Lower bound found for v0/cs :', v0min/cs
 
 ! Find upper bound for initial velocity
  v0 = v0max
  icount = 0
  do while (icount < ncount_max)
-    if (iverbose>1) print *, ' v0 = ', v0
+    if (iverbose>1) print *, ' v0/cs = ', v0/cs
     call calc_dustywind_profile(r0, v0, T0, 0., state)
     if (state%spcode == 1) then
        v0max = v0
@@ -493,7 +494,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     icount = icount+1
  enddo
  if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Upper bound found for v0 :', v0max
+ if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
 
 ! Find sonic point by dichotomy between v0min and v0max
  do
@@ -523,9 +524,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(8) = state%S
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," Ts =",f8.1,"K, alpha =",f6.3," S = ",es9.2)')&
-      sonic(2)/1e5,sonic(1)/Rstar_cgs,sonic(5),sonic(7),sonic(8)
-
+ write (*,'("Sonic point properties  vs (km/s) =",f9.3," v0 (km/s) =",f9.3," Rs/R* = ",f7.3," ts =",f8.2,", alpha =",f6.3," S = ",es9.2)')&
+      sonic(2)/1e5,v0/1e5,sonic(1)/Rstar_cgs,sonic(4)/utime,sonic(7),v0/sonic(2)
 endif
  !save 1D initial profile for comparison
  write (*,'("Saving 1D model : ")')

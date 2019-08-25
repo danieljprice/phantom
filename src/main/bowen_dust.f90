@@ -34,8 +34,9 @@ module bowen_dust
  integer, parameter :: wind_emitting_sink = 1
  logical, parameter :: verbose = .false.
  real, parameter :: alpha_wind = 1.d0
- real :: kappa_gas, kmax, L, c_light, specific_energy_to_T_ratio, Cprime, Tcond, deltaT, Teff,&
-      Reff, omega_osc, deltaR_osc, usteboltz,wind_inject, Rmin
+ real :: kappa_gas, kmax, L, c_light, u_to_temperature_ratio, Tcond, deltaT, Teff,&
+      Reff, omega_osc, deltaR_osc, usteboltz, wind_injection_radius, piston_velocity, Rmin, &
+      wind_velocity, wind_pulsation_period,wind_temperature
  integer :: nwall_particles
 
 contains
@@ -43,8 +44,8 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  Computes acceleration due to radiation pressure on dust on all SPH particles
-!  is is assumed that optical depth is roughly spherically symmetric around the central star
+!  Computes acceleration due to radiation pressure on dust particles
+!  it is assumed that optical depth is only depends on radius
 !+
 !-----------------------------------------------------------------------
 subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, time)
@@ -62,9 +63,8 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
  integer :: nfound, found(npart)
  real :: rho_grid(N), r_grid(N), Teq(N), a_over_r(N), kappa_dust(N)!, T_grid(N), dlnkap_dlnT(N), tau_prime(N)
  real :: dQ_dt,Mstar,R_star,L_star,Rforce,alpha_surface,dist,frad,frepuls,Teq_part,xr(3),x_star(3)
- real :: force,fac,Trad,kap_dust,alpha_w,rho,T,Qcool,dQcool_dlnT,mass_per_H
- logical :: skip
- integer :: i,j,icooling
+ real :: force,fac,Trad,kap_dust,alpha_w,rho,T,mass_per_H!,Qcool,dQcool_dlnT
+ integer :: i,icooling
 
 
  if (npart == nwall_particles) return
@@ -73,7 +73,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
  x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
  Mstar = xyzmh_ptmass(4,wind_emitting_sink)
  !R_star = Reff + deltaR_osc*sin(omega_osc*time)
- R_star = wind_inject + deltaR_osc*sin(omega_osc*time)
+ R_star = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
  L_star = 4.*pi*usteboltz*R_star**2*Teff**4
  print *,'time ###  ##',time,R_star,Reff,npart,nwall_particles,L,L_star
 
@@ -126,15 +126,15 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
           ! !update internal energy: add pdV work
           ! vxyzu(4,i) = vxyzu(4,i) -(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
           ! !cooling terms
-          ! T = vxyzu(4,i)/specific_energy_to_T_ratio
+          ! T = vxyzu(4,i)/u_to_temperature_ratio
           ! rho = rhoh(xyzh(4,i), part_mass)
           ! call calc_cooling(icooling,mass_per_H,T,Trad,rho,Qcool,dQcool_dlnT)
           ! !print *,i,vxyzu(4,i),Qcool*dt,Trad,T
           ! if (dt  >=  Cprime/rhoh(xyzh(4,i),part_mass)) then   ! assume thermal equilibrium
-          !   vxyzu(4,i) = Trad*specific_energy_to_T_ratio
+          !   vxyzu(4,i) = Trad*u_to_temperature_ratio
           !   fxyzu(4,i) = 0.d0
           ! else
-          !   !Qcool = -(vxyzu(4,i) - Trad*specific_energy_to_T_ratio) &
+          !   !Qcool = -(vxyzu(4,i) - Trad*u_to_temperature_ratio) &
           !   !     * (rhoh(xyzh(4,i),part_mass)/Cprime)
           !   vxyzu(4,i) = vxyzu(4,i) + Qcool*dt
           !   !fext(4,i) = fext(4,i) + Qcool
@@ -142,7 +142,7 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
        endif
     enddo
 !!$omp end parallel do
-    call implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu_shock,fext,R_star,x_star,dt)
+    !!!!call implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu_shock,fext,R_star,x_star,dt)
  endif
 end subroutine radiative_acceleration
 
@@ -151,30 +151,34 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine setup_bowen(u_to_temperature_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_injection_radius,&
-       bowen_Cprime, bowen_Tcond, bowen_delta,star_Teff,wind_osc_vamplitude,wind_osc_period,nwall)
+subroutine setup_bowen(u_to_T_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_radius,&
+     bowen_Tcond, bowen_delta,star_Teff,piston_vamplitude,wind_speed,&
+     wind_osc_period,wind_T,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_temperature_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_injection_radius,&
-         bowen_Cprime, bowen_Tcond, bowen_delta, star_Teff, wind_osc_vamplitude,wind_osc_period
+ real, intent(in)  :: u_to_T_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_radius,wind_speed,&
+        bowen_Tcond, bowen_delta, star_Teff,piston_vamplitude,wind_osc_period,wind_T
 
  kappa_gas = kappa_gas_in / (udist**2/umass)
  kmax = bowen_kmax / (udist**2/umass)
  L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
- specific_energy_to_T_ratio = u_to_temperature_ratio!/(udist/utime)**2
- Cprime = bowen_Cprime / (umass*utime/udist**3)
+ u_to_temperature_ratio = u_to_T_ratio!/(udist/utime)**2
  Tcond = bowen_Tcond
  deltaT = bowen_delta
  Teff  = star_Teff
  Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
- omega_osc = 2.*pi/wind_osc_period
- deltaR_osc = wind_osc_vamplitude/omega_osc
+ omega_osc = 2.*pi/wind_pulsation_period
+ deltaR_osc = piston_velocity/omega_osc
  nwall_particles = nwall
- wind_inject = wind_injection_radius
+ wind_injection_radius = wind_radius
+ piston_velocity = piston_vamplitude
  usteboltz = L/(4.*pi*Reff**2*Teff**4)
  Rmin = Reff - deltaR_osc
+ wind_velocity = wind_speed
+ wind_pulsation_period = wind_osc_period
+ wind_temperature = wind_T
 
 end subroutine setup_bowen
 
@@ -184,11 +188,12 @@ end subroutine setup_bowen
 !  Oscillating inner boundary : bowen wind
 !+
 !-----------------------------------------------------------------------
-subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_number, &
-                                     inner_sphere,inner_boundary_sphere)
- use physcon,     only: pi
+subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, &
+                                     inner_sphere,inner_boundary_sphere,dr3,rho_ini)
+ use physcon,     only:pi
+ use eos,         only:gamma
  integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
- real,    intent(in)  :: time,local_time,gamma,GM
+ real,    intent(in)  :: time,local_time,GM,dr3,rho_ini
  real,    intent(out) :: r, v, u, rho, e
 
  integer, parameter :: nrho_index = 10
@@ -196,11 +201,11 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_nu
  real :: surface_radius,r3
  logical :: verbose = .true.
 
- v = wind_velocity + wind_osc_vamplitude* cos(2.*pi*time/wind_osc_period) !same velocity for all wall particles
- surface_radius = wind_injection_radius + wind_osc_vamplitude*wind_osc_period/(2.*pi)*sin(2.*pi*time/wind_osc_period)
+ v = wind_velocity + piston_velocity* cos(2.*pi*time/wind_pulsation_period) !same velocity for all wall particles
+ surface_radius = wind_injection_radius + piston_velocity*wind_pulsation_period/(2.*pi)*sin(2.*pi*time/wind_pulsation_period)
  if (sphere_number <= inner_sphere) then
     r = surface_radius
-    v = max(wind_osc_vamplitude,wind_velocity)
+    v = max(piston_velocity,wind_velocity)
  else
     r3 = surface_radius**3-dr3
     do k = 2,sphere_number-inner_sphere
@@ -220,14 +225,12 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,gamma,sphere_nu
  if (verbose) then
     if (sphere_number > inner_sphere) then
        print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
-             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
-             sphere_number,inner_sphere,surface_radius,r,v,&
-             time/wind_osc_period,time_between_spheres/wind_osc_period
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
+             sphere_number,inner_sphere,surface_radius,r,v,time/wind_pulsation_period
     else
        print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
-             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4," feject = ",f4.3)', &
-             sphere_number,inner_sphere,surface_radius,r,v,&
-             time/wind_osc_period,time_between_spheres/wind_osc_period
+             '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
+             sphere_number,inner_sphere,surface_radius,r,v,time/wind_pulsation_period
     endif
  endif
 
@@ -489,60 +492,60 @@ end subroutine center_star
 !  wind cooling. Implicit method to get the internal energy
 !+
 !-----------------------------------------------------------------------
-subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_star,dt)
- use eos,      only:gamma
- use part,     only:isdead_or_accreted,rhoh,massoftype,igas,divcurlv
- use physcon,  only:mass_proton_cgs
+! subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_star,dt)
+!  use wind_cooling, only : calc_cooling_rate
+!  use eos,          only:gamma
+!  use part,         only:isdead_or_accreted,rhoh,massoftype,igas,divcurlv
+!  use physcon,      only:mass_proton_cgs
 
- integer, intent(in)    :: npart,icooling
- real,    intent(in)    :: xyzh(:,:)
- real,    intent(in)    :: dt,R_star,x_star(3)
- real,    intent(inout) :: vxyzu(:,:)
- real,    intent(inout) :: fxyzu(:,:),fext(:,:)
+!  integer, intent(in)    :: npart,icooling
+!  real,    intent(in)    :: xyzh(:,:)
+!  real,    intent(in)    :: dt,R_star,x_star(3)
+!  real,    intent(inout) :: vxyzu(:,:)
+!  real,    intent(inout) :: fxyzu(:,:),fext(:,:)
 
- real, parameter :: tol = 1.d-4 ! to be adjusted
- real :: T,Trad,rho,term1,term2,term3,delta_e,mass_per_H,part_mass,Qcool,dQcool_dlnT
- real :: dist,xr(3),q1,q2,dq1,dq2
- integer, parameter :: iter_max = 200
- integer :: i,iter
+!  real, parameter :: tol = 1.d-4 ! to be adjusted
+!  real :: T,Trad,rho,term1,term2,term3,delta_e,mass_per_H,part_mass,Qcool,dQcool_dlnT
+!  real :: dist,xr(3),q,dq
+!  integer, parameter :: iter_max = 200
+!  integer :: i,iter
 
- mass_per_H = 1.4 * mass_proton_cgs
- part_mass = massoftype(igas)
-! !$omp parallel do default(none) &
-! !$omp shared(icooling,npart,xyzh,vxyzu,fxyzu,divcurlv) &
-! !$omp shared(gamma,part_mass,mass_per_H,dt,nwall_particles) &
-! !$omp private(iter,term1,term2,term3,delta_e,Qcool,dQcool_dlnT,T,Tg,rho)
- do i=nwall_particles+1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       xr(1:3) = xyzh(1:3,i)-x_star(1:3)
-       dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
-       iter = 0
-       delta_e = 1.d-3
-       Trad = Teff*sqrt(R_star/dist)
-       rho = rhoh(xyzh(4,i), part_mass)
-       term1 = vxyzu(4,i)+fxyzu(4,i)*dt !includes shock heating term
-       term2 = 1.+(gamma-1.)*dt*divcurlv(1,i)
-       do while (abs(delta_e) > tol .and. iter < iter_max)
-          T = vxyzu(4,i)/specific_energy_to_T_ratio
-          call calc_cooling(1,mass_per_H,T,Trad,rho,Q1,dQ1)
-          call calc_cooling(2,mass_per_H,T,Trad,rho,Q2,dQ2)
-          Qcool = q1+q2
-          dQcool_dlnT = dq1+dq2
-          term3 = vxyzu(4,i)*term2-Qcool*dt
-          delta_e = (term1-term3)/(term2-dQcool_dlnT*dt/vxyzu(4,i))
-          !vxyzu(4,i) = vxyzu(4,i)*(1.+delta_e)
-          vxyzu(4,i) = vxyzu(4,i)+delta_e
-          iter = iter + 1
-       enddo
-    endif
-!    fxyzu(4,i) = 0.
-    if (vxyzu(4,i) < 0. .or. isnan(vxyzu(4,i))) then
-       print *,i,vxyzu(4,i)
-       stop ' u<0'
-    endif
- enddo
-! !$omp end parallel do
+!  mass_per_H = 1.4 * mass_proton_cgs
+!  part_mass = massoftype(igas)
+! ! !$omp parallel do default(none) &
+! ! !$omp shared(icooling,npart,xyzh,vxyzu,fxyzu,divcurlv) &
+! ! !$omp shared(gamma,part_mass,mass_per_H,dt,nwall_particles) &
+! ! !$omp private(iter,term1,term2,term3,delta_e,Qcool,dQcool_dlnT,T,Tg,rho)
+!  do i=nwall_particles+1,npart
+!     if (.not.isdead_or_accreted(xyzh(4,i))) then
+!        xr(1:3) = xyzh(1:3,i)-x_star(1:3)
+!        dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
+!        iter = 0
+!        delta_e = 1.d-3
+!        Trad = Teff*sqrt(R_star/dist)
+!        rho = rhoh(xyzh(4,i), part_mass)
+!        term1 = vxyzu(4,i)+fxyzu(4,i)*dt !includes shock heating term
+!        term2 = 1.+(gamma-1.)*dt*divcurlv(1,i)
+!        do while (abs(delta_e) > tol .and. iter < iter_max)
+!           T = vxyzu(4,i)/u_to_temperature_ratio
+!           call calc_cooling_rate(Qcool,dlnQ_dlnT,rho,T,Trad,mu=mu)
+!           !call calc_cooling(2,mass_per_H,T,Trad,rho,Q2,dQ2)
+!           dQcool_dlnT = dlnQ_dlnT*Qcool
+!           term3 = vxyzu(4,i)*term2-Qcool*dt
+!           delta_e = (term1-term3)/(term2-dQcool_dlnT*dt/vxyzu(4,i))
+!           !vxyzu(4,i) = vxyzu(4,i)*(1.+delta_e)
+!           vxyzu(4,i) = vxyzu(4,i)+delta_e
+!           iter = iter + 1
+!        enddo
+!     endif
+! !    fxyzu(4,i) = 0.
+!     if (vxyzu(4,i) < 0. .or. isnan(vxyzu(4,i))) then
+!        print *,i,vxyzu(4,i)
+!        stop ' u<0'
+!     endif
+!  enddo
+! ! !$omp end parallel do
 
-end subroutine implicit_wind_cooling
+! end subroutine implicit_wind_cooling
 
 end module bowen_dust
