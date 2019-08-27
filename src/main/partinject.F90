@@ -39,7 +39,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use part, only:maxp,iamtype,iphase,maxvxyzu
+ use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
@@ -57,11 +57,13 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  integer, intent(in)    :: particle_number
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
-
+ logical :: new_particle
  integer :: itype_old
 
+ new_particle = .false.
  if (particle_number == npart+1) then
-    ! This particle doesn't already exist. Create it.
+! This particle doesn't already exist. Create it.
+    new_particle = .true.
     npart = npart + 1
     ntot = npart ! reduce_mpi('+',npart)
     if (npart  >  maxp) then
@@ -81,7 +83,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  xyzh(1,particle_number) = position(1)
  xyzh(2,particle_number) = position(2)
  xyzh(3,particle_number) = position(3)
- xyzh(4,particle_number) = h
+ if (itype /= iboundary .or. new_particle) xyzh(4,particle_number) = h
  vxyzu(1,particle_number) = velocity(1)
  vxyzu(2,particle_number) = velocity(2)
  vxyzu(3,particle_number) = velocity(3)
