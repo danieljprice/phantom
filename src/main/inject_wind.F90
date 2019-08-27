@@ -343,11 +343,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  if (inner_sphere-outer_sphere > iboundary_spheres) call fatal(label,'problem with boundary spheres, timestep likely too large!')
 ! cs2max = 0.
- if (shift_spheres < 0) then
+! if (shift_spheres < 0) then
     ipart = iboundary
- else
-    ipart = igas
- endif
+! else
+!    ipart = igas
+! endif
 
  do i=inner_boundary_sphere,outer_sphere,-1
     local_time = time - (i-abs(shift_spheres)) * time_between_spheres
@@ -610,7 +610,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
 #endif
  !debug
- !print '(a26,i3,i3)',trim(name),ngot,noptions
+ print '(a26,i3,i3)',trim(name),ngot,noptions
  igotall = (ngot >= noptions)
  if (igotall .and. trim(name) /= '') then
 #ifdef ISOTHERMAL
