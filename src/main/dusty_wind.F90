@@ -48,7 +48,7 @@ module dusty_wind
     real :: gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
     real :: tau_lucy, kappa_ross, kappa_planck
     integer :: spcode, nsteps
-    logical :: dt_force, error, stop_at_tmax
+    logical :: dt_force, error, stop_at_tend
  end type wind_state
 contains
 
@@ -61,9 +61,9 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
  use wind_cooling, only:init_windcooling
  use dust_formation, only:set_abundances
 
- integer, intent(in) :: wind_type_in
  real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_cg, expT_in,&
       Mdot_in, u_to_T, alpha_in, CO_ratio_in
+ integer, intent(in) :: wind_type_in
 
  Mstar_cgs = Mstar_in*solarm
  Lstar_cgs = Lstar_in
@@ -133,8 +133,6 @@ subroutine evolve_dust(wind_type, dtsph, xyzh, vxyzu, JKmuS)
     endif
     call wind_energy_cooling(vxyzu(4),rhoh(xyzh(4),massoftype(igas)),dtsph,Teq,JKmuS(6),JKmus(4),kappa)
  endif
-
-
 end subroutine evolve_dust
 
 subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)
@@ -227,12 +225,12 @@ subroutine init_dustywind(r0, v0, T0, time_end, state)
 
  state%dt = 1000.
  if (time_end > 0.d0) then
-    ! compute the full wind profile
-    state%stop_at_tmax = .true.
+    ! integration stops when time = time_end
+    state%stop_at_tend = .true.
     state%time_end = time_end
  else
-    ! integration to find sonic point
-    state%stop_at_tmax = .false.
+    ! integration stops once the sonic point is reached
+    state%stop_at_tend = .false.
     state%time_end = -1.d0
  endif
  state%time = 0.
@@ -338,7 +336,7 @@ subroutine dustywind_step(state)
     state%dt_force = .true.
  endif
  state%nsteps = state%nsteps + 1
- if (state%stop_at_tmax .and. state%time < state%time_end) state%spcode = 0
+ if (state%stop_at_tend .and. state%time < state%time_end) state%spcode = 0
 
 end subroutine dustywind_step
 
@@ -356,7 +354,7 @@ subroutine calc_dustywind_profile(r0, v0, T0, time_end, state)
 
 !compute chemistry and initialize variables
  call init_dustywind(r0, v0, T0, time_end, state)
- !print *,'calc_wind_profile',r0, v0, T0, time_end,state%v > state%c,state%time
+ !print *,'calc_wind_profile',state%time, time_end,r0, v0, T0,state%v , state%c
 
  if (state%v > state%c) then
     state%spcode = 1
@@ -364,15 +362,15 @@ subroutine calc_dustywind_profile(r0, v0, T0, time_end, state)
  endif
 
 !integrate 1D wind solution with dust
- do while(state%dt> dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
+ do while(state%dt > dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
     tau_lucy_last = state%tau_lucy
 
     call dustywind_step(state)
     !print *,state%time,state%dt,state%Tg,state%spcode,state%r,state%v,state%tau_lucy
+    !print *,'prof',state%time,state%time+state%dt,state%time_end,state%spcode
     tau_test = (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6
     if (state%r == state%r_old .or. state%tau_lucy < -1. .or. tau_test) state%error = .true.
  enddo
-
 end subroutine calc_dustywind_profile
 
 !-----------------------------------------------------------------------
@@ -392,10 +390,14 @@ subroutine dusty_wind_profile(time,local_time,r,v,u,rho,e,GM,T,JKmuS)
 
  r = r*udist
  v = v*unit_velocity
- call calc_dustywind_profile(r, v, T, local_time*utime, state)
+ if (local_time == 0.) then
+    call init_dustywind(r, v, T, local_time, state)
+ else
+    call calc_dustywind_profile(r, v, T, local_time*utime, state)
+ endif
  r = state%r/udist
  v = state%v/unit_velocity
- rho = state%rho/(unit_density)
+ rho = state%rho/unit_density
  u = state%p/((gamma-1.)*rho)/unit_pressure
  e = .5*v**2 - GM/r + gamma*u
  JKmuS = state%JKmuS
@@ -524,7 +526,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(8) = state%S
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3," v0 (km/s) =",f9.3," Rs/R* = ",f7.3," ts =",f8.2,", alpha =",f6.3," S = ",es9.2)')&
+ write (*,'("Sonic point properties  cs (km/s) =",f9.3," v0 (km/s) =",f9.3," Rs/R* = ",f7.3," ts =",f8.2,", alpha =",f6.3," v0/cs = ",es9.2)')&
       sonic(2)/1e5,v0/1e5,sonic(1)/Rstar_cgs,sonic(4)/utime,sonic(7),v0/sonic(2)
 endif
  !save 1D initial profile for comparison

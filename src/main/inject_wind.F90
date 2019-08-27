@@ -265,7 +265,7 @@ subroutine init_inject(ierr)
 
  !logging
  print*,'mass_of_particles          = ',mass_of_particles
- print*,'mass_of_spheres            = ',mass_of_spheres
+ !print*,'mass_of_spheres            = ',mass_of_spheres
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'time_between_spheres       = ',time_between_spheres
@@ -366,14 +366,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
 #endif
 
-    if (wind_verbose) then
-       print '("sphere ",5(i3),9(1x,es15.8))',i,inner_sphere,iboundary_spheres,outer_sphere,int(shift_spheres),&
-            time,local_time,r/xyzmh_ptmass(5,1),v!,v/sqrt(gamma*(gamma-1.)*u),xyzmh_ptmass(5,1)*udist,dtlast
-    endif
-
     if (i > inner_sphere) then
        ! boundary sphere
        first_particle = (iboundary_spheres-i+inner_sphere)*particles_per_sphere+1
+       !print '(" ##### boundary sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,iboundary_spheres,&
+       !     outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
 #ifdef NUCLEATION
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)

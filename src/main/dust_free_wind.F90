@@ -46,7 +46,7 @@ module dust_free_wind
     real :: dt, time, r, v, a, time_end, Tg
     real :: mu, gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
     integer :: spcode, nsteps
-    logical :: dt_force, error, stop_at_tmax
+    logical :: dt_force, error, stop_at_tend
  end type wind_state
 contains
 
@@ -99,12 +99,12 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
  state%dt = 1000.
  if (time_end > 0.d0) then
-    ! compute the full wind profile
-    state%stop_at_tmax = .true.
+    ! integration stops when time = time_end
+    state%stop_at_tend = .true.
     state%time_end = time_end
  else
-    ! integration to find sonic point
-    state%stop_at_tmax = .false.
+    ! integration stops once the sonic point is reached
+    state%stop_at_tend = .false.
     state%time_end = -1.d0
  endif
  state%time = 0.
@@ -177,7 +177,7 @@ subroutine wind_step(state)
     state%dt_force = .true.
  endif
  state%nsteps = state%nsteps + 1
- if (state%stop_at_tmax .and. state%time < state%time_end) state%spcode = 0
+ if (state%stop_at_tend .and. state%time < state%time_end) state%spcode = 0
 
 end subroutine wind_step
 
@@ -200,13 +200,12 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  endif
 
 !integrate 1D wind solution with dust
- do while(state%dt> dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
+ do while(state%dt > dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
 
     call wind_step(state)
 
     if (state%r == state%r_old) state%error = .true.
  enddo
-
 end subroutine calc_wind_profile
 
 !-----------------------------------------------------------------------
@@ -230,10 +229,14 @@ subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
  v0 = v
  r = r*udist
  v = v*unit_velocity
- call calc_wind_profile(r, v, T, local_time*utime, state)
+ if (local_time == 0.) then
+    call init_wind(r, v, T, local_time, state)
+ else
+    call calc_wind_profile(r, v, T, local_time*utime, state)
+ endif
  r = state%r/udist
  v = state%v/unit_velocity
- rho = state%rho/(unit_density)
+ rho = state%rho/unit_density
  T = state%Tg
  if (gamma > 1.0001) then
     T = wind_temperature * ((r0**2 * v0) / (r**2 * v))**(gamma-1.)
@@ -283,6 +286,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
        alpha_max = 0.
     endif
     print *, "[get_initial_wind_speed] Looking for initial velocity."
+    print *, ' * stype      = ',stype
     print *, ' * unit(au)   = ',udist/au
     print *, ' * Mstar      = ',Mstar_cgs/1.9891d33
     print *, ' * Twind      = ',T0
@@ -302,7 +306,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     print *, ' * alpha_max  = ',alpha_max
     print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
  endif
- write (*,'("Computing 1D model with v0 (km/s) =",f9.3,"  r0/R* = ",f7.3)') cs/1e5,r0/Rstar_cgs
+ !write (*,'("Computing 1D model with v0 (km/s) =",f9.3,"  r0/R* = ",f7.3)') cs/1e5,r0/Rstar_cgs
 
  if (stype == 1) then
 
@@ -323,13 +327,13 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     icount = icount+1
  enddo
  if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Lower bound found for v0 :', v0min
+ if (iverbose>1) print *, 'Lower bound found for v0/cs :', v0min/cs
 
 ! Find upper bound for initial velocity
  v0 = v0max
  icount = 0
  do while (icount < ncount_max)
-    if (iverbose>1) print *, ' v0 = ', v0
+    if (iverbose>1) print *, ' v0/cs = ', v0/cs
     call calc_wind_profile(r0, v0, T0, 0., state)
     if (state%spcode == 1) then
        v0max = v0
@@ -341,7 +345,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     icount = icount+1
  enddo
  if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Upper bound found for v0 :', v0max
+ if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
 
 ! Find sonic point by dichotomy between v0min and v0max
  do
@@ -370,8 +374,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(7) = state%alpha
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  vs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theory = ",f7.3," Ts =",f8.1," alpha =",f5.3)') &
-      sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(5),sonic(7)
+ write (*,'("Sonic point properties  cs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theory = ",f7.3," ts =",f8.1," alpha =",f5.3)') &
+      sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(4)/utime,sonic(7)
 
  endif
  !save 1D initial profile for comparison
