@@ -576,7 +576,7 @@ end subroutine step
 !+
 !----------------------------------------------------------------
 subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
- use part, only:isdead_or_accreted
+ use part, only:isdead_or_accreted,iboundary,iphase,iamtype
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -584,10 +584,11 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dt) &
+ !$omp shared(npart,xyzh,vxyzu,dt,iphase) &
  !$omp private(i)
  do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
+!cls    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (.not.isdead_or_accreted(xyzh(4,i)).and.iamtype(iphase(i))/=iboundary) then
        !
        ! main position update
        !
@@ -753,6 +754,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
           endif
+!cls
+          if (itype==iboundary) cycle predictor
           !
           ! predict v to the half step
           !
