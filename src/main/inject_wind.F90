@@ -267,7 +267,9 @@ subroutine init_inject(ierr)
  print*,'mass_of_particles          = ',mass_of_particles
  !print*,'mass_of_spheres            = ',mass_of_spheres
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
+ print*,'distance to sonic point    = ',sonic(1)/udist-wind_injection_radius
  print*,'particles per sphere       = ',particles_per_sphere
+ print*,'number of shells to sonic  = ',(sonic(1)/udist-wind_injection_radius)/(wind_shell_spacing*neighbour_distance)
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'time_to_sonic_point        = ',sonic(4)/utime
  print*,'wind_injection_radius      = ',wind_injection_radius
@@ -288,7 +290,7 @@ subroutine init_inject(ierr)
  !save a few models before the particles reach the sonic point
  if (dtmax > sonic(4)/utime) print *,'WARNING! dtmax > time to sonic point'
  !minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
- ires_min = int(shift_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5)
+ ires_min = int(max(int(shift_spheres),iboundary_spheres)*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5)
  if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
 #endif
 
@@ -312,13 +314,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #endif
 ! use units,        only:udist
  use part,         only:igas,iboundary,nptmass
+ use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart
+ integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, nshell_released, nboundaries
  real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3) !, cs2max, dr, dp
 #ifdef NUCLEATION
  real :: JKmuS(7)
@@ -326,6 +329,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: surface_radius
 #endif
  character(len=*), parameter :: label = 'inject_particles'
+ logical, save :: released = .false.
 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     x0 = xyzmh_ptmass(1:3,wind_emitting_sink)
@@ -337,20 +341,35 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     GM = 0.
  endif
 
- outer_sphere = floor((time-dtlast)/time_between_spheres) + 1
- inner_sphere = floor(time/time_between_spheres)
- inner_boundary_sphere = inner_sphere + iboundary_spheres
+ if (npart > 0) then
+    nshell_released = iboundary_spheres-10
+    nboundaries = iboundary_spheres-nshell_released
+    if (.not.released) then
+       do i = npart-nshell_released*particles_per_sphere+1,npart
+          call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),i,i,npartoftype,xyzh,vxyzu)
+       enddo
+       released = .true.
+    else
+       return
+    endif
+ else
+    nshell_released = 0
+    nboundaries = iboundary_spheres
+ endif
+ outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nshell_released
+ inner_sphere = floor(time/time_between_spheres)+nshell_released
+ inner_boundary_sphere = inner_sphere + nboundaries
 
- if (inner_sphere-outer_sphere > iboundary_spheres) call fatal(label,'problem with boundary spheres, timestep likely too large!')
-! cs2max = 0.
-! if (shift_spheres < 0) then
-    ipart = iboundary
-! else
-!    ipart = igas
-! endif
+ !only one sphere can be ejected at a time
+ if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
+ ipart = iboundary
 
  do i=inner_boundary_sphere,outer_sphere,-1
-    local_time = time - (i-abs(shift_spheres)) * time_between_spheres
+    ! if (i > inner_sphere) then
+    !    local_time = (i-inner_sphere-1) * time_between_spheres
+    ! else
+       local_time = time + (abs(shift_spheres)-i) * time_between_spheres
+    ! endif
 
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
     v = wind_velocity
@@ -368,9 +387,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     if (i > inner_sphere) then
        ! boundary sphere
-       first_particle = (iboundary_spheres-i+inner_sphere)*particles_per_sphere+1
-       !print '(" ##### boundary sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,iboundary_spheres,&
-       !     outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
+       first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
+       print '(" ##### boundary sphere ",i4,i7,3(i4),i7,9(1x,es12.5))',i,first_particle,inner_sphere,nboundaries,&
+            outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
 #ifdef NUCLEATION
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
@@ -391,8 +410,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
           xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres
        endif
-       print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,iboundary_spheres,&
-            outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,xyzmh_ptmass(5,1),u
+       print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,nboundaries,&
+            outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
     endif
     !cs2max = max(cs2max,gamma*(gamma-1)*u)
  enddo
@@ -449,7 +468,7 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s)',iunit)
+ call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
 #if defined (BOWEN)
  call write_inopt(wind_pulsation_period_days,'wind_pulsation_period','stellar pulsation period (days)',iunit)
  call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
@@ -610,7 +629,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #endif
 #endif
  !debug
- print '(a26,i3,i3)',trim(name),ngot,noptions
+ !print '(a26,i3,i3)',trim(name),ngot,noptions
  igotall = (ngot >= noptions)
  if (igotall .and. trim(name) /= '') then
 #ifdef ISOTHERMAL
