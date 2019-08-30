@@ -19,6 +19,7 @@ Contents
    getting-started
    user-guide
    examples
+   external-utilities
    developer-guide
    faq
    releasenotes
@@ -29,21 +30,6 @@ Licence
 Phantom is available under the `GPLv3 licence <https://bitbucket.org/danielprice/phantom/src/master/LICENCE>`__.
 
 Please cite the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant methods papers if you use Phantom in print.
-
-
-External utilities
-------------------
-
-There are several external utilities that are useful with Phantom.
-
-.. toctree::
-   :maxdepth: 1
-
-   phantom-config
-   mcfost
-   plonk
-   imorbel
-   fortree
 
 Nightly tests
 -------------
