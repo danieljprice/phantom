@@ -7,7 +7,7 @@ What is the lowest alpha viscosity for a disc that Phantom can simulate?
 The default way of including disc viscosity in SPH is to modify the
 artificial viscosity to mimic a physical viscosity. Details are given in
 `Lodato & Price
-(2010) <http://adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__ or in the
+(2010) <http://ui.adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__ or in the
 Phantom paper. The Shakura-Sunyaev alpha is related to alpha_AV
 according to
 

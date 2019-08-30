@@ -28,7 +28,7 @@ Licence
 
 Phantom is available under the `GPLv3 licence <https://bitbucket.org/danielprice/phantom/src/master/LICENCE>`__.
 
-Please cite the `code paper <http://adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant methods papers if you use Phantom in print.
+Please cite the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant methods papers if you use Phantom in print.
 
 
 External utilities

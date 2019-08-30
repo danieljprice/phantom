@@ -10,7 +10,7 @@ This can be used to sample trial orbits for accretion discs around
 binary stars with phantom.
 
 An example of this is the paper by `Price et al.
-(2018) <http://adsabs.harvard.edu/abs/2018MNRAS.477.1270P>`__ where we
+(2018) <http://ui.adsabs.harvard.edu/abs/2018MNRAS.477.1270P>`__ where we
 used imorbel to generate possible orbits to model the HD142527
 circumbinary disc
 
@@ -47,7 +47,7 @@ install emcee”, but the method depends on how you installed python.
 You can generate orbits by entering dates, positions on the sky (in RA
 and Dec), masses of the two stars and the distance. For HD142527, with
 data from `Lacour et
-al. 2016 <http://adsabs.harvard.edu/abs/2016A%26A...590A..90L>`__ the
+al. 2016 <http://ui.adsabs.harvard.edu/abs/2016A%26A...590A..90L>`__ the
 command we used was:
 
 ::

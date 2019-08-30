@@ -41,9 +41,9 @@ Producing dust continuum images
 For examples, see `Mentiplay et al.
 (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.484L.130M/>`__. See
 also `Dipierro et al.
-(2015) <http://adsabs.harvard.edu/abs/2015MNRAS.453L..73D>`__ and
+(2015) <http://ui.adsabs.harvard.edu/abs/2015MNRAS.453L..73D>`__ and
 `Ragusa et al.
-(2017) <http://adsabs.harvard.edu/abs/2017MNRAS.464.1449R>`__ for
+(2017) <http://ui.adsabs.harvard.edu/abs/2017MNRAS.464.1449R>`__ for
 earlier examples using RADMC3D
 
 ::
@@ -59,8 +59,8 @@ Producing synthetic line emission
 MCFOST can use the velocity and density information to compute synthetic
 emission in various spectral lines, e.g. 12CO, 13CO, C18O, HCO+ and
 more. For examples, see `Pinte et al.
-(2018) <http://adsabs.harvard.edu/abs/2018ApJ...860L..13P>`__, `Price et
-al. (2018) <http://adsabs.harvard.edu/abs/2018MNRAS.477.1270P>`__
+(2018) <http://ui.adsabs.harvard.edu/abs/2018ApJ...860L..13P>`__, `Price et
+al. (2018) <http://ui.adsabs.harvard.edu/abs/2018MNRAS.477.1270P>`__
 
 Moment maps
 ~~~~~~~~~~~
