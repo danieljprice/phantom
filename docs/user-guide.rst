@@ -14,4 +14,4 @@ This section contains the basic user guide for Phantom.
    analysis
    moddump
    utils
-   hdf
+   hdf5

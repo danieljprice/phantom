@@ -1,32 +1,16 @@
 Analysis of Phantom output
 ==========================
 
-Splash
-------
+Visualisation of Phantom output
+-------------------------------
 
-Visualisation of phantom output
-<#markdown-header-visualisation-of-phantom-output>\_\_
+Dump files
+~~~~~~~~~~
 
--  `Dump files <#markdown-header-dump-files>`__
--  `Global quantities <#markdown-header-global-quantities>`__
-
-`Customised analysis <#markdown-header-customised-analysis>`__
-
--  Reading phantom dump files
-   <#markdown-header-reading-phantom-dump-files>\_\_
--  `Phantomanalysis <#markdown-header-phantomanalysis>`__
--  Converting to another format
-   <#markdown-header-converting-to-another-format>\_\_
--  `Analysis with Python <#markdown-header-analysis-with-python>`__
-
-   -  `HDF5 <#markdown-header-loading-phantom-hdf5-dumps-into-python>`__
-
-#Visualisation of phantom output
-
-##Dump files That’s what splash is for! Use ssplash to look at the dump
+That's what splash is for! Use ssplash to look at the dump
 files produced by phantom, e.g.:
 
-::
+.. code-block:: bash
 
    ssplash dump_0*
 
@@ -37,33 +21,39 @@ a 3D grid (both fixed and AMR), computing PDFs, structure functions and
 power spectra, getting disc surface density profiles, and converting to
 other formats, and it is simple to write your own.
 
-##Global quantities The .ev files, which are just ascii files containing
+Global quantities
+~~~~~~~~~~~~~~~~~
+
+The .ev files, which are just ascii files containing
 global quantities as a function of time, can be visualised using asplash
 with the -ev (or -e) option:
 
-::
+.. code-block:: bash
 
    asplash -e dump*.ev
 
 where to label the columns properly, set the following environment
 variable:
 
-::
+.. code-block:: bash
 
    export ASPLASH_COLUMNSFILE=~/phantom/scripts/columns
 
 Global quantities not in the .ev file can also be obtained using the
 splash calc utility, e.g.:
 
-::
+.. code-block:: bash
 
    ssplash calc max dump_0*
 
 which produces a file containing the maximum of each quantity in the
 dump files as a function of time.
 
+Customised analysis
+-------------------
+
 Reading phantom dump files
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The short answer is, do not under any circumstances attempt to do this
 yourself! (If you need convincing, just have a quick look at how long
@@ -72,18 +62,18 @@ phantom dumps, aside from using splash to visualise them, is to use the
 phantomanalysis utility, see below.
 
 Phantomanalysis
----------------
+~~~~~~~~~~~~~~~
 
 Compile the phantomanalysis utility using:
 
-::
+.. code-block:: bash
 
    make analysis
 
 which compiles the phantomanalysis binary using the analysis module you
 specified in phantom/build/Makefile:
 
-::
+.. code-block:: make
 
    ifeq ($(SETUP), isodisc)
        ...
@@ -94,7 +84,7 @@ specified in phantom/build/Makefile:
 
 giving
 
-::
+.. code-block:: bash
 
    $ ls
    phantomanalysis*
@@ -117,21 +107,21 @@ particles). \**Any remaining information can also be accessed via the
 usual phantom modules**. For example, you can access sink particle
 arrays using:
 
-::
+.. code-block:: fortran
 
    use part, only:xyzmh_ptmass,vxyz_ptmass
 
 For a list of pre-built analysis tools, see the list of Phantom
-utilities <utils>\__.
+utilities :doc:`utils`.
 
 Converting to another format
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Apart from writing a short analysis module, you can also use the convert
 utility in splash. For example, to convert all files to ascii format
 (not recommended, they’ll be huge):
 
-::
+.. code-block:: bash
 
    ssplash to ascii blast_0*
 
@@ -139,17 +129,17 @@ To avoid precision loss, you will need to ensure that splash is compiled
 in double precision (use make DOUBLEPRECISION=yes when compiling splash)
 
 Analysis with Python
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 Compile the phantom pyanalysis utility using:
 
-::
+.. code-block:: bash
 
    make pyanalysis
 
 which compiles the libphantom library giving
 
-::
+.. code-block:: bash
 
    $ ls
    libphantom.so* libanalysis.py
@@ -157,16 +147,14 @@ which compiles the libphantom library giving
 Now you can import the PhantomAnalysis class from libanalysis.py. This
 can be done interactively in iPython or in a Python script
 
-::
+.. code-block:: python
 
-   #!python
    In [1]: from libanalysis import PhantomAnalysis as pa
 
 and create an instance of this class with a phantom dumpfile
 
-::
+.. code-block:: python
 
-   #!python
    In [2]: dumpfile = 'blast_00000'
 
    In [3]: dump = pa(dumpfile)
@@ -175,9 +163,8 @@ This loads the dumpfile and places particle quantities into numpy
 arrays. These quantities are accessible as attributes of the
 PhantomAnalysis class. For example
 
-::
+.. code-block:: python
 
-   #!python
    In [4]: print dump.npart
    125000
 
@@ -211,43 +198,36 @@ List of variables
 -  ptmass_spinxyz
 
 Loading phantom HDF5 dumps into python
---------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-| To get yourself HDF5 dumpfiles, first have a look at:
-| - `Running phantom with HDF5 output <hdf5>`__ or
-| - `Converting standard dumpfifles to HDF5
-  format <https://bitbucket.org/danielprice/phantom/wiki/hdf5#markdown-header-converting-standard-output-files-to-hdf5-format>`__
+To get yourself HDF5 dumpfiles, have a look at :doc:`Running phantom with HDF5 output <hdf5>`.
 
 Import h5py and load the dumpfile
 
-::
+.. code-block:: python
 
-   #!python
    In [1]: import h5py
 
    In [2]: f = h5py.File('disc_00000.h5','r')
 
 List the main containers in the file
 
-::
+.. code-block:: python
 
-   #!python
    In [3]: list(f.keys())
    Out[3]: ['header', 'particles', 'sinks']
 
 List the particle arrays that are available
 
-::
+.. code-block:: python
 
-   #!python
    In [4]: list(f['particles'].keys())
    Out[4]: ['divv', 'dt', 'h', 'itype', 'pressure', 'vxyz', 'xyz']
 
 Extract the ``xyz`` array from the file
 
-::
+.. code-block:: python
 
-   #!python
    In [5]: f['particles']['xyz'].value
    Out[5]:
    array([[ -6.05266606,  -6.66164664,  -0.34922808],
@@ -258,5 +238,4 @@ Extract the ``xyz`` array from the file
           [ 12.67824199,   3.35761305,  -0.39397658],
           [-11.34601204,   0.75837632,   0.6858956 ]])
 
-See `h5py docs <http://docs.h5py.org/en/stable/quick.html>`__ for more
-information
+See `h5py docs <http://docs.h5py.org/en/stable/quick.html>`__ for more information
