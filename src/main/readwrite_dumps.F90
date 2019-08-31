@@ -1626,7 +1626,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  real,            intent(out) :: tfile,hfactfile,alphafile
  integer,         intent(in)  :: iprint,id,nprocs
  integer,         intent(out) :: ierr
- integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile
+ integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile,nptinfile
  integer         :: ierr1,ierrs(3),i,counter
  integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
  character(len=10) :: dust_label(maxdustlarge)
@@ -1730,8 +1730,10 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
     write(iprint,*) 'ERROR reading units from dump file, assuming default'
     call set_units()  ! use default units
  endif
+ ! get nptmass from header, needed to figure out if gwinspiral info is sensible
+ call extract('nptmass',nptinfile,hdr,ierrs(1))
 !--default real
- call unfill_rheader(hdr,phantomdump,ntypesinfile,&
+ call unfill_rheader(hdr,phantomdump,ntypesinfile,nptinfile,&
                      tfile,hfactfile,alphafile,iprint,ierr)
  if (ierr /= 0) return
 
@@ -1868,7 +1870,7 @@ end subroutine fill_header
 !  subroutine to set runtime parameters having read the real header
 !+
 !-------------------------------------------------------------------
-subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
+subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
  use dim,            only:maxvxyzu,use_dust,use_dustgrowth
@@ -1883,7 +1885,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
  use dump_utils,     only:extract
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
- integer,      intent(in)  :: iprint,ntypesinfile
+ integer,      intent(in)  :: iprint,ntypesinfile,nptmass
  real,         intent(out) :: tfile,hfactfile,alphafile
  integer,      intent(out) :: ierr
 
@@ -1946,10 +1948,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,&
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
     if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then
-       call read_headeropts_extern(iexternalforce,hdr,ierrs(1))
+       call read_headeropts_extern(iexternalforce,hdr,nptmass,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
     elseif (iextern_in_file /= 0) then
-       call read_headeropts_extern(iextern_in_file,hdr,ierrs(1))
+       call read_headeropts_extern(iextern_in_file,hdr,nptmass,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
     endif
  else

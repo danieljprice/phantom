@@ -66,7 +66,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--units
 !
- call set_units(mass=solarm,dist=au,G=1.d0)
+! call set_units(mass=solarm,dist=au,G=1.d0)
+ call set_units(mass=solarm,G=1.d0,c=1.d0)
 !
 !--general parameters
 !
@@ -86,10 +87,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  m1    = 1.
  massr = 1.
- a     = -2.*pi ! 70 AU
+ a     = 1. !-2.*pi ! 70 AU
  ecc   = 0.7
- hacc1  = 0.1 !17 ! 1.7 AU
- hacc2  = 0.1 !17
+ hacc1  = 2. !17 ! 1.7 AU
+ hacc2  = 2 !17
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Welcome to the Ultimate Binary Setup'
  filename = trim(fileprefix)//'.setup'
