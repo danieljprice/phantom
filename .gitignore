@@ -13,3 +13,4 @@ build/phantom-version.h
 *.pyc
 *.js
 .DS_Store
+_build
