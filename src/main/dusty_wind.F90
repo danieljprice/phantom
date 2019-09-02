@@ -26,8 +26,7 @@ module dusty_wind
  implicit none
  public :: setup_dustywind
  public :: get_initial_wind_speed
- public :: wind_state, dusty_wind_profile,radiative_acceleration
- public :: evolve_dust
+ public :: wind_state, dusty_wind_profile,radiative_acceleration,evolve_dust
 
  private
 
@@ -38,7 +37,7 @@ module dusty_wind
  character(len=*), parameter :: label = 'dusty_wind'
 
 ! Wind properties
- real :: Mstar_cgs, Lstar_cgs, Tstar, Rstar_cgs, wind_gamma, expT, Mdot_cgs
+ real :: Mstar_cgs, Rstar_cgs, wind_gamma, Mdot_cgs, expT, Lstar_cgs, Tstar,
  real :: u_to_temperature_ratio, wind_alpha
  integer :: wind_type
 
@@ -61,8 +60,8 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
  use wind_cooling, only:init_windcooling
  use dust_formation, only:set_abundances
 
- real, intent(in) :: Mstar_in, Lstar_in, Tstar_in, Rstar_cg, expT_in,&
-      Mdot_in, u_to_T, alpha_in, CO_ratio_in
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, expT_in,&
+      CO_ratio_in, Lstar_in, Tstar_in
  integer, intent(in) :: wind_type_in
 
  Mstar_cgs = Mstar_in*solarm
@@ -433,7 +432,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs   = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
  if (iverbose>0) then
-    if (vesc> 1.d-100) then
+    if (vesc> 1.d-50) then
        alpha_max = 1.-(2.*cs/vesc)**2
     else
        alpha_max = 0.
@@ -462,12 +461,12 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  if (stype == 1) then
 
 ! Find lower bound for initial velocity
- v0 = cs
+ v0 = cs*0.991
  v0max = v0
  icount = 0
  do while (icount < ncount_max)
     call calc_dustywind_profile(r0, v0, T0, 0., state)
-    if (iverbose>1) print *,' v0 = ', v0,state%r,state%v,state%c,state%time,icount,state%spcode
+    if (iverbose>1) print *,' v0/cs = ',v0/cs
     if (state%spcode == -1) then
        v0min = v0
        exit
@@ -477,15 +476,16 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     endif
     icount = icount+1
  enddo
+ if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
  if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Lower bound found for v0/cs :', v0min/cs
+ if (v0min/cs > 0.99)  call fatal(label,'supersonic wind solution, set sonic_type = 0 and provide wind_velocity')
 
 ! Find upper bound for initial velocity
  v0 = v0max
  icount = 0
  do while (icount < ncount_max)
-    if (iverbose>1) print *, ' v0/cs = ', v0/cs
     call calc_dustywind_profile(r0, v0, T0, 0., state)
+    if (iverbose>1) print *,' v0/cs = ',v0/cs
     if (state%spcode == 1) then
        v0max = v0
        exit
@@ -502,8 +502,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  do
     v0last = v0
     v0 = (v0min+v0max)/2.
-    if (iverbose>1) print *, 'v0 = ', v0
     call calc_dustywind_profile(r0, v0, T0, 0., state)
+    if (iverbose>1) print *, 'v0/cs = ',v0/cs
     if (state%spcode == -1) then
        v0min = v0
     elseif (state%spcode == 1) then
@@ -666,7 +666,7 @@ subroutine save_windprofile(r0, v0, T0, tsonic, filename)
  n = 1
  iter = 0
  dt_print = max(min(tsonic/10.,state%time_end/256.),state%time_end/5000.)
- do while(state%time < time_end .and. iter < 10000000 .and. state%Tg > Tdust_stop)
+ do while(state%time < time_end .and. iter < 1000000 .and. state%Tg > Tdust_stop)
     iter = iter+1
     call dustywind_step(state)
     written = .false.
@@ -677,7 +677,7 @@ subroutine save_windprofile(r0, v0, T0, tsonic, filename)
     endif
  enddo
  if (.not. written) call filewrite_state(1337, state) ! write last state
- if (state%time/state%time_end < .1) then
+ if (state%time/state%time_end < .3) then
     write(*,'(/,"[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5," Tgas = ",f6.0," iter = ",i7,/)') &
          state%time/time_end,state%dt/time_end,state%Tg,iter
  endif

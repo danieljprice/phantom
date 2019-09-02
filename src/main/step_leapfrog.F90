@@ -587,8 +587,7 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  !$omp shared(npart,xyzh,vxyzu,dt,iphase) &
  !$omp private(i)
  do i=1,npart
-!cls    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (.not.isdead_or_accreted(xyzh(4,i)).and.iamtype(iphase(i))/=iboundary) then
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
        !
        ! main position update
        !
@@ -754,9 +753,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
           endif
-!cls
-          if (itype==iboundary) cycle predictor
-          !
+           !
           ! predict v to the half step
           !
           vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)

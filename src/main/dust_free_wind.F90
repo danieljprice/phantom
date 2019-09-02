@@ -57,7 +57,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind, wind
  use eos,          only:gamma
  use wind_cooling, only:init_windcooling
 
- real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in,u_to_T,alpha_in, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind
  integer, intent(in) :: wind_type_in
 
  Mstar_cgs = Mstar_in*solarm
@@ -280,7 +280,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs   = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
  if (iverbose>0) then
-    if (vesc> 1.d-100) then
+    if (vesc> 1.d-50) then
        alpha_max = 1.-(2.*cs/vesc)**2
     else
        alpha_max = 0.
@@ -291,7 +291,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     print *, ' * Mstar      = ',Mstar_cgs/1.9891d33
     print *, ' * Twind      = ',T0
 #ifndef ISOTHERMAL
-    print *, ' * Rstar(au)  = ',Rstar_cgs/1.496d13
+    print *, ' * Rstar(au)  = ',Rstar_cgs/1.496d13,Rstar_cgs/69600000000.
     print *, ' * Mdot       = ',Mdot_cgs/6.30303620274d25
     print *, ' * r0(au)     = ',r0/1.496d13,r0/69600000000.
     print *, ' * gamma      = ',wind_gamma
@@ -311,12 +311,12 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  if (stype == 1) then
 
 ! Find lower bound for initial velocity
- v0 = cs
+ v0 = cs*0.991
  v0max = v0
  icount = 0
  do while (icount < ncount_max)
     call calc_wind_profile(r0, v0, T0, 0., state)
-    if (iverbose>1) print *,' v0 = ', v0,state%r,state%v,state%c,state%time,icount,state%spcode
+    if (iverbose>1) print *,' v0/cs = ',v0/cs
     if (state%spcode == -1) then
        v0min = v0
        exit
@@ -326,15 +326,16 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     endif
     icount = icount+1
  enddo
+ if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
  if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Lower bound found for v0/cs :', v0min/cs
+ if (v0min/cs > 0.99)  call fatal(label,'supersonic wind solution, set sonic_type = 0 and provide wind_velocity')
 
 ! Find upper bound for initial velocity
  v0 = v0max
  icount = 0
  do while (icount < ncount_max)
-    if (iverbose>1) print *, ' v0/cs = ', v0/cs
     call calc_wind_profile(r0, v0, T0, 0., state)
+    if (iverbose>1) print *,' v0/cs = ',v0/cs
     if (state%spcode == 1) then
        v0max = v0
        exit
@@ -351,8 +352,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  do
     v0last = v0
     v0 = (v0min+v0max)/2.
-    if (iverbose>1) print *, 'v0 = ', v0
     call calc_wind_profile(r0, v0, T0, 0., state)
+    if (iverbose>1) print *, 'v0/cs = ',v0/cs
     if (state%spcode == -1) then
        v0min = v0
     elseif (state%spcode == 1) then
@@ -374,11 +375,11 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  sonic(7) = state%alpha
  !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  cs (km/s) =",f9.3,"  Rs/R* = ",f7.3," theory = ",f7.3," ts =",f8.1," alpha =",f5.3)') &
-      sonic(2)/1e5,sonic(1)/Rstar_cgs,Rs/Rstar_cgs,sonic(4)/utime,sonic(7)
+ write (*,'("Sonic point properties  cs (km/s) =",f9.3,", Rs/r0 = ",f7.3,", Rs/R* = ",f7.3,", v0/cs = ",f9.6,", ts =",f8.1)') &
+      sonic(2)/1e5,sonic(1)/r0,sonic(1)/Rstar_cgs,v0/sonic(2),sonic(4)/utime
 
  endif
- !save 1D initial profile for comparison
+!save 1D initial profile for comparison
  write (*,'("Saving 1D model : ")')
  call save_windprofile(r0, v0, T0, sonic(4),'windprofile1D.dat')
 
@@ -420,7 +421,7 @@ subroutine save_windprofile(r0, v0, T0, tsonic, filename)
     endif
  enddo
  if (.not. written) call filewrite_state(1337, state) ! write last state
- if (state%time/time_end < .4) then
+ if (state%time/time_end < .3) then
     write(*,'(/,"[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5," Tgas = ",f6.0," iter = ",i7,/)') &
          state%time/time_end,state%dt/time_end,state%Tg,iter
  endif

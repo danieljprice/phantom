@@ -113,6 +113,7 @@ subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_
  new_rvT(1) = r
  new_rvT(2) = v0 + H*(dv1_dr+2.*(dv2_dr+dv3_dr)+dv4_dr)/6.
  new_rvT(3) = T0 + H*(dT1_dr+2.*(dT2_dr+dT3_dr)+dT4_dr)/6.
+ ! imposed temperature profile
  if (wind_type == 2) new_rvT(3) = Tstar*(Rstar_cgs/new_rvT(1))**expT
 end subroutine RK4_step_dr
 
@@ -130,7 +131,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
  real, intent(out) :: numerator, denominator
 
  real :: AA, BB, CC, c2, T0
- real, parameter :: denom_tol = 1.d-2
+ real, parameter :: denom_tol = 3.d-2 !the solution is very sensitive to this parameter!
 
 !Temperature law
  if (wind_type == 2) then
@@ -140,9 +141,6 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
        AA = 2.*c2/v**3
-       !BB = (2.*r*c2*(1.+expt)-Gg*Mstar_cgs*(1.-alpha))/(r**2*v**2)
-       !CC = ((2.+expt)*(1.+expt)*r*c2-Gg*Mstar_cgs*(2.-2.*alpha+r*dalpha_dr))/(r**3*v)
-       !dv_dr = solve_q(AA, BB, CC)
        BB = expT*c2/(r*v)
        CC = ((2.+expT)*(1.+expT)*r*v*c2-Gg*Mstar_cgs*v*(2.-2.*alpha+r*dalpha_dr))/(r**3)
        dv_dr = solve_q(AA, BB, CC)
@@ -198,6 +196,7 @@ pure real function solve_q(a, b, c)
 end function solve_q
 
 real function energy_profile(xyzh)
+ !called only when temperature profile is imposed
  real, intent(in) :: xyzh(4)
  real :: r
  r = sqrt(xyzh(1)**2+xyzh(2)**2+xyzh(3)**2)

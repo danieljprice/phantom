@@ -54,7 +54,7 @@ module inject
 !
 ! Read from input file
  integer, public:: iboundary_spheres = 3
- integer, public:: wind_type = 3
+ integer, public:: wind_type = 1
  real, public::    wind_expT = 0.5
  real, public::    wind_shell_spacing = 1.
  real, public::    wind_alpha = 0.
@@ -235,7 +235,6 @@ subroutine init_inject(ierr)
     mass_of_particles = wind_shell_spacing*neighbour_distance * wind_injection_radius * &
          wind_mass_rate / (particles_per_sphere * (wind_velocity+piston_velocity))
     massoftype(igas) = mass_of_particles
-    !print *,mass_of_particles,wind_injection_radius,wind_velocity
     print *,'iwind_resolution unchanged = ',iresolution
  endif
 
@@ -268,10 +267,13 @@ subroutine init_inject(ierr)
  !print*,'mass_of_spheres            = ',mass_of_spheres
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
  print*,'distance to sonic point    = ',sonic(1)/udist-wind_injection_radius
+ print*,'sonic radius               = ',sonic(1)/udist,sonic(1)
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'number of shells to sonic  = ',(sonic(1)/udist-wind_injection_radius)/(wind_shell_spacing*neighbour_distance)
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'time_to_sonic_point        = ',sonic(4)/utime
+ print*,'wind_temperature           = ',wind_temperature
+ print*,'wind_type                  = ',wind_type
  print*,'wind_injection_radius      = ',wind_injection_radius
  print*,'stellar_radius             = ',Rstar_cgs / udist
 #ifdef BOWEN
@@ -328,6 +330,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #elif BOWEN
  real :: surface_radius
 #endif
+ integer, parameter :: nreleased = 50
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
 
@@ -342,19 +345,21 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  if (npart > 0) then
-    nshell_released = iboundary_spheres-10
-    nboundaries = iboundary_spheres-nshell_released
+    nshell_released = nreleased
+    nboundaries = iboundary_spheres
+    !release particles and declare inner boundary shells as gas particles so they exert some pressure
+    ipart = igas
     if (.not.released) then
        do i = npart-nshell_released*particles_per_sphere+1,npart
           call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),i,i,npartoftype,xyzh,vxyzu)
        enddo
        released = .true.
-    else
-       return
     endif
  else
+    !initialise domain with boundary particles
+    ipart = iboundary
     nshell_released = 0
-    nboundaries = iboundary_spheres
+    nboundaries = iboundary_spheres+nreleased
  endif
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nshell_released
  inner_sphere = floor(time/time_between_spheres)+nshell_released
@@ -362,14 +367,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  !only one sphere can be ejected at a time
  if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
- ipart = iboundary
 
  do i=inner_boundary_sphere,outer_sphere,-1
-    ! if (i > inner_sphere) then
-    !    local_time = (i-inner_sphere-1) * time_between_spheres
-    ! else
-       local_time = time + (abs(shift_spheres)-i) * time_between_spheres
-    ! endif
+    local_time = time + (iboundary_spheres+nreleased-i) * time_between_spheres
 
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
     v = wind_velocity
@@ -388,8 +388,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (i > inner_sphere) then
        ! boundary sphere
        first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
-       print '(" ##### boundary sphere ",i4,i7,3(i4),i7,9(1x,es12.5))',i,first_particle,inner_sphere,nboundaries,&
-            outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
+       ! print '(" ##### boundary sphere ",i4,i7,3(i4),i7,9(1x,es12.5))',i,first_particle,inner_sphere,nboundaries,&
+       !      outer_sphere,npart,time,local_time,r/xyzmh_ptmass(5,1),v,u,rho
 #ifdef NUCLEATION
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
