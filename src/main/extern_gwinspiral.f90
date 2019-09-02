@@ -21,8 +21,7 @@
 !  RUNTIME PARAMETERS:
 !    stop_ratio -- ratio of particles crossing CoM to indicate a merger
 !
-!  DEPENDENCIES: centreofmass, dump_utils, infile_utils, io, part, physcon,
-!    units
+!  DEPENDENCIES: centreofmass, dump_utils, infile_utils, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 module extern_gwinspiral
