@@ -29,9 +29,9 @@ module analysis
  private
 
  integer :: nbins
- real    :: mh = 1.
- integer, parameter :: nmaxbins = 5000
- real    :: rmax
+
+ real    :: mh   = 1.
+ real    :: rmax = 700.
 
 contains
 
@@ -45,7 +45,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: filename
- real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
+ real, dimension(:), allocatable :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
@@ -57,10 +57,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(*,'("WARNING: could not read luminosity from file. It will be set to zero")')
     write(*,*)
     luminosity = 0.
- else if (first) then
-    rmax  = 700.
-    call prompt('Enter value for rmax when binning luminosity',rmax,0.)
-    first = .false.
  endif
 
 ! Print the analysis being done
@@ -79,19 +75,23 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  inquire(file=filename,exist=iexist)
  if (iexist) call read_tdeparams(filename,ierr)
  if (.not.iexist.or.ierr/=0) then
+    nbins = int(sqrt(real(npart)))
     call write_tdeparams(filename)
     print*,' Edit '//trim(filename)//' and rerun phantomanalysis'
     stop
  endif
 
-! Print out the parameters
- write(*,*)
- write(*,'("Parameters are:")')
- write(*,*) 'mh (black hole mass)    = ',mh
- write(*,*)
+ allocate(ebins(nbins),dnde(nbins),tbins(nbins),dndt(nbins),rbins(nbins),dlumdr(nbins),lumcdf(nbins),&
+          lbins(nbins),dndl(nbins),angbins(nbins),dndang(nbins),vbins(nbins),dndv(nbins))
 
- nbins = int(sqrt(real(npart)))
- if (nbins > nmaxbins) nbins = nmaxbins
+ if (first) then
+   ! Print out the parameters
+    write(*,*)
+    write(*,'("Parameters are:")')
+    write(*,*) 'mh (black hole mass)    = ',mh
+    write(*,*)
+    first = .false.
+ endif
 
  call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
                    lbins,dndl,angbins,dndang,vbins,dndv)
@@ -130,6 +130,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        dndv(i)
  enddo
 
+ deallocate(ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv)
+
 end subroutine do_analysis
 
 !--------------------------------------------------------------------------------------------------------------------
@@ -143,7 +145,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
- real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
+ real, intent(out), dimension(:) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i
  real, dimension(npart) :: eps,tr,r,Langm,vel
  real :: v2,trmin,Li(3)
@@ -299,7 +301,9 @@ subroutine write_tdeparams(filename)
  print "(a)",' writing analysis options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# options when performing TDE analysis'
- call write_inopt(mh,        'mh',        'black hole mass in code units',iunit)
+ call write_inopt(mh,'mh','black hole mass in code units',iunit)
+ call write_inopt(nbins,'nbins','number of bins',iunit)
+  call write_inopt(rmax,'rmax','',iunit)
  close(iunit)
 
 end subroutine write_tdeparams
@@ -317,7 +321,9 @@ subroutine read_tdeparams(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mh,        'mh',        db,min=0.,errcount=nerr)
+ call read_inopt(mh,'mh',db,min=0.,errcount=nerr)
+ call read_inopt(nbins,'nbins',db,min=0,errcount=nerr)
+ call read_inopt(rmax,'rmax',db,min=0.,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of params file: re-writing...'
