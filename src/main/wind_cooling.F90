@@ -28,7 +28,7 @@ module wind_cooling
  public :: init_windcooling,calc_cooling_rate,wind_energy_cooling,read_options_windcooling,&
       write_options_windcooling
  logical, public :: calc_Teq
- real, public::    bowen_Cprime = 3.000d-5
+ real, public:: bowen_Cprime = 3.000d-5
 
  private
  integer, parameter :: nT = 64
@@ -320,7 +320,7 @@ subroutine write_options_windcooling(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
-#ifdef NUCLEATION
+#if defined(NUCLEATION) || defined(BOWEN)
  call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
 #endif
 
@@ -334,7 +334,7 @@ subroutine read_options_windcooling(name,valstring,imatch,igotall,ierr)
  integer, save :: ngot = 0
 
  imatch  = .true.
-#ifdef NUCLEATION
+#if defined(NUCLEATION) || defined(BOWEN)
  igotall = .false.  ! cooling options are compulsory
  select case(trim(name))
  case('bowen_Cprime')

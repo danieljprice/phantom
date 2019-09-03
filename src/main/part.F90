@@ -668,20 +668,24 @@ subroutine kill_particle(i,npoftype)
  integer, intent(inout), optional :: npoftype(:)
  integer :: itype
 
- xyzh(4,i) = 0.
- if (present(npoftype)) then
-    ! get the type so we know how to decrement npartoftype
-    if (maxphase==maxp) then
-       itype = iamtype(iphase(i))
-    else
-       itype = igas
+ ! do not kill particles that are already dead
+ ! because this causes endless loop in shuffle_part
+ if (abs(xyzh(4,i)) > 0.) then
+    xyzh(4,i) = 0.
+    if (present(npoftype)) then
+       ! get the type so we know how to decrement npartoftype
+       if (maxphase==maxp) then
+          itype = iamtype(iphase(i))
+       else
+          itype = igas
+       endif
+       npoftype(itype) = npoftype(itype) - 1
     endif
-    npoftype(itype) = npoftype(itype) - 1
+    !$omp critical
+    ll(i) = ideadhead
+    ideadhead = i
+    !$omp end critical
  endif
-!$omp critical
- ll(i) = ideadhead
- ideadhead = i
-!$omp end critical
 
 end subroutine kill_particle
 
@@ -999,7 +1003,9 @@ subroutine shuffle_part(np)
           ! move particle to new position
           call copy_particle_all(np,newpart)
           ! move ibelong to new position
+#ifdef MPI
           ibelong(newpart) = ibelong(np)
+#endif
           ! update deadhead
           ideadhead = ll(newpart)
        endif
@@ -1322,20 +1328,24 @@ end subroutine
 !  Delete particles outside of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center, radius)
- real, intent(in) :: center(3), radius
-
+subroutine delete_particles_outside_sphere(center,radius,np)
+ real,    intent(in)    :: center(3), radius
+ integer, intent(inout) :: np
  integer :: i
  real :: r(3), radius_squared
 
  radius_squared = radius**2
- do i=1,npart
+ !$omp parallel do default(none) &
+ !$omp shared(np,npartoftype,xyzh,radius_squared,center) &
+ !$omp private(i,r)
+ do i=1,np
     r = xyzh(1:3,i) - center
-    if (dot_product(r,r)  >  radius_squared) then
-       xyzh(4,i) = -abs(xyzh(4,i))
-    endif
+    if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
  enddo
-end subroutine
+ !$omp end parallel do
+ call shuffle_part(np)
+
+end subroutine delete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+

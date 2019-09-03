@@ -36,7 +36,7 @@ module bowen_dust
  real, parameter :: alpha_wind = 1.d0
  real :: kappa_gas, kmax, L, c_light, u_to_temperature_ratio, Tcond, deltaT, Teff,&
       Reff, omega_osc, deltaR_osc, usteboltz, wind_injection_radius, piston_velocity, Rmin, &
-      wind_velocity, wind_pulsation_period,wind_temperature
+      wind_velocity, pulsation_period,wind_temperature
  integer :: nwall_particles
 
 contains
@@ -169,15 +169,16 @@ subroutine setup_bowen(u_to_T_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_radius
  deltaT = bowen_delta
  Teff  = star_Teff
  Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
- omega_osc = 2.*pi/wind_pulsation_period
+ pulsation_period = wind_osc_period
+ omega_osc = 2.*pi/pulsation_period
  deltaR_osc = piston_velocity/omega_osc
  nwall_particles = nwall
  wind_injection_radius = wind_radius
  piston_velocity = piston_vamplitude
  usteboltz = L/(4.*pi*Reff**2*Teff**4)
- Rmin = Reff - deltaR_osc
+ !cls Rmin = Reff - deltaR_osc
+ Rmin = wind_injection_radius - deltaR_osc
  wind_velocity = wind_speed
- wind_pulsation_period = wind_osc_period
  wind_temperature = wind_T
 
 end subroutine setup_bowen
@@ -201,12 +202,14 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, 
  real :: surface_radius,r3
  logical :: verbose = .true.
 
- v = wind_velocity + piston_velocity* cos(2.*pi*time/wind_pulsation_period) !same velocity for all wall particles
- surface_radius = wind_injection_radius + piston_velocity*wind_pulsation_period/(2.*pi)*sin(2.*pi*time/wind_pulsation_period)
+ v = wind_velocity + piston_velocity* cos(omega_osc*time) !same velocity for all wall particles
+ surface_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
+ !ejected spheres
  if (sphere_number <= inner_sphere) then
     r = surface_radius
     v = max(piston_velocity,wind_velocity)
  else
+    !boundary spheres
     r3 = surface_radius**3-dr3
     do k = 2,sphere_number-inner_sphere
        r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
@@ -226,11 +229,11 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, 
     if (sphere_number > inner_sphere) then
        print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
-             sphere_number,inner_sphere,surface_radius,r,v,time/wind_pulsation_period
+             sphere_number,inner_sphere,surface_radius,r,v,time/pulsation_period
     else
        print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
-             sphere_number,inner_sphere,surface_radius,r,v,time/wind_pulsation_period
+             sphere_number,inner_sphere,surface_radius,r,v,time/pulsation_period
     endif
  endif
 
