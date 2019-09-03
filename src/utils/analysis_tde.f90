@@ -45,7 +45,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: tdeprefix,tdeparams
- real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang
+ real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i,iline,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
@@ -101,11 +101,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  nbins = int(sqrt(real(npart)))
  if (nbins > nmaxbins) nbins = nmaxbins
 
- call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang)
+ call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
+                   lbins,dndl,angbins,dndang,vbins,dndv)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'e',      &
        2,'dn/de',  &
        3,'tr',     &
@@ -116,10 +117,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        8,'lum',    &
        9,'dndlum', &
        10,'angm',  &
-       11,'dndang'
+       11,'dndang',&
+       12,'v'     ,&
+       13,'dndv'
 
  do i = 1,nbins
-    write(iunit,'(11(es18.10,1X))') &
+    write(iunit,'(13(es18.10,1X))') &
        ebins(i),   &
        dnde(i),    &
        tbins(i),   &
@@ -130,7 +133,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        lbins(i),   &
        dndl(i),    &
        angbins(i), &
-       dndang(i)
+       dndang(i),  &
+       vbins(i),   &
+       dndv(i)
  enddo
 
 end subroutine do_analysis
@@ -140,14 +145,16 @@ end subroutine do_analysis
 !-- Actual subroutine where the analysis is done!
 !
 !--------------------------------------------------------------------------------------------------------------------
-subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang)
- use part, only:isdead_or_accreted
+subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
+                        lbins,dndl,angbins,dndang,vbins,dndv)
+ use part,        only:isdead_or_accreted
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
- real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang
+ real, intent(out), dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i
- real    :: eps(npart),tr(npart),r(npart),v2,trmin,Li(3),Langm(npart)
+ real, dimension(npart) :: eps,tr,r,Langm,vel
+ real :: v2,trmin,Li(3)
 
  !
  !-- Compute the specific energy and return time of each particle, store in an array
@@ -165,6 +172,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
     else
        tr(i) = 0.
     endif
+    vel(i) = sqrt(v2)
  enddo
 
  ! Create a histogram of the enegies, return times, luminosity as a function of radius, and luminosity
@@ -174,6 +182,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  call hist(npart,r,         rbins,dlumdr,0.,                rmax,              nbins,luminosity)
  call hist(npart,luminosity,lbins,dndl,  minval(luminosity),maxval(luminosity),nbins)
  call hist(npart,Langm,     angbins,dndang,minval(Langm),maxval(Langm),nbins)
+ call hist(npart,vel,       vbins,dndv,minval(vel),maxval(vel),nbins)
 
  !-- Calculate the luminosity CDF as a function of radius
  do i=1,nbins
