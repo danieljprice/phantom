@@ -30,10 +30,22 @@ module analysis
 
  real, dimension(:), allocatable :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
 
+ !---- These can be changed in the params file
  integer :: nbins
-
- real    :: mh   = 1.
- real    :: rmin = 0., rmax = 700.
+ real :: mh     = 1.
+ !--- If min=max then lims are set dynamically
+ real :: emin   = 0.
+ real :: emax   = 0.
+ real :: trmin  = 0.
+ real :: trmax  = 0.
+ real :: rmin   = 0.
+ real :: rmax   = 0.
+ real :: lummin = 0.
+ real :: lummax = 0.
+ real :: angmin = 0.
+ real :: angmax = 0.
+ real :: vmin   = 0.
+ real :: vmax   = 0.
 
 contains
 
@@ -136,7 +148,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity)
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
  integer :: i
  real, dimension(npart) :: eps,tr,r,Langm,vel
- real :: v2,trmin,Li(3)
+ real :: v2,Li(3)
 
  !
  !-- Compute the specific energy and return time of each particle, store in an array
@@ -157,14 +169,39 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity)
     vel(i) = sqrt(v2)
  enddo
 
+ !---- If min=max then do dynamic limits for each dump
+ if (abs(emin-emax)<tiny(1.)) then
+    emin   = minval(eps)
+    emax   = maxval(eps)
+ endif
+ if (abs(trmin-trmax)<tiny(1.)) then
+    trmin  = treturn(mh,minval(eps))
+    trmax  = 100.*trmin
+ endif
+ if (abs(rmin-rmax)<tiny(1.)) then
+    rmin   = minval(r)
+    rmax   = maxval(r)
+ endif
+ if (abs(lummin-lummax)<tiny(1.)) then
+    lummin = minval(luminosity)
+    lummax = maxval(luminosity)
+ endif
+ if (abs(angmin-angmax)<tiny(1.)) then
+    angmin = minval(Langm)
+    angmax = maxval(Langm)
+ endif
+ if (abs(vmin-vmax)<tiny(1.)) then
+    vmin   = minval(vel)
+    vmax   = maxval(vel)
+ endif
+
  ! Create a histogram of the enegies, return times, luminosity as a function of radius, and luminosity
- call hist(npart,eps,       ebins,dnde,minval(eps),maxval(eps),nbins)
- trmin = treturn(mh,minval(eps))
- call hist(npart,tr,        tbins,dndt,trmin,trmin*100.,nbins)
- call hist(npart,r,rbins,dlumdr,rmin,rmax,nbins,luminosity)
- call hist(npart,luminosity,lbins,dndl,  minval(luminosity),maxval(luminosity),nbins)
- call hist(npart,Langm,     angbins,dndang,minval(Langm),maxval(Langm),nbins)
- call hist(npart,vel,       vbins,dndv,minval(vel),maxval(vel),nbins)
+ call hist(npart, eps       , ebins  , dnde  , emin  , emax  , nbins)
+ call hist(npart, tr        , tbins  , dndt  , trmin , trmax , nbins)
+ call hist(npart, r         , rbins  , dlumdr, rmin  , rmax  , nbins, luminosity)
+ call hist(npart, luminosity, lbins  , dndl  , lummin, lummax, nbins)
+ call hist(npart, Langm     , angbins, dndang, angmin, angmax, nbins)
+ call hist(npart, vel       , vbins  , dndv  , vmin  , vmax  , nbins)
 
  !-- Calculate the luminosity CDF as a function of radius
  do i=1,nbins
@@ -291,8 +328,26 @@ subroutine write_tdeparams(filename)
  write(iunit,"(a,/)") '# options when performing TDE analysis'
  call write_inopt(mh,'mh','black hole mass in code units',iunit)
  call write_inopt(nbins,'nbins','number of bins',iunit)
- call write_inopt(rmin,'rmin','min radius to bin from',iunit)
- call write_inopt(rmax,'rmax','max radius to bin up to',iunit)
+
+ write(iunit,"(/,a)") '# limits for binning (set min=max to have dynamic limits)'
+ call write_inopt(emin,'emin','min energy',iunit)
+ call write_inopt(emax,'emax','max energy',iunit)
+
+ call write_inopt(trmin,'trmin','min return time',iunit)
+ call write_inopt(trmax,'trmax','max return time',iunit)
+
+ call write_inopt(rmin,'rmin','min radius',iunit)
+ call write_inopt(rmax,'rmax','max radius',iunit)
+
+ call write_inopt(lummin,'lummin','min luminosity',iunit)
+ call write_inopt(lummax,'lummax','max luminosity',iunit)
+
+ call write_inopt(angmin,'angmin','min angular momentum',iunit)
+ call write_inopt(angmax,'angmax','max angular momentum',iunit)
+
+ call write_inopt(vmin,'vmin','min velocity',iunit)
+ call write_inopt(vmax,'vmax','max velocity',iunit)
+
  close(iunit)
 
 end subroutine write_tdeparams
@@ -310,10 +365,27 @@ subroutine read_tdeparams(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mh,'mh',db,min=0.,errcount=nerr)
- call read_inopt(nbins,'nbins',db,min=0,errcount=nerr)
- call read_inopt(rmin,'rmin',db,min=0.,errcount=nerr)
- call read_inopt(rmax,'rmax',db,min=0.,errcount=nerr)
+ call read_inopt(mh,   'mh',   db,min=0.,errcount=nerr)
+ call read_inopt(nbins,'nbins',db,min=0, errcount=nerr)
+
+ call read_inopt(emin,'emin',db,         errcount=nerr)
+ call read_inopt(emax,'emax',db,min=emin,errcount=nerr)
+
+ call read_inopt(trmin,'trmin',db,min=0.,   errcount=nerr)
+ call read_inopt(trmax,'trmax',db,min=trmin,errcount=nerr)
+
+ call read_inopt(rmin,'rmin',db,min=0.,  errcount=nerr)
+ call read_inopt(rmax,'rmax',db,min=rmin,errcount=nerr)
+
+ call read_inopt(lummin,'lummin',db,min=0.,    errcount=nerr)
+ call read_inopt(lummax,'lummax',db,min=lummin,errcount=nerr)
+
+ call read_inopt(angmin,'angmin',db,min=0.,    errcount=nerr)
+ call read_inopt(angmax,'angmax',db,min=angmin,errcount=nerr)
+
+ call read_inopt(vmin,'vmin',db,min=0.,  errcount=nerr)
+ call read_inopt(vmax,'vmax',db,min=vmin,errcount=nerr)
+
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of params file: re-writing...'
