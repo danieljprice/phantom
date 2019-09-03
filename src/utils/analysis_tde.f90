@@ -23,7 +23,7 @@
 !--------------------------------------------------------------------------
 module analysis
  implicit none
- character(len=20), parameter, public :: analysistype = 'tde'
+ character(len=3), parameter, public :: analysistype = 'tde'
  public :: do_analysis
 
  private
@@ -31,7 +31,7 @@ module analysis
  integer :: nbins
 
  real    :: mh   = 1.
- real    :: rmax = 700.
+ real    :: rmin = 0., rmax = 700.
 
 contains
 
@@ -49,7 +49,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
- logical, save :: first = .true.
 
  call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
  if (ierr/=0) then
@@ -83,15 +82,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  allocate(ebins(nbins),dnde(nbins),tbins(nbins),dndt(nbins),rbins(nbins),dlumdr(nbins),lumcdf(nbins),&
           lbins(nbins),dndl(nbins),angbins(nbins),dndang(nbins),vbins(nbins),dndv(nbins))
-
- if (first) then
-   ! Print out the parameters
-    write(*,*)
-    write(*,'("Parameters are:")')
-    write(*,*) 'mh (black hole mass)    = ',mh
-    write(*,*)
-    first = .false.
- endif
 
  call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
                    lbins,dndl,angbins,dndang,vbins,dndv)
@@ -170,10 +160,10 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  enddo
 
  ! Create a histogram of the enegies, return times, luminosity as a function of radius, and luminosity
- call hist(npart,eps,       ebins,dnde,  minval(eps),       maxval(eps),       nbins)
+ call hist(npart,eps,       ebins,dnde,emin,emax,nbins)
  trmin = treturn(mh,minval(eps))
- call hist(npart,tr,        tbins,dndt,  trmin,             trmin*100.,        nbins)
- call hist(npart,r,         rbins,dlumdr,0.,                rmax,              nbins,luminosity)
+ call hist(npart,tr,        tbins,dndt,trmin,trmin*100.,nbins)
+ call hist(npart,r,rbins,dlumdr,rmin,rmax,nbins,luminosity)
  call hist(npart,luminosity,lbins,dndl,  minval(luminosity),maxval(luminosity),nbins)
  call hist(npart,Langm,     angbins,dndang,minval(Langm),maxval(Langm),nbins)
  call hist(npart,vel,       vbins,dndv,minval(vel),maxval(vel),nbins)
@@ -300,10 +290,11 @@ subroutine write_tdeparams(filename)
 
  print "(a)",' writing analysis options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# options when performing TDE analysis'
+ write(iunit,"(a,/)") '# options when performing TDE analysis'
  call write_inopt(mh,'mh','black hole mass in code units',iunit)
  call write_inopt(nbins,'nbins','number of bins',iunit)
-  call write_inopt(rmax,'rmax','',iunit)
+ call write_inopt(rmin,'rmin','min radius to bin from',iunit)
+ call write_inopt(rmax,'rmax','max radius to bin up to',iunit)
  close(iunit)
 
 end subroutine write_tdeparams
@@ -323,6 +314,7 @@ subroutine read_tdeparams(filename,ierr)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(mh,'mh',db,min=0.,errcount=nerr)
  call read_inopt(nbins,'nbins',db,min=0,errcount=nerr)
+ call read_inopt(rmin,'rmin',db,min=0.,errcount=nerr)
  call read_inopt(rmax,'rmax',db,min=0.,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
