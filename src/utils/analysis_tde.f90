@@ -101,7 +101,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call tde_analysis(npart,pmass,xyzh,vxyzu,real(luminosity))
 
  open(iunit,file=output)
- write(iunit,'("# Analysis data at t = ",es20.12)') time
+ write(iunit,'("# ",es20.12,"   # TIME")') time
  write(iunit,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'e',      &
        2,'dmde',  &
