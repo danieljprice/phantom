@@ -28,6 +28,8 @@ module analysis
 
  private
 
+ real, dimension(:), allocatable :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
+
  integer :: nbins
 
  real    :: mh   = 1.
@@ -45,7 +47,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: filename
- real, dimension(:), allocatable :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
@@ -80,11 +81,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     stop
  endif
 
- allocate(ebins(nbins),dnde(nbins),tbins(nbins),dndt(nbins),rbins(nbins),dlumdr(nbins),lumcdf(nbins),&
-          lbins(nbins),dndl(nbins),angbins(nbins),dndang(nbins),vbins(nbins),dndv(nbins))
+ if (.not.allocated(ebins)) then
+    allocate(ebins(nbins),dnde(nbins),tbins(nbins),dndt(nbins),rbins(nbins),dlumdr(nbins),lumcdf(nbins),&
+             lbins(nbins),dndl(nbins),angbins(nbins),dndang(nbins),vbins(nbins),dndv(nbins))
+ endif
 
- call tde_analysis(npart,xyzh,vxyzu,real(luminosity),ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
-                   lbins,dndl,angbins,dndang,vbins,dndv)
+ call tde_analysis(npart,xyzh,vxyzu,real(luminosity))
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
@@ -120,8 +122,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        dndv(i)
  enddo
 
- deallocate(ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv)
-
 end subroutine do_analysis
 
 !--------------------------------------------------------------------------------------------------------------------
@@ -129,13 +129,11 @@ end subroutine do_analysis
 !-- Actual subroutine where the analysis is done!
 !
 !--------------------------------------------------------------------------------------------------------------------
-subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,&
-                        lbins,dndl,angbins,dndang,vbins,dndv)
+subroutine tde_analysis(npart,xyzh,vxyzu,luminosity)
  use part,        only:isdead_or_accreted
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),luminosity(:)
- real, intent(out), dimension(:) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
  integer :: i
  real, dimension(npart) :: eps,tr,r,Langm,vel
  real :: v2,trmin,Li(3)
@@ -160,7 +158,7 @@ subroutine tde_analysis(npart,xyzh,vxyzu,luminosity,ebins,dnde,tbins,dndt,rbins,
  enddo
 
  ! Create a histogram of the enegies, return times, luminosity as a function of radius, and luminosity
- call hist(npart,eps,       ebins,dnde,emin,emax,nbins)
+ call hist(npart,eps,       ebins,dnde,minval(eps),maxval(eps),nbins)
  trmin = treturn(mh,minval(eps))
  call hist(npart,tr,        tbins,dndt,trmin,trmin*100.,nbins)
  call hist(npart,r,rbins,dlumdr,rmin,rmax,nbins,luminosity)
