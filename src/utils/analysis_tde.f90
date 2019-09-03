@@ -29,14 +29,14 @@ module analysis
  private
 
  integer :: nbins
- real    :: mh
+ real    :: mh = 1.
  integer, parameter :: nmaxbins = 5000
  real    :: rmax
 
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- use io,         only:warning,iprint
+ use io,         only:warning
  use dump_utils, only:read_array_from_file
  use prompting,  only:prompt
  character(len=*),   intent(in) :: dumpfile
@@ -44,9 +44,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
- character(len=20)  :: tdeprefix,tdeparams
+ character(len=20)  :: filename
  real, dimension(nmaxbins) :: ebins,dnde,tbins,dndt,rbins,dlumdr,lumcdf,lbins,dndl,angbins,dndang,vbins,dndv
- integer :: i,iline,ierr
+ integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
  logical, save :: first = .true.
@@ -74,22 +74,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(*,*)
  write(*,'("ASSUMING G == 1")')
 
- ! Read black hole mass from .tdeparams file
- iline = index(dumpfile,'_')
- tdeprefix = dumpfile(1:iline-1)
- tdeparams = trim(tdeprefix)//'.tdeparams'
- inquire(file=tdeparams, exist=iexist)
- ierr =1
- if (iexist) then
-    call read_tdeparams(tdeparams,mh,iunit,ierr)
-    if (ierr /= 0) call warning('analysis','could not open/read '//trim(tdeparams))
- else
-    call warning('analysis','file '//trim(tdeparams)//' does not exist')
- endif
-
- if (.not.iexist .or. ierr/=0) then
-    write(iprint,*) 'Assuming default black hole mass'
-    mh = 1.
+ ! Read black hole mass from params file
+ filename = 'analysis_'//trim(analysistype)//'.params'
+ inquire(file=filename,exist=iexist)
+ if (iexist) call read_tdeparams(filename,ierr)
+ if (.not.iexist.or.ierr/=0) then
+    call write_tdeparams(filename)
+    print*,' Edit '//trim(filename)//' and rerun phantomanalysis'
+    stop
  endif
 
 ! Print out the parameters
@@ -296,23 +288,41 @@ end subroutine hist
 
 !----------------------------------------------------------------
 !+
-!  Read tde information from .tdeparams file
+!  Read/write tde information from/to params file
 !+
 !----------------------------------------------------------------
-subroutine read_tdeparams(filename,mhole,iunit,ierr)
+subroutine write_tdeparams(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing analysis options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# options when performing TDE analysis'
+ call write_inopt(mh,        'mh',        'black hole mass in code units',iunit)
+ close(iunit)
+
+end subroutine write_tdeparams
+
+subroutine read_tdeparams(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
  character(len=*), intent(in)  :: filename
- real,             intent(out) :: mhole
- integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
  type(inopts), allocatable :: db(:)
 
-! Read in parameters from the file .tdeparams
+ print "(a)",'reading analysis options from '//trim(filename)
+ nerr = 0
+ ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
- call read_inopt(mhole,'mh',db,ierr)
- if (ierr /= 0) return
+ call read_inopt(mh,        'mh',        db,min=0.,errcount=nerr)
  call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i2,a)",nerr,' error(s) during read of params file: re-writing...'
+    ierr = nerr
+ endif
 
 end subroutine read_tdeparams
 
