@@ -8,7 +8,7 @@
 !  MODULE: analysis
 !
 !  DESCRIPTION:
-!  Computes the specific energy distribution
+!  Computes the the distribution of different quantities in a TDE simulation
 !
 !  REFERENCES: None
 !
@@ -142,7 +142,6 @@ end subroutine do_analysis
 !
 !--------------------------------------------------------------------------------------------------------------------
 subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
- use part,        only:isdead_or_accreted
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
