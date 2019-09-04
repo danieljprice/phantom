@@ -291,7 +291,6 @@ subroutine The_big_laiboxi(ntests,npass)
  !
  do i=1,nsteps
     dtext = dt
-    if (do_output) call write_file_err(i,t,xyzh,dustprop*udist,dustgasprop,npart,"Laiboxi_")
     call step(npart,npart,t,dt,dtext,dtnew)
     t = t + dt
     do j=1,npart
@@ -341,10 +340,11 @@ subroutine write_file(step,t,xyzh,dustprop,cs,npart,prefix)
 
 end subroutine write_file
 
-subroutine write_file_err(step,t,xyzh,dustprop,dustgasprop,npart,prefix)
+subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
  real, intent(in)              :: t
- real, intent(in)              :: xyzh(:,:),dustprop(:,:),dustgasprop(:,:)
+ real, intent(in)              :: xyzh(:,:)
+ real, intent(in)              :: St(:),St_exact(:),size(:),size_exact(:)
  character(len=*), intent(in)  :: prefix
  integer, intent(in)           :: npart,step
  character(len=30)             :: filename,str
@@ -355,8 +355,8 @@ subroutine write_file_err(step,t,xyzh,dustprop,dustgasprop,npart,prefix)
  open(newunit=lu,file=filename,status='replace')
  write(lu,*) t
  do i=1,npart
-    if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),dustprop(1,i),&
-        dustgasprop(3,i),dustgasprop(1,i),dustgasprop(4,i)
+    if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),size(i),size_exact(i),&
+        St(i),St_exact(i)
  enddo
  close(lu)
 
