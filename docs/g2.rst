@@ -1,0 +1,216 @@
+How to run Phantom on gSTAR
+===========================
+
+.. important ::
+
+ This machine is decommissioned.
+
+Apply for an account
+--------------------
+
+https://supercomputing.swin.edu.au/account-management/new_account_request
+
+on Ozstar: From your account management page, request “join project” and
+select “oz015 - Price/Pinte research group”
+
+on Gstar: If you are in Daniel Price’s research group, click on “Join
+existing project” and use the “Magnetic fields in star formation”
+project
+
+First time you log in
+---------------------
+
+Log in (on ozstar):
+
+::
+
+   $ ssh -Y USERNAME@ozstar.swin.edu.au
+
+or on gstar:
+
+::
+
+   $ ssh -Y USERNAME@g2.hpc.swin.edu.au
+
+show available software
+
+::
+
+   $ module avail
+
+load intel compilers
+
+::
+
+   $ module load intel
+
+get phantom
+~~~~~~~~~~~
+
+Clone a copy of phantom into your home directory
+
+::
+
+   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+
+Setting your username and email address
+---------------------------------------
+
+Ensure that your name and email address are set, as follows:
+
+::
+
+   cd phantom
+   git config user.name "Joe Bloggs"
+   git config user.email "joe.bloggs@monash.edu"
+
+Please use your full name in the format above, as this is what appears
+in the commit logs (and in the AUTHORS file).
+
+get splash
+~~~~~~~~~~
+
+Finally, install splash in your home directory by following the
+instructions on the `splash home
+page <http://users.monash.edu.au/~dprice/splash/>`__
+
+I put the “module load” commands in a file called ~/.modules which
+contains the modules I want loaded every time I log in. For example:
+
+::
+
+   $ cat .modules
+   module load fftw
+   module load intel/13.3.1
+
+Then, add the following lines to your ~/.bashrc
+
+::
+
+   source ~/.modules
+   export SYSTEM=g2
+   ulimit -s unlimited
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/splash/giza/lib
+   export PATH=${PATH}:${HOME}/splash/bin
+   export PATH=${PATH}:/opt/torque/bin:/opt/moab/bin
+   export OMP_STACKSIZE=512M
+
+Now, when you login again, all these should be set automatically.
+
+Performing a calculation
+------------------------
+
+You should *not* perform calculations in your home space - this is for
+code and small files. Calculations should be run in the “project” area
+in /fred/PROJECT_NAME/USERNAME
+
+I usually make a soft link / shortcut called “runs” pointing to the
+directory where I want to run my calculations:
+
+On Ozstar:
+
+::
+
+   $ cd /fred/oz015
+   $ mkdir USERNAME
+   $ cd
+   $ ln -s /fred/oz015/USERNAME runs
+   $ cd runs
+   $ pwd -P
+   /fred/oz015/USERNAME
+
+On gstar:
+
+::
+
+   $ cd /lustre/projects/p035_astro
+   $ mkdir USERNAME
+   $ cd
+   $ ln -s /lustre/projects/p035_astro/USERNAME runs
+   $ cd runs
+   $ pwd -P
+   /lustre/projects/p035_astro/USERNAME
+
+then make a subdirectory for the name of the calculation you want to run
+(e.g. shock)
+
+::
+
+   $ mkdir shock
+   $ cd shock
+   $ ~/phantom/scripts/writemake.sh shock > Makefile
+   $ make setup
+   $ make
+   $ ./phantomsetup myshock
+
+To run the code, you need to write a .pbs script. You can get an example
+by typing “make qscript”:
+
+::
+
+   $ make qscript INFILE=myshock.in > run.pbs
+
+should produce something like
+
+::
+
+   $ cat run.pbs
+   #!/bin/bash
+   ## PBS Job Submission Script, created by "make qscript" Mon Mar 6 09:34:55 AEDT 2017
+   #PBS -l nodes=1:ppn=16
+   #PBS -N preconference
+   #PBS -q sstar
+   #PBS -o myshock.in.pbsout
+   #PBS -j oe
+   #PBS -m e
+   #PBS -M daniel.price@monash.edu
+   #PBS -l walltime=168:00:00
+   #PBS -l mem=16G
+   ## phantom jobs can be restarted:
+   #PBS -r y
+
+   cd $PBS_O_WORKDIR
+   echo "PBS_O_WORKDIR is $PBS_O_WORKDIR"
+   echo "PBS_JOBNAME is $PBS_JOBNAME"
+   env | grep PBS
+   cat $PBS_NODEFILE > nodefile
+   echo "HOSTNAME = $HOSTNAME"
+   echo "HOSTTYPE = $HOSTTYPE"
+   echo Time is `date`
+   echo Directory is `pwd`
+
+   ulimit -s unlimited
+   export OMP_SCHEDULE="dynamic"
+   export OMP_NUM_THREADS=16
+
+
+   echo "starting phantom run..."
+   export outfile=`grep logfile "myshock.in" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`
+   echo "writing output to $outfile"
+   ./phantom myshock.in >& $outfile
+
+You can then submit this to the queue using
+
+::
+
+   $ qsub run.pbs
+   5134395.pbs.hpc.swin.edu.au
+
+and check status using
+
+::
+
+   $ qstat
+   5134395.pbs                preconference      dprice                 0 Q sstar 
+
+check when your job is definitely going to start by using
+
+::
+
+   $ showstart
+
+more info
+~~~~~~~~~
+
+For more information on the actual machine `read the
+userguide <https://supercomputing.swin.edu.au>`__
