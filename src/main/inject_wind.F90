@@ -16,16 +16,11 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    bowen_Tcond        -- dust condensation temperature (K)
-!    bowen_delta        -- condensation temperature range (K)
-!    kappa_gas          -- constant gas opacity (cm²/g)
-!    bowen_kmax         -- maximum dust opacity (cm²/g)
 !    iboundary_spheres  -- number of boundary spheres (integer)
 !    iwind_resolution   -- if<>0 set number of particles on the sphere, reset particle mass
 !    sonic_type         -- find transonic solution (1=yes,0=no)
 !    star_Lum           -- central star luminosity (Lsun)
 !    star_Teff          -- central star effective temperature (K)
-!    wind_CO_ratio      -- wind initial C/O ratio
 !    wind_alpha         -- fraction of the gravitational acceleration imparted to the gas
 !    wind_expT          -- temperature law exponent (if wind_type=2)
 !    wind_inject_radius -- radius of injection of the wind (au)
@@ -47,7 +42,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject,radiativeforce
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject
 !
 !--runtime settings for this module
 !
@@ -61,11 +56,6 @@ module inject
  real, public::    star_Teff = 2500.
  real, public::    star_Lum = 10000. * solarl
 #endif
- real, public::    wind_CO_ratio = 2
- real, public::    bowen_kmax = 2.7991
- real, public::    bowen_Tcond = 1500.
- real, public::    bowen_delta = 60.
- real, public::    kappa_gas = 2.d-4
 #ifdef BOWEN
  integer, public:: sonic_type = 0
  real, public::    star_Teff = 3000.
@@ -146,7 +136,7 @@ subroutine init_inject(ierr)
  use icosahedron,  only:compute_matrices, compute_corners
  use eos,          only:gmw,gamma,polyk
  use units,        only:unit_velocity, umass, utime, udist
- use part,         only:massoftype,igas,iboundary
+ use part,         only:massoftype,igas,iboundary,xyzmh_ptmass,imloss,ilum
  use io,           only:iverbose
  use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  integer, intent(out) :: ierr
@@ -184,20 +174,21 @@ subroutine init_inject(ierr)
 #ifdef ISOTHERMAL
  wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
 #endif
-
+ print *,' initial sound_speed = ',sqrt(gamma*(gamma-1)*wind_temperature*u_to_temperature_ratio)*unit_velocity,' cm/s'
+ print *,Rstar_cgs
 #ifdef BOWEN
- call setup_bowen(u_to_temperature_ratio,kappa_gas,bowen_kmax,star_Lum,wind_injection_radius,&
-      bowen_Tcond,bowen_delta,star_Teff,piston_velocity,wind_velocity,pulsation_period,&
+ call setup_bowen(u_to_temperature_ratio,star_Lum,wind_injection_radius,&
+      star_Teff,piston_velocity,wind_velocity,pulsation_period,&
       wind_temperature,iboundary_spheres*particles_per_sphere)
 #else
  call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), star_Teff, Rstar, &
       wind_expT, u_to_temperature_ratio, wind_type)
 #ifdef NUCLEATION
- call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs, wind_CO_ratio,&
+ call setup_dustywind(xyzmh_ptmass(4,wind_emitting_sink), star_Lum, star_Teff, Rstar_cgs,&
          wind_expT, wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_type)
 #else
- call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs, &
-         wind_mass_rate, u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
+ call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs, wind_mass_rate, &
+         u_to_temperature_ratio, wind_alpha, wind_temperature, wind_type)
 #endif
 !if (wind_type == 2 .and. wind_temperature /= star_Teff) then
 !    wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
@@ -306,6 +297,10 @@ subroutine init_inject(ierr)
  ires_min = iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5
  if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
 #endif
+
+xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
+xyzmh_ptmass(ilum,wind_emitting_sink) = star_Lum/(umass*udist**2/utime**3)
+
 
 end subroutine init_inject
 
@@ -453,29 +448,6 @@ end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
-!  Computes acceleration due to radiation pressure on particles
-!+
-!-----------------------------------------------------------------------
-subroutine radiativeforce(x,y,z,xyzmh_ptmass,fextrad)
-
- real,    intent(in)  :: x,y,z
- real,    intent(in)  :: xyzmh_ptmass(:,:)
- real,    intent(out) :: fextrad(3)
- real :: dx,dy,dz,dist,fac
-
- dx = x-xyzmh_ptmass(1,wind_emitting_sink)
- dy = y-xyzmh_ptmass(2,wind_emitting_sink)
- dz = z-xyzmh_ptmass(3,wind_emitting_sink)
- dist = sqrt(dx**2 + dy**2 + dz**2)
- fac = wind_alpha*xyzmh_ptmass(4,wind_emitting_sink)/dist**3
- fextrad(1) = fac*dx
- fextrad(2) = fac*dy
- fextrad(3) = fac*dz
-
-end subroutine radiativeforce
-
-!-----------------------------------------------------------------------
-!+
 !  Writes input options to the input file
 !+
 !-----------------------------------------------------------------------
@@ -497,27 +469,17 @@ subroutine write_options_inject(iunit)
  call write_inopt(iwind_resolution,'iwind_resolution','if<>0 set number of particles on the sphere, reset particle mass',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
- call write_inopt(wind_alpha,'wind_alpha','fraction of the gravitational acceleration imparted to the gas',iunit)
 #ifndef BOWEN
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
 #endif
 #ifndef ISOTHERMAL
- write(iunit,"(/,a)") '# options controlling dust'
+ call write_inopt(wind_type,'wind_type','stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling)',iunit)
+
  call write_inopt(star_Lum/solarl,'star_Lum','central star luminosity (Lsun)',iunit)
  call write_inopt(star_Teff,'star_Teff','central star effective temperature (K)',iunit)
- call write_inopt(wind_type,'wind_type','stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling)',iunit)
  call write_inopt(wind_expT,'wind_expT','temperature law exponent (if wind_type=2)', iunit)
-#ifdef NUCLEATION
- call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
 #endif
- call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
-#if defined (BOWEN)
- call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
- call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
- call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
-#endif
-#endif
- call write_inopt(outer_boundary_au,'outer_boundary','kill gas particles outside this radius',iunit)
+ call write_inopt(outer_boundary_au,'outer_boundary','kill gas particles outside this radius (au)',iunit)
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -526,7 +488,7 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal, error, warning
+ use io,      only:fatal
  use physcon, only:pi,steboltz,au
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
@@ -571,10 +533,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) sonic_type
     ngot = ngot + 1
     if (sonic_type < 0 .or. sonic_type > 1 ) call fatal(label,'invalid setting for sonic_type ([0,1])')
- case('wind_alpha')
-    read(valstring,*,iostat=ierr) wind_alpha
-    ngot = ngot + 1
-    if (wind_alpha < 0.) call fatal(label,'invalid setting for wind_alpha (must be > 0)')
  case('wind_mass_rate')
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
@@ -589,10 +547,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) star_Teff
     ngot = ngot + 1
     if (star_Teff < 0.)    call fatal(label,'invalid setting for star_Teff (<0)')
- case('kappa_gas')
-    read(valstring,*,iostat=ierr) kappa_gas
-    ngot = ngot + 1
-    if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
  case('wind_type')
     read(valstring,*,iostat=ierr) wind_type
     ngot = ngot + 1
@@ -611,36 +565,18 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
     ngot = ngot + 1
     if (piston_velocity_km_s <= 0. .and. wind_velocity_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
- case('bowen_kmax')
-    read(valstring,*,iostat=ierr) bowen_kmax
-    ngot = ngot + 1
-    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
- case('bowen_Tcond')
-    read(valstring,*,iostat=ierr) bowen_Tcond
-    ngot = ngot + 1
-    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
- case('bowen_delta')
-    read(valstring,*,iostat=ierr) bowen_delta
-    ngot = ngot + 1
-    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
-#endif
-#ifdef NUCLEATION
- case('wind_CO_ratio')
-    read(valstring,*,iostat=ierr) wind_CO_ratio
-    ngot = ngot + 1
-    if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
 #endif
  case default
     imatch = .false.
  end select
 #ifdef BOWEN
- noptions = 17
-#else
  noptions = 13
+#else
+ noptions = 12
 #ifdef NUCLEATION
- noptions = 15
+ noptions = 14
 #elif ISOTHERMAL
- noptions = 8
+ noptions = 7
 #endif
 #endif
  !debug

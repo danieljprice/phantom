@@ -34,8 +34,8 @@ module bowen_dust
  integer, parameter :: wind_emitting_sink = 1
  logical, parameter :: verbose = .false.
  real, parameter :: alpha_wind = 1.d0
- real :: kappa_gas, kmax, L, c_light, u_to_temperature_ratio, Tcond, deltaT, Teff,&
-      Reff, omega_osc, deltaR_osc, usteboltz, wind_injection_radius, piston_velocity, Rmin, &
+ real :: L, c_light, u_to_temperature_ratio, Teff, Reff, omega_osc, &
+      deltaR_osc, usteboltz, wind_injection_radius, piston_velocity, Rmin, &
       wind_velocity, pulsation_period,wind_temperature
  integer :: nwall_particles
 
@@ -51,6 +51,7 @@ contains
 subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, time)
  use part,     only:isdead_or_accreted,rhoh,xyzmh_ptmass,massoftype,igas,divcurlv
  use physcon,  only:pi,mass_proton_cgs
+ use dust_formation, only : kappa_dust_bowen
  use eos,      only:gamma
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:)
@@ -104,9 +105,8 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
     force = 1.2
     Rforce = force*R_star
     fac = L_star/(4.*pi*c_light*Mstar)
-    print *,'kmax =====>',fac*kmax
 !!$omp parallel do default(none) &
-!!$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,fac,Teff,R_star,Mstar,gamma,kappa_gas,dt,nwall_particles) &
+!!$omp shared(npart,xyzh,vxyzu,fext,divcurlv,x_star,Rforce,fac,Teff,R_star,Mstar,gamma,dt,nwall_particles) &
 !!$omp private(xr,alpha_surface,alpha_w,kap_dust,Trad,dist)
     do i=nwall_particles+1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -119,9 +119,9 @@ subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu_shock, tim
              alpha_surface = 0.
           endif
           Trad = Teff*sqrt(R_star/dist)
-          call get_kappa_dust(Trad, kap_dust)
-          alpha_w = fac*(kap_dust+kappa_gas)
-          !print *,i,alpha_w,alpha_surface,kap_dust,kappa_gas,Trad,Teff
+          !call bowen_dust_opacity(Trad, kap_dust)
+          alpha_w = fac*kappa_dust_bowen(Trad)
+          !print *,i,alpha_w,alpha_surface,kap_dust,Trad,Teff
           fext(1:3,i) = fext(1:3,i) + Mstar*max(alpha_w,alpha_surface)/dist**3*xr(1:3)
           ! !update internal energy: add pdV work
           ! vxyzu(4,i) = vxyzu(4,i) -(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
@@ -151,22 +151,17 @@ end subroutine radiative_acceleration
 !  Convert parameters into code units.
 !+
 !-----------------------------------------------------------------------
-subroutine setup_bowen(u_to_T_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_radius,&
-     bowen_Tcond, bowen_delta,star_Teff,piston_vamplitude,wind_speed,&
-     wind_osc_period,wind_T,nwall)
+subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
+     star_Teff,piston_vamplitude,wind_speed,wind_osc_period,wind_T,nwall)
  use physcon,     only: solarl,c,steboltz,pi,radconst
  use units,       only: udist, umass, utime
  integer, intent(in) :: nwall
- real, intent(in)  :: u_to_T_ratio,kappa_gas_in,bowen_kmax,star_Lum,wind_radius,wind_speed,&
-        bowen_Tcond, bowen_delta, star_Teff,piston_vamplitude,wind_osc_period,wind_T
+ real, intent(in)  :: u_to_T_ratio,star_Lum,wind_radius,wind_speed,&
+        star_Teff,piston_vamplitude,wind_osc_period,wind_T
 
- kappa_gas = kappa_gas_in / (udist**2/umass)
- kmax = bowen_kmax / (udist**2/umass)
  L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
  u_to_temperature_ratio = u_to_T_ratio!/(udist/utime)**2
- Tcond = bowen_Tcond
- deltaT = bowen_delta
  Teff  = star_Teff
  Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
  pulsation_period = wind_osc_period
@@ -263,32 +258,6 @@ subroutine interpolate_on_particles(npart, d, N, dmax, quantity, output)
     output(i) = (r-dr*j)*(quantity(j+1)-quantity(j))/dr + quantity(j)
  enddo
 end subroutine interpolate_on_particles
-
-!-----------------------------------------------------------------------
-!+
-!  Calculates kd, the dust opacity along the half-line
-!   Inputs:
-!     * N: number of steps
-!     * Teq(N): radiative equilibrium temperature along the half-line
-!   Outputs:
-!     * kd(N): dust mass opacity the half-line
-!+
-!-----------------------------------------------------------------------
-subroutine calculate_kd(N, Teq, kd)
- integer, intent(in)  :: N
- real,    intent(in)  :: Teq(N)
- real,    intent(out) :: kd(N)
-
- kd = kmax/(1. + exp((Teq-Tcond)/deltaT))
-end subroutine calculate_kd
-
-subroutine get_kappa_dust(Teq, kappa_dust)
- real,    intent(in)  :: Teq
- real,    intent(out) :: kappa_dust
-
- kappa_dust = kmax/(1.d0 + exp((Teq-Tcond)/deltaT))
-
-end subroutine get_kappa_dust
 
 !-----------------------------------------------------------------------
 !+

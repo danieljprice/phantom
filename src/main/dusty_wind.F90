@@ -51,7 +51,7 @@ module dusty_wind
  end type wind_state
 contains
 
-subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, &
+subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, &
        expT_in, Mdot_in, u_to_T, alpha_in, wind_type_in)
  use options,      only:icooling
  use units,        only:umass,utime
@@ -61,7 +61,7 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
  use dust_formation, only:set_abundances
 
  real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, expT_in,&
-      CO_ratio_in, Lstar_in, Tstar_in
+      Lstar_in, Tstar_in
  integer, intent(in) :: wind_type_in
 
  Mstar_cgs = Mstar_in*solarm
@@ -75,7 +75,7 @@ subroutine setup_dustywind(Mstar_in, Lstar_in, Tstar_in, Rstar_cg, CO_ratio_in, 
  Rstar_cgs = Rstar_cg
  u_to_temperature_ratio = u_to_T
 
- call set_abundances(CO_ratio_in)
+ call set_abundances
  call init_windcooling(icooling)
 
 end subroutine setup_dustywind
@@ -134,76 +134,59 @@ subroutine evolve_dust(wind_type, dtsph, xyzh, vxyzu, JKmuS)
  endif
 end subroutine evolve_dust
 
-subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)
- use part,         only:rhoh,xyzmh_ptmass,massoftype,igas,nucleation
- !use eos,          only:gmw!,gamma
- use physcon,      only:Rg
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:)
- real, intent(in)    :: dt,time
- real, intent(inout) :: vxyzu(:,:),fxyzu(:,:), fext(:,:)
+! subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)
+!  use part,           only:rhoh,xyzmh_ptmass,massoftype,igas,nucleation
+!  !use eos,          only:gmw!,gamma
+!  use physcon,        only:Rg
+!  use dust_formation, only: calc_alpha_dust
+!  integer, intent(in) :: npart
+!  real, intent(in)    :: xyzh(:,:)
+!  real, intent(in)    :: dt,time
+!  real, intent(inout) :: vxyzu(:,:),fxyzu(:,:), fext(:,:)
 
- integer :: i
- real :: Mstar, Rstar
- real :: part_mass, r, xr(3), x_star(3), K3
- real :: rho, alpha, Q!, mu, Teq, ueq, T, tau_lucy
+!  integer :: i
+!  real :: Mstar, Rstar
+!  real :: part_mass, r, xr(3), x_star(3), K3
+!  real :: rho, alpha, Q!, mu, Teq, ueq, T, tau_lucy
 
- part_mass = massoftype(igas)
- x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
- Mstar = xyzmh_ptmass(4,wind_emitting_sink)
- Rstar = xyzmh_ptmass(5,wind_emitting_sink)
- Q = 0.d0
- !Tstar = stars(attached_to_star)%temperature
- do i=1,npart
-    xr(1:3) = xyzh(1:3,i)-x_star(1:3)
-    r = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
-    K3 = nucleation(5,i)
-    call calc_alpha(K3, alpha)
-    fext(1:3,i) = fext(1:3,i) + alpha*Mstar/r**3*xr(1:3)
-    ! if (wind_type == 2 .or. r < Rstar) then
-    !    fxyzu(4,i) = 0.
-    ! elseif (wind_type == 4) then
-    !    rho = rhoh(xyzh(4,i), part_mass)
-    !    mu = nucleation(6,i)
-    !    T = mu*vxyzu(4,i)/(u_to_temperature_ratio*gmw)
-    !    !T = (gamma-1.)*mu*vxyzu(4,i)/Rg
-    !    tau_lucy = 0.
-    !    Teq = star_Teff * (.5*(1.-sqrt(1.-(Rstar/r)**2)+3./2.*tau_lucy))**(1./4.)
-    !    ueq = u_to_temperature_ratio*gmw*Teq/mu
-    !    if (dt >= Cprime/rho) then
-    !       vxyzu(4,i) = ueq
-    !       if (vxyzu(4,i) < 0.) then
-    !          print *, 'aargh! ueq <0'
-    !       endif
-    !       fxyzu(4,i) = 0.
-    !    else
-    !       Q = -(vxyzu(4,i) -ueq)*rho/Cprime
-    !       fxyzu(4,i) = fxyzu(4,i) + Q
-    !       if (vxyzu(4,i)+fxyzu(4,i)*dt < 0.) then
-    !          print *, 'oups! u^n+1 < 0 - timestep likely too large',dt,Cprime/rho,rho
-    !       endif
-    !    endif
-    ! endif
- enddo
-end subroutine radiative_acceleration
-
-!-----------------------------------------------------------------------
-!
-!  calculate alpha, reduced gravity factor
-!
-!-----------------------------------------------------------------------
-subroutine calc_alpha(K3, alpha)
-!all quantities in cgs
- use physcon,        only:pi,c,Gg
- use dust_formation, only:calc_kappa_dust
- real, intent(in) :: K3
- real, intent(out) :: alpha
-
- real :: kappa_planck, dummy
-
- call calc_kappa_dust(K3, Mdot_cgs, kappa_planck, dummy)
- alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_planck
-end subroutine calc_alpha
+!  part_mass = massoftype(igas)
+!  x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
+!  Mstar = xyzmh_ptmass(4,wind_emitting_sink)
+!  Rstar = xyzmh_ptmass(5,wind_emitting_sink)
+!  Q = 0.d0
+!  !Tstar = stars(attached_to_star)%temperature
+!  do i=1,npart
+!     xr(1:3) = xyzh(1:3,i)-x_star(1:3)
+!     r = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
+!     K3 = nucleation(5,i)
+!     call calc_alpha_dust(K3, alpha)
+!     fext(1:3,i) = fext(1:3,i) + alpha*Mstar/r**3*xr(1:3)
+!     ! if (wind_type == 2 .or. r < Rstar) then
+!     !    fxyzu(4,i) = 0.
+!     ! elseif (wind_type == 4) then
+!     !    rho = rhoh(xyzh(4,i), part_mass)
+!     !    mu = nucleation(6,i)
+!     !    T = mu*vxyzu(4,i)/(u_to_temperature_ratio*gmw)
+!     !    !T = (gamma-1.)*mu*vxyzu(4,i)/Rg
+!     !    tau_lucy = 0.
+!     !    Teq = star_Teff * (.5*(1.-sqrt(1.-(Rstar/r)**2)+3./2.*tau_lucy))**(1./4.)
+!     !    ueq = u_to_temperature_ratio*gmw*Teq/mu
+!     !    if (dt >= Cprime/rho) then
+!     !       vxyzu(4,i) = ueq
+!     !       if (vxyzu(4,i) < 0.) then
+!     !          print *, 'aargh! ueq <0'
+!     !       endif
+!     !       fxyzu(4,i) = 0.
+!     !    else
+!     !       Q = -(vxyzu(4,i) -ueq)*rho/Cprime
+!     !       fxyzu(4,i) = fxyzu(4,i) + Q
+!     !       if (vxyzu(4,i)+fxyzu(4,i)*dt < 0.) then
+!     !          print *, 'oups! u^n+1 < 0 - timestep likely too large',dt,Cprime/rho,rho
+!     !       endif
+!     !    endif
+!     ! endif
+!  enddo
+! end subroutine radiative_acceleration
 
 !-----------------------------------------------------------------------
 !

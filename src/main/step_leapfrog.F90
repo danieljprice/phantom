@@ -630,11 +630,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
-#ifdef NUCLEATION
- use dusty_wind,     only:radiative_acceleration
-#elif INJECT_PARTICLES
- use inject,         only:radiativeforce,wind_alpha
-#endif
+ use radiative_accel,only:get_rad_accel_from_sinks,irad_accel
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -646,7 +642,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real            :: dudtcool,fextv(3),fac,poti,fextrad(3)
+ real            :: dudtcool,fextv(3),poti,fextrad(3)
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real            :: dptmass(ndptmass,nptmass)
@@ -672,7 +668,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  accretedmass   = 0.
  itype          = igas
  pmassi         = massoftype(igas)
- fac            = 0.
  t_end_step     = timei + dtsph
  nsubsteps      = 0
  dtextforce_min = huge(dt)
@@ -733,10 +728,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
-#if defined(WIND) && !defined(NUCLEATION)
-    !$omp shared(wind_alpha) &
+    !$omp shared(irad_accel) &
     !$omp private(fextrad) &
-#endif
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
@@ -808,14 +801,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 fextz = fextz + fextv(3)
              endif
           endif
-#if defined(WIND) && !defined(NUCLEATION)
-          if (wind_alpha > 0.) then
-             call radiativeforce(xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzmh_ptmass,fextrad)
+          if (nptmass > 0 .and. irad_accel > 0 ) then
+             call get_rad_accel_from_sinks(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzmh_ptmass,fextrad,i)
              fextx = fextx + fextrad(1)
              fexty = fexty + fextrad(2)
              fextz = fextz + fextrad(3)
           endif
-#endif
           if (idamp > 0.) then
              call apply_damp(i, fextx, fexty, fextz, vxyzu, damp_fac)
           endif
@@ -841,10 +832,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     enddo predictor
     !$omp enddo
     !$omp end parallel
-
-#if defined (NUCLEATION)
-    call radiative_acceleration(npart,xyzh,vxyzu,dt,fext,fxyzu,time)
-#endif
 
     !
     ! reduction of sink-gas forces from each MPI thread
