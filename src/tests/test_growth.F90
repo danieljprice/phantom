@@ -293,6 +293,7 @@ subroutine The_big_laiboxi(ntests,npass)
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
     t = t + dt
+    if (do_output) call write_file_err(i,t,xyzh,dustprop(1,:),s,dustgasprop(3,:),Stcomp,npart,"laiboxi_")
     do j=1,npart
        if (iamdust(iphase(j))) then
           time      = t/tau(j) + 2.*sqrt(Stini(j))*(1.+Stini(j)/3.)
@@ -314,31 +315,6 @@ subroutine The_big_laiboxi(ntests,npass)
  call update_test_scores(ntests,nerr(1:4),npass)
 
 end subroutine The_big_laiboxi
-
-!---------------------------------------------------
-!+
-!  write an output file with x, y, z ,
-!  dustprop(1) (size) and dustprop(4) (vrel/vfrag)
-!+
-!---------------------------------------------------
-subroutine write_file(step,t,xyzh,dustprop,cs,npart,prefix)
- real, intent(in)              :: t
- real, intent(in)              :: xyzh(:,:),dustprop(:,:),cs(:)
- character(len=*), intent(in)  :: prefix
- integer, intent(in)           :: npart,step
- character(len=30)             :: filename,str
- integer                       :: i,lu
-
- write(str,"(i000.4)") step
- filename = prefix//trim(adjustl(str))//'.txt'
- open(newunit=lu,file=filename,status='replace')
- write(lu,*) t
- do i=1,npart
-    write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),dustprop(1,i),dustprop(4,i),cs(i)
- enddo
- close(lu)
-
-end subroutine write_file
 
 subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
