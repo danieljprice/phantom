@@ -48,6 +48,7 @@ module inject
 !
 ! Read from input file
  integer, public:: iboundary_spheres = 5
+ integer, public:: iwind_resolution = 0
  real, public::    outer_boundary_au = 10.
  real, public::    wind_expT = 0.5
  real, public::    wind_shell_spacing = 1.
@@ -57,6 +58,7 @@ module inject
  real, public::    star_Lum = 10000. * solarl
 #endif
 #ifdef BOWEN
+ integer, public:: wind_type = 3
  integer, public:: sonic_type = 0
  real, public::    star_Teff = 3000.
  real, public::    star_Lum = 5315. * solarl
@@ -65,46 +67,40 @@ module inject
  real, public::    piston_velocity_km_s = 3.
  real, public::    wind_velocity_km_s = 0.
  real, public::    wind_mass_rate_Msun_yr = 1.04d-7
- real, public::    wind_temperature = 3000.
  real, public::    wind_injection_radius_au = 1.2568
-#endif
-#ifdef NUCLEATION
+ real, public::    wind_temperature = 3000.
+#elif NUCLEATION
+ integer, public:: wind_type = 3
  integer, public:: sonic_type = 1
  real, public::    wind_velocity_km_s = 0.
  real, public::    wind_mass_rate_Msun_yr = 1.d-5
- real, public::    wind_temperature = 2500.
  real, public::    wind_injection_radius_au = 2.37686663
-#endif
-#ifdef ISOTHERMAL
- integer, public:: iwind_resolution = 7
- integer, public:: sonic_type = 1
+ real, public::    wind_temperature = 2500.
+#elif ISOTHERMAL
  integer, public:: wind_type = 1
+ integer, public:: sonic_type = 1
  real, public::    wind_velocity_km_s = 25.
  real, public::    wind_mass_rate_Msun_yr = 1.d-8
  real, public::    wind_injection_radius_au = 0.46524726
  real, public::    wind_temperature
 #else
  integer, public:: wind_type = 3
- integer, public:: iwind_resolution = 0
-#endif
-#ifdef DUSTFREE
  integer, public:: sonic_type = 0
  real, public::    wind_velocity_km_s = 35.
  real, public::    wind_mass_rate_Msun_yr = 1.d-8
- real, public::    wind_temperature = 3000.
  real, public::    wind_injection_radius_au = 1.7
+ real, public::    wind_temperature = 3000.
 #endif
 
- real, public::    u_to_temperature_ratio
- real, public::    mass_of_particles
- real, public::    piston_velocity,dr3,rho_ini
+ real, public::    Rstar
 
  private
 
- real, private::   dtpulsation = 1.d99
- real, private ::  wind_mass_rate,wind_velocity,mass_of_spheres,time_between_spheres,neighbour_distance,&
-      Rstar_cgs,Rstar,wind_injection_radius
- integer, private :: particles_per_sphere,nwall_particles,iresolution
+ real :: dtpulsation = 1.d99
+ real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
+      mass_of_spheres,time_between_spheres,neighbour_distance,mass_of_particles,&
+      dr3,Rstar_cgs,wind_injection_radius,rho_ini
+ integer :: particles_per_sphere,nwall_particles,iresolution
 
  logical, parameter :: wind_verbose = .false.
  integer, parameter :: wind_emitting_sink = 1
@@ -333,11 +329,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, nshell_released, nboundaries
  real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), r2, r2max !, cs2max, dr, dp
 #ifdef NUCLEATION
+ integer, parameter :: nreleased = 50
  real :: JKmuS(7)
 #elif BOWEN
+ integer, parameter :: nreleased = 1
  real :: surface_radius
-#endif
+#else
  integer, parameter :: nreleased = 50
+#endif
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
 
@@ -432,7 +431,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
 #ifdef BOWEN
     surface_radius = wind_injection_radius + piston_velocity*pulsation_period/(2.*pi)*sin(2.*pi*time/pulsation_period)
-    xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.)
+    !v2 xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.)
+    xyzmh_ptmass(5,wind_emitting_sink) = sqrt(xyzh(1,1)**2+xyzh(2,1)**2+xyzh(3,1)**2)
 #endif
  endif
 
