@@ -14,7 +14,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -153,8 +153,11 @@ end subroutine radiative_acceleration
 !-----------------------------------------------------------------------
 subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
      star_Teff,piston_vamplitude,wind_speed,wind_osc_period,wind_T,nwall)
- use physcon,     only: solarl,c,steboltz,pi,radconst
- use units,       only: udist, umass, utime
+ use options,      only:icooling
+ use physcon,      only:solarl,c,steboltz,pi,radconst
+ use units,        only:udist, umass, utime
+ use wind_cooling, only:init_windcooling
+
  integer, intent(in) :: nwall
  real, intent(in)  :: u_to_T_ratio,star_Lum,wind_radius,wind_speed,&
         star_Teff,piston_vamplitude,wind_osc_period,wind_T
@@ -166,7 +169,7 @@ subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
  Reff = sqrt(star_Lum/(4.*pi*steboltz*star_Teff**4))/udist
  pulsation_period = wind_osc_period
  omega_osc = 2.*pi/pulsation_period
- deltaR_osc = piston_velocity/omega_osc
+ deltaR_osc = piston_vamplitude/omega_osc
  nwall_particles = nwall
  wind_injection_radius = wind_radius
  piston_velocity = piston_vamplitude
@@ -175,6 +178,8 @@ subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
  Rmin = wind_injection_radius - deltaR_osc
  wind_velocity = wind_speed
  wind_temperature = wind_T
+
+ call init_windcooling(icooling)
 
 end subroutine setup_bowen
 
@@ -185,7 +190,7 @@ end subroutine setup_bowen
 !+
 !-----------------------------------------------------------------------
 subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, &
-                                     inner_sphere,inner_boundary_sphere,dr3,rho_ini)
+                                  inner_sphere,inner_boundary_sphere,dr3,rho_ini)
  use physcon,     only:pi
  use eos,         only:gamma
  integer, intent(in)  :: sphere_number, inner_sphere, inner_boundary_sphere
@@ -458,66 +463,5 @@ subroutine center_star(npart, xyzh, xzy_origin, r, d, dmin, dmax)
  dmin = minval(d(nwall_particles+1:npart))
  dmax = maxval(d(nwall_particles+1:npart))
 end subroutine center_star
-
-!-----------------------------------------------------------------------
-!+
-!  wind cooling. Implicit method to get the internal energy
-!+
-!-----------------------------------------------------------------------
-! subroutine implicit_wind_cooling(icooling,npart,xyzh,vxyzu,fxyzu,fext,R_star,x_star,dt)
-!  use wind_cooling, only : calc_cooling_rate
-!  use eos,          only:gamma
-!  use part,         only:isdead_or_accreted,rhoh,massoftype,igas,divcurlv
-!  use physcon,      only:mass_proton_cgs
-
-!  integer, intent(in)    :: npart,icooling
-!  real,    intent(in)    :: xyzh(:,:)
-!  real,    intent(in)    :: dt,R_star,x_star(3)
-!  real,    intent(inout) :: vxyzu(:,:)
-!  real,    intent(inout) :: fxyzu(:,:),fext(:,:)
-
-!  real, parameter :: tol = 1.d-4 ! to be adjusted
-!  real :: T,Trad,rho,term1,term2,term3,delta_e,mass_per_H,part_mass,Qcool,dQcool_dlnT
-!  real :: dist,xr(3),q,dq
-!  integer, parameter :: iter_max = 200
-!  integer :: i,iter
-
-!  mass_per_H = 1.4 * mass_proton_cgs
-!  part_mass = massoftype(igas)
-! ! !$omp parallel do default(none) &
-! ! !$omp shared(icooling,npart,xyzh,vxyzu,fxyzu,divcurlv) &
-! ! !$omp shared(gamma,part_mass,mass_per_H,dt,nwall_particles) &
-! ! !$omp private(iter,term1,term2,term3,delta_e,Qcool,dQcool_dlnT,T,Tg,rho)
-!  do i=nwall_particles+1,npart
-!     if (.not.isdead_or_accreted(xyzh(4,i))) then
-!        xr(1:3) = xyzh(1:3,i)-x_star(1:3)
-!        dist = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
-!        iter = 0
-!        delta_e = 1.d-3
-!        Trad = Teff*sqrt(R_star/dist)
-!        rho = rhoh(xyzh(4,i), part_mass)
-!        term1 = vxyzu(4,i)+fxyzu(4,i)*dt !includes shock heating term
-!        term2 = 1.+(gamma-1.)*dt*divcurlv(1,i)
-!        do while (abs(delta_e) > tol .and. iter < iter_max)
-!           T = vxyzu(4,i)/u_to_temperature_ratio
-!           call calc_cooling_rate(Qcool,dlnQ_dlnT,rho,T,Trad,mu=mu)
-!           !call calc_cooling(2,mass_per_H,T,Trad,rho,Q2,dQ2)
-!           dQcool_dlnT = dlnQ_dlnT*Qcool
-!           term3 = vxyzu(4,i)*term2-Qcool*dt
-!           delta_e = (term1-term3)/(term2-dQcool_dlnT*dt/vxyzu(4,i))
-!           !vxyzu(4,i) = vxyzu(4,i)*(1.+delta_e)
-!           vxyzu(4,i) = vxyzu(4,i)+delta_e
-!           iter = iter + 1
-!        enddo
-!     endif
-! !    fxyzu(4,i) = 0.
-!     if (vxyzu(4,i) < 0. .or. isnan(vxyzu(4,i))) then
-!        print *,i,vxyzu(4,i)
-!        stop ' u<0'
-!     endif
-!  enddo
-! ! !$omp end parallel do
-
-! end subroutine implicit_wind_cooling
 
 end module bowen_dust
