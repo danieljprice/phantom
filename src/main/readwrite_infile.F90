@@ -106,7 +106,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
  use radiative_accel, only:write_options_radiative_accel
-#ifndef ISOTHERMAL
+#if defined(BOWEN) || defined(NUCLEATION)
  use dust_formation,  only:write_options_dust_formation
 #endif
 #endif
@@ -247,7 +247,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# options for injecting particles'
  call write_options_inject(iwritein)
  call write_options_radiative_accel(iwritein)
-#ifndef ISOTHERMAL
+#if defined(BOWEN) || defined(NUCLEATION)
  call write_options_dust_formation(iwritein)
 #endif
 #endif
@@ -290,7 +290,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
  use radiative_accel, only:read_options_radiative_accel
-#ifndef ISOTHERMAL
+#if defined(BOWEN) || defined(NUCLEATION)
  use dust_formation,  only:read_options_dust_formation
 #endif
 #endif
@@ -463,7 +463,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
        if (.not.imatch) call read_options_radiative_accel(name,valstring,imatch,igotallinject,ierr)
-#ifndef ISOTHERMAL
+#if defined(BOWEN) || defined(NUCLEATION)
        if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotallinject,ierr)
 #endif
 #endif
