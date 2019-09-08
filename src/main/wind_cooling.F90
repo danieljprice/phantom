@@ -26,14 +26,14 @@ module wind_cooling
  character(len=*), parameter :: label = 'wind_cooling'
 
  public :: init_windcooling,calc_cooling_rate,wind_energy_cooling,read_options_windcooling,&
-      write_options_windcooling
+      write_options_windcooling,explicit_wind_cooling,implicit_wind_cooling
  logical, public :: calc_Teq
  real, public:: bowen_Cprime = 3.000d-5
 
  private
  integer, parameter :: nT = 64
  real, parameter :: Tref = 1.d5, T_floor = 1.
- real :: Tgrid(nT),Cprime
+ real :: Tgrid(nT)
  logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan
 
 
@@ -45,13 +45,14 @@ contains
 !
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
-! all quantities in cgs
- real, intent(in) :: rho, T
- real, intent(in), optional :: Teq, mu, K2, kappa
- real, intent(out) :: Q, dlnQ_dlnT
- real :: Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan
+ use units,   only:unit_ergg,unit_density
+ real, intent(in) :: rho, T !rho in code units
+ real, intent(in), optional :: Teq, mu, K2, kappa !cgs
+ real, intent(out) :: Q, dlnQ_dlnT !code units
+ real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
 
+ rho_cgs = rho*unit_density
  Q_H0 = 0.
  Q_relax_Bowen = 0.
  Q_col_dust = 0.
@@ -60,16 +61,17 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  dlnQ_relax_Bowen = 0.
  dlnQ_col_dust = 0.
  dlnQ_relax_Stefan = 0.
- if (cool_radiation_H0) call cooling_neutral_hydrogen(T, rho, Q_H0, dlnQ_H0)
- if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
- if (cool_collisions_dust)  call cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q_col_dust, dlnQ_col_dust)
+ if (cool_radiation_H0) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (cool_collisions_dust)  call cooling_collision_dust_grains(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (cool_relaxation_Stefan) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
- Q = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
- dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen+ Q_col_dust*dlnQ_col_dust+ Q_relax_Stefan*dlnQ_relax_Stefan)/Q
+ Q_cgs = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
+ dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen+ Q_col_dust*dlnQ_col_dust+ Q_relax_Stefan*dlnQ_relax_Stefan)/Q_cgs
+ Q = Q_cgs/unit_ergg
 end subroutine calc_cooling_rate
 
 subroutine init_windcooling(icool)
-  use units,        only:umass, utime, udist
+  !use units,        only:umass, utime, udist
 
   integer, intent(in) :: icool
   integer :: iwind
@@ -80,7 +82,7 @@ subroutine init_windcooling(icool)
      !dust free wind, only H0 cooling allowed
      if (abs(icool) > 0) iwind = 10
   endif
-  Cprime = bowen_Cprime / (umass*utime/udist**3)
+  !Cprime = bowen_Cprime / (umass*utime/udist**3)
 
   cool_radiation_H0 = .false.
   cool_relaxation_Bowen = .false.
@@ -110,7 +112,7 @@ subroutine init_windcooling(icool)
   calc_Teq = cool_relaxation_Bowen .or. cool_relaxation_Stefan .or. cool_collisions_dust
 
   !initialize grid temperature
-  call set_Tcool
+  call set_Tgrid
 end subroutine init_windcooling
 
 
@@ -120,12 +122,13 @@ end subroutine init_windcooling
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, Q, dlnQ_dlnT)
+! all quantities in cgs
  use eos,     only:gamma
  use physcon, only:Rg
  real, intent(in) :: T, Teq, rho, mu
  real, intent(out) :: Q,dlnQ_dlnT
 
- Q = Rg/((gamma-1.)*mu)*rho*(Teq-T)/Cprime
+ Q = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
  dlnQ_dlnT = -T/(Teq-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
@@ -136,6 +139,7 @@ end subroutine cooling_Bowen_relaxation
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
+! all quantities in cgs
  use physcon, only: kboltz, mass_proton_cgs, pi
  real, intent(in) :: T, Teq, rho, K2, mu
  real, intent(out) :: Q,dlnQ_dlnT
@@ -203,21 +207,17 @@ real function calc_eps_e(T)
  real, intent(in) :: T
  real :: k1, k2, k3, k8, k9, p, q
 
- if (T > 3000.) then
-    k1 = 1.88d-10 / T**6.44e-1
-    k2 = 1.83d-18 * T
-    k3 = 1.35d-9
-    k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
-    k9 = 1.7d-4 * k8
-    p = .5*k8/k9
-    q = k1*(k2+k3)/(k3*k9)
-    calc_eps_e = (p + sqrt(q+p**2))/q
- else
-    calc_eps_e = 1.d-30
- endif
+ k1 = 1.88d-10 / T**6.44e-1
+ k2 = 1.83d-18 * T
+ k3 = 1.35d-9
+ k8 = 5.80d-11 * sqrt(T) * exp(-1.58d5/T)
+ k9 = 1.7d-4 * k8
+ p = .5*k8/k9
+ q = k1*(k2+k3)/(k3*k9)
+ calc_eps_e = (p + sqrt(q+p**2))/q
 end function calc_eps_e
 
-subroutine set_Tcool
+subroutine set_Tgrid
   integer :: i
   real :: dlnT
   dlnT = log(Tref)/(nT-1)
@@ -225,22 +225,125 @@ subroutine set_Tcool
   do i = 1,nT
      Tgrid(i) = exp((i-1)*dlnT)
   enddo
-end subroutine set_Tcool
+end subroutine set_Tgrid
+
+!-----------------------------------------------------------------------
+!
+!   explicit cooling cooling
+!
+!-----------------------------------------------------------------------
+subroutine explicit_wind_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+  use eos,     only:gamma,gmw
+  use physcon, only:Rg,kboltz
+  use units,   only:unit_ergg
+  use inject,  only:star_Teff,Rstar
+  real, intent(in) :: xi, yi, zi, rho, dt !code units
+  real, intent(in), optional :: Trad, mu_in, K2, kappa
+  real, intent(inout) :: u,dudt !code units
+
+  real :: r,Teq,Q,dlnQ_dlnT,T,mu,T_to_u
+
+  if (.not.present(mu_in)) then
+     mu = gmw
+  else
+     mu = mu_in
+  endif
+  T_to_u = (gamma-1.)/Rg*mu*unit_ergg
+  r = sqrt((xi)**2 + (yi)**2 + (zi)**2)
+  Teq = star_Teff*sqrt(1.1*Rstar/r)
+  T = T_to_u*u
+  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
+  if (-Q*dt  > u) then   ! assume thermal equilibrium
+    u = Teq/T_to_u
+    dudt = 0.d0
+  else
+    u = u + Q*dt
+    !fext(4,i) = fext(4,i) + Qcool
+  endif
+  !print *,T,Teq,T_to_u*u,'dT=',T_to_u*Q*dt,u,Q*dt
+  !stop
+
+end subroutine explicit_wind_cooling
+
+!-----------------------------------------------------------------------
+!
+!   implicit cooling
+! pdv_work and shock heating MUST not be accounted for previously
+!-----------------------------------------------------------------------
+subroutine implicit_wind_cooling (xi, yi, zi, u, dudt, divcurlv, rho, dt, Trad, mu_in, K2, kappa)
+  use eos,     only:gamma,gmw
+  use physcon, only:Rg,kboltz
+  use units,   only:unit_ergg
+  use inject,  only:star_Teff,Rstar
+  real, intent(in) :: xi, yi, zi, rho, dt
+  real, intent(in), optional :: Trad, mu_in, K2, kappa
+  real, intent(inout) :: u,dudt, divcurlv
+
+  real, parameter :: tol = 1.d-4 ! to be adjusted
+  integer, parameter :: iter_max = 200
+  real :: r,Teq,Q,dlnQ_dlnT,T,mu,u_to_T,delta_u,term1,term2,term3
+  integer :: iter
+
+  if (.not.present(mu_in)) then
+     mu = gmw
+  else
+     mu = mu_in
+  endif
+  r = sqrt((xi)**2 + (yi)**2 + (zi)**2)
+  Teq = star_Teff*sqrt(Rstar/r)
+  delta_u = 1.d-3
+  iter = 0
+  u_to_T = (gamma-1.)/Rg*mu*unit_ergg
+  term1 = u+dudt*dt !includes shock heating term
+  term2 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
+  do while (abs(delta_u) > tol .and. iter < iter_max)
+     T = u/u_to_T
+     call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
+     term3 = u*term2-Q*dt
+     delta_u = (term1-term3)/(term2-Q*dlnQ_dlnT*dt/u)
+     !u = u*(1.+delta_u)
+     u = u+delta_u
+     iter = iter + 1
+  enddo
+  ! dudt = 0.
+  if (u < 0. .or. isnan(u)) then
+     print *,u
+     stop ' u<0'
+  endif
+
+end subroutine implicit_wind_cooling
 
 !-----------------------------------------------------------------------
 !
 !   dust cooling using Townsend method to avoid the timestep constraints
 !
 !-----------------------------------------------------------------------
-subroutine wind_energy_cooling (u, rho, dt, mu_in, Teq, K2, kappa)
+subroutine wind_energy_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+  real, intent(in) :: xi, yi, zi, rho, dt !in code unit
+  real, intent(in), optional :: Trad, mu_in, K2, kappa ! in cgs!!!
+  real, intent(inout) :: u, dudt
+
+  !call Townsend_wind_cooling (xi, yi, zi, u, rho, dt, Trad, mu_in, K2, kappa)
+  !call implicit_wind_cooling (xi, yi, zi, u, dudt, divcurlv, rho, dt, Trad, mu_in, K2, kappa)
+  call  explicit_wind_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+
+end subroutine wind_energy_cooling
+
+!-----------------------------------------------------------------------
+!
+!   dust cooling using Townsend method to avoid the timestep constraints
+!
+!-----------------------------------------------------------------------
+subroutine Townsend_wind_cooling (xi, yi, zi, u, rho, dt, Trad, mu_in, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg,kboltz
-  use units,   only:unit_density,unit_ergg,utime
-  real, intent(in) :: rho, dt
-  real, intent(in), optional :: Teq, K2, kappa, mu_in
+  use units,   only:unit_ergg,utime
+  use inject,  only:star_Teff,Rstar
+  real, intent(in) :: xi, yi, zi, rho, dt
+  real, intent(in), optional :: Trad, mu_in, K2, kappa
   real, intent(inout) :: u
 
-  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,dt_cgs,rho_cgs,mu,du
+  real :: r,Teq,Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,dt_cgs,mu,du,T_to_u
   integer :: k
 
   if (.not.present(mu_in)) then
@@ -248,25 +351,26 @@ subroutine wind_energy_cooling (u, rho, dt, mu_in, Teq, K2, kappa)
   else
      mu = mu_in
   endif
-
-  T = (gamma-1.)*u/Rg*mu*unit_ergg
+  r = sqrt((xi)**2 + (yi)**2 + (zi)**2)
+  Teq = star_Teff*sqrt(Rstar/r)
+  T_to_u = (gamma-1.)*mu*unit_ergg/Rg
+  T = T_to_u*u
 
   if (T < T_floor) then
      Temp = T_floor
   elseif (T > Tref) then
-     call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, T, Teq, mu, K2, kappa)
-     Temp = T+(gamma-1.)*mu*Q*dt_cgs/Rg
+     call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
+     Temp = T+T_to_u*Q*dt
   else
      dt_cgs = dt*utime
-     rho_cgs = rho*unit_density
-     call calc_cooling_rate(Qref,dlnQref_dlnT, rho_cgs, Tref, Teq, mu, K2, kappa)
+     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Teq, mu, K2, kappa)
      Y = 0.
      k = nT
      do while (Tgrid(k) > T)
         k = k-1
-        call calc_cooling_rate(Q, dlnQ_dlnT, rho_cgs, Tgrid(k), Teq, mu, K2, kappa)
+        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Teq, mu, K2, kappa)
         if (abs(dlnQ_dlnT-1.) < 1.d-13) then
-           y = y - dlnQref_dlnT*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
+           y = y - dlnQref_dlnT*Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
            !y = y - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
          else
            !y = y - Qref*Tgrid(k)/(Q*Tref*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/Tgrid(k+1))**(dlnQ_dlnT-1.))
@@ -280,14 +384,14 @@ subroutine wind_energy_cooling (u, rho, dt, mu_in, Teq, K2, kappa)
 
      if (abs(dlnQ_dlnT-1.) < 1.d-13) then
         !y = yk + Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/T)
-        y = yk + dlnQref_dlnT*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/T)
+        y = yk + dlnQref_dlnT*Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/T)
      else
         !y = yk + Qref*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
-        y = yk + dlnQref_dlnT*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
+        y = yk + dlnQref_dlnT*Qref*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
      endif
 
      !dy = mu*(gamma-1.)/Rg*Qref/Tref*dt_cgs
-     dy = mu*(gamma-1.)/Rg*dlnQref_dlnT/Tref*dt_cgs
+     dy = Qref*dt*T_to_u*dlnQref_dlnT/Tref
      y = y + dy
 !compute Yinv
      if (abs(dlnQ_dlnT-1.) < 1.d-10) then
@@ -302,14 +406,14 @@ subroutine wind_energy_cooling (u, rho, dt, mu_in, Teq, K2, kappa)
      endif
   endif
 
-  du = Rg*(Temp-T)/((gamma-1.)*mu*unit_ergg)
-  if (abs(du/u) > .1) then
-     !print *,u,dlnQ_dlnT,T,temp,rho_cgs
+  du = (Temp-T)/T_to_u
+  if (-du > u) then
+     print *,u,du,dlnQ_dlnT,T,Teq,temp,rho
      !stop
   endif
   u = u+du
 
-end subroutine wind_energy_cooling
+end subroutine Townsend_wind_cooling
 
 !-----------------------------------------------------------------------
 !+
