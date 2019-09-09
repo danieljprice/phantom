@@ -195,12 +195,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        ! predict v and u to the half step with "slow" forces
        !
-#ifdef BOWEN
-       !shock heating treated in the implicit loop
-       vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-#else
        vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-#endif
        if (itype==idust .and. use_dustgrowth) then
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
@@ -375,7 +370,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
 #ifdef WIND
-!$omp shared(wind_type) &
+!$omp shared(wind_type,divcurlv) &
 #ifdef NUCLEATION
 !$omp shared(nucleation) &
 #endif
@@ -415,13 +410,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 dti = hdti + ibin_dts(ithdt,ibin(i))
              endif
-
-#ifdef BOWEN
-             !internal energy updated in the implicit loop
-             vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
-#else
              vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-#endif
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
@@ -479,7 +468,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 #else
 #ifdef KROME
-          !evolve chemical composition and determnie new internal energy
+          !evolve chemical composition and determine new internal energy
           call update_krome(dtsph,xyzh(:,i),vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),&
                species_abund(:,i),gamma_chem(i),mu_chem(i))
 #else
@@ -489,7 +478,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #else
           if (icooling > 3) then
             !only H0 cooling
-             call wind_energy_cooling(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph)
+             call wind_energy_cooling(xyzh(1,i), xyzh(2,i), xyzh(3,i), vxyzu(4,i), fxyzu(4,i), rhoh(xyzh(4,i),&
+                  massoftype(itype)), dtsph, dble(divcurlv(1,i)))
           endif
 #endif
           !the temperature profile being imposed, the internal energy is also fixed
@@ -534,11 +524,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
 ! shift v back to the half step
 !
-#ifdef BOWEN
-          vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
-#else
           vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-#endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
@@ -746,7 +732,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
           endif
-           !
+          !
           ! predict v to the half step
           !
           vxyzu(1:3,i) = vxyzu(1:3,i) + hdt*fext(1:3,i)
@@ -801,12 +787,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 fextz = fextz + fextv(3)
              endif
           endif
-          if (nptmass > 0 .and. irad_accel > 0 ) then
-             call get_rad_accel_from_sinks(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzmh_ptmass,fextrad,i)
-             fextx = fextx + fextrad(1)
-             fexty = fexty + fextrad(2)
-             fextz = fextz + fextrad(3)
-          endif
           if (idamp > 0.) then
              call apply_damp(i, fextx, fexty, fextz, vxyzu, damp_fac)
           endif
@@ -832,6 +812,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     enddo predictor
     !$omp enddo
     !$omp end parallel
+
+    if (nptmass > 0 .and. irad_accel > 0 ) then
+       call get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+       fextx = fextx + fextrad(1)
+       fexty = fexty + fextrad(2)
+       fextz = fextz + fextrad(3)
+    endif
 
     !
     ! reduction of sink-gas forces from each MPI thread

@@ -38,53 +38,80 @@ subroutine init_radiative_accel(ierr)
 
 end subroutine init_radiative_accel
 
-subroutine get_rad_accel_from_sinks(nptmass,xi,yi,zi,xyzmh_ptmass,fextrad,ii)
- use dim,  only:maxptmass
- use part, only:nsinkproperties
- integer,           intent(in)    :: nptmass,ii
- real,              intent(in)    :: xi,yi,zi
- real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    optional, intent(out)   :: fextrad(3)
- real                             :: dx,dy,dz,r,pmassj,plumj,pmlossj,ax,ay,az
- integer                          :: j
+subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+  use part,    only:isdead_or_accreted
+#ifdef NUCLEATION
+ use part,  only:nucleation
+#endif
+#if defined(WIND) || !defined (ISOTHERMAL)
+  use part,  only:dust_temp
+#endif
+ integer,  intent(in)    :: nptmass,npart
+ real,     intent(in)    :: xyzh(:,:)
+ real,     intent(in)    :: xyzmh_ptmass(:,:)
+ real,     intent(inout) :: fext(:,:)
+ real                    :: dx,dy,dz,xa,ya,za,r,pmassj,plumj,pmlossj,ax,ay,az
+ integer                 :: i,j
 
- fextrad = 0.
  do j=1,nptmass
-   dx = xi - xyzmh_ptmass(1,j)
-   dy = yi - xyzmh_ptmass(2,j)
-   dz = zi - xyzmh_ptmass(3,j)
-   r = sqrt(dx**2 + dy**2 + dz**2)
-   pmassj  = xyzmh_ptmass(4,j)
-   plumj   = xyzmh_ptmass(12,j)
-   pmlossj = xyzmh_ptmass(13,j)
-   call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,ii)
-   fextrad(1) = fextrad(1) + ax
-   fextrad(2) = fextrad(2) + ay
-   fextrad(3) = fextrad(3) + az
- end do
+    pmassj  = xyzmh_ptmass(4,j)
+    plumj   = xyzmh_ptmass(12,j)
+    pmlossj = xyzmh_ptmass(13,j)
+    xa = xyzmh_ptmass(1,j)
+    ya = xyzmh_ptmass(2,j)
+    za = xyzmh_ptmass(3,j)
+    !$omp parallel  do default(none) &
+#ifdef NUCLEATION
+    !$omp shared(nucleation)&
+#endif
+#if defined(WIND) || !defined (ISOTHERMAL)
+    !$omp shared(dust_temp)&
+#endif
+    !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
+    !$omp private(i,dx,dy,dz,ax,ay,az,r)
+    do i=1,npart
+      if (.not.isdead_or_accreted(xyzh(4,i))) then
+        dx = xyzh(1,i) - xa
+        dy = xyzh(2,i) - ya
+        dz = xyzh(3,i) - za
+        r = sqrt(dx**2 + dy**2 + dz**2)
+#ifdef NUCLEATION
+        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,nucleation(5:i))
+#else
+        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az)
+#endif
+        fext(1,i) = fext(1,i) + ax
+        fext(2,i) = fext(2,i) + ay
+        fext(3,i) = fext(3,i) + az
+      endif
+    end do
+    !$omp end parallel do
+ enddo
 
  end subroutine get_rad_accel_from_sinks
 
- subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,ii)
+ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,K3,Tdust)
 #ifdef NUCLEATION
-  use part,           only:nucleation
   use dust_formation, only:calc_alpha_dust
 #elif BOWEN
+  use inject,         only:star_Teff,Rstar
   use dust_formation, only:calc_alpha_bowen
 #endif
-  integer, intent(in) :: ii
-  real, intent(in)  :: r,dx,dy,dz,Mstar,Lstar,Mdot
-  real, intent(out) :: ax,ay,az
-  real :: fac,alpha_dust
+  real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
+  real, optional, intent(in)  :: K3,Tdust
+  real, intent(out)   :: ax,ay,az
+  real :: fac,alpha_dust,Teq
 
 #ifdef NUCLEATION
-  call calc_alpha_dust(Mstar,Lstar,Mdot,nucleation(5,ii),alpha_dust)
+  call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
   fac = alpha_dust*Mstar/r**3
 #elif BOWEN
-  if (alpha_rad > 0 ) then
+  if (alpha_rad > 0. ) then
      alpha_dust = alpha_rad
   else
-     call calc_alpha_bowen(Mstar,Lstar,alpha_dust)
+     Teq = star_Teff*sqrt(Rstar/r)
+     call calc_alpha_bowen(Mstar,Lstar,Teq,alpha_dust)
+     !print *,Teq,alpha_dust
   endif
   fac = alpha_dust*Mstar/r**3
 #else
@@ -118,12 +145,15 @@ subroutine write_options_radiative_accel(iunit)
  case('alpha_rad')
     read(valstring,*,iostat=ierr) alpha_rad
     ngot = ngot + 1
-    if (alpha_rad < 0.) call fatal(label,'invalid setting for alpha_rad (must be > 0)')
+    if (alpha_rad < 0.) call fatal(label,'invalid setting for alpha_rad (must be >= 0)')
     if (alpha_rad > 0.) irad_accel = 1
  case default
     imatch = .false.
  end select
  igotall = (ngot >= 1)
+#ifdef BOWEN
+ irad_accel = 1
+#endif
 end subroutine read_options_radiative_accel
 
 end module radiative_accel

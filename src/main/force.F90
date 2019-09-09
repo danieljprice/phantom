@@ -2508,9 +2508,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
           else ! eni is the internal energy
              fac = rhoi/rhogasi
-#ifndef BOWEN
+#ifdef IMPLICIT_COOLING
              pdv_work = ponrhoi*rho1i*drhodti
-             !the pdv_work is accounted for in substepping routine
+             !the pdv_work is accounted for in wind_cooling.F90
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
