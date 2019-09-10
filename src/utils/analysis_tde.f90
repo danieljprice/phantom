@@ -53,6 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,         only:warning
  use dump_utils, only:read_array_from_file
  use prompting,  only:prompt
+ use readwrite_dumps, only: opened_full_dump
  character(len=*),   intent(in) :: dumpfile
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -62,6 +63,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
+
+ if (.not.opened_full_dump) then
+    write(*,'("SKIPPING FILE -- (Not a full dump)")')
+    return
+ endif
 
  call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
  if (ierr/=0) then
@@ -233,12 +239,12 @@ end function treturn
 !
 !-- General function to compute a histogram
 !
-subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,yarray)
+subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,weights)
  use sortutils, only:indexx
  use io,        only:warning
  integer, intent(in) :: np,n_bins
  real, intent(in)    :: xarray(np),xmin,xmax
- real, intent(in), optional :: yarray(np)
+ real, intent(in), optional :: weights(np)
  real, intent(out)   :: xhist(n_bins),yhist(n_bins)
  integer :: indx(np),i,ibin,j,nbinned
  logical :: binned
@@ -278,8 +284,8 @@ subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,yarray)
 
        if (xleft<=xi.and.xi<=xright) then ! add to bin
 
-          if (present(yarray)) then ! sum the quantity
-             yhist(ibin) = yhist(ibin) + yarray(j)
+          if (present(weights)) then ! sum the quantity
+             yhist(ibin) = yhist(ibin) + weights(j)
 
           else ! just count the number
              yhist(ibin) = yhist(ibin) + 1.
