@@ -43,7 +43,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
 #ifdef NUCLEATION
  use part,  only:nucleation
 #endif
-#if defined(WIND) || !defined (ISOTHERMAL)
+#ifdef SINKRADIATION
   use part,  only:dust_temp
 #endif
  integer,  intent(in)    :: nptmass,npart
@@ -56,7 +56,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  do j=1,nptmass
     pmassj  = xyzmh_ptmass(4,j)
     plumj   = xyzmh_ptmass(12,j)
-    pmlossj = xyzmh_ptmass(13,j)
+    pmlossj = xyzmh_ptmass(14,j)
     xa = xyzmh_ptmass(1,j)
     ya = xyzmh_ptmass(2,j)
     za = xyzmh_ptmass(3,j)
@@ -64,7 +64,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
 #ifdef NUCLEATION
     !$omp shared(nucleation)&
 #endif
-#if defined(WIND) || !defined (ISOTHERMAL)
+#ifdef SINKRADIATION
     !$omp shared(dust_temp)&
 #endif
     !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
@@ -76,7 +76,9 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
         dz = xyzh(3,i) - za
         r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,nucleation(5:i))
+        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5:i))
+#elif BOWEN
+        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
 #else
         call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az)
 #endif
@@ -94,13 +96,12 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
 #ifdef NUCLEATION
   use dust_formation, only:calc_alpha_dust
 #elif BOWEN
-  use inject,         only:star_Teff,Rstar
   use dust_formation, only:calc_alpha_bowen
 #endif
   real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
   real, optional, intent(in)  :: K3,Tdust
   real, intent(out)   :: ax,ay,az
-  real :: fac,alpha_dust,Teq
+  real :: fac,alpha_dust
 
 #ifdef NUCLEATION
   call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
@@ -109,9 +110,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
   if (alpha_rad > 0. ) then
      alpha_dust = alpha_rad
   else
-     Teq = star_Teff*sqrt(Rstar/r)
-     call calc_alpha_bowen(Mstar,Lstar,Teq,alpha_dust)
-     !print *,Teq,alpha_dust
+     call calc_alpha_bowen(Mstar,Lstar,Tdust,alpha_dust)
   endif
   fac = alpha_dust*Mstar/r**3
 #else

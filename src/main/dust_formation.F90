@@ -442,16 +442,13 @@ end function kappa_dust_bowen
 !  calculate alpha, reduced gravity factor using Bowen formula
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha_bowen(Mstar, Lstar, alpha)
+subroutine calc_alpha_bowen(Mstar, Lstar, Teq, alpha)
 !all quantities in code unit
  use physcon, only:pi,c
  use units,   only:unit_velocity
- real, intent(in)  :: Mstar, Lstar
+ real, intent(in)  :: Mstar, Lstar, Teq
  real, intent(out) :: alpha
 
- real :: Teq
-
- !call calc_Teq(in,Teq)
  alpha = Lstar*unit_velocity/(4.*pi*c*Mstar) * kappa_dust_bowen(Teq)
 end subroutine calc_alpha_bowen
 

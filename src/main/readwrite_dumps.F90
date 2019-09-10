@@ -217,6 +217,9 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
+#ifdef SINKRADIATION
+ string = trim(string)//'+Tdust'
+#endif
 #ifdef NUCLEATION
  string = trim(string)//'+nucleation'
 #endif
@@ -341,6 +344,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
  use part,  only:nucleation,nucleation_label
+#endif
+#ifdef SINKRADIATION
+ use part,  only:dust_temp
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -552,6 +558,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NUCLEATION
        call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
+#endif
+#ifdef SINKRADIATION
+       call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(12))
 #endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -1266,6 +1275,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label
 #endif
+#ifdef SINKRADIATION
+ use part, only:dust_temp
+#endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1282,6 +1294,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef NUCLEATION
  logical               :: got_nucleation(6)
+#endif
+#ifdef SINKRADIATION
+ logical               :: got_Tdust
 #endif
  logical               :: got_psi,got_temp,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4)
  character(len=lentag) :: tag,tagarr(64)
@@ -1313,6 +1328,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef NUCLEATION
  got_nucleation = .false.
+#endif
+#ifdef SINKRADIATION
+ got_Tdust      = .false.
 #endif
 
  ndustfraci = 0
@@ -1371,6 +1389,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef NUCLEATION
              call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#endif
+#ifdef SINKRADIATION
+             call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)

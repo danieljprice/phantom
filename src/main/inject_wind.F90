@@ -131,8 +131,8 @@ subroutine init_inject(ierr)
  use physcon,      only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi
  use icosahedron,  only:compute_matrices, compute_corners
  use eos,          only:gmw,gamma,polyk
- use units,        only:unit_velocity, umass, utime, udist
- use part,         only:massoftype,igas,iboundary,xyzmh_ptmass,imloss,ilum
+ use units,        only:unit_velocity, umass, utime, udist, unit_energ
+ use part,         only:massoftype,igas,iboundary,xyzmh_ptmass,imloss,ilum,iTeff
  use io,           only:iverbose
  use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  integer, intent(out) :: ierr
@@ -295,8 +295,8 @@ subroutine init_inject(ierr)
 #endif
 
 xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
-xyzmh_ptmass(ilum,wind_emitting_sink) = star_Lum/(umass*udist**2/utime**3)
-
+xyzmh_ptmass(ilum,wind_emitting_sink)   = star_Lum/(unit_energ/utime)
+xyzmh_ptmass(iTeff,wind_emitting_sink)  = star_Teff
 
 end subroutine init_inject
 
@@ -316,8 +316,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #else
  use dust_free_wind, only:dust_free_wind_profile
 #endif
-! use units,        only:udist
- use part,         only:igas,iboundary,nptmass,delete_particles_outside_sphere
+#ifdef SINKRADIATION
+ use part,         only:dust_temp
+#endif
+ use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere
  use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
  use units,        only:udist
@@ -407,6 +409,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
 #endif
+#ifdef SINKRADIATION
+       dust_temp(first_particle:first_particle+particles_per_sphere-1) = xyzmh_ptmass(iTeff,wind_emitting_sink)
+#endif
     else
        ! ejected particles
 #ifdef NUCLEATION
@@ -415,6 +420,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #else
        call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
             npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
+#endif
+       !initialize dust temperature to star's effective temperature
+#ifdef SINKRADIATION
+       dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
 #endif
        ! update the sink particle mass
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
@@ -488,6 +497,7 @@ end subroutine write_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
+ use options, only:iwind
  use io,      only:fatal
  use physcon, only:pi,steboltz,au
  character(len=*), intent(in)  :: name,valstring
@@ -551,6 +561,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_type
     ngot = ngot + 1
     if (wind_type < 0 .or. wind_type > 4 ) call fatal(label,'invalid setting for wind_type ([0,3])')
+    iwind = wind_type
  case('wind_expT')
     read(valstring,*,iostat=ierr) wind_expT
     ngot = ngot + 1

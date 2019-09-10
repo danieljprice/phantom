@@ -49,6 +49,9 @@ module options
 ! final maximum density
  real,    public :: rhofinal_cgs,rhofinal1
 
+! winds
+ integer, public :: iwind
+
 ! dust method
  logical, public :: use_moddump = .false.
  logical, public :: use_dustfrac
@@ -127,6 +130,9 @@ subroutine set_default_options
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
  call set_defaults_viscosity
+
+ ! wind
+ iwind = 0
 
  ! dust method
  use_dustfrac = .false.

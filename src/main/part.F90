@@ -131,16 +131,17 @@ module part
  integer, parameter :: ispinz = 10 ! spin angular momentum z
  integer, parameter :: i_tlast = 11 ! time of last injection
  integer, parameter :: ilum   = 12 ! luminosity
- integer, parameter :: imloss = 13 ! mass loss rate
+ integer, parameter :: iTeff  = 13 ! effective temperature
+ integer, parameter :: imloss = 14 ! mass loss rate
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
- character(len=*), parameter :: xyzmh_ptmass_label(13) = &
+ character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
-    'tlast    ','lum      ','mdotloss '/)
+    'tlast    ','lum      ','Teff     ','mdotloss '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -162,6 +163,9 @@ module part
 !
 !--Dust formation - theory of moments
 !
+#ifdef SINKRADIATION
+ real, allocatable :: dust_temp(:)
+#endif
 #ifdef NUCLEATION
  integer, parameter :: n_nucleation = 7
  real, allocatable :: nucleation(:,:)
@@ -278,6 +282,9 @@ module part
    +1                                   &  ! variable mu
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
+#endif
+#ifdef SINKRADIATION
+   +1                                   &  ! dust temperature
 #endif
 #ifdef GRAVITY
    +1                                   &  ! poten
@@ -396,6 +403,9 @@ subroutine allocate_part
  call allocate_array('species_abund', species_abund, krome_nmols, maxp)
  call allocate_array('gamma_chem', gamma_chem, maxp)
  call allocate_array('mu_chem', mu_chem, maxp)
+#endif
+#ifdef SINKRADIATION
+ call allocate_array('dust_temp', dust_temp, maxp)
 #endif
 
 end subroutine allocate_part

@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, cooling, h2cooling, io, part, physcon,
+!  DEPENDENCIES: chem, cooling, h2cooling, io, part, physcon,
 !    testutils, units
 !+
 !--------------------------------------------------------------------------
@@ -61,7 +61,6 @@ end subroutine test_cooling
 !+
 !--------------------------------------------
 subroutine test_cooling_rate(ntests,npass)
- use cooling,   only:cooling_rate_sd93
  use h2cooling, only:nabn,nrates,cool_func,dlq,init_h2cooling
  use chem,      only:update_abundances,init_chem
  use part,      only:nabundances,iHI
@@ -111,7 +110,6 @@ subroutine test_cooling_rate(ntests,npass)
        print*,'T = ',t,' Tiso = ',tempiso,' n = ',ndens,' cm^-3',&
        ' Lam = ',crate/ndens**2
     endif
-    !crate = cooling_rate_sd93(t)
     write(iunit,*) t,crate/ndens**2,crate
  enddo
  close(iunit)
@@ -124,7 +122,7 @@ end subroutine test_cooling_rate
 !+
 !--------------------------------------------
 subroutine test_coolfunc(ntests,npass)
- use coolfunc,  only:init_coolfunc,find_in_table
+ use cooling,  only:find_in_table
  use testutils, only:checkvalbuf,checkvalbuf_start
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 100

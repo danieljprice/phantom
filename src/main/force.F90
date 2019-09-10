@@ -169,8 +169,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
  use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
  use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
- use cooling,      only:energ_cooling
- use chem,         only:energ_h2cooling
 #ifdef GRAVITY
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
@@ -2542,9 +2540,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                    call energ_h2cooling(vxyzu(4,i),fxyz4,rhoi,&
                         abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
                         divcurlv(1,i),idudtcool,ichem)
-                else
+                elseif (icooling == 3) then
                    !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i),dt)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyz4,rhoi,dt)
                 endif
              endif
              ! extra terms in du/dt from one fluid dust

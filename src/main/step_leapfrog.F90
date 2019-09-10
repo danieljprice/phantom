@@ -26,7 +26,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, damping, deriv, dim, dusty_wind, eos,
+!  DEPENDENCIES: chem, cooling, damping, deriv, dim, dusty_wind, eos,
 !    externalforces, growth, inject, io, io_summary, krome_interface,
 !    mpiutils, options, part, ptmass, timestep, timestep_ind, timestep_sts,
 !    wind_profile
@@ -93,23 +93,24 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
+#ifdef SINKRADIATION
+ use part,         only:dust_temp
+#endif
 #ifdef NUCLEATION
  use part,           only:nucleation
  use dusty_wind,     only:evolve_dust
 #endif
  use eos,            only:get_spsound
- use options,        only:avdecayconst,alpha,ieos,alphamax
+ use options,        only:avdecayconst,alpha,ieos,alphamax,iwind
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
- use coolfunc,       only:energ_coolfunc
+ use cooling,        only:energ_cooling
 #ifdef WIND
 ! use eos,            only:gamma
  use wind_equations, only:energy_profile
- use wind_cooling,   only:wind_energy_cooling
- use inject,         only:wind_type
 #endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
@@ -368,12 +369,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,icooling) &
-#ifdef WIND
-!$omp shared(wind_type,divcurlv) &
+!$omp shared(dtsph,icooling,iwind) &
+#ifdef SINKRADIATION
+!$omp shared(dust_temp) &
+#endif
 #ifdef NUCLEATION
 !$omp shared(nucleation) &
-#endif
 #endif
 #ifdef KROME
 !$omp shared(gamma_chem,mu_chem,species_abund) &
@@ -464,7 +465,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifndef WIND
           if (maxvxyzu >= 4) then
              vxyzu(4,i) = eni
-             if (icooling==3) call energ_coolfunc(vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),dtsph,v2i)
+             if (icooling==3) call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),v2i,&
+                  rhoh(xyzh(4,i),massoftype(itype)), dtsph)
           endif
 #else
 #ifdef KROME
@@ -474,16 +476,21 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #else
 #ifdef NUCLEATION
           !evolve dust chemistry and compute dust cooling
-          call evolve_dust(wind_type,dtsph, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
+          call evolve_dust(iwind,dtsph, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
 #else
           if (icooling > 3) then
-            !only H0 cooling
-             call wind_energy_cooling(xyzh(1,i), xyzh(2,i), xyzh(3,i), vxyzu(4,i), fxyzu(4,i), rhoh(xyzh(4,i),&
-                  massoftype(itype)), dtsph, dble(divcurlv(1,i)))
+!only H0 cooling
+#ifdef SINKRADIATION
+             call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyzu(4,i),&
+                  rhoh(xyzh(4,i),massoftype(itype)), dtsph, dust_temp(i))
+#else
+             call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyzu(4,i),&
+                  rhoh(xyzh(4,i),massoftype(itype)), dtsph)
+#endif
           endif
 #endif
           !the temperature profile being imposed, the internal energy is also fixed
-          if (wind_type == 2) then
+          if (iwind == 2) then
              vxyzu(4,i) = energy_profile(xyzh(:,i))
           endif
 #endif

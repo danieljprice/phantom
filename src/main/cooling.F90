@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: coolfunc
+!  MODULE: cooling
 !
 !  DESCRIPTION: Gas cooling
 !
@@ -23,12 +23,16 @@
 !+
 !--------------------------------------------------------------------------
 
-module coolfunc
- implicit none
- character(len=*), parameter :: label = 'cooling_rates'
+module cooling
+ use options,  only:icooling
+ use timestep, only:C_cool
 
- public :: init_coolfunc,calc_cooling_rate,energ_coolfunc,read_options_coolfunc,&
-      write_options_coolfunc
+ implicit none
+ character(len=*), parameter :: label = 'cooling'
+
+ public :: init_cooling,calc_cooling_rate,energ_cooling
+ public :: write_options_cooling, read_options_cooling
+ public :: find_in_table
  logical, public :: calc_Teq
  real, public:: bowen_Cprime = 3.000d-5
 
@@ -36,21 +40,22 @@ module coolfunc
  integer, parameter :: nTg = 64
  integer, parameter :: maxt = 1000
  real,    parameter :: Tref = 1.d5, T_floor = 10.
+ integer :: nt
  real :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
+ real :: beta_cool  = 3.
  real :: habund     = 0.7
  real :: temp_floor = 1.e4
  real :: Tgrid(nTg)
- logical :: cool_radiation_H0, cool_relaxation_Bowen, cool_collisions_dust, cool_relaxation_Stefan, cool_table
+ integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
 
 
 contains
 
-subroutine init_coolfunc(icool)
-  !use units,        only:umass, utime, udist
-
+subroutine init_cooling(icool)
+  use io,           only:fatal
   integer, intent(in) :: icool
-  integer :: iwind
+  integer :: iwind,ierr
 
   if (icool > 0) then
      iwind = icool
@@ -58,45 +63,27 @@ subroutine init_coolfunc(icool)
      !dust free wind, only H0 cooling allowed
      if (abs(icool) > 0) iwind = 10
   endif
-  !Cprime = bowen_Cprime / (umass*utime/udist**3)
 
-  cool_table = .false.
-  cool_radiation_H0 = .false.
-  cool_relaxation_Bowen = .false.
-  cool_relaxation_Stefan = .false.
-  cool_collisions_dust = .false.
-  !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
-  if (iwind > 9) cool_radiation_H0 = .true.
-  select case (iwind)
-  case (1)
-     cool_table = .true.
-  case (2,12)
-     cool_relaxation_Stefan = .true.
-  case (3,13)
-     cool_relaxation_Bowen = .true.
-  case (4,14)
-     cool_collisions_dust = .true.
-  case (6,16)
-     cool_collisions_dust = .true.
-     cool_relaxation_Stefan = .true.
-  case (7,17)
-     cool_collisions_dust = .true.
-     cool_relaxation_Bowen = .true.
-  end select
-  !krome calculates its own cooling rate
+!you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
+  if (icool_relax_bowen == 1 .and. icool_relax_stefan == 1) then
+     call fatal(label,'you can"t have bowen and stefan cooling at the same time')
+  endif
+
+!krome calculates its own cooling rate
 #ifdef KROME
-  cool_radiation_H0 = .false.
-  cool_collisions_dust = .false.
+  icool_radiation_H0 = 0
+  icool_dust_collision = 0
 #endif
-  calc_Teq = cool_relaxation_Bowen .or. cool_relaxation_Stefan .or. cool_collisions_dust
+  calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
 
 !initialize grid temperature
-  if (cool_table) then
+  if (icooling == 2) then
      call init_cooltable(ierr)
+  else
+     call set_Tgrid
   endif
-  call set_Tgrid
 
-end subroutine init_coolfunc
+end subroutine init_cooling
 
 
 !-----------------------------------------------------------------------
@@ -117,15 +104,15 @@ subroutine init_cooltable(ierr)
  !
  filepath=find_phantom_datafile(cooltable,'cooling')
  open(unit=iu,file=filepath,status='old',iostat=ierr)
- if (ierr /= 0) call fatal('coolfunc','error opening cooling table')
+ if (ierr /= 0) call fatal('cooling','error opening cooling table')
  i = 0
  do while(ierr==0 .and. i < maxt)
     i = i + 1
     read(iu,*,iostat=ierr) temper(i),lambda(i)
  enddo
  nt = i-1
- if (nt==maxt) call fatal('coolfunc','size of cooling table exceeds array size')
- if (nt < 2) call fatal('coolfunc','size of cooling table is too small',ival=nt,var='nt')
+ if (nt==maxt) call fatal('cooling','size of cooling table exceeds array size')
+ if (nt < 2) call fatal('cooling','size of cooling table is too small',ival=nt,var='nt')
  !
  ! calculate the slope of the cooling function
  !
@@ -162,7 +149,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  real, intent(in) :: rho, T !rho in code units
  real, intent(in), optional :: Teq, mu, K2, kappa !cgs
  real, intent(out) :: Q, dlnQ_dlnT !code units
- real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_table, rho_cgs
+ real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
 
  rho_cgs = rho*unit_density
@@ -174,10 +161,10 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  dlnQ_relax_Bowen = 0.
  dlnQ_col_dust = 0.
  dlnQ_relax_Stefan = 0.
- if (cool_radiation_H0) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
- if (cool_relaxation_Bowen) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
- if (cool_collisions_dust)  call cooling_collision_dust_grains(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
- if (cool_relaxation_Stefan) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
+ if (icool_radiation_H0 == 1)   call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (icool_relax_Bowen == 1)    call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (icool_dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
+ if (icool_relax_Stefan == 1)   call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
  Q_cgs = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
  dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen+ Q_col_dust*dlnQ_col_dust+ Q_relax_Stefan*dlnQ_relax_Stefan)/Q_cgs
  !limit exponent to prevent overflow
@@ -208,7 +195,7 @@ end subroutine cooling_Bowen_relaxation
 !  collisionnal cooling
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
+subroutine cooling_dust_collision(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
 ! all quantities in cgs
  use physcon, only: kboltz, mass_proton_cgs, pi
  real, intent(in) :: T, Teq, rho, K2, mu
@@ -227,7 +214,7 @@ subroutine cooling_collision_dust_grains(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
  else
     dlnQ_dlnT = 0.5+T/(Teq-T+1.d-10)
  endif
-end subroutine cooling_collision_dust_grains
+end subroutine cooling_dust_collision
 
 !-----------------------------------------------------------------------
 !+
@@ -298,6 +285,24 @@ subroutine set_Tgrid
 end subroutine set_Tgrid
 
 !-----------------------------------------------------------------------
+!+
+!   Gammie (2001) cooling
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_Gammie(xi,yi,zi,ui,dudti)
+ real, intent(in) :: xi,yi,zi,ui
+ real, intent(inout) :: dudti
+
+ real :: omegai,r2,tcool1
+
+ r2 = xi*xi + yi*yi + zi*zi
+ Omegai = r2**(-0.75)
+ tcool1 = Omegai/beta_cool
+ dudti  = dudti - ui*tcool1
+
+end subroutine cooling_Gammie
+
+!-----------------------------------------------------------------------
 !
 !   explicit cooling cooling
 !
@@ -310,7 +315,7 @@ subroutine explicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   real, intent(in), optional :: mu_in, K2, kappa
   real, intent(inout) :: u,dudt !code units
 
-  real :: r,Q,dlnQ_dlnT,T,mu,T_on_u
+  real :: Q,dlnQ_dlnT,T,mu,T_on_u
 
   if (.not.present(mu_in)) then
      mu = gmw
@@ -384,20 +389,24 @@ end subroutine implicit_cooling
 !   implement cooling contribution du/dt equation
 !
 !-----------------------------------------------------------------------
-subroutine energ_coolfunc (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-  real, intent(in) :: rho, dt !in code unit
+subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+  real, intent(in) :: xi, yi, zi, rho, dt !in code unit
   real, intent(in), optional :: Trad, mu_in, K2, kappa ! in cgs!!!
   real, intent(inout) :: u, dudt
 
-  if (icooling == itable) then
+  select case (icooling)
+  case (3)
+     call cooling_Gammie(xi, yi, zi, u, dudt)
+  case (2)
      call exact_cooling_table(u, rho, dt, dudt)
-  else
+  case default
      call exact_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
      !call implicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
      !call explicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-  endif
+  end select
 
-end subroutine energ_coolfunc
+
+end subroutine energ_cooling
 
 !-----------------------------------------------------------------------
 !
@@ -408,8 +417,7 @@ end subroutine energ_coolfunc
 subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg
-  use units,   only:unit_ergg,utime
-  use inject,  only:star_Teff,Rstar
+  use units,   only:unit_ergg
   real, intent(in) :: rho, dt, Trad
   real, intent(in), optional :: mu_in, K2, kappa
   real, intent(inout) :: u,dudt
@@ -514,7 +522,6 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
     dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))*lambda(nt)/tref*dt_cgs
 
     k = find_in_table(nt,temper,temp)
-
     slopek = slope(k)
     ! Eq A5
     if (abs(slopek - 1.) < tiny(0.)) then
@@ -524,7 +531,6 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
                           *(1. - (temper(k)/temp)**(slopek-1.))
     endif
     yfunx = yfunx + dtemp
-
     ! Eq A7
     if (abs(slopek - 1.) < tiny(0.)) then
        temp1 = max(temper(k)*exp(-lambda(k)*temper(nt)/(lambda(nt)*temper(k))*(yfunx-yfunc(k))),temp_floor)
@@ -579,30 +585,60 @@ end function find_in_table
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_coolfunc(iunit)
+subroutine write_options_cooling(iunit)
  use infile_utils, only:write_inopt
+ use h2cooling,    only:write_options_h2cooling
+ use part,         only:h2chemistry
  integer, intent(in) :: iunit
 
- if (icooling = itable) then
-    call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
-    call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
-    call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
- endif
- if (icooling == idust) then
-    call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
+ write(iunit,"(/,a)") '# options controlling cooling'
+ if (h2chemistry) then
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
+    if (icooling > 0) then
+       call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
+       call write_options_h2cooling(iunit)
+    endif
+ else
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)',iunit)
+    select case(icooling)
+    case(1)
+       call write_inopt(icool_radiation_H0,'icool_radiation_H0','H0 cooling on/off',iunit)
+       call write_inopt(icool_relax_bowen,'icool_relax_bowen','Bowen (diffusive) relaxation on/off',iunit)
+       call write_inopt(icool_relax_stefan,'icool_relax_stefan','radiative relaxation on/off',iunit)
+       call write_inopt(icool_dust_collision,'icool_dust_collision','dust collision on/off',iunit)
+       call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
+    case(2)
+       call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
+       call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
+       call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
+    case(3)
+       call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
+    end select
  endif
 
-end subroutine write_options_coolfunc
+end subroutine write_options_cooling
 
-subroutine read_options_coolfunc(name,valstring,imatch,igotall,ierr)
+subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
+ use part,         only:h2chemistry
+ use h2cooling,    only:read_options_h2cooling
+ use io,           only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
+ logical :: igotallh2,igotallcf
 
  imatch  = .true.
  igotall = .false.  ! cooling options are compulsory
+ igotallh2 = .true.
+ igotallcf = .true.
  select case(trim(name))
+ case('icooling')
+    read(valstring,*,iostat=ierr) icooling
+    ngot = ngot + 1
+ case('C_cool')
+    read(valstring,*,iostat=ierr) C_cool
+    ngot = ngot + 1
  case('cooltable')
     read(valstring,*,iostat=ierr) cooltable
     ngot = ngot + 1
@@ -615,12 +651,21 @@ subroutine read_options_coolfunc(name,valstring,imatch,igotall,ierr)
  case('bowen_Cprime')
     read(valstring,*,iostat=ierr) bowen_Cprime
     ngot = ngot + 1
+ case('beta_cool')
+    read(valstring,*,iostat=ierr) beta_cool
+    ngot = ngot + 1
+    if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
  case default
     imatch = .false.
+    if (h2chemistry) then
+       call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
+    endif
  end select
- if (icooling = itable .and. ngot >= 3) igotall = .true.
- if (icooling = idust  .and. ngot >= 1) igotall = .true.
+ if (icooling == 3 .and. ngot >= 1) igotall = .true.
+ if (icooling == 2 .and. ngot >= 3) igotall = .true.
+ if (icooling == 1 .and. ngot >= 5) igotall = .true.
+ if (igotallh2 .and. ngot >= 1) igotall = .true.
 
-end subroutine read_options_coolfunc
+end subroutine read_options_cooling
 
-end module coolfunc
+end module cooling
