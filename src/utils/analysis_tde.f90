@@ -229,7 +229,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  endif
 
  de   = (emax - emin)/nbins
- dt   = (trmax - trmax)/nbins
+ dt   = (trmax - trmin)/nbins
  dr   = (rmax - rmin)/nbins
  dl   = (lummax - lummin)/nbins
  dang = (angmax - angmin)/nbins
