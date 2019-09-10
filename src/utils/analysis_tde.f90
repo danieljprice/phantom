@@ -153,7 +153,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
  integer :: i
  real, dimension(npart) :: eps,tr,r,Langm,vel,mass
- real :: v2,Li(3),de,dt,dr,dl,dand,dv
+ real :: v2,Li(3),de,dt,dr,dl,dang,dv
 
  !
  !-- Compute the specific energy and return time of each particle, store in an array
@@ -232,14 +232,14 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  dt   = (trmax - trmax)/nbins
  dr   = (rmax - rmin)/nbins
  dl   = (lummax - lummin)/nbins
- dand = (angmax - angmin)/nbins
+ dang = (angmax - angmin)/nbins
  dv   = (vmax - vmin)/nbins
 
  !--- Rescale to have correct dimensions
  dmde   = dmde/de
  dmdt   = dmdt/dt
  dlumdr = dlumdr/dr
- dmdang = dmdang/dmdang
+ dmdang = dmdang/dang
  dmdv   = dmdv/dv
 
 end subroutine tde_analysis
