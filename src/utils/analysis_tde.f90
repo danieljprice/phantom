@@ -153,7 +153,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
  integer :: i
  real, dimension(npart) :: eps,tr,r,Langm,vel,mass
- real :: v2,Li(3)
+ real :: v2,Li(3),de,dt,dr,dl,dand,dv
 
  !
  !-- Compute the specific energy and return time of each particle, store in an array
@@ -202,6 +202,13 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  endif
 
  ! Create a histogram of the enegies, return times, luminosity as a function of radius, and luminosity
+ ! --- Note: The arrays returned by hist are NOT normalised.
+ !        e.g. the dmde returned is actually just mass per bin, and is not mass per energy
+ !        Rescaling to have correct dimensions is done further down.
+ !        This is useful if comparing distributions that have different bin widths.
+ !
+ !        Counting the mass in each bin is also more useful than just simply the number of particles
+ !        per bin, since it allows for comparison at different resolutions (i.e. different particle mass)
  call hist(npart, eps       , ebins  , dmde  , emin  , emax  , nbins, mass)
  call hist(npart, tr        , tbins  , dmdt  , trmin , trmax , nbins, mass)
  call hist(npart, r         , rbins  , dlumdr, rmin  , rmax  , nbins, luminosity)
@@ -220,6 +227,20 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  else
     lumcdf = 0.
  endif
+
+ de   = (emax - emin)/nbins
+ dt   = (trmax - trmax)/nbins
+ dr   = (rmax - rmin)/nbins
+ dl   = (lummax - lummin)/nbins
+ dand = (angmax - angmin)/nbins
+ dv   = (vmax - vmin)/nbins
+
+ !--- Rescale to have correct dimensions
+ dmde   = dmde/de
+ dmdt   = dmdt/dt
+ dlumdr = dlumdr/dr
+ dmdang = dmdang/dmdang
+ dmdv   = dmdv/dv
 
 end subroutine tde_analysis
 
