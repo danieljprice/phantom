@@ -35,7 +35,8 @@ module part
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxsp
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxsp,&
+               maxTdust,store_dust_temperature,maxkrome
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -163,9 +164,7 @@ module part
 !
 !--Dust formation - theory of moments
 !
-#ifdef SINKRADIATION
  real, allocatable :: dust_temp(:)
-#endif
 #ifdef NUCLEATION
  integer, parameter :: n_nucleation = 7
  real, allocatable :: nucleation(:,:)
@@ -283,14 +282,14 @@ module part
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
 #endif
-#ifdef SINKRADIATION
-   +1                                   &  ! dust temperature
-#endif
 #ifdef GRAVITY
    +1                                   &  ! poten
 #endif
 #ifdef STORE_TEMPERATURE
    +1                                   &  ! temperature
+#endif
+#ifdef STORE_TDUST
+   +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
    +1                                   &  ! ibin
@@ -400,13 +399,11 @@ subroutine allocate_part
  call allocate_array('nucleation', nucleation, 7, maxsp)
 #endif
 #ifdef KROME
- call allocate_array('species_abund', species_abund, krome_nmols, maxp)
- call allocate_array('gamma_chem', gamma_chem, maxp)
- call allocate_array('mu_chem', mu_chem, maxp)
+ call allocate_array('species_abund', species_abund, krome_nmols, maxkrome)
+ call allocate_array('gamma_chem', gamma_chem, maxkrome)
+ call allocate_array('mu_chem', mu_chem, maxkrome)
 #endif
-#ifdef SINKRADIATION
- call allocate_array('dust_temp', dust_temp, maxp)
-#endif
+ call allocate_array('dust_temp', dust_temp, maxTdust)
 
 end subroutine allocate_part
 
@@ -470,6 +467,7 @@ subroutine deallocate_part
  deallocate(gamma_chem)
  deallocate(mu_chem)
 #endif
+ deallocate(dust_temp)
 
 end subroutine deallocate_part
 
@@ -509,6 +507,7 @@ subroutine init_part
     abundance(:,:)   = 0.
     abundance(iHI,:) = 1.  ! assume all atomic hydrogen initially
  endif
+ if (store_dust_temperature) dust_temp = -1.
  !-- Initialise dust properties to zero
 #ifdef DUSTGROWTH
  dustprop(:,:)    = 0.
@@ -895,6 +894,7 @@ subroutine copy_particle(src, dst)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
  return
 end subroutine copy_particle
@@ -951,6 +951,7 @@ subroutine copy_particle_all(src,dst)
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 #ifdef NUCLEATION
  nucleation(:,dst) = nucleation(:,src)
 #endif
@@ -968,6 +969,7 @@ end subroutine copy_particle_all
 ! routine which reorders the particles according to an input list
 ! (prior to a derivs evaluation - so no derivs required)
 ! (allocates temporary arrays for each variable, so use with caution)
+! THIS ROUTINE IS OBSOLETE AND IS SCHEDULED FOR DELETION
 !+
 !------------------------------------------------------------------
 subroutine reorder_particles(iorder,np)
@@ -1156,6 +1158,9 @@ subroutine fill_sendbuf(i,xtemp)
     if (store_temperature) then
        call fill_buffer(xtemp, temperature(i),nbuf)
     endif
+    if (store_dust_temperature) then
+       call fill_buffer(xtemp, dust_temp(i),nbuf)
+    endif
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
@@ -1216,6 +1221,9 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  if (store_temperature) then
     temperature(ipart)  = unfill_buf(xbuf,j)
+ endif
+ if (store_dust_temperature) then
+    dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))

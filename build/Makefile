@@ -705,7 +705,7 @@ endif
 
 ifeq ($(SETUP), wind)
 #   wind setup (spherical wind without dust formation)
-    FPPFLAGS= -DWIND -DSINKRADIATION
+    FPPFLAGS= -DWIND -DSTORE_TDUST
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
@@ -715,7 +715,7 @@ endif
 
 ifeq ($(SETUP), dustywind)
 #   wind setup (spherical wind with dust nucleation)
-    FPPFLAGS= -DWIND -DNUCLEATION -DSINKRADIATION
+    FPPFLAGS= -DWIND -DNUCLEATION -DSTORE_TDUST
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.F90 dust_formation.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
@@ -725,7 +725,7 @@ endif
 
 ifeq ($(SETUP), bowen)
 # bowen wind setup (pulsating dusty wind)
-    FPPFLAGS= -DWIND -DBOWEN -DSINKRADIATION
+    FPPFLAGS= -DWIND -DBOWEN -DSTORE_TDUST
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.F90 dust_formation.F90 wind_equations.F90 bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes

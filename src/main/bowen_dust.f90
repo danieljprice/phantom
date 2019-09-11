@@ -153,14 +153,14 @@ end subroutine radiative_acceleration
 !-----------------------------------------------------------------------
 subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
      star_Teff,piston_vamplitude,wind_speed,wind_osc_period,wind_T,nwall)
- use options,  only:icooling
  use physcon,  only:solarl,c,steboltz,pi,radconst
  use units,    only:udist, umass, utime
  use cooling,  only:init_cooling
 
  integer, intent(in) :: nwall
  real, intent(in)  :: u_to_T_ratio,star_Lum,wind_radius,wind_speed,&
-        star_Teff,piston_vamplitude,wind_osc_period,wind_T
+      star_Teff,piston_vamplitude,wind_osc_period,wind_T
+ integer :: ierr
 
  L = star_Lum /(umass*udist**2/utime**3)
  c_light = c / (udist/utime)
@@ -179,7 +179,7 @@ subroutine setup_bowen(u_to_T_ratio,star_Lum,wind_radius,&
  wind_velocity = wind_speed
  wind_temperature = wind_T
 
- call init_cooling(icooling)
+ call init_cooling(ierr)
 
 end subroutine setup_bowen
 

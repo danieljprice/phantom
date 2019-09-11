@@ -93,13 +93,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
-#ifdef SINKRADIATION
- use part,         only:dust_temp
-#endif
-#ifdef NUCLEATION
- use part,           only:nucleation
- use dusty_wind,     only:evolve_dust
-#endif
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax,iwind
  use deriv,          only:derivs
@@ -107,7 +100,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
- use cooling,        only:energ_cooling
 #ifdef WIND
 ! use eos,            only:gamma
  use wind_equations, only:energy_profile
@@ -117,10 +109,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
-#endif
-#ifdef KROME
- use krome_interface, only: update_krome
- use part,            only: gamma_chem,mu_chem,species_abund
 #endif
  use growth,         only:check_dustprop
  integer, intent(inout) :: npart
@@ -370,15 +358,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling,iwind) &
-#ifdef SINKRADIATION
-!$omp shared(dust_temp) &
-#endif
-#ifdef NUCLEATION
-!$omp shared(nucleation) &
-#endif
-#ifdef KROME
-!$omp shared(gamma_chem,mu_chem,species_abund) &
-#endif
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -461,40 +440,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(1,i) = vxi
           vxyzu(2,i) = vyi
           vxyzu(3,i) = vzi
-          !--this is the energy equation if non-isothermal
-#ifndef WIND
-          if (maxvxyzu >= 4) then
-             vxyzu(4,i) = eni
-             if (icooling==3) call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),v2i,&
-                  rhoh(xyzh(4,i),massoftype(itype)), dtsph)
-          endif
-#else
-#ifdef KROME
-          !evolve chemical composition and determine new internal energy
-          call update_krome(dtsph,xyzh(:,i),vxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),&
-               species_abund(:,i),gamma_chem(i),mu_chem(i))
-#else
-#ifdef NUCLEATION
-          !evolve dust chemistry and compute dust cooling
-          call evolve_dust(iwind,dtsph, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
-#else
-          if (icooling > 3) then
-!only H0 cooling
-#ifdef SINKRADIATION
-             call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyzu(4,i),&
-                  rhoh(xyzh(4,i),massoftype(itype)), dtsph, dust_temp(i))
-#else
-             call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyzu(4,i),&
-                  rhoh(xyzh(4,i),massoftype(itype)), dtsph)
-#endif
-          endif
-#endif
+          if (maxvxyzu >= 4) vxyzu(4,i) = eni
+
           !the temperature profile being imposed, the internal energy is also fixed
-          if (iwind == 2) then
-             vxyzu(4,i) = energy_profile(xyzh(:,i))
-          endif
-#endif
-#endif
+          !if (iwind == 2) then
+          !   vxyzu(4,i) = energy_profile(xyzh(:,i))
+          !endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
@@ -603,7 +554,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -615,7 +566,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,idamp,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink
+                          fxyz_ptmass_sinksink,dust_temp
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
@@ -624,6 +575,15 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
  use radiative_accel,only:get_rad_accel_from_sinks,irad_accel
+ use cooling,        only:energ_cooling
+#ifdef NUCLEATION
+ use part,           only:nucleation
+ use dusty_wind,     only:evolve_dust
+#endif
+#ifdef KROME
+ use part,            only: gamma_chem,mu_chem,species_abund
+ use krome_interface, only: update_krome
+#endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -635,7 +595,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real            :: dudtcool,fextv(3),poti,fextrad(3)
+ real            :: dudtcool,fextv(3),poti,fextrad(3),ui
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real            :: dptmass(ndptmass,nptmass)
@@ -717,12 +677,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-    !$omp shared(temperature) &
+    !$omp shared(temperature,dust_temp) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
     !$omp shared(irad_accel) &
-    !$omp private(fextrad) &
+#ifdef NUCLEATION
+    !$omp shared(nucleation) &
+#endif
+#ifdef KROME
+    !$omp shared(gamma_chem,mu_chem,species_abund) &
+#endif
+    !$omp private(fextrad,ui) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
@@ -800,20 +766,49 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           fext(1,i) = fextx
           fext(2,i) = fexty
           fext(3,i) = fextz
-          !
-          ! ARP added:
-          ! Chemistry must be updated on each substep, else will severely underestimate.
-          !
-          if ((maxvxyzu >= 4).and.(icooling > 0).and.h2chemistry) then
-             !--Flag determines no cooling, just update abundances.
-             ichem     = 1
-             idudtcool = 0
-             !--Dummy variable to fill for cooling (will remain empty)
-             dudtcool  = 0.
-             !--Provide a blank dudt_cool element, not needed here
-             call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
-                                  nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                                  divcurlv(1,i),idudtcool,ichem)
+
+          if ((maxvxyzu >= 4) .and. (icooling > 0)) then
+             !
+             ! CHEMISTRY
+             !
+             if (h2chemistry) then
+                !--Flag determines no cooling, just update abundances.
+                ichem     = 1
+                idudtcool = 0
+                !--Dummy variable to fill for cooling (will remain empty)
+                dudtcool  = 0.
+                !--Provide a blank dudt_cool element, not needed here
+                call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
+                                     nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
+                                     divcurlv(1,i),idudtcool,ichem)
+             endif
+#ifdef KROME
+             ! evolve chemical composition and determine new internal energy
+             ! Krome also computes cooling function but only associated with chemical processes
+             ui = vxyzu(4,i)
+             call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
+                  species_abund(:,i),gamma_chem(i),mu_chem(i))
+             dudt = (ui-vxyzu(4,i))/dt
+#elif NUCLEATION
+             !evolve dust chemistry and compute dust cooling
+             call evolve_dust(iwind,dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
+#else
+             !
+             ! COOLING
+             !
+             if (icooling > 0 .and. .not.h2chemistry) then
+                if (store_dust_temperature) then
+                ! cooling with stored dust temperature
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
+                        rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
+                else
+                ! cooling without stored dust temperature
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
+                        rhoh(xyzh(4,i),pmassi), dt)
+                endif
+             endif
+             vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+#endif
           endif
        endif
     enddo predictor

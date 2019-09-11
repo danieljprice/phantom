@@ -52,34 +52,34 @@ module cooling
 
 contains
 
-subroutine init_cooling(icool)
-  use io,           only:fatal
-  integer, intent(in) :: icool
-  integer :: iwind,ierr
+subroutine init_cooling(ierr)
+  use io,  only:fatal
+  integer, intent(out) :: ierr
 
-  if (icool > 0) then
-     iwind = icool
-  else
-     !dust free wind, only H0 cooling allowed
-     if (abs(icool) > 0) iwind = 10
-  endif
-
-!you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
+  !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
   if (icool_relax_bowen == 1 .and. icool_relax_stefan == 1) then
      call fatal(label,'you can"t have bowen and stefan cooling at the same time')
   endif
 
-!krome calculates its own cooling rate
 #ifdef KROME
+  !krome calculates its own cooling rate
   icool_radiation_H0 = 0
   icool_dust_collision = 0
+#else
+  !if no cooling flag activated, disable cooling
+  if (icooling == 1 .and. (icool_radiation_H0+icool_relax_Bowen+icool_dust_collision+&
+       icool_relax_Stefan == 0)) then
+     icooling = 0
+     calc_Teq = .false.
+     return
+  endif
 #endif
   calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
 
 !initialize grid temperature
   if (icooling == 2) then
      call init_cooltable(ierr)
-  else
+  elseif (icooling > 0) then
      call set_Tgrid
   endif
 
@@ -386,13 +386,13 @@ end subroutine implicit_cooling
 
 !-----------------------------------------------------------------------
 !
-!   implement cooling contribution du/dt equation
+!   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
 subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-  real, intent(in) :: xi, yi, zi, rho, dt !in code unit
+  real, intent(in) :: xi, yi, zi, u, rho, dt !in code unit
   real, intent(in), optional :: Trad, mu_in, K2, kappa ! in cgs!!!
-  real, intent(inout) :: u, dudt
+  real, intent(inout) :: dudt
 
   select case (icooling)
   case (3)
@@ -418,9 +418,9 @@ subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg
   use units,   only:unit_ergg
-  real, intent(in) :: rho, dt, Trad
+  real, intent(in) :: u, rho, dt, Trad
   real, intent(in), optional :: mu_in, K2, kappa
-  real, intent(inout) :: u,dudt
+  real, intent(out) :: dudt
 
   real, parameter :: tol = 1.d-12
   real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,mu,du,T_on_u
@@ -476,10 +476,8 @@ subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
      endif
   endif
 
-  du = (Temp-T)/T_on_u
-  u = u+du
+  dudt = (Temp-T)/T_on_u/dt
   !note that u = Temp/T_on_u
-  dudt = dudt + du/dt
 
 end subroutine exact_cooling
 
@@ -495,9 +493,9 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
  use eos,     only:gamma,gmw
  use physcon, only:atomic_mass_unit,kboltz,Rg
  use units,   only:unit_density,unit_ergg,utime
- real, intent(in)    :: rho,dt
- real, intent(inout) :: uu,dudt
- real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp,durad
+ real, intent(in)  :: uu, rho,dt
+ real, intent(out) :: dudt
+ real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp
  real    :: sloperef,slopek,temp,temp1,tref,yfunx,yinv0
  integer :: k
 
@@ -544,9 +542,7 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
     endif
  endif
 
- durad = (temp1 - temp)*Rg/(gam1*gmw*unit_ergg)
- !dudt = dudt + durad/dt
- uu = uu + durad
+ dudt = (temp1 - temp)*Rg/(gam1*gmw*unit_ergg)/dt
 
 end subroutine exact_cooling_table
 

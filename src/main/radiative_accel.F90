@@ -43,7 +43,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
 #ifdef NUCLEATION
  use part,  only:nucleation
 #endif
-#ifdef SINKRADIATION
+#ifdef STORE_TDUST
   use part,  only:dust_temp
 #endif
  integer,  intent(in)    :: nptmass,npart
@@ -64,7 +64,7 @@ subroutine get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
 #ifdef NUCLEATION
     !$omp shared(nucleation)&
 #endif
-#ifdef SINKRADIATION
+#ifdef STORE_TDUST
     !$omp shared(dust_temp)&
 #endif
     !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &

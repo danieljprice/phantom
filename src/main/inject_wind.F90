@@ -309,6 +309,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use physcon,      only:pi,au
  use io,           only:fatal
+ use dim,          only:store_dust_temperature
 #ifdef BOWEN
  use bowen_dust,   only:pulsating_wind_profile
 #elif NUCLEATION
@@ -316,10 +317,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 #else
  use dust_free_wind, only:dust_free_wind_profile
 #endif
-#ifdef SINKRADIATION
- use part,         only:dust_temp
-#endif
- use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere
+ use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere,dust_temp
  use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
  use units,        only:udist
@@ -409,9 +407,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
             npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
 #endif
-#ifdef SINKRADIATION
-       dust_temp(first_particle:first_particle+particles_per_sphere-1) = xyzmh_ptmass(iTeff,wind_emitting_sink)
-#endif
+       if (store_dust_temperature) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
+            xyzmh_ptmass(iTeff,wind_emitting_sink)
     else
        ! ejected particles
 #ifdef NUCLEATION
@@ -422,9 +419,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
 #endif
        !initialize dust temperature to star's effective temperature
-#ifdef SINKRADIATION
-       dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
-#endif
+       if (store_dust_temperature) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
        ! update the sink particle mass
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
           xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres

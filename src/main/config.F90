@@ -67,6 +67,13 @@ module dim
  logical, parameter :: store_temperature = .false.
 #endif
 
+ integer :: maxTdust = 0
+#ifdef STORE_TDUST
+ logical, parameter :: store_dust_temperature = .true.
+#else
+ logical, parameter :: store_dust_temperature = .false.
+#endif
+
  ! maximum allowable number of neighbours (safest=maxp)
 #ifdef MAXNEIGH
  integer, parameter :: maxneigh = MAXNEIGH
@@ -185,6 +192,7 @@ module dim
 !-----------------
 ! KROME chemistry
 !-----------------
+ integer :: maxkrome = 0
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -310,6 +318,14 @@ subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
  maxp = n
+
+#ifdef KROME
+ maxkrome = maxp
+#endif
+
+#ifdef STORE_TDUST
+ maxTdust = maxp
+#endif
 
 #ifdef STORE_TEMPERATURE
  maxtemp = maxp
