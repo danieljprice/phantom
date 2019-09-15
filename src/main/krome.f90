@@ -27,12 +27,13 @@ module krome_interface
  use krome_user
  use krome_getphys
  use krome_main
- use part, only: species_abund_label,mu_chem,gamma_chem
+ use part, only: write_KromeSetupFile,species_abund_label,mu_chem,gamma_chem
 
  implicit none
 
  public :: initialise_krome,update_krome
 
+ private
  real  :: cosmic_ray_rate
  real  :: H_init, He_init, C_init, N_init, O_init
  real  :: S_init, Fe_init, Si_init
@@ -143,6 +144,33 @@ subroutine evolve_chemistry(species, dens, temp, time)
  endif
 
 end subroutine evolve_chemistry
+
+!----------------------------------------------------------------
+!+
+!  write Krome parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_KromeSetupFile
+
+ integer, parameter           :: iunit = 21
+
+ print "(a)",' writing krome setup options in krome.setup'
+ open(unit=iunit,file='krome.setup',status='replace',form='formatted')
+ write (iunit,'("-n=networks/react_AGB_full_minFPNaMg")')
+ write (iunit,'("#-compact")')
+ write (iunit,'("-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN")')
+ write (iunit,'("-heating=CHEM,CR")')
+ write (iunit,'("-H2opacity=RIPAMONTI")')
+ write (iunit,'("-gamma=EXACT")')
+ write (iunit,'("-noSinkCheck")')
+ write (iunit,'("-noRecCheck")')
+ write (iunit,'("-noTlimits")')
+ write (iunit,'("-useX")')
+ write (iunit,'("-conserveLin")')
+ write (iunit,'("-useTabs")')
+ close(iunit)
+
+end subroutine write_Kromesetupfile
 
 ! subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
 !  use dim, only:maxvxyzu

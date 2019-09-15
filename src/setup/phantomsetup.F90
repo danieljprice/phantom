@@ -47,6 +47,9 @@ program phantomsetup
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
 #endif
+#ifdef KROME
+ use krome,           only:write_KromeSetupFile
+#endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
  integer(kind=8)             :: ntotal
@@ -183,6 +186,11 @@ program phantomsetup
        print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
     endif
  enddo
+
+#ifdef KROME
+ inquire(file='krome.setup',exist=iexist)
+ if (.not. iexist) call write_KromeSetupFile
+#endif
 
  call finalise_mpi
  call deallocate_memory(part_only=.true.)
