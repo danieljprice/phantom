@@ -57,7 +57,7 @@ subroutine allocate_array_real8_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'real(4)')
+ call print_allocation_stats(name, (/n1/), 'real(8)')
 
 end subroutine allocate_array_real8_1d
 

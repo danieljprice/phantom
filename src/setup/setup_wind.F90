@@ -47,6 +47,9 @@ module setup
 #endif
  integer, public :: icompanion_star = 0
  real, public :: spacial_resolution
+ real, public :: semi_major_axis
+ real, public :: eccentricity
+
  real :: primary_Teff = 3000.
  real :: primary_Reff
  real :: primary_lum
@@ -57,8 +60,6 @@ module setup
  real :: secondary_lum
  real :: secondary_mass
  real :: secondary_racc
- real, public :: semi_major_axis
- real, public :: eccentricity
  real :: default_particle_mass = 1.e-11
  real :: spacial_resolution_au = 0.01
  real :: primary_lum_lsun = 5315.
