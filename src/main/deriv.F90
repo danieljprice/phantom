@@ -62,7 +62,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use growth,         only:get_growth_rate
  use part,           only:VrelVf
 #endif
-#ifdef STORE_TDUST
+#ifdef SINK_RADIATION
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
  use part,             only:dust_temp,nptmass,xyzmh_ptmass
 #endif
@@ -148,9 +148,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  call get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 
-#ifdef STORE_TDUST
+#ifdef SINK_RADIATION
  !compute dust temperature
- call get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
+ if (maxvxyzu >= 4) call get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
 #endif
 !
 ! set new timestep from Courant/forces condition
