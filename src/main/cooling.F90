@@ -290,7 +290,7 @@ end subroutine set_Tgrid
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Gammie(xi,yi,zi,ui,dudti)
- real, intent(in) :: xi,yi,zi,ui
+ real, intent(in) :: ui,xi,yi,zi
  real, intent(inout) :: dudti
 
  real :: omegai,r2,tcool1
@@ -307,15 +307,15 @@ end subroutine cooling_Gammie
 !   explicit cooling cooling
 !
 !-----------------------------------------------------------------------
-subroutine explicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+subroutine explicit_cooling (ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg
   use units,   only:unit_ergg
-  real, intent(in) :: rho, dt, Trad !code units
+  real, intent(in) :: ui, rho, dt, Trad !code units
   real, intent(in), optional :: mu_in, K2, kappa
-  real, intent(inout) :: u,dudt !code units
+  real, intent(out) :: dudt !code units
 
-  real :: Q,dlnQ_dlnT,T,mu,T_on_u
+  real :: u,Q,dlnQ_dlnT,T,mu,T_on_u
 
   if (.not.present(mu_in)) then
      mu = gmw
@@ -323,14 +323,13 @@ subroutine explicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
      mu = mu_in
   endif
   T_on_u = (gamma-1.)*mu*unit_ergg/Rg
-  T = T_on_u*u
+  T = T_on_u*ui
   call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
-  if (-Q*dt  > u) then   ! assume thermal equilibrium
+  if (-Q*dt  > ui) then   ! assume thermal equilibrium
     u = Trad/T_on_u
-    dudt = 0.d0
+    dudt = (u-ui)/dt
   else
-    u = u + Q*dt
-    dudt = dudt + Q
+    dudt = Q
   endif
   !print *,T,Teq,T_on_u*u,'dT=',T_on_u*Q*dt,u,Q*dt
 
@@ -341,17 +340,17 @@ end subroutine explicit_cooling
 !   implicit cooling
 !
 !-----------------------------------------------------------------------
-subroutine implicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+subroutine implicit_cooling (ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
   use eos,     only:gamma,gmw
   use physcon, only:Rg
   use units,   only:unit_ergg
-  real, intent(in) :: rho, dt
+  real, intent(in) :: ui, rho, dt
   real, intent(in), optional :: Trad, mu_in, K2, kappa
-  real, intent(inout) :: u,dudt
+  real, intent(out) :: dudt
 
   real, parameter :: tol = 1.d-4 ! to be adjusted
   integer, parameter :: iter_max = 200
-  real :: Q,dlnQ_dlnT,T,mu,T_on_u,delta_u,term1,term2,term3
+  real :: u,Q,dlnQ_dlnT,T,mu,T_on_u,delta_u,term1,term2,term3
   integer :: iter
 
   if (.not.present(mu_in)) then
@@ -359,6 +358,7 @@ subroutine implicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   else
      mu = mu_in
   endif
+  u = ui
   T_on_u = (gamma-1.)*mu*unit_ergg/Rg
   delta_u = 1.d-3
   iter = 0
@@ -367,7 +367,7 @@ subroutine implicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   ! see PP flag : IMPLICIT COOLING - pb: we need div(v) and it is only real*4
   !term2 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
   term2 = 1.
-  term1 = u !updated internal energy without cooling contributions
+  term1 = u !initial internal energy without cooling contributions
   do while (abs(delta_u) > tol .and. iter < iter_max)
      T = u*T_on_u
      call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
@@ -376,7 +376,7 @@ subroutine implicit_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
      u = u+delta_u
      iter = iter + 1
   enddo
-  ! dudt = dudt+(u-term1)/dt
+  dudt =(u-term1)/dt
   if (u < 0. .or. isnan(u)) then
      print *,u
      stop ' u<0'
@@ -423,7 +423,7 @@ subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
   real, intent(out) :: dudt
 
   real, parameter :: tol = 1.d-12
-  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,mu,du,T_on_u
+  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,mu,T_on_u
   integer :: k
 
   if (.not.present(mu_in)) then
