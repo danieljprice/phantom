@@ -568,7 +568,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp
  use chem,           only:update_abundances,get_dphot
- use h2cooling,      only:dphot0,energ_h2cooling,dphotflag
+ use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
@@ -602,6 +602,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real            :: dptmass(ndptmass,nptmass)
  real            :: damp_fac,dphot
  real, save      :: dmdt = 0.
+ real            :: abundi(nabn),gmwvar
  logical         :: accreted,extf_is_velocity_dependent
  logical         :: last_step,done
 
@@ -682,13 +683,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
+    !$omp shared(abundc,abundo,abundsi,abunde) &
 #ifdef NUCLEATION
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
     !$omp shared(gamma_chem,mu_chem,species_abund) &
 #endif
-    !$omp private(dphot) &
+    !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
@@ -779,7 +781,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 !
                 dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
                 call update_abundances(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),abundance(:,i),&
-                      nabundances,dphot,dt)  ! can return temperature and mu if desired
+                      nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
@@ -798,8 +800,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              if (icooling > 0) then
 !--Flag determines no cooling, just update abundances.
                 if (h2chemistry) then
-                   call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
-                        nabundances,divcurlv(1,i))
+ !
+ ! Call cooling routine, requiring total density, some distance measure and
+ ! abundances in the 'abund' format
+ !
+                   call energ_h2cooling(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),divcurlv(1,i),&
+                        gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                 ! cooling with stored dust temperature
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&

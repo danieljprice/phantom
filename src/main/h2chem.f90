@@ -95,12 +95,31 @@ real function get_dphot(dphotflag,dphot0,xi,yi,zi)
 
 end function get_dphot
 
+!---------------------------------------------------------------------
+!+
+!  Public routine to update abundances and return full chemical array
+!+
+!---------------------------------------------------------------------
+subroutine update_abundances(ui,rhoi,chemarrays,nchem,dphot,dt,abund,&
+                             nabn,gmwvar,abundc,abunde,abundo,abundsi)
+ real,    intent(in)    :: ui,rhoi,dt,dphot
+ real,    intent(in)    :: abundc,abunde,abundo,abundsi
+ integer, intent(in)    :: nchem, nabn
+ real,    intent(inout) :: chemarrays(nchem)
+ real,    intent(out)   :: abund(nabn)
+ real,    intent(out)   :: gmwvar
+
+ call evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
+ call get_extra_abundances(chemarrays,nchem,abund,nabn,gmwvar,&
+                           abundc,abunde,abundo,abundsi)
+
+end subroutine update_abundances
 !----------------------------------------------------------------
 !+
 !  Internal routine to update abundances of various species
 !+
 !----------------------------------------------------------------
-subroutine update_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
+subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
  use units,     only:utime,uergg=>unit_ergg,udens=>unit_density
  use physcon,   only:mp=>mass_proton_cgs,Rg
@@ -327,7 +346,49 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  chemarrays(ielectron) = abeq                   ! e-
  chemarrays(iCO)       = abco                   ! CO
 
-end subroutine update_abundances
+end subroutine evolve_abundances
+
+!-----------------------------------------------------------------------
+!+
+!  Set abundances of H2, HI, electrons and protons for cooling routine only.
+!  We assume that CI and SiI are not present, and that SiII does not vary from its
+!  initial value.
+!+
+!-----------------------------------------------------------------------
+subroutine get_extra_abundances(chemarrays,nchem,abund,nabn,gmwvar,&
+                                abundc,abunde,abundo,abundsi)
+ use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
+ integer, intent(in) :: nchem, nabn
+ real,    intent(in) :: abundc,abunde,abundo,abundsi
+ real,    intent(in) :: chemarrays(nchem)
+ real,    intent(out) :: abund(nabn)
+ real,    intent(out) :: gmwvar
+ real :: h2ratio,abHIq,abhpq,abeq,abco
+
+!--read in chemistry of particle
+ h2ratio = chemarrays(ih2ratio)
+ abHIq   = chemarrays(iHI)
+ abhpq   = chemarrays(iproton)
+ abeq    = chemarrays(ielectron)
+ abco    = chemarrays(iCO)
+
+!--assign to cool_func format array
+ abund(1)  = h2ratio                             ! H2
+ abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
+ abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
+ abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
+ abund(5)  = max(0., abundo - abco)              ! OI
+ abund(6)  = 0.                                  ! CI
+ abund(7)  = max(0., abundc - abco)              ! CII
+ abund(8)  = 0.                                  ! SiI
+ abund(9)  = abundsi                             ! SiII
+ abund(10) = abco                                ! CO
+
+!--mean molecular weight
+ gmwvar= (2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
+      (0.1d0+h2ratio+(1.d0-2.d0*h2ratio))
+
+end subroutine get_extra_abundances
 
 !----------------------------------------------------------------
 !+

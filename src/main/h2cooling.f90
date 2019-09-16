@@ -139,24 +139,22 @@ contains
 !----------------------------------------------------------------
 !+
 !  Compute cooling term in energy equation (du/dt)
-!  Also updates abundances of various species
 !+
 !----------------------------------------------------------------
-subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,divv)
- use units,     only:utime,udist,udens=>unit_density
- real,    intent(in)        :: ui,rhoi
- real(kind=4), intent(in)   :: divv
- real,    intent(inout) :: dudti
- integer, intent(in)    :: nchem
- real,    intent(inout) :: chemarrays(nchem)
- real :: abund(nabn)
+subroutine energ_h2cooling(ui,rhoi,divv,gmwvar,abund,dudti)
+ use units,     only:utime,udist,udens=>unit_density,uergg=>unit_ergg
+ use physcon,   only:mass_proton_cgs,Rg
+ real,         intent(in)    :: ui,rhoi,gmwvar
+ real(kind=4), intent(in)    :: divv
+ real,         intent(in)    :: abund(nabn)
+ real,         intent(inout) :: dudti
  real :: ratesq(nrates)
- real :: tempiso,ylamq,np1,divv_cgs,npl
+ real :: ylamq,divv_cgs,tempiso,np1
  !
- ! Call cooling routine, requiring total density, some distance measure and
- ! abundances in the 'abund' format
+ ! compute temperature and number density
  !
- call get_extra_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,npl)
+ tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/uergg)
+ np1     = (rhoi*udens/mass_proton_cgs)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
  !
  ! call cooling function with all abundances
  !
@@ -168,52 +166,6 @@ subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,divv)
  dudti = dudti + (-1.d0*ylamq/(rhoi*udens))*utime**3/udist**2
 
 end subroutine energ_h2cooling
-
-!-----------------------------------------------------------------------
-!+
-!  Set abundances of H2, HI, electrons and protons for cooling routine only.
-!  We assume that CI and SiI are not present, and that SiII does not vary from its
-!  initial value.
-!+
-!-----------------------------------------------------------------------
-subroutine get_extra_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1)
- !use h2cooling, only:abundc,abunde,abundo,abundsi,nabn
- use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
- use physcon,   only:mp=>mass_proton_cgs,Rg
- use units,     only:uergg=>unit_ergg,udens=>unit_density
- integer, intent(in) :: nchem
- real,    intent(in) :: ui,rhoi
- real,    intent(in) :: chemarrays(nchem)
- real,    intent(out) :: abund(nabn)
- real,    intent(out) :: tempiso,np1
- real :: h2ratio,abHIq,abhpq,abeq,abco,gmwvar
-
-!--read in chemistry of particle
- h2ratio = chemarrays(ih2ratio)
- abHIq   = chemarrays(iHI)
- abhpq   = chemarrays(iproton)
- abeq    = chemarrays(ielectron)
- abco    = chemarrays(iCO)
-
-!--assign to cool_func format array
- abund(1)  = h2ratio                             ! H2
- abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
- abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
- abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
- abund(5)  = max(0., abundo - abco)              ! OI
- abund(6)  = 0.                                  ! CI
- abund(7)  = max(0., abundc - abco)              ! CII
- abund(8)  = 0.                                  ! SiI
- abund(9)  = abundsi                             ! SiII
- abund(10) = abco                                ! CO
-
-!--Calc cgs estimates of density and temperature needed by cool_func
- gmwvar= (2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
-      (0.1d0+h2ratio+(1.d0-2.d0*h2ratio))
- tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/uergg)
- np1   = (rhoi*udens/mp)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
-
-end subroutine get_extra_abundances
 
 !-----------------------------------------------------------------------
 !+
