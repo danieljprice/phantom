@@ -567,14 +567,15 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
                           isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp
- use chem,           only:energ_h2cooling
+ use chem,           only:update_abundances,get_dphot
+ use h2cooling,      only:dphot0,energ_h2cooling,dphotflag
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
- use radiative_accel,only:get_rad_accel_from_sinks,irad_accel
+ use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling
 #ifdef NUCLEATION
  use part,           only:nucleation
@@ -599,7 +600,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real            :: dptmass(ndptmass,nptmass)
- real            :: damp_fac
+ real            :: damp_fac,dphot
  real, save      :: dmdt = 0.
  logical         :: accreted,extf_is_velocity_dependent
  logical         :: last_step,done
@@ -680,14 +681,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(temperature,dust_temp) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
-    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv) &
-    !$omp shared(irad_accel) &
+    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
 #ifdef NUCLEATION
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
     !$omp shared(gamma_chem,mu_chem,species_abund) &
 #endif
+    !$omp private(dphot) &
     !$omp private(fextrad,ui) &
     !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
@@ -767,20 +768,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           fext(2,i) = fexty
           fext(3,i) = fextz
 
-          if ((maxvxyzu >= 4) .and. (icooling > 0)) then
+          if (maxvxyzu >= 4) then
+             dudtcool = 0.
              !
              ! CHEMISTRY
              !
              if (h2chemistry) then
-                !--Flag determines no cooling, just update abundances.
-                ichem     = 1
-                idudtcool = 0
-                !--Dummy variable to fill for cooling (will remain empty)
-                dudtcool  = 0.
-                !--Provide a blank dudt_cool element, not needed here
-                call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
-                                     nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                                     divcurlv(1,i),idudtcool,ichem)
+                !
+                ! Get updated abundances of all species, updates 'chemarrays',
+                !
+                dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                call update_abundances(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),abundance(:,i),&
+                      nabundances,dphot,dt)  ! can return temperature and mu if desired
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
@@ -788,7 +787,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
                   species_abund(:,i),gamma_chem(i),mu_chem(i))
-             dudt = (ui-vxyzu(4,i))/dt
+             dudtcool = (ui-vxyzu(4,i))/dt
 #elif NUCLEATION
              !evolve dust chemistry and compute dust cooling
              call evolve_dust(iwind,dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
@@ -796,8 +795,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !
              ! COOLING
              !
-             if (icooling > 0 .and. .not.h2chemistry) then
-                if (store_dust_temperature) then
+             if (icooling > 0) then
+!--Flag determines no cooling, just update abundances.
+                if (h2chemistry) then
+                   call energ_h2cooling(vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),abundance(:,i), &
+                        nabundances,divcurlv(1,i))
+                elseif (store_dust_temperature) then
                 ! cooling with stored dust temperature
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
@@ -807,16 +810,16 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                         rhoh(xyzh(4,i),pmassi), dt)
                 endif
              endif
-             vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 #endif
+             if (icooling > 0) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
           endif
        endif
     enddo predictor
     !$omp enddo
     !$omp end parallel
 
-    if (nptmass > 0 .and. irad_accel > 0 ) then
-       call get_rad_accel_from_sinks(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+    if (nptmass > 0 .and. isink_radiation > 0) then
+       call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
        fextx = fextx + fextrad(1)
        fexty = fexty + fextrad(2)
        fextz = fextz + fextrad(3)
