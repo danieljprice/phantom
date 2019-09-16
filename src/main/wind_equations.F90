@@ -34,13 +34,14 @@ module wind_equations
 
 contains
 
-subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T, iwind)
+subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, u_to_T, iwind)
  use physcon, only:solarm
  use units,   only:udist
- real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, expT_in, u_to_T
+ use eos,     only:qfacdisc
+ real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, u_to_T
  integer, intent(in) :: iwind
  Mstar_cgs = Mstar_in*solarm
- expT= expT_in
+ expT= 0.5*qfacdisc
  wind_type = iwind
  Tstar = Tstar_in
  Rstar = Rstar_in
@@ -68,6 +69,7 @@ subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, 
        dt = dt * .9
     else
        dt = min(dt*1.05,abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+       !dt = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
        exit
     endif
  enddo
