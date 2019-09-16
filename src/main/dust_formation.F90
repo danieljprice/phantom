@@ -516,7 +516,7 @@ case('bowen_delta')
  case default
     imatch = .false.
  end select
- igotall = (ngot >= 1)
+ igotall = (ngot >= 5)
 end subroutine read_options_dust_formation
 
 end module dust_formation
