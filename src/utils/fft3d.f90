@@ -45,7 +45,7 @@ subroutine fft3d_k2 (k2,dx,dy,dz,mx,my,mz)
     enddo
  enddo
  !$omp barrier
-end subroutine
+end subroutine fft3d_k2
 
 !**********************************************************************
 subroutine fft3df (r,rr,mx,my,mz)
@@ -97,7 +97,7 @@ subroutine fft3df (r,rr,mx,my,mz)
  enddo
  !$omp barrier
 
-end subroutine
+end subroutine fft3df
 
 !**********************************************************************
 subroutine fft3db (rr,r,mx,my,mz)
@@ -147,5 +147,5 @@ subroutine fft3db (rr,r,mx,my,mz)
  enddo
  !$omp barrier
 
-end subroutine
-end module
+end subroutine fft3db
+end module fft3d

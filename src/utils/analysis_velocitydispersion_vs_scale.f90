@@ -479,7 +479,7 @@ subroutine find_particles_in_range(ipart,npart,xyzh,particlelist,d)
 
  deallocate(teststack)
 
-end subroutine
+end subroutine find_particles_in_range
 
 
 !--------------------------------------------------------------

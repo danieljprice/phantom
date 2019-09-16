@@ -207,4 +207,4 @@ subroutine check_neighbours(xyzh,tree)
 
 end subroutine check_neighbours
 
-end module
+end module analysis

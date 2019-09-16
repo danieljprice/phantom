@@ -167,7 +167,7 @@ subroutine init_inject(ierr)
 #endif
  if (wind_injection_radius_au <= Rstar_cgs/au) then
     print *,'invalid setting for wind_inject_radius < Rstar (au)',wind_injection_radius_au,Rstar_cgs/au
-   !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
+    !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
  endif
 #ifdef BOWEN
  call setup_bowen(u_to_temperature_ratio,wind_injection_radius,&
@@ -293,7 +293,7 @@ subroutine init_inject(ierr)
     if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
-xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
+ xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
 
 end subroutine init_inject
 

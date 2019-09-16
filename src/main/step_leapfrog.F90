@@ -800,18 +800,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              if (icooling > 0) then
 !--Flag determines no cooling, just update abundances.
                 if (h2chemistry) then
- !
- ! Call cooling routine, requiring total density, some distance measure and
- ! abundances in the 'abund' format
- !
+                   !
+                   ! Call cooling routine, requiring total density, some distance measure and
+                   ! abundances in the 'abund' format
+                   !
                    call energ_h2cooling(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),divcurlv(1,i),&
                         gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
-                ! cooling with stored dust temperature
+                   ! cooling with stored dust temperature
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
                 else
-                ! cooling without stored dust temperature
+                   ! cooling without stored dust temperature
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt)
                 endif

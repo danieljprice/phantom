@@ -518,4 +518,4 @@ recursive subroutine get_pdf_logBsq(imesh,level,datgrid,Bsqmin,Bsqmax,binspacing
 
 end subroutine get_pdf_logBsq
 
-end module
+end module analysis

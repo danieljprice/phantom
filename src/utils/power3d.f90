@@ -35,7 +35,7 @@ subroutine FAKE_NAMELIST(unit,name,var,string)
  write (unit,'(1x,a)') "&"//trim(name)
  write (unit,'(1x,a)') trim(var)//" = '"//trim(string)//"'"
  write (unit,'(1x,a)') "/"
-end subroutine
+end subroutine FAKE_NAMELIST
 
 !***********************************************************************
 subroutine open_power (file,origin,mk,xk,nk,n)
@@ -60,7 +60,7 @@ subroutine open_power (file,origin,mk,xk,nk,n)
 1 format(a)
 2 format(8g15.7)
 3 format(10i12)
-end subroutine
+end subroutine open_power
 
 !***********************************************************************
 subroutine write_power (mk,rho_power,pk,ptot,case)
@@ -75,7 +75,7 @@ subroutine write_power (mk,rho_power,pk,ptot,case)
  write (power_unit,component)
  write (power_unit,1) pk
 1 format(8g15.7)
-end subroutine
+end subroutine write_power
 
 !***********************************************************************
 subroutine power3d (ft,mx,my,mz,pk,xk,nk,mk,ptot,compensate,do_average,fty,ftz)
@@ -189,5 +189,5 @@ subroutine power3d (ft,mx,my,mz,pk,xk,nk,mk,ptot,compensate,do_average,fty,ftz)
 !$omp end single
 !$omp barrier
 
-end subroutine
-end module
+end subroutine power3d
+end module power

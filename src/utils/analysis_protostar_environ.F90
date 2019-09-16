@@ -1348,7 +1348,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                                      fracrotVol,float(volN(iVNrhoh))/float(volN(iVN))
  endif
  !
-end subroutine
+end subroutine doanalysisRPZ
 !----------------------------------------------------------------
 !+
 !  Resets the particle origin and velocities to that of a given location
@@ -1617,4 +1617,4 @@ subroutine write_header_file7(inunit)
 end subroutine write_header_file7
 !-----------------------------------------------------------------------
 !
-end module
+end module analysis

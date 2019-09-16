@@ -43,9 +43,9 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_radiation_ptmass(ierr)
-  integer, intent(out) :: ierr
+ integer, intent(out) :: ierr
 
-  ierr = 0
+ ierr = 0
 
 end subroutine init_radiation_ptmass
 
@@ -55,7 +55,7 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
-  use part,    only:isdead_or_accreted
+ use part,    only:isdead_or_accreted
 #ifdef NUCLEATION
  use part,  only:nucleation
 #endif
@@ -83,22 +83,22 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
     !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
     !$omp private(i,dx,dy,dz,ax,ay,az,r)
     do i=1,npart
-      if (.not.isdead_or_accreted(xyzh(4,i))) then
-        dx = xyzh(1,i) - xa
-        dy = xyzh(2,i) - ya
-        dz = xyzh(3,i) - za
-        r = sqrt(dx**2 + dy**2 + dz**2)
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          dx = xyzh(1,i) - xa
+          dy = xyzh(2,i) - ya
+          dz = xyzh(3,i) - za
+          r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5:i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5:i))
 #elif BOWEN
-        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
 #else
-        call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az)
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az)
 #endif
-        fext(1,i) = fext(1,i) + ax
-        fext(2,i) = fext(2,i) + ay
-        fext(3,i) = fext(3,i) + az
-      endif
+          fext(1,i) = fext(1,i) + ax
+          fext(2,i) = fext(2,i) + ay
+          fext(3,i) = fext(3,i) + az
+       endif
     enddo
     !$omp end parallel do
  enddo
@@ -111,34 +111,34 @@ end subroutine get_rad_accel_from_ptmass
 !  based on sink particle luminosity and computed opacities / column depth
 !+
 !-----------------------------------------------------------------------
- subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,K3,Tdust)
+subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,K3,Tdust)
 #ifdef NUCLEATION
-  use dust_formation, only:calc_alpha_dust
+ use dust_formation, only:calc_alpha_dust
 #elif BOWEN
-  use dust_formation, only:calc_alpha_bowen
+ use dust_formation, only:calc_alpha_bowen
 #endif
-  real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
-  real, optional, intent(in)  :: K3,Tdust
-  real, intent(out)   :: ax,ay,az
-  real :: fac,alpha_dust
+ real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
+ real, optional, intent(in)  :: K3,Tdust
+ real, intent(out)   :: ax,ay,az
+ real :: fac,alpha_dust
 
-  select case (isink_radiation)
-  ! alpha wind
-  case (1)
-     fac = alpha_rad*Mstar/r**3
-  case(2)
+ select case (isink_radiation)
+    ! alpha wind
+ case (1)
+    fac = alpha_rad*Mstar/r**3
+ case(2)
 #ifdef NUCLEATION
-     call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
+    call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
 #elif BOWEN
-     call calc_alpha_bowen(Mstar,Lstar,Tdust,alpha_dust)
+    call calc_alpha_bowen(Mstar,Lstar,Tdust,alpha_dust)
 #endif
-     fac = alpha_dust*Mstar/r**3
-  case default
-     fac = 0.
-  end select
-  ax = fac*dx
-  ay = fac*dy
-  az = fac*dz
+    fac = alpha_dust*Mstar/r**3
+ case default
+    fac = 0.
+ end select
+ ax = fac*dx
+ ay = fac*dy
+ az = fac*dz
 end subroutine get_radiative_acceleration_from_star
 
 !-----------------------------------------------------------------------
@@ -167,7 +167,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
 
  select case (iget_tdust)
  case (1)
-  ! simple T(r) relation
+    ! simple T(r) relation
     j = 1
     pTeffj = xyzmh_ptmass(iTeff,j)
     plumj  = xyzmh_ptmass(iLum,j)
@@ -189,7 +189,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
     !call Lucy_approximation(npart,xyzh,nptmass,xyzmh_ptmass,opacity,dust_temp)
  end select
 
- end subroutine get_dust_temperature_from_ptmass
+end subroutine get_dust_temperature_from_ptmass
 
 !-----------------------------------------------------------------------
 !+

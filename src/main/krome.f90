@@ -170,7 +170,7 @@ subroutine write_KromeSetupFile
  write (iunit,'("-useTabs")')
  close(iunit)
 
-end subroutine write_Kromesetupfile
+end subroutine write_KromeSetupFile
 
 ! subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
 !  use dim, only:maxvxyzu

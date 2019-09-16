@@ -93,9 +93,9 @@ module forces
        igraindensi = 45, &
        idvxdxi     = 46, &
        idvzdzi     = 54, &
-       !--dust arrays initial index
+ !--dust arrays initial index
        idustfraci    = 55, &
-       !--dust arrays final index
+ !--dust arrays final index
        idustfraciend = 55 + (maxdusttypes - 1), &
        itstop        = 56 + (maxdusttypes - 1), &
        itstopend     = 56 + 2*(maxdusttypes - 1)
@@ -114,7 +114,7 @@ module forces
        idBevolyi   = 10, &
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
-       !--dust array indexing
+ !--dust array indexing
        iddustevoli    = 13, &
        iddustevoliend = 13 +   (maxdustsmall-1), &
        idudtdusti     = 14 +   (maxdustsmall-1), &

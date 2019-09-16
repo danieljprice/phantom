@@ -152,7 +152,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
     dT_dr = -expT*T0/r
  endif
  if (icooling == 0) then
- !isothermal or adiabatic expansion (no cooling)
+    !isothermal or adiabatic expansion (no cooling)
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1. - alpha))/(r**2*v)

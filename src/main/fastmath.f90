@@ -66,7 +66,7 @@ real(kind=4) pure elemental function fastinvsqrt(y)
  fastinvsqrt = x
 
  return
-end function
+end function fastinvsqrt
 
 !-----------------------------------------
 !+
@@ -90,7 +90,7 @@ real(kind=8) pure elemental function dfastinvsqrt(y)
  dfastinvsqrt = x
 
  return
-end function
+end function dfastinvsqrt
 
 !----------------------------------------------------------------
 !+

@@ -227,4 +227,4 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-end module
+end module analysis

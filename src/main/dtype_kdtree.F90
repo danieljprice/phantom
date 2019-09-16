@@ -41,7 +41,7 @@ module dtypekdtree
                     + 8*6 &         ! quads(6)
 #endif
 #ifdef TREEVIZ
-                    + 8*ndimtree &  ! xmin(ndimtree)
+ + 8*ndimtree &  ! xmin(ndimtree)
                     + 8*ndimtree &  ! xmax(ndimtree)
 #endif
                     + 0

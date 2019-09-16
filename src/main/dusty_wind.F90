@@ -444,74 +444,74 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  if (stype == 1) then
 
 ! Find lower bound for initial velocity
- v0 = cs*0.991
- v0max = v0
- icount = 0
- do while (icount < ncount_max)
-    call calc_dustywind_profile(r0, v0, T0, 0., state)
-    if (iverbose>1) print *,' v0/cs = ',v0/cs
-    if (state%spcode == -1) then
-       v0min = v0
-       exit
-    else
-       v0max = v0
-       v0 = v0 / 2.
-    endif
-    icount = icount+1
- enddo
- if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
- if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
- if (v0min/cs > 0.99)  call fatal(label,'supersonic wind solution, set sonic_type = 0 and provide wind_velocity')
+    v0 = cs*0.991
+    v0max = v0
+    icount = 0
+    do while (icount < ncount_max)
+       call calc_dustywind_profile(r0, v0, T0, 0., state)
+       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (state%spcode == -1) then
+          v0min = v0
+          exit
+       else
+          v0max = v0
+          v0 = v0 / 2.
+       endif
+       icount = icount+1
+    enddo
+    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
+    if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
+    if (v0min/cs > 0.99)  call fatal(label,'supersonic wind solution, set sonic_type = 0 and provide wind_velocity')
 
 ! Find upper bound for initial velocity
- v0 = v0max
- icount = 0
- do while (icount < ncount_max)
-    call calc_dustywind_profile(r0, v0, T0, 0., state)
-    if (iverbose>1) print *,' v0/cs = ',v0/cs
-    if (state%spcode == 1) then
-       v0max = v0
-       exit
-    else
-       v0min = max(v0min, v0)
-       v0 = v0 * 1.1
-    endif
-    icount = icount+1
- enddo
- if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
- if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
+    v0 = v0max
+    icount = 0
+    do while (icount < ncount_max)
+       call calc_dustywind_profile(r0, v0, T0, 0., state)
+       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (state%spcode == 1) then
+          v0max = v0
+          exit
+       else
+          v0min = max(v0min, v0)
+          v0 = v0 * 1.1
+       endif
+       icount = icount+1
+    enddo
+    if (icount == ncount_max)  call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
 
 ! Find sonic point by dichotomy between v0min and v0max
- do
-    v0last = v0
-    v0 = (v0min+v0max)/2.
-    call calc_dustywind_profile(r0, v0, T0, 0., state)
-    if (iverbose>1) print *, 'v0/cs = ',v0/cs
-    if (state%spcode == -1) then
-       v0min = v0
-    elseif (state%spcode == 1) then
-       v0max = v0
-    else
-       exit
-    endif
-    if (abs(v0-v0last)/v0last < 1.e-5) then
-       exit
-    endif
- enddo
- !sonic point properties (location, time to reach, ...)
- sonic(1) = state%r
- sonic(2) = state%v
- sonic(3) = state%c
- sonic(4) = state%time
- sonic(5) = state%Tg
- sonic(6) = state%p
- sonic(7) = state%alpha
- sonic(8) = state%S
- !mdot = 4.*pi*rho*v0*ro*ro
+    do
+       v0last = v0
+       v0 = (v0min+v0max)/2.
+       call calc_dustywind_profile(r0, v0, T0, 0., state)
+       if (iverbose>1) print *, 'v0/cs = ',v0/cs
+       if (state%spcode == -1) then
+          v0min = v0
+       elseif (state%spcode == 1) then
+          v0max = v0
+       else
+          exit
+       endif
+       if (abs(v0-v0last)/v0last < 1.e-5) then
+          exit
+       endif
+    enddo
+    !sonic point properties (location, time to reach, ...)
+    sonic(1) = state%r
+    sonic(2) = state%v
+    sonic(3) = state%c
+    sonic(4) = state%time
+    sonic(5) = state%Tg
+    sonic(6) = state%p
+    sonic(7) = state%alpha
+    sonic(8) = state%S
+    !mdot = 4.*pi*rho*v0*ro*ro
 
- write (*,'("Sonic point properties  cs (km/s) =",f9.3," v0 (km/s) =",f9.3," Rs/R* = ",f7.3," ts =",f8.2,", alpha =",f6.3," v0/cs = ",es9.2)')&
+    write (*,'("Sonic point properties  cs (km/s) =",f9.3," v0 (km/s) =",f9.3," Rs/R* = ",f7.3," ts =",f8.2,", alpha =",f6.3," v0/cs = ",es9.2)')&
       sonic(2)/1e5,v0/1e5,sonic(1)/Rstar_cgs,sonic(4)/utime,sonic(7),v0/sonic(2)
-endif
+ endif
  !save 1D initial profile for comparison
  write (*,'("Saving 1D model : ")')
  call save_windprofile(r0, v0, T0, sonic(4),'windprofile1D.dat')

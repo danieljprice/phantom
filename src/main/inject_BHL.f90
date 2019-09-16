@@ -259,7 +259,7 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
     call add_or_update_particle(itype,position_u,velocity_u,h(i)/udist,u(i)/(udist**2/utime**2),&
      ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
  enddo
-end subroutine
+end subroutine inject_or_update_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -279,7 +279,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(BHL_psep,'BHL_psep','particle separation (in star radii)',iunit)
  call write_inopt(BHL_wind_length,'BHL_wind_length','crude wind length (in star radii)',iunit)
 
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -333,6 +333,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
 
  igotall = (ngot >= 8)
-end subroutine
+end subroutine read_options_inject
 
 end module inject

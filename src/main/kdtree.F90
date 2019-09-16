@@ -195,7 +195,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
     ! get number of OpenMPthreads
     !$omp parallel default(none) shared(numthreads)
-    !$ numthreads = omp_get_num_threads()
+!$  numthreads = omp_get_num_threads()
     !$omp end parallel
     done_init_kdtree = .true.
  endif

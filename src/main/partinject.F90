@@ -107,7 +107,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 #ifdef NUCLEATION
  if (present(JKmus)) nucleation(:,particle_number) = JKmuS(:)
 #endif
-end subroutine
+end subroutine add_or_update_particle
 
 !-----------------------------------------------------------------------
 !+
@@ -138,6 +138,6 @@ subroutine add_or_update_sink(position,velocity,radius,mass,sink_number)
  vxyz_ptmass(1,sink_number) = velocity(1)
  vxyz_ptmass(2,sink_number) = velocity(2)
  vxyz_ptmass(3,sink_number) = velocity(3)
-end subroutine
+end subroutine add_or_update_sink
 
 end module partinject

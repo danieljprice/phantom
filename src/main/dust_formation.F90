@@ -42,10 +42,10 @@ module dust_formation
  private
 
 #ifdef BOWEN
-  real :: bowen_kmax = 2.7991
-  real :: bowen_Tcond = 1500.
-  real :: bowen_delta = 60.
-  real :: kappa_gas   = 2.d-4
+ real :: bowen_kmax = 2.7991
+ real :: bowen_Tcond = 1500.
+ real :: bowen_delta = 60.
+ real :: kappa_gas   = 2.d-4
 #endif
 
 ! Indices for elements and molecules:
@@ -471,9 +471,9 @@ subroutine write_options_dust_formation(iunit)
  call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
  call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
 #if defined (BOWEN)
-  call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
-  call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
-  call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
+ call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
+ call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
+ call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
 #endif
 
 end subroutine write_options_dust_formation
@@ -505,16 +505,16 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
     if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
     kgas = kappa_gas / (udist**2/umass)
-case('bowen_kmax')
+ case('bowen_kmax')
     read(valstring,*,iostat=ierr) bowen_kmax
     ngot = ngot + 1
     if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
     kmax = bowen_kmax / (udist**2/umass)
-case('bowen_Tcond')
+ case('bowen_Tcond')
     read(valstring,*,iostat=ierr) bowen_Tcond
     ngot = ngot + 1
     if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
-case('bowen_delta')
+ case('bowen_delta')
     read(valstring,*,iostat=ierr) bowen_delta
     ngot = ngot + 1
     if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')

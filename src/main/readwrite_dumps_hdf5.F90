@@ -106,7 +106,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  else
     call write_dump(t,dumpfile,fulldump=.true.)
  endif
-end subroutine
+end subroutine write_fulldump
 
 !--------------------------------------------------------------------
 !+
@@ -120,7 +120,7 @@ subroutine write_smalldump(t,dumpfile)
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  call write_dump(t,dumpfile,fulldump=.false.)
-end subroutine
+end subroutine write_smalldump
 
 !--------------------------------------------------------------------
 !+
@@ -1183,7 +1183,7 @@ subroutine count_particle_types(npartoftype)
 end subroutine count_particle_types
 
 #ifdef PHANTOM2HDF5
-end module readwrite_dumps_hdf5
+end module readwrite_dumps
 #else
 end module readwrite_dumps
 #endif
