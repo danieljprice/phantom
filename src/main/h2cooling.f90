@@ -38,14 +38,14 @@
 !+
 !--------------------------------------------------------------------------
 module h2cooling
- use physcon, only:kboltz,eV
+ use physcon, only:kboltz
  implicit none
 !
 ! only publicly visible entries are the
 ! cool_func and init_h2cooling subroutines
 !
  public :: cool_func, init_h2cooling, write_options_h2cooling, read_options_h2cooling
- public :: hchem
+ public :: energ_h2cooling
 !
 ! required constants and parameters
 ! (this stuff formerly in cool.h)
@@ -94,7 +94,7 @@ module h2cooling
  real, public :: abunde  = 2.d-4
 
 ! Strength of UV field (in Habing units)
- real :: uv_field_strength = 1.d0
+ real, public :: uv_field_strength = 1.d0
 
 ! Dust temperature (in K)
  real :: tdust = 1.d1
@@ -103,7 +103,7 @@ module h2cooling
 !  simplicity that this scales linearly with metallicity,
 !   but it need not do so]
 !
- real :: dust_to_gas_ratio = 1.d0
+ real, public :: dust_to_gas_ratio = 1.d0
 !
 ! Visual extinction (A_V) per unit column density (in cm^-2)
 !
@@ -118,7 +118,7 @@ module h2cooling
 ! iphoto = 1 ==> approximate treatment of effects of extinction
 ! [See cool_func.F for details]
 !
- integer :: iphoto = 1
+ integer, public :: iphoto = 1
 !
 ! Flag controlling which atomic cooling function is used.
 ! iflag_atom = 1 is the appropriate choice for the Galactic ISM
@@ -131,10 +131,89 @@ module h2cooling
  real(kind=8), public :: dlq = 3.086d19
  real(kind=8), public :: dphot0 = 1.0801d20
  real(kind=8), public :: dchem = 3.086d20
- integer, public       :: dphotflag = 0
+ integer, public      :: dphotflag = 0
  private
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  Compute cooling term in energy equation (du/dt)
+!  Also updates abundances of various species
+!+
+!----------------------------------------------------------------
+subroutine energ_h2cooling(ui,dudti,rhoi,chemarrays,nchem,divv)
+ use units,     only:utime,udist,udens=>unit_density
+ real,    intent(in)        :: ui,rhoi
+ real(kind=4), intent(in)   :: divv
+ real,    intent(inout) :: dudti
+ integer, intent(in)    :: nchem
+ real,    intent(inout) :: chemarrays(nchem)
+ real :: abund(nabn)
+ real :: ratesq(nrates)
+ real :: tempiso,ylamq,np1,divv_cgs,npl
+ !
+ ! Call cooling routine, requiring total density, some distance measure and
+ ! abundances in the 'abund' format
+ !
+ call get_extra_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,npl)
+ !
+ ! call cooling function with all abundances
+ !
+ divv_cgs = divv / utime
+ call cool_func(tempiso,np1,dlq,divv_cgs,abund,ylamq,ratesq)
+ !
+ !   compute change in u from 'ylamq' above.
+ !
+ dudti = dudti + (-1.d0*ylamq/(rhoi*udens))*utime**3/udist**2
+
+end subroutine energ_h2cooling
+
+!-----------------------------------------------------------------------
+!+
+!  Set abundances of H2, HI, electrons and protons for cooling routine only.
+!  We assume that CI and SiI are not present, and that SiII does not vary from its
+!  initial value.
+!+
+!-----------------------------------------------------------------------
+subroutine get_extra_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1)
+ !use h2cooling, only:abundc,abunde,abundo,abundsi,nabn
+ use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
+ use physcon,   only:mp=>mass_proton_cgs,Rg
+ use units,     only:uergg=>unit_ergg,udens=>unit_density
+ integer, intent(in) :: nchem
+ real,    intent(in) :: ui,rhoi
+ real,    intent(in) :: chemarrays(nchem)
+ real,    intent(out) :: abund(nabn)
+ real,    intent(out) :: tempiso,np1
+ real :: h2ratio,abHIq,abhpq,abeq,abco,gmwvar
+
+!--read in chemistry of particle
+ h2ratio = chemarrays(ih2ratio)
+ abHIq   = chemarrays(iHI)
+ abhpq   = chemarrays(iproton)
+ abeq    = chemarrays(ielectron)
+ abco    = chemarrays(iCO)
+
+!--assign to cool_func format array
+ abund(1)  = h2ratio                             ! H2
+ abund(2)  = (1.d0-2.d0*h2ratio)*abHIq           ! HI
+ abund(3)  = (1.d0-2.d0*h2ratio)*abhpq + abunde  ! e-
+ abund(4)  = (1.d0-2.d0*h2ratio)*abhpq           ! p+ (HII)
+ abund(5)  = max(0., abundo - abco)              ! OI
+ abund(6)  = 0.                                  ! CI
+ abund(7)  = max(0., abundc - abco)              ! CII
+ abund(8)  = 0.                                  ! SiI
+ abund(9)  = abundsi                             ! SiII
+ abund(10) = abco                                ! CO
+
+!--Calc cgs estimates of density and temperature needed by cool_func
+ gmwvar= (2.0d0*h2ratio+(1.d0-2.d0*h2ratio)+0.4d0)/ &
+      (0.1d0+h2ratio+(1.d0-2.d0*h2ratio))
+ tempiso = 2.d0/3.d0*ui/(Rg/gmwvar/uergg)
+ np1   = (rhoi*udens/mp)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
+
+end subroutine get_extra_abundances
 
 !-----------------------------------------------------------------------
 !+
@@ -1784,119 +1863,5 @@ end subroutine co_cool
 !    //////////               C O _ C O O L               \\\\\\\\\\
 !
 !=======================================================================
-
-
-!------------------------------------------------------
-!+
-! Written by S. Glover, AIP, September 2006.
-!
-! This routine computes the creation term C and
-! destruction term D appearing in the rate equation
-! for the number density of atomic hydrogen, n_H,
-! i.e.
-!
-!  dn_H / dt = C - D n_H
-!
-! The inputs required are the temperature and density
-! of the gas, the total HI column density (which
-! controls the charge state of the dust and hence
-! the recombination rate on grain surfaces) and the
-! fractional abundances of electrons and protons
-! (which will not, in general, be equal, as elements
-! other than hydrogen may also contribute electrons).
-!+
-!------------------------------------------------------
-pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
- real,         intent(in)  :: temp, yn, abe, abhp, sqrttemp
- real(kind=8), intent(in)  :: NH
- real,         intent(out) :: C, D
-
-! Temperature in Kelvin such that kb * temp_1ev = 1eV
-! real, parameter :: temp_1ev = eV / kboltz
- real, parameter :: dtemp_1ev = kboltz / eV
-
- real :: lnte, tinv, var1, var2, var3, var4
- real :: AV, G_dust, phi
- real :: yne, ynhp
- real :: lnte2, lnte4, lnte6
-
- real :: k_ci, k_rec, k_gr, tinvterm
-
-! Compute rate coefficients
- lnte = log(temp * dtemp_1eV)
- tinv = 1d0 / temp
-!
-! Collisional ionization of HI by electrons
-! From A97; based on data from J87
-!
- lnte2 = lnte*lnte
- lnte4 = lnte2*lnte2
- lnte6 = lnte4*lnte2
-
- k_ci = exp(-32.71396786d0                  &
-             + 13.5365560d0  * lnte          &
-             - 5.73932875d0  * (lnte2)       &
-             + 1.56315498d0  * (lnte2*lnte)  &
-             - 0.28770560d0  * (lnte4)       &
-             + 3.48255977d-2 * (lnte4*lnte)  &
-             - 2.63197617d-3 * (lnte6)       &
-             + 1.11954395d-4 * (lnte6*lnte)  &
-             - 2.03914985d-6 * (lnte4*lnte4))
-!
-! Case B gas-phase recombination
-! From F92.
-!
- ! optimisation by DJP: (315614d0 * tinv)**1.500d0
- ! replace with term*sqrt(term): removes fractional power
- tinvterm = (315614d0 * tinv)
- k_rec = 2.753d-14 * tinvterm*sqrt(tinvterm) / &
-         ((1d0 + (115188d0 * tinv)**0.407d0)**2.242d0)
- !k_rec = 2.753d-14 * (315614d0 * tinv)**1.500d0 / &
- !        ((1d0 + (115188d0 * tinv)**0.407d0)**2.242d0)
-
-! Recombination on grain surfaces. Rate from WD01.
-!
- if (abe  <  1d-20) then
-! We do this to avoid numerical problems at v. small abe
-    phi = 1d20
- elseif (iphoto == 0) then
-    phi = uv_field_strength * sqrttemp / (yn * abe)
- else
-    AV     = AV_conversion_factor * dust_to_gas_ratio * NH
-    G_dust = uv_field_strength * exp(-2.5d0 * AV)
-    phi    = G_dust * sqrttemp / (yn * abe)
- endif
-
- var1 = 5.087d2 * temp**1.586d-2
- var2 = - 0.4723d0 - 1.102d-5 * log(temp)
-
- if (phi == 0d0) then
-    k_gr = 1.225d-13 * dust_to_gas_ratio
- else
-    var3  = 8.074d-6 * phi**1.378d0
-    var4  = (1d0 + var1 * phi**var2)
-    k_gr  = 1.225d-13 * dust_to_gas_ratio / (1d0 + var3 * var4)
- endif
-!
-! Compute creation and destruction rates for hydrogen
-!
- yne  = abe  * yn
- ynhp = abhp * yn
-!
- C = k_rec * yne * ynhp + k_gr * ynhp * yn
-!
- D = cosmic_ray_ion_rate + k_ci * yne
-!
- return
-end subroutine hchem
-!
-! REFERENCES:
-!
-!      J87    -- Janev et al, 1987, 'Elementary Processes in
-!                Hydrogen-Helium Plasmas', Springer
-!      F92    -- Ferland et al, 1992, ApJ, 387, 95
-!      A97    -- Abel et al, 1997, New Astron, 2, 181
-!      WD01   -- Weingartner & Draine, 2001, ApJ, 563, 842
-!
 
 end module h2cooling

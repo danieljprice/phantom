@@ -2248,8 +2248,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
- use cooling,        only:energ_cooling
- use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density
@@ -2260,11 +2258,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
-#endif
-#ifdef KROME
- use krome_user
- use part,           only:gamma_chem
- use units,          only:unit_density,unit_ergg
 #endif
 
  integer,            intent(in)    :: icall
@@ -2533,18 +2526,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (icooling > 0) then
-                if (h2chemistry) then
-                   idudtcool = 1
-                   ichem = 0
-                   call energ_h2cooling(vxyzu(4,i),fxyz4,rhoi,&
-                        abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
-                        divcurlv(1,i),idudtcool,ichem)
-                elseif (icooling == 3) then
-                   !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),fxyz4,rhoi,dt)
-                endif
-             endif
              ! extra terms in du/dt from one fluid dust
              if (use_dustfrac) then
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
