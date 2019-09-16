@@ -349,7 +349,7 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
  if (maxvxyzu==4) then
     if (present(gammai)) then
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
-    else if (present(tempi)) then
+    elseif (present(tempi)) then
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))

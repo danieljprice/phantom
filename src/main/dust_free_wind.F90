@@ -64,7 +64,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind, wind
  wind_alpha = alpha_in
  if (wind_type == 2) then
     wind_gamma = 1.
- else if (wind_type == 1) then
+ elseif (wind_type == 1) then
     wind_gamma = 1.
  else
     wind_gamma = gamma

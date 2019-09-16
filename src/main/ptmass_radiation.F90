@@ -99,7 +99,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
         fext(2,i) = fext(2,i) + ay
         fext(3,i) = fext(3,i) + az
       endif
-    end do
+    enddo
     !$omp end parallel do
  enddo
 

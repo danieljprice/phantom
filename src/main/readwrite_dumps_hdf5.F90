@@ -253,7 +253,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
           if (use_krome) then
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(4,i), &
                                   gamma_local=gamma_chem(i))
-          else if (store_temperature) then
+          elseif (store_temperature) then
              ! cases where the eos stores temperature (ie Helmholtz)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
           else

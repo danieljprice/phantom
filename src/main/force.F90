@@ -1688,7 +1688,7 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  if (maxvxyzu >= 4) then
     if (present(gammai)) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,gamma_local=gammai)
-    else if (store_temperature) then
+    elseif (store_temperature) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,tempi=tempi)
     else
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni)
