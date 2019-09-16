@@ -133,7 +133,8 @@ module part
  integer, parameter :: i_tlast = 11 ! time of last injection
  integer, parameter :: ilum   = 12 ! luminosity
  integer, parameter :: iTeff  = 13 ! effective temperature
- integer, parameter :: imloss = 14 ! mass loss rate
+ integer, parameter :: iReff  = 14 ! effective radius
+ integer, parameter :: imloss = 15 ! mass loss rate
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -142,7 +143,7 @@ module part
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
-    'tlast    ','lum      ','Teff     ','mdotloss '/)
+    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -288,7 +289,7 @@ module part
 #ifdef STORE_TEMPERATURE
    +1                                   &  ! temperature
 #endif
-#ifdef STORE_TDUST
+#ifdef SINK_RADIATION
    +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
@@ -380,6 +381,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
+ call allocate_array('dust_temp',dust_temp,maxTdust)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
@@ -403,7 +405,6 @@ subroutine allocate_part
  call allocate_array('gamma_chem', gamma_chem, maxkrome)
  call allocate_array('mu_chem', mu_chem, maxkrome)
 #endif
- call allocate_array('dust_temp', dust_temp, maxTdust)
 
 end subroutine allocate_part
 
@@ -627,6 +628,20 @@ real(kind=8) function hrhomixed_pmass(rhoi,pmassi)
  hrhomixed_pmass = hfact*(pmassi/abs(rhoi))**(1.d0/3.d0)
 
 end function hrhomixed_pmass
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have a non-zero luminosity
+!+
+!------------------------------------------------------------------------
+logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
+  integer, intent(in) :: nptmass
+  real, intent(in) :: xyzmh_ptmass(:,:)
+
+  sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
+                              xyzmh_ptmass(iLum,1:nptmass) > 0.)
+
+end function sinks_have_luminosity
 
 !----------------------------------------------------------------
 !+

@@ -50,7 +50,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 100
 #endif
- integer, parameter :: nsinkproperties = 14
+ integer, parameter :: nsinkproperties = 15
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -68,9 +68,11 @@ module dim
 #endif
 
  integer :: maxTdust = 0
-#ifdef STORE_TDUST
+#ifdef SINK_RADIATION
+ logical, parameter :: sink_radiation = .true.
  logical, parameter :: store_dust_temperature = .true.
 #else
+ logical, parameter :: sink_radiation = .false.
  logical, parameter :: store_dust_temperature = .false.
 #endif
 
@@ -323,7 +325,7 @@ subroutine update_max_sizes(n)
  maxkrome = maxp
 #endif
 
-#ifdef STORE_TDUST
+#ifdef SINK_RADIATION
  maxTdust = maxp
 #endif
 
