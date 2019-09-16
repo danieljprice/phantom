@@ -705,7 +705,7 @@ endif
 
 ifeq ($(SETUP), wind)
 #   wind setup (spherical wind without dust formation)
-    FPPFLAGS= -DWIND -DSTORE_TDUST
+    FPPFLAGS= -DWIND -DSINK_RADIATION
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
@@ -715,7 +715,7 @@ endif
 
 ifeq ($(SETUP), dustywind)
 #   wind setup (spherical wind with dust nucleation)
-    FPPFLAGS= -DWIND -DNUCLEATION -DSTORE_TDUST
+    FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.F90 dust_formation.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
@@ -1562,7 +1562,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
-         quitdump.f90 ptmass.F90 ptmass_radiation.F90 radiative_accel.F90\
+         quitdump.f90 ptmass.F90 ptmass_radiation.F90\
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
@@ -1661,7 +1661,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
-          set_vfield.f90 sort_particles.F90 ${SRCINJECT} radiative_accel.F90 \
+          set_vfield.f90 sort_particles.F90 ${SRCINJECT} ptmass_radiation.F90 \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
 
