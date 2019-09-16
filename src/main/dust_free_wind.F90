@@ -156,15 +156,15 @@ subroutine wind_step(state)
  state%r_old = state%r
  call evolve_hydro(state%dt, rvT, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
       state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
- state%r = rvT(1)
- state%v = rvT(2)
- state%a = (state%v-v_old)/(state%dt)
- state%Tg = rvT(3)
+ state%r    = rvT(1)
+ state%v    = rvT(2)
+ state%a    = (state%v-v_old)/(state%dt)
+ state%Tg   = rvT(3)
  state%time = state%time + state%dt
- state%dt = dt_next
- state%rho = Mdot_cgs/(4.*pi*state%r**2*state%v)
+ state%dt   = dt_next
+ state%c    = sqrt(wind_gamma*Rg*state%Tg/state%mu)
+ state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  !state%p = state%rho*Rg*state%Tg/state%mu
- state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
 
 #ifndef ISOTHERMAL
  if (icooling > 0) call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg)
@@ -180,7 +180,7 @@ end subroutine wind_step
 
 !-----------------------------------------------------------------------
 !
-!  Integrate the dusty wind equation up to t = t_end
+!  Integrate the dusty wind equation up to sonic point
 !
 !-----------------------------------------------------------------------
 subroutine calc_wind_profile(r0, v0, T0, time_end, state)
@@ -193,10 +193,10 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
  if (state%v > state%c) then
     state%spcode = 1
-    !print *, 'Initial velocity cannot be greater than sound speed'
+    print *, '[wind_profile] Initial velocity cannot be greater than sound speed'
  endif
 
-!integrate 1D wind solution with dust
+ ! integrate 1D wind solution with dust
  do while(state%dt > dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
 
     call wind_step(state)
@@ -207,17 +207,18 @@ end subroutine calc_wind_profile
 
 !-----------------------------------------------------------------------
 !+
-!  dusty wind model
+!  integrate wind equation up to time=local_time
 !+
 !-----------------------------------------------------------------------
 subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
  !in/out variables in code units (except Jstar,K,mu)
- use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
+ use units,        only:udist,utime,unit_velocity, unit_density
  use eos,          only:gamma
- real, intent(in)  :: local_time, GM
+ real, intent(in)    :: local_time, GM
  real, intent(inout) :: r, v
- real, intent(out) ::  u, rho, e
- real :: T, r0, v0
+ real, intent(out)   ::  u, rho, e
+ real :: T, r0, v0, local_time_cgs
+ integer :: iter
 
  type(wind_state) :: state
 
@@ -226,11 +227,13 @@ subroutine dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
  v0 = v
  r = r*udist
  v = v*unit_velocity
- if (local_time == 0.) then
-    call init_wind(r, v, T, local_time, state)
- else
-    call calc_wind_profile(r, v, T, local_time*utime, state)
- endif
+ local_time_cgs = local_time * utime
+ iter = 0
+ call init_wind(r, v, T, local_time_cgs, state)
+ do while(state%time < local_time_cgs .and. iter < 100000 .and. state%Tg > Tdust_stop)
+    iter = iter+1
+    call wind_step(state)
+ enddo
  r = state%r/udist
  v = state%v/unit_velocity
  rho = state%rho/unit_density
