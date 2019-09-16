@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, cooling, h2cooling, io, part, physcon,
-!    testutils, units
+!  DEPENDENCIES: chem, cooling, h2cooling, io, part, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testcooling

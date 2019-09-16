@@ -19,7 +19,7 @@
 !   Glover et al. (2010)
 !   Bergin et al. (2004)
 !
-!  OWNER: Daniel Price
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !

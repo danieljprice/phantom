@@ -11,13 +11,18 @@
 !
 !  REFERENCES: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    bowen_Tcond   -- dust condensation temperature (K)
+!    bowen_delta   -- condensation temperature range (K)
+!    bowen_kmax    -- maximum dust opacity (cm²/g)
+!    kappa_gas     -- constant gas opacity (cm²/g)
+!    wind_CO_ratio -- wind initial C/O ratio
 !
-!  DEPENDENCIES: physcon
+!  DEPENDENCIES: dim, infile_utils, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 

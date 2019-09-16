@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, kernel, part, physcon, units
+!  DEPENDENCIES: cooling, eos, physcon, units
 !+
 !--------------------------------------------------------------------------
 module bowen_dust

@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
-!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
-!    timestep, timestep_ind, timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, dim, dust, eos, eos_shen, fastmath, io,
+!    io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce, mpiutils,
+!    nicil, options, part, physcon, ptmass, stack, timestep, timestep_ind,
+!    timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces

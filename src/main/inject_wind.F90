@@ -11,27 +11,27 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
 !    iboundary_spheres  -- number of boundary spheres (integer)
 !    iwind_resolution   -- if<>0 set number of particles on the sphere, reset particle mass
-!    sonic_type         -- find transonic solution (1=yes,0=no)
-!    wind_alpha         -- fraction of the gravitational acceleration imparted to the gas
-!    wind_inject_radius -- radius of injection of the wind (au)
-!    wind_mass_rate     -- wind mass loss rate (Msun/yr)
-!    pulsation_period  -- stellar pulsation period (days)
+!    outer_boundary     -- kill gas particles outside this radius (au)
 !    piston_velocity    -- velocity amplitude of the pulsation (km/s)
+!    pulsation_period   -- stellar pulsation period (days)
+!    sonic_type         -- find transonic solution (1=yes,0=no)
+!    wind_inject_radius -- wind injection radius (au)
+!    wind_mass_rate     -- wind mass loss rate (Msun/yr)
 !    wind_shell_spacing -- desired ratio of sphere spacing to particle spacing
 !    wind_temperature   -- wind temperature at the injection point (K)
-!    wind_type          -- stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling,+10=with dust)
-!    wind_velocity      -- velocity at which wind is injected (km/s)
+!    wind_type          -- stellar wind (1=isoT,2=T(r),3=adia,4=3+cooling)
+!    wind_velocity      -- injection wind velocity (km/s, if sonic_type = 0)
 !
 !  DEPENDENCIES: bowen_dust, dim, dust_free_wind, dusty_wind, eos,
-!    icosahedron, infile_utils, injectutils, io, part, physcon, timestep,
-!    units, wind_profile
+!    icosahedron, infile_utils, injectutils, io, options, part, partinject,
+!    physcon, timestep, units, wind_equations
 !+
 !--------------------------------------------------------------------------
 module inject

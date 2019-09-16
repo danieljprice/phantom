@@ -17,9 +17,21 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    C_cool               -- factor controlling cooling timestep
+!    beta_cool            -- beta factor in Gammie (2001) cooling
+!    bowen_Cprime         -- radiative cooling rate (g.s/cm³)
+!    cooltable            -- data file containing cooling function
+!    habund               -- Hydrogen abundance assumed in cooling function
+!    icool_dust_collision -- dust collision on/off
+!    icool_radiation_H0   -- H0 cooling on/off
+!    icool_relax_bowen    -- Bowen (diffusive) relaxation on/off
+!    icool_relax_stefan   -- radiative relaxation on/off
+!    icooling             -- cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)
+!    temp_floor           -- Minimum allowed temperature in K
 !
-!  DEPENDENCIES: physcon
+!  DEPENDENCIES: datafiles, eos, h2cooling, infile_utils, io, options,
+!    part, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 

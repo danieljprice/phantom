@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: wind_profile
+!  MODULE: wind_equations
 !
 !  DESCRIPTION: integrate the 1D wind equation to determine the initial wind profile
 !
@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: physcon, units
+!  DEPENDENCIES: eos, options, physcon, units
 !+
 !--------------------------------------------------------------------------
 module wind_equations

@@ -55,9 +55,10 @@
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
 !
-!  DEPENDENCIES: cooling, damping, dim, dust, eos, externalforces, forcing,
-!    growth, infile_utils, inject, io, linklist, nicil_sup, options, part,
-!    photoevap, ptmass, timestep, viscosity
+!  DEPENDENCIES: cooling, damping, dim, dust, dust_formation, eos,
+!    externalforces, forcing, growth, infile_utils, inject, io, linklist,
+!    nicil_sup, options, part, photoevap, ptmass, ptmass_radiation,
+!    timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile

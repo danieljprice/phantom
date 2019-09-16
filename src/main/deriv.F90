@@ -19,8 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
-!    growth, io, krome_interface, linklist, mpiutils, part, photoevap,
-!    ptmass, timestep, timing
+!    growth, io, linklist, mpiutils, part, photoevap, ptmass,
+!    ptmass_radiation, timestep, timing
 !+
 !--------------------------------------------------------------------------
 module deriv

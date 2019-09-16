@@ -34,7 +34,7 @@
 !    iphoto            -- Photoelectric heating treatment (0=optically thin, 1=w/extinction)
 !
 !  DEPENDENCIES: fs_data, infile_utils, io, mol_data, part, physcon,
-!    splineutils
+!    splineutils, units
 !+
 !--------------------------------------------------------------------------
 module h2cooling

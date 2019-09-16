@@ -12,25 +12,31 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    T_wind              -- wind temperature (K)
-!    primary_racc    -- accretion radius of the central star (au)
-!    central_star_mass   -- mass of the central star (Msun)
-!    secondary_star_mass -- mass of the secondary star (Msun)
-!    secondary_star_r    -- radius of the secondary star (au)
-!    eccentricity        -- eccentricity of the binary system
-!    isecondary_star     -- set to 1 for a binary system
-!    initial_wind_gamma  -- polytropic index
-!    mass_of_particles   -- mass resolution (Msun)
-!    semi_major_axis     -- semi-major axis of the binary system (au)
-!    wind_gamma          -- polytropic index
+!    T_wind            -- temperature (K)
+!    eccentricity      -- eccentricity of the binary system
+!    icompanion_star   -- set to 1 for a binary system
+!    mass_of_particles -- mass resolution (Msun)
+!    primary_Reff      -- primary star effective radius (au)
+!    primary_Teff      -- primary star effective temperature (K)
+!    primary_lum       -- primary star luminosity (Lsun)
+!    primary_mass      -- primary star mass (Msun)
+!    primary_racc      -- primary star accretion radius (au)
+!    secondary_Reff    -- secondary star effective radius (au)
+!    secondary_Teff    -- secondary star effective temperature)
+!    secondary_lum     -- secondary star luminosity (Lsun)
+!    secondary_mass    -- secondary star mass (Msun)
+!    secondary_racc    -- secondary star accretion radius (au)
+!    semi_major_axis   -- semi-major axis of the binary system (au)
+!    temp_exponent     -- temperature profile T = R^-p (0 = isothermal)
+!    wind_gamma        -- adiabatic index (initial if Krome chemistry used)
 !
 !  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, prompting,
-!    readwrite_infile, setbinary, units
+!    setbinary, spherical, units
 !+
 !--------------------------------------------------------------------------
 module setup

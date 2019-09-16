@@ -18,7 +18,7 @@
 !  USAGE: phantomsetup fileprefix [nprocsfake]
 !
 !  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    memory, mpiutils, options, part, physcon, readwrite_dumps,
+!    krome, memory, mpiutils, options, part, physcon, readwrite_dumps,
 !    readwrite_infile, setBfield, setup, setup_params, units
 !+
 !--------------------------------------------------------------------------

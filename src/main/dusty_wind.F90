@@ -11,14 +11,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dust_formation, eos, io, part, physcon, timestep, units,
-!    wind_profile
+!  DEPENDENCIES: dust_formation, eos, io, options, part, physcon, timestep,
+!    units, wind_cooling, wind_equations
 !+
 !--------------------------------------------------------------------------
 
