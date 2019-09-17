@@ -28,7 +28,7 @@
 
 module dust_formation
  implicit none
- character(len=*), parameter :: label = 'dust_formation'
+integer, public :: idust_opacity = 0
 
  public :: set_abundances,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
@@ -36,17 +36,15 @@ module dust_formation
 !
 !--runtime settings for this module
 !
-! Read from input file
- real, public::    wind_CO_ratio = 2
 
  private
-
-#ifdef BOWEN
- real :: bowen_kmax = 2.7991
+ character(len=*), parameter :: label = 'dust_formation'
+ real :: wind_CO_ratio = 2.
+ real :: bowen_kmax  = 2.7991
  real :: bowen_Tcond = 1500.
  real :: bowen_delta = 60.
  real :: kappa_gas   = 2.d-4
-#endif
+
 
 ! Indices for elements and molecules:
  integer, parameter :: nElements = 10, nMolecules = 25
@@ -468,12 +466,17 @@ subroutine write_options_dust_formation(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling dust'
+#ifdef NUCLEATION
  call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
  call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
-#if defined (BOWEN)
- call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
- call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
- call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
+#else
+ call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
+ if (idust_opacity == 1) then
+    call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
+    call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
+    call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
+    call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
+ endif
 #endif
 
 end subroutine write_options_dust_formation
@@ -496,6 +499,9 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
+ case('idust_opacity')
+    read(valstring,*,iostat=ierr) wind_CO_ratio
+    ngot = ngot + 1
  case('wind_CO_ratio')
     read(valstring,*,iostat=ierr) wind_CO_ratio
     ngot = ngot + 1
@@ -521,7 +527,12 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- igotall = (ngot >= 5)
+#ifdef NUCLEATION
+  igotall = (ngot >= 2)
+#else
+  igotall = (ngot >= 1)
+  if (idust_opacity > 0) igotall = (ngot >= 5)
+#endif
 end subroutine read_options_dust_formation
 
 end module dust_formation
