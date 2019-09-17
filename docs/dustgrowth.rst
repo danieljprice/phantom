@@ -6,7 +6,7 @@ al. (in prep) <https://media.giphy.com/media/XIqCQx02E1U9W/giphy.>`__.
 
 .. important::
 
- Dust growth is not restrained to single star simulations!
+ Dust growth is not restricted to single star simulations!
  You can use dustgrowth around binaries, you can put planets in your
  disc, you can tilt and warp everything if you want and many more. Be
  creative :).
@@ -51,8 +51,8 @@ adds an option block after the dust section:
                   rsnow =        100.    ! snow line position in AU
                   Tsnow =        150.    ! snow line condensation temperature in K
                   vfrag =         15.    ! uniform fragmentation threshold in m/s
-                vfragin =       5.000    ! inward fragmentation threshold in m/s
-               vfragout =         15.    ! inward fragmentation threshold in m/s
+                vfragin =       5.000    ! internal fragmentation threshold in m/s
+               vfragout =         15.    ! external fragmentation threshold in m/s
            grainsizemin =       0.005    ! minimum allowed grain size in cm
 
 Here’s a brief description of each of them (remember that they are
@@ -97,7 +97,7 @@ occurs (if ifrag > 0 and isnow = 0)
                 vfragin =       5.000    ! inward fragmentation threshold in m/s
                vfragout =         15.    ! inward fragmentation threshold in m/s
 
-inner and outer fragmentation threshold velocities above which
+internal and external fragmentation threshold velocities above which
 fragmentation occurs (if ifrag > 0 and isnow > 0)
 
 ::
