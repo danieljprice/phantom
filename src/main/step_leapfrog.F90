@@ -94,14 +94,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
  use eos,            only:get_spsound
- use options,        only:avdecayconst,alpha,ieos,alphamax,iwind
+ use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
 #ifdef WIND
-! use eos,            only:gamma
  use wind_equations, only:energy_profile
 #endif
 #ifdef IND_TIMESTEPS
@@ -357,7 +356,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,icooling,iwind) &
+!$omp shared(dtsph,icooling,ieos) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -443,9 +442,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (maxvxyzu >= 4) vxyzu(4,i) = eni
 
           !the temperature profile being imposed, the internal energy is also fixed
-          !if (iwind == 2) then
-          !   vxyzu(4,i) = energy_profile(xyzh(:,i))
-          !endif
+          !if (ieos == 6) vxyzu(4,i) = energy_profile(xyzh(:,i))
+
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
           if (itype==igas) then
              !
@@ -792,7 +790,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              dudtcool = (ui-vxyzu(4,i))/dt
 #elif NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(iwind,dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
+             call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
 #else
              !
              ! COOLING

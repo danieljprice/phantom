@@ -30,19 +30,16 @@ module wind_equations
 
 ! Wind properties
  real :: Mstar_cgs, Tstar, Rstar, Rstar_cgs, expT, u_to_temperature_ratio
- integer :: wind_type
 
 contains
 
-subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, u_to_T, iwind)
+subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, u_to_T)
  use physcon, only:solarm
  use units,   only:udist
  use eos,     only:qfacdisc
  real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, u_to_T
- integer, intent(in) :: iwind
  Mstar_cgs = Mstar_in*solarm
- expT= 0.5*qfacdisc
- wind_type = iwind
+ expT = 2.*qfacdisc
  Tstar = Tstar_in
  Rstar = Rstar_in
  Rstar_cgs = Rstar*udist
@@ -85,6 +82,7 @@ end subroutine evolve_hydro
 
 subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
+ use options, only:ieos
  real, intent(in) ::  dt, rvT(3), mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
@@ -116,7 +114,7 @@ subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_
  new_rvT(2) = v0 + H*(dv1_dr+2.*(dv2_dr+dv3_dr)+dv4_dr)/6.
  new_rvT(3) = T0 + H*(dT1_dr+2.*(dT2_dr+dT3_dr)+dT4_dr)/6.
  ! imposed temperature profile
- if (wind_type == 2) new_rvT(3) = Tstar*(Rstar_cgs/new_rvT(1))**expT
+ if (ieos == 6) new_rvT(3) = Tstar*(Rstar_cgs/new_rvT(1))**expT
 end subroutine RK4_step_dr
 
 !--------------------------------------------------------------------------
@@ -127,7 +125,7 @@ end subroutine RK4_step_dr
 subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
- use options, only:icooling
+ use options, only:icooling,ieos
  real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
@@ -136,7 +134,7 @@ subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT
  real, parameter :: denom_tol = 3.d-2 !the solution is very sensitive to this parameter!
 
 !Temperature law
- if (wind_type == 2) then
+ if (ieos == 6) then
     T0 = Tstar*(Rstar_cgs/r)**expT
     c2 = gamma*Rg*T0/mu
     denominator = 1.-c2/v**2

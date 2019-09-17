@@ -33,7 +33,6 @@ module inject
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
- !integer :: wind_type = 1
  real :: outer_boundary = 20.
  character(len=120) :: datafile = 'winddata.txt'
 
@@ -241,7 +240,6 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(trim(datafile),'datafile','name of data file for wind injection',iunit)
  call write_inopt(outer_boundary,'outer_boundary','kill gas particles outside this radius',iunit)
- !call write_inopt(wind_type,'wind_type','type of mass injection',iunit)
 
 end subroutine write_options_inject
 
