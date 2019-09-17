@@ -61,7 +61,7 @@ end subroutine test_cooling
 !+
 !--------------------------------------------
 subroutine test_cooling_rate(ntests,npass)
- use h2cooling, only:nrates,dphot0,init_h2cooling,energ_h2cooling,dphotflag
+ use h2cooling, only:nrates,dphot0,init_h2cooling,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use chem,      only:update_abundances,init_chem,get_dphot
  use part,      only:nabundances,iHI
  use physcon,   only:Rg,mass_proton_cgs
@@ -75,6 +75,7 @@ subroutine test_cooling_rate(ntests,npass)
  real :: h2ratio,dudti,dphot
  real(kind=4) :: divv_cgs
  integer :: i,ichem,iunit
+ real    :: abundi(nabn)
 
  if (id==master) write(*,"(/,a)") '--> testing h2cooling rate'
 
@@ -105,8 +106,8 @@ subroutine test_cooling_rate(ntests,npass)
     t = 10**logt
     ui = 1.5*t*(Rg/gmwvar)/unit_ergg
     dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
-    call update_abundances(ui,rhoi,abundance,nabundances,dphot,dt)
-    call energ_h2cooling(ui,dudti,rhoi,abundance,nabundances,divv_cgs)
+    call update_abundances(ui,rhoi,abundance,nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
+    call energ_h2cooling(ui,rhoi,divv_cgs,gmwvar,abundi,dudti)
 !call cool_func(tempiso,ndens,dlq,divv_cgs,abund,crate,ratesq)
     ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
     crate = dudti*udist**2/utime**3*(rhoi*unit_density)
