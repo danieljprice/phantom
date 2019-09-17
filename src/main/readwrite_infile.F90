@@ -106,9 +106,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
-#if defined(BOWEN) || defined(NUCLEATION)
  use dust_formation,  only:write_options_dust_formation
-#endif
 #endif
 #ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
@@ -118,7 +116,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation
- use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass,xyzmh_ptmass
+ use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -247,9 +245,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  write(iwritein,"(/,a)") '# options for injecting particles'
  call write_options_inject(iwritein)
-#if defined(BOWEN) || defined(NUCLEATION)
  call write_options_dust_formation(iwritein)
-#endif
 #endif
 
  if (sink_radiation) then
@@ -293,17 +289,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
-#if defined(BOWEN) || defined(NUCLEATION)
- use dust_formation,  only:read_options_dust_formation
-#endif
+ use dust_formation,  only:read_options_dust_formation,idust_opacity
 #endif
 #ifdef NONIDEALMHD
  use nicil_sup,       only:read_options_nicil
 #endif
- use part,            only:mhd,nptmass,xyzmh_ptmass
+ use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation
+ use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
  use damping,         only:read_options_damping
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
@@ -469,9 +463,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
-#if defined(BOWEN) || defined(NUCLEATION)
        if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
-#endif
 #endif
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
@@ -606,7 +598,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
     if (icooling > 0 .and. ieos /= 2) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
-       call fatal(label,'cooling requires shock and work contributions')
+         call fatal(label,'cooling requires shock and work contributions')
+#ifdef WIND
+    if (isink_radiation == 1 .and. idust_opacity == 0 .and. alpha_rad < 1.d-10) &
+         call fatal(label,'no radiation pressure force! change isink_radiation or idust_opacity')
+#endif
  endif
  return
 
