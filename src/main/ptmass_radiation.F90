@@ -31,7 +31,7 @@ module ptmass_radiation
  implicit none
  integer, public  :: isink_radiation = 0
  integer, private :: iget_tdust = 0
- real,    private :: alpha_rad = 0.
+ real,    public  :: alpha_rad = 0.
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature_from_ptmass
@@ -67,7 +67,6 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  real                    :: dx,dy,dz,xa,ya,za,r,pmassj,plumj,pmlossj,ax,ay,az
  integer                 :: i,j
 
- print *,'@@@@@@@@@@@',isink_radiation,alpha_rad
  do j=1,nptmass
     pmassj  = xyzmh_ptmass(4,j)
     plumj   = xyzmh_ptmass(12,j)
@@ -89,11 +88,9 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
           dz = xyzh(3,i) - za
           r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5:i))
-#elif BOWEN
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5,i))
 #else
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az)
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
 #endif
           fext(1,i) = fext(1,i) + ax
           fext(2,i) = fext(2,i) + ay
@@ -114,7 +111,7 @@ end subroutine get_rad_accel_from_ptmass
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,K3,Tdust)
 #ifdef NUCLEATION
  use dust_formation, only:calc_alpha_dust
-#elif BOWEN
+#else
  use dust_formation, only:calc_alpha_bowen
 #endif
  real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
@@ -123,17 +120,19 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,a
  real :: fac,alpha_dust
 
  select case (isink_radiation)
-    ! alpha wind
  case (1)
+    ! alpha wind
     fac = alpha_rad*Mstar/r**3
- case(2)
+ case (2)
+    ! radiation pressure on dust
 #ifdef NUCLEATION
     call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
-#elif BOWEN
+#else
     call calc_alpha_bowen(Mstar,Lstar,Tdust,alpha_dust)
 #endif
     fac = alpha_dust*Mstar/r**3
  case default
+    ! no radiation pressure
     fac = 0.
  end select
  ax = fac*dx
@@ -434,7 +433,7 @@ subroutine write_options_ptmass_radiation(iunit)
  if (isink_radiation == 1) then
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  elseif (isink_radiation == 2) then
-    call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0=none 1=T(R) 2=Lucy 3=MCFOST)',iunit)
+    call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)',iunit)
  endif
 
 end subroutine write_options_ptmass_radiation

@@ -182,7 +182,7 @@ end subroutine calc_kappa_dust
 !  calculate alpha, reduced gravity factor
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha_dust(Mstar, Lstar, Mdot ,K3, alpha)
+subroutine calc_alpha_dust(Mstar, Lstar, Mdot, K3, alpha)
 !all quantities in cgs
  use physcon, only:pi,c,Gg
  use units,  only: udist, umass, utime
