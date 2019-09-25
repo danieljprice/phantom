@@ -694,7 +694,7 @@ endif
 
 ifeq ($(SETUP), isowind)
 #   wind setup (isothermal spherical wind)
-    FPPFLAGS= -DWIND
+    FPPFLAGS= -DWIND -DSINK_RADIATION
     ISOTHERMAL=yes
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.f90 dust_formation.F90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90

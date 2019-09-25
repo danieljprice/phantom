@@ -203,12 +203,19 @@ subroutine setup_interactive()
  use prompting, only:prompt
  use physcon,   only:au,solarm
  use units,     only:umass,udist
+ use io,        only:fatal
  integer :: iproblem,iwind
 
  iproblem = 1
  iwind = 2
  call prompt('Type of wind: 1=isoT, 2=adia, 3=T(r)',iwind,1,3)
  if (iwind == 1 .or. iwind == 3) wind_gamma = 1.
+ if (iwind == 3) temp_exponent = 0.5
+#ifndef ISOTHERMAL
+ if (iwind == 1 .or. iwind == 3) then
+    call fatal('setup','If you choose options 1 or 3, the code must be compiled with SETUP=isowind')
+ endif
+#endif
 
  call prompt('Add binary?',icompanion_star,0,1)
  print "(a)",' 2: Mass: 1.2 Msun, accretion radius: 0.2568 au',&
@@ -363,7 +370,7 @@ subroutine read_setupfile(filename,ierr)
     endif
  endif
  ierr = nerr
- if (ichange > 0 .and. ierr == 0) call write_setupfile(filename)
+ call write_setupfile(filename)
 
 end subroutine read_setupfile
 end module setup
