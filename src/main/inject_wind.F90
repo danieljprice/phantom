@@ -47,7 +47,6 @@ module inject
  integer, public:: iwind_resolution = 0
  real, public::    outer_boundary_au = 10.
  real, public::    wind_shell_spacing = 1.
- real, public::    wind_alpha = 0.
  real, public::    pulsation_period
  real, public::    pulsation_period_days = 0.
  real, public::    piston_velocity_km_s = 0.
@@ -171,7 +170,7 @@ subroutine init_inject(ierr)
     call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), Rinject, &
          xyzmh_ptmass(iTeff,wind_emitting_sink), u_to_temperature_ratio)
     call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs, wind_mass_rate, &
-         u_to_temperature_ratio, wind_alpha, wind_temperature)
+         u_to_temperature_ratio, wind_temperature)
 !if (ieos == 6 .and. wind_temperature /= star_Teff) then
 !    wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
 !    wind_injection_radius  = wind_injection_radius_au * au / udist
@@ -188,7 +187,6 @@ subroutine init_inject(ierr)
     !save 1D initial profile for comparison
     call save_windprofile(wind_injection_radius*udist,initial_wind_velocity_cgs,&
          wind_temperature, sonic(4),'windprofile1D.dat')
-
  endif
 
  if (iwind_resolution == 0) then
@@ -508,6 +506,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  use eos,      only:gmw,gamma
  use physcon,  only:Rg,Gg,au,years
  use wind,     only:wind_state,calc_wind_profile
+ use ptmass_radiation, only:alpha_rad
  integer, intent(in) :: stype
  real, intent(in)    :: r0, T0
  real, intent(inout) :: v0
@@ -520,10 +519,10 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
- vesc = sqrt(2.*Gg*Mstar_cgs*(1.-wind_alpha)/r0)
+ vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/r0)
  cs   = sqrt(gamma*Rg*T0/gmw)
  vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
- Rs   = Gg*Mstar_cgs*(1.-wind_alpha)/(2.*cs*cs)
+ Rs   = Gg*Mstar_cgs*(1.-alpha_rad)/(2.*cs*cs)
  if (iverbose>0) then
     if (vesc> 1.d-50) then
        alpha_max = 1.-(2.*cs/vesc)**2
@@ -550,7 +549,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     else
        print *, ' * v0  (km/s) = ',v0/1e5
     endif
-    print *, ' * alpha      = ',wind_alpha
+    print *, ' * alpha      = ',alpha_rad
     print *, ' * alpha_max  = ',alpha_max
     print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
  endif

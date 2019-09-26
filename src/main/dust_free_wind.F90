@@ -37,7 +37,7 @@ module wind
 
  ! input parameters
  real :: Mstar_cgs, Rstar_cgs, wind_gamma, Mdot_cgs, wind_temperature
- real :: u_to_temperature_ratio, wind_alpha
+ real :: u_to_temperature_ratio
 
  ! wind properties
  type wind_state
@@ -48,15 +48,14 @@ module wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind)
+subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
  use units,        only:umass,utime
  use physcon,      only:c,solarm,years
  use eos,          only:gamma
 
- real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind
 
  Mstar_cgs = Mstar_in*solarm
- wind_alpha = alpha_in
  wind_gamma = gamma
  wind_temperature = Twind
  Mdot_cgs = Mdot_in * umass/utime
@@ -75,6 +74,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use physcon,        only:pi,Rg
  use io,             only:fatal
  use eos,            only:gmw
+ use ptmass_radiation, only:alpha_rad
 #ifndef ISOTHERMAL
  use cooling,        only:calc_cooling_rate
  use options,        only:icooling
@@ -99,7 +99,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%v = v0
  state%a = 0.
  state%Tg = T0
- state%alpha = wind_alpha
+ state%alpha = alpha_rad
  state%dalpha_dr = 0.
  state%gamma = wind_gamma
  state%mu = gmw
