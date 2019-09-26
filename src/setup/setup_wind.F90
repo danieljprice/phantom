@@ -230,14 +230,15 @@ subroutine setup_interactive()
     primary_mass = 1. * (solarm / umass)
     primary_racc = 1.2568 * (au / udist)
  case default
-    primary_mass = 1.
-    primary_racc = 1.
-    call prompt('enter primary mass',primary_mass,0.,100.)
-    call prompt('enter accretion radius in au ',primary_racc,0.)
-    primary_mass = primary_mass * (solarm / umass)
-    primary_racc = primary_racc * (au / udist)
+    primary_mass_msun = 1.
+    primary_racc_au = 1.
+    call prompt('enter primary mass',primary_mass_msun,0.,100.)
+    call prompt('enter accretion radius in au ',primary_racc_au,0.)
+    primary_mass = primary_mass_msun * (solarm / umass)
+    primary_racc = primary_racc_au * (au / udist)
  end select
- primary_racc_au = primary_racc*udist/au
+ primary_racc_au   = primary_racc*udist/au
+ primary_mass_msun = primary_mass * (umass /solarm)
 
 end subroutine setup_interactive
 
