@@ -1651,11 +1651,14 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
-          set_vfield.f90 sort_particles.F90 ${SRCINJECT} ptmass_radiation.F90 \
+          set_vfield.f90 sort_particles.F90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
-          set_Bfield.f90 damping.f90 readwrite_infile.f90
+          set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
+ifeq ($(KROME), krome)
+       OBJSETUP1 += $(KROME_OBJS)
+endif
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
 .PHONY: phantomsetup

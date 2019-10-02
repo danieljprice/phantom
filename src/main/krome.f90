@@ -27,11 +27,11 @@ module krome_interface
  use krome_user
  use krome_getphys
  use krome_main
- use part, only: write_KromeSetupFile,species_abund_label,mu_chem,gamma_chem
+ use part, only: species_abund_label,mu_chem,gamma_chem
 
  implicit none
 
- public :: initialise_krome,update_krome
+ public :: initialise_krome,update_krome,write_KromeSetupFile
 
  private
  real  :: cosmic_ray_rate
@@ -47,6 +47,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise_krome()
+
+ use part,             only:species_abund,mu_chem,gamma_chem,iTeff,xyzmh_ptmass
+ real :: Twind
 
  print *, ""
  print *, "==================================================="
@@ -77,6 +80,17 @@ subroutine initialise_krome()
  Si_init = 6.54e-4 ! mass fraction
 
  H_init = 1.0 - He_init - C_init - N_init - O_init
+
+ species_abund(krome_idx_He,:) = He_init
+ species_abund(krome_idx_C,:)  = C_init
+ species_abund(krome_idx_N,:)  = N_init
+ species_abund(krome_idx_O,:)  = O_init
+ species_abund(krome_idx_H,:)  = H_init
+
+ !set initial wind temperature to star's effective temperature
+ Twind = xyzmh_ptmass(iTeff,1)
+ mu_chem(:)    = krome_get_mu_x(species_abund(:,1))
+ gamma_chem(:) = krome_get_gamma_x(species_abund(:,1),Twind)
 
 end subroutine initialise_krome
 
@@ -114,9 +128,11 @@ subroutine evolve_chemistry(species, dens, temp, time)
  real                :: dudt, dt_cool
  integer             :: i, N
 
- ! Duplicate input arrays
+! Duplicate input arrays
+ !VERY BAD, these arrays are huge!
  dupl_species1 = species
  dupl_species2 = species
+
  dupl_dens     = dens
  dupl_temp1    = temp
  dupl_temp2    = temp

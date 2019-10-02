@@ -194,9 +194,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use inject,           only:init_inject,inject_particles
 #endif
 #ifdef KROME
- use part,             only:species_abund,mu_chem,gamma_chem
- use krome_interface,  only:initialise_krome,H_init, He_init, C_init, N_init, O_init
- use krome_user
+ use krome_interface,  only:initialise_krome
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
@@ -228,9 +226,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=len(dumpfile)) :: dumpfileold
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
-#endif
-#ifdef KROME
- real            :: wind_temperature
 #endif
 !
 !--do preliminary initialisation
@@ -478,15 +473,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 #ifdef KROME
  call initialise_krome()
-
- species_abund(krome_idx_He,:) = He_init
- species_abund(krome_idx_C,:)  = C_init
- species_abund(krome_idx_N,:)  = N_init
- species_abund(krome_idx_O,:)  = O_init
- species_abund(krome_idx_H,:)  = H_init
-
- mu_chem(:)            = krome_get_mu_x(species_abund(:,1))
- gamma_chem(:)         = krome_get_gamma_x(species_abund(:,1),wind_temperature)
 #endif
 !
 !--calculate (all) derivatives the first time around

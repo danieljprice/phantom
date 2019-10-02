@@ -48,7 +48,7 @@ program phantomsetup
  use part,            only:luminosity,maxlum,lightcurve
 #endif
 #ifdef KROME
- use krome,           only:write_KromeSetupFile
+ use krome_interface, only:write_KromeSetupFile
 #endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1

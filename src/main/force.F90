@@ -2255,6 +2255,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
+#ifdef KROME
+ use part,           only:gamma_chem
+#endif
 #ifdef DUSTGROWTH
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k

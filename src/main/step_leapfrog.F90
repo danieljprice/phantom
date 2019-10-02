@@ -103,6 +103,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef WIND
  use wind_equations, only:energy_profile
 #endif
+#ifdef KROME
+ use part,           only:gamma_chem
+#endif
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
