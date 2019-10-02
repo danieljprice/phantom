@@ -348,7 +348,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !--apply external forces
     !
     if (iexternalforce > 0) then
-       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext)
+       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
        fxi = fxi + fextx
        fyi = fyi + fexty
        fzi = fzi + fextz

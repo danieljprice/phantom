@@ -529,18 +529,21 @@ subroutine test_narrays(ntests,npass)
  !       since they shift slightly during derivs and step.
  ! Note: the first set of values is for the initial conditions of Wurster, Price & Bate (2016); the
  !       second set is high density/B-field to ensure thermal ionisation is working
+ ! WARNING! These results are *very* sensitive to the non-ideal processes, thus will likely need to be
+ !          modified every time NICIL is updated.  This test is to ensure that all input etc are still
+ !          correct.
  !
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
  rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) = 1.14793940113d10          ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 3.40040077209d14          ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.26247580402d17          ! [cm^2/s] expected eta_ambi
+ eta_act(1,1) = 1.14780101430d10          ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = 2.29652793254d14          ! [cm^2/s] expected eta_hall
+ eta_act(3,1) = 5.36861857791d17          ! [cm^2/s] expected eta_ambi
  rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 5.93454638765d8           ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.08059808926d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.17918319187d-3          ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) = 5.90833378647d8           ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.08660930790d4           ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 4.24522340318d-3          ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !

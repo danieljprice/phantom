@@ -133,8 +133,9 @@ module utils_dumpfiles_hdf5
                got_Bxyz,                            &
                got_psi,                             &
                got_temp,                            &
-               got_dustprop(3),                     &
-               got_St
+               got_dustprop(2),                     &
+               got_St,                              &
+               got_VrelVf
  end type
 
  type arrays_options_hdf5
@@ -280,21 +281,22 @@ end subroutine write_hdf5_header
 !  write arrays for full dump
 !+
 !-------------------------------------------------------------------
-subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
-                             pressure,alphaind,dtind,poten,xyzmh_ptmass,    &
-                             vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,      &
-                             eta_nimhd,dustfrac,tstop,deltav,dustprop,St,   &
-                             abundance,temperature,divcurlv,luminosity,     &
-                             beta_pr,array_options)
+subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase,   &
+                             pressure,alphaind,dtind,poten,xyzmh_ptmass,      &
+                             vxyz_ptmass,Bxyz,Bevol,divcurlB,divBsymm,        &
+                             eta_nimhd,dustfrac,tstop,deltav,dustprop,VrelVf, &
+                             dustgasprop,abundance,temperature,divcurlv,     &
+                             luminosity,beta_pr,array_options)
 
  integer(HID_T),  intent(in) :: file_id
  integer,         intent(out):: error
  integer,         intent(in) :: npart,nptmass
- real,            intent(in) :: pressure(:),dtind(:),beta_pr(:),St(:),         &
+ real,            intent(in) :: pressure(:),dtind(:),beta_pr(:),VrelVf(:),     &
                                 temperature(:),xyzh(:,:),vxyzu(:,:),Bxyz(:,:), &
                                 Bevol(:,:), eta_nimhd(:,:),xyzmh_ptmass(:,:),  &
                                 vxyz_ptmass(:,:),dustfrac(:,:),tstop(:,:),     &
-                                dustprop(:,:),abundance(:,:),deltav(:,:,:)
+                                dustprop(:,:),dustgasprop(:,:),                &
+                                abundance(:,:),deltav(:,:,:)
  real(kind=4),    intent(in) :: poten(:),divBsymm(:),luminosity(:),            &
                                 alphaind(:,:),divcurlv(:,:),divcurlB(:,:)
  integer(kind=1), intent(in) :: iphase(:)
@@ -353,9 +355,9 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase, &
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(dustprop(1,1:npart),'grainsize',    group_id,errors(24))
     call write_to_hdf5(dustprop(2,1:npart),'graindens',    group_id,errors(25))
-    call write_to_hdf5(dustprop(3,1:npart),'vrel_on_vfrag',group_id,errors(26))
+    call write_to_hdf5(VrelVf(1:npart),'vrel_on_vfrag',group_id,errors(26))
     ! call write_to_hdf5(dustprop(4,:),'dv_dust',group_id,errors())
-    call write_to_hdf5(St(1:npart),'St',group_id,errors(27))
+    call write_to_hdf5(dustgasprop(3,1:npart),'St',group_id,errors(27))
  endif
 
  ! Other Arrays
@@ -395,15 +397,15 @@ end subroutine write_hdf5_arrays
 !  write arrays for small dump
 !+
 !-------------------------------------------------------------------
-subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
-                                   xyzmh_ptmass,Bxyz,dustfrac,dustprop,St,    &
-                                   abundance,luminosity,array_options)
+subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,       &
+                                   xyzmh_ptmass,Bxyz,dustfrac,dustprop,VrelVf,    &
+                                   dustgasprop,abundance,luminosity,array_options)
 
  integer(HID_T),  intent(in) :: file_id
  integer,         intent(out):: error
  integer,         intent(in) :: npart,nptmass
- real,            intent(in) :: St(:),xyzh(:,:),Bxyz(:,:),xyzmh_ptmass(:,:), &
-                                dustfrac(:,:),dustprop(:,:),abundance(:,:)
+ real,            intent(in) :: VrelVf(:),xyzh(:,:),Bxyz(:,:),xyzmh_ptmass(:,:), &
+                                dustfrac(:,:),dustprop(:,:),dustgasprop(:,:),abundance(:,:)
  real(kind=4),    intent(in) :: luminosity(:)
  integer(kind=1), intent(in) :: iphase(:)
  type (arrays_options_hdf5), intent(in)  :: array_options
@@ -434,9 +436,9 @@ subroutine write_hdf5_arrays_small(file_id,error,npart,nptmass,xyzh,iphase,   &
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(real(dustprop(1,1:npart),kind=4),'grainsize',    group_id,errors(7))
     call write_to_hdf5(real(dustprop(2,1:npart),kind=4),'graindens',    group_id,errors(8))
-    call write_to_hdf5(real(dustprop(3,1:npart),kind=4),'vrel_on_vfrag',group_id,errors(9))
+    call write_to_hdf5(real(VrelVf(1:npart),kind=4),'vrel_on_vfrag',group_id,errors(9))
     ! call write_to_hdf5(real(dustprop(4,1:npart),kind=4),'dv_dust',group_id,errors())
-    call write_to_hdf5(real(St(1:npart),kind=4),'St',group_id,errors(10))
+    call write_to_hdf5(real(dustgasprop(3,1:npart),kind=4),'St',group_id,errors(10))
  endif
 
  ! Other Arrays
@@ -581,8 +583,9 @@ end subroutine read_hdf5_header
 !-------------------------------------------------------------------
 subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
                             xyzmh_ptmass,vxyz_ptmass,dt_in,alphaind,poten,   &
-                            Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,St,    &
-                            temperature,abundance,array_options,got_arrays)
+                            Bxyz,Bevol,dustfrac,deltav,dustprop,tstop,       &
+                            VrelVf,dustgasprop,temperature,abundance,        &
+                            array_options,got_arrays)
 
  integer(HID_T),  intent(in)  :: file_id
  integer,         intent(in)  :: npart,nptmass
@@ -598,8 +601,9 @@ subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
                                  dustfrac(:,:),                  &
                                  deltav(:,:,:),                  &
                                  dustprop(:,:),                  &
+                                 dustgasprop(:,:),               &
                                  tstop(:,:),                     &
-                                 St(:),                          &
+                                 VrelVf(:),                      &
                                  temperature(:),                 &
                                  abundance(:,:)
  real(kind=4),    intent(out) :: dt_in(:),                       &
@@ -632,6 +636,7 @@ subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
  got_arrays%got_temp      = .false.
  got_arrays%got_dustprop  = .false.
  got_arrays%got_St        = .false.
+ got_arrays%got_VrelVf    = .false.
 
  ! Open particles group
  call open_hdf5group(file_id,'particles',group_id,errors(1))
@@ -671,9 +676,9 @@ subroutine read_hdf5_arrays(file_id,error,npart,nptmass,iphase,xyzh,vxyzu,   &
  if (array_options%use_dustgrowth) then
     call read_from_hdf5(dustprop(1,:),'grainsize',    group_id,got_arrays%got_dustprop(1),errors(15))
     call read_from_hdf5(dustprop(2,:),'graindens',    group_id,got_arrays%got_dustprop(2),errors(16))
-    call read_from_hdf5(dustprop(3,:),'vrel_on_vfrag',group_id,got_arrays%got_dustprop(3),errors(17))
+    call read_from_hdf5(VrelVf(:),'vrel_on_vfrag',group_id,got_arrays%got_VrelVf,errors(17))
     ! call read_from_hdf5(dustprop(4,:),'dv_dust',group_id,got_dv_dust,errors())
-    call read_from_hdf5(St,'St',group_id,got_arrays%got_St,errors(18))
+    call read_from_hdf5(dustgasprop(3,:),'St',group_id,got_arrays%got_St,errors(18))
  endif
 
  ! Other Arrays

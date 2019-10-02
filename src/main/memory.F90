@@ -64,7 +64,6 @@ subroutine allocate_memory(n, part_only)
     else
        write(iprint, '(a)') '--> ALLOCATING ALL ARRAYS'
     endif
-    write(iprint, '(a)') '---------------------------------------------------------'
  endif
 
  if (nbytes_allocated > 0.0) then
