@@ -29,7 +29,7 @@
 
 module dust_formation
  implicit none
-integer, public :: idust_opacity = 0
+ integer, public :: idust_opacity = 0
 
  public :: set_abundances,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
@@ -529,10 +529,10 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 #ifdef NUCLEATION
-  igotall = (ngot >= 2)
+ igotall = (ngot >= 2)
 #else
-  igotall = (ngot >= 1)
-  if (idust_opacity > 0) igotall = (ngot >= 5)
+ igotall = (ngot >= 1)
+ if (idust_opacity > 0) igotall = (ngot >= 5)
 #endif
 end subroutine read_options_dust_formation
 

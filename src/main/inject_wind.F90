@@ -704,8 +704,8 @@ subroutine filewrite_header(iunit)
 end subroutine filewrite_header
 
 subroutine state_to_array(state, array)
-  use options, only : icooling
-  use wind,     only:wind_state
+ use options, only : icooling
+ use wind,     only:wind_state
  type(wind_state), intent(in) :: state
  real, intent(out) :: array(:)
 #ifdef NUCLEATION
