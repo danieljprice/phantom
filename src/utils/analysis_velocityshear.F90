@@ -906,4 +906,4 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
 
 end subroutine write_eigenfiles
 
-end module
+end module analysis

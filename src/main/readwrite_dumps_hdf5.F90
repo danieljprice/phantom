@@ -106,7 +106,7 @@ subroutine write_fulldump(t,dumpfile,ntotal)
  else
     call write_dump(t,dumpfile,fulldump=.true.)
  endif
-end subroutine
+end subroutine write_fulldump
 
 !--------------------------------------------------------------------
 !+
@@ -120,7 +120,7 @@ subroutine write_smalldump(t,dumpfile)
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  call write_dump(t,dumpfile,fulldump=.false.)
-end subroutine
+end subroutine write_smalldump
 
 !--------------------------------------------------------------------
 !+
@@ -253,7 +253,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
           if (use_krome) then
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(4,i), &
                                   gamma_local=gamma_chem(i))
-          else if (store_temperature) then
+          elseif (store_temperature) then
              ! cases where the eos stores temperature (ie Helmholtz)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
           else
@@ -1183,7 +1183,7 @@ subroutine count_particle_types(npartoftype)
 end subroutine count_particle_types
 
 #ifdef PHANTOM2HDF5
-end module readwrite_dumps_hdf5
+end module readwrite_dumps
 #else
 end module readwrite_dumps
 #endif

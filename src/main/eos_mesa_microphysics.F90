@@ -207,7 +207,7 @@ subroutine read_opacity_mesa(x,z)
  deallocate(kappas)
 
  return
-end subroutine
+end subroutine read_opacity_mesa
 
 
 

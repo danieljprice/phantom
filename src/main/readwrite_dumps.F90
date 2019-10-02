@@ -196,7 +196,7 @@ end subroutine end_threadwrite
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string,use_krome
+ use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature
  use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
@@ -217,6 +217,7 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (lightcurve) string = trim(string)//'+lightcurve'
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
+ if (store_dust_temperature) string = trim(string)//'+Tdust'
 #ifdef NUCLEATION
  string = trim(string)//'+nucleation'
 #endif
@@ -306,7 +307,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth
+                 lightcurve,store_temperature,use_dustgrowth,store_dust_temperature
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -315,7 +316,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
-                 VrelVf_label,dustgasprop,dustgasprop_label
+                 VrelVf_label,dustgasprop,dustgasprop_label,dust_temp
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -553,6 +554,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef NUCLEATION
        call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
 #endif
+       if (store_dust_temperature) then
+          call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(12))
+       endif
        if (any(ierrs(1:20) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
@@ -1249,12 +1253,12 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                extradust,tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol, &
-                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv
+                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,store_dust_temperature
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
                       tstop_label,deltav_label,temperature,dustprop,dustprop_label,divcurlv,divcurlv_label,&
-                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label
+                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,dust_temp
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1283,7 +1287,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef NUCLEATION
  logical               :: got_nucleation(6)
 #endif
- logical               :: got_psi,got_temp,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4)
+ logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci,ntstopi,ndustveli
 
@@ -1308,6 +1312,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_VrelVf      = .false.
  got_dustgasprop = .false.
  got_divcurlv    = .false.
+ got_Tdust       = .false.
 #ifdef KROME
  got_krome       = .false.
 #endif
@@ -1372,6 +1377,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef NUCLEATION
              call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
+             if (store_dust_temperature) then
+                call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
@@ -1412,12 +1420,12 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                   got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                   got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #endif
 
  return
@@ -1491,14 +1499,14 @@ end subroutine check_block_header
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                        got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                        got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
-                        got_dustgasprop,got_temp,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                        got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #endif
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth,store_dust_temperature
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes
@@ -1513,7 +1521,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 #ifdef KROME
  logical,         intent(in)    :: got_krome(:)
 #endif
- logical,         intent(in)    :: got_psi,got_temp
+ logical,         intent(in)    :: got_psi,got_temp,got_Tdust
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -1608,6 +1616,9 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 #endif
  if (store_temperature .and. .not.got_temp) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
+ endif
+ if (store_dust_temperature .and. .not.got_Tdust) then
+    if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
  endif
  if (maxalpha==maxp) then
     if (got_alpha) then

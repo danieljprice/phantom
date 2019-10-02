@@ -173,4 +173,4 @@ subroutine read_kdtree_file(dumpfile)
 
 end subroutine read_kdtree_file
 
-end module
+end module analysis

@@ -269,16 +269,16 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
      .or.(time >= tmax)            &
      .or.((mod(nsteps,nout)==0).and.(nout > 0)) &
      .or.(nsteps >= nmax)) then
- !--modify evfile and logfile names with new number
- if (noutput==1) then
-    evfile = getnextfilename(evfile)
-    logfile = getnextfilename(logfile)
- endif
- dumpfile = getnextfilename(dumpfile)
+    !--modify evfile and logfile names with new number
+    if (noutput==1) then
+       evfile = getnextfilename(evfile)
+       logfile = getnextfilename(logfile)
+    endif
+    dumpfile = getnextfilename(dumpfile)
 
 #ifdef MPI
- !--do not dump dead particles into dump files
- if (ideadhead > 0) call shuffle_part(npart)
+    !--do not dump dead particles into dump files
+    if (ideadhead > 0) call shuffle_part(npart)
 #endif
 
 !
@@ -286,15 +286,15 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
 !  (get these before writing the dump so we can check whether or not we
 !   need to write a full dump based on the wall time)
 !
- call get_timings(t2,tcpu2)
- tcpu     = tcpu2-tcpulast
- tcpu     = reduce_mpi('+',tcpu)
- tcputot  = tcpu2 - tcpustart
- tcputot  = reduce_mpi('+',tcputot)
- tcpustep = reduce_mpi('+',tcpustep)
- tcpuev   = reduce_mpi('+',tcpuev)
+    call get_timings(t2,tcpu2)
+    tcpu     = tcpu2-tcpulast
+    tcpu     = reduce_mpi('+',tcpu)
+    tcputot  = tcpu2 - tcpustart
+    tcputot  = reduce_mpi('+',tcputot)
+    tcpustep = reduce_mpi('+',tcpustep)
+    tcpuev   = reduce_mpi('+',tcpuev)
 
- fulldump = (mod(noutput,nfulldump)==0)
+    fulldump = (mod(noutput,nfulldump)==0)
 !
 !--if max wall time is set (> 1 sec) stop the run at the last full dump
 !  that will fit into the walltime constraint, based on the wall time between
@@ -302,98 +302,98 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
 !  If we are about to write a small dump but it looks like we won't make the next dump,
 !  dump a full dump instead and stop the run
 !
- abortrun = .false.
- if (twallmax > 1.) then
-    twallused = t2-tstart
-    twallperdump = t2-twalllast
-    if (fulldump) then
-       if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
-          abortrun = .true.
-       endif
-    else
-       if ((twallused + twallperdump) > twallmax) then
-          fulldump = .true.
-          abortrun = .true.
-          write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
-          nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+    abortrun = .false.
+    if (twallmax > 1.) then
+       twallused = t2-tstart
+       twallperdump = t2-twalllast
+       if (fulldump) then
+          if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
+             abortrun = .true.
+          endif
+       else
+          if ((twallused + twallperdump) > twallmax) then
+             fulldump = .true.
+             abortrun = .true.
+             write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
+             nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+          endif
        endif
     endif
- endif
 !
 !--flush any buffered warnings to the log file
 !
- if (id==master) call flush_warnings()
+    if (id==master) call flush_warnings()
 !
 !--write dump file
 !
- at_dump_time = .true.
- if (fulldump) then
-    call write_fulldump(time,dumpfile)
-    if (id==master) then
-       call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
+    at_dump_time = .true.
+    if (fulldump) then
+       call write_fulldump(time,dumpfile)
+       if (id==master) then
+          call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DRIVING
-       call write_forcingdump(time,dumpfile)
+          call write_forcingdump(time,dumpfile)
 #endif
-    endif
-    ncount_fulldumps = ncount_fulldumps + 1
+       endif
+       ncount_fulldumps = ncount_fulldumps + 1
 
 #ifndef IND_TIMESTEPS
 #ifdef SORT
-    if (time < tmax) call sort_part()
+       if (time < tmax) call sort_part()
 #endif
 #endif
- else
-    call write_smalldump(time,dumpfile)
- endif
+    else
+       call write_smalldump(time,dumpfile)
+    endif
 
- if (id==master) call print_timinginfo(iprint,nsteps,nsteplast,t2,tstart,&
+    if (id==master) call print_timinginfo(iprint,nsteps,nsteplast,t2,tstart,&
                               tcpu,tcpustep,tcputot,twalllast,tstep,tev,tcpuev)
 #ifdef IND_TIMESTEPS
- !--print summary of timestep bins
- if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. ntot > 0) then
-    fracactive = nmovedtot/real(ntot)
-    speedup = (t2-twalllast)/(tall + tiny(tall))
-    write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
-    if (iverbose >= 1) then
-       write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(ntot)
-       write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',(t2-twalllast)/real(nmovedtot)
+    !--print summary of timestep bins
+    if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. ntot > 0) then
+       fracactive = nmovedtot/real(ntot)
+       speedup = (t2-twalllast)/(tall + tiny(tall))
+       write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
+       if (iverbose >= 1) then
+          write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(ntot)
+          write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',(t2-twalllast)/real(nmovedtot)
+       endif
     endif
- endif
- if (iverbose >= 0) then
-    call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
-    timeperbin(:) = 0.
- endif
- tlast = tprint
- istepfrac = 0
- nmovedtot = 0
+    if (iverbose >= 0) then
+       call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+       timeperbin(:) = 0.
+    endif
+    tlast = tprint
+    istepfrac = 0
+    nmovedtot = 0
 #endif
- !
- !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
- !  based on the wall time between the last two dumps added to the current total walltime used.
- !
- if (abortrun) then
-    call print_time(t2-tstart,'>> WALL TIME = ',iprint)
-    call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
-    write(iprint,"(1x,a)") '>> ABORTING... '
-    return
+    !
+    !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
+    !  based on the wall time between the last two dumps added to the current total walltime used.
+    !
+    if (abortrun) then
+       call print_time(t2-tstart,'>> WALL TIME = ',iprint)
+       call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
+       write(iprint,"(1x,a)") '>> ABORTING... '
+       return
+    endif
+
+    if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
+       write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
+       return
+    endif
+
+    twalllast = t2
+    tcpulast = tcpu2
+    tstep = 0.
+    tcpustep = 0.
+    tev = 0.
+    tcpuev = 0.
+
+    noutput = noutput + 1
+    tprint = tzero + noutput*dtmax
+    nsteplast = nsteps
  endif
-
- if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
-    write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
-    return
- endif
-
- twalllast = t2
- tcpulast = tcpu2
- tstep = 0.
- tcpustep = 0.
- tev = 0.
- tcpuev = 0.
-
- noutput = noutput + 1
- tprint = tzero + noutput*dtmax
- nsteplast = nsteps
-endif
 !
 !--Calculate total energy etc and write to ev file
 !  For individual timesteps, we do not want to do this every step, but we want
@@ -401,30 +401,30 @@ endif
 !  here is that it is done once >10% of particles (cumulatively) have been evolved.
 !  That is, either >10% are being stepped, or e.g. 1% have moved 10 steps.
 !
-nskipped = nskipped + nskip
-if (nskipped >= nevwrite_threshold .or. at_dump_time) then
-   nskipped = 0
-   call get_timings(t1,tcpu1)
-   call write_evfile(time,dt)
-   !--timings for step call
-   call get_timings(t2,tcpu2)
-   tev= tev + t2-t1
-   tcpuev = tcpuev + tcpu2-tcpu1
-   if (at_dump_time .and. id==master) call write_evlog(iprint)
-   if (id==master .and. iverbose >= 1) write(iprint,*) ' etot = ',etot,' momtot = ',totmom
-endif
+ nskipped = nskipped + nskip
+ if (nskipped >= nevwrite_threshold .or. at_dump_time) then
+    nskipped = 0
+    call get_timings(t1,tcpu1)
+    call write_evfile(time,dt)
+    !--timings for step call
+    call get_timings(t2,tcpu2)
+    tev= tev + t2-t1
+    tcpuev = tcpuev + tcpu2-tcpu1
+    if (at_dump_time .and. id==master) call write_evlog(iprint)
+    if (id==master .and. iverbose >= 1) write(iprint,*) ' etot = ',etot,' momtot = ',totmom
+ endif
 
 #ifdef CORRECT_BULK_MOTION
-call correct_bulk_motion()
+ call correct_bulk_motion()
 #endif
 
 #ifndef IND_TIMESTEPS
  !--reach tprint exactly. must take this out for integrator to be symplectic
-if (dt >= (tprint-time)) dt = tprint-time + epsilon(0.)
+ if (dt >= (tprint-time)) dt = tprint-time + epsilon(0.)
 #endif
 
-if (iverbose >= 1 .and. id==master) write(iprint,*)
-call flush(iprint)
+ if (iverbose >= 1 .and. id==master) write(iprint,*)
+ call flush(iprint)
 end subroutine finalize_step
 
 subroutine evol(infile,logfile,evfile,dumpfile)

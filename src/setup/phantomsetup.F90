@@ -18,7 +18,7 @@
 !  USAGE: phantomsetup fileprefix [nprocsfake]
 !
 !  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    memory, mpiutils, options, part, physcon, readwrite_dumps,
+!    krome, memory, mpiutils, options, part, physcon, readwrite_dumps,
 !    readwrite_infile, setBfield, setup, setup_params, units
 !+
 !--------------------------------------------------------------------------
@@ -46,6 +46,9 @@ program phantomsetup
  use fileutils,       only:strip_extension
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
+#endif
+#ifdef KROME
+ use krome,           only:write_KromeSetupFile
 #endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
@@ -183,6 +186,11 @@ program phantomsetup
        print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
     endif
  enddo
+
+#ifdef KROME
+ inquire(file='krome.setup',exist=iexist)
+ if (.not. iexist) call write_KromeSetupFile
+#endif
 
  call finalise_mpi
  call deallocate_memory(part_only=.true.)

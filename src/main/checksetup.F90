@@ -465,7 +465,7 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,iTeff,sinks_have_luminosity
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
@@ -532,6 +532,15 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,'         (this makes the code run pointlessly slow)'
     endif
  enddo
+ !
+ !  check that radiation properties are sensible
+ !
+ if (sinks_have_luminosity(nptmass,xyzmh_ptmass)) then
+    if (any(xyzmh_ptmass(iTeff,1:nptmass) < 100.)) then
+       print*,'WARNING: sink particle temperature less than 100K'
+       nwarn = nwarn + 1
+    endif
+ endif
 
 end subroutine check_setup_ptmass
 

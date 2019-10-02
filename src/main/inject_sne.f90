@@ -150,7 +150,7 @@ subroutine write_options_inject(iunit)
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)
 
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -176,6 +176,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
  igotall = (ngot >= 0)
 
-end subroutine
+end subroutine read_options_inject
 
 end module inject

@@ -61,7 +61,7 @@ subroutine init_omp
 !$ integer :: i
 
 !$ do i = 0, nlocks
-!$    call omp_init_lock(ipart_omp_lock(i))
+!$  call omp_init_lock(ipart_omp_lock(i))
 !$ enddo
 
 end subroutine init_omp

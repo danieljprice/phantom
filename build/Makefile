@@ -694,7 +694,7 @@ endif
 
 ifeq ($(SETUP), isowind)
 #   wind setup (isothermal spherical wind)
-    FPPFLAGS= -DWIND
+    FPPFLAGS= -DWIND -DSINK_RADIATION
     ISOTHERMAL=yes
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
@@ -704,8 +704,8 @@ ifeq ($(SETUP), isowind)
 endif
 
 ifeq ($(SETUP), wind)
-#   wind setup (spherical wind without dust formation)
-    FPPFLAGS= -DWIND -DDUSTFREE
+#   wind setup (spherical wind without nucleation)
+    FPPFLAGS= -DWIND -DSINK_RADIATION
     SETUPFILE= setup_wind.F90
     SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
@@ -715,19 +715,9 @@ endif
 
 ifeq ($(SETUP), dustywind)
 #   wind setup (spherical wind with dust nucleation)
-    FPPFLAGS= -DWIND -DNUCLEATION
+    FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.F90 dust_formation.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), bowen)
-# bowen wind setup (pulsating dusty wind)
-    FPPFLAGS= -DWIND -DBOWEN
-    SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.F90 wind_equations.F90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1532,7 +1522,7 @@ ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}
 endif
 
-SRCCHEM+= wind_cooling.F90 coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
+SRCCHEM+= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.F90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos.F90
@@ -1559,7 +1549,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 checkoptions.F90 ${SRCEOS} \
          set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
          set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
-         directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
+         directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 dust_formation.F90 ptmass_radiation.F90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
@@ -1661,7 +1651,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           ptmass.F90 energies.F90 \
           geometry.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
-          set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
+          set_vfield.f90 sort_particles.F90 ${SRCINJECT} ptmass_radiation.F90 \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
 

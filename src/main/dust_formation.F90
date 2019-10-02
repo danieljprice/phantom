@@ -11,23 +11,41 @@
 !
 !  REFERENCES: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    bowen_Tcond   -- dust condensation temperature (K)
+!    bowen_delta   -- condensation temperature range (K)
+!    bowen_kmax    -- maximum dust opacity (cm²/g)
+!    kappa_gas     -- constant gas opacity (cm²/g)
+!    wind_CO_ratio -- wind initial C/O ratio
 !
-!  DEPENDENCIES: physcon
+!  DEPENDENCIES: dim, infile_utils, io, physcon, units
 !+
 !--------------------------------------------------------------------------
 
 module dust_formation
  implicit none
- character(len=*), parameter :: label = 'dust_formation'
+integer, public :: idust_opacity = 0
 
- public :: set_abundances,evolve_chem,calc_kappa_dust
+ public :: set_abundances,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+      read_options_dust_formation,write_options_dust_formation,&
+      calc_alpha_bowen,calc_alpha_dust
+!
+!--runtime settings for this module
+!
 
  private
+ character(len=*), parameter :: label = 'dust_formation'
+ real :: wind_CO_ratio = 2.
+ real :: bowen_kmax  = 2.7991
+ real :: bowen_Tcond = 1500.
+ real :: bowen_delta = 60.
+ real :: kappa_gas   = 2.d-4
+
+
 ! Indices for elements and molecules:
  integer, parameter :: nElements = 10, nMolecules = 25
  integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
@@ -64,14 +82,13 @@ module dust_formation
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
 
- real :: mass_per_H, eps(nElements)
+ real :: kmax,kgas,mass_per_H, eps(nElements)
 
 contains
 
-subroutine set_abundances(CO_ratio)
+subroutine set_abundances
 ! all quantities in cgs
  use physcon, only:atomic_mass_unit
- real, intent(in) :: CO_ratio
  eps(iH)  = 1.d0
  eps(iHe) = 1.04d-1
  eps(iOx) = 6.d-4
@@ -81,7 +98,7 @@ subroutine set_abundances(CO_ratio)
  eps(iS)  = 1.85d-5
  eps(iFe) = 3.24d-5
  eps(iTi) = 8.6d-8
- eps(iC)  = eps(iOx) * CO_ratio
+ eps(iC)  = eps(iOx) * wind_CO_ratio
  mass_per_H = atomic_mass_unit*dot_product(Aw,eps)
 end subroutine set_abundances
 
@@ -159,6 +176,25 @@ subroutine calc_kappa_dust(K3, Mdot_cgs, kappa_planck, kappa_rosseland)
  !should add gas contribution
  !!!kappa_rosseland = kappa_rosseland + kappa_gas
 end subroutine calc_kappa_dust
+
+!-----------------------------------------------------------------------
+!
+!  calculate alpha, reduced gravity factor
+!
+!-----------------------------------------------------------------------
+subroutine calc_alpha_dust(Mstar, Lstar, Mdot, K3, alpha)
+!all quantities in cgs
+ use physcon, only:pi,c,Gg
+ use units,  only: udist, umass, utime
+ real, intent(in) :: Mstar,Lstar, Mdot, K3
+ real, intent(out) :: alpha
+
+ real :: kappa_planck, Lstar_cgs, dummy
+
+ call calc_kappa_dust(K3, Mdot*umass/utime, kappa_planck, dummy)
+ Lstar_cgs = Lstar * (umass*udist**2/utime**3)
+ alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar*umass) * kappa_planck
+end subroutine calc_alpha_dust
 
 !----------------------------
 !
@@ -392,5 +428,111 @@ pure real function calc_Kd_TiS(T)
  logKd = a+(b+(c+(d+e*theta)*theta)*theta)*theta
  calc_Kd_TiS = 10.**(-logKd)*patm
 end function calc_Kd_TiS
+
+!------------------------------------
+!
+!  Bowen dust opacity formula
+!
+!------------------------------------
+real function kappa_dust_bowen(Teq)
+!all quantities in code unit
+ real,    intent(in)  :: Teq
+ kappa_dust_bowen = kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta))+kgas
+end function kappa_dust_bowen
+
+!-----------------------------------------------------------------------
+!
+!  calculate alpha, reduced gravity factor using Bowen formula
+!
+!-----------------------------------------------------------------------
+subroutine calc_alpha_bowen(Mstar, Lstar, Teq, alpha)
+!all quantities in code unit
+ use physcon, only:pi,c
+ use units,   only:unit_velocity
+ real, intent(in)  :: Mstar, Lstar, Teq
+ real, intent(out) :: alpha
+
+ alpha = Lstar*unit_velocity/(4.*pi*c*Mstar) * kappa_dust_bowen(Teq)
+end subroutine calc_alpha_bowen
+
+!-----------------------------------------------------------------------
+!+
+!  Writes input options to the input file
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_dust_formation(iunit)
+ use dim,          only: maxvxyzu
+ use infile_utils, only: write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# options controlling dust'
+#ifdef NUCLEATION
+ call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
+ call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
+#else
+ call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
+ if (idust_opacity == 1) then
+    call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
+    call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
+    call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
+    call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
+ endif
+#endif
+
+end subroutine write_options_dust_formation
+
+!-----------------------------------------------------------------------
+!+
+!  Reads input options from the input file.
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
+ use io,      only:fatal
+ use units,   only: udist, umass
+ character(len=*), intent(in)  :: name,valstring
+ logical, intent(out) :: imatch,igotall
+ integer,intent(out) :: ierr
+
+ integer, save :: ngot = 0
+ character(len=30), parameter :: label = 'read_options_nucleation'
+
+ imatch  = .true.
+ igotall = .false.
+ select case(trim(name))
+ case('idust_opacity')
+    read(valstring,*,iostat=ierr) wind_CO_ratio
+    ngot = ngot + 1
+ case('wind_CO_ratio')
+    read(valstring,*,iostat=ierr) wind_CO_ratio
+    ngot = ngot + 1
+    if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
+ case('kappa_gas')
+    read(valstring,*,iostat=ierr) kappa_gas
+    ngot = ngot + 1
+    if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
+    kgas = kappa_gas / (udist**2/umass)
+ case('bowen_kmax')
+    read(valstring,*,iostat=ierr) bowen_kmax
+    ngot = ngot + 1
+    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
+    kmax = bowen_kmax / (udist**2/umass)
+ case('bowen_Tcond')
+    read(valstring,*,iostat=ierr) bowen_Tcond
+    ngot = ngot + 1
+    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
+ case('bowen_delta')
+    read(valstring,*,iostat=ierr) bowen_delta
+    ngot = ngot + 1
+    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
+ case default
+    imatch = .false.
+ end select
+#ifdef NUCLEATION
+  igotall = (ngot >= 2)
+#else
+  igotall = (ngot >= 1)
+  if (idust_opacity > 0) igotall = (ngot >= 5)
+#endif
+end subroutine read_options_dust_formation
 
 end module dust_formation

@@ -74,9 +74,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef CORRECT_BULK_MOTION
  use centreofmass,     only:correct_bulk_motion
 #endif
-#ifdef MPI
  use part,             only:ideadhead,shuffle_part
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:inject_particles
  use part,             only:npartoftype
@@ -484,10 +482,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
        dumpfile = getnextfilename(dumpfile)
 
-#ifdef MPI
        !--do not dump dead particles into dump files
        if (ideadhead > 0) call shuffle_part(npart)
-#endif
+
 #ifndef IND_TIMESTEPS
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)

@@ -156,7 +156,7 @@ subroutine interpolate3D(xyzh,weight,pmass,vxyzu,npart, &
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)   &
  !$omp reduction(+:nsubgrid) reduction(min:hminall)
  !$omp master
- !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
  !$omp end master
  !$omp do schedule(guided,10)
  over_parts: do i=1,npart

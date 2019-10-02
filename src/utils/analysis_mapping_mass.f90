@@ -216,4 +216,4 @@ end subroutine do_analysis
 
 !-----------------------------------------------------------------------
 !
-end module
+end module analysis

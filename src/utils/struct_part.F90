@@ -54,7 +54,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
  real                      :: rij2,distmin2,ddxbin,minusdistminddxbin
  real                      :: dvdotr,dvterm,dvtrans,rhomax,errtot,temp
  real(kind=8)              :: dvdotrterm,dvtransterm
- !$ integer                   :: omp_get_num_threads
+!$ integer                   :: omp_get_num_threads
  logical                   :: converged
 !
 !--set up the distance bins (linear)
@@ -84,7 +84,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
  converged = .false.
  !$omp parallel
  !$omp master
- !$ print*,' Using ',omp_get_num_threads(),' cpus'
+!$ print*,' Using ',omp_get_num_threads(),' cpus'
  !$omp end master
  !$omp end parallel
 

@@ -237,7 +237,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 #endif
  use externalforces, only:externalforce
  use kernel,   only:kernel_softening,radkern
- !$ use omputils, only:ipart_omp_lock
+!$ use omputils, only:ipart_omp_lock
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(out) :: fxyz_ptmass(4,maxptmass)
@@ -335,12 +335,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 
        phitot = phitot + term  ! potential (G M_1 M_2/r)
 
-       !$ call omp_set_lock(ipart_omp_lock(j))
+!$     call omp_set_lock(ipart_omp_lock(j))
        fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
        fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
        fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
        fxyz_ptmass(4,j) = fxyz_ptmass(4,j) + pmassi*pterm
-       !$ call omp_unset_lock(ipart_omp_lock(j))
+!$     call omp_unset_lock(ipart_omp_lock(j))
 
     enddo
 
@@ -359,12 +359,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    !$ call omp_set_lock(ipart_omp_lock(i))
+!$  call omp_set_lock(ipart_omp_lock(i))
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
     fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-    !$ call omp_unset_lock(ipart_omp_lock(i))
+!$  call omp_unset_lock(ipart_omp_lock(i))
 
  enddo
  !$omp end parallel do
@@ -553,7 +553,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
- !$ use omputils, only:ipart_omp_lock
+!$ use omputils, only:ipart_omp_lock
  use part,       only: ihacc
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
@@ -673,7 +673,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 ! if accreted==true, then checks all passed => accrete particle
 !
     if ( accreted ) then
-       !$ call omp_set_lock(ipart_omp_lock(i))
+!$     call omp_set_lock(ipart_omp_lock(i))
 
 ! Set new position for the sink particles
        dptmass(idxmsi,i) = dptmass(idxmsi,i) + xi*pmassi
@@ -709,7 +709,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
           if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
        endif
 
-       !$ call omp_unset_lock(ipart_omp_lock(i))
+!$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
 
        if (record_accreted) then

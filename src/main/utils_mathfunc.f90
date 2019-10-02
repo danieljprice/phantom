@@ -143,7 +143,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
       /   real (     i,     kind = 8 )
  enddo
  return
-end subroutine
+end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
 !Associated Legendre polynomials
@@ -318,7 +318,7 @@ subroutine legendre_associated( n, m, x, cx )
  enddo
 
  return
-end subroutine
+end subroutine legendre_associated
 
 !--------------------------------------------------------------------
 !Below are a set of slightly modified functions from
@@ -539,7 +539,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
  dk1=-bk0-bk1/x
 
  return
-end subroutine
+end subroutine ik01a
 
 !--------------------------------------------------------------------
 ! polynomial function

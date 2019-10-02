@@ -241,4 +241,4 @@ subroutine read_infile(filename)
  !
 end subroutine read_infile
 !-----------------------------------------------------------------------
-end module
+end module analysis

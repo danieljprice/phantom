@@ -23,10 +23,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
-!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
-!    timestep, timestep_ind, timestep_sts, units, viscosity
+!  DEPENDENCIES: boundary, dim, dust, eos, eos_shen, fastmath, io,
+!    io_summary, kdtree, kernel, linklist, mpiderivs, mpiforce, mpiutils,
+!    nicil, options, part, physcon, ptmass, stack, timestep, timestep_ind,
+!    timestep_sts, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces
@@ -93,9 +93,9 @@ module forces
        igraindensi = 45, &
        idvxdxi     = 46, &
        idvzdzi     = 54, &
-       !--dust arrays initial index
+ !--dust arrays initial index
        idustfraci    = 55, &
-       !--dust arrays final index
+ !--dust arrays final index
        idustfraciend = 55 + (maxdusttypes - 1), &
        itstop        = 56 + (maxdusttypes - 1), &
        itstopend     = 56 + 2*(maxdusttypes - 1)
@@ -114,7 +114,7 @@ module forces
        idBevolyi   = 10, &
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
-       !--dust array indexing
+ !--dust array indexing
        iddustevoli    = 13, &
        iddustevoliend = 13 +   (maxdustsmall-1), &
        idudtdusti     = 14 +   (maxdustsmall-1), &
@@ -169,8 +169,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
 #endif
  use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
  use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
- use cooling,      only:energ_cooling
- use chem,         only:energ_h2cooling
 #ifdef GRAVITY
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
@@ -1690,7 +1688,7 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
  if (maxvxyzu >= 4) then
     if (present(gammai)) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,gamma_local=gammai)
-    else if (store_temperature) then
+    elseif (store_temperature) then
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni,tempi=tempi)
     else
        call equationofstate(ieos,p_on_rhogas,spsoundi,rhogasi,xi,yi,zi,eni=eni)
@@ -2250,8 +2248,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
- use cooling,        only:energ_cooling
- use chem,           only:energ_h2cooling
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density
@@ -2262,11 +2258,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
-#endif
-#ifdef KROME
- use krome_user
- use part,           only:gamma_chem
- use units,          only:unit_density,unit_ergg
 #endif
 
  integer,            intent(in)    :: icall
@@ -2508,9 +2499,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
           else ! eni is the internal energy
              fac = rhoi/rhogasi
-#ifndef BOWEN
+#ifndef IMPLICIT_COOLING
              pdv_work = ponrhoi*rho1i*drhodti
-             !the pdv_work is accounted for in substepping routine
+             !the pdv_work is accounted for in wind_cooling.F90
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
@@ -2535,18 +2526,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (icooling > 0) then
-                if (h2chemistry) then
-                   idudtcool = 1
-                   ichem = 0
-                   call energ_h2cooling(vxyzu(4,i),fxyz4,rhoi,&
-                        abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
-                        divcurlv(1,i),idudtcool,ichem)
-                else
-                   !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i),dt)
-                endif
-             endif
              ! extra terms in du/dt from one fluid dust
              if (use_dustfrac) then
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
