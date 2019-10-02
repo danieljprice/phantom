@@ -164,7 +164,9 @@ subroutine init_inject(ierr)
     print *,'invalid setting for wind_inject_radius < Rstar (au)',wind_injection_radius_au,Rstar_cgs/au
     !call fatal(label,'invalid setting for wind_inject_radius (< Rstar)')
  endif
-
+ if (piston_velocity_km_s <= 0. .and. wind_velocity_km_s <= 0. .and. sonic_type == 0) then
+    call fatal(label,'invalid setting for the wind velocity parameters (v=0)')
+ endif
  if ( .not. pulsating_wind) then
     Rinject = xyzmh_ptmass(iReff,wind_emitting_sink)
     call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), Rinject, &
@@ -832,7 +834,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) piston_velocity_km_s
     !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
     ngot = ngot + 1
-    if (piston_velocity_km_s <= 0. .and. wind_velocity_km_s <= 0.) call fatal(label,'invalid setting for wind_osc_vamp (<0)')
  case default
     imatch = .false.
  end select

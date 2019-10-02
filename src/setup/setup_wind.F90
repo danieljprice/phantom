@@ -261,6 +261,8 @@ subroutine write_setupfile(filename)
       primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Reff_au*au))**0.25
  if (primary_Reff_au == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) &
       primary_Reff_au = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/au
+ if (primary_Reff_au > 0. .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) &
+      primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff_au*au)**2/solarl
  primary_lum = primary_lum_lsun * (solarl * utime / unit_energ)
  call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
  call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
@@ -273,6 +275,8 @@ subroutine write_setupfile(filename)
          secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Reff_au*au))**0.25
     if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
          secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
+    if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
+         secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
     secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
     call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
     call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
@@ -358,6 +362,10 @@ subroutine read_setupfile(filename,ierr)
     ichange = ichange+1
     primary_Reff = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/udist
     primary_Reff_au = primary_Reff * udist / au
+ endif
+ if (primary_Reff > 0.  .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) then
+    ichange = ichange+1
+    primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff_au*au)**2/solarl
  endif
  if (icompanion_star > 0) then
     if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
