@@ -207,6 +207,7 @@ subroutine init_inject(ierr)
 !Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
 
 ! integrate wind equation to get initial velocity required to set the resolution and save 1D profile
+ initial_wind_velocity_cgs = wind_velocity*unit_velocity
  call get_initial_wind_speed(wind_injection_radius*udist,wind_temperature,initial_wind_velocity_cgs,sonic,sonic_type)
  wind_velocity = initial_wind_velocity_cgs/unit_velocity
 #endif

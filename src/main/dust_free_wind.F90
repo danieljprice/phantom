@@ -265,7 +265,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  use physcon,  only:Rg,Gg,au,years
  integer, intent(in) :: stype
  real, intent(in) :: r0, T0
- real, intent(out) :: v0
+ real, intent(inout) :: v0
  real, intent(out) :: sonic(8)
 
  type(wind_state) :: state
