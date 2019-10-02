@@ -13,7 +13,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !

@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    alpha_rad       -- fraction of the gravitational acceleration imparted to the gas
-!    iget_tdust      -- method for computing dust temperature (0=none 1=T(R) 2=Lucy 3=MCFOST)
+!    iget_tdust      -- method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)
 !    isink_radiation -- sink radiation pressure method (0=off,1=alpha,2=dust)
 !
 !  DEPENDENCIES: dim, dust_formation, infile_utils, io, kernel, part

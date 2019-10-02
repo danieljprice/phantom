@@ -17,8 +17,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: cooling, eos, io, options, physcon, timestep, units,
-!    wind_equations
+!  DEPENDENCIES: cooling, eos, io, options, physcon, ptmass_radiation,
+!    units, wind_equations
 !+
 !--------------------------------------------------------------------------
 

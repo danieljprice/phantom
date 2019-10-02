@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -28,9 +28,9 @@
 !    wind_temperature   -- wind temperature at the injection point (K)
 !    wind_velocity      -- injection wind velocity (km/s, if sonic_type = 0)
 !
-!  DEPENDENCIES: bowen_dust, dim, dust_free_wind, dusty_wind, eos,
-!    icosahedron, infile_utils, injectutils, io, options, part, partinject,
-!    physcon, timestep, units, wind_equations
+!  DEPENDENCIES: dim, eos, icosahedron, infile_utils, injectutils, io,
+!    options, part, partinject, physcon, ptmass_radiation, timestep, units,
+!    wind, wind_equations
 !+
 !--------------------------------------------------------------------------
 module inject
