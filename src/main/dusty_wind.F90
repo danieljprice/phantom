@@ -37,7 +37,7 @@ module wind
 
  ! input parameters
  real :: Mstar_cgs, Rstar_cgs, wind_gamma, Mdot_cgs, wind_temperature, Tstar
- real :: u_to_temperature_ratio, wind_alpha
+ real :: u_to_temperature_ratio
 
  ! wind properties
  type wind_state
@@ -49,16 +49,15 @@ module wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind)
+subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
  use units,        only:umass,utime
  use physcon,      only:c,solarm,years
  use eos,          only:gamma
  use dust_formation, only:set_abundances
 
- real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, alpha_in, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind
 
  Mstar_cgs = Mstar_in*solarm
- wind_alpha = alpha_in
  wind_gamma = gamma
  wind_temperature = Twind
  Mdot_cgs = Mdot_in * umass/utime
@@ -192,6 +191,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use cooling,        only:calc_cooling_rate,calc_Teq
  use options,        only:icooling
  use part,           only:xyzmh_ptmass,iTeff,ilum
+ use ptmass_radiation, only:alpha_rad
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
  real :: dlnQ_dlnT,tau_lucy_bounded,Teq,Lstar_cgs,Mstar_cgs,Tstar
@@ -212,7 +212,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%v = v0
  state%a = 0.
  state%Tg = T0
- state%alpha = wind_alpha
+ state%alpha = alpha_rad
  state%dalpha_dr = 0.
  state%gamma = wind_gamma
  state%JKmuS = 0.
