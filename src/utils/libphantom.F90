@@ -850,7 +850,6 @@ subroutine amuse_initialize_code()
     call code_init()
     call set_defaults()
     call set_units(dist=1.,mass=1.,G=1.)
-    call amuse_set_polyk(8.11716011329)
 end subroutine
 
 subroutine amuse_cleanup_code()
@@ -1324,15 +1323,14 @@ subroutine amuse_evolve_model(tmax_in)
     
     tmax = tmax_in
     
-    timestepping: do while ( &
-        (time < tmax) .and. &
-        ((rhomaxnow*rhofinal1 < 1.0) .or. (steps_this_loop < 1)) &
-    )
+    timestepping: do while (time < tmax)
         call init_step()
         call calculate_timestep()
         call step_wrapper()
         call finalize_step(infile, logfile, evfile, dumpfile)
         steps_this_loop = steps_this_loop + 1
+        if (rhomaxnow > rho_crit) then
+            exit
     enddo timestepping
 end subroutine
 
@@ -1454,11 +1452,10 @@ subroutine amuse_set_rhofinal(rhofinal_in)
 end subroutine
 
 subroutine amuse_set_rho_crit(rho_crit_in)
-    use ptmass, only:rho_crit_cgs
-    use units, only:unit_density
+    use ptmass, only:rho_crit
     implicit none
     double precision, intent(in) :: rho_crit_in
-    rho_crit_cgs = rho_crit_in * unit_density
+    rho_crit = rho_crit_in
 end subroutine
 
 subroutine amuse_set_r_crit(r_crit_in)
@@ -1663,11 +1660,10 @@ subroutine amuse_get_rhofinal(rhofinal_out)
 end subroutine
 
 subroutine amuse_get_rho_crit(rho_crit_out)
-    use ptmass, only:rho_crit_cgs
-    use units, only:unit_density
+    use ptmass, only:rho_crit
     implicit none
     double precision, intent(out) :: rho_crit_out
-    rho_crit_out = rho_crit_cgs / unit_density
+    rho_crit_out = rho_crit
 end subroutine
 
 subroutine amuse_get_r_crit(r_crit_out)
