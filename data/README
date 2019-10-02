@@ -8,13 +8,13 @@ to allow Phantom to run without relying on unknown external data.
 Each directory should contain a README file describing the data
 format, its purpose, and which Phantom module(s) it is used by
 
-** They should mostly be SMALL ASCII FILES. Please DO NOT add large 
+** They should mostly be SMALL ASCII FILES. Please DO NOT add large
 binary files to this directory as they will bloat the repository **
 
 ** Please also avoid adding multiple versions of the same file **
 
 IF IN DOUBT, ASK FIRST
 
-https://bitbucket.org/danielprice/phantom/wiki/Datafiles
+https://phantomsph.readthedocs.io/en/latest/datafiles.html
 
 Daniel Price, July 2016

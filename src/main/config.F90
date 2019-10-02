@@ -168,6 +168,8 @@ module dim
 #else
  integer, parameter :: ndivcurlv = 1
 #endif
+ ! storage of velocity derivatives
+ integer :: maxdvdx = 0  ! set to maxp when memory allocated
 
  ! periodic boundaries
 #ifdef PERIODIC
@@ -224,16 +226,6 @@ module dim
 #else
  logical, parameter :: mhd_nonideal = .false.
 #endif
-
-!--------------------
-! Velocity gradients
-!--------------------
-!
-! storage of velocity derivatives, necessary if
-! physical viscosity is done with two
-! first derivatives or if dust is used
-!
- integer, parameter :: maxdvdx = maxp_hard ! TO FIX
 
 !--------------------
 ! H2 Chemistry
@@ -402,6 +394,7 @@ subroutine update_max_sizes(n)
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan
+ maxdvdx = maxan
 
 end subroutine update_max_sizes
 

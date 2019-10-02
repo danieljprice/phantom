@@ -3,7 +3,7 @@
 !           Non-Ideal mhd Coefficient and Ionisation Library           !
 !                  1D-SPH Example Programme: Main Code                 !
 !                                                                      !
-!                 Copyright (c) 2015-2017 James Wurster                !
+!                 Copyright (c) 2015-2019 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+

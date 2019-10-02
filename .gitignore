@@ -19,3 +19,4 @@ build/phantom-version.h
 .#*
 *.js
 .DS_Store
+_build

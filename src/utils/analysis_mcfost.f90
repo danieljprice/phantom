@@ -113,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !print*,' mu_gas = ',mu_gas
 
     write(*,*) ''
-    write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 0.))
+    write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 1.))
     write(*,*) 'Maximum temperature = ', maxval(Tdust)
     write(*,*) ''
 
