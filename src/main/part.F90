@@ -36,7 +36,7 @@ module part
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxsp,&
-               maxTdust,store_dust_temperature,maxkrome
+               maxTdust,store_dust_temperature,use_krome,maxp_krome
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -101,7 +101,7 @@ module part
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
 !
-!--H2 chemistry
+!--H2 and KROME chemistry
 !
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
@@ -109,8 +109,12 @@ module part
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
  real, allocatable :: abundance(:,:)
+#ifdef KROME
+ character(len=16)  :: abundance_label(krome_nmols)
+#else
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+#endif
 !
 !--storage of temperature
 !
@@ -176,14 +180,10 @@ module part
  character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    '/)
 #endif
 !
-!--Chemistry with KROME
+!--KROME variables
 !
-#ifdef KROME
- real, allocatable :: species_abund(:,:)
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
- character(len=16)  :: species_abund_label(krome_nmols)
-#endif
 !
 !--lightcurves
 !
@@ -254,17 +254,17 @@ module part
    +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
- +ngradh                              &  ! gradh
+   +ngradh                              &  ! gradh
 #endif
 #ifdef MHD
- +maxBevol                            &  ! Bevol
+   +maxBevol                            &  ! Bevol
    +maxBevol                            &  ! Bpred
 #endif
 #ifndef ANALYSIS
- +1                                   &  ! iphase
+   +1                                   &  ! iphase
 #endif
 #ifdef DUST
- +maxdusttypes                        &  ! dustfrac
+   +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -273,31 +273,31 @@ module part
 #endif
 #endif
 #ifdef H2CHEM
- +nabundances                         &  ! abundance
+   +nabundances                         &  ! abundance
 #endif
 #ifdef NUCLEATION
- +1                                   &  ! nucleation rate
+   +1                                   &  ! nucleation rate
    +4                                   &  ! moments
    +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
- +krome_nmols                         &  ! abundance
+   +krome_nmols                         &  ! abundance
    +1                                   &  ! variable gamma
    +1                                   &  ! variable mu
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
 #endif
 #ifdef GRAVITY
- +1                                   &  ! poten
+   +1                                   &  ! poten
 #endif
 #ifdef STORE_TEMPERATURE
- +1                                   &  ! temperature
+   +1                                   &  ! temperature
 #endif
 #ifdef SINK_RADIATION
- +1                                   &  ! dust temperature
+   +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
- +1                                   &  ! ibin
+   +1                                   &  ! ibin
    +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
    +1                                   &  ! dt_in
@@ -362,7 +362,6 @@ subroutine allocate_part
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
- call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -406,10 +405,13 @@ subroutine allocate_part
  call allocate_array('nucleation', nucleation, 7, maxsp)
 #endif
 #ifdef KROME
- call allocate_array('species_abund', species_abund, krome_nmols, maxkrome)
- call allocate_array('gamma_chem', gamma_chem, maxkrome)
- call allocate_array('mu_chem', mu_chem, maxkrome)
+ call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
+#else
+ call allocate_array('abundance', abundance, nabundances, maxp_h2)
 #endif
+ call allocate_array('gamma_chem', gamma_chem, maxp_krome)
+ call allocate_array('mu_chem', mu_chem, maxp_krome)
+
 
 end subroutine allocate_part
 
@@ -469,11 +471,8 @@ subroutine deallocate_part
 #ifdef NUCLEATION
  deallocate(nucleation)
 #endif
-#ifdef KROME
- deallocate(species_abund)
  deallocate(gamma_chem)
  deallocate(mu_chem)
-#endif
  deallocate(dust_temp)
 
 end subroutine deallocate_part
@@ -914,7 +913,7 @@ subroutine copy_particle(src, dst)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
- if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
@@ -972,17 +971,16 @@ subroutine copy_particle_all(src,dst)
     ddustevol(:,dst) = ddustevol(:,src)
     deltav(:,:,dst)  = deltav(:,:,src)
  endif
- if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 #ifdef NUCLEATION
  nucleation(:,dst) = nucleation(:,src)
 #endif
-#ifdef KROME
- species_abund(:,dst)  = species_abund(:,src)
- gamma_chem(dst)       = gamma_chem(src)
- mu_chem(dst)          = mu_chem(src)
-#endif
+ if (use_krome) then
+    gamma_chem(dst)       = gamma_chem(src)
+    mu_chem(dst)          = mu_chem(src)
+ endif
 
  return
 end subroutine copy_particle_all
@@ -1175,7 +1173,7 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
     endif
-    if (maxp_h2==maxp) then
+    if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     if (store_temperature) then
@@ -1239,7 +1237,7 @@ subroutine unfill_buffer(ipart,xbuf)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
  endif
- if (maxp_h2==maxp) then
+ if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  if (store_temperature) then

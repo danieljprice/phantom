@@ -336,8 +336,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part, only:eta_nimhd,eta_nimhd_label
 #endif
 #ifdef KROME
- use krome_user
- use part, only:species_abund,species_abund_label,gamma_chem
+ use krome_user, only:krome_nmols
+ use part,       only:gamma_chem
 #endif
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
@@ -549,7 +549,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
 #endif
 #ifdef KROME
-       call write_array(1,species_abund,species_abund_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
+       call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
 #endif
 #ifdef NUCLEATION
        call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
@@ -1263,9 +1263,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part,       only:dt_in
 #endif
 #ifdef KROME
- use krome_main
- use krome_user
- use part, only:species_abund,species_abund_label
+ use krome_user, only: krome_nmols
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label
@@ -1372,7 +1370,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
 #ifdef KROME
-             call read_array(species_abund,species_abund_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(abundance,abundance_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
 #ifdef NUCLEATION
              call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)

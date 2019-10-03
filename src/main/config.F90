@@ -196,7 +196,7 @@ module dim
 !-----------------
 ! KROME chemistry
 !-----------------
- integer :: maxkrome = 0
+ integer :: maxp_krome = 0
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -314,7 +314,7 @@ subroutine update_max_sizes(n)
  maxp = n
 
 #ifdef KROME
- maxkrome = maxp
+ maxp_krome = maxp
 #endif
 
 #ifdef SINK_RADIATION

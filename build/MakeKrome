@@ -31,6 +31,10 @@ ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 endif
 
 krome: $(KROME_OBJS)
+ifeq ("$(wildcard coolCO.dat)","")
+	cp -f ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+endif
+
 
 $(KROME_OBJS):
 	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(SYSTEM) switch=$(KFLAGS)

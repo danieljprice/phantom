@@ -24,11 +24,6 @@
 !--------------------------------------------------------------------------
 module krome_interface
 
- use krome_user
- use krome_getphys
- use krome_main
- use part, only: species_abund_label,mu_chem,gamma_chem
-
  implicit none
 
  public :: initialise_krome,update_krome,write_KromeSetupFile
@@ -48,7 +43,10 @@ contains
 !----------------------------------------------------------------
 subroutine initialise_krome()
 
- use part,             only:species_abund,mu_chem,gamma_chem,iTeff,xyzmh_ptmass
+ use krome_main, only:krome_init
+ use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,krome_idx_H,&
+       krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x
+ use part,       only:abundance,abundance_label,mu_chem,gamma_chem,iTeff,xyzmh_ptmass
  real :: Twind
 
  print *, ""
@@ -67,7 +65,7 @@ subroutine initialise_krome()
  cosmic_ray_rate = 1.36e-17 ! in s^-1
  call krome_set_user_crflux(cosmic_ray_rate)
 
- species_abund_label(:) = krome_get_names()
+ abundance_label(:) = krome_get_names()
 
  ! Initial chemical abundance value for AGB surface
  He_init = 3.11e-1 ! mass fraction
@@ -81,23 +79,24 @@ subroutine initialise_krome()
 
  H_init = 1.0 - He_init - C_init - N_init - O_init
 
- species_abund(krome_idx_He,:) = He_init
- species_abund(krome_idx_C,:)  = C_init
- species_abund(krome_idx_N,:)  = N_init
- species_abund(krome_idx_O,:)  = O_init
- species_abund(krome_idx_H,:)  = H_init
+ abundance(krome_idx_He,:) = He_init
+ abundance(krome_idx_C,:)  = C_init
+ abundance(krome_idx_N,:)  = N_init
+ abundance(krome_idx_O,:)  = O_init
+ abundance(krome_idx_H,:)  = H_init
 
  !set initial wind temperature to star's effective temperature
  Twind = xyzmh_ptmass(iTeff,1)
- mu_chem(:)    = krome_get_mu_x(species_abund(:,1))
- gamma_chem(:) = krome_get_gamma_x(species_abund(:,1),Twind)
+ mu_chem(:)    = krome_get_mu_x(abundance(:,1))
+ gamma_chem(:) = krome_get_gamma_x(abundance(:,1),Twind)
 
 end subroutine initialise_krome
 
 subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem)
 
- use units,     only:unit_density,utime
- use eos,       only:ieos,get_local_temperature,get_local_u_internal!equationofstate
+ use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
+ use units,         only:unit_density,utime
+ use eos,           only:ieos,get_local_temperature,get_local_u_internal!equationofstate
 
  real, intent(in) :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
@@ -120,6 +119,8 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem)
 end subroutine update_krome
 
 subroutine evolve_chemistry(species, dens, temp, time)
+
+ use krome_main, only: krome
 
  real, intent(inout) :: species(:), temp
  real, intent(in)    :: dens, time

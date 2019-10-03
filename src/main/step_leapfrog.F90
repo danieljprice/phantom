@@ -583,7 +583,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use wind,           only:evolve_dust
 #endif
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,species_abund
+ use part,            only: gamma_chem,mu_chem
  use krome_interface, only: update_krome
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
@@ -690,7 +690,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,species_abund) &
+    !$omp shared(gamma_chem,mu_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
@@ -790,7 +790,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
-                  species_abund(:,i),gamma_chem(i),mu_chem(i))
+                               abundance(:,i),gamma_chem(i),mu_chem(i))
              dudtcool = (ui-vxyzu(4,i))/dt
 #elif NUCLEATION
              !evolve dust chemistry and compute dust cooling
