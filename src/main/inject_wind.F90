@@ -116,7 +116,7 @@ subroutine init_inject(ierr)
  ! return without error
  !
 #ifdef NUCLEATION
- nwrite = 19
+ nwrite = 18
 #else
  nwrite = 10
 #endif
@@ -300,11 +300,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use physcon,      only:pi,au
  use io,           only:fatal,iverbose
  use dim,          only:store_dust_temperature
-#ifdef NUCLEATION
- use wind,         only:dusty_wind_profile
-#else
- use wind,         only:dust_free_wind_profile
-#endif
+ use wind,         only:wind_profile
  use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere,dust_temp
  use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
@@ -373,10 +369,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     else
 #ifdef NUCLEATION
        r = Rstar
-       call dusty_wind_profile(time,local_time, r, v, u, rho, e, GM, wind_temperature, JKmuS)
+       call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, JKmuS)
 #else
        r = wind_injection_radius
-       call dust_free_wind_profile(local_time, r, v, u, rho, e, GM)
+       call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature)
 #endif
        if (iverbose > 0) print '(" ##### boundary sphere ",i4,3(i4),i7,9(1x,es12.5))',i,&
             inner_sphere,nboundaries,outer_sphere,npart,time,local_time,r,wind_injection_radius,v
@@ -689,10 +685,10 @@ subroutine filewrite_header(iunit)
 #ifdef NUCLEATION
  if (icooling > 0) then
     write(iunit,'("#",11x,a1,19(a20))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa_planck','kappa_ross','Q'
+         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
  else
     write(iunit,'("#",11x,a1,18(a20))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa_planck','kappa_ross'
+         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
@@ -728,8 +724,7 @@ subroutine state_to_array(state, array)
  array(12) = state%JKmuS(1)/f
  array(13:16) = state%JKmuS(2:5)/f
  array(17) = state%tau_lucy
- array(18) = state%kappa_planck
- array(19) = state%kappa_ross
+ array(18) = state%kappa
 #else
  array(10)  = state%mu
 #endif

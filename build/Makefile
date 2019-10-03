@@ -41,7 +41,6 @@ ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
-KROME         = disabled
 DEBUG         = no
 #
 # can comment out the following lines and instead set
@@ -696,28 +695,23 @@ ifeq ($(SETUP), isowind)
 #   wind setup (isothermal spherical wind)
     FPPFLAGS= -DWIND -DSINK_RADIATION
     ISOTHERMAL=yes
-    SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    WIND=yes
 endif
-
 ifeq ($(SETUP), wind)
 #   wind setup (spherical wind without nucleation)
     FPPFLAGS= -DWIND -DSINK_RADIATION
-    SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 dust_free_wind.F90 inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    WIND=yes
 endif
-
 ifeq ($(SETUP), dustywind)
 #   wind setup (spherical wind with dust nucleation)
     FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
+    WIND=yes
+endif
+
+ifeq ($(WIND), yes)
+#   wind setup (spherical wind without nucleation)
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.F90 wind_equations.F90 dusty_wind.F90 inject_wind.f90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no

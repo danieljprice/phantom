@@ -158,8 +158,8 @@ end subroutine init_cooltable
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  use units,   only:unit_ergg,unit_density
- real, intent(in) :: rho, T !rho in code units
- real, intent(in), optional :: Teq, mu, K2, kappa !cgs
+ real, intent(in) :: rho, T, Teq !rho in code units
+ real, intent(in), optional :: mu, K2, kappa !cgs
  real, intent(out) :: Q, dlnQ_dlnT !code units
  real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
