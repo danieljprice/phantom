@@ -807,7 +807,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('nfill_domain')
     read(valstring,*,iostat=ierr) nfill_domain
     ngot = ngot + 1
-    if (nfill_domain <= 0) call fatal(label,'nfill_domain must be > 0')
+    if (nfill_domain < 0) call fatal(label,'nfill_domain must be > 0')
  case('wind_shell_spacing')
     read(valstring,*,iostat=ierr) wind_shell_spacing
     ngot = ngot + 1
