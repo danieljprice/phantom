@@ -43,13 +43,6 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
- integer, public:: iboundary_spheres = 5
- integer, public:: iwind_resolution = 0
- real, public::    outer_boundary_au = 10.
- real, public::    wind_shell_spacing = 1.
- real, public::    pulsation_period
- real, public::    pulsation_period_days = 0.
- real, public::    piston_velocity_km_s = 0.
 #ifdef NUCLEATION
  integer, public:: sonic_type = 1
  real, public::    wind_velocity_km_s = 0.
@@ -70,20 +63,27 @@ module inject
  real, public::    wind_temperature = 3000.
 #endif
 
- real, public::    Rstar
 
  private
 
+ integer :: iboundary_spheres = 5
+ integer :: iwind_resolution = 0
+ integer :: nfill_domain = 30
+ real :: outer_boundary_au = 10.
+ real :: wind_shell_spacing = 1.
+ real :: pulsation_period
+ real :: pulsation_period_days = 0.
+ real :: piston_velocity_km_s = 0.
  real :: dtpulsation = 1.d99
- real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
-      mass_of_spheres,time_between_spheres,neighbour_distance,mass_of_particles,&
-      dr3,Rstar_cgs,wind_injection_radius,rho_ini, omega_osc, deltaR_osc, Mstar_cgs
- integer :: particles_per_sphere,nwall_particles,iresolution,nwrite,nreleased
 
- logical :: pulsating_wind
- logical, parameter :: wind_verbose = .false.
  integer, parameter :: wind_emitting_sink = 1
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
+ real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
+      mass_of_spheres,time_between_spheres,neighbour_distance,mass_of_particles,&
+      dr3,Rstar_cgs,wind_injection_radius,rho_ini,omega_osc,deltaR_osc,Mstar_cgs,Rstar
+ integer :: particles_per_sphere,nwall_particles,iresolution,nwrite
+
+ logical :: pulsating_wind
  character(len=*), parameter :: label = 'inject_wind'
 
 contains
@@ -124,12 +124,6 @@ subroutine init_inject(ierr)
  ierr = 0
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
- if (pulsating_wind) then
-    nreleased = 1
- else
-    nreleased = 30
- endif
-
  !
  ! convert input parameters to code units
  !
@@ -311,7 +305,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
-            nshell_released, nboundaries
+            nreleased, nboundaries
  real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), surface_radius
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
@@ -335,12 +329,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
 
  if (npart > 0) then
-    nshell_released = nreleased
+    nreleased = nfill_domain
     nboundaries = iboundary_spheres
     !release particles and declare inner boundary shells as gas particles so they can exert some pressure
     ipart = igas
     if (.not.released) then
-       do i = npart-nshell_released*particles_per_sphere+1,npart
+       do i = npart-nreleased*particles_per_sphere+1,npart
           call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),i,npart,npartoftype,xyzh,vxyzu)
        enddo
        released = .true.
@@ -348,18 +342,18 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  else
     !initialise domain with boundary particles
     ipart = iboundary
-    nshell_released = 0
-    nboundaries = iboundary_spheres+nreleased
+    nreleased = 0
+    nboundaries = iboundary_spheres+nfill_domain
  endif
- outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nshell_released
- inner_sphere = floor(time/time_between_spheres)+nshell_released
+ outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nreleased
+ inner_sphere = floor(time/time_between_spheres)+nreleased
  inner_boundary_sphere = inner_sphere + nboundaries
 
  !only one sphere can be ejected at a time
  if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
 
  do i=inner_boundary_sphere,outer_sphere,-1
-    local_time = time + (iboundary_spheres+nreleased-i) * time_between_spheres
+    local_time = time + (iboundary_spheres+nfill_domain-i) * time_between_spheres
 
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
     v = wind_velocity
@@ -761,6 +755,7 @@ subroutine write_options_inject(iunit)
     call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
  endif
  call write_inopt(iwind_resolution,'iwind_resolution','if<>0 set number of particles on the sphere, reset particle mass',iunit)
+ call write_inopt(nfill_domain,'nfill_domain','number of spheres used to set the background density profile',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
@@ -809,6 +804,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) iboundary_spheres
     ngot = ngot + 1
     if (iboundary_spheres <= 0) call fatal(label,'iboundary_spheres must be > 0')
+ case('nfill_domain')
+    read(valstring,*,iostat=ierr) nfill_domain
+    ngot = ngot + 1
+    if (nfill_domain <= 0) call fatal(label,'nfill_domain must be > 0')
  case('wind_shell_spacing')
     read(valstring,*,iostat=ierr) wind_shell_spacing
     ngot = ngot + 1
@@ -832,11 +831,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- noptions = 9
-#ifdef NUCLEATION
  noptions = 10
+#ifdef NUCLEATION
+ noptions = 11
 #elif ISOTHERMAL
- noptions = 7
+ noptions = 8
 #endif
  !debug
  !print '(a26,i3,i3)',trim(name),ngot,noptions
