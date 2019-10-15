@@ -33,9 +33,12 @@ module setbinary
  use physcon, only:pi
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
- public :: get_mean_angmom_vector
+ public :: get_mean_angmom_vector,get_eccentricity_vector
 
  private
+ interface get_eccentricity_vector
+  module procedure get_eccentricity_vector,get_eccentricity_vector_sinks
+ end interface get_eccentricity_vector
 
 contains
 
@@ -349,9 +352,9 @@ function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
  x0 = (m1*x1 + m2*x2)/(m1 + m2)
  v0 = (m1*v1 + m2*v2)/(m1 + m2)
 
- ! position and velocity vectors relative to centre of mass
- r = x2 - x0
- v = v2 - v0
+ ! position and velocity vectors relative to each other
+ r = x2 - x1
+ v = v2 - v1
 
  ! intermediate quantities
  dr = 1./sqrt(dot_product(r,r))
@@ -361,6 +364,25 @@ function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
  get_eccentricity_vector = (dot_product(v,v)/mu - dr)*r - dot_product(r,v)/mu*v
 
 end function get_eccentricity_vector
+
+!----------------------------------------------------
+! interface to above assuming two sink particles
+!----------------------------------------------------
+function get_eccentricity_vector_sinks(xyzmh_ptmass,vxyz_ptmass,i1,i2)
+  real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+  integer, intent(in) :: i1, i2
+  real :: get_eccentricity_vector_sinks(3)
+
+  if (i1 > 0 .and. i2 > 0) then
+     get_eccentricity_vector_sinks = get_eccentricity_vector(&
+        xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2),&
+        xyzmh_ptmass(1:3,i1),xyzmh_ptmass(1:3,i2),&
+        vxyz_ptmass(1:3,i1),vxyz_ptmass(1:3,i2))
+  else
+     get_eccentricity_vector_sinks = 0.
+  endif
+
+end function get_eccentricity_vector_sinks
 
 !-------------------------------------------------------------
 ! Function to find mean angular momentum vector from a list
