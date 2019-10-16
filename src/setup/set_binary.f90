@@ -369,18 +369,18 @@ end function get_eccentricity_vector
 ! interface to above assuming two sink particles
 !----------------------------------------------------
 function get_eccentricity_vector_sinks(xyzmh_ptmass,vxyz_ptmass,i1,i2)
-  real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
-  integer, intent(in) :: i1, i2
-  real :: get_eccentricity_vector_sinks(3)
+ real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in) :: i1, i2
+ real :: get_eccentricity_vector_sinks(3)
 
-  if (i1 > 0 .and. i2 > 0) then
-     get_eccentricity_vector_sinks = get_eccentricity_vector(&
+ if (i1 > 0 .and. i2 > 0) then
+    get_eccentricity_vector_sinks = get_eccentricity_vector(&
         xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2),&
         xyzmh_ptmass(1:3,i1),xyzmh_ptmass(1:3,i2),&
         vxyz_ptmass(1:3,i1),vxyz_ptmass(1:3,i2))
-  else
-     get_eccentricity_vector_sinks = 0.
-  endif
+ else
+    get_eccentricity_vector_sinks = 0.
+ endif
 
 end function get_eccentricity_vector_sinks
 
