@@ -71,33 +71,36 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
     pmassj  = xyzmh_ptmass(4,j)
     plumj   = xyzmh_ptmass(12,j)
     pmlossj = xyzmh_ptmass(14,j)
-    xa = xyzmh_ptmass(1,j)
-    ya = xyzmh_ptmass(2,j)
-    za = xyzmh_ptmass(3,j)
-    !$omp parallel  do default(none) &
+    !compute radiative acceleration if sink particle is assigned a non-zero luminosity
+    if (plumj > 0.d0) then
+      xa = xyzmh_ptmass(1,j)
+      ya = xyzmh_ptmass(2,j)
+      za = xyzmh_ptmass(3,j)
+      !$omp parallel  do default(none) &
 #ifdef NUCLEATION
-    !$omp shared(nucleation)&
+      !$omp shared(nucleation)&
 #endif
-    !$omp shared(dust_temp) &
-    !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
-    !$omp private(i,dx,dy,dz,ax,ay,az,r)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          dx = xyzh(1,i) - xa
-          dy = xyzh(2,i) - ya
-          dz = xyzh(3,i) - za
-          r = sqrt(dx**2 + dy**2 + dz**2)
+      !$omp shared(dust_temp) &
+      !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
+      !$omp private(i,dx,dy,dz,ax,ay,az,r)
+      do i=1,npart
+         if (.not.isdead_or_accreted(xyzh(4,i))) then
+            dx = xyzh(1,i) - xa
+            dy = xyzh(2,i) - ya
+            dz = xyzh(3,i) - za
+            r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5,i))
+            call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5,i))
 #else
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
+            call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
 #endif
-          fext(1,i) = fext(1,i) + ax
-          fext(2,i) = fext(2,i) + ay
-          fext(3,i) = fext(3,i) + az
-       endif
-    enddo
-    !$omp end parallel do
+            fext(1,i) = fext(1,i) + ax
+            fext(2,i) = fext(2,i) + ay
+            fext(3,i) = fext(3,i) + az
+         endif
+      enddo
+      !$omp end parallel do
+    endif
  enddo
 
 end subroutine get_rad_accel_from_ptmass

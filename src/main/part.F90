@@ -701,6 +701,9 @@ subroutine kill_particle(i,npoftype)
  integer, intent(inout), optional :: npoftype(:)
  integer :: itype
 
+ !
+ ! WARNING : this routine is *NOT THREAD SAFE *
+ !
  ! do not kill particles that are already dead
  ! because this causes endless loop in shuffle_part
  if (abs(xyzh(4,i)) > 0.) then
@@ -714,11 +717,10 @@ subroutine kill_particle(i,npoftype)
        endif
        npoftype(itype) = npoftype(itype) - 1
     endif
-    !$omp critical
     ll(i) = ideadhead
     ideadhead = i
-    !$omp end critical
  endif
+
 
 end subroutine kill_particle
 
@@ -1371,21 +1373,19 @@ end subroutine delete_particles_outside_box
 !+
 !----------------------------------------------------------------
 subroutine delete_particles_outside_sphere(center,radius,np)
+ use io, only:fatal
  real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: np
  integer :: i
  real :: r(3), radius_squared
 
  radius_squared = radius**2
- !$omp parallel do default(none) &
- !$omp shared(np,npartoftype,xyzh,radius_squared,center) &
- !$omp private(i,r)
  do i=1,np
     r = xyzh(1:3,i) - center
     if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
  enddo
- !$omp end parallel do
  call shuffle_part(np)
+ if (np.ne.sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 
 end subroutine delete_particles_outside_sphere
 
