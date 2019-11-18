@@ -87,12 +87,6 @@ program phantomsetup
  infile = trim(fileprefix)//'.in'
  inquire(file=trim(infile),exist=iexist)
 
- call set_default_options
-!
-!--if input file exists, read it
-!
- if (iexist) call read_infile(infile,logfile,evfile,dumpfile)
-
 !
 !--In general, setup routines do not know the number of particles until they
 !  are written. Need to allocate up to the hard limit. Legacy setup routines may
@@ -100,6 +94,12 @@ program phantomsetup
 !  part, not kdtree or linklist
 !
  call allocate_memory(maxp_hard, part_only=.true.)
+
+call set_default_options
+!
+!--if input file exists, read it
+!
+ if (iexist) call read_infile(infile,logfile,evfile,dumpfile)
 
 !
 !--reset logfile name
