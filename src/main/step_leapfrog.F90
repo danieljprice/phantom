@@ -792,6 +792,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
                                abundance(:,i),gamma_chem(i),mu_chem(i))
              dudtcool = (ui-vxyzu(4,i))/dt
+             vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 #elif NUCLEATION
              !evolve dust chemistry and compute dust cooling
              call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
