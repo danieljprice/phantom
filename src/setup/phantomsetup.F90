@@ -95,7 +95,7 @@ program phantomsetup
 !
  call allocate_memory(maxp_hard, part_only=.true.)
 
-call set_default_options
+ call set_default_options
 !
 !--if input file exists, read it
 !
