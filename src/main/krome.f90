@@ -31,7 +31,9 @@ module krome_interface
  private
  real  :: cosmic_ray_rate
  real  :: H_init, He_init, C_init, N_init, O_init
- real  :: S_init, Fe_init, Si_init
+ real  :: S_init, Fe_init, Si_init, Mg_init
+ real  :: Na_init, P_init, F_init
+
 
 contains
 !----------------------------------------------------------------
@@ -45,9 +47,11 @@ subroutine initialise_krome()
 
  use krome_main, only:krome_init
  use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,krome_idx_H,&
-       krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x
- use part,       only:abundance,abundance_label,mu_chem,gamma_chem,iTeff,xyzmh_ptmass
- real :: Twind
+       krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
+       krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
+       krome_idx_P,krome_idx_F
+ use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_chem
+ real :: wind_temperature
 
  print *, ""
  print *, "==================================================="
@@ -76,30 +80,44 @@ subroutine initialise_krome()
  S_init  = 3.97e-4 ! mass fraction
  Fe_init = 1.17e-3 ! mass fraction
  Si_init = 6.54e-4 ! mass fraction
+ Mg_init = 5.16e-4
 
- H_init = 1.0 - He_init - C_init - N_init - O_init
+ Na_init = 3.38e-5
+ P_init  = 8.17e-6
+ F_init  = 4.06e-7
+
+ H_init = 1.0 - He_init - C_init - N_init - O_init - S_init - Fe_init - &
+          Si_init - Mg_init - Na_init - P_init - F_init
 
  abundance(krome_idx_He,:) = He_init
  abundance(krome_idx_C,:)  = C_init
  abundance(krome_idx_N,:)  = N_init
  abundance(krome_idx_O,:)  = O_init
+ abundance(krome_idx_S,:)  = S_init
+ abundance(krome_idx_Fe,:) = Fe_init
+ abundance(krome_idx_Si,:) = Si_init
+ abundance(krome_idx_Mg,:) = Mg_init
+ abundance(krome_idx_Na,:) = Na_init
+ abundance(krome_idx_P,:)  = P_init
+ abundance(krome_idx_F,:)  = F_init
  abundance(krome_idx_H,:)  = H_init
 
  !set initial wind temperature to star's effective temperature
- Twind = xyzmh_ptmass(iTeff,1)
  mu_chem(:)    = krome_get_mu_x(abundance(:,1))
- gamma_chem(:) = krome_get_gamma_x(abundance(:,1),Twind)
+ gamma_chem(:) = krome_get_gamma_x(abundance(:,1),wind_temperature)
+ T_chem(:)     = wind_temperature
 
 end subroutine initialise_krome
 
-subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem)
+subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
 
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
  use eos,           only:ieos,get_local_temperature,get_local_u_internal!equationofstate
 
- real, intent(in) :: dt,xyzh(4),rho
+ real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
+ real, intent(out)   :: T_chem
  real :: T_local, dt_cgs, rho_cgs
 
  dt_cgs = dt*utime
@@ -113,7 +131,9 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem)
  mu_chem =  krome_get_mu_x(xchem)
 ! update the particle's adiabatic index
  gamma_chem = krome_get_gamma_x(xchem,T_local)
-! update the particle's adiabatic index
+! update the particle's temperature
+ T_chem = T_local
+! get the new internal energy
  u = get_local_u_internal(gamma_chem,mu_chem,T_local)
 
 end subroutine update_krome
@@ -146,8 +166,6 @@ subroutine evolve_chemistry(species, dens, temp, time)
  dt_cool = abs(dupl_temp1/dudt)
 
  ! Substepping if dt_cool < input timestep
- !!!! explicit addition of krome cooling in force.F90 to determine hydro timestep not needed anymore
- !!!! skipping the contribution to fxyz4 and updating the final particle energy still to be implemented
  if (dt_cool < dupl_time) then
     N = ceiling(dupl_time/dt_cool)
     do i = 1,N
@@ -173,7 +191,7 @@ subroutine write_KromeSetupFile
 
  print "(a)",' writing krome setup options in krome.setup'
  open(unit=iunit,file='krome.setup',status='replace',form='formatted')
- write (iunit,'("-n=networks/react_AGB_full_minFPNaMg")')
+ write (iunit,'("-n=networks/react_AGB_full_noNucl")')
  write (iunit,'("#-compact")')
  write (iunit,'("-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN")')
  write (iunit,'("-heating=CHEM,CR")')

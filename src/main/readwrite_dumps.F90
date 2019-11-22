@@ -337,7 +337,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef KROME
  use krome_user, only:krome_nmols
- use part,       only:gamma_chem
+ use part,       only:gamma_chem,mu_chem,T_chem
 #endif
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
@@ -353,7 +353,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: i,ipass,k,l,iu
- integer            :: ierr,ierrs(20)
+ integer            :: ierr,ierrs(24)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
  logical            :: sphNGdump, write_itype, use_gas
@@ -549,7 +549,10 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
 #endif
 #ifdef KROME
-       call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(11))
+       call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
+       call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
+       call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
+       call write_array(1,T_chem,'temp',npart,k,ipass,idump,nums,ierrs(24))
 #endif
 #ifdef NUCLEATION
        call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
@@ -1264,6 +1267,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef KROME
  use krome_user, only: krome_nmols
+ use part,       only: gamma_chem,mu_chem,T_chem
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label
@@ -1280,7 +1284,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
 #ifdef KROME
- logical               :: got_krome(krome_nmols)
+ logical               :: got_krome_mols(krome_nmols)
+ logical               :: got_krome_T
+ logical               :: got_krome_gamma
+ logical               :: got_krome_mu
 #endif
 #ifdef NUCLEATION
  logical               :: got_nucleation(6)
@@ -1312,7 +1319,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_divcurlv    = .false.
  got_Tdust       = .false.
 #ifdef KROME
- got_krome       = .false.
+ got_krome_mols  = .false.
+ got_krome_gamma = .false.
+ got_krome_mu    = .false.
+ got_krome_T     = .false.
 #endif
 #ifdef NUCLEATION
  got_nucleation = .false.
@@ -1370,7 +1380,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(abundance,abundance_label,got_abund,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
 #ifdef KROME
-             call read_array(abundance,abundance_label,got_krome,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(abundance,abundance_label,got_krome_mols,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(gamma_chem,'gamma',got_krome_gamma,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(T_chem,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
 #ifdef NUCLEATION
              call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1416,7 +1429,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
 #ifdef KROME
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
+                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
+                   got_krome_mols, got_krome_gamma,got_krome_mu,got_krome_T, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
                    got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
@@ -1495,7 +1509,8 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 #ifdef KROME
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_krome, &
+                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
+                        got_krome_mols, got_krome_gamma,got_krome_mu,got_krome_T, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_VrelVf, &
                         got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
@@ -1517,7 +1532,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
 #ifdef KROME
- logical,         intent(in)    :: got_krome(:)
+ logical,         intent(in)    :: got_krome_mols(:)
+ logical,         intent(in)    :: got_krome_gamma
+ logical,         intent(in)    :: got_krome_mu
+ logical,         intent(in)    :: got_krome_T
 #endif
  logical,         intent(in)    :: got_psi,got_temp,got_Tdust
  integer(kind=1), intent(inout) :: iphase(:)
@@ -1606,8 +1624,23 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
 #ifdef KROME
- if (.not.all(got_krome).and. npartread > 0) then
+ if (.not.all(got_krome_mols).and. npartread > 0) then
     if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+!     ierr = 9
+    return
+ endif
+ if (.not.got_krome_gamma .and. npartread > 0) then
+    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
+!     ierr = 9
+    return
+ endif
+ if (.not.got_krome_mu .and. npartread > 0) then
+    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
+!     ierr = 9
+    return
+ endif
+ if (.not.got_krome_T .and. npartread > 0) then
+    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
 !     ierr = 9
     return
  endif

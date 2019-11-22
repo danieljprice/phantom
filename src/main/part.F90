@@ -184,6 +184,7 @@ module part
 !
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
+ real, allocatable :: T_chem(:)
 !
 !--lightcurves
 !
@@ -411,6 +412,7 @@ subroutine allocate_part
 #endif
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
+ call allocate_array('T_chem', T_chem, maxp_krome)
 
 
 end subroutine allocate_part
@@ -473,6 +475,7 @@ subroutine deallocate_part
 #endif
  deallocate(gamma_chem)
  deallocate(mu_chem)
+ deallocate(T_chem)
  deallocate(dust_temp)
 
 end subroutine deallocate_part
@@ -982,6 +985,7 @@ subroutine copy_particle_all(src,dst)
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
+    T_chem(dst)           = T_chem(src)
  endif
 
  return
