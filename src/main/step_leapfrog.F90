@@ -555,7 +555,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -792,7 +792,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
                                abundance(:,i),gamma_chem(i),mu_chem(i),T_chem(i))
              dudtcool = (ui-vxyzu(4,i))/dt
-             vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 #elif NUCLEATION
              !evolve dust chemistry and compute dust cooling
              call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
@@ -820,7 +819,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 endif
              endif
 #endif
-             if (icooling > 0) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+             !update internal energy
+             if (icooling > 0 .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
           endif
        endif
     enddo predictor
