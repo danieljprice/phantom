@@ -471,7 +471,7 @@ end subroutine write_dump
 !+
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
@@ -483,7 +483,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop, &
-                          tstop,dustgasprop,VrelVf,temperature,abundance,ndusttypes
+                          tstop,dustgasprop,VrelVf,temperature,abundance,     &
+                          periodic,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -502,6 +503,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  real(kind=4), allocatable :: dtind(:)
 
+ real :: xmin,xmax,ymin,ymax,zmin,zmax
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -603,6 +605,10 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  endif
 #endif
 
+ if (periodic) then
+    call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ endif
+
 #ifdef ISOTHERMAL
  isothermal = .true.
 #else
@@ -674,7 +680,7 @@ end subroutine read_dump
 !+
 !-------------------------------------------------------------------
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
@@ -687,7 +693,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,        &
                           dustprop,tstop,VrelVf,temperature,abundance,      &
-                          ndusttypes,dustgasprop
+                          ndusttypes,dustgasprop,periodic
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -709,6 +715,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
  real(kind=4) :: dtind(npart)
 
+ real :: xmin,xmax,ymin,ymax,zmin,zmax
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -798,6 +805,10 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #else
  call allocate_memory(int(npart / nprocs))
 #endif
+
+ if (periodic) then
+    call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ endif
 
 #ifdef ISOTHERMAL
  isothermal = .true.
