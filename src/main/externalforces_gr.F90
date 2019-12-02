@@ -293,9 +293,9 @@ end subroutine write_headeropts_extern
 !  read relevant options from the header of the dump file
 !+
 !-----------------------------------------------------------------------
-subroutine read_headeropts_extern(iexternalforce,hdr,ierr)
+subroutine read_headeropts_extern(iexternalforce,hdr,nptmass,ierr)
  use dump_utils,        only:dump_h,extract
- integer,      intent(in)  :: iexternalforce
+ integer,      intent(in)  :: iexternalforce,nptmass
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
