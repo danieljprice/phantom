@@ -6,7 +6,7 @@
 ! and the coefficients for the non-ideal MHD terms: Ohmic resistivity, !
 ! Hall Effect and Ambipolar diffusion.                                 !
 !                                                                      !
-!                 Copyright (c) 2015-2017 James Wurster                !
+!                 Copyright (c) 2015-2019 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+
@@ -15,7 +15,7 @@
 !  DESCRIPTION:
 !  Contains routines to calculation the ionisation rate, and related
 !  useful quantities.
-!  Copyright (c) 2015-2017 James Wurster
+!  Copyright (c) 2015-2019 James Wurster
 !  Reference: Wurster (2016) PASA, 33:e041.
 !  See LICENCE file for usage and distribution conditions
 !
@@ -95,7 +95,7 @@ module nicil
  !--Import the dust mass density from the parent code for each point
  logical, public            :: use_fdg_in        = .false.
  !--Use rho in calculations (true); else use (1-fdg)*rho
- logical, public            :: rho_is_rhogas     = .true.
+ logical, public            :: rho_is_rhogas     = .false.
  !--Use constant resistivity coefficients for all three resistivity terms
  logical, public            :: eta_constant      = .false.
  !--Use the modified Hall parameters
@@ -313,6 +313,12 @@ pure subroutine nicil_version(version)
  version = "Version 1.2.3: 5 July 2017"
            ! 10 Apr  2018: Ambipolar diffusion now uses a subtraction rather than a double loop
  version = "Version 1.2.4: 11 April 2018"
+           ! 19 Oct  2018: if rho_n < 0, will scale the neutral components from thermal and rays by their respective n_electron
+           !               rho_is_rhogas = .false. by default
+           !               n_gas rather than n_total is used for calculation thermal ionisation (if rho_is_rhogas = .false.)
+ version = "Version 1.2.5: 19 October 2018"
+           !  4 Feb  2019: bug fix when using MRN grain distribution and size(n_R) .ne. 2+2*na
+ version = "Version 1.2.6: 28 August 2019"
 
 end subroutine nicil_version
 !----------------------------------------------------------------------!
@@ -770,7 +776,7 @@ subroutine nicil_print_summary(a01_grain,mass_HionR_mp,mass_grain_mp,meanmolmass
  !
  call nicil_version(version)
  write(iprint,'(2a)') "NICIL: ",trim(version)
- write(iprint,'(a)' ) "NICIL: Copyright (c) 2015-2017 James Wurster"
+ write(iprint,'(a)' ) "NICIL: Copyright (c) 2015-2019 James Wurster"
  write(iprint,'(a)' ) "NICIL: See LICENCE file for usage and distribution conditions"
  write(iprint,'(a)' ) "NICIL: Reference: Wurster (2016) PASA, 33:e041."
  !
@@ -1015,8 +1021,8 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
  real,   optional, intent(in)  :: fdg_in
  real,   optional, intent(out) :: data_out(n_data_out)
  integer                       :: j
- real                          :: mass_neutral_mp,n_total,n_cold,n_electron,n_electronR,rho_gas
- real                          :: zeta,fdg_local,n_gasdust,f_Bdust
+ real                          :: mass_neutral_mp,n_total,n_cold,n_electronR,rho_gas
+ real                          :: zeta,fdg_local,n_cold_total,n_gas,f_Bdust
  real                          :: n_R_complete(nimass+2*na)
  real                          :: n_ionR(nimass),n_grainR(2*na),n_ionT(nlevels),mass_ionT(nlevels)
  real                          :: sigmas(8),n_densities(7),afrac(2),mfrac(2)
@@ -1047,22 +1053,23 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
        if (rho_is_rhogas) then
           rho_gas = rho
        else
-          if (use_fdg_in) then
-             rho_gas = rho*(1.0-fdg_local)
-          else
+          if (.not.use_fdg_in) then
              rho_gas = rho*one_minus_fdg
+          else
+             rho_gas = rho*(1.0-fdg_local)
           endif
        endif
        !
        !--Determine the fractions of molecular and atomic Hydrogen
-       n_cold    = rho_gas*mass_neutral_cold1
-       n_gasdust = rho*mass_neutral_cold1
+       n_cold       = rho_gas*mass_neutral_cold1
+       n_cold_total = rho*mass_neutral_cold1
        call nicil_get_HH2_ratio(abundancej(iH),n_cold,T,mass_neutral_mp,afrac,mfrac)
-       n_total = rho_gas*mass_proton1/mass_neutral_mp
+       n_gas        = rho_gas*mass_proton1/mass_neutral_mp
+       n_total      = rho*mass_proton1/mass_neutral_mp
        !
        !--Calculate electron number densities from cosmic rays
        if (ion_rays) then
-          if (zeta_of_rho) then
+          if (.not.zeta_of_rho) then
              zeta = zeta0
           else
              zeta = zetaCR*exp(-zetaCRcoef*sqrt(T*rho_gas/mass_neutral_mp)) + zetaR
@@ -1074,7 +1081,7 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
           else
              ! must re-calculate grain densities since they were not stored
              call nicil_ionR_predict_ng(n_R_complete,n_R(1:nimass+2))
-             call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_gasdust,fdg_local,zeta,n_electronR,f_Bdust,ierr)
+             call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_cold_total,fdg_local,zeta,n_electronR,f_Bdust,ierr)
              n_ionR      = n_R(1:nimass)
              do j = 1,na
                 n_grainR(2*j-1) = n_R_complete(nimass+2*j-1)
@@ -1089,13 +1096,12 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
        !
        !--Calculate ion number densities from thermal ionisation
        if (ion_thermal) then
-          call nicil_ionT_get_n(n_ionT,mass_ionT,njk,n_electronT,T,n_total,afrac)
+          call nicil_ionT_get_n(n_ionT,mass_ionT,njk,n_electronT,T,n_gas,afrac)
        else
           n_ionT      = 0.0
           mass_ionT   = 0.0
           njk         = 0.0
        endif
-       n_electron    = n_electronR + n_electronT
        if (warn_verbose) then
           ! ensure that these two processes are sufficiently decoupled
           if (warn_ratio_m1*n_electronR < n_electronT .and. n_electronT < warn_ratio_p1*n_electronR) then
@@ -1104,7 +1110,7 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
        endif
        !
        !--Calculate the conductivities
-       call nicil_ion_get_sigma(Bfield,rho_gas,n_electron,n_ionR,n_grainR,n_ionT,mass_ionT, &
+       call nicil_ion_get_sigma(Bfield,rho_gas,n_electronR,n_electronT,n_ionR,n_grainR,n_ionT,mass_ionT, &
                                 mass_neutral_mp,T,sigmas,mfrac,get_data_out,n_densities,ierr)
        !
        !--Calculate the coefficients
@@ -1117,14 +1123,14 @@ pure subroutine nicil_get_eta(eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,n_R,n_elect
           data_out(    2) = sigmas(5)                                             ! Hall conductivities
           data_out(    3) = sigmas(2)                                             ! Pedersen conductivities
           data_out( 4: 5) = n_densities(1:2)                                      ! rho_neutral, rho_ion (total)
-          data_out(    6) = n_electron
+          data_out(    6) = n_electronR + n_electronT
           data_out( 7:11) = n_densities(3:7)                                      ! n_neutral, n_ionR (light,metallic), n_ionT(singly,doubly)
           do j = 1,na
              data_out(12)  = data_out(12) + n_grainR(2*j-1)                       ! negatively charged grains
              if (.not.use_fdg_in) then
-                data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust           ! total grains
+                data_out(13) = data_out(13) + n_grain_coef(j)*n_cold_total           ! total grains
              else
-                data_out(13) = data_out(13) + n_grain_coef(j)*n_gasdust*fdg_local ! total grains
+                data_out(13) = data_out(13) + n_grain_coef(j)*n_cold_total*fdg_local ! total grains
              endif
              data_out(14)    = data_out(14) + n_grainR(2*j  )                     ! positively  charged grains
           enddo
@@ -1173,18 +1179,18 @@ end subroutine nicil_get_eta
 !  computational value.
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_ionT,mass_ionT, &
+pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electronR,n_electronT,n_ionR,n_grainR,n_ionT,mass_ionT, &
                                     mass_neutral_mp,T,sigmas,mfrac,get_data_out,n_densities,ierr)
  integer,intent(inout) :: ierr
  real,   intent(out)   :: sigmas(8),n_densities(7)
- real,   intent(in)    :: Bmag,rho_gas,T,n_electron,mass_neutral_mp
+ real,   intent(in)    :: Bmag,rho_gas,T,n_electronR,n_electronT,mass_neutral_mp
  real,   intent(in)    :: n_ionR(:),n_grainR(:),n_ionT(:),mass_ionT(:),mfrac(2)
  logical,intent(in)    :: get_data_out
  integer               :: j,k,p
  real                  :: sqrtT,logT,sigmavenXH2,sigmavenXH,sigmavenY,sigma_coef_onB
- real                  :: rho_n,rho_i,nu_ei,sigmaviTn
+ real                  :: rho_n,rho_i,nu_ei,sigmaviTn,n_electron
  real                  :: mu_iXH21,mu_iXH1,mu_iY1
- real                  :: sigmaviRntot(nimass),mass_ionT_mp(nlevels)
+ real                  :: sigmaviRntot(nimass),mass_ionT_mp(nlevels),rho_ion(2)
  real                  :: nu_jn(nspecies_max),ns(nspecies_max),rho_j(nspecies_max)
  real                  :: betaj(nspecies_max),beta2p11(nspecies_max)
  !
@@ -1196,6 +1202,7 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
  !
  !--Number densities
  ns               = 0.0
+ n_electron       = n_electronR + n_electronT
  ns(ine)          = n_electron
  ns(iniHR:iniMR)  = n_ionR
  ns(inisT:inidT)  = n_ionT
@@ -1213,13 +1220,20 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
  rho_j(ine)         = n_electron*massj(ine)
  rho_j(iniHR:iniMR) = n_ionR*massj(iniHR:iniMR)
  rho_j(inisT:inidT) = n_ionT*mass_ionT
- rho_n              = rho_gas - rho_j(ine)
+ rho_ion            = 0.
  do j = 1,nimass
-    rho_n            = rho_n - rho_j(iniHR+j-1)
+    rho_ion(1)      = rho_ion(1) + rho_j(iniHR+j-1)
  enddo
  do k = 1,nlevels
-    rho_n            = rho_n - rho_j(inisT+k-1)
+    rho_ion(2)      = rho_ion(2) + rho_j(inisT+k-1)
  enddo
+ rho_n = rho_gas - rho_j(ine) - rho_ion(1) - rho_ion(2)
+ !
+ if (rho_n < small*rho_gas) then
+    ! In this regime, ionisation from both thermal ionisation and cosmic rays are important,
+    ! and lead to very small or negative neutral gas densities; Scale contribution to prevent this
+    rho_n = rho_gas - rho_j(ine) - (rho_ion(1)*n_electronR + rho_ion(2)*n_electronT)/n_electron
+ endif
  !
  if (warn_verbose) then
     ! ensure that the strong coupling approximation is valid
@@ -1303,19 +1317,19 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,n_electron,n_ionR,n_grainR,n_io
     sigmas = sigmas*sigma_coef_onB                                   ! scale sigma
     if (sigmas(1) > 0.0) sigmas(6) = 1.0/sigmas(1)                   ! 1/sigma_O
     sigmas(7)   = sigmas(2)*sigmas(2) + sigmas(5)*sigmas(5)          ! perp^2 = P^2 + H^2
-    sigmas(8)   = max(0.0,sigmas(1)*sigmas(2) - sigmas(7))           ! OP - perp^2
+    sigmas(8)   = sigmas(1)*sigmas(2) - sigmas(7)                    ! OP - perp^2
+    if ( sigmas(8) < coef_epsilonR*max(sigmas(1)*sigmas(2),sigmas(7))) then
+       sigmas(8) = 0.0
+       do j = 1,nspecies
+          do k = j+1,nspecies
+             sigmas(8) = sigmas(8) + ns(j)*aZj(j)*betaj(j)*beta2p11(j) &
+                                   * ns(k)*aZj(k)*betaj(k)*beta2p11(k) &
+                                   * (sZj(j)*betaj(j) - sZj(k)*betaj(k))**2
+          enddo
+       enddo
+       sigmas(8) = sigmas(8)*sigma_coef_onB**2
+    endif
     if ( sigmas(7) > 0.0 ) sigmas(7) = 1.0/sigmas(7)                 ! perp^2 -> 1/perp^2
-    !Note: This will yield sigmas(8) << 1, which will not affect the results, thus has been removed
-    !if ( sigmas(8) < 0.0 ) then
-    !   do j = 1,nspecies
-    !      do k = j+1,nspecies
-    !         sigmas(8) = sigmas(8) + ns(j)*aZj(j)*betaj(j)*beta2p11(j) &
-    !                               * ns(k)*aZj(k)*betaj(k)*beta2p11(k) &
-    !                               * (sZj(j)*betaj(j) - sZj(k)*betaj(k))**2
-    !      enddo
-    !   enddo
-    !   sigmas(8) = sigmas(8)*sigma_coef_onB**2
-    !endif
  else
     ! This is the Ideal MHD regime.  Turn off non-ideal terms.
     if (warn_verbose) ierr = ierr + ierr_alion
@@ -1371,7 +1385,7 @@ pure subroutine nicil_get_ion_n(rho,T,n_R,n_electronT,ierr,fdg_in,f_Bdust_out)
  integer,           intent(out)   :: ierr
  real,    optional, intent(in)    :: fdg_in
  real,    optional, intent(out)   :: f_Bdust_out
- real                             :: mass_neutral_mp,n_total,n_cold,n_gasdust,n_electronR,rho_gas
+ real                             :: mass_neutral_mp,n_total,n_cold,n_cold_total,n_electronR,rho_gas
  real                             :: zeta,fdg_local,f_Bdust
  real                             :: afrac(2),n_R_complete(nimass+2*na)
  !
@@ -1409,10 +1423,10 @@ pure subroutine nicil_get_ion_n(rho,T,n_R,n_electronT,ierr,fdg_in,f_Bdust_out)
  endif
  !
  !--Determine the ratio of H and H2
- n_cold    = rho_gas*mass_neutral_cold1
- n_gasdust = rho*mass_neutral_cold1
+ n_cold       = rho_gas*mass_neutral_cold1
+ n_cold_total = rho*mass_neutral_cold1
  call nicil_get_HH2_ratio(abundancej(iH),n_cold,T,mass_neutral_mp,afrac)
- n_total   = rho_gas*mass_proton1/mass_neutral_mp
+ n_total      = rho_gas*mass_proton1/mass_neutral_mp
  !
  !--Calculate the number densities from cosmic rays
  if (ion_rays) then
@@ -1423,7 +1437,7 @@ pure subroutine nicil_get_ion_n(rho,T,n_R,n_electronT,ierr,fdg_in,f_Bdust_out)
     endif
     call nicil_fill_nRcomplete(n_R_complete,n_R,n_total)
     n_R_complete = epsilon(n_R_complete(1))
-    call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_gasdust,fdg_local,zeta,n_electronR,f_Bdust,ierr)
+    call nicil_ionR_get_n(n_R_complete,T,rho_gas,n_cold_total,fdg_local,zeta,n_electronR,f_Bdust,ierr)
     call nicil_unfill_nRcomplete(n_R_complete,n_R)
     if (present(f_Bdust_out)) f_Bdust_out = f_Bdust
  endif
@@ -1535,7 +1549,7 @@ pure subroutine nicil_ionR_get_n(n_R,T,rho_gas,n_total,fdg_local,zeta,n_e_out,f_
  !
  !--Set initial conditions & define the nold array
  if (.not.use_fdg_in) then
-    n_g_tot  = n_grain_coef(1:na)*n_total
+    n_g_tot  = n_grain_coef(1:na)*n_total             ! fdg is included in n_grain_coef
  else
     n_g_tot  = n_grain_coef(1:na)*n_total*fdg_local
  endif
@@ -1663,7 +1677,7 @@ pure subroutine nicil_ionT_calc_Jf(feqni,feqn,Jacob,rho_gas,n_g_tot,n_e,n_i,n_g,
  !--Neutral number density
  !  since this is an intermediate step, its acceptable to be < 0
  !  using cold gas mass since this process is dominant at cold temperatures
- n_n = (rho_gas - n_e*massj(ine) - n_i(1)*massj(iniHR)- n_i(2)*massj(iniMR))*mass_neutral_cold1
+ n_n = (rho_gas - n_e*massj(ine) - n_i(1)*massj(iniHR) - n_i(2)*massj(iniMR))*mass_neutral_cold1
  !
  !--Zero the arrays
  feqn  = 0.0

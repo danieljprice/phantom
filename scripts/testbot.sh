@@ -3,8 +3,8 @@
 # The Phantom test-bot
 #
 # This is a wrapper for the Phantom test suite ("make test")
-# Runs all possible tests and collates the results into 
-# tables for the html and wiki pages.
+# Runs all possible tests and collates the results into
+# tables for the html  pages.
 #
 # Also checks for build failures in the test suite
 #

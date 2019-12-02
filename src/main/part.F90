@@ -92,7 +92,11 @@ module part
 !
 !--velocity gradients
 !
- real(kind=4) :: dvdx(9,maxdvdx)
+ real(kind=4), allocatable :: dvdx(:,:)
+ character(len=*), parameter :: dvdx_label(9) = &
+   (/'dvxdx','dvxdy','dvxdz', &
+     'dvydx','dvydy','dvydz', &
+     'dvzdx','dvzdy','dvzdz'/)
 !
 !--H2 chemistry
 !
@@ -321,6 +325,7 @@ subroutine allocate_part
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
+ call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
@@ -381,6 +386,7 @@ subroutine deallocate_part
  deallocate(vxyzu)
  deallocate(alphaind)
  deallocate(divcurlv)
+ deallocate(dvdx)
  deallocate(divcurlB)
  deallocate(Bevol)
  deallocate(Bxyz)
@@ -454,6 +460,7 @@ subroutine init_part
  if (maxphase > 0) iphase = 0 ! phases not set
  if (maxalpha==maxp)  alphaind = 0.
  if (ndivcurlv > 0) divcurlv = 0.
+ if (maxdvdx==maxp) dvdx = 0.
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
  if (use_dust) dustfrac = 0.
@@ -889,6 +896,7 @@ subroutine copy_particle_all(src,dst)
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
+ if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)

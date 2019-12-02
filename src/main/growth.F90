@@ -171,11 +171,11 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,dsdt)
- use part,            only:get_pmass,rhoh,idust,iamtype,iphase,isdead_or_accreted
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
+ use part,            only:rhoh,idust,iamtype,iphase,isdead_or_accreted,massoftype
  real, intent(in)     :: dustprop(:,:),dustgasprop(:,:)
  real, intent(in)     :: xyzh(:,:)
- real, intent(inout)  :: VrelVf(:)
+ real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
@@ -192,9 +192,9 @@ subroutine get_growth_rate(npart,xyzh,dustgasprop,VrelVf,dustprop,dsdt)
 
        if (iam == idust) then
 
-          rhod = rhoh(xyzh(4,i),get_pmass(idust,.false.))
+          rhod = rhoh(xyzh(4,i),massoftype(idust))
 
-          call get_vrelonvfrag(xyzh(:,i),vrel,VrelVf(i),dustgasprop(:,i))
+          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
           !
@@ -224,12 +224,12 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vrel,VrelVf,dustgasprop)
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
  use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
  real, intent(in)     :: xyzh(:)
  real, intent(in)     :: dustgasprop(:)
- real, intent(inout)  :: vrel
+ real, intent(inout)  :: vrel,vxyzu(:)
  real, intent(out)    :: VrelVf
  real                 :: Vt
  integer              :: izone
@@ -245,7 +245,7 @@ subroutine get_vrelonvfrag(xyzh,vrel,VrelVf,dustgasprop)
  if (ifrag == 0) then
     if (vref > 0.) VrelVf = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
  elseif (ifrag > 0) then
-    call comp_snow_line(xyzh,dustgasprop(1),izone)
+    call comp_snow_line(xyzh,vxyzu,dustgasprop(2),izone)
     select case(izone)
     case(2)
        if (vfragout > 0.) VrelVf = vrel/vfragout
@@ -264,11 +264,13 @@ end subroutine get_vrelonvfrag
 ! to a snow line. (You can add more with this structure)
 !+
 !----------------------------------------------------------------------------
-subroutine comp_snow_line(xyzh,cs,izone)
- use eos,    only:temperature_coef,gmw
+subroutine comp_snow_line(xyzh,vxyzu,rhogas,izone)
+ use eos,           only:ieos,get_temperature
  integer, intent(out) :: izone
- real, intent(in)     :: xyzh(:),cs
- real                 :: cs_snow,r
+ real, intent(inout)  :: vxyzu(:)
+ real, intent(in)     :: xyzh(:)
+ real, intent(in)     :: rhogas
+ real                 :: r,Tgas
 
  select case(isnow)
  case(0)
@@ -278,9 +280,9 @@ subroutine comp_snow_line(xyzh,cs,izone)
     if (r<=rsnow) izone = 1
     if (r>rsnow) izone = 2
  case(2)
-    cs_snow = sqrt(Tsnow/(temperature_coef*gmw))
-    if (cs > cs_snow) izone = 1
-    if (cs < cs_snow) izone = 2
+    Tgas = get_temperature(ieos,xyzh,rhogas,vxyzu)
+    if (Tgas >= Tsnow) izone = 1
+    if (Tgas < Tsnow) izone = 2
  case default
     izone = 0
  end select

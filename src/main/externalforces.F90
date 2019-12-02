@@ -544,7 +544,8 @@ end subroutine update_vdependent_extforce_leapfrog
 subroutine update_externalforce(iexternalforce,ti,dmdt)
  use io,                only:iprint,iverbose,warn
  use lumin_nsdisc,      only:set_Lstar, BurstProfile, LumAcc, make_beta_grids
- use part,              only:xyzh, vxyzu, massoftype, npartoftype, igas, npart
+ use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
+                             xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
  use extern_binary,     only:update_binary
  integer, intent(in) :: iexternalforce
@@ -561,7 +562,7 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
        write(iprint,*) 'updating prdrag at t = ',ti,' Mdot = ',dmdt,' LAcc = ',LumAcc
     endif
  case(iext_gwinspiral)
-    call gw_still_inspiralling(npart,xyzh,vxyzu,stopped_now)
+    call gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
     call get_gw_force()
     if (stopped_now) call warn('externalforces','Stars have merged. Disabling GW inspiral',2)
  end select
@@ -720,18 +721,18 @@ end subroutine write_headeropts_extern
 !  read relevant options from the header of the dump file
 !+
 !-----------------------------------------------------------------------
-subroutine read_headeropts_extern(iexternalforce,hdr,ierr)
- use dump_utils,        only:dump_h,extract
+subroutine read_headeropts_extern(iexternalforce,hdr,nptmass,ierr)
+ use dump_utils,        only:dump_h
  use extern_binary,     only:read_headeropts_externbinary
  use extern_gwinspiral, only:read_headeropts_gwinspiral
- integer,      intent(in)  :: iexternalforce
+ integer,      intent(in)  :: iexternalforce,nptmass
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
  ierr = 0
  select case(iexternalforce)
  case(iext_gwinspiral)
-    call read_headeropts_gwinspiral(hdr,ierr)
+    call read_headeropts_gwinspiral(hdr,nptmass,ierr)
  case(iext_binary,iext_corot_binary)
     call read_headeropts_externbinary(hdr,ierr)
  end select
@@ -852,7 +853,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  use extern_gwinspiral,    only:initialise_gwinspiral
  use units,                only:umass,utime,udist
  use physcon,              only:gg,c
- use part,                 only:npart
+ use part,                 only:npart,nptmass
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
  real(kind=8) :: gcode, ccode
@@ -868,9 +869,10 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  case(iext_neutronstar)
     call load_extern_neutronstar(ierr)
  case (iext_gwinspiral)
-    call initialise_gwinspiral(npart,ierr)
+    call initialise_gwinspiral(npart,nptmass,ierr)
     if (ierr > 0) then
-       call error('externalforces','Require number of particles per star',var='iexternalforce',ival=iexternalforce)
+       call error('externalforces','Require number of particles per star or sink particles',&
+                  var='iexternalforce',ival=iexternalforce)
        ierr = ierr + 1
     endif
  case default

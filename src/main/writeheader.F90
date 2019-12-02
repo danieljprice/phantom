@@ -158,9 +158,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
           write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
        else
-          write(iprint,"(2x,2(a,f10.6))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,f10.6))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,f10.6))")  'zmin = ',zmin,' zmax = ',zmax
+          write(iprint,"(2x,2(a,f10.5))")  'xmin = ',xmin,' xmax = ',xmax
+          write(iprint,"(2x,2(a,f10.5))")  'ymin = ',ymin,' ymax = ',ymax
+          write(iprint,"(2x,2(a,f10.5))")  'zmin = ',zmin,' zmax = ',zmax
        endif
     else
        write(iprint,"(a)") ' No boundaries set '
