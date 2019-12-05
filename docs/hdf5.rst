@@ -310,9 +310,6 @@ Then you can access datasets like
 Plonk
 ~~~~~
 
-Plonk is a Python package for analysis and visualisation of Phantom
-data. It is open source and available at
+Plonk is a Python package for analysis and visualisation of SPH
+data. Plonk is open source and available at
 https://github.com/dmentipl/plonk.
-
-It uses compiled Fortran from Splash to do interpolation from the data
-to a pixel grid.

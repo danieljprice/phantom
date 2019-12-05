@@ -77,7 +77,7 @@ subroutine test_growth(ntests,npass)
  !
  ! the infamous Laibe 2008-inspired test
  !
- call The_big_laiboxi(ntests,npass)
+ call test_farmingbox(ntests,npass)
  call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
@@ -95,7 +95,7 @@ end subroutine test_growth
 !-------------------
 !-------------------
 
-subroutine The_big_laiboxi(ntests,npass)
+subroutine test_farmingbox(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
@@ -155,6 +155,7 @@ subroutine The_big_laiboxi(ntests,npass)
  real            :: dtext
  real            :: dtnew
  real            :: guillaume
+ real            :: dtgratio
 
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
@@ -163,10 +164,9 @@ subroutine The_big_laiboxi(ntests,npass)
 
  sinit = 1.e-2/udist
  dens  = 1./unit_density
+ dtgratio = 0.5
 
- write(*,"(/,a)")'--> testing THE BIG LAIBOXI'
- write(*,"(/,a)")"- Nobody calls me Laiboxi. You got the wrong guy. I'm the dude, man. -"
-
+ write(*,"(/,a)")'--> testing FARMINGBOX'
 
  !
  ! initialise
@@ -235,7 +235,7 @@ subroutine The_big_laiboxi(ntests,npass)
  enddo
  npartoftype(itype) = npart - npart_previous
  npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
- massoftype(itype) = totmass/npartoftypetot(itype)
+ massoftype(itype) = dtgratio*totmass/npartoftypetot(itype)
 
  !
  ! runtime parameters
@@ -279,11 +279,11 @@ subroutine The_big_laiboxi(ntests,npass)
  do j=1,npart
     if (iamdust(iphase(j))) then
        cscomp(j)        = get_spsound(ieos,xyzh(:,j),rhozero,vxyzu(:,j))
-       Stini(j)         = sqrt(pi*gamma/8)*dens*sinit/(2*rhozero*cscomp(j)) * Omega_k(j)
+       Stini(j)         = sqrt(pi*gamma/8)*dens*sinit/((1+dtgratio)*rhozero*cscomp(j)) * Omega_k(j)
        Stcomp(j)        = Stini(j)
        dustgasprop(3,j) = Stini(j)
-       tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*2/sqrt(pi*gamma/8.)
-       s(j)             = Stini(j)/(sqrt(pi*gamma/8)*dens/(2*rhozero*cscomp(j))*Omega_k(j))
+       tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*(1+dtgratio)/dtgratio/sqrt(pi*gamma/8.)
+       s(j)             = Stini(j)/(sqrt(pi*gamma/8)*dens/((1+dtgratio)*rhozero*cscomp(j))*Omega_k(j))
     endif
  enddo
  !
@@ -299,7 +299,7 @@ subroutine The_big_laiboxi(ntests,npass)
           time      = t/tau(j) + 2.*sqrt(Stini(j))*(1.+Stini(j)/3.)
           guillaume = (8.+9.*time*time+3.*time*sqrt(16.+9.*time*time))**(1./3.)
           Stcomp(j) = guillaume/2. + 2./guillaume - 2.
-          s(j)      = Stcomp(j)/(sqrt(pi*gamma/8)*dens/(2*rhozero*cscomp(j))*Omega_k(j))
+          s(j)      = Stcomp(j)/(sqrt(pi*gamma/8)*dens/((1+dtgratio)*rhozero*cscomp(j))*Omega_k(j))
           call checkvalbuf(dustgasprop(3,j),Stcomp(j),tolst,'St',nerr(1),ncheck(1),errmax(1))
           call checkvalbuf(dustprop(1,j),s(j),tols,'size',nerr(2),ncheck(2),errmax(2))
           call checkvalbuf(dustgasprop(1,j),cscomp(j),tolcs,'csound',nerr(3),ncheck(3),errmax(3))
@@ -314,7 +314,7 @@ subroutine The_big_laiboxi(ntests,npass)
 
  call update_test_scores(ntests,nerr(1:4),npass)
 
-end subroutine The_big_laiboxi
+end subroutine test_farmingbox
 
 subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
