@@ -36,7 +36,7 @@ module adaptivemesh
  !  bear in mind that total number of cells is maxmeshes*nsub**ndim
  !  so use maxp/nsub**ndim to get number of cells = maxp
  !
- integer, parameter :: maxmeshes = maxp_hard/2 !8*maxp/nsub**ndim
+ integer, parameter :: maxmeshes = 5e6 ! hardwired, bad but emit warning if too small
  !
  !--resolution of the root grid (2^ifirstlevel)^ndim
  !
