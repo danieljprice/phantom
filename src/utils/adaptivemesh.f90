@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 module adaptivemesh
- use dim, only:maxp,maxp_hard,periodic
+ use dim, only:periodic
  implicit none
  !--this controls the number of cells on each level
  integer, parameter :: nsub = 2
@@ -36,7 +36,7 @@ module adaptivemesh
  !  bear in mind that total number of cells is maxmeshes*nsub**ndim
  !  so use maxp/nsub**ndim to get number of cells = maxp
  !
- integer, parameter :: maxmeshes = 5e6 ! hardwired, bad but emit warning if too small
+ integer :: maxmeshes = 0 ! zero until allocated
  !
  !--resolution of the root grid (2^ifirstlevel)^ndim
  !
@@ -47,7 +47,7 @@ module adaptivemesh
  !--grid array stores children in first 8 cells, then parent
  !  (currently we do not store the parent as it is not needed)
  !
- integer :: gridnodes(maxchildren,maxmeshes)
+ integer, allocatable :: gridnodes(:,:)
 ! integer, parameter :: ilocparent = maxchildren + 1
 
  integer :: maxlevel
@@ -55,7 +55,7 @@ module adaptivemesh
 contains
 
 subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: np
  integer, intent(out) :: nmesh
  real,    intent(in),                         optional :: xmin(ndim),dxmax(ndim)
@@ -89,8 +89,15 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
  !
  maxlevel = ifirstlevel
  nmesh   = 1
+ !
+ !--allocate memory
+ !
+ maxmeshes = 2*np + 1 ! allow twice the number of particles
+ allocate(gridnodes(maxchildren,maxmeshes))
  gridnodes(:,1) = -1
-
+ !
+ !--build the mesh
+ !
  !$omp parallel do default(none) schedule(guided,10) &
  !$omp shared(np,xyzh,xminp,dxmaxp,nmesh) &
  !$omp private(i)
@@ -98,6 +105,7 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
     call refine_mesh(xyzh(:,i),1,ifirstlevel,xminp,dxmaxp,nmesh)
  enddo
  !$omp end parallel do
+
  print "(a,i10,a,i10,a,i2,a,i6,a)",&
        ' build_mesh: nmeshes = ',nmesh,', ncells = ',nmesh*(nsub**ndim),', max level = ',maxlevel, &
        ' (effective resolution = ',nsub**maxlevel,'^3)'
@@ -241,5 +249,11 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
  enddo
 
 end subroutine refine_mesh
+
+subroutine free_mesh()
+
+ if (allocated(gridnodes)) deallocate(gridnodes)
+
+end subroutine free_mesh
 
 end module adaptivemesh
