@@ -1567,7 +1567,7 @@ utils: phantomsetup phantomanalysis \
        diffdumps showheader ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf phantom2pdf-amr \
-       phantom2struct phantom2power libphantom
+       phantom2struct libphantom
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleantestbinary cleanmoddump \
@@ -1575,7 +1575,7 @@ cleanutils: cleansetup cleananalysis \
             cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
-            cleanphantom2struct cleanphantom2power cleanphantomevcompare cleanlibphantom
+            cleanphantom2struct cleanphantomevcompare cleanlibphantom
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -1734,29 +1734,6 @@ cleanphantom2pdf-amr:
 
 analysis_pdfs.o: interpolate3D_amr.o adaptivemesh.o
 interpolate3D_amr.o: adaptivemesh.o
-
-#----------------------------------------------------
-# these are the sources for the phantom2power utility
-#
-SRCP2P= utils_omp.F90 fft3d.f90 fftpack.f \
-        power3d.f90 icosahedron.f90 powerspec.f90 \
-        interpolate3D.F90 asciiutils.f90 pdfs.f90 phantom2power.f90
-OBJP2P1= $(SRCP2P:.f90=.o)
-OBJP2P2= $(OBJP2P1:.F90=.o)
-OBJP2P= $(OBJDUMP) $(OBJP2P2:.f=.o)
-
-.PHONY: phantom2power
-phantom2power:
-	${MAKE} ANALYSISONLY=yes phantom2powerfake
-
-phantom2powerfake: checksystem checkparams $(OBJP2P)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantom2power $(OBJP2P)
-	@echo ""
-	@echo "Phantom2power: we have the power to help you"
-	@echo ""
-
-cleanphantom2power:
-	rm -f $(BINDIR)/phantom2power
 
 #----------------------------------------------------
 # these are the sources for the phantom_moddump utility
