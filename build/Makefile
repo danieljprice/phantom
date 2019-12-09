@@ -1702,20 +1702,18 @@ phantom_pdfs.o: ../src/utils/pdfs.f90
 asciiutils.o: checksplash $(SPLASH_DIR)/src/asciiutils.f90
 	$(FC) $(FFLAGS) -o $@ -c $(SPLASH_DIR)/src/asciiutils.f90
 
+write_griddata.o: checksplash $(SPLASH_DIR)/src/write_griddata.F90
+	$(FC) $(FFLAGS) -o $@ -c $(SPLASH_DIR)/src/write_griddata.F90
+
 # these are the sources for the grid2pdf utility
 
-ifdef HDF5
-OBJG2PDF= io.o utils_filenames.o asciiutils.o \
+OBJG2PDF= io.o utils_filenames.o asciiutils.o write_griddata.o \
           hdf5utils.o read_grid_hdf5.o write_grid_hdf5.o io_grid.o pdfs.o rhomach.o grid2pdf.o
-else
-OBJG2PDF= io.o utils_filenames.o asciiutils.o \
-          io_grid.o pdfs.o rhomach.o grid2pdf.o
-endif
 
 .PHONY: grid2pdf
-grid2pdf: checksys checkparams $(OBJG2PDF)
+grid2pdf: checksys checkparams checkhdf5 $(OBJG2PDF)
 	@echo "objects are $(OBJG2PDF)"
-	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5ROOT)/lib -lhdf5
 	@echo ""
 	@echo "Grid2pdf: we are Possibly Dangerously Fanatical"
 	@echo ""
