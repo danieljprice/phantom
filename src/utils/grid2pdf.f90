@@ -18,7 +18,7 @@
 !
 !  USAGE: grid2pdf format filename(s)
 !
-!  DEPENDENCIES: dim, io, io_grid, pdfs, rhomach
+!  DEPENDENCIES: io, io_grid, pdfs, rhomach
 !+
 !--------------------------------------------------------------------------
 program grid2pdf

@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: fileutils, hdf5utils, io
+!  DEPENDENCIES: fileutils, hdf5utils, io, readwrite_griddata
 !+
 !--------------------------------------------------------------------------
 module io_grid
