@@ -300,7 +300,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        L_p = L_p*sinks_mass
        L_p_mag = sqrt(dot_product(L_p,L_p))
 
-       if(.not.assume_Ltot_is_same_as_zaxis) then
+       if (.not.assume_Ltot_is_same_as_zaxis) then
           ! Rotate sinks vector such that Ltot is parallel to z-axis
           call rotatevec(L_p,(/0.,0.,1.0/),-rotate_about_z)
           call rotatevec(L_p,(/0.,1.0,0./),rotate_about_y)
