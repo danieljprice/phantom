@@ -249,6 +249,14 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  enddo
+ !
+ !  check for particles with identical positions
+ !
+ call check_for_identical_positions(npart,xyzh,nbad)
+ if (nbad > 0) then
+    print*,'Error in setup: ',nbad,' of ',npart,' particles have identical or near-identical positions'
+    nwarn = nwarn + 1
+ endif
 !
 !  check for particles outside boundaries
 !
@@ -589,5 +597,52 @@ subroutine check_setup_dustgrid(nerror,nwarn)
  enddo
 
 end subroutine check_setup_dustgrid
+
+!------------------------------------------------------------------
+!+
+! check for particles with identical positions
+! the brute force approach of checking N^2 pairs is WAY too
+! slow to be practical here. Instead, we sort the particles by
+! radius and check particles with identical radii
+!+
+!------------------------------------------------------------------
+
+subroutine check_for_identical_positions(npart,xyzh,nbad)
+ use sortutils, only:indexxfunc,r2func
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(out) :: nbad
+ integer :: i,j
+ real    :: dx(3),dx2
+ integer, allocatable :: index(:)
+ !
+ ! sort particles by radius
+ !
+ allocate(index(npart))
+ call indexxfunc(npart,r2func,xyzh,index)
+
+ !
+ ! check for identical positions. Stop checking as soon as non-identical
+ ! positions are found.
+ !
+ nbad = 0
+ do i=1,npart
+    j = i+1
+    dx2 = 0.
+    do while (dx2 < 1.e-8 .and. j < npart)
+       dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+       dx2 = dot_product(dx,dx)
+       if (dx2 < 1.e-8) then
+          nbad = nbad + 1
+          if (nbad <= 100) print*,'ERROR: particles ',index(i),' and ',index(j),&
+             ' at same position ',xyzh(1:3,index(i)),xyzh(1:3,index(j))
+       endif
+       j = j + 1
+    enddo
+ enddo
+
+ deallocate(index)
+
+end subroutine check_for_identical_positions
 
 end module checksetup
