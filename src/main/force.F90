@@ -142,8 +142,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustgasprop,&
                  dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
- use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
-                        mhd,mhd_nonideal,lightcurve
+ use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
