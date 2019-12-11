@@ -40,7 +40,7 @@ contains
 !+
 !----------------------------------------------------------------
 
-subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,q_index,&
+subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
                      tilt,tilt_acc,twist,twistprev,psi,H,bin,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
                      ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
  use physcon,        only:pi
@@ -51,7 +51,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  use prompting,      only:prompt
  real, intent(inout)              :: xyzh(:,:),vxyz(:,:),pmass,time
  integer, intent(in)              :: nbin,npart
- real, intent(in)                 :: rmin,rmax,H_R,G,M_star,q_index
+ real, intent(in)                 :: rmin,rmax,G,M_star
  logical, intent(in)              :: assume_Ltot_is_same_as_zaxis
  real, optional, intent(inout)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, optional, intent(inout) :: nptmass
