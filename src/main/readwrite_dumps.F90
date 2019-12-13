@@ -499,7 +499,9 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
        endif
 #ifdef IND_TIMESTEPS
-       call write_array(1,dtmax/2**ibin(1:npart),'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
+       if (.not.allocated(temparr)) allocate(temparr(npart))
+       temparr(1:npart) = dtmax/2**ibin(1:npart)
+       call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
 #endif
 #ifdef PRDRAG
        if (k==i_real) then
