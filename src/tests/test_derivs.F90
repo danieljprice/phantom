@@ -88,7 +88,7 @@ subroutine test_derivs(ntests,npass,string)
  real              :: rcut
  real              :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
- integer           :: nfailed(21),i,j,npartblob,nparttest
+ integer           :: nfailed(21),i,j,npartblob,nparttest,m
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
@@ -207,25 +207,9 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--check hydro quantities come out as they should do
     !
-    nfailed(:) = 0
-    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
-    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
-    if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
-    endif
-    if (testgradh) call checkval(np,gradh(1,:),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
-    if (maxvxyzu==4) then
-       call checkvalf(np,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
-       call checkvalf(np,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
-       call checkvalf(np,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
-       if (use_entropy .or. ieos /= 2) then
-          call checkval(np,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
-       else
-          call checkvalf(np,xyzh,fxyzu(iu,1:np)/((gamma-1.)*vxyzu(iu,1:np)),dudtfunc,1.e-3,nfailed(10),'du/dt',checkmask)
-       endif
-    endif
+    nfailed(:) = 0; m=0
+    call check_hydro(np,nfailed,m)
+    if (maxvxyzu==4) call check_fxyzu(np,nfailed,m)
     !
     !--also check that the number of neighbours is correct
     !
@@ -283,28 +267,9 @@ subroutine test_derivs(ntests,npass,string)
        ! that the inactives have preserved their values from last time they were
        ! calculated (finds bug of mistakenly setting inactives to zero)
        !
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,1:np),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
-       if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvyi,1:np),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvzi,1:np),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
-       endif
-       if (testgradh) call checkval(np,gradh(1,1:np),1.01948,1.e-5,nfailed(6),'gradh',checkmask)
-       if (maxvxyzu==4) then
-          call checkvalf(np,xyzh,fxyzu(1,1:np),forcefuncx,1.e-3,nfailed(7),'force(x)',checkmask)
-          call checkvalf(np,xyzh,fxyzu(2,1:np),forcefuncy,1.e-3,nfailed(8),'force(y)',checkmask)
-          call checkvalf(np,xyzh,fxyzu(3,1:np),forcefuncz,1.e-3,nfailed(9),'force(z)',checkmask)
-          if (use_entropy .or. ieos /= 2) then
-             call checkval(np,fxyzu(iu,1:np),0.,epsilon(fxyzu),nfailed(10),'den/dt',checkmask)
-          else
-             allocate(dummy(1:np))
-             dummy(1:np) = fxyzu(iu,1:np)/((gamma-1.)*vxyzu(iu,1:np))
-             call checkvalf(np,xyzh,dummy(1:np),dudtfunc,1.e-3,nfailed(11),'du/dt',checkmask)
-             deallocate(dummy)
-          endif
-       endif
+       nfailed(:) = 0; m = 0
+       call check_hydro(np,nfailed,m)
+       if (maxvxyzu==4) call check_fxyzu(np,nfailed,m)
 
        call update_test_scores(ntests,nfailed,npass)
        !
@@ -351,23 +316,17 @@ subroutine test_derivs(ntests,npass,string)
 
        call get_derivs
        call rcut_checkmask(rcut,xyzh,npart,checkmask)
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
-       if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-          call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
-       endif
-       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(3),'art. visc force(x)',checkmask)
+       nfailed(:) = 0; m = 0
+       call check_hydro(np,nfailed,m)
+       call checkvalf(np,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(m+1),'art. visc force(x)',checkmask)
        do i=1,np
           write(10,*) xyzh(1,i),fxyzu(1,i)
        enddo
        do i=1,np
           write(11,*) xyzh(1,i),forceavx(xyzh(:,i))
        enddo
-       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(4),'art. visc force(y)',checkmask)
-       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(5),'art. visc force(z)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(m+2),'art. visc force(y)',checkmask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(m+3),'art. visc force(z)',checkmask)
 
        call update_test_scores(ntests,nfailed,npass)
 #ifdef IND_TIMESTEPS
@@ -404,17 +363,11 @@ subroutine test_derivs(ntests,npass,string)
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh)
        if (id==master) call printused(tused)
 
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
-       if (ndivcurlv >= 4) then
-          call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)')
-          call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
-          call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
-       endif
+       nfailed(:) = 0; m = 0
+       call check_hydro(np,nfailed,m)
        if (nalpha >= 2) then
           ialphaloc = 2
-          call checkvalf(np,xyzh,alphaind(ialphaloc,:),alphalocfunc,3.5e-4,nfailed(6),'alphaloc')
+          call checkvalf(np,xyzh,alphaind(ialphaloc,:),alphalocfunc,3.5e-4,nfailed(m+1),'alphaloc')
        endif
        call update_test_scores(ntests,nfailed,npass)
     else
@@ -444,29 +397,23 @@ subroutine test_derivs(ntests,npass,string)
     call get_derivs
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
-    nfailed(:) = 0
-    call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',checkmask)
-    call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv',checkmask)
-    if (ndivcurlv >= 4) then
-       call checkvalf(np,xyzh,divcurlv(icurlvxi,:),curlvfuncx,1.5e-3,nfailed(3),'curlv(x)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)',checkmask)
-       call checkvalf(np,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)',checkmask)
-    endif
+    nfailed(:) = 0; m = 0
+    call check_hydro(np,nfailed,m)
     if (maxdvdx==maxp) then
-       call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(6),  'dvxdx',checkmask)
-       call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15,nfailed(7), 'dvxdy',checkmask)
-       call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15,nfailed(8), 'dvxdz',checkmask)
-       call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(9),   'dvydx',checkmask)
-       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15,nfailed(10), 'dvydy',checkmask)
-       call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(11),  'dvydz',checkmask)
-       call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15,nfailed(9), 'dvzdx',checkmask)
-       call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(10), 'dvzdy',checkmask)
-       call checkvalf(np,xyzh,dvdx(9,:),dvzdz,2.5e-15,nfailed(11),'dvzdz',checkmask)
+       call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(m+1),  'dvxdx',checkmask)
+       call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15,nfailed(m+2), 'dvxdy',checkmask)
+       call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15,nfailed(m+3), 'dvxdz',checkmask)
+       call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(m+4),   'dvydx',checkmask)
+       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15,nfailed(m+5), 'dvydy',checkmask)
+       call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(m+6),  'dvydz',checkmask)
+       call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15,nfailed(m+7), 'dvzdx',checkmask)
+       call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(m+8), 'dvzdy',checkmask)
+       call checkvalf(np,xyzh,dvdx(9,:),dvzdz,2.5e-15,nfailed(m+9),'dvzdz',checkmask)
     endif
 
-    call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(12),'viscous force(x)',checkmask)
-    call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(13),'viscous force(y)',checkmask)
-    call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(14),'viscous force(z)',checkmask)
+    call checkvalf(np,xyzh,fxyzu(1,:),forceviscx,4.e-2,nfailed(m+10),'viscous force(x)',checkmask)
+    call checkvalf(np,xyzh,fxyzu(2,:),forceviscy,3.e-2,nfailed(m+11),'viscous force(y)',checkmask)
+    call checkvalf(np,xyzh,fxyzu(3,:),forceviscz,3.1e-2,nfailed(m+12),'viscous force(z)',checkmask)
     !
     !--also check that the number of neighbours is correct
     !
@@ -551,17 +498,16 @@ subroutine test_derivs(ntests,npass,string)
 
        call get_derivs
 
-       nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
-       call checkvalf(np,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
+       nfailed(:) = 0; m = 0
+       call check_hydro(np,nfailed,m)
        do j=1,1 !ndustsmall !--Only need one because all dust species are identical
 #ifdef DUST
           grainsizek = grainsize(j)
           graindensk = graindens(j)
 #endif
-          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-5,nfailed(3),'deps/dt')
-          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,1.e-3,nfailed(4),'du/dt')
-          call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,1.01e-3,nfailed(5),'deltavx')
+          call checkvalf(np,xyzh,ddustevol(j,:),ddustevol_func,4.e-5,nfailed(m+1),'deps/dt')
+          if (maxvxyzu>=4) call checkvalf(np,xyzh,fxyzu(iu,:),dudtdust_func,1.e-3,nfailed(m+2),'du/dt')
+          call checkvalf(np,xyzh,deltav(1,j,:),deltavx_func,1.01e-3,nfailed(m+3),'deltavx')
        enddo
 
        call update_test_scores(ntests,nfailed,npass)
@@ -864,7 +810,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--check hydro quantities come out as they should do
     !
-    nfailed(:) = 0
+    nfailed(:) = 0; m=5
     call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
     call checkvalf(nparttest,xyzh,divcurlv(1,:),divvfunc,1.e-3,nfailed(2),'divv')
     if (ndivcurlv >= 4) then
@@ -872,19 +818,7 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
        call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
     endif
-    if (maxvxyzu==4) then
-       call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(6),'force(x)')
-       call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(7),'force(y)')
-       call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(8),'force(z)')
-       if (use_entropy .or. ieos /= 2) then
-          call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(9),'den/dt')
-       else
-          allocate(dummy(nparttest))
-          dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
-          call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(9),'du/dt')
-          deallocate(dummy)
-       endif
-    endif
+    if (maxvxyzu==4) call check_fxyzu_nomask(nparttest,nfailed,m) ! this one
     !
     !--also check that the number of neighbours is correct
     !
@@ -892,15 +826,15 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master .and. index(kernelname,'cubic') > 0) then
        call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
        realneigh = 57.466651861721814
-       call checkval(actualmean,realneigh,1.e-17,nfailed(10),'mean nneigh')
-       call checkval(maxactual,988,0,nfailed(11),'max nneigh')
+       call checkval(actualmean,realneigh,1.e-17,nfailed(m+1),'mean nneigh')
+       call checkval(maxactual,988,0,nfailed(m+2),'max nneigh')
        !
        !-- this test does not always give the same results: depends on how the tree is built
        !
        !  nexact = 1382952  ! got this from a reference calculation
        !  call checkval(nrhocalc,nexact,0,nfailed(12),'n density calcs')
        nexact = 37263216
-       call checkval(nactual,nexact,0,nfailed(13),'total nneigh')
+       call checkval(nactual,nexact,0,nfailed(m+3),'total nneigh')
     endif
 #endif
 
@@ -925,7 +859,7 @@ subroutine test_derivs(ntests,npass,string)
        !
        !--check hydro quantities come out as they should do
        !
-       nfailed(:) = 0
+       nfailed(:) = 0; m=5
        call checkval(nparttest,xyzh(4,:),hblob,4.e-4,nfailed(1),'h (density)')
        call checkvalf(nparttest,xyzh,divcurlv(idivv,:),divvfunc,1.e-3,nfailed(2),'divv')
        if (ndivcurlv >= 4) then
@@ -933,19 +867,7 @@ subroutine test_derivs(ntests,npass,string)
           call checkvalf(nparttest,xyzh,divcurlv(icurlvyi,:),curlvfuncy,1.e-3,nfailed(4),'curlv(y)')
           call checkvalf(nparttest,xyzh,divcurlv(icurlvzi,:),curlvfuncz,1.e-3,nfailed(5),'curlv(z)')
        endif
-       if (maxvxyzu==4) then
-          call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(6),'force(x)')
-          call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(7),'force(y)')
-          call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(8),'force(z)')
-          if (use_entropy .or. ieos /= 2) then
-             call checkval(nparttest,fxyzu(iu,1:nparttest),0.,epsilon(fxyzu),nfailed(9),'den/dt')
-          else
-             allocate(dummy(nparttest))
-             dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
-             call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(9),'du/dt')
-             deallocate(dummy)
-          endif
-       endif
+       if (maxvxyzu==4) call check_fxyzu_nomask(nparttest,nfailed,m)
        call update_test_scores(ntests,nfailed,npass)
     enddo
 #endif
@@ -1190,6 +1112,72 @@ subroutine get_derivs(timing)
  if (present(timing)) timing = t2 - t1
 
 end subroutine get_derivs
+
+!--------------------------------------
+!+
+!  wrapper for hydro checks
+!  to avoid repeated code
+!+
+!--------------------------------------
+subroutine check_hydro(n,nfailed,j)
+ integer, intent(in) :: n
+ integer, intent(inout) :: nfailed(:),j
+
+ call checkval(n,xyzh(4,1:np),hzero,3.e-4,nfailed(j+1),'h (density)',checkmask)
+ call checkvalf(n,xyzh,divcurlv(1,1:np),divvfunc,1.e-3,nfailed(j+2),'divv',checkmask)
+ if (ndivcurlv >= 4) then
+    call checkvalf(n,xyzh,divcurlv(icurlvxi,1:np),curlvfuncx,1.5e-3,nfailed(j+3),'curlv(x)',checkmask)
+    call checkvalf(n,xyzh,divcurlv(icurlvyi,1:n),curlvfuncy,1.e-3,nfailed(j+4),'curlv(y)',checkmask)
+    call checkvalf(n,xyzh,divcurlv(icurlvzi,1:n),curlvfuncz,1.e-3,nfailed(j+5),'curlv(z)',checkmask)
+ endif
+ if (testgradh) call checkval(n,gradh(1,1:n),1.01948,1.e-5,nfailed(j+6),'gradh',checkmask)
+ j = j + 6
+
+end subroutine check_hydro
+
+!--------------------------------------
+!+
+!  wrapper for the force checks
+!  to avoid repeated code
+!+
+!--------------------------------------
+subroutine check_fxyzu(n,nfailed,j)
+ integer, intent(in) :: n
+ integer, intent(inout) :: nfailed(:),j
+
+ call checkvalf(n,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)',checkmask)
+ call checkvalf(n,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)',checkmask)
+ call checkvalf(n,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)',checkmask)
+ if (use_entropy .or. ieos /= 2) then
+    call checkval(n,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt',checkmask)
+ else
+    allocate(dummy(n))
+    dummy(1:n) = fxyzu(iu,1:n)/((gamma-1.)*vxyzu(iu,1:n))
+    call checkvalf(np,xyzh,dummy(1:n),dudtfunc,1.e-3,nfailed(j+4),'du/dt',checkmask)
+    deallocate(dummy)
+ endif
+ j = j + 4
+
+end subroutine check_fxyzu
+
+subroutine check_fxyzu_nomask(n,nfailed,j)
+ integer, intent(in) :: n
+ integer, intent(inout) :: nfailed(:),j
+
+ call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)')
+ call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)')
+ call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)')
+ if (use_entropy .or. ieos /= 2) then
+    call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt')
+ else
+    allocate(dummy(nparttest))
+    dummy(1:nparttest) = fxyzu(iu,1:nparttest)/((gamma-1.)*vxyzu(iu,1:nparttest))
+    call checkvalf(nparttest,xyzh,dummy(1:nparttest),dudtfunc,1.e-3,nfailed(j+4),'du/dt')
+    deallocate(dummy)
+ endif
+ j = j + 4
+
+end subroutine check_fxyzu_nomask
 
 end subroutine test_derivs
 

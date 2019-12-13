@@ -1739,7 +1739,7 @@ interpolate3D_amr.o: adaptivemesh.o
 # these are the sources for the phantom_moddump utility
 #
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          utils_tables.f90 checksetup.f90 set_Bfield.f90 \
+          utils_tables.f90 utils_sort.f90 checksetup.f90 set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
