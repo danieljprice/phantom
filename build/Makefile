@@ -1085,16 +1085,16 @@ ifeq ($(SYSTEM), monarchpsxe)
     QPROJECT='p01'
 endif
 
-ifeq ($(SYSTEM), raijin)
-#   raijin (NCI machine)
+ifeq ($(SYSTEM), nci)
+#   gadi (NCI machine)
     include Makefile_defaults_ifort
     #MPI=intel
     FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
+    DEBUGFLAG+= -fpe0 -fp-stack-check
     CCFLAGS= -O3 -ip
     QSYS= pbs
     #PBSRESUBMIT=yes
-    NOMP=16
+    NOMP=48
     ifeq ($(MPI),yes)
        NPAR=32
     endif
