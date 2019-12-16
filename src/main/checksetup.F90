@@ -629,12 +629,12 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  do i=1,npart
     j = i+1
     dx2 = 0.
-    do while (dx2 < 1.e-8 .and. j < npart)
+    do while (dx2 < epsilon(dx2) .and. j < npart)
        dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
        dx2 = dot_product(dx,dx)
-       if (dx2 < 1.e-8) then
+       if (dx2 < epsilon(dx2)) then
           nbad = nbad + 1
-          if (nbad <= 100) print*,'ERROR: particles ',index(i),' and ',index(j),&
+          if (nbad <= 100) print*,'WARNING: particles ',index(i),' and ',index(j),&
              ' at same position ',xyzh(1:3,index(i)),xyzh(1:3,index(j))
        endif
        j = j + 1
