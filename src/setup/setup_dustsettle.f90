@@ -161,7 +161,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  call init_drag(ierr)
  do i=1,ndustsmall
-    call get_ts(idrag,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
+    call get_ts(idrag,i,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
     print*,'s (cm) =',grainsize(i),'   ','St = ts * Omega =',ts(i)*omega
  enddo
 !

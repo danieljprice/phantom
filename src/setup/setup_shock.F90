@@ -545,7 +545,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        use_dustfrac = .false.
     endif
     call prompt('Enter dust to gas ratio',dtg,0.)
-    call prompt('Enter constant drag coefficient',K_code,0.)
+    call prompt('Enter constant drag coefficient',K_code(1),0.)
  endif
 
  return

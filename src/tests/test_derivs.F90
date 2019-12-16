@@ -2568,12 +2568,12 @@ real function ddustevol_func(xyzhi)
 
  tsi   = 0.
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,1,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  !
  ! grad(ts) = grad((1-eps)*eps*rho/K_code)
  !          = rho/K_code*(1-2*eps)*grad(eps)          ! note the absence of eps_k
  !
- gradts(:) = rhoi/K_code*(1. - 2.*dustfracisum)*gradsumeps(:)
+ gradts(:) = rhoi/K_code(1)*(1. - 2.*dustfracisum)*gradsumeps(:)
 #else
  gradts(:) = 0.
 #endif
@@ -2637,7 +2637,7 @@ real function dudtdust_func(xyzhi)
  tsi = 0.
 
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,1,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  if (iregime /= 0) stop 'iregime /= 0'
 #endif
  ! this is equation (13) of Price & Laibe (2015) except
@@ -2674,7 +2674,7 @@ real function deltavx_func(xyzhi)
  spsoundi   = gamma*pri/rhogasi
  tsi = 0.
 #ifdef DUST
- call get_ts(idrag,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,1,grainsizek,graindensk,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
 #endif
  gradp = (gamma-1.)*(rhogasi*gradu - rhoi*uui*gradsumeps)
  deltavx_func = tsi*gradp/rhogasi
