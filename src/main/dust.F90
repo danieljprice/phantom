@@ -26,7 +26,8 @@
 !    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
 !    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dim, eos, fileutils, infile_utils, io, options, part,
+!    physcon, units
 !+
 !--------------------------------------------------------------------------
 
