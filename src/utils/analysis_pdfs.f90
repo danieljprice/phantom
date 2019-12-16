@@ -250,7 +250,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 ! write PDF to file
  xval = exp(xval)
  tagline1 = 'Phantomanalysis: '//trim(analysistype)//', part of '//trim(tagline)
- call pdf_write(nbins,xval,pdf,'lnrho',.true.,trim(dumpfile),trim(tagline1))
+ call pdf_write(nbins,xval,pdf,'lnrho',trim(dumpfile),trim(tagline1))
 
  if (allocated(xval)) deallocate(xval)
  if (allocated(pdf)) deallocate(pdf)
@@ -272,7 +272,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call get_pdf_logBsq(1,ifirstlevel,datgrid,Bsqlogmin,Bsqlogmax,binspacing,nbins,pdf)
 
     xval = exp(xval)
-    call pdf_write(nbins,xval,pdf,'logBsq',.true.,trim(dumpfile),trim(tagline1))
+    call pdf_write(nbins,xval,pdf,'logBsq',trim(dumpfile),trim(tagline1))
  endif
 !
 ! cleanup memory

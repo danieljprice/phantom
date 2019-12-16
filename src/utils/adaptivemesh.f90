@@ -29,7 +29,7 @@ module adaptivemesh
  integer, parameter :: nsub = 2
  integer, parameter :: ndim = 3
  integer, parameter :: maxlevels = 20
- integer, parameter :: minlevels = 3
+ integer, parameter :: minlevels = 7
  real, parameter    :: overrefinefac = 1.25
  !
  !--memory allowed for tree:
@@ -92,7 +92,7 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
  !
  !--allocate memory
  !
- maxmeshes = 2*np + 1 ! allow twice the number of particles
+ maxmeshes = int(overrefinefac*(2*np + 1)) ! allow twice the number of particles
  allocate(gridnodes(maxchildren,maxmeshes))
  gridnodes(:,1) = -1
  !
