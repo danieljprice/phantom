@@ -319,12 +319,6 @@ subroutine test_derivs(ntests,npass,string)
        nfailed(:) = 0; m = 0
        call check_hydro(np,nfailed,m)
        call checkvalf(np,xyzh,fxyzu(1,:),forceavx,5.7e-3,nfailed(m+1),'art. visc force(x)',checkmask)
-       do i=1,np
-          write(10,*) xyzh(1,i),fxyzu(1,i)
-       enddo
-       do i=1,np
-          write(11,*) xyzh(1,i),forceavx(xyzh(:,i))
-       enddo
        call checkvalf(np,xyzh,fxyzu(2,:),forceavy,1.4e-2,nfailed(m+2),'art. visc force(y)',checkmask)
        call checkvalf(np,xyzh,fxyzu(3,:),forceavz,1.3e-2,nfailed(m+3),'art. visc force(z)',checkmask)
 
