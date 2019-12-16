@@ -910,20 +910,21 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  enddo overblocks
 
  !
- ! determine npartoftype
+ ! check npartoftype
  !
- npartoftypetot = npartoftype
- call count_particle_types(npartoftype)
-
- npartoftypetotact = reduceall_mpi('+',npartoftype)
- do i = 1,maxtypes
-    if (npartoftypetotact(i) /= npartoftypetot(i)) then
-       write(*,*) 'npartoftypetot    =',npartoftypetot
-       write(*,*) 'npartoftypetotact =',npartoftypetotact
-       call error('read_dump','particle type counts do not match header')
-       ierr = 8
-    endif
- enddo
+ if (maxphase==maxp) then
+    npartoftypetot = npartoftype
+    call count_particle_types(npartoftype)
+    npartoftypetotact = reduceall_mpi('+',npartoftype)
+    do i = 1,maxtypes
+       if (npartoftypetotact(i) /= npartoftypetot(i)) then
+          write(*,*) 'npartoftypetot    =',npartoftypetot
+          write(*,*) 'npartoftypetotact =',npartoftypetotact
+          call error('read_dump','particle type counts do not match header')
+          ierr = 8
+       endif
+    enddo
+ endif
 
  !
  ! convert sinks from sphNG -> Phantom
@@ -968,10 +969,7 @@ end subroutine check_npartoftype
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxvxyzu,mhd,maxBevol
-#ifdef MPI
- use dim,      only:maxp
-#endif
+ use dim,      only:maxvxyzu,mhd,maxBevol,maxphase,maxp
 #ifdef INJECT_PARTICLES
  use dim,      only:maxp_hard
 #endif
@@ -1166,15 +1164,17 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  ! determine npartoftype
  !
  npartoftypetot = npartoftype
- call count_particle_types(npartoftype)
- npartoftypetotact = reduceall_mpi('+',npartoftype)
- do i = 1,maxtypes
-    if (npartoftypetotact(i) /= npartoftypetot(i)) then
-       write(*,*) 'npartoftypetot    =',npartoftypetot
-       write(*,*) 'npartoftypetotact =',npartoftypetotact
-       call error('read_dump','particle type counts do not match header')
-    endif
- enddo
+ if (maxphase==maxp) then
+    call count_particle_types(npartoftype)
+    npartoftypetotact = reduceall_mpi('+',npartoftype)
+    do i = 1,maxtypes
+       if (npartoftypetotact(i) /= npartoftypetot(i)) then
+          write(*,*) 'npartoftypetot    =',npartoftypetot
+          write(*,*) 'npartoftypetotact =',npartoftypetotact
+          call error('read_dump','particle type counts do not match header')
+       endif
+    enddo
+ endif
 
  call check_npartoftype(npartoftype,npart)
  if (narraylengths >= 4) then
