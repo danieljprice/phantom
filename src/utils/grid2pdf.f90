@@ -18,11 +18,10 @@
 !
 !  USAGE: grid2pdf format filename(s)
 !
-!  DEPENDENCIES: dim, io, io_grid, pdfs, rhomach
+!  DEPENDENCIES: io, io_grid, pdfs, rhomach
 !+
 !--------------------------------------------------------------------------
 program grid2pdf
- use dim,              only:tagline
  use io,               only:set_io_unit_numbers,iprint,idisk1,real4
  use pdfs,             only:pdf_calc,pdf_write
  use rhomach,          only:get_rhomach_grid,write_rhomach
@@ -31,16 +30,17 @@ program grid2pdf
  integer :: npixx,npixy,npixz,nbins,ncols
  integer :: nargs,ierr,ifile,i,j,k,n
  integer, parameter :: iunit = 71
- real, allocatable :: xval(:),pdf(:)
- real, allocatable :: datgrid(:,:,:,:) !rho, vx, vy, vz
- real, allocatable :: rhogrid(:)
- real :: time
+ real(8), allocatable :: xval(:),pdf(:)
+ real(8), allocatable :: datgrid(:,:,:,:) !rho, vx, vy, vz
+ real(8), allocatable :: rhogrid(:)
+ real(8) :: time
  real :: binspacing,pdfmin,pdfmax,rhologmin,rhologmax
  real :: rmsv,rmsvmw,rhomean,xtmp
  real :: rhomeanvw,rhomeanmw,rhovarvw,rhovarmw
  real :: smeanvw,smeanmw,svarvw,svarmw
- character(len=120) :: gridfile,fileout,tagline
+ character(len=120) :: gridfile,fileout
  character(len=20)  :: gridformat
+ character(len=*), parameter :: tagline = 'Grid2pdf: (c) Daniel Price 2007-2019 (uses SPLASH pdf module)'
  logical :: volweighted,iexist
 
  call set_io_unit_numbers
@@ -58,7 +58,6 @@ program grid2pdf
     stop
  endif
  print "(/,a,/)",' Grid2pdf: we are pleased to do you service'
- tagline = 'Grid2pdf: (c) Daniel Price 2007-2010 (uses SPLASH pdf module)'
 
  call get_command_argument(1,gridformat)
 
@@ -73,7 +72,6 @@ program grid2pdf
        print*,'error reading dumpfile'
        cycle over_files
     endif
-    print*,'finished header read, nx,ny,nz = ',npixx,npixy,npixz,' ncols = ',ncols,' ierr = ',ierr
 
     print "(a,2(i4,' x'),i4,a)",' (allocating memory for ',npixx,npixy,npixz,' grid)'
     if (.not.allocated(datgrid)) allocate(datgrid(1,npixx,npixy,npixz))
@@ -85,7 +83,7 @@ program grid2pdf
     call read_grid_column(gridformat,gridfile,1,npixx,npixy,npixz,rhogrid,ierr)
 
     rhomean = sum(rhogrid)/size(rhogrid)
-    rhogrid = rhogrid/rhomean
+!    rhogrid = rhogrid/rhomean
     print*,'rhomean = ',rhomean
     n = 0
     do k=1,npixz
