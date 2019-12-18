@@ -1758,6 +1758,10 @@ moddump: phantom_moddump
 cleanmoddump:
 	rm -f $(BINDIR)/phantommoddump
 
+# files from MCFOST used by phantommoddump
+mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mess_up_SPH.f90
+
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
 #
