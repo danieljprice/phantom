@@ -92,15 +92,15 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
 
  do while(ierr /= 0 .and. nattempts < 10)
     nattempts = nattempts + 1
- !
- !--initialise the tree structure
- !  (root node only)
- !
+    !
+    !--initialise the tree structure
+    !  (root node only)
+    !
     maxlevel = ifirstlevel
     nmesh   = 1
- !
- !--allocate memory
- !
+    !
+    !--allocate memory
+    !
     print*,' allocating mesh with max=',maxmeshes
     allocate(gridnodes(maxchildren,maxmeshes))
     gridnodes(:,1) = -1
@@ -232,12 +232,12 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
                 !print*,string(1:level)//'%refining: adding node ',nmesh,' on level ',level+1
                 gridnodes(icell,imesh) = nmesh
                 gridnodes(:,nmesh)     = -1
-             !
-             !--could stop here if the refinement criterion was
-             !  based on the number of particles in the cell
-             !  However, with hmin we should proceed to the next
-             !  level to see if this is refined or not
-             !
+                !
+                !--could stop here if the refinement criterion was
+                !  based on the number of particles in the cell
+                !  However, with hmin we should proceed to the next
+                !  level to see if this is refined or not
+                !
                 xminnew(1)  = xminl(1) + (ipix-1)*dxcell(1)
                 xminnew(2)  = xminl(2) + (jpix-1)*dxcell(2)
                 xminnew(3)  = xminl(3) + (kpix-1)*dxcell(3)
