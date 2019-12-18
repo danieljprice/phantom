@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: None
+!  DEPENDENCIES: mess_up_SPH, part, prompting, units
 !+
 !--------------------------------------------------------------------------
 module moddump
