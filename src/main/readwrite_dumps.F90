@@ -302,7 +302,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth
+                 lightcurve,store_temperature,use_dustgrowth!,maxdvdx
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -311,7 +311,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
-                 VrelVf_label,dustgasprop,dustgasprop_label
+                 VrelVf_label,dustgasprop,dustgasprop_label!,dvdx,dvdx_label
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -495,6 +495,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
        !endif
        if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(16))
+       !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
        if (gravity .and. maxgrav==maxp) then
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
        endif
@@ -717,7 +718,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use sphNGutils, only:convert_sinks_sphNG
- use options,    only:use_dustfrac,use_moddump
+ use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -854,12 +855,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       if (.not. use_moddump) then
-          call allocate_memory(int(nparttot / nprocs))
-       else
-          ! This is required for the cases when particles will be added during moddump
-          call allocate_memory(maxp_hard)
-       endif
+       call allocate_memory(int(nparttot / nprocs))
 #endif
     endif
 !
@@ -1253,7 +1249,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  ndustfraci = 0
  ntstopi    = 0
  ndustveli  = 0
-
  over_arraylengths: do iarr=1,narraylengths
 
     do k=1,ndatatypes
@@ -1614,7 +1609,7 @@ end subroutine check_arrays
 subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
                          nblocks,npart,npartoftype, &
                          tfile,hfactfile,alphafile,iprint,id,nprocs,ierr)
- use dim,        only:maxp_hard,maxdustlarge,use_dust
+ use dim,        only:maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
  use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
