@@ -142,8 +142,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustgasprop,&
                  dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
- use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
-                        mhd,mhd_nonideal,lightcurve
+ use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
@@ -1456,7 +1455,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              tsj = 0.
              do l=1,ndustsmall
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-                call get_ts(idrag,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
@@ -1556,11 +1555,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 if (use_dustgrowth) then
-                   call get_ts(idrag,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   call get_ts(idrag,1,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypej - idust + 1
-                   call get_ts(idrag,grainsize(idusttype),graindens(idusttype),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
                 endif
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
@@ -1584,7 +1583,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 if (use_dustgrowth) then
-                   call get_ts(idrag,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   call get_ts(idrag,1,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
 #ifdef DUSTGROWTH
                    if (q2i < q2j) then
                       winter = wkern(q2i,qi)*hi21*hi1*cnormk
@@ -1600,7 +1599,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypei - idust + 1
-                   call get_ts(idrag,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
                 ts_min = min(ts_min,tsijtmp)
@@ -1965,7 +1964,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_dustfrac .and. iamgasi) then
           tstopi = 0.
           do j=1,ndustsmall
-             call get_ts(idrag,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
           enddo
        endif
 #endif
@@ -2634,7 +2633,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           rhoi             = xpartveci(irhoi)
           gdensi           = xpartveci(igraindensi)
           gsizei           = xpartveci(igrainsizei)
-          call get_ts(idrag,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
+          call get_ts(idrag,1,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
                dustgasprop(4,i)**2,tstopint,ireg)
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
        endif

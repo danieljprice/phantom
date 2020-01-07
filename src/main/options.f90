@@ -50,7 +50,6 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_moddump = .false.
  logical, public :: use_dustfrac
 
 ! mcfost

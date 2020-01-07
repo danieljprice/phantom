@@ -36,7 +36,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity,igas,&
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                           grainsize,graindens,ndusttypes
  use units,          only:umass,utime,udist
  use io,             only:fatal
@@ -108,7 +108,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
-         xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+         xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
 

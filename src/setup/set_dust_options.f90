@@ -325,7 +325,7 @@ subroutine check_dust_method(dust_method,ichange_method)
        spsoundi     = get_spsound(ieos,xyzh(:,i),rhogasi,vxyzu(:,i))
        do l=1,ndusttypesinp
           rhodusti = rhoi*dustfraci(l)
-          call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
+          call get_ts(idrag,l,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
           if (tsi(l) > xyzh(4,i)/spsoundi) icheckdust(l) = icheckdust(l) + 1
        enddo
     endif

@@ -534,7 +534,7 @@ subroutine init_eos(eos_type,ierr)
 
     ! Reset rhocrit0 if a warm medium is not defined
     if (rhocrit0cgs > 0.0 .and. polyk2 < tiny(polyk2)) then
-       call warning('init_eos','warm medium defined by rho0 but not polyk2.  Resetting rho0 = 0.')
+       call warning('init_eos','warm medium defined by critical density rho0 but not polyk2.  Resetting rho0 = 0.')
        drhocrit0   = 0.0
        rhocritT    = 0.0
        rhocrit0    = 0.0
