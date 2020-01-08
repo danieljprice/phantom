@@ -600,7 +600,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real            :: dudtcool,fextv(3),poti,fextrad(3),ui
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
- real            :: dptmass(ndptmass,nptmass)
+ real            :: dptmass(ndptmass,maxptmass)
  real            :: damp_fac,dphot
  real, save      :: dmdt = 0.
  real            :: abundi(nabn),gmwvar

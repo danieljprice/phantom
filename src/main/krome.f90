@@ -123,6 +123,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
  dt_cgs = dt*utime
  rho_cgs = rho*unit_density
  call get_local_temperature(ieos,xyzh(1),xyzh(2),xyzh(3),rho,mu_chem,u,gamma_chem,T_local)
+ T_local=max(T_local,20.0d0)
 ! normalise abudances and balance charge conservation with e-
  call krome_consistent_x(xchem)
 ! evolve the chemistry and update the abundances
@@ -148,7 +149,10 @@ subroutine evolve_chemistry(species, dens, temp, time)
  real                :: dupl_temp1, dupl_temp2, dupl_dens, dupl_time
  real                :: dudt, dt_cool
  integer             :: i, N
-
+ 
+ allocate(dupl_species1(size(species)))
+ allocate(dupl_species2(size(species)))
+ 
 ! Duplicate input arrays
  !VERY BAD, these arrays are huge!
  dupl_species1 = species
@@ -177,6 +181,9 @@ subroutine evolve_chemistry(species, dens, temp, time)
     species = dupl_species2
     temp    = dupl_temp2
  endif
+ 
+ deallocate(dupl_species1)
+ deallocate(dupl_species2)
 
 end subroutine evolve_chemistry
 
