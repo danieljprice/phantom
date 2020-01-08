@@ -980,7 +980,7 @@ subroutine amuse_get_number_of_sph_particles(n)
     implicit none
     integer, intent(out) :: n
     logical :: nodisabled
-    nodisabled = .false.
+    nodisabled = .true.
     n = npartoftype(igas)
 end subroutine
 
@@ -989,7 +989,7 @@ subroutine amuse_get_number_of_particles(n)
     implicit none
     integer, intent(out) :: n
     logical :: nodisabled
-    nodisabled = .false.
+    nodisabled = .true.
     call get_npart(n, nodisabled)
 end subroutine
 
@@ -1307,6 +1307,7 @@ subroutine amuse_evolve_model(tmax_in)
     use timestep, only:tmax, time, dt, dtmax, rhomaxnow
     use evolvesplit, only:init_step, finalize_step
     use options, only:rhofinal1
+    use ptmass, only:rho_crit
     implicit none
     double precision, intent(in) :: tmax_in
     logical :: maximum_density_reached
