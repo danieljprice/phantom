@@ -372,7 +372,7 @@ subroutine calculate_timestep()
  implicit none
  real :: dtexact
  dtexact = tmax - time + epsilon(dtmax)
- if (dtexact <= epsilon(dtmax) then
+ if (dtexact <= epsilon(dtmax)) then
      dtexact = dtmax + epsilon(dtmax)
  endif
  dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtexact)
