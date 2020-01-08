@@ -1319,6 +1319,7 @@ subroutine amuse_evolve_model(tmax_in)
         steps_this_loop = steps_this_loop + 1
         if (rhomaxnow > rho_crit) then
             exit
+        endif
     enddo timestepping
 end subroutine
 
