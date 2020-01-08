@@ -372,7 +372,7 @@ subroutine calculate_timestep()
  implicit none
  real :: dtexact
  dtexact = tmax - time + epsilon(dtmax)
- if (dtexact <= epsilon(dtmax) .or. dtexact >= (1.0-1e-8)*dtmax ) then
+ if (dtexact <= epsilon(dtmax) then
      dtexact = dtmax + epsilon(dtmax)
  endif
  dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtexact)
@@ -1156,25 +1156,11 @@ subroutine amuse_get_internal_energy(i, u)
     endif
 end subroutine
 
-subroutine amuse_get_dtmax(dtmax_out)
-    use timestep, only:dtmax
-    implicit none
-    double precision, intent(out) :: dtmax_out
-    dtmax_out = dtmax
-end subroutine
-
 subroutine amuse_set_time_step(dt_in)
     use timestep, only:dt
     implicit none
     double precision, intent(in) :: dt_in
     dt = dt_in
-end subroutine
-
-subroutine amuse_set_dtmax(dtmax_in)
-    use timestep, only:dtmax
-    implicit none
-    double precision, intent(in) :: dtmax_in
-    dtmax = dtmax_in
 end subroutine
 
 subroutine amuse_set_mass(i, part_mass)
@@ -1323,6 +1309,7 @@ subroutine amuse_evolve_model(tmax_in)
     dumpfile = '/dev/null'
     
     tmax = tmax_in
+    dtmax = (tmax - time)
     
     timestepping: do while (time < tmax)
         call init_step()
