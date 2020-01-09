@@ -478,7 +478,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
@@ -597,12 +597,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- if (.not. use_moddump) then
-    call allocate_memory(int(npart / nprocs))
- else
-    ! This is required for the cases when particles will be added during moddump
-    call allocate_memory(maxp_hard)
- endif
+ call allocate_memory(int(npart / nprocs))
 #endif
 
  if (periodic) then

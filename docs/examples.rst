@@ -12,3 +12,4 @@ This section contains some examples of physical problems that you can solve with
    star
    dustsettle
    dustgrowth
+   density
