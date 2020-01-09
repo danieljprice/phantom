@@ -108,7 +108,7 @@ subroutine test_farmingbox(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth
+ use growth,         only:ifrag,init_growth,isnow,vfrag,grainsizemin,gsizemincgs
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -135,7 +135,7 @@ subroutine test_farmingbox(ntests,npass)
  integer         :: nerr(4)
  integer         :: ierr
 
- logical         :: do_output = .false.
+logical         :: do_output = .false.
 
  real            :: deltax
  real            :: dz
@@ -146,7 +146,7 @@ subroutine test_farmingbox(ntests,npass)
  real            :: dtext_dum
  real            :: Stcomp(20000),Stini(20000)
  real            :: cscomp(20000),tau(20000)
- real            :: s(20000),time
+ real            :: s(20000),time,timelim(20000)
  real            :: sinit
  real            :: dens
  real            :: t
@@ -164,7 +164,7 @@ subroutine test_farmingbox(ntests,npass)
 
  sinit = 1.e-2/udist
  dens  = 1./unit_density
- dtgratio = 0.5
+ dtgratio = 1
 
  write(*,"(/,a)")'--> testing FARMINGBOX'
 
@@ -241,15 +241,18 @@ subroutine test_farmingbox(ntests,npass)
  ! runtime parameters
  !
 
- ieos       = 1
- idrag      = 1
- ifrag      = 0
- polyk      = 1.e-3
- gamma      = 1.
- alpha      = 0.
- alphamax   = 0.
- iverbose   = 0
- shearparam = 1.e-2
+ ieos        = 1
+ idrag       = 1
+ ifrag       = 0
+ isnow       = 0
+ vfrag       = 1.e-11
+ gsizemincgs = 1.e-2
+ polyk       = 1.e-3
+ gamma       = 1.
+ alpha       = 0.
+ alphamax    = 0.
+ iverbose    = 0
+ shearparam  = 1.e-2
 
 
  !polyk      = (2000./unit_velocity)**2
@@ -257,11 +260,12 @@ subroutine test_farmingbox(ntests,npass)
  dt         = 1.e-3
  tmax       = 0.2
  nsteps     = int(tmax/dt)
- noutputs   = 50
+ noutputs   = 150
  if (noutputs > nsteps) noutputs = nsteps
  modu       = int(nsteps/noutputs)
  dtmax = nsteps*dt
 
+ timelim(:) = 1.e3
  ncheck(:)  = 0
  nerr(:)    = 0
  errmax(:)  = 0.
@@ -284,8 +288,11 @@ subroutine test_farmingbox(ntests,npass)
        dustgasprop(3,j) = Stini(j)
        tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*(1+dtgratio)/dtgratio/sqrt(pi*gamma/8.)
        s(j)             = Stini(j)/(sqrt(pi*gamma/8)*dens/((1+dtgratio)*rhozero*cscomp(j))*Omega_k(j))
+       timelim(j)       = 2*sqrt(Stini(j))*(1.+Stini(j)/3.)*tau(j)
     endif
  enddo
+ !print*,"Minimum time limit: ", minval(timelim)
+
  !
  ! run dustybox problem
  !
@@ -293,17 +300,26 @@ subroutine test_farmingbox(ntests,npass)
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
     t = t + dt
-    if (do_output) call write_file_err(i,t,xyzh,dustprop(1,:),s,dustgasprop(3,:),Stcomp,npart,"laiboxi_")
+    if (do_output .and. mod(i,modu)==0) then
+       call write_file_err(i,t,xyzh,dustprop(1,:)*udist,s*udist,dustgasprop(3,:),Stcomp,npart,"farmingbox_")
+    endif
     do j=1,npart
        if (iamdust(iphase(j))) then
-          time      = t/tau(j) + 2.*sqrt(Stini(j))*(1.+Stini(j)/3.)
+          if (ifrag == 0) then
+             time   = t/tau(j) + 2.*sqrt(Stini(j))*(1.+Stini(j)/3.)
+          elseif (ifrag == 1) then
+             time   = 2.*sqrt(Stini(j))*(1.+Stini(j)/3.) - t/tau(j)
+          else
+             time   = 0.
+          endif
           guillaume = (8.+9.*time*time+3.*time*sqrt(16.+9.*time*time))**(1./3.)
-          Stcomp(j) = guillaume/2. + 2./guillaume - 2.
-          s(j)      = Stcomp(j)/(sqrt(pi*gamma/8)*dens/((1+dtgratio)*rhozero*cscomp(j))*Omega_k(j))
-          call checkvalbuf(dustgasprop(3,j),Stcomp(j),tolst,'St',nerr(1),ncheck(1),errmax(1))
-          call checkvalbuf(dustprop(1,j),s(j),tols,'size',nerr(2),ncheck(2),errmax(2))
-          call checkvalbuf(dustgasprop(1,j),cscomp(j),tolcs,'csound',nerr(3),ncheck(3),errmax(3))
-          call checkvalbuf(dustgasprop(2,j),rhozero,tolrho,'rhogas',nerr(4),ncheck(4),errmax(4))
+          Stcomp(j) = max(guillaume/2. + 2./guillaume - 2,&
+          sqrt(pi*gamma/8)*dens*grainsizemin/((1+dtgratio)*rhozero*cscomp(j)) * Omega_k(j))
+          s(j)      = max(Stcomp(j)/(sqrt(pi*gamma/8)*dens/((1+dtgratio)*rhozero*cscomp(j))*Omega_k(j)), grainsizemin)
+          call checkvalbuf(dustgasprop(3,j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
+          call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
+          call checkvalbuf(dustgasprop(1,j)/cscomp(j),1.,tolcs,'csound',nerr(3),ncheck(3),errmax(3))
+          call checkvalbuf(dustgasprop(2,j)/rhozero,1.,tolrho,'rhogas',nerr(4),ncheck(4),errmax(4))
        endif
     enddo
  enddo

@@ -66,8 +66,8 @@ module part
  real, allocatable :: dustprop(:,:) !- size and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
  real, allocatable :: VrelVf(:)
- character(len=*), parameter :: dustprop_label(2) = (/'grainsize ','graindens '/)
- character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','  St  ','  dv  '/)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
+ character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
  logical, public             :: this_is_a_test = .false.
 !
