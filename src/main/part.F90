@@ -1272,20 +1272,34 @@ end subroutine
 
 !----------------------------------------------------------------
 !+
-!  Delete particles outside of a defined sphere
+!  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center, radius)
+subroutine delete_particles_outside_sphere(center, radius, revert)
  real, intent(in) :: center(3), radius
+ logical, intent(in), optional :: revert
 
  integer :: i
+ logical :: use_revert
  real :: r(3), radius_squared
+
+ if (present(revert)) then
+    use_revert = revert
+ else
+    use_revert = .false.
+ endif
 
  radius_squared = radius**2
  do i=1,npart
     r = xyzh(1:3,i) - center
-    if (dot_product(r,r)  >  radius_squared) then
-       xyzh(4,i) = -abs(xyzh(4,i))
+    if (use_revert) then
+       if (dot_product(r,r)  <  radius_squared) then
+          xyzh(4,i) = -abs(xyzh(4,i))
+       endif
+    else
+       if (dot_product(r,r)  >  radius_squared) then
+          xyzh(4,i) = -abs(xyzh(4,i))
+       endif
     endif
  enddo
 end subroutine
