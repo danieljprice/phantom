@@ -135,7 +135,7 @@ subroutine test_farmingbox(ntests,npass)
  integer         :: nerr(4)
  integer         :: ierr
 
-logical         :: do_output = .false.
+ logical         :: do_output = .false.
 
  real            :: deltax
  real            :: dz
