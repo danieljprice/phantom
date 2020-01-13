@@ -81,9 +81,9 @@ subroutine allocate_memory(n, part_only)
 
  call bytes2human(nbytes_allocated, sizestring)
  if (nprocs == 1) then
-    write(iprint, '(a)') '---------------------------------------------------------'
-    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-    write(iprint, '(a)') '---------------------------------------------------------'
+    write(iprint, '(a)') '------------------------------------------------------------'
+    write(iprint, *) 'Total memory allocated to arrays: ', sizestring,' n = ',n
+    write(iprint, '(a)') '------------------------------------------------------------'
  else
     write(iprint, *) id, 'allocated ', sizestring
  endif
