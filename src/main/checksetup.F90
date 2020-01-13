@@ -609,10 +609,11 @@ end subroutine check_setup_dustgrid
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
- integer :: i,j
+ integer :: i,j,itypei,itypej
  real    :: dx(3),dx2
  integer, allocatable :: index(:)
  !
@@ -626,16 +627,23 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  ! positions are found.
  !
  nbad = 0
+ itypei = igas
+ itypej = igas
  do i=1,npart
     j = i+1
     dx2 = 0.
+    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
        dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
        dx2 = dot_product(dx,dx)
-       if (dx2 < epsilon(dx2)) then
+       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
           nbad = nbad + 1
-          if (nbad <= 100) print*,'WARNING: particles ',index(i),' and ',index(j),&
-             ' at same position ',xyzh(1:3,index(i)),xyzh(1:3,index(j))
+          if (nbad <= 100) then 
+             print*,'WARNING: particles of same type at same position: '
+             print*,' ',index(i),':',xyzh(1:3,index(i))
+             print*,' ',index(j),':',xyzh(1:3,index(j))
+          endif
        endif
        j = j + 1
     enddo
