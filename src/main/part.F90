@@ -339,7 +339,7 @@ subroutine allocate_part
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
- call allocate_array('divBsumm', divBsymm, maxmhdan)
+ call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
@@ -445,9 +445,7 @@ subroutine init_part
  if (use_dust) dustfrac = 0.
  ndustsmall = 0
  ndustlarge = 0
-#ifdef LIGHTCURVE
  if (lightcurve) luminosity = 0.
-#endif
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)
@@ -855,16 +853,21 @@ subroutine copy_particle_all(src,dst)
  integer, intent(in) :: src,dst
 
  xyzh(:,dst)  = xyzh(:,src)
+ xyzh_soa(dst,:)  = xyzh_soa(src,:)
  vxyzu(:,dst) = vxyzu(:,src)
- vpred(:,dst) = vpred(:,src)
- fxyzu(:,dst) = fxyzu(:,src)
- fext(:,dst)  = fext(:,src)
+ if (maxan==maxp) then
+    vpred(:,dst) = vpred(:,src)
+    fxyzu(:,dst) = fxyzu(:,src)
+    fext(:,dst)  = fext(:,src)
+ endif
  if (mhd) then
     Bevol(:,dst)  = Bevol(:,src)
-    Bpred(:,dst)  = Bpred(:,src)
-    dBevol(:,dst) = dBevol(:,src)
+    if (maxmhdan==maxp) then
+       Bpred(:,dst)  = Bpred(:,src)
+       dBevol(:,dst) = dBevol(:,src)
+       divBsymm(dst) = divBsymm(src)
+    endif
     Bxyz(:,dst)   = Bxyz(:,src)
-    divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
        n_R(:,dst)       = n_R(:,src)
        n_electronT(dst) = n_electronT(src)
@@ -877,25 +880,43 @@ subroutine copy_particle_all(src,dst)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
+ if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)       = ibin(src)
- ibin_old(dst)   = ibin_old(src)
- ibin_wake(dst)  = ibin_wake(src)
- dt_in(dst)      = dt_in(src)
- twas(dst)       = twas(src)
+ if (maxan==maxp) then
+    ibin(dst)       = ibin(src)
+    ibin_old(dst)   = ibin_old(src)
+    ibin_wake(dst)  = ibin_wake(src)
+    dt_in(dst)      = dt_in(src)
+    twas(dst)       = twas(src)
+ endif
 #endif
  if (use_dust) then
-    dustfrac(:,dst)  = dustfrac(:,src)
+    if (maxp_dustfrac==maxp) dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
-    dustpred(:,dst)  = dustpred(:,src)
-    ddustevol(:,dst) = ddustevol(:,src)
+    if (maxdustan==maxp) then
+       dustpred(:,dst)  = dustpred(:,src)
+       ddustevol(:,dst) = ddustevol(:,src)
+       if (maxdusttypes > 0) tstop(:,dst) = tstop(:,src)
+    endif
     deltav(:,:,dst)  = deltav(:,:,src)
+    if (maxp_growth==maxp) then
+       dustprop(:,dst) = dustprop(:,src)
+       ddustprop(:,dst) = ddustprop(:,src)
+       dustgasprop(:,dst) = dustgasprop(:,src)
+       VrelVf(dst) = VrelVf(src)
+       dustproppred(:,dst) = dustproppred(:,src)
+    endif
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
-
+ ibelong(dst) = ibelong(src)
+ if (maxsts==maxp) then
+    istsactive(dst) = istsactive(src)
+    ibin_sts(dst) = ibin_sts(src)
+ endif
+ 
  return
 end subroutine copy_particle_all
 
