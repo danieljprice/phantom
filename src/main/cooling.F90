@@ -417,7 +417,6 @@ subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
     !call explicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
  end select
 
-
 end subroutine energ_cooling
 
 !-----------------------------------------------------------------------
@@ -643,6 +642,18 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  select case(trim(name))
  case('icooling')
     read(valstring,*,iostat=ierr) icooling
+    ngot = ngot + 1
+ case('icool_radiation_H0')
+    read(valstring,*,iostat=ierr) icool_radiation_H0
+    ngot = ngot + 1
+ case('icool_relax_bowen')
+    read(valstring,*,iostat=ierr) icool_relax_bowen
+    ngot = ngot + 1
+ case('icool_relax_stefan')
+    read(valstring,*,iostat=ierr) icool_relax_stefan
+    ngot = ngot + 1
+ case('icool_dust_collision')
+    read(valstring,*,iostat=ierr) icool_dust_collision
     ngot = ngot + 1
  case('C_cool')
     read(valstring,*,iostat=ierr) C_cool

@@ -362,7 +362,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             inner_sphere,inner_boundary_sphere,dr3,rho_ini)
     else
 #ifdef NUCLEATION
-       r = Rstar
+       r = max(Rstar_cgs,wind_injection_radius)
        call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, JKmuS)
 #else
        r = wind_injection_radius
@@ -694,8 +694,8 @@ subroutine filewrite_header(iunit)
 end subroutine filewrite_header
 
 subroutine state_to_array(state, array)
- use options, only : icooling
- use wind,     only:wind_state
+ use options, only:icooling
+ use wind,    only:wind_state
  type(wind_state), intent(in) :: state
  real, intent(out) :: array(:)
 #ifdef NUCLEATION
