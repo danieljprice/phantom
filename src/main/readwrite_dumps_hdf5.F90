@@ -477,19 +477,20 @@ end subroutine write_dump
 !+
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac,use_moddump
+ use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop, &
-                          tstop,dustgasprop,VrelVf,temperature,abundance,ndusttypes
+                          tstop,dustgasprop,VrelVf,temperature,abundance,     &
+                          periodic,ndusttypes
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -508,6 +509,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 
  real(kind=4), allocatable :: dtind(:)
 
+ real :: xmin,xmax,ymin,ymax,zmin,zmax
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -601,13 +603,12 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- if (.not. use_moddump) then
-    call allocate_memory(int(npart / nprocs))
- else
-    ! This is required for the cases when particles will be added during moddump
-    call allocate_memory(maxp_hard)
- endif
+ call allocate_memory(int(npart / nprocs))
 #endif
+
+ if (periodic) then
+    call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ endif
 
 #ifdef ISOTHERMAL
  isothermal = .true.
@@ -680,7 +681,7 @@ end subroutine read_dump
 !+
 !-------------------------------------------------------------------
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
- use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
@@ -693,7 +694,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,        &
                           dustprop,tstop,VrelVf,temperature,abundance,      &
-                          ndusttypes,dustgasprop
+                          ndusttypes,dustgasprop,periodic
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -715,6 +716,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 
  real(kind=4) :: dtind(npart)
 
+ real :: xmin,xmax,ymin,ymax,zmin,zmax
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -804,6 +806,10 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #else
  call allocate_memory(int(npart / nprocs))
 #endif
+
+ if (periodic) then
+    call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ endif
 
 #ifdef ISOTHERMAL
  isothermal = .true.

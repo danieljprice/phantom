@@ -12,6 +12,6 @@ Contents
    ozstar
    monarch
    pawsey
-   raijin
+   nci
    DiAL
    g2

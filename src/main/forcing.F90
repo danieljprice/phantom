@@ -40,7 +40,7 @@ module forcing
 
  public :: forceit,init_forcing,write_forcingdump,write_options_forcing,read_options_forcing
 
- integer, parameter :: st_maxmodes = 1000
+ integer, parameter :: st_maxmodes = 5000
 
  !OU variance corresponding to decay time and energy input rate
  real, save :: st_OUvar
@@ -223,7 +223,7 @@ subroutine init_forcing(dumpfile,infile,time)
              if ((st_nmodes + 2**(ndim-1))  >  st_maxmodes) then
 
                 if (id==master) print *,'init_stir:  st_nmodes = ', st_nmodes, ' maxstirmodes = ',st_maxmodes
-                call fatal('init_stir','Too many stirring modes')
+                call fatal('init_stir','Too many stirring modes: recompile with st_maxmodes set higher in forcing.F90')
 
              endif
 

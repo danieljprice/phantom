@@ -17,13 +17,13 @@
 !
 !  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
 !
-!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
+!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, memory, moddump,
 !    options, part, prompting, readwrite_dumps, readwrite_infile,
 !    setBfield, setup_params
 !+
 !--------------------------------------------------------------------------
 program phantommoddump
- use dim,             only:tagline
+ use dim,             only:tagline,maxp_hard
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
@@ -32,11 +32,12 @@ program phantommoddump
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options,use_moddump
+ use options,         only:set_default_options
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
  use initial_params,  only:get_conserv
+ use memory,          only:allocate_memory
  implicit none
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
@@ -47,8 +48,6 @@ program phantommoddump
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
-
- use_moddump = .true.
 
  call set_io_unit_numbers
  iprint = 6
@@ -112,6 +111,12 @@ program phantommoddump
  else
     ihavesetupB = .false.
  endif
+!
+!--allocate memory BEFORE reading the first file
+!  will be reallocated automatically if npart > maxp_hard
+!  but allows user to manually preset array sizes if necessary
+!
+ call allocate_memory(maxp_hard)
 !
 !--read particle setup from dumpfile
 !

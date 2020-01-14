@@ -26,23 +26,24 @@
 !    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
 !    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, options, part, physcon, units
+!  DEPENDENCIES: dim, eos, fileutils, infile_utils, io, options, part,
+!    physcon, units
 !+
 !--------------------------------------------------------------------------
 
 module dust
- use dim,     only:use_dustgrowth
+ use dim,     only:use_dustgrowth,maxdusttypes
  use part,    only:ndusttypes,grainsize,graindens
  use physcon, only:pi
  use units,   only:umass,udist
  implicit none
  !--Default values for the dust in the infile
- real,    public  :: K_code            = 1.
- real,    public  :: grainsizecgs      = 0.1
- real,    public  :: graindenscgs      = 3.
- integer, public  :: idrag             = 1
- integer, public  :: icut_backreaction = 0
- logical, public  :: ilimitdustflux    = .false. ! to limit spurious dust generation in outer disc
+ real,    public  :: K_code(maxdusttypes) = 1.
+ real,    public  :: grainsizecgs         = 0.1
+ real,    public  :: graindenscgs         = 3.
+ integer, public  :: idrag                = 1
+ integer, public  :: icut_backreaction    = 0
+ logical, public  :: ilimitdustflux       = .false. ! to limit spurious dust generation in outer disc
 
  public :: get_ts
  public :: init_drag
@@ -67,6 +68,7 @@ subroutine init_drag(ierr)
  integer, intent(out) :: ierr
  real    :: cste_seff
  real    :: mass_mol_gas, cross_section_gas
+ integer :: i
 
  ierr = 0
  !--compute constants which are used in the ts calculation
@@ -80,10 +82,12 @@ subroutine init_drag(ierr)
  select case(idrag)
  case(2,3)
     !--check the value of K_code
-    if (K_code < 0.) then
-       call error('init_drag','K_code < 0',var='K_code',val=K_code)
-       ierr = 4
-    endif
+    do i=1,maxdusttypes
+       if (K_code(i) < 0.) then
+          call error('init_drag','K_code < 0',var='K_code',val=K_code(i))
+          ierr = 4
+       endif
+    enddo
  case default
  end select
 
@@ -135,9 +139,13 @@ subroutine print_dustinfo(iprint)
                                            ' g/cm^3 = ',rhocrit,' (code units)'
     endif
  case(2)
-    write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code
+    do i=1,ndusttypes
+       write(iprint,"(/,a,1pg12.5)") ' Using K=const drag with K = ',K_code(i)
+    enddo
  case(3)
-    write(iprint,"(/,a,1pg12.5)") ' Using ts=const drag with ts = ',K_code
+    do i=1,ndusttypes
+       write(iprint,"(/,a,1pg12.5)") ' Using ts=const drag with ts = ',K_code(i)
+    enddo
  case default
     write(iprint,"(/,a)") ' Drag regime not set'
  end select
@@ -153,9 +161,9 @@ end subroutine print_dustinfo
 !  idrag = 2 : const K
 !+
 !--------------------------------------------------------------------------
-subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
+subroutine get_ts(idrag,idust,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
                   ts,iregime)
- integer, intent(in)  :: idrag
+ integer, intent(in)  :: idrag,idust
  integer, intent(out) :: iregime
  real,    intent(in)  :: sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2
  real,    intent(out) :: ts
@@ -249,10 +257,8 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
     !
     ! constant drag coefficient
     !
-    if (K_code > 0.) then
-       ! WARNING! When ndusttypes > 1, K_code ONLY makes sense
-       ! if all of the grains are identical to one another.
-       ts = rhogas*rhodust/(K_code*rhosum)
+    if (K_code(idust) > 0.) then
+       ts = rhogas*rhodust/(K_code(idust)*rhosum)
     else
        ts = huge(ts)
     endif
@@ -262,7 +268,7 @@ subroutine get_ts(idrag,sgrain,densgrain,rhogas,rhodust,spsoundgas,dv2, &
     !
     ! constant ts
     !
-    ts = K_code
+    ts = K_code(idust)
     iregime = 0
 
  case default
@@ -278,11 +284,14 @@ end subroutine get_ts
 !+
 !--------------------------------------------------------------------------
 subroutine write_options_dust(iunit)
+ use fileutils,    only:make_tags_unique
  use infile_utils, only:write_inopt
  use io,           only:warning
  use options,      only:use_dustfrac
  integer, intent(in) :: iunit
  character(len=10)   :: numdust
+ character(len=20)   :: duststring(maxdusttypes)
+ integer             :: i
 
  write(numdust,'(I10)') ndusttypes
  write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
@@ -300,7 +309,15 @@ subroutine write_options_dust(iunit)
        call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
     endif
  case(2,3)
-    call write_inopt(K_code,'K_code','drag constant when constant drag is used',iunit)
+    if (ndusttypes > 1) then
+       duststring='K_code'
+       call make_tags_unique(ndusttypes,duststring)
+       do i=1,ndusttypes
+          call write_inopt(K_code(i),duststring(i),'drag constant when constant drag is used',iunit)
+       enddo
+    else
+       call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
+    endif
  end select
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
@@ -329,6 +346,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
                        iKcode        = 5
  integer, save :: igot(nvalues) = 0
  integer       :: ineed(nvalues)
+ integer       :: int
+ character(len=10) :: str
 
  imatch  = .true.
  igotall = .false.
@@ -346,7 +365,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     graindens(1) = graindenscgs/udens
     !--no longer a compulsory parameter
  case('K_code')
-    read(valstring,*,iostat=ierr) K_code
+    read(valstring,*,iostat=ierr) K_code(1)
     igot(iKcode) = 1
  case('icut_backreaction')
     read(valstring,*,iostat=ierr) icut_backreaction
@@ -357,6 +376,14 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+
+ if (name(1:6) == 'K_code') then
+    str = trim(name(7:len(name)))
+    read(str,*,iostat=ierr) int
+    read(valstring,*,iostat=ierr) K_code(int)
+    igot(iKcode) = 1
+    imatch = .true.
+ endif
 
  ineed = 0
 

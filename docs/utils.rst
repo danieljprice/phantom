@@ -42,10 +42,6 @@ A full list is given below:
 |                       |                       | via interpolation to  |
 |                       |                       | 3D AMR grid           |
 +-----------------------+-----------------------+-----------------------+
-| phantom2power         | make phantom2power    | Compute power spectra |
-|                       |                       | (via interpolation to |
-|                       |                       | 3D grid)              |
-+-----------------------+-----------------------+-----------------------+
 | phantom2divv          | make phantom2divv     | Compute div and curl  |
 |                       |                       | of velocity field     |
 |                       |                       | from dump file using  |

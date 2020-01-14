@@ -28,7 +28,7 @@ VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICR
 
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
-VPATH = ${RUNDIR} ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
+VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
 BINDIR= ../bin
 UNAME=${shell uname}
 #----------------------------------------------------------------
@@ -1082,16 +1082,16 @@ ifeq ($(SYSTEM), monarchpsxe)
     QPROJECT='p01'
 endif
 
-ifeq ($(SYSTEM), raijin)
-#   raijin (NCI machine)
+ifeq ($(SYSTEM), nci)
+#   gadi (NCI machine)
     include Makefile_defaults_ifort
     #MPI=intel
     FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fpstkchk
+    DEBUGFLAG+= -fpe0 -fp-stack-check
     CCFLAGS= -O3 -ip
     QSYS= pbs
     #PBSRESUBMIT=yes
-    NOMP=16
+    NOMP=48
     ifeq ($(MPI),yes)
        NPAR=32
     endif
@@ -1598,7 +1598,7 @@ utils: phantomsetup phantomanalysis \
        diffdumps showheader ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf phantom2pdf-amr \
-       phantom2struct phantom2power libphantom
+       phantom2struct libphantom
 
 cleanutils: cleansetup cleananalysis \
             cleanmultirun cleantestbinary cleanmoddump \
@@ -1606,7 +1606,7 @@ cleanutils: cleansetup cleananalysis \
             cleandiffdumps cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanp2p cleanphantom2pdf-amr \
-            cleanphantom2struct cleanphantom2power cleanphantomevcompare cleanlibphantom
+            cleanphantom2struct cleanphantomevcompare cleanlibphantom
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -1736,20 +1736,18 @@ phantom_pdfs.o: ../src/utils/pdfs.f90
 asciiutils.o: checksplash $(SPLASH_DIR)/src/asciiutils.f90
 	$(FC) $(FFLAGS) -o $@ -c $(SPLASH_DIR)/src/asciiutils.f90
 
+write_griddata.o: checksplash $(SPLASH_DIR)/src/write_griddata.F90
+	$(FC) $(FFLAGS) -o $@ -c $(SPLASH_DIR)/src/write_griddata.F90
+
 # these are the sources for the grid2pdf utility
 
-ifdef HDF5
-OBJG2PDF= io.o utils_filenames.o asciiutils.o \
+OBJG2PDF= io.o utils_filenames.o asciiutils.o write_griddata.o \
           hdf5utils.o read_grid_hdf5.o write_grid_hdf5.o io_grid.o pdfs.o rhomach.o grid2pdf.o
-else
-OBJG2PDF= io.o utils_filenames.o asciiutils.o \
-          io_grid.o pdfs.o rhomach.o grid2pdf.o
-endif
 
 .PHONY: grid2pdf
-grid2pdf: checksys checkparams $(OBJG2PDF)
+grid2pdf: checksys checkparams checkhdf5 $(OBJG2PDF)
 	@echo "objects are $(OBJG2PDF)"
-	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5ROOT)/lib -lhdf5
 	@echo ""
 	@echo "Grid2pdf: we are Possibly Dangerously Fanatical"
 	@echo ""
@@ -1772,33 +1770,10 @@ analysis_pdfs.o: interpolate3D_amr.o adaptivemesh.o
 interpolate3D_amr.o: adaptivemesh.o
 
 #----------------------------------------------------
-# these are the sources for the phantom2power utility
-#
-SRCP2P= utils_omp.F90 fft3d.f90 fftpack.f \
-        power3d.f90 icosahedron.f90 powerspec.f90 \
-        interpolate3D.F90 asciiutils.f90 pdfs.f90 phantom2power.f90
-OBJP2P1= $(SRCP2P:.f90=.o)
-OBJP2P2= $(OBJP2P1:.F90=.o)
-OBJP2P= $(OBJDUMP) $(OBJP2P2:.f=.o)
-
-.PHONY: phantom2power
-phantom2power:
-	${MAKE} ANALYSISONLY=yes phantom2powerfake
-
-phantom2powerfake: checksystem checkparams $(OBJP2P)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantom2power $(OBJP2P)
-	@echo ""
-	@echo "Phantom2power: we have the power to help you"
-	@echo ""
-
-cleanphantom2power:
-	rm -f $(BINDIR)/phantom2power
-
-#----------------------------------------------------
 # these are the sources for the phantom_moddump utility
 #
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          utils_tables.f90 checksetup.f90 set_Bfield.f90 \
+          utils_tables.f90 utils_sort.f90 checksetup.f90 set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
@@ -1816,6 +1791,10 @@ moddump: phantom_moddump
 
 cleanmoddump:
 	rm -f $(BINDIR)/phantommoddump
+
+# files from MCFOST used by phantommoddump
+mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
+	$(FC) $(FFLAGS) -o $@ -c $(MCFOST_DIR)/src/mess_up_SPH.f90
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
