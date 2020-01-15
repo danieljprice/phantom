@@ -530,6 +530,7 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  end select
 #ifdef NUCLEATION
  igotall = (ngot >= 2)
+ idust_opacity = 1
 #else
  igotall = (ngot >= 1)
  if (idust_opacity > 0) igotall = (ngot >= 5)

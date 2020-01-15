@@ -80,7 +80,7 @@ module inject
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
       mass_of_spheres,time_between_spheres,neighbour_distance,mass_of_particles,&
-      dr3,Rstar_cgs,wind_injection_radius,rho_ini,omega_osc,deltaR_osc,Mstar_cgs,Rstar
+      dr3,Rstar_cgs,wind_injection_radius,rho_ini,omega_osc,deltaR_osc,Mstar_cgs
  integer :: particles_per_sphere,nwall_particles,iresolution,nwrite
 
  logical :: pulsating_wind
@@ -362,7 +362,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             inner_sphere,inner_boundary_sphere,dr3,rho_ini)
     else
 #ifdef NUCLEATION
-       r = max(Rstar_cgs,wind_injection_radius)
+       r = max(Rstar_cgs/udist,wind_injection_radius)
        call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, JKmuS)
 #else
        r = wind_injection_radius
