@@ -341,7 +341,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef NUCLEATION
  use units, only:unit_velocity, udist
- use part,  only:nucleation,nucleation_label
+ use part,  only:nucleation,nucleation_label,n_nucleation
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -558,7 +558,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,T_chem,'temp',npart,k,ipass,idump,nums,ierrs(24))
 #endif
 #ifdef NUCLEATION
-       call write_array(1,nucleation,nucleation_label,6,npart,k,ipass,idump,nums,ierrs(9))
+       call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(9))
 #endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(12))
@@ -1268,7 +1268,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part,       only: gamma_chem,mu_chem,T_chem
 #endif
 #ifdef NUCLEATION
- use part, only:nucleation,nucleation_label
+ use part, only:nucleation,nucleation_label,n_nucleation
 #endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
@@ -1288,7 +1288,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_krome_mu
 #endif
 #ifdef NUCLEATION
- logical               :: got_nucleation(6)
+ logical               :: got_nucleation(n_nucleation)
 #endif
  logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4)
  character(len=lentag) :: tag,tagarr(64)

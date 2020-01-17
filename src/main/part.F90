@@ -175,9 +175,9 @@ module part
 !
  real, allocatable :: dust_temp(:)
 #ifdef NUCLEATION
- integer, parameter :: n_nucleation = 7
+ integer, parameter :: n_nucleation = 8
  real, allocatable :: nucleation(:,:)
- character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    '/)
+ character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
 #endif
 !
 !--KROME variables
