@@ -1,8 +1,8 @@
 Release notes
 =============
 
-Current development version - v1.4.0 - XXth August 2019
--------------------------------------------------------
+Current development version - v1.4.0 - 20th January 2020
+--------------------------------------------------------
 
 Physics
 ~~~~~~~
@@ -17,6 +17,8 @@ Physics
 -  warning added about particles with zero sound speed
 -  preliminary work to incorporate Shen (2012) equation of state for
    Neutron stars
+-  Support for multi grain dust with multiple large grain species
+-  (non-ideal MHD) updated nicil cosmic ray ionisation library to V1.2.6
 
 Setup
 ~~~~~
@@ -39,6 +41,14 @@ Bugs
    problem with extern_binary
 -  Default units changed in galaxies setup to avoid momentum
    conservation warning
+-  bug fixes for barotropic ieos=8
+-  bug fix with fatal error for particles with energy equal to zero (now a warning)
+-  (pyphantom) Added try statements to avoid errors when loading utherm, temperature and bxyz
+-  (ptmass) bug fix in bookkeeping of why sink was not created
+-  (test_derivs) more precise test of artificial viscosity terms for DISC_VISCOSITY=no,
+-  passes test suite when KERNEL=quintic
+-  MPI thread-safe downloading of datafiles
+-  BUG FIX with memory allocation for dvdx; possibly affecting viscosity switch if DISC_VISCOSITY=no
 
 Performance
 ~~~~~~~~~~~
