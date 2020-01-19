@@ -500,4 +500,29 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
 
 end subroutine print_dtlog_ind
 
+!----------------------------------------------------------------
+!+
+!  Checks which timestep is the limiting dt.  Book keeping is done here
+!+
+!----------------------------------------------------------------
+subroutine check_dtmin(dtcheck,dti,dtopt,dtrat,ndtopt,dtoptfacmean,dtoptfacmax,dtchar_out,dtchar_in)
+ integer, intent(inout) :: ndtopt
+ real,    intent(in)    :: dti,dtopt,dtrat
+ real,    intent(inout) :: dtoptfacmean,dtoptfacmax
+ logical, intent(inout) :: dtcheck
+ character(len=*), intent(out)   :: dtchar_out
+ character(len=*), intent(in)    :: dtchar_in
+
+ if (.not. dtcheck) return
+
+ if ( abs(dti-dtopt) < tiny(dti)) then
+    dtcheck      = .false.
+    ndtopt       = ndtopt + 1
+    dtoptfacmean = dtoptfacmean + dtrat
+    dtoptfacmax  = max(dtoptfacmax, dtrat)
+    dtchar_out   = dtchar_in
+ endif
+
+end subroutine check_dtmin
+
 end module timestep_ind

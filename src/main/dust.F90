@@ -43,6 +43,7 @@ module dust
  real,    public  :: graindenscgs         = 3.
  integer, public  :: idrag                = 1
  integer, public  :: icut_backreaction    = 0
+ integer, public  :: irecon               = 1
  logical, public  :: ilimitdustflux       = .false. ! to limit spurious dust generation in outer disc
 
  public :: get_ts
@@ -320,11 +321,13 @@ subroutine write_options_dust(iunit)
     endif
  end select
 
- call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
-
  if (use_dustfrac) then
     call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
+ else
+    call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
  endif
+
+ call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
 
 end subroutine write_options_dust
 
@@ -373,6 +376,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  case('ilimitdustflux')
     read(valstring,*,iostat=ierr) ilimitdustflux
     !--no longer a compulsory parameter
+ case('irecon')
+    read(valstring,*,iostat=ierr) irecon
  case default
     imatch = .false.
  end select

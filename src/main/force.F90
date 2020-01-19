@@ -782,7 +782,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use dim,         only:use_dust,use_dustgrowth
 #ifdef DUST
- use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
+ use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
@@ -1533,7 +1533,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
-                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar)
+                projvstar = projv
+                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar,irecon)
                 dv2 = projvstar**2 ! dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -1561,7 +1562,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
-                call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar)
+                projvstar = projv
+                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar,irecon)
                 dv2 = projvstar**2 !dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -1750,34 +1752,6 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi,pmassi,eni,tempi,Bxi,Byi,Bzi,dustfraci, &
 
  return
 end subroutine get_P
-
-#ifdef IND_TIMESTEPS
-!----------------------------------------------------------------
-!+
-!  Checks which timestep is the limiting dt.  Book keeping is done here
-!+
-!----------------------------------------------------------------
-subroutine check_dtmin(dtcheck,dti,dtopt,dtrat,ndtopt,dtoptfacmean,dtoptfacmax,dtchar_out,dtchar_in)
- integer, intent(inout) :: ndtopt
- real,    intent(in)    :: dti,dtopt,dtrat
- real,    intent(inout) :: dtoptfacmean,dtoptfacmax
- logical, intent(inout) :: dtcheck
- character(len=*), intent(out)   :: dtchar_out
- character(len=*), intent(in)    :: dtchar_in
- !
- if (.not. dtcheck) return
- !
- if ( abs(dti-dtopt) < tiny(dti)) then
-    dtcheck      = .false.
-    ndtopt       = ndtopt + 1
-    dtoptfacmean = dtoptfacmean + dtrat
-    dtoptfacmax  = max(dtoptfacmax, dtrat)
-    dtchar_out   = dtchar_in
- endif
- !
- return
-end subroutine check_dtmin
-#endif
 
 !----------------------------------------------------------------
 
@@ -2165,7 +2139,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          divcurlB,eta_nimhd, temperature, &
                          dustfrac,dustprop,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,cell%dtdrag(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
+                         cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
                          ignoreself)
 
  enddo over_parts
@@ -2186,7 +2160,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
 #endif
                                          ndustres,dustresfacmax,dustresfacmean)
- use io,             only:fatal
+ use io,             only:fatal,warning
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -2197,7 +2171,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           massoftype,get_partinfo,tstop,strain_from_dvdx
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
- use timestep_ind,   only:get_newbin
+ use timestep_ind,   only:get_newbin,check_dtmin
  use timestep_sts,   only:sts_it_n,ibin_sts
 #endif
  use viscosity,      only:bulkvisc,dt_viscosity,irealvisc,shearfunc
@@ -2267,7 +2241,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
 #endif
- real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
+ real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  integer :: idudtcool,ichem,iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
@@ -2321,7 +2295,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     hi1        = 1./hi
     spsoundi   = xpartveci(ispsoundi)
     vsigmax    = cell%vsigmax(ip)
-    dtdrag     = cell%dtdrag(ip)
+    ts_min     = cell%tsmin(ip)
     tstopi     = 0.
     dustfraci  = 0.
     dustfracisum = 0.
@@ -2459,6 +2433,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
              if (ishock_heating > 0) then
+                if (fsum(idudtdissi) < 0.) call warning('force','du/dt_diss -ve: ',i,var='dudt',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif
 #ifdef LIGHTCURVE
@@ -2577,12 +2552,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtvisci = dt_viscosity(xi,yi,zi,hi,spsoundi)
 
        ! Check to ensure we have enough resolution for gas-dust pairs, where
-       ! dtdrag is already minimised over all dust neighbours for gas particle i
-       if (dtdrag < bignumber) then
-          if (hi > dtdrag*spsoundi) then
+       ! ts_min is already minimised over all dust neighbours for gas particle i
+       if (ts_min < bignumber) then
+          if (hi > ts_min*spsoundi) then
              ndustres       = ndustres + 1
-             dustresfacmean = dustresfacmean + hi/(dtdrag*spsoundi)
-             dustresfacmax  = max(dustresfacmax, hi/(dtdrag*spsoundi))
+             dustresfacmean = dustresfacmean + hi/(ts_min*spsoundi)
+             dustresfacmax  = max(dustresfacmax, hi/(ts_min*spsoundi))
           endif
        endif
 
@@ -2648,11 +2623,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
     endif
 
-    ! stopping time
+    ! stopping time and timestep based on it (when using dust-as-particles)
+    dtdrag = bignumber
     if (use_dust .and. use_dustfrac) then
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
-       tstop(:,i) = dtdrag
+       tstop(:,i) = ts_min
+       dtdrag = 0.9*ts_min
     endif
 
 #ifdef IND_TIMESTEPS
@@ -2742,27 +2719,22 @@ end subroutine combine_cells
 !  Apply reconstruction to velocity gradients
 !+
 !-----------------------------------------------------------------------------
-subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar)
+subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,ilimiter)
  real, intent(in)  :: projv,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9),mi,mj
  real, intent(out) :: projvstar
- !real :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz
+ integer, intent(in) :: ilimiter
  real :: slopei,slopej,slope,sep
 
  ! do nothing and return
- projvstar = projv
- return
+ !projvstar = projv
+ !return
 
- !dvxdx = 0.5*(dvdxi(1) + dvdxj(1))
- !dvxdy = 0.5*(dvdxi(2) + dvdxj(2))
- !dvxdz = 0.5*(dvdxi(3) + dvdxj(3))
- !dvydx = 0.5*(dvdxi(4) + dvdxj(4))
- !dvydy = 0.5*(dvdxi(5) + dvdxj(5))
- !dvydz = 0.5*(dvdxi(6) + dvdxj(6))
- !dvzdx = 0.5*(dvdxi(7) + dvdxj(7))
- !dvzdy = 0.5*(dvdxi(8) + dvdxj(8))
- !dvzdz = 0.5*(dvdxi(9) + dvdxj(9))
- sep = mi/(mi + mj)
- !print*,'sep=',sep
+ if (mi > mj) then
+    sep = mj/(mi + mj)
+ else
+    sep = mi/(mi + mj)
+ endif
+ !sep = 0.5
 
  ! CAUTION: here we use dx, not the unit vector to
  ! define the projected slope. This is fine as
@@ -2776,17 +2748,19 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar)
         + dy*(rx*dvdxj(2) + ry*dvdxj(5) + rz*dvdxj(8)) &
         + dz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
 
- slope = slope_limiter(slopei,slopej)
- !slope = (slopei + slopej)
- projvstar = projv - sep*slope
-
- !projvstar = projv - 0.5*dx*(rx*dvxdx + ry*dvydx + rz*dvzdx) &
-!                   - 0.5*dy*(rx*dvxdy + ry*dvydy + rz*dvzdy) &
-!                   - 0.5*dz*(rx*dvxdz + ry*dvydz + rz*dvzdz)
-
- !if (abs(projvstar1 - projvstar) > epsilon(0.)) print*,projvstar,projvstar1
+ if (ilimiter > 0) then
+    slope = slope_limiter(slopei,slopej)
+    projvstar = projv - 2.*sep*slope
+ else
+    !
+    !--reconstruction with no slope limiter 
+    !  (mainly useful for testing purposes)
+    !
+    projvstar = projv - sep*(slopei + slopej)
+ endif
  ! apply entropy condition
-! if (projvstar*projv < 0.) projvstar = projv
+ !if (projvstar*projv < 0.) projvstar = sign(1.0,projv)*min(abs(projv),abs(projvstar))
+ !projvstar = sign(1.0,projv)*min(abs(projv),abs(projvstar))
 
 end subroutine reconstruct_dv
 
@@ -2795,11 +2769,19 @@ real function slope_limiter(sl,sr) result(s)
 ! integer, intent(in) :: ilimiter
 
  s = 0.
- ! Van Leer monotonised central (MC)
- !if (sl*sr > 0.) s = sign(1.0,sl)*min(abs(0.5*(sl + sr)),2.*abs(sl),2.*abs(sr))
 
- ! Superbee
- if (sl*sr > 0.) s = sign(1.0,sl)*max(min(abs(sr),2.*abs(sl)),min(2.*abs(sr),abs(sl)))
+ ! Van Leer monotonised central (MC)
+ if (sl*sr > 0.) s = sign(1.0,sl)*min(abs(0.5*(sl + sr)),2.*abs(sl),2.*abs(sr))
+
+ ! Van Leer
+ !if (sl*sr > 0.) s = 2.*sl*sr/(sl + sr)
+ 
+ ! minmod
+ !if (sl > 0. .and. sr > 0.) then
+ !   s = min(abs(sl),abs(sr))
+ !elseif (sl < 0. .and. sr < 0.) then
+ !   s = -min(abs(sl),abs(sr))
+ !endif
 
 end function slope_limiter
 
