@@ -1,8 +1,18 @@
 Release notes
 =============
 
-Current development version - v1.4.0 - 20th January 2020
---------------------------------------------------------
+Current development version - v1.x.x
+-------------------------------------
+
+Physics
+~~~~~~~
+
+Performance
+~~~~~~~~~~~
+
+
+v1.4.0 - 20th January 2020 - 1b48489
+------------------------------------
 
 Physics
 ~~~~~~~
