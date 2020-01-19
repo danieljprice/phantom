@@ -17,7 +17,7 @@
 !
 !  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
 !
-!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
+!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, memory, moddump,
 !    options, part, prompting, readwrite_dumps, readwrite_infile,
 !    setBfield, setup_params
 !+

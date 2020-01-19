@@ -22,7 +22,7 @@
 !--------------------------------------------------------------------------
 module moddump
 
- use part,         only:delete_particles_inside_radius,delete_particles_outside_sphere
+ use part,         only:delete_particles_outside_sphere
  use prompting,    only:prompt
 
  implicit none
@@ -52,22 +52,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Deleting particles inside a given radius ?',icutinside)
  call prompt('Deleting particles outside a given radius ?',icutoutside)
  if (icutinside) then
-    call prompt('Enter the inward radius in au',inradius,0.)
-    call prompt('Enter the x coordinates of the center of that sphere',incenter(1),0.)
-    call prompt('Enter the y coordinates of the center of that sphere',incenter(2),0.)
-    call prompt('Enter the z coordinates of the center of that sphere',incenter(3),0.)
+    call prompt('Enter inward radius in au',inradius,0.)
+    call prompt('Enter x coordinate of the center of that sphere',incenter(1),0.)
+    call prompt('Enter y coordinate of the center of that sphere',incenter(2),0.)
+    call prompt('Enter z coordinate of the center of that sphere',incenter(3),0.)
  endif
  if (icutoutside) then
-    call prompt('Enter the outward radius in au',outradius,0.)
-    call prompt('Enter the x coordinates of the center of that sphere',outcenter(1),0.)
-    call prompt('Enter the y coordinates of the center of that sphere',outcenter(2),0.)
-    call prompt('Enter the z coordinates of the center of that sphere',outcenter(3),0.)
+    call prompt('Enter outward radius in au',outradius,0.)
+    call prompt('Enter x coordinate of the center of that sphere',outcenter(1),0.)
+    call prompt('Enter y coordinate of the center of that sphere',outcenter(2),0.)
+    call prompt('Enter z coordinate of the center of that sphere',outcenter(3),0.)
  endif
 
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    call delete_particles_inside_radius(incenter,inradius,npart,npartoftype)
+    call delete_particles_outside_sphere(incenter,inradius,revert=.true.)
  endif
 
  if (icutoutside) then
