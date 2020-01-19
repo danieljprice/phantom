@@ -140,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npmax = int(2.0/3.0*size(xyzh(1,:))) ! approx max number allowed in sphere given size(xyzh(1,:))
     if (npmax < 300000) then
        np = npmax
-    else if (npmax < 1000000) then
+    elseif (npmax < 1000000) then
        np = 300000
     else
        np = 1000000
@@ -409,9 +409,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup
  if (.not. iexist) then
     if (binary) then
-       tmax      = 13.33
+       tmax      = 1.50*t_ff ! = 13.33 for default settings
     else
-       tmax      = 10.75
+       tmax      = 1.21*t_ff ! = 10.75 for default settings
     endif
     ieos         = 8
     nfulldump    = 1

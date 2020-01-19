@@ -21,7 +21,7 @@
 !+
 !--------------------------------------------------------------------------
 module allocutils
- use io,           only:fatal,error,iprint,nprocs
+ use io,           only:fatal,error,iprint,id,master,iverbose
  use dtypekdtree,  only:kdnode,kdnode_bytes
 
  implicit none
@@ -257,9 +257,10 @@ subroutine print_allocation_stats(name, xdim, type)
 
  nbytes_allocated = nbytes_allocated + nbytes
 
- call bytes2human(nbytes, sizestring)
-
- if (nprocs == 1) write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
+ if (id==master .and. nbytes > 0 .and. iverbose >= 2) then
+    call bytes2human(nbytes, sizestring)
+    write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
+ endif
 
 end subroutine print_allocation_stats
 
@@ -269,9 +270,9 @@ subroutine bytes2human(bytes, sizestring)
 
  if (bytes > 1073741824.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1073741824.0, ' GB'
- else if (bytes > 1048576.0) then
+ elseif (bytes > 1048576.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1048576.0, ' MB'
- else if (bytes > 1024.0) then
+ elseif (bytes > 1024.0) then
     write(sizestring, '(f8.3, a3)') bytes / 1024.0, ' KB'
  else
     write(sizestring, '(f8.3, a3)') bytes, ' B '

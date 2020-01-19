@@ -260,7 +260,7 @@ subroutine read_evin_filenames(maxfiles,filename,infilenames,nummodels,ierr)
           ispace = index(trim(infiletmp),' ')
           if (ispace==1) then
              infiletmp = infiletmp(2:)
-          else if (ispace > 0) then
+          elseif (ispace > 0) then
              infiletmp = trim(infiletmp(:ispace))
           endif
        enddo

@@ -29,7 +29,7 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
 subroutine allocate_memory(n, part_only)
- use io, only:iprint,error,fatal,nprocs,id,master
+ use io, only:iprint,warning,nprocs,id,master
  use dim, only:update_max_sizes,maxp
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
@@ -51,10 +51,7 @@ subroutine allocate_memory(n, part_only)
     part_only_ = .false.
  endif
 
- if (nbytes_allocated > 0.0 .and. n <= maxp) then
-    !print "(a)",' ARRAYS ALREADY ALLOCATED... SKIPPING'
-    return ! just silently skip if arrays are already large enough
- endif
+ if (nbytes_allocated > 0.0 .and. n <= maxp) return ! just silently skip if arrays are already large enough
  call update_max_sizes(n)
 
  if (nprocs == 1) then
@@ -64,11 +61,10 @@ subroutine allocate_memory(n, part_only)
     else
        write(iprint, '(a)') '--> ALLOCATING ALL ARRAYS'
     endif
-    write(iprint, '(a)') '---------------------------------------------------------'
  endif
 
  if (nbytes_allocated > 0.0) then
-    call error('memory', 'Attempting to allocate memory, but memory is already allocated. &
+    call warning('memory', 'Attempting to allocate memory, but memory is already allocated. &
     & Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
     call update_max_sizes(n)
@@ -85,9 +81,9 @@ subroutine allocate_memory(n, part_only)
 
  call bytes2human(nbytes_allocated, sizestring)
  if (nprocs == 1) then
-    write(iprint, '(a)') '---------------------------------------------------------'
-    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-    write(iprint, '(a)') '---------------------------------------------------------'
+    write(iprint, '(a)') '------------------------------------------------------------'
+    write(iprint, *) 'Total memory allocated to arrays: ', sizestring,' n = ',n
+    write(iprint, '(a)') '------------------------------------------------------------'
  else
     write(iprint, *) id, 'allocated ', sizestring
  endif

@@ -36,7 +36,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity,igas,&
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                           grainsize,graindens,ndusttypes
  use units,          only:umass,utime,udist
  use io,             only:fatal
@@ -54,7 +54,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  logical, save   :: init_mcfost = .false.
  real            :: mu_gas,factor,T_to_u
- real(kind=4)    :: Tdust(npart)
+ real(kind=4), dimension(npart)    :: Tdust, n_packets
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
@@ -108,12 +108,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
-         xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         Frad,mu_gas,ierr,write_T_files,ISM,T_to_u)
+         xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+         Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
 
     write(*,*) ''
-    write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 0.))
+    write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 1.))
     write(*,*) 'Maximum temperature = ', maxval(Tdust)
     write(*,*) ''
 

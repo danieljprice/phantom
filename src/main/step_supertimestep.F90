@@ -182,9 +182,9 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  if (iverbose>=1) then
     if (icase_sts==iNsts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNmegasts) then
+    elseif (icase_sts==iNmegasts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts*Nmega = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
+    elseif (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
        write(iprint,20)      &
        'Super-timestepping: Disabled.  Using Nreal = ',Nreal,' at time = ',time
     else
@@ -202,16 +202,16 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
     call summary_variable('sts',iosumsts  ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnn,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsi ,0,real(Nviaibin)     )
- else if (icase_sts==iNmegasts) then
+ elseif (icase_sts==iNmegasts) then
     call summary_variable('sts',iosumstsm ,0,real(Nmegasts_next))
     call summary_variable('sts',iosumstsr ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnm,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsri,0,real(Nviaibin)     )
- else if (icase_sts==iNostsSml) then
+ elseif (icase_sts==iNostsSml) then
     call summary_variable('sts',iosumstsd ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsns,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsdi,0,real(Nviaibin)     )
- else if (icase_sts==iNostsBig) then
+ elseif (icase_sts==iNostsBig) then
     call summary_variable('sts',iosumstso ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnl,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsoi,0,real(Nviaibin)     )

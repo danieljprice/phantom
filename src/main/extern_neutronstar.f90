@@ -264,7 +264,7 @@ real function yinterp(x, xtab, ytab, ntab)
  if (x <= xtab(1)) then
     yinterp = ytab(1)
     return
- else if (x >= xtab(ntab)) then
+ elseif (x >= xtab(ntab)) then
     yinterp = ytab(ntab)
     return
  endif

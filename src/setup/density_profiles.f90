@@ -175,7 +175,7 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,npts,ierr)
        if (iter==0) then
           rhocentre = rhocentre * (mstar_in/mstar)**(1./3.)
           lastsign  = int( sign(1.0,mstar_in-mstar) )
-       else if (iter==1) then
+       elseif (iter==1) then
           drho      = 0.1*rhocentre*lastsign
           lastsign  = int( sign(1.0,mstar_in-mstar) )
        else
@@ -283,7 +283,7 @@ real function get_dPdrho(rho)
  elseif (rho < rhocrit1pwp) then
     gamma = gamma1pwp
     polyk = polyk1
- else if (rho < rhocrit2pwp) then
+ elseif (rho < rhocrit2pwp) then
     gamma = gamma2pwp
     polyk = polyk2
  else

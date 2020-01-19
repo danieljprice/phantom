@@ -112,11 +112,11 @@ subroutine write_options_nicil(iunit)
           call write_inopt(rho_n_cnst,  'rho_n_cnst','neutral density for ambipolar diffusion',iunit)
           call write_inopt(alpha_AD,    'alpha_AD',  'power law exponent for ambipolar diffusion',iunit)
        endif
-    else if ( eta_const_type==2 ) then
+    elseif ( eta_const_type==2 ) then
        if ( use_ohm  ) call write_inopt(C_OR,'C_OR', 'semi-constant coefficient for ohmic resistivity',iunit)
        if ( use_hall ) call write_inopt(C_HE,'C_HE', 'semi-constant coefficient for the Hall effect (incl. sign)',iunit)
        if ( use_ambi ) call write_inopt(C_AD,'C_AD', 'semi-constant coefficient for ambipolar diffusion',iunit)
-    else if ( eta_const_type==3 ) then
+    elseif ( eta_const_type==3 ) then
        if ( use_ohm  ) call write_inopt(C_OR,'C_OR', 'constant coefficient for ohmic resistivity',iunit)
        if ( use_hall ) call write_inopt(C_HE,'C_HE', 'constant coefficient for the Hall effect (incl. sign)',iunit)
        if ( use_ambi ) call write_inopt(C_AD,'C_AD', 'constant coefficient for ambipolar diffusion',iunit)

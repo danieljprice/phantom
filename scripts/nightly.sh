@@ -276,6 +276,8 @@ write_htmlfile_gittag_and_mailfile ()
       failtext=${failtext/ and /};
       gittag="${failtext/ and /}fail-$datetag";
       gittag="${gittag/ and /}";
+      # delete duplicate words
+      gittag="${gittag/setupsetup/setup}";
    else
       if [ "X$warnings" != "X" ]; then
          gotissues=1;
@@ -393,7 +395,7 @@ commit_and_push_to_website ()
       #flags='';
       for logfile in `ls *.txt | grep -v old.txt`; do
           #flags+="-F files=@$logfile "
-          curl "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+          curl --silent -S, --show-error "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
                -F files=@"$logfile"
       done
       #curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \

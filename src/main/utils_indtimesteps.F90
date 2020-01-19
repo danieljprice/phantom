@@ -185,10 +185,12 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
  !
  !--the number of bins should only decrease when bins are synchronised
  !
- if (nbinmax < nbinmaxprev .and. mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
-    write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),' when changing nbinmax from ', &
-                    nbinmaxprev,'->',nbinmax
-    call die
+ if (nbinmax < nbinmaxprev) then
+    if (mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
+       write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),&
+         ' when changing nbinmax from ',nbinmaxprev,'->',nbinmax
+       call die
+    endif
  endif
  if (nbinmax > nbinmaxprev) then
     istepfrac = istepfrac*2**(nbinmax-nbinmaxprev)
@@ -300,7 +302,7 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
        ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
        ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
     enddo
- else if (dtmax_ifactor < 0) then
+ elseif (dtmax_ifactor < 0) then
     dtmax    = -dtmax*dtmax_ifactor
     ibin_rat = -int((log10(real(-dtmax_ifactor)-1.0)/log10(2.0))+1,kind=1)
     do i = nbins,abs(ibin_rat),-1

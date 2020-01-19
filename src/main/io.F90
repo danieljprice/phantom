@@ -298,6 +298,7 @@ subroutine buffer_warning(wherefrom,string,ncount,level)
  ! the part before the equals to check for similar warnings
  leq = index(string,'=')
  if (leq > 12) ls = min(ls,leq) ! ensure equals not in first few (12) chars
+ ls = min(ls,15)   ! only match first 15 characters of warning string
  j = 1
  over_db: do while(j <= maxwarningdb)
     if (warningdb(j)%wherefrom(1:lw) == wherefrom(1:lw) &
