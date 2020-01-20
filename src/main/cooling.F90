@@ -453,7 +453,7 @@ subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Trad, mu, K2, kappa)
     Y = 0.
-    k = nT
+    k = nTg
     do while (Tgrid(k) > T)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Trad, mu, K2, kappa)
