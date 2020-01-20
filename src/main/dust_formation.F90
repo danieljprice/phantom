@@ -83,7 +83,7 @@ module dust_formation
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
 
- real :: kmax,kgas,mass_per_H, eps(nElements)
+ real :: mass_per_H, eps(nElements)
 
 contains
 
@@ -112,7 +112,7 @@ subroutine evolve_chem(dt, r, v, T, rho, JKmuS)
 !all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
  real, intent(in) :: dt, r, v, T, rho
- real, intent(inout) :: JKmuS(7)
+ real, intent(inout) :: JKmuS(:)
 
  real :: pC, pC2, pC2H, pC2H2, nH_tot, epsC
  real :: JstarS, taustar, taugr, S
@@ -158,13 +158,13 @@ end subroutine evolve_chem
 !  calculate dust opacity
 !
 !-----------------------------------------------------------------------
-subroutine calc_kappa_dust(K3, Mdot_cgs, kappa_planck, kappa_rosseland)
+subroutine calc_kappa_dust(K3, Tdust, Mdot_cgs, kappa_cgs)
 !all quantities in cgs
  use physcon, only:pi
- real, intent(in) :: K3, Mdot_cgs
- real, intent(out) :: kappa_planck, kappa_rosseland
+ real, intent(in) :: K3, Tdust, Mdot_cgs
+ real, intent(out) :: kappa_cgs
 
- real :: fC
+ real :: fC,kappa_planck, kappa_rosseland
  real, parameter :: rho_Cdust = 2.62
  real, parameter :: Qplanck_abs = 1.6846124267740528e+04
  real, parameter :: Qross_ext = 9473.2722815583311
@@ -174,6 +174,11 @@ subroutine calc_kappa_dust(K3, Mdot_cgs, kappa_planck, kappa_rosseland)
  fC = (3./4.)*eps(iC)*12./(1.4*rho_Cdust) * max(fC, 1.d-15)
  kappa_planck    = Qplanck_abs * fC
  kappa_rosseland = Qross_ext * fC
+
+ kappa_cgs = kappa_rosseland
+ !kappa_planck    = Qplanck_abs * fC * Tdust
+ !kappa_rosseland = Qross_ext * fC * Tdust
+
  !should add gas contribution
  !!!kappa_rosseland = kappa_rosseland + kappa_gas
 end subroutine calc_kappa_dust
@@ -183,18 +188,13 @@ end subroutine calc_kappa_dust
 !  calculate alpha, reduced gravity factor
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha_dust(Mstar, Lstar, Mdot, K3, alpha)
+subroutine calc_alpha_dust(Mstar_cgs, Lstar_cgs, kappa_cgs, alpha)
 !all quantities in cgs
  use physcon, only:pi,c,Gg
- use units,  only: udist, umass, utime
- real, intent(in) :: Mstar,Lstar, Mdot, K3
+ real, intent(in) :: Mstar_cgs,Lstar_cgs,kappa_cgs
  real, intent(out) :: alpha
 
- real :: kappa_planck, Lstar_cgs, dummy
-
- call calc_kappa_dust(K3, Mdot*umass/utime, kappa_planck, dummy)
- Lstar_cgs = Lstar * (umass*udist**2/utime**3)
- alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar*umass) * kappa_planck
+ alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
 end subroutine calc_alpha_dust
 
 !----------------------------
@@ -436,9 +436,9 @@ end function calc_Kd_TiS
 !
 !------------------------------------
 real function kappa_dust_bowen(Teq)
-!all quantities in code unit
+!all quantities in cgs
  real,    intent(in)  :: Teq
- kappa_dust_bowen = kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta))+kgas
+ kappa_dust_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta))+kappa_gas
 end function kappa_dust_bowen
 
 !-----------------------------------------------------------------------
@@ -446,14 +446,13 @@ end function kappa_dust_bowen
 !  calculate alpha, reduced gravity factor using Bowen formula
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha_bowen(Mstar, Lstar, Teq, alpha)
-!all quantities in code unit
+subroutine calc_alpha_bowen(Mstar_cgs, Lstar_cgs, Teq, alpha)
+!all quantities in cgs
  use physcon, only:pi,c
- use units,   only:unit_velocity
- real, intent(in)  :: Mstar, Lstar, Teq
+ real, intent(in)  :: Mstar_cgs, Lstar_cgs, Teq
  real, intent(out) :: alpha
 
- alpha = Lstar*unit_velocity/(4.*pi*c*Mstar) * kappa_dust_bowen(Teq)
+ alpha = Lstar_cgs/(4.*pi*c*Mstar_cgs) * kappa_dust_bowen(Teq)
 end subroutine calc_alpha_bowen
 
 !-----------------------------------------------------------------------
@@ -489,7 +488,6 @@ end subroutine write_options_dust_formation
 !-----------------------------------------------------------------------
 subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
- use units,   only: udist, umass
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
@@ -511,12 +509,11 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) kappa_gas
     ngot = ngot + 1
     if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
-    kgas = kappa_gas / (udist**2/umass)
+    !kgas = kappa_gas / (udist**2/umass)
  case('bowen_kmax')
     read(valstring,*,iostat=ierr) bowen_kmax
     ngot = ngot + 1
     if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
-    kmax = bowen_kmax / (udist**2/umass)
  case('bowen_Tcond')
     read(valstring,*,iostat=ierr) bowen_Tcond
     ngot = ngot + 1

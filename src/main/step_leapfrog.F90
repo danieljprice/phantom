@@ -792,10 +792,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
                                abundance(:,i),gamma_chem(i),mu_chem(i),T_chem(i))
              dudtcool = (ui-vxyzu(4,i))/dt
-#elif NUCLEATION
-             !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i))
 #else
+#ifdef NUCLEATION
+             !evolve dust chemistry and compute dust cooling
+             call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i), dust_temp(i))
+#endif
              !
              ! COOLING
              !
@@ -810,8 +811,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                         gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
+#ifdef NUCLEATION
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
+                        rhoh(xyzh(4,i),pmassi), dt, dust_temp(i),nucleation(6,i),nucleation(4,i),nucleation(8,i))
+#else
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
+#endif
                 else
                    ! cooling without stored dust temperature
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&

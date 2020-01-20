@@ -28,8 +28,7 @@ module wind
  public :: wind_state,wind_profile,evolve_dust,calc_wind_profile,wind_step,init_wind
 
  private
-
-! Shared variables
+ ! Shared variables
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3 ! Minimum allowed timsestep (for 1D integration)
  integer, parameter :: wind_emitting_sink = 1
@@ -45,7 +44,7 @@ module wind
     real :: gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
     real :: tau_lucy, kappa
 #ifdef NUCLEATION
-    real :: JKmuS(7)
+    real :: JKmuS(8)
 #endif
     integer :: spcode, nsteps
     logical :: dt_force, error, find_sonic_solution
@@ -58,7 +57,10 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
  use eos,            only:gamma
 #ifdef NUCLEATION
  use dust_formation, only:set_abundances
+ use part,           only:n_nucleation
+ use io,             only:fatal
 #endif
+ type(wind_state) :: state
 
  real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind
 
@@ -70,6 +72,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
  u_to_temperature_ratio = u_to_T
 
 #ifdef NUCLEATION
+ if (size(state%JKmuS) /= n_nucleation) call fatal(label,'wrong dimension for JKmuS')
  call set_abundances
 #endif
 end subroutine setup_wind
@@ -93,7 +96,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
- real :: tau_lucy_bounded,dlnQ_dlnT,kappa_planck,kappa_ross
+ real :: tau_lucy_bounded,dlnQ_dlnT
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -132,10 +135,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
 #ifdef NUCLEATION
  call evolve_chem(0., r0, v0, T0, state%rho, state%JKmuS)
- call calc_alpha_dust(Mstar_cgs, Lstar_cgs, Mdot_cgs, state%JKmuS(5), state%alpha)
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
+ call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  state%mu = state%jKmuS(6)
- call calc_kappa_dust(state%JKmuS(5), Mdot_cgs, kappa_planck, kappa_ross)
- state%kappa = kappa_ross
 #else
  if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Teq)
 #endif
@@ -182,13 +184,14 @@ subroutine wind_step(state)
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT
- real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, kappa_planck, kappa_ross
+ real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded
 
 #ifdef NUCLEATION
  call evolve_chem(state%dt,state%r,state%v,state%Tg,state%rho,state%JKmuS)
  alpha_old = state%alpha
  state%mu  = state%JKmus(6)
- call calc_alpha_dust(Mstar_cgs, Lstar_cgs, Mdot_cgs, state%JKmuS(5), state%alpha)
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
+ call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
 #endif
 
@@ -212,8 +215,7 @@ subroutine wind_step(state)
  kappa_old = state%kappa
 
 #ifdef NUCLEATION
- call calc_kappa_dust(state%JKmuS(5), Mdot_cgs, kappa_planck, kappa_ross)
- state%kappa = kappa_ross
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
 #else
  if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Teq)
 #endif
@@ -320,22 +322,19 @@ end subroutine wind_profile
 !  set particle dust properties
 !
 !-----------------------------------------------------------------------
-subroutine evolve_dust(dtsph, xyzh, vxyzu, JKmuS)
- use options,        only:icooling,ieos
+subroutine evolve_dust(dtsph, xyzh, vxyzu, JKmuS, Tdust)
+ use options,        only:ieos
  use units,          only:udist,utime,unit_velocity
  use physcon,        only:pi
  use eos,            only:gmw,qfacdisc
- use part,           only:xyzmh_ptmass,vxyz_ptmass,massoftype,rhoh,igas,iTeff
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,rhoh,igas,iTeff
  use dust_formation, only:evolve_chem,calc_kappa_dust
 
- use cooling,        only:energ_cooling,calc_Teq
- real,    intent(in) :: dtsph,xyzh(4)
+ real,    intent(in) :: dtsph,xyzh(4),Tdust
  real,    intent(inout) :: vxyzu(4), JKmuS(:)
 
  integer, parameter :: wind_emitting_sink = 1
- real :: x, y, z, vx, vy, vz, rho, dt, kappa, kappa_planck, kappa_ross, &
-      tau_lucy_bounded,tau_lucy, Teq, dudt
- real :: r, v, T, expT
+ real :: x, y, z, vx, vy, vz, rho, dt, r, v, T, expT
 
  dt = dtsph* utime
  expT = 2.*qfacdisc
@@ -355,19 +354,7 @@ subroutine evolve_dust(dtsph, xyzh, vxyzu, JKmuS)
     T = JKmuS(6)*vxyzu(4)/(u_to_temperature_ratio*gmw)
  endif
  call evolve_chem(dt, r, v, T, rho, JKmuS)
- call calc_kappa_dust(JKmuS(5), Mdot_cgs, kappa_planck, kappa_ross)
- ! tau_lucy = state%tau_lucy &
- !      - (state%r-state%r_old) * Rstar_cgs**2 &
- !      * (state%kappa_ross*state%rho/state%r**2 + kappa_ross_old*rho_old/state%r_old**2)/2.
-
- if (icooling >0) then
-    if (calc_Teq) then
-       tau_lucy_bounded = max(0., tau_lucy)
-       Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
-    endif
-    call energ_cooling(x,y,z,vxyzu(4),dudt,rhoh(xyzh(4),massoftype(igas)),dtsph,Teq,JKmuS(6),JKmus(4),kappa)
-    !WARNING vxyzu(4)= vxyzu(4)+dudt*dtsph
- endif
+ call calc_kappa_dust(JKmuS(5), Tdust, Mdot_cgs, JKmuS(8))
 end subroutine evolve_dust
 
 ! subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)

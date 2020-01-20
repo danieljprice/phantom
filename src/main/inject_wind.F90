@@ -182,7 +182,7 @@ subroutine init_inject(ierr)
     wind_velocity = initial_wind_velocity_cgs/unit_velocity
 
     !save 1D initial profile for comparison
-    call save_windprofile(wind_injection_radius*udist,initial_wind_velocity_cgs,&
+    if (iverbose > 1) call save_windprofile(wind_injection_radius*udist,initial_wind_velocity_cgs,&
          wind_temperature, sonic(4),'windprofile1D.dat')
  endif
 
@@ -273,14 +273,12 @@ subroutine init_inject(ierr)
     ! 2 - make sure the size of the boundary layer is not too big (< 0.2 injection_radius)
     if (1.-(iboundary_spheres*dr3)**(1./3.)/wind_injection_radius > 0.2)  print*,'WARNING! the width of the boundary layer = ',&
          1.-(iboundary_spheres*dr3)**(1./3.)/wind_injection_radius,' Rinject'
- else
+ elseif (sonic(1)/udist > wind_injection_radius) then
     !save a few models before the particles reach the sonic point
     if (dtmax > sonic(4)/utime) print *,'WARNING! dtmax > time to sonic point'
-    !minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
-    if (sonic(1)/udist > wind_injection_radius) then
-       ires_min = int(iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5)
-       if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
-    endif
+    !if solution subsonic, minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
+    ires_min = int(iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5)
+    if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
 

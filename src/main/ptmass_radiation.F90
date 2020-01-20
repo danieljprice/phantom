@@ -27,7 +27,7 @@
 !+
 !--------------------------------------------------------------------------
 module ptmass_radiation
- use part, only:iTeff,iLum
+
  implicit none
  integer, public  :: isink_radiation = 0
  integer, private :: iget_tdust = 0
@@ -35,6 +35,8 @@ module ptmass_radiation
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature_from_ptmass
+ private
+ integer, parameter :: N = 1024
 
 contains
 !-----------------------------------------------------------------------
@@ -55,24 +57,24 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
- use part,    only:isdead_or_accreted
+ use part,  only:isdead_or_accreted
+ use part,  only:dust_temp
+ use units, only:umass,unit_energ,utime
 #ifdef NUCLEATION
  use part,  only:nucleation
 #endif
- use part,  only:dust_temp
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xyzmh_ptmass(:,:)
  real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,xa,ya,za,r,pmassj,plumj,pmlossj,ax,ay,az
+ real                    :: dx,dy,dz,xa,ya,za,r,Mstar_cgs,Lstar_cgs,ax,ay,az
  integer                 :: i,j
 
  do j=1,nptmass
-    pmassj  = xyzmh_ptmass(4,j)
-    plumj   = xyzmh_ptmass(12,j)
-    pmlossj = xyzmh_ptmass(14,j)
+    Mstar_cgs  = xyzmh_ptmass(4,j)*umass
+    Lstar_cgs  = xyzmh_ptmass(12,j)*unit_energ/utime
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
-    if (plumj > 0.d0) then
+    if (Lstar_cgs > 0.d0) then
       xa = xyzmh_ptmass(1,j)
       ya = xyzmh_ptmass(2,j)
       za = xyzmh_ptmass(3,j)
@@ -81,7 +83,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
       !$omp shared(nucleation)&
 #endif
       !$omp shared(dust_temp) &
-      !$omp shared(npart,xa,ya,za,pmassj,plumj,pmlossj,xyzh,fext) &
+      !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
       !$omp private(i,dx,dy,dz,ax,ay,az,r)
       do i=1,npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -90,9 +92,9 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
             dz = xyzh(3,i) - za
             r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-            call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,K3=nucleation(5,i))
+            call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(8,i))
 #else
-            call get_radiative_acceleration_from_star(r,dx,dy,dz,pmassj,plumj,pmlossj,ax,ay,az,Tdust=dust_temp(i))
+            call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
 #endif
             fext(1,i) = fext(1,i) + ax
             fext(2,i) = fext(2,i) + ay
@@ -111,29 +113,31 @@ end subroutine get_rad_accel_from_ptmass
 !  based on sink particle luminosity and computed opacities / column depth
 !+
 !-----------------------------------------------------------------------
-subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,Mdot,ax,ay,az,K3,Tdust)
+subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+     ax,ay,az,kappa,Tdust)
+ use units,   only: umass
 #ifdef NUCLEATION
  use dust_formation, only:calc_alpha_dust
 #else
  use dust_formation, only:calc_alpha_bowen
 #endif
- real, intent(in)    :: r,dx,dy,dz,Mstar,Lstar,Mdot
- real, optional, intent(in)  :: K3,Tdust
+ real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs
+ real, optional, intent(in) :: kappa,Tdust
  real, intent(out)   :: ax,ay,az
  real :: fac,alpha_dust
 
  select case (isink_radiation)
  case (1)
     ! alpha wind
-    fac = alpha_rad*Mstar/r**3
+    fac = alpha_rad*Mstar_cgs/(umass*r**3)
  case (2)
     ! radiation pressure on dust
 #ifdef NUCLEATION
-    call calc_alpha_dust(Mstar,Lstar,Mdot,K3,alpha_dust)
+    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
 #else
-    call calc_alpha_bowen(Mstar,Lstar,Tdust,alpha_dust)
+    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
 #endif
-    fac = alpha_dust*Mstar/r**3
+    fac = alpha_dust*Mstar_cgs/(umass*r**3)
  case default
     ! no radiation pressure
     fac = 0.
@@ -145,7 +149,7 @@ end subroutine get_radiative_acceleration_from_star
 
 !-----------------------------------------------------------------------
 !+
-!  compute dust temperature by ray tracing from sink particles
+!  compute dust temperature by performing simplistic ray tracing from sink particles
 !  through the gas, or by simpler approximations
 !+
 !-----------------------------------------------------------------------
@@ -156,7 +160,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
  real,     intent(in)    :: xyzmh_ptmass(:,:)
 ! real,     intent(in)    :: opacity(:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,pLumj,pTeffj,pReffj,xa,ya,za
+ real                    :: r,L_star,T_star,R_star,Mdot,xa,ya,za
  integer                 :: i,j
 
  !
@@ -167,23 +171,25 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
     return
  endif
 
+ !property of the sink particle
+ j = 1
+ T_star = xyzmh_ptmass(iTeff,j)
+ L_star = xyzmh_ptmass(iLum,j)
+ R_star = xyzmh_ptmass(iReff,j) !sqrt(L_star/(4.*pi*steboltz*utime**3/umass*R_star**4))
+ Mdot   = xyzmh_ptmass(14,j)
+ xa = xyzmh_ptmass(1,j)
+ ya = xyzmh_ptmass(2,j)
+ za = xyzmh_ptmass(3,j)
  select case (iget_tdust)
+ ! simple T(r) relation
  case (1)
-    ! simple T(r) relation
-    j = 1
-    pTeffj = xyzmh_ptmass(iTeff,j)
-    plumj  = xyzmh_ptmass(iLum,j)
-    pReffj = xyzmh_ptmass(iReff,j) !sqrt(pLumj/(4.*pi*steboltz*utime**3/umass*pTeffj**4))
-    xa = xyzmh_ptmass(1,j)
-    ya = xyzmh_ptmass(2,j)
-    za = xyzmh_ptmass(3,j)
     !$omp parallel  do default(none) &
-    !$omp shared(npart,xa,ya,za,pReffj,pTeffj,xyzh,dust_temp) &
+    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp) &
     !$omp private(i,r)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-          dust_temp(i) = pTeffj*sqrt(pReffj/r)
+          dust_temp(i) = T_star*sqrt(R_star/r)
        endif
     enddo
     !$omp end parallel do
