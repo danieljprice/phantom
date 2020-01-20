@@ -69,6 +69,7 @@ module inject
  integer :: iboundary_spheres = 5
  integer :: iwind_resolution = 0
  integer :: nfill_domain = 30
+ integer, parameter :: nsonic = 7
  real :: outer_boundary_au = 10.
  real :: wind_shell_spacing = 1.
  real :: pulsation_period
@@ -109,7 +110,7 @@ subroutine init_inject(ierr)
  use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point
- real :: mV_on_MdotR,initial_wind_velocity_cgs,sonic(8),rho_inj,dist_to_sonic_point
+ real :: mV_on_MdotR,initial_wind_velocity_cgs,sonic(nsonic),rho_inj,dist_to_sonic_point
  real :: dr,dp,mass_of_particles1,Rinject
 
  !
@@ -276,8 +277,10 @@ subroutine init_inject(ierr)
     !save a few models before the particles reach the sonic point
     if (dtmax > sonic(4)/utime) print *,'WARNING! dtmax > time to sonic point'
     !minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
-    ires_min = iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5
-    if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
+    if (sonic(1)/udist > wind_injection_radius) then
+       ires_min = int(iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/wind_injection_radius-1.)+.5)
+       if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
+    endif
  endif
 
 
@@ -504,7 +507,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
  integer, intent(in) :: stype
  real, intent(in)    :: r0, T0
  real, intent(inout) :: v0
- real, intent(out)   :: sonic(8)
+ real, intent(out)   :: sonic(nsonic)
 
  type(wind_state) :: state
 
@@ -608,20 +611,9 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
           exit
        endif
     enddo
-    !
-    !store sonic point properties (location, time to reach, ...)
-    !
-    sonic(1) = state%r
-    sonic(2) = state%v
-    sonic(3) = state%c
-    sonic(4) = state%time
-    sonic(5) = state%Tg
-    sonic(6) = state%p
-    sonic(7) = state%alpha
-    !mdot = 4.*pi*rho*v0*ro*ro
 
     write (*,'("Sonic point properties  cs (km/s) =",f9.3,", Rs/r0 = ",f7.3,", Rs/R* = ",f7.3,", v0/cs = ",f9.6,", ts =",f8.1)') &
-         sonic(2)/1e5,sonic(1)/r0,sonic(1)/Rstar_cgs,v0/sonic(2),sonic(4)/utime
+         state%v/1e5,state%r/r0,state%r/Rstar_cgs,v0/state%v,state%time/utime
 
  else
     if (v0 >= cs) then
@@ -629,7 +621,19 @@ subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
     else
        print *,' sub-sonic wind : v0/cs = ',v0/cs
     endif
+    call calc_wind_profile(r0, v0, T0, 0., state)
  endif
+ !
+ !store sonic point properties (location, time to reach, ...)
+ !
+ sonic(1) = state%r
+ sonic(2) = state%v
+ sonic(3) = state%c
+ sonic(4) = state%time
+ sonic(5) = state%Tg
+ sonic(6) = state%p
+ sonic(7) = state%alpha
+ !mdot = 4.*pi*rho*v0*ro*ro
 
 end subroutine get_initial_wind_speed
 
