@@ -916,7 +916,7 @@ subroutine copy_particle_all(src,dst)
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
  endif
- 
+
  return
 end subroutine copy_particle_all
 

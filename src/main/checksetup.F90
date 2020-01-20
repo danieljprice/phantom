@@ -639,7 +639,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
        dx2 = dot_product(dx,dx)
        if (dx2 < epsilon(dx2) .and. itypei==itypej) then
           nbad = nbad + 1
-          if (nbad <= 100) then 
+          if (nbad <= 100) then
              print*,'WARNING: particles of same type at same position: '
              print*,' ',index(i),':',xyzh(1:3,index(i))
              print*,' ',index(j),':',xyzh(1:3,index(j))

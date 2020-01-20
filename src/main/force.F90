@@ -2753,7 +2753,7 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,il
     projvstar = projv - 2.*sep*slope
  else
     !
-    !--reconstruction with no slope limiter 
+    !--reconstruction with no slope limiter
     !  (mainly useful for testing purposes)
     !
     projvstar = projv - sep*(slopei + slopej)
@@ -2775,7 +2775,7 @@ real function slope_limiter(sl,sr) result(s)
 
  ! Van Leer
  !if (sl*sr > 0.) s = 2.*sl*sr/(sl + sr)
- 
+
  ! minmod
  !if (sl > 0. .and. sr > 0.) then
  !   s = min(abs(sl),abs(sr))
