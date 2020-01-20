@@ -1317,9 +1317,9 @@ subroutine amuse_evolve_model(tmax_in)
         call step_wrapper()
         call finalize_step(infile, logfile, evfile, dumpfile)
         steps_this_loop = steps_this_loop + 1
-        if (rhomaxnow > rho_crit) then
-            exit
-        endif
+        ! if (rhomaxnow > rho_crit) then
+        !     exit
+        ! endif
     enddo timestepping
 end subroutine
 
