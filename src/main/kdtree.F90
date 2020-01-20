@@ -780,39 +780,39 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
        ! k = 0
        do while(i < j)
-         if (lessthenpivot(i)) then
-           i = i + 1
-           lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
-         else
-           if (.not.lessthenpivot(j)) then
-             j = j - 1
-             lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
-           else
-             inodeparts_swap = inodeparts(i)
-             xyzh_swap(1:4)  = xyzh_soa(i,1:4)
-             iphase_swap     = iphase_soa(i)
-
-             inodeparts(i)   = inodeparts(j)
-             xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
-             iphase_soa(i)   = iphase_soa(j)
-
-             inodeparts(j)   = inodeparts_swap
-             xyzh_soa(j,1:4) = xyzh_swap(1:4)
-             iphase_soa(j)   = iphase_swap
-
+          if (lessthenpivot(i)) then
              i = i + 1
-             j = j - 1
              lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
-             lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
-             ! k = k + 1
-           endif
-         endif
+          else
+             if (.not.lessthenpivot(j)) then
+                j = j - 1
+                lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
+             else
+                inodeparts_swap = inodeparts(i)
+                xyzh_swap(1:4)  = xyzh_soa(i,1:4)
+                iphase_swap     = iphase_soa(i)
+
+                inodeparts(i)   = inodeparts(j)
+                xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
+                iphase_soa(i)   = iphase_soa(j)
+
+                inodeparts(j)   = inodeparts_swap
+                xyzh_soa(j,1:4) = xyzh_swap(1:4)
+                iphase_soa(j)   = iphase_swap
+
+                i = i + 1
+                j = j - 1
+                lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
+                lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
+                ! k = k + 1
+             endif
+          endif
        enddo
        if (.not.lessthenpivot(i)) then
-         i = i - 1
+          i = i - 1
        endif
        if (lessthenpivot(j)) then
-         j = j + 1
+          j = j + 1
        endif
 
        inoderange(1,il) = nl
@@ -824,8 +824,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        nr = nr - (j - 1)
 
        if (nr + nl  /=  npnode) then
-         call error('maketree','number of left + right != parent number of particles while splitting node')
-      endif
+          call error('maketree','number of left + right != parent number of particles while splitting node')
+       endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
        if ( (.not. present(groupsize)) .and. ((nl==npnode) .or. (nr==npnode)) ) then
