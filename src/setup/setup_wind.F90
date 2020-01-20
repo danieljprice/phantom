@@ -175,7 +175,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ieos = 1
        polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
     endif
+ else
+    polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
  endif
+
 
 !
 ! add low density background medium
