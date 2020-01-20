@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -52,6 +52,10 @@ module extern_binary
  private
 
  real, private :: x1,y1,x2,y2
+
+ ! Required for HDF5 compatibility
+ real, public :: a0 = 0.
+ real, public :: direction = 0.
 
 contains
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -391,7 +391,7 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
 
     !--ARP added:
     !--If we only want to initialise parameters for the cooling:
- elseif(ichem==0) then
+ elseif (ichem==0) then
 
     !--read in chemistry of particle
     h2ratio = chemarrays(ih2ratio)

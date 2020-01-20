@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -46,7 +46,7 @@ subroutine test_sedov(ntests,npass)
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce
 #endif
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
  use evolve,    only:evol
@@ -180,8 +180,7 @@ subroutine test_sedov(ntests,npass)
     open(unit=itmp,file='test.in',status='old',iostat=ierr)
     close(unit=itmp,status='delete',iostat=ierr)
 
-    ntests = ntests + 1
-    if (all(nfailed(:)==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
  else
     if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs thermal energy: maxvxyzu=4)'
 

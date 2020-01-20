@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -264,7 +264,7 @@ real function yinterp(x, xtab, ytab, ntab)
  if (x <= xtab(1)) then
     yinterp = ytab(1)
     return
- else if (x >= xtab(ntab)) then
+ elseif (x >= xtab(ntab)) then
     yinterp = ytab(ntab)
     return
  endif

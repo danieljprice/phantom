@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -185,10 +185,12 @@ subroutine change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
  !
  !--the number of bins should only decrease when bins are synchronised
  !
- if (nbinmax < nbinmaxprev .and. mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
-    write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),' when changing nbinmax from ', &
-                    nbinmaxprev,'->',nbinmax
-    call die
+ if (nbinmax < nbinmaxprev) then
+    if (mod(istepfrac,2**(nbinmaxprev-nbinmax)) /= 0) then
+       write(iprint,*) 'error: istepfrac not multiple of ',2**(nbinmaxprev-nbinmax),&
+         ' when changing nbinmax from ',nbinmaxprev,'->',nbinmax
+       call die
+    endif
  endif
  if (nbinmax > nbinmaxprev) then
     istepfrac = istepfrac*2**(nbinmax-nbinmaxprev)
@@ -300,7 +302,7 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
        ibin_dts(itdt1, i) = 1.0/ibin_dts(itdt,i)
        ibin_dts(ittwas,i) = time + 0.5*get_dt(dtmax,int(i,kind=1))
     enddo
- else if (dtmax_ifactor < 0) then
+ elseif (dtmax_ifactor < 0) then
     dtmax    = -dtmax*dtmax_ifactor
     ibin_rat = -int((log10(real(-dtmax_ifactor)-1.0)/log10(2.0))+1,kind=1)
     do i = nbins,abs(ibin_rat),-1
@@ -497,5 +499,30 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
 !5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
 
 end subroutine print_dtlog_ind
+
+!----------------------------------------------------------------
+!+
+!  Checks which timestep is the limiting dt.  Book keeping is done here
+!+
+!----------------------------------------------------------------
+subroutine check_dtmin(dtcheck,dti,dtopt,dtrat,ndtopt,dtoptfacmean,dtoptfacmax,dtchar_out,dtchar_in)
+ integer, intent(inout) :: ndtopt
+ real,    intent(in)    :: dti,dtopt,dtrat
+ real,    intent(inout) :: dtoptfacmean,dtoptfacmax
+ logical, intent(inout) :: dtcheck
+ character(len=*), intent(out)   :: dtchar_out
+ character(len=*), intent(in)    :: dtchar_in
+
+ if (.not. dtcheck) return
+
+ if ( abs(dti-dtopt) < tiny(dti)) then
+    dtcheck      = .false.
+    ndtopt       = ndtopt + 1
+    dtoptfacmean = dtoptfacmean + dtrat
+    dtoptfacmax  = max(dtoptfacmax, dtrat)
+    dtchar_out   = dtchar_in
+ endif
+
+end subroutine check_dtmin
 
 end module timestep_ind

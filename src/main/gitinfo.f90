@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -50,6 +50,10 @@ subroutine get_and_print_gitinfo(iunit)
  if (.not.iexist) then
     filename='../bin/'//trim(filename)
     inquire(file=filename,exist=iexist)
+    if (.not.iexist) then
+       filename='./bin/'//trim(filename)
+       inquire(file=filename,exist=iexist)
+    endif
  endif
  io_local = 0
  if (iexist) open(unit=igit,file=filename,status='old',iostat=io_local)

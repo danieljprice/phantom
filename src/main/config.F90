@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -41,7 +41,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1000000
+ integer, parameter :: maxp_hard = 1200000
 #endif
 
  ! maximum number of point masses
@@ -178,6 +178,8 @@ module dim
 #else
  integer, parameter :: ndivcurlv = 1
 #endif
+ ! storage of velocity derivatives
+ integer :: maxdvdx = 0  ! set to maxp when memory allocated
 
  ! periodic boundaries
 #ifdef PERIODIC
@@ -223,16 +225,6 @@ module dim
 #else
  logical, parameter :: mhd_nonideal = .false.
 #endif
-
-!--------------------
-! Velocity gradients
-!--------------------
-!
-! storage of velocity derivatives, necessary if
-! physical viscosity is done with two
-! first derivatives or if dust is used
-!
- integer, parameter :: maxdvdx = maxp_hard ! TO FIX
 
 !--------------------
 ! H2 Chemistry
@@ -379,6 +371,7 @@ subroutine update_max_sizes(n)
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan
+ maxdvdx = maxan
 
 end subroutine update_max_sizes
 

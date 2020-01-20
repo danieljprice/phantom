@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -64,10 +64,13 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:)
- real, allocatable :: csound(:) !- sound speed around each dust particles
- real, allocatable :: St(:)
- character(len=*), parameter :: dustprop_label(4) = (/'grainsize ','graindens ','vrel/vfrag','  dv/Vt   '/)
+ real, allocatable :: dustprop(:,:) !- size and intrinsic density
+ real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
+ real, allocatable :: VrelVf(:)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
+ character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
+ character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+ logical, public             :: this_is_a_test = .false.
 !
 !--storage in divcurlv
 !
@@ -89,7 +92,11 @@ module part
 !
 !--velocity gradients
 !
- real(kind=4) :: dvdx(9,maxdvdx)
+ real(kind=4), allocatable :: dvdx(:,:)
+ character(len=*), parameter :: dvdx_label(9) = &
+   (/'dvxdx','dvxdy','dvxdz', &
+     'dvydx','dvydy','dvydz', &
+     'dvzdx','dvzdy','dvzdz'/)
 !
 !--H2 chemistry
 !
@@ -181,6 +188,7 @@ module part
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
 !
@@ -323,18 +331,19 @@ subroutine allocate_part
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
+ call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
- call allocate_array('dustprop', dustprop, 4, maxp_growth)
- call allocate_array('St', St, maxp_growth)
- call allocate_array('csound', csound, maxp_growth)
+ call allocate_array('dustprop', dustprop, 2, maxp_growth)
+ call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, maxp_growth)
  call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
- call allocate_array('ddustprop', ddustprop, 4, maxp_growth)
+ call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
@@ -347,12 +356,12 @@ subroutine allocate_part
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
- call allocate_array('divBsumm', divBsymm, maxmhdan)
+ call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
- call allocate_array('dustproppred', dustproppred, 4, maxp_growth)
+ call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
  call allocate_array('radiation', radiation, maxirad, maxprad)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
@@ -379,12 +388,13 @@ subroutine deallocate_part
  deallocate(vxyzu)
  deallocate(alphaind)
  deallocate(divcurlv)
+ deallocate(dvdx)
  deallocate(divcurlB)
  deallocate(Bevol)
  deallocate(Bxyz)
  deallocate(dustprop)
- deallocate(St)
- deallocate(csound)
+ deallocate(dustgasprop)
+ deallocate(VrelVf)
  deallocate(abundance)
  deallocate(temperature)
  deallocate(dustfrac)
@@ -447,14 +457,13 @@ subroutine init_part
  if (maxphase > 0) iphase = 0 ! phases not set
  if (maxalpha==maxp)  alphaind = 0.
  if (ndivcurlv > 0) divcurlv = 0.
+ if (maxdvdx==maxp) dvdx = 0.
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
  if (use_dust) dustfrac = 0.
  ndustsmall = 0
  ndustlarge = 0
-#ifdef LIGHTCURVE
  if (lightcurve) luminosity = 0.
-#endif
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)
@@ -465,7 +474,9 @@ subroutine init_part
  endif
  !-- Initialise dust properties to zero
 #ifdef DUSTGROWTH
- dustprop(:,i) = 0.
+ dustprop(:,:)    = 0.
+ dustgasprop(:,:) = 0.
+ VrelVf(:)        = 0.
 #endif
 
 end subroutine init_part
@@ -860,16 +871,21 @@ subroutine copy_particle_all(src,dst)
  integer, intent(in) :: src,dst
 
  xyzh(:,dst)  = xyzh(:,src)
+ xyzh_soa(dst,:)  = xyzh_soa(src,:)
  vxyzu(:,dst) = vxyzu(:,src)
- vpred(:,dst) = vpred(:,src)
- fxyzu(:,dst) = fxyzu(:,src)
- fext(:,dst)  = fext(:,src)
+ if (maxan==maxp) then
+    vpred(:,dst) = vpred(:,src)
+    fxyzu(:,dst) = fxyzu(:,src)
+    fext(:,dst)  = fext(:,src)
+ endif
  if (mhd) then
     Bevol(:,dst)  = Bevol(:,src)
-    Bpred(:,dst)  = Bpred(:,src)
-    dBevol(:,dst) = dBevol(:,src)
+    if (maxmhdan==maxp) then
+       Bpred(:,dst)  = Bpred(:,src)
+       dBevol(:,dst) = dBevol(:,src)
+       divBsymm(dst) = divBsymm(src)
+    endif
     Bxyz(:,dst)   = Bxyz(:,src)
-    divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
        n_R(:,dst)       = n_R(:,src)
        n_electronT(dst) = n_electronT(src)
@@ -878,27 +894,46 @@ subroutine copy_particle_all(src,dst)
  endif
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
+ if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
+ if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)       = ibin(src)
- ibin_old(dst)   = ibin_old(src)
- ibin_wake(dst)  = ibin_wake(src)
- dt_in(dst)      = dt_in(src)
- twas(dst)       = twas(src)
+ if (maxan==maxp) then
+    ibin(dst)       = ibin(src)
+    ibin_old(dst)   = ibin_old(src)
+    ibin_wake(dst)  = ibin_wake(src)
+    dt_in(dst)      = dt_in(src)
+    twas(dst)       = twas(src)
+ endif
 #endif
  if (use_dust) then
-    dustfrac(:,dst)  = dustfrac(:,src)
+    if (maxp_dustfrac==maxp) dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
-    dustpred(:,dst)  = dustpred(:,src)
-    ddustevol(:,dst) = ddustevol(:,src)
+    if (maxdustan==maxp) then
+       dustpred(:,dst)  = dustpred(:,src)
+       ddustevol(:,dst) = ddustevol(:,src)
+       if (maxdusttypes > 0) tstop(:,dst) = tstop(:,src)
+    endif
     deltav(:,:,dst)  = deltav(:,:,src)
+    if (maxp_growth==maxp) then
+       dustprop(:,dst) = dustprop(:,src)
+       ddustprop(:,dst) = ddustprop(:,src)
+       dustgasprop(:,dst) = dustgasprop(:,src)
+       VrelVf(dst) = VrelVf(src)
+       dustproppred(:,dst) = dustproppred(:,src)
+    endif
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ ibelong(dst) = ibelong(src)
+ if (maxsts==maxp) then
+    istsactive(dst) = istsactive(src)
+    ibin_sts(dst) = ibin_sts(src)
+ endif
 
  return
 end subroutine copy_particle_all
@@ -1276,20 +1311,34 @@ end subroutine
 
 !----------------------------------------------------------------
 !+
-!  Delete particles outside of a defined sphere
+!  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center, radius)
+subroutine delete_particles_outside_sphere(center, radius, revert)
  real, intent(in) :: center(3), radius
+ logical, intent(in), optional :: revert
 
  integer :: i
+ logical :: use_revert
  real :: r(3), radius_squared
+
+ if (present(revert)) then
+    use_revert = revert
+ else
+    use_revert = .false.
+ endif
 
  radius_squared = radius**2
  do i=1,npart
     r = xyzh(1:3,i) - center
-    if (dot_product(r,r)  >  radius_squared) then
-       xyzh(4,i) = -abs(xyzh(4,i))
+    if (use_revert) then
+       if (dot_product(r,r)  <  radius_squared) then
+          xyzh(4,i) = -abs(xyzh(4,i))
+       endif
+    else
+       if (dot_product(r,r)  >  radius_squared) then
+          xyzh(4,i) = -abs(xyzh(4,i))
+       endif
     endif
  enddo
 end subroutine
@@ -1349,5 +1398,39 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
 
  return
 end subroutine
+
+!----------------------------------------------------------------
+ !+
+ !  Returns keplerian rotational frequency of particle i
+ !+
+ !----------------------------------------------------------------
+real function Omega_k(i)
+ integer, intent(in)  :: i
+ real                 :: m_star,r
+ integer              :: j
+
+ m_star = 0.
+ r      = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+
+ !- WARNING: for nptmass = 2 mstar is the sum of both stars by default.
+ !- Be careful: this would be relatively okay for a close binary but not for something like a flyby.
+ select case(nptmass)
+ case(1)
+    m_star    = xyzmh_ptmass(4,nptmass)
+ case(2)
+    do j=1,nptmass
+       m_star = m_star + xyzmh_ptmass(4,j)
+    enddo
+ end select
+
+ if (r > 0. .and. m_star > 0.) then
+    Omega_k = sqrt(m_star/r) / r
+ elseif (this_is_a_test) then
+    Omega_k = 1/(r**1.5)
+ else
+    Omega_k = 0.
+ endif
+
+end function Omega_k
 
 end module part

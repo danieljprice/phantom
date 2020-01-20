@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -104,7 +104,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 !-- How many particles do we need to inject?
 !   (Seems to need at least eight gas particles to not crash) <-- This statement may or may not be true...
 !
- if(npartoftype(igas)<8) then
+ if (npartoftype(igas)<8) then
     npinject = 8-npartoftype(igas)
  else
     npinject = max(0, int(0.5 + (time*dmdt/massoftype(igas)) - npartoftype(igas) ))

@@ -12,3 +12,6 @@ build/phantom-version.h
 *.bindata
 *.pyc
 *.optrpt
+*.js
+.DS_Store
+_build

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -107,16 +107,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
-#ifdef DUSTGROWTH
- use growth,                only:check_dustprop
-#endif
-! #ifdef LIVE_ANALYSIS
-!  use io,              only:ianalysis
-!  use part,            only:ithick
-!  use fileutils,       only:numfromfile
-!  use analysis,        only:do_analysis
-!  use radiation_utils, only:set_radfluxesandregions
-! #endif
+ use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -205,6 +196,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -321,6 +313,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+ if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
+
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -475,6 +469,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
+    if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
+
     call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
 
     if (.not.converged .and. npart > 0) then
@@ -520,9 +516,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo
 !$omp end parallel do
 
-#ifdef DUSTGROWTH
-       call check_dustprop(npart,dustprop(1,:)) !--check minimum size in case of fragmentation
-#endif
+       call check_dustprop(npart,dustprop(1,:))
 
 !
 !   get new force using updated velocity: no need to recalculate density etc.
@@ -679,6 +673,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
           ! get sink-sink forces (and a new sink-sink timestep.  Note: fxyz_ptmass is zeroed in this subroutine)
           ! pass sink-sink forces to variable fxyz_ptmass_sinksink for later writing.
           !
+          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
           fxyz_ptmass_sinksink=fxyz_ptmass
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf

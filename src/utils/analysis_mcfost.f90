@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -41,12 +41,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
                           deinit_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes,rhoh,&
-                          do_radiation,radiation,ithick,maxirad,ikappa,iradxi,idflux,&
-                          inumph,ivorcl
- use units,          only:umass,utime,udist,unit_velocity,unit_energ
- use io,             only:fatal,warning,iprint
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
+                          grainsize,graindens,ndusttypes
+                        !   rhoh,inumph,ivorcl, &
+                        !   do_radiation,radiation,ithick,maxirad,ikappa,iradxi,idflux, &
+! use units,          only:unit_velocity,unit_energ
+! use io,             only:warning,iprint
+ use units,          only:umass,utime,udist
+ use io,             only:fatal
  use dim,            only:use_dust,lightcurve,maxdusttypes
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
@@ -118,12 +120,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
     ! this this the factor needed to compute u^(n+1)/dtmax from temperature
     T_to_u = factor * massoftype(igas) /dtmax
 
-    call run_mcfost_phantom(&
-         npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
-         xyzh,vxyzu,radiation,ivorcl,&
-         itype,grainsize,graindens,dustfrac,massoftype,&
-         xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+   !  Call to mcfost on phantom-radiation branch
+   !  call run_mcfost_phantom(&
+   !    npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
+   !    xyzh,vxyzu,radiation,ivorcl,&
+   !    itype,grainsize,graindens,dustfrac,massoftype,&
+   !    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+   !    n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+
+    call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
+         npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
+         xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+         Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+    !print*,' mu_gas = ',mu_gas
 
     Tmin = minval(Tdust, mask=(Tdust > 0.))
     Tmax = maxval(Tdust)

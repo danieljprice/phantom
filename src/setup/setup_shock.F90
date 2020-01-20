@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -587,7 +587,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        use_dustfrac = .false.
     endif
     call prompt('Enter dust to gas ratio',dtg,0.)
-    call prompt('Enter constant drag coefficient',K_code,0.)
+    call prompt('Enter constant drag coefficient',K_code(1),0.)
  endif
 
  return

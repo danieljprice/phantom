@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@
 !+
 !--------------------------------------------------------------------------
 module testnimhd
- use testutils, only:checkval
+ use testutils, only:checkval,update_test_scores
  use io,        only:id,master
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:use_sts
@@ -44,6 +44,11 @@ module testnimhd
 #endif
 
 contains
+
+!--------------------------------------------------------------------------
+!+
+!  unit tests of non-ideal MHD
+!+
 !--------------------------------------------------------------------------
 subroutine test_nonidealmhd(ntests,npass)
  integer, intent(inout) :: ntests,npass
@@ -92,7 +97,6 @@ subroutine test_wavedamp(ntests,npass)
                           dustprop,ddustprop
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
- use testutils,      only:checkval
  use eos,            only:ieos,polyk,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
@@ -243,10 +247,10 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_wavedamp
+
 !--------------------------------------------------------------------------
 !+
 !  Tests the Hall effect in a standing shock
@@ -478,9 +482,7 @@ subroutine test_standingshock(ntests,npass)
  call checkval(L2b,0.0,  tolb,  nerr(3),'B_y error on standing shock, compared to analytics')
  call checkval(valid_dt, .true.,nerr(4),'dt to ensure above valid default')
  call checkval(valid_bdy,.true.,nerr(5),'Boundary particles are correctly initialised')
-
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_standingshock
 !--------------------------------------------------------------------------
@@ -527,18 +529,21 @@ subroutine test_narrays(ntests,npass)
  !       since they shift slightly during derivs and step.
  ! Note: the first set of values is for the initial conditions of Wurster, Price & Bate (2016); the
  !       second set is high density/B-field to ensure thermal ionisation is working
+ ! WARNING! These results are *very* sensitive to the non-ideal processes, thus will likely need to be
+ !          modified every time NICIL is updated.  This test is to ensure that all input etc are still
+ !          correct.
  !
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
  rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) = 1.14793940113d10          ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 3.40040077209d14          ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.26247580402d17          ! [cm^2/s] expected eta_ambi
+ eta_act(1,1) = 1.14780101430d10          ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = 2.29652793254d14          ! [cm^2/s] expected eta_hall
+ eta_act(3,1) = 5.36861857791d17          ! [cm^2/s] expected eta_ambi
  rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 5.93454638765d8           ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.08059808926d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.17918319187d-3          ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) = 5.90833378647d8           ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) = 1.08660930790d4           ! [cm^2/s] expected eta_hall
+ eta_act(3,2) = 4.24522340318d-3          ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -615,8 +620,7 @@ subroutine test_narrays(ntests,npass)
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
 
  enddo
- ntests = ntests + 1
- if (all(nerr==0)) npass = npass + 1
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_narrays
 !--------------------------------------------------------------------------

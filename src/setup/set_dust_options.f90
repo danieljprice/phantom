@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -94,13 +94,18 @@ end subroutine set_dust_default_options
 subroutine set_dust_interactively()
 
  !--can only use one dust method
- call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+ if (.not. use_dustgrowth) then
+    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+ else !- if dustgrowth, enforce two-fluid, single grain population
+    dust_method   = 2
+    ndusttypesinp = 1
+ endif
  call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
 
  if (dust_method==1) then
     call prompt('How many grain sizes do you want?',ndusttypesinp,1,maxdustsmall)
     call prompt('Do you want to limit the dust flux?',ilimitdustfluxinp)
- elseif (dust_method==2) then
+ elseif (dust_method==2 .and. .not.use_dustgrowth) then
     call prompt('How many grain sizes do you want?',ndusttypesinp,1,maxdustlarge)
  endif
 
@@ -320,7 +325,7 @@ subroutine check_dust_method(dust_method,ichange_method)
        spsoundi     = get_spsound(ieos,xyzh(:,i),rhogasi,vxyzu(:,i))
        do l=1,ndusttypesinp
           rhodusti = rhoi*dustfraci(l)
-          call get_ts(idrag,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
+          call get_ts(idrag,l,grainsize(l),graindens(l),rhogasi,rhodusti,spsoundi,0.,tsi(l),iregime)
           if (tsi(l) > xyzh(4,i)/spsoundi) icheckdust(l) = icheckdust(l) + 1
        enddo
     endif

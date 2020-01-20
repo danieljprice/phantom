@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -45,7 +45,6 @@ program phantom2pdf
  real :: smeanvw,smeanmw,svarvw,svarmw
  character(len=120) :: dumpfile,fileout
  character(len=20)  :: string
- logical :: volweighted
 
  call set_io_unit_numbers
  iprint = 6
@@ -155,10 +154,10 @@ program phantom2pdf
     !
     !--calculate PDF of lnrho
     !
-    call pdf_calc(npixx*npixy*npixz,rhogrid,rhologmin,rhologmax,nbins,xval,pdf,pdfmin,pdfmax,.true.,volweighted,ierr)
+    call pdf_calc(npixx*npixy*npixz,rhogrid,rhologmin,rhologmax,nbins,xval,pdf,pdfmin,pdfmax,.true.,ierr)
 
     xval = exp(xval)
-    call pdf_write(nbins,xval,pdf,'lnrhogrid',volweighted,trim(dumpfile),trim(tagline))
+    call pdf_write(nbins,xval,pdf,'lnrhogrid',trim(dumpfile),trim(tagline))
     if (allocated(rhogrid)) deallocate(rhogrid)
 
  enddo over_files
