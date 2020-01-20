@@ -280,6 +280,7 @@ subroutine init_inject(ierr)
     if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
+
  xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
 
 end subroutine init_inject
@@ -295,7 +296,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,           only:fatal,iverbose
  use dim,          only:store_dust_temperature
  use wind,         only:wind_profile
- use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere,dust_temp
+ use part,         only:igas,iTeff,iboundary,nptmass,delete_particles_outside_sphere,dust_temp,n_nucleation
+
  use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
  use units,        only:udist
@@ -310,7 +312,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
 #ifdef NUCLEATION
- real :: JKmuS(7)
+ real :: JKmuS(n_nucleation)
 #endif
 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then

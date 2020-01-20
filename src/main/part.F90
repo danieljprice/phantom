@@ -403,7 +403,7 @@ subroutine allocate_part
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
 #ifdef NUCLEATION
- call allocate_array('nucleation', nucleation, 7, maxsp)
+ call allocate_array('nucleation', nucleation, n_nucleation, maxsp)
 #endif
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
