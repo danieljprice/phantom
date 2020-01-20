@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -25,6 +25,7 @@
 !    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
 !    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
 !    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
+!    irecon            -- use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)
 !
 !  DEPENDENCIES: dim, eos, fileutils, infile_utils, io, options, part,
 !    physcon, units
