@@ -805,15 +805,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
              lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
              lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
              ! k = k + 1
-           end if
-         end if
-       end do
+           endif
+         endif
+       enddo
        if (.not.lessthenpivot(i)) then
          i = i - 1
-       end if
+       endif
        if (lessthenpivot(j)) then
          j = j + 1
-       end if
+       endif
 
        inoderange(1,il) = nl
        inoderange(2,il) = i
