@@ -38,7 +38,6 @@ module kdtree
  type(kdnode),     allocatable :: refinementnode(:)
 #endif
  integer,          allocatable :: list(:)
- logical,          allocatable :: lessthenpivot(:)
  !$omp threadprivate(list)
 
 !
@@ -91,7 +90,6 @@ subroutine allocate_kdtree
  !$omp parallel
  call allocate_array('list', list, maxp)
  !$omp end parallel
- allocate(lessthenpivot(maxp))
 
 end subroutine allocate_kdtree
 
@@ -104,7 +102,7 @@ subroutine deallocate_kdtree
  !$omp parallel
  deallocate(list)
  !$omp end parallel
- deallocate(lessthenpivot)
+
 end subroutine deallocate_kdtree
 
 
@@ -502,7 +500,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer :: npnodetot
 
  logical :: nodeisactive
- integer :: i,j,npcounter,i1
+ integer :: i,npcounter,i1
  real    :: xi,yi,zi,hi,dx,dy,dz,dr2
  real    :: r2max, hmax
  real    :: xcofm,ycofm,zcofm,fac,dfac
@@ -513,9 +511,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real    :: quads(6)
 #endif
  real    :: pmassi
- integer         :: inodeparts_swap,k
- integer(kind=1) :: iphase_swap
- real            :: xyzh_swap(4)
 
  nodeisactive = .false.
  if (inoderange(1,nnode) > 0) then
@@ -771,57 +766,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-       nl = inoderange(1,nnode)
-       nr = inoderange(2,nnode)
-       i = nl
-       j = nr
+      !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+       !                         inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+       !print*,ir,inodeparts(inoderange(1,il):inoderange(2,il))
+       call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+       !if (il==8) print*,nnode,il,iaxis,nl,nr,xpivot,inodeparts(inoderange(1,il):inoderange(2,il))
 
-       lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
-       lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
-       ! k = 0
-       do while(i < j)
-          if (lessthenpivot(i)) then
-             i = i + 1
-             lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
-          else
-             if (.not.lessthenpivot(j)) then
-                j = j - 1
-                lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
-             else
-                inodeparts_swap = inodeparts(i)
-                xyzh_swap(1:4)  = xyzh_soa(i,1:4)
-                iphase_swap     = iphase_soa(i)
-
-                inodeparts(i)   = inodeparts(j)
-                xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
-                iphase_soa(i)   = iphase_soa(j)
-
-                inodeparts(j)   = inodeparts_swap
-                xyzh_soa(j,1:4) = xyzh_swap(1:4)
-                iphase_soa(j)   = iphase_swap
-
-                i = i + 1
-                j = j - 1
-                lessthenpivot(i) = xyzh_soa(i,iaxis) < xpivot
-                lessthenpivot(j) = xyzh_soa(j,iaxis) < xpivot
-                ! k = k + 1
-             endif
-          endif
-       enddo
-       if (.not.lessthenpivot(i)) then
-          i = i - 1
-       endif
-       if (lessthenpivot(j)) then
-          j = j + 1
-       endif
-
-       inoderange(1,il) = nl
-       inoderange(2,il) = i
-       inoderange(1,ir) = j
-       inoderange(2,ir) = nr
-
-       nl = i - (nl - 1)
-       nr = nr - (j - 1)
+       !if (any(xyzh_soa(inoderange(1,il):inoderange(2,il),iaxis) > xpivot)) print*,' ERROR x > xpivot on left'
+       !if (any(xyzh_soa(inoderange(1,ir):inoderange(2,ir),iaxis) <= xpivot)) print*,' ERROR x <= xpivot on right'
 
        if (nr + nl  /=  npnode) then
           call error('maketree','number of left + right != parent number of particles while splitting node')
@@ -862,6 +815,136 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
 end subroutine construct_node
+
+!----------------------------------------------------------------
+!+
+!  Categorise particles into daughter nodes by whether they 
+!  fall to the left or the right of the pivot axis
+!+
+!----------------------------------------------------------------
+subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+ integer, intent(in)  :: iaxis,imin,imax
+ integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
+ real, intent(inout)  :: xpivot,xyzh_soa(:,:)
+ integer(kind=1), intent(inout) :: iphase_soa(:)
+ integer,         intent(inout) :: inodeparts(:)
+ logical :: i_lt_pivot,j_lt_pivot
+ integer(kind=1) :: iphase_swap
+ integer :: inodeparts_swap,i,j
+ real :: xyzh_swap(4)
+
+ !print*,'nnode ',imin,imax,' pivot = ',iaxis,xpivot
+ i = imin
+ j = imax
+
+ i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+ j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+ ! k = 0
+ do while(i < j)
+    if (i_lt_pivot) then
+       i = i + 1
+       i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+    else
+       if (.not.j_lt_pivot) then
+          j = j - 1
+          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+       else
+          ! swap i and j positions in list
+          inodeparts_swap = inodeparts(i)
+          xyzh_swap(1:4)  = xyzh_soa(i,1:4)
+          iphase_swap     = iphase_soa(i)
+
+          inodeparts(i)   = inodeparts(j)
+          xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
+          iphase_soa(i)   = iphase_soa(j)
+
+          inodeparts(j)   = inodeparts_swap
+          xyzh_soa(j,1:4) = xyzh_swap(1:4)
+          iphase_soa(j)   = iphase_swap
+
+          i = i + 1
+          j = j - 1
+          i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+          ! k = k + 1
+       endif
+    endif
+ enddo
+ if (.not.i_lt_pivot) i = i - 1
+ if (j_lt_pivot)      j = j + 1
+
+ min_l = imin
+ max_l = i
+ min_r = j
+ max_r = imax
+
+ if ( j /= i+1) print*,' ERROR ',i,j
+ nl = max_l - min_l + 1
+ nr = max_r - min_r + 1
+
+end subroutine sort_particles_in_cell
+
+subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+ integer, intent(in)  :: iaxis,imin,imax
+ integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
+ real, intent(inout)  :: xpivot,xyzh_soa(:,:) 
+ integer(kind=1), intent(inout) :: iphase_soa(:)
+ integer,         intent(inout) :: inodeparts(:) 
+ integer :: counterl,counterr,inodeparts_swap(imax),i,j
+ integer(kind=1) :: iphase_swap(imax)
+ real :: xyzh_swap(imax,4),xi
+
+ nl = imin
+ nr = imax
+ inodeparts_swap(nl:nr) = inodeparts(nl:nr)
+ do j=1,4
+   xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
+ enddo
+ iphase_swap(nl:nr) = iphase_soa(nl:nr)
+ counterl = 0
+ !DIR$ ivdep
+ do i = imin, imax
+    xi = xyzh_swap(i,iaxis)
+    if (xi  <=  xpivot) then
+       inodeparts(nl+counterl) = inodeparts_swap(i)
+       xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
+       xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
+       xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
+       xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
+       iphase_soa(nl+counterl) = iphase_swap(i)
+       counterl = counterl + 1
+    endif
+ enddo
+ nl = nl + counterl
+ counterr=0
+ !DIR$ ivdep
+ do i = imin, imax
+    xi = xyzh_swap(i,iaxis)
+    if (xi  >  xpivot) then
+       inodeparts(nl+counterr) = inodeparts_swap(i)
+       xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
+       xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
+       xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
+       xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
+       iphase_soa(nl+counterr) = iphase_swap(i)
+       counterr = counterr + 1
+    endif
+ enddo
+ nr = nr - counterr
+ min_l = imin
+ max_l = nl - 1
+ min_r = nr + 1
+ max_r = imax
+! inoderange(1,il) = inoderange(1,nnode)
+ !inoderange(2,il) = nl - 1
+ !inoderange(1,ir) = nr + 1
+ !inoderange(2,ir) = inoderange(2,nnode)
+! nl = nl - inoderange(1,nnode)
+! nr = inoderange(2,nnode) - nr
+ nl = max_l - min_l + 1
+ nr = max_r - min_r + 1
+
+end subroutine sort_old
 
 !----------------------------------------------------------------
 !+
