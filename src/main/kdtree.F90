@@ -766,7 +766,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-      !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+       !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
        !                         inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
        !print*,ir,inodeparts(inoderange(1,il):inoderange(2,il))
        call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
@@ -818,7 +818,7 @@ end subroutine construct_node
 
 !----------------------------------------------------------------
 !+
-!  Categorise particles into daughter nodes by whether they 
+!  Categorise particles into daughter nodes by whether they
 !  fall to the left or the right of the pivot axis
 !+
 !----------------------------------------------------------------
@@ -887,9 +887,9 @@ end subroutine sort_particles_in_cell
 subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
  integer, intent(in)  :: iaxis,imin,imax
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,xyzh_soa(:,:) 
+ real, intent(inout)  :: xpivot,xyzh_soa(:,:)
  integer(kind=1), intent(inout) :: iphase_soa(:)
- integer,         intent(inout) :: inodeparts(:) 
+ integer,         intent(inout) :: inodeparts(:)
  integer :: counterl,counterr,inodeparts_swap(imax),i,j
  integer(kind=1) :: iphase_swap(imax)
  real :: xyzh_swap(imax,4),xi
@@ -898,7 +898,7 @@ subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_so
  nr = imax
  inodeparts_swap(nl:nr) = inodeparts(nl:nr)
  do j=1,4
-   xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
+    xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
  enddo
  iphase_swap(nl:nr) = iphase_soa(nl:nr)
  counterl = 0
