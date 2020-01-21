@@ -855,7 +855,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real(4) :: divvi,potenj_min,poteni
  integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
- logical :: accreted,iactivej,isdustj,iactivek,isdustk,calc_exact_epot
+ logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot
 
  ifail       = 0
  ifail_array = 0
@@ -983,7 +983,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp shared(ibin_wake,ibin_itest) &
 #endif
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
-!$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isdustj,iactivek,isdustk) &
+!$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,ponrhoj,spsoundj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
 !$omp firstprivate(pmassj,pmassk,itypej,iactivej,itypek) &
 !$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
@@ -994,7 +994,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
-       call get_partinfo(iphase(j),iactivej,isdustj,itypej)
+       call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej,.false.)
        pmassj = massoftype(itypej)
        if (.not. is_accretable(itypej) ) cycle over_neigh ! Verify particle is 'accretable'
     endif
@@ -1076,6 +1076,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              ! Calculate potential energy exactly
              !
              ! add contribution of i-j (since, e.g., rij2 is already calculated)
+             !
              q2i    = rij2*hi21
              qi     = sqrt(q2i)
              call kernel_softening(q2i,qi,psofti,fsoft)
@@ -1085,15 +1086,16 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              epot   = epot + 0.5*pmassi*pmassj*(psofti*hi1 + psoftj*hj1)
              !
              ! add contribution of k-j for all k >= j (to avoid double counting, but include self-contribution)
+             !
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
                 if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
-                   call get_partinfo(iphase(k),iactivek,isdustk,itypek)
+                   itypek = iamtype(iphase(k))
                    pmassk = massoftype(itypek)
                    if (.not. is_accretable(itypek) ) cycle over_neigh_k
                 endif
-                !
+
                 if (nk <= maxcache) then
                    xk = xyzcache(nk,1)
                    yk = xyzcache(nk,2)
