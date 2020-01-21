@@ -261,6 +261,7 @@ subroutine test_uniform_derivs(ntests,npass)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
 
     call checkvalbuf(radiation(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e,ncheck_e,errmax_e)
+    !  this test only works with fixed lambda = 1/3
     call checkvalbuf(radiation(idflux,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f,ncheck_f,errmax_f)
  enddo
  call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e,errmax_e,tol_e)

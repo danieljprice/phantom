@@ -142,7 +142,7 @@ module forces
        idviz          = 20 + 5*(maxdustsmall-1), &
        idensgasi      = 21 + 5*(maxdustsmall-1), &
        icsi           = 22 + 5*(maxdustsmall-1), &
-       idradi         = 23 + 5*(maxdustsmall-1)
+       idradi         = 22 + 5*(maxdustsmall-1) + 1
 
  private
 
@@ -153,8 +153,8 @@ contains
 !  compute all forces and rates of change on the particles
 !+
 !----------------------------------------------------------------
-subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
-                 ipart_rhomax,dt,stressmax,temperature,&
+subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,dustgasprop,&
+                 dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature,&
                  radiation)
 
  use dim,          only:maxvxyzu,maxneigh,maxdvdx,&
@@ -1506,8 +1506,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radiation(ikappa,j)
                 radenj = radiation(iradxi,j)
                 radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
-                radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                !radlambdaj = 1./3.
+                ! radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                radlambdaj = 1./3.
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2110,9 +2110,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
-          cell%xpartvec(iradlambdai,cell%npcell)     = &
-             (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          !cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+         !  cell%xpartvec(iradlambdai,cell%npcell)     = &
+         !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2775,7 +2775,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           ! integration
           if ((radiation(iradxi,i) + dtradi*radiation(idflux,i)) < 0) then
              dtradi = -radiation(iradxi,i)/radiation(idflux,i)/1e1
-             call warning('force','radiation may become negative, limitingtimestep')
+             call warning('force','radiation may become negative, limiting timestep')
           endif
           radiation(idtrad,i) = dtradi
        endif
