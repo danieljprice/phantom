@@ -766,7 +766,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-      !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+       !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
        !                         inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
        !print*,ir,inodeparts(inoderange(1,il):inoderange(2,il))
        call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
@@ -898,7 +898,7 @@ subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_so
  nr = imax
  inodeparts_swap(nl:nr) = inodeparts(nl:nr)
  do j=1,4
-   xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
+    xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
  enddo
  iphase_swap(nl:nr) = iphase_soa(nl:nr)
  counterl = 0
