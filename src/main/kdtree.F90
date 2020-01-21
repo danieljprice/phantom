@@ -818,7 +818,7 @@ end subroutine construct_node
 
 !----------------------------------------------------------------
 !+
-!  Categorise particles into daughter nodes by whether they 
+!  Categorise particles into daughter nodes by whether they
 !  fall to the left or the right of the pivot axis
 !+
 !----------------------------------------------------------------
@@ -887,9 +887,9 @@ end subroutine sort_particles_in_cell
 subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
  integer, intent(in)  :: iaxis,imin,imax
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,xyzh_soa(:,:) 
+ real, intent(inout)  :: xpivot,xyzh_soa(:,:)
  integer(kind=1), intent(inout) :: iphase_soa(:)
- integer,         intent(inout) :: inodeparts(:) 
+ integer,         intent(inout) :: inodeparts(:)
  integer :: counterl,counterr,inodeparts_swap(imax),i,j
  integer(kind=1) :: iphase_swap(imax)
  real :: xyzh_swap(imax,4),xi
