@@ -306,7 +306,7 @@ subroutine test_gravity(ntests,npass,string)
           do i=1,npart
              epot = epot + poten(i)
           enddo
-          call checkval(epot,phitot,4.8e-4,nfailed(4),'potential')
+          call checkval(epot,phitot,5.1e-4,nfailed(4),'potential')
           call update_test_scores(ntests,nfailed(1:4),npass)
        endif
     enddo
