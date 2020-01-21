@@ -386,7 +386,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  if (name(1:6) == 'K_code') then
     str = trim(name(7:len(name)))
     read(str,*,iostat=ierr) int
-    read(valstring,*,iostat=ierr) K_code(int)
+    if (ierr /= 0) int = 1
+    if (int > 0) read(valstring,*,iostat=ierr) K_code(int)
     igot(iKcode) = 1
     imatch = .true.
  endif
