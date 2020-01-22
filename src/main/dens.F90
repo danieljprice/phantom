@@ -1006,8 +1006,8 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
-! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (.false.) then ! do exact linear first derivatives
+ if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
+! if (.false.) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
@@ -1041,12 +1041,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  endif
 
  dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
-! strain(1) = (dvxdxi + dvxdxi)
-! strain(2) = (dvxdyi + dvydxi)
-! strain(3) = (dvxdzi + dvzdxi)
-! strain(4) = (dvydyi + dvydyi)
-! strain(5) = (dvydzi + dvzdyi)
-! strain(6) = (dvzdzi + dvzdzi)
 
 end subroutine calculate_strain_from_sums
 
