@@ -146,9 +146,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,iactive,gradh,&
                         hrho,iphase,maxphase,igas,maxgradh,dvdx, &
-                        eta_nimhd,deltav,poten
+                        eta_nimhd,deltav,poten,iamtype,is_accretable
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -558,7 +558,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     rhomax_thread = 0.
     ipart_rhomax_thread = 0
 !$omp do schedule(runtime)
-    do i=1,npart
+    over_parts: do i=1,npart
        hi = xyzh(4,i)
 #ifdef IND_TIMESTEPS
        if (iactive(iphase(i)) .and..not.isdead_or_accreted(hi)) then
@@ -566,7 +566,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        if (.not.isdead_or_accreted(hi)) then
 #endif
           if (maxphase==maxp) then
-             call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
+             iamtypei = iamtype(iphase(i))
+             if (.not.is_accretable(iamtypei)) cycle over_parts
           else
              iamtypei = igas
           endif
@@ -594,7 +595,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
              endif
           endif
        endif
-    enddo
+    enddo over_parts
 !$omp enddo
     if (rhomax_thread > rho_crit) then
 !$omp critical(rhomaxadd)
@@ -2420,7 +2421,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
              if (ishock_heating > 0) then
-                if (fsum(idudtdissi) < 0.) call warning('force','du/dt_diss -ve: ',i,var='dudt',val=fsum(idudtdissi))
+                if (fsum(idudtdissi) < -epsilon(0.)) &
+                   call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif
 #ifdef LIGHTCURVE
