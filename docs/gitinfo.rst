@@ -34,9 +34,7 @@ Install git-lfs
 ---------------
 
 In order to read large datafiles stored in the phantom git repo, you
-will need git-lfs installed:
-
-::
+will need git-lfs installed::
 
    git lfs install
 
