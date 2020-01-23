@@ -261,7 +261,6 @@ ifeq ($(SETUP), disc)
 endif
 
 ifeq ($(SETUP), grtde)
-    FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_grtde.f90
     GR=yes
     METRIC=kerr
@@ -272,7 +271,7 @@ ifeq ($(SETUP), grtde)
 endif
 
 ifeq ($(SETUP), srpolytrope)
-    FPPFLAGS= -DSORT_RADIUS_INIT -DPRIM2CONS_FIRST
+    FPPFLAGS= -DPRIM2CONS_FIRST
     SETUPFILE= setup_srpolytrope.f90
     GR=yes
     METRIC=minkowski
@@ -283,7 +282,6 @@ ifeq ($(SETUP), srpolytrope)
 endif
 
 ifeq ($(SETUP), grdisc)
-    FPPFLAGS= -DSORT_RADIUS_INIT
     SETUPFILE= setup_grdisc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=no
