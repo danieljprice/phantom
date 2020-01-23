@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -306,7 +306,7 @@ subroutine test_gravity(ntests,npass,string)
           do i=1,npart
              epot = epot + poten(i)
           enddo
-          call checkval(epot,phitot,4.8e-4,nfailed(4),'potential')
+          call checkval(epot,phitot,5.1e-4,nfailed(4),'potential')
           call update_test_scores(ntests,nfailed(1:4),npass)
        endif
     enddo

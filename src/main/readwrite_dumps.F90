@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -1200,7 +1200,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                extradust,tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol, &
-                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv
+                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,maxphase
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
@@ -1265,7 +1265,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           !write(*,*) 'CHECKING '//trim(tag)
           select case(iarr)
           case(1)
-             call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (maxphase==maxp) call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dustgrowth) then
@@ -1755,7 +1755,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dim,            only:use_dust,maxtypes,use_dustgrowth, &
-                          phantom_version_major,phantom_version_minor,phantom_version_micro
+                          phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
  use units,          only:udist,umass,utime,unit_Bfield
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
@@ -1830,12 +1830,14 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(Bextz,'Bextz',hdr,ierr)
     call add_to_rheader(0.,'dum',hdr,ierr)
     if (iexternalforce /= 0) call write_headeropts_extern(iexternalforce,hdr,t,ierr)
-    call add_to_rheader(xmin,'xmin',hdr,ierr)
-    call add_to_rheader(xmax,'xmax',hdr,ierr)
-    call add_to_rheader(ymin,'ymin',hdr,ierr)
-    call add_to_rheader(ymax,'ymax',hdr,ierr)
-    call add_to_rheader(zmin,'zmin',hdr,ierr)
-    call add_to_rheader(zmax,'zmax',hdr,ierr)
+    if (periodic) then
+       call add_to_rheader(xmin,'xmin',hdr,ierr)
+       call add_to_rheader(xmax,'xmax',hdr,ierr)
+       call add_to_rheader(ymin,'ymin',hdr,ierr)
+       call add_to_rheader(ymax,'ymax',hdr,ierr)
+       call add_to_rheader(zmin,'zmin',hdr,ierr)
+       call add_to_rheader(zmax,'zmax',hdr,ierr)
+    endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)

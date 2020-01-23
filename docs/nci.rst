@@ -3,25 +3,24 @@ Getting started on the NCI supercomputer (Australian National Supercomputing Fac
 
 Apply for an account at http://nci.org.au
 
-If you are in Daniel Price’s research group, request to join projects
-“fu7” and “pt4”
+If you are in Daniel Price’s research group, request to join project “fu7”
 
 Log in 
 -------
 
 ::
 
-   ssh -Y USERNAME@gadi.nci.org.au
+   ssh -Y USER@gadi.nci.org.au
 
 Make a shortcut to the /short filesystem
 ----------------------------------------
 
 ::
 
-   cd /short/pt4
-   mkdir USERNAME
+   cd /scratch/fu7
+   mkdir $USER
    cd
-   ln -s /short/pt4/USERNAME runs
+   ln -s /scratch/fu7/$USER runs
    cd runs
    pwd -P
 
@@ -52,4 +51,4 @@ more info
 ---------
 
 For more information on the actual machine `read the
-userguide <https://opus.nci.org.au/display/Help/Gadi+User+Guide>`__
+userguide <https://opus.nci.org.au/display/Help/Preparing+for+Gadi>`__

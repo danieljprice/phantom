@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -141,6 +141,7 @@ subroutine check_setup(nerror,nwarn,restart)
        itype = iamtype(iphase(i))
        if (itype < 1 .or. itype > maxtypes) then
           nbad = nbad + 1
+          if (nbad < 10) print*,'ERROR: unknown particle type ',itype,' on particle ',i
        else
           ncount(itype) = ncount(itype) + 1
        endif
@@ -150,20 +151,10 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
     if (any(ncount /= npartoftype)) then
-       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'n(via iphase)=',ncount
+       print*,'npartoftype  =',npartoftype
        print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
-    endif
-!
-!--If boundary particles are present, then only gas and boundary particles may exist
-!
-    if (npartoftype(iboundary) > 0) then
-       do i = 1,maxtypes
-          if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-             nerror = nerror + 1
-          endif
-       enddo
     endif
  endif
 !
@@ -609,10 +600,11 @@ end subroutine check_setup_dustgrid
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
- integer :: i,j
+ integer :: i,j,itypei,itypej
  real    :: dx(3),dx2
  integer, allocatable :: index(:)
  !
@@ -626,16 +618,23 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  ! positions are found.
  !
  nbad = 0
+ itypei = igas
+ itypej = igas
  do i=1,npart
     j = i+1
     dx2 = 0.
+    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
        dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
        dx2 = dot_product(dx,dx)
-       if (dx2 < epsilon(dx2)) then
+       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
           nbad = nbad + 1
-          if (nbad <= 100) print*,'WARNING: particles ',index(i),' and ',index(j),&
-             ' at same position ',xyzh(1:3,index(i)),xyzh(1:3,index(j))
+          if (nbad <= 100) then
+             print*,'WARNING: particles of same type at same position: '
+             print*,' ',index(i),':',xyzh(1:3,index(i))
+             print*,' ',index(j),':',xyzh(1:3,index(j))
+          endif
        endif
        j = j + 1
     enddo

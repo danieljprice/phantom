@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -406,7 +406,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
-             target_stack%cells(iwait)%dtdrag(k) = min(target_stack%cells(iwait)%dtdrag(k), xbuf(iproc)%dtdrag(k))
+             target_stack%cells(iwait)%tsmin(k) = min(target_stack%cells(iwait)%tsmin(k), xbuf(iproc)%tsmin(k))
              target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
           enddo
 #ifdef GRAVITY

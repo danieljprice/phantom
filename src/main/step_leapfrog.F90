@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -88,7 +88,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
-                          iboundary,get_ntypes,npartoftype,&
+                          iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall
  use eos,            only:get_spsound
@@ -175,7 +175,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        hdti = hdtsph
 #endif
        if (store_itype) itype = iamtype(iphase(i))
-       if (itype==iboundary) cycle predictor
+       if (iamboundary(itype)) cycle predictor
        !
        ! predict v and u to the half step with "slow" forces
        !
@@ -226,7 +226,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (store_itype) then
           itype = iamtype(iphase(i))
           pmassi = massoftype(itype)
-          if (itype==iboundary) then
+          if (iamboundary(itype)) then
              vpred(:,i) = vxyzu(:,i)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
@@ -360,7 +360,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     corrector: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (store_itype) itype = iamtype(iphase(i))
-          if (itype==iboundary) cycle corrector
+          if (iamboundary(itype)) cycle corrector
 #ifdef IND_TIMESTEPS
           !
           !--update active particles
@@ -554,7 +554,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
                           ndptmass,update_ptmass
  use options,        only:iexternalforce,idamp,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
-                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
+                          isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -692,7 +692,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
           xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
           !
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-          if (itype==iboundary) cycle predictor
+          if (iamboundary(itype)) cycle predictor
           !
           ! compute and add sink-gas force
           !
@@ -808,7 +808,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
-             if (itype==iboundary) cycle accreteloop
+             if (iamboundary(itype)) cycle accreteloop
           endif
           !
           ! correct v to the full step using only the external force

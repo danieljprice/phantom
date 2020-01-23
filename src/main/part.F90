@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -290,12 +290,14 @@ module part
  integer, parameter :: ibulge      = 6
  integer, parameter :: idust       = 7
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
+ integer, parameter :: idustbound  = idustlast + 1
+ integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
  logical            :: set_boundaries_to_active = .true.
  integer :: i
- character(len=5), dimension(maxtypes), parameter :: &
-   labeltype = (/'gas  ','empty','bound','star ','darkm','bulge', &
-                 ('dust ', i=idust,idustlast)/)
+ character(len=7), dimension(maxtypes), parameter :: &
+   labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
+                 ('dust   ', i=idust,idustlast),('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
 !
@@ -340,7 +342,7 @@ subroutine allocate_part
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
- call allocate_array('divBsumm', divBsymm, maxmhdan)
+ call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
@@ -446,9 +448,7 @@ subroutine init_part
  if (use_dust) dustfrac = 0.
  ndustsmall = 0
  ndustlarge = 0
-#ifdef LIGHTCURVE
  if (lightcurve) luminosity = 0.
-#endif
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)
@@ -666,10 +666,11 @@ pure integer(kind=1) function isetphase(itype,iactive)
 
 end function isetphase
 
-pure subroutine get_partinfo(iphasei,isactive,isdust,itype)
+pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype,set_active_boundaries)
  integer(kind=1), intent(in)  :: iphasei
- logical,         intent(out) :: isactive,isdust
+ logical,         intent(out) :: isactive,isgas,isdust
  integer,         intent(out) :: itype
+ logical,         intent(in)  :: set_active_boundaries
 
 ! isactive = iactive(iphasei)
 ! itype = iamtype(iphasei)
@@ -683,13 +684,32 @@ pure subroutine get_partinfo(iphasei,isactive,isdust,itype)
     isactive = .false.
     itype    = -iphasei
  endif
+ isgas = (itype==igas .or. itype==iboundary)
 #ifdef DUST
- isdust = ((itype>=idust) .and. (itype<=idustlast))
+ isdust = ((itype>=idust) .and. (itype<=idustlast))  .or. &
+          ((itype>=idustbound) .and. (itype<=idustboundl))
 #else
  isdust = .false.
 #endif
+ !
+ ! boundary particles (always inactive unless set to active)
+ !
+ if (itype==iboundary) then
+    if (set_boundaries_to_active) then
+       isactive = .true.
+       itype = igas
+    else
+       isactive = .false.
+    endif
+ elseif (itype>= idustbound .and. itype <= idustboundl) then
+    if (set_boundaries_to_active) then
+       isactive = .true.
+       itype = idust + itype - idustbound
+    else
+       isactive = .false.
+    endif
+ endif
 
- return
 end subroutine get_partinfo
 
 pure logical function iactive(iphasei)
@@ -730,6 +750,30 @@ pure elemental logical function iamgas(iphasei)
  iamgas = int(itype)==igas
 
 end function iamgas
+
+pure elemental logical function iamboundary(itype)
+ integer, intent(in) :: itype
+
+ !itype = abs(itype) unnecessary as always called with type, not iphase
+ iamboundary = itype==iboundary .or. (itype>=idustbound .and. itype<=idustboundl)
+
+end function iamboundary
+
+pure elemental integer function ibasetype(itype)
+ integer, intent(in) :: itype
+ !integer :: itype
+
+ ! return underlying (base) type for particle
+ !itype = abs(itype)
+ if (itype==iboundary) then
+    ibasetype = igas                       ! boundary particles are gas
+ elseif (itype>=idustbound .and. itype<=idustboundl) then
+    ibasetype = idust + (itype-idustbound) ! dust boundaries are dust
+ else
+    ibasetype = itype                      ! otherwise same as current type
+ endif
+
+end function ibasetype
 
 pure elemental logical function iamdust(iphasei)
  integer(kind=1), intent(in) :: iphasei
@@ -856,16 +900,21 @@ subroutine copy_particle_all(src,dst)
  integer, intent(in) :: src,dst
 
  xyzh(:,dst)  = xyzh(:,src)
+ xyzh_soa(dst,:)  = xyzh_soa(src,:)
  vxyzu(:,dst) = vxyzu(:,src)
- vpred(:,dst) = vpred(:,src)
- fxyzu(:,dst) = fxyzu(:,src)
- fext(:,dst)  = fext(:,src)
+ if (maxan==maxp) then
+    vpred(:,dst) = vpred(:,src)
+    fxyzu(:,dst) = fxyzu(:,src)
+    fext(:,dst)  = fext(:,src)
+ endif
  if (mhd) then
     Bevol(:,dst)  = Bevol(:,src)
-    Bpred(:,dst)  = Bpred(:,src)
-    dBevol(:,dst) = dBevol(:,src)
+    if (maxmhdan==maxp) then
+       Bpred(:,dst)  = Bpred(:,src)
+       dBevol(:,dst) = dBevol(:,src)
+       divBsymm(dst) = divBsymm(src)
+    endif
     Bxyz(:,dst)   = Bxyz(:,src)
-    divBsymm(dst) = divBsymm(src)
     if (maxmhdni==maxp) then
        n_R(:,dst)       = n_R(:,src)
        n_electronT(dst) = n_electronT(src)
@@ -878,24 +927,42 @@ subroutine copy_particle_all(src,dst)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
+ if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
 #ifdef IND_TIMESTEPS
- ibin(dst)       = ibin(src)
- ibin_old(dst)   = ibin_old(src)
- ibin_wake(dst)  = ibin_wake(src)
- dt_in(dst)      = dt_in(src)
- twas(dst)       = twas(src)
+ if (maxan==maxp) then
+    ibin(dst)       = ibin(src)
+    ibin_old(dst)   = ibin_old(src)
+    ibin_wake(dst)  = ibin_wake(src)
+    dt_in(dst)      = dt_in(src)
+    twas(dst)       = twas(src)
+ endif
 #endif
  if (use_dust) then
-    dustfrac(:,dst)  = dustfrac(:,src)
+    if (maxp_dustfrac==maxp) dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
-    dustpred(:,dst)  = dustpred(:,src)
-    ddustevol(:,dst) = ddustevol(:,src)
+    if (maxdustan==maxp) then
+       dustpred(:,dst)  = dustpred(:,src)
+       ddustevol(:,dst) = ddustevol(:,src)
+       if (maxdusttypes > 0) tstop(:,dst) = tstop(:,src)
+    endif
     deltav(:,:,dst)  = deltav(:,:,src)
+    if (maxp_growth==maxp) then
+       dustprop(:,dst) = dustprop(:,src)
+       ddustprop(:,dst) = ddustprop(:,src)
+       dustgasprop(:,dst) = dustgasprop(:,src)
+       VrelVf(dst) = VrelVf(src)
+       dustproppred(:,dst) = dustproppred(:,src)
+    endif
  endif
  if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ ibelong(dst) = ibelong(src)
+ if (maxsts==maxp) then
+    istsactive(dst) = istsactive(src)
+    ibin_sts(dst) = ibin_sts(src)
+ endif
 
  return
 end subroutine copy_particle_all
