@@ -35,7 +35,7 @@
 module growth
  use units,        only:udist,unit_density,unit_velocity
  use physcon,      only:au,Ro
- use part,         only:xyzmh_ptmass
+ use part,         only:xyzmh_ptmass,this_is_a_flyby,nptmass
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
@@ -311,6 +311,7 @@ subroutine write_options_growth(iunit)
        call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
+ if (nptmass > 0) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
 
 end subroutine write_options_growth
 
@@ -354,6 +355,9 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('vfragout')
     read(valstring,*,iostat=ierr) vfragoutSI
     ngot = ngot + 1
+ case('flyby')
+ read(valstring,*,iostat=ierr) this_is_a_flyby
+ !ngot = ngot + 1
  case default
     imatch = .false.
  end select

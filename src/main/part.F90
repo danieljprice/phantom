@@ -70,6 +70,7 @@ module part
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
  logical, public             :: this_is_a_test = .false.
+ logical, public             :: this_is_a_flyby = .false.
 !
 !--storage in divcurlv
 !
@@ -1362,7 +1363,7 @@ end subroutine
 
 !----------------------------------------------------------------
  !+
- !  Returns keplerian rotational frequency of particle i
+ !  Returns keplerian frequency of particle i
  !+
  !----------------------------------------------------------------
 real function Omega_k(i)
@@ -1371,18 +1372,21 @@ real function Omega_k(i)
  integer              :: j
 
  m_star = 0.
- r      = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
 
- !- WARNING: for nptmass = 2 mstar is the sum of both stars by default.
- !- Be careful: this would be relatively okay for a close binary but not for something like a flyby.
- select case(nptmass)
- case(1)
-    m_star    = xyzmh_ptmass(4,nptmass)
- case(2)
+ !-- if flyby: r should be centered around the primary, else around center of mass
+ if (this_is_a_flyby) then
+    r = sqrt((xyzh(1,i)-xyzmh_ptmass(1,1))**2 + (xyzh(2,i)-xyzmh_ptmass(2,1))**2 + (xyzh(3,i)-xyzmh_ptmass(3,1))**2)
+ else
+    r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+ endif
+
+ if (this_is_a_flyby) then
+    m_star = xyzmh_ptmass(4,1)
+ else
     do j=1,nptmass
        m_star = m_star + xyzmh_ptmass(4,j)
     enddo
- end select
+ endif
 
  if (r > 0. .and. m_star > 0.) then
     Omega_k = sqrt(m_star/r) / r
