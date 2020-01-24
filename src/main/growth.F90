@@ -20,6 +20,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    Tsnow        -- snow line condensation temperature in K
+!    flyby        -- use primary for keplerian freq. calculation
 !    grainsizemin -- minimum allowed grain size in cm
 !    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    isnow        -- snow line (0=off,1=position based,2=temperature based)
@@ -356,7 +357,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) vfragoutSI
     ngot = ngot + 1
  case('flyby')
- read(valstring,*,iostat=ierr) this_is_a_flyby
+    read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
  case default
     imatch = .false.
