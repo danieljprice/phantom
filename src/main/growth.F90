@@ -357,8 +357,8 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) vfragoutSI
     ngot = ngot + 1
  case('flyby')
- read(valstring,*,iostat=ierr) this_is_a_flyby
- !ngot = ngot + 1
+    read(valstring,*,iostat=ierr) this_is_a_flyby
+    !ngot = ngot + 1
  case default
     imatch = .false.
  end select
