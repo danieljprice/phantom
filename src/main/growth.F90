@@ -311,7 +311,7 @@ subroutine write_options_growth(iunit)
        call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
- if (nptmass > 0) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
+ if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
 
 end subroutine write_options_growth
 
@@ -357,18 +357,29 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('flyby')
  read(valstring,*,iostat=ierr) this_is_a_flyby
- !ngot = ngot + 1
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
 
- if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
- if (isnow == 0) then
-    if (ngot == 4) igotall = .true.
- elseif (isnow > 0) then
-    if (ngot == 6) igotall = .true.
+ if (nptmass > 1) then
+    if ((ifrag <= 0) .and. ngot == 2) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 5) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 7) igotall = .true.
+    else
+       igotall = .false.
+    endif
  else
-    igotall = .false.
+    if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 4) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 6) igotall = .true.
+    else
+       igotall = .false.
+    endif
  endif
 
 end subroutine read_options_growth
