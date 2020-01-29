@@ -795,7 +795,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 #else
 #ifdef NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt, xyzh(:,i), vxyzu(:,i), nucleation(:,i), dust_temp(i))
+             call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoh(xyzh(4,i),pmassi))
 #endif
              !
              ! COOLING

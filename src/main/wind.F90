@@ -134,7 +134,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
 #ifdef NUCLEATION
- call evolve_chem(0., r0, v0, T0, state%rho, state%JKmuS)
+ call evolve_chem(0., T0, state%rho, state%JKmuS)
  call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  state%mu = state%jKmuS(6)
@@ -186,7 +186,7 @@ subroutine wind_step(state)
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded
 
 #ifdef NUCLEATION
- call evolve_chem(state%dt,state%r,state%v,state%Tg,state%rho,state%JKmuS)
+ call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
  alpha_old = state%alpha
  state%mu  = state%JKmus(6)
  call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
@@ -320,94 +320,35 @@ end subroutine wind_profile
 !  set particle dust properties
 !
 !-----------------------------------------------------------------------
-subroutine evolve_dust(dtsph, xyzh, vxyzu, JKmuS, Tdust)
+subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  use options,        only:ieos
- use units,          only:udist,utime,unit_velocity
+ use units,          only:udist,utime,unit_density
  use physcon,        only:pi
  use eos,            only:gmw,qfacdisc
- use part,           only:xyzmh_ptmass,vxyz_ptmass,rhoh,igas,iTeff
+ use part,           only:xyzmh_ptmass,iTeff
  use dust_formation, only:evolve_chem,calc_kappa_dust
 
- real,    intent(in) :: dtsph,xyzh(4),Tdust
- real,    intent(inout) :: vxyzu(4), JKmuS(:)
+ real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
+ real,    intent(inout) :: JKmuS(:)
 
  integer, parameter :: wind_emitting_sink = 1
- real :: x, y, z, vx, vy, vz, rho, dt, r, v, T, expT
+ real :: x, y, z, r, dt, T, expT, rho_cgs
 
  dt = dtsph* utime
  expT = 2.*qfacdisc
- x = xyzh(1) - xyzmh_ptmass(1,wind_emitting_sink)
- y = xyzh(2) - xyzmh_ptmass(2,wind_emitting_sink)
- z = xyzh(3) - xyzmh_ptmass(3,wind_emitting_sink)
- vx = vxyzu(1) - vxyz_ptmass(1,wind_emitting_sink)
- vy = vxyzu(2) - vxyz_ptmass(2,wind_emitting_sink)
- vz = vxyzu(3) - vxyz_ptmass(3,wind_emitting_sink)
- r = sqrt(x**2+y**2+z**2)*udist
- v = sqrt(vx**2+vy**2+vz**2)*unit_velocity
-!rho = rhoh(xyzh(4), part_mass)*(unit_density)
- rho    = Mdot_cgs/(4.*pi*r**2*v)
+ rho_cgs = rho*unit_density
  if (ieos == 6) then
+    x = xyzh(1) - xyzmh_ptmass(1,wind_emitting_sink)
+    y = xyzh(2) - xyzmh_ptmass(2,wind_emitting_sink)
+    z = xyzh(3) - xyzmh_ptmass(3,wind_emitting_sink)
+    r = sqrt(x**2+y**2+z**2)*udist
     T = Tstar*(Rstar_cgs/r)**expT
  elseif (ieos == 2) then
-    T = JKmuS(6)*vxyzu(4)/(u_to_temperature_ratio*gmw)
+    T = JKmuS(6)*u/(u_to_temperature_ratio*gmw)
  endif
- call evolve_chem(dt, r, v, T, rho, JKmuS)
- call calc_kappa_dust(JKmuS(5), Tdust, rho, JKmuS(8))
+ call evolve_chem(dt, T, rho_cgs, JKmuS)
+ call calc_kappa_dust(JKmuS(5), Tdust, rho_cgs, JKmuS(8))
 end subroutine evolve_dust
-
-! subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)
-!  use part,           only:rhoh,xyzmh_ptmass,massoftype,igas,nucleation
-!  !use eos,           only:gmw!,gamma
-!  use physcon,        only:Rg
-!  use dust_formation, only: calc_alpha_dust
-!  integer, intent(in) :: npart
-!  real, intent(in)    :: xyzh(:,:)
-!  real, intent(in)    :: dt,time
-!  real, intent(inout) :: vxyzu(:,:),fxyzu(:,:), fext(:,:)
-
-!  integer :: i
-!  real :: Mstar, Rstar
-!  real :: part_mass, r, xr(3), x_star(3), K3
-!  real :: rho, alpha, Q!, mu, Teq, ueq, T, tau_lucy
-
-!  part_mass = massoftype(igas)
-!  x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
-!  Mstar = xyzmh_ptmass(4,wind_emitting_sink)
-!  Rstar = xyzmh_ptmass(iReff,wind_emitting_sink)
-!  Q = 0.d0
-!  !Tstar = stars(attached_to_star)%temperature
-!  do i=1,npart
-!     xr(1:3) = xyzh(1:3,i)-x_star(1:3)
-!     r = sqrt(xr(1)**2 + xr(2)**2 + xr(3)**2)
-!     K3 = nucleation(5,i)
-!     call calc_alpha_dust(K3, alpha)
-!     fext(1:3,i) = fext(1:3,i) + alpha*Mstar/r**3*xr(1:3)
-!     ! if (ieos == 6 .or. r < Rstar) then
-!     !    fxyzu(4,i) = 0.
-!     ! elseif (icooling == 1 .and. ieos == 2) then
-!     !    rho = rhoh(xyzh(4,i), part_mass)
-!     !    mu = nucleation(6,i)
-!     !    T = mu*vxyzu(4,i)/(u_to_temperature_ratio*gmw)
-!     !    !T = (gamma-1.)*mu*vxyzu(4,i)/Rg
-!     !    tau_lucy = 0.
-!     !    Teq = star_Teff * (.5*(1.-sqrt(1.-(Rstar/r)**2)+3./2.*tau_lucy))**(1./4.)
-!     !    ueq = u_to_temperature_ratio*gmw*Teq/mu
-!     !    if (dt >= Cprime/rho) then
-!     !       vxyzu(4,i) = ueq
-!     !       if (vxyzu(4,i) < 0.) then
-!     !          print *, 'aargh! ueq <0'
-!     !       endif
-!     !       fxyzu(4,i) = 0.
-!     !    else
-!     !       Q = -(vxyzu(4,i) -ueq)*rho/Cprime
-!     !       fxyzu(4,i) = fxyzu(4,i) + Q
-!     !       if (vxyzu(4,i)+fxyzu(4,i)*dt < 0.) then
-!     !          print *, 'oups! u^n+1 < 0 - timestep likely too large',dt,Cprime/rho,rho
-!     !       endif
-!     !    endif
-!     ! endif
-!  enddo
-! end subroutine radiative_acceleration
 
 
 ! !-----------------------------------------------------------------------

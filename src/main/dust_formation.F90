@@ -108,10 +108,10 @@ end subroutine set_abundances
 !  evolve the chemistry and moments
 !
 !-----------------------------------------------------------------------
-subroutine evolve_chem(dt, r, v, T, rho, JKmuS)
+subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
 !all quantities in cgs
  use physcon, only:pi,kboltz,atomic_mass_unit
- real, intent(in) :: dt, r, v, T, rho
+ real, intent(in) :: dt, T, rho_cgs
  real, intent(inout) :: JKmuS(:)
 
  real :: pC, pC2, pC2H, pC2H2, nH_tot, epsC
@@ -122,10 +122,10 @@ subroutine evolve_chem(dt, r, v, T, rho, JKmuS)
  real, parameter :: alpha2 = 0.34
  real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
- nH_tot = rho/mass_per_H
+ nH_tot = rho_cgs/mass_per_H
  epsC = eps(iC) - JKmuS(5)/nH_tot
  if (T > 450.) then
-    call chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(6))
+    call chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(6))
     S = pC/psat_C(T)
     if (S > Scrit) then
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
@@ -170,15 +170,16 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
 
  !carbon fraction
  fC = max(1.d-15,3./4.*K3/rho_cgs*mc/rho_Cdust)
- kappa_planck    = Qplanck_abs * fC
- kappa_rosseland = Qross_ext * fC
+ !kappa_planck    = Qplanck_abs * fC
+ !kappa_rosseland = Qross_ext * fC
+
+!Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
+ kappa_planck    = 5.9d0 * fC * Tdust
+ kappa_rosseland = 6.7d0 * fC * Tdust
 
  kappa_cgs = kappa_rosseland
- !kappa_planck    = Qplanck_abs * fC * Tdust
- !kappa_rosseland = Qross_ext * fC * Tdust
-
  !should add gas contribution
- !!!kappa_rosseland = kappa_rosseland + kappa_gas
+
 end subroutine calc_kappa_dust
 
 !-----------------------------------------------------------------------
@@ -278,10 +279,10 @@ end subroutine evol_K
 !  Compute carbon chemical equilibrum abundance in the gas phase
 !
 !---------------------------------------------------------------
-subroutine chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, mu)
+subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu)
 ! all quantities are in cgs
  use physcon,only:kboltz
- real, intent(in) :: rho, T, epsC
+ real, intent(in) :: rho_cgs, T, epsC
  real, intent(out) :: pC, pC2, pC2H, pC2H2, mu
  real :: pH_tot, Kd(nMolecules+1), err, a, b, c, d
  real :: pH, pCO, pO, pSi, pS, pTi, pN
@@ -289,7 +290,7 @@ subroutine chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, mu)
  integer :: i, nit
 
 ! Total partial pressure of H (in atm)
- pH_tot = rho*T*kboltz/(patm*mass_per_H)
+ pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
 ! Dissociation constants
  do i=1,nMolecules
     Kd(i) = calc_Kd(coefs(:,i), T)
