@@ -51,7 +51,7 @@ module wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
+subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind)
  use units,          only:umass,utime
  use physcon,        only:c,solarm,years
  use eos,            only:gamma
@@ -62,12 +62,12 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind)
 #endif
  type(wind_state) :: state
 
- real, intent(in) :: Mstar_in, Rstar_cg, Mdot_in, u_to_T, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind
 
  Mstar_cgs = Mstar_in*solarm
  wind_gamma = gamma
  wind_temperature = Twind
- Mdot_cgs = Mdot_in * umass/utime
+ Mdot_cgs = Mdot_code * umass/utime
  Rstar_cgs = Rstar_cg
  u_to_temperature_ratio = u_to_T
 
@@ -135,7 +135,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
 #ifdef NUCLEATION
  call evolve_chem(0., r0, v0, T0, state%rho, state%JKmuS)
- call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  state%mu = state%jKmuS(6)
 #else
@@ -151,10 +151,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
           state%Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
        endif
 #ifdef NUCLEATION
-       call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg, state%Teq, state%mu, &
-            state%JKmuS(4)/(state%r**2*state%v), state%kappa)
+       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu,state%JKmuS(4),state%kappa)
 #else
-       call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg, state%Teq)
+       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq)
 #endif
     endif
  endif
@@ -190,7 +189,7 @@ subroutine wind_step(state)
  call evolve_chem(state%dt,state%r,state%v,state%Tg,state%rho,state%JKmuS)
  alpha_old = state%alpha
  state%mu  = state%JKmus(6)
- call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
 #endif
@@ -215,7 +214,7 @@ subroutine wind_step(state)
  kappa_old = state%kappa
 
 #ifdef NUCLEATION
- call calc_kappa_dust(state%JKmuS(5), state%Teq, Mdot_cgs, state%kappa)
+ call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
 #else
  if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Teq)
 #endif
@@ -230,10 +229,9 @@ subroutine wind_step(state)
        state%Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     endif
 #ifdef NUCLEATION
-    call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg, state%Teq, state%JKmuS(6), &
-         state%JKmuS(4)/(state%r**2*state%v),state%kappa)
+    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
-    call calc_cooling_rate(state%Q, dlnQ_dlnT, state%rho, state%Tg, state%Teq)
+    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq)
 #endif
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  endif
@@ -354,12 +352,12 @@ subroutine evolve_dust(dtsph, xyzh, vxyzu, JKmuS, Tdust)
     T = JKmuS(6)*vxyzu(4)/(u_to_temperature_ratio*gmw)
  endif
  call evolve_chem(dt, r, v, T, rho, JKmuS)
- call calc_kappa_dust(JKmuS(5), Tdust, Mdot_cgs, JKmuS(8))
+ call calc_kappa_dust(JKmuS(5), Tdust, rho, JKmuS(8))
 end subroutine evolve_dust
 
 ! subroutine radiative_acceleration(npart, xyzh, vxyzu, dt, fext, fxyzu, time)
 !  use part,           only:rhoh,xyzmh_ptmass,massoftype,igas,nucleation
-!  !use eos,          only:gmw!,gamma
+!  !use eos,           only:gmw!,gamma
 !  use physcon,        only:Rg
 !  use dust_formation, only: calc_alpha_dust
 !  integer, intent(in) :: npart
@@ -375,7 +373,7 @@ end subroutine evolve_dust
 !  part_mass = massoftype(igas)
 !  x_star(1:3) = xyzmh_ptmass(1:3,wind_emitting_sink)
 !  Mstar = xyzmh_ptmass(4,wind_emitting_sink)
-!  Rstar = xyzmh_ptmass(5,wind_emitting_sink)
+!  Rstar = xyzmh_ptmass(iReff,wind_emitting_sink)
 !  Q = 0.d0
 !  !Tstar = stars(attached_to_star)%temperature
 !  do i=1,npart

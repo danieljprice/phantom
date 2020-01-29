@@ -702,9 +702,6 @@ subroutine state_to_array(state, array)
  use wind,    only:wind_state
  type(wind_state), intent(in) :: state
  real, intent(out) :: array(:)
-#ifdef NUCLEATION
- real :: f
-#endif
 
  array(1) = state%time
  array(2) = state%r
@@ -716,11 +713,10 @@ subroutine state_to_array(state, array)
  array(8)  = state%alpha
  array(9) = state%a
 #ifdef NUCLEATION
- f = state%r**2 * state%v
  array(10)  = state%JKmuS(6)
  array(11)  = state%JKmuS(7)
- array(12) = state%JKmuS(1)/f
- array(13:16) = state%JKmuS(2:5)/f
+ array(12) = state%JKmuS(1)
+ array(13:16) = state%JKmuS(2:5)
  array(17) = state%tau_lucy
  array(18) = state%kappa
 #else

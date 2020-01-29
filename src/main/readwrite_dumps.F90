@@ -360,9 +360,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  character(len=lenid)  :: fileid
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
-#ifdef NUCLEATION
- real, allocatable :: f(:)
-#endif
  real :: ponrhoi,rhoi,spsoundi
 
 !
@@ -442,16 +439,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
     write (idump, iostat=ierr) nblockarrays
 
  endif masterthread
-
-#ifdef NUCLEATION
- if (.not. allocated(f)) allocate(f(npart))
- !$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,nucleation)
- do i = 1,npart
-    f(i) = (xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2)*sqrt(vxyzu(1,i)**2+vxyzu(2,i)**2+vxyzu(3,i)**2)*udist**2*unit_velocity
-    nucleation(1:5,i) = nucleation(1:5,i)/f(i)
- enddo
- !omp end parallel do
-#endif
 
  call start_threadwrite(id,idump,dumpfile)
 
@@ -611,15 +598,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 
  close(unit=idump)
  call end_threadwrite(id)
-
-#ifdef NUCLEATION
- !$omp parallel do schedule(static) private(i) shared(f,xyzh,vxyzu,nucleation)
- do i = 1,npart
-    nucleation(1:5,i) = nucleation(1:5,i)*f(i)
- enddo
- !omp end parallel do
- if (allocated(f)) deallocate(f)
-#endif
 
 end subroutine write_fulldump
 

@@ -123,13 +123,12 @@ subroutine evolve_chem(dt, r, v, T, rho, JKmuS)
  real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  nH_tot = rho/mass_per_H
- epsC = eps(iC) - JKmuS(5)/(r**2*v*nH_tot)
+ epsC = eps(iC) - JKmuS(5)/nH_tot
  if (T > 450.) then
     call chemical_equilibrium_light(rho, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(6))
     S = pC/psat_C(T)
     if (S > Scrit) then
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
-       JstarS = JstarS * r**2*v
        call evol_K(JKmuS(1), JKmuS(2:5), JstarS, taustar, taugr, dt, Jstar_new, K_new)
     else
        Jstar_new = JKmuS(1)
@@ -158,20 +157,19 @@ end subroutine evolve_chem
 !  calculate dust opacity
 !
 !-----------------------------------------------------------------------
-subroutine calc_kappa_dust(K3, Tdust, Mdot_cgs, kappa_cgs)
+subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
 !all quantities in cgs
- use physcon, only:pi
- real, intent(in) :: K3, Tdust, Mdot_cgs
+ use physcon, only:pi,atomic_mass_unit
+ real, intent(in) :: K3, Tdust, rho_cgs
  real, intent(out) :: kappa_cgs
 
  real :: fC,kappa_planck, kappa_rosseland
- real, parameter :: rho_Cdust = 2.62
+ real, parameter :: rho_Cdust = 2.62, mc = 12.*atomic_mass_unit
  real, parameter :: Qplanck_abs = 1.6846124267740528e+04
  real, parameter :: Qross_ext = 9473.2722815583311
 
  !carbon fraction
- fC = (4.*pi*K3*mass_per_H)/(Mdot_cgs*eps(iC))
- fC = (3./4.)*eps(iC)*12./(1.4*rho_Cdust) * max(fC, 1.d-15)
+ fC = max(1.d-15,3./4.*K3/rho_cgs*mc/rho_Cdust)
  kappa_planck    = Qplanck_abs * fC
  kappa_rosseland = Qross_ext * fC
 
