@@ -383,10 +383,14 @@ subroutine write_hdf5_arrays(file_id,error,npart,nptmass,xyzh,vxyzu,iphase,   &
     call write_to_hdf5(xyzmh_ptmass(7,1:nptmass),'maccreted',group_id,errors(40))
     call write_to_hdf5(xyzmh_ptmass(8:10,1:nptmass),'spinxyz',group_id,errors(41))
     call write_to_hdf5(xyzmh_ptmass(11,1:nptmass),'tlast',group_id,errors(42))
-    call write_to_hdf5(vxyz_ptmass(:,1:nptmass),'vxyz',group_id,errors(43))
+    call write_to_hdf5(xyzmh_ptmass(12,1:nptmass),'lum',group_id,errors(43))
+    call write_to_hdf5(xyzmh_ptmass(13,1:nptmass),'Teff',group_id,errors(44))
+    call write_to_hdf5(xyzmh_ptmass(14,1:nptmass),'Reff',group_id,errors(45))
+    call write_to_hdf5(xyzmh_ptmass(15,1:nptmass),'mdot',group_id,errors(46))
+    call write_to_hdf5(vxyz_ptmass(:,1:nptmass),'vxyz',group_id,errors(47))
  endif
  ! Close the sink group
- call close_hdf5group(group_id, errors(44))
+ call close_hdf5group(group_id, errors(48))
 
  error = maxval(abs(errors))
 

@@ -156,14 +156,11 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,imloss
- use units,   only:umass,utime
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff
  integer,  intent(in)    :: nptmass,npart
- real,     intent(in)    :: xyzh(:,:)
- real,     intent(in)    :: xyzmh_ptmass(:,:)
-! real,     intent(in)    :: opacity(:)
+ real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,Mdot_cgs,xa,ya,za
+ real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
 
  !
@@ -179,7 +176,6 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
  T_star = xyzmh_ptmass(iTeff,j)
  L_star = xyzmh_ptmass(iLum,j)
  R_star = xyzmh_ptmass(iReff,j) !sqrt(L_star/(4.*pi*steboltz*utime**3/umass*R_star**4))
- Mdot_cgs = xyzmh_ptmass(imloss,j) * (umass/utime)
  xa = xyzmh_ptmass(1,j)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
@@ -197,7 +193,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
     enddo
     !$omp end parallel do
  case(2)
-    call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,Mdot_cgs,dust_temp)
+    call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  end select
 
 end subroutine get_dust_temperature_from_ptmass
@@ -208,17 +204,16 @@ end subroutine get_dust_temperature_from_ptmass
 !  Performs ray-tracing along 1 direction (could be generalized to include other directions)
 !+
 !-------------------------------------------------------------------------------
-subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,Mdot_cgs,dust_temp)
+subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  use part,  only:isdead_or_accreted
 #ifdef NUCLEATION
  use part,  only:nucleation
 #endif
  integer,  intent(in)    :: npart
- real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star, T_star, Mdot_cgs
+ real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
  real,     intent(out)   :: dust_temp(:)
- real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),K3(N),rho_over_r2(2*N+1)
+ real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),K3(N),rho_over_r2(2*N+1),rho(N)
  integer  :: i,idx_axis(npart),naxis
-
 
  !.. find particles that lie within 2 smoothing lengths of the ray axis
  r0(1:3) = (/xa, ya, za/)
@@ -254,58 +249,30 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,Mdot_cgs,dust_tem
 
 
 #ifdef NUCLEATION
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2,&
-      dust_temp, Teq,nucleation(5,:), K3)
- call calculate_Teq(N, dmax, R_star, T_star, Mdot_cgs, rho_over_r2, OR, Teq, K3)
+ call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+      rho_over_r2, dust_temp, Teq,nucleation(5,:), K3)
+ call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
 #else
  call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2, dust_temp, Teq)
- call calculate_Teq(N, dmax, R_star, T_star, Mdot_cgs, rho_over_r2, OR, Teq)
+ call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
 #endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 
 end subroutine
-
-!-----------------------------------------------------------------------
-!+
-!  Interpolates a quantity computed on the discretized line of sight for all SPH particles
-!  (spherical symmetry assumed)
-!+
-!-----------------------------------------------------------------------
-subroutine interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
- use part,    only:isdead_or_accreted
- integer, intent(in)  :: npart, N
- real,    intent(in)  :: dmax, r0(3), Teq(N), xyzh(:,:)
- real,    intent(out) :: dust_temp(:)
-
- real :: r(3), d, dr, d2
- integer :: i, j
-
- dr = dmax / N
- !should start at nwall
- do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       r = xyzh(1:3,i) - r0
-       d2 = dot_product(r,r)
-       d = sqrt(d2)
-       j = min(int(d/dr),N-1)
-       dust_temp(i) = (d-dr*j)*(Teq(j+1)-Teq(j))/dr + Teq(j)
-    endif
- enddo
-end subroutine interpolate_on_particles
 
 !--------------------------------------------------------------------------
 !+
 !  Calculates the radiative equilibrium temperature along the ray direction
 !+
 !--------------------------------------------------------------------------
-subroutine calculate_Teq(N, dmax, R_star, T_star, Mdot_cgs, rho_over_r2, OR, Teq, K3)
+subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  use dust_formation, only : calc_kappa_dust,kappa_dust_bowen
  integer, intent(in)  :: N
- real,    intent(in)  :: dmax, R_star, T_star, Mdot_cgs, rho_over_r2(2*N+1)
+ real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
  real,    intent(out) :: Teq(N)
 
- real :: OR(N),tau_prime(N),vTeq(N),kappa(N),dTeq, rho
+ real :: OR(N),tau_prime(N),vTeq(N),kappa(N),dTeq,rho_m
  real :: dr, fact
  real, parameter :: tol = 1.d-2, kap_gas = 2.d-4
  integer :: i,istart,iter
@@ -327,25 +294,26 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, Mdot_cgs, rho_over_r2, OR, Teq
  Teq(istart+1:N) =  T_star*(0.5*(1.-sqrt(1.-(R_star/OR(istart+1:N))**2)))
  vTeq = Teq
 
- do while (dTeq > tol .and. iter < 10)
+ do while (dTeq > tol .and. iter < 20)
     if (iter == 0) dTeq = 0.
     iter = iter+1
     do i=N-1,istart+1,-1
 #ifdef NUCLEATION
-       call calc_kappa_dust(K3(i),Teq(i),Mdot_cgs,kappa(i))
+       if (rho(i) > 0.) then
+          call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
+       else
+          kappa(i) = 0.d0
+       endif
 #else
        kappa(i) = kappa_dust_bowen(Teq(i))
 #endif
-       rho = (rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2))
-       tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas)*rho
+       rho_m = (rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2))
+       tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas)*rho_m
        Teq(i) = T_star*(0.5*(1.-sqrt(1.-(R_star/OR(i))**2)) + 0.75*tau_prime(i))**(1./4.)
        dTeq = max(dTeq,abs(1.-Teq(i)/(1.d-5+vTeq(i))))
-       !print *,i,Teq(i),tau_prime(i),kappa(i),rho,K3(i),T_star*(0.5*(1.-sqrt(1.-(R_star/OR(i))**2))),dTeq
        vTeq(i) = Teq(i)
     enddo
-    !print *,'iter',iter,N-1,istart+1,Teq(26:30),K3(26:30)
  enddo
- !print *,'$$$$ OUT   $$$$',Teq(26:30)
 
 end subroutine calculate_Teq
 
@@ -354,17 +322,19 @@ end subroutine calculate_Teq
 !  compute the mean properties along the ray
 !+
 !-----------------------------------------------------------------------
-subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax, r_star, N, rho_over_r2, T, Teq, K3, K3i)
-  use kernel, only:cnormk,wkern
-  use part,   only:massoftype,igas,rhoh
+subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax, r_star, N, &
+     rho_cgs, rho_over_r2, T, Teq, K3, K3i)
+ use kernel, only:cnormk,wkern
+ use part,   only:massoftype,igas,rhoh
+ use units,  only:unit_density
  integer, intent(in)  :: npart,N
  real,    intent(in)  :: xyzh(:,:), T(:), r0(3)
  real, optional, intent(in)  :: K3(:)
  integer, intent(in)  ::  npart_axis, idx_axis(npart)
  real,    intent(in)  :: rmin, rmax, R_star
- real,    intent(out) :: rho_over_r2(2*N+1), Teq(N)
+ real,    intent(out) :: rho_over_r2(2*N+1), Teq(N), rho_cgs(N)
  real, optional, intent(out) :: K3i(N)
- real :: rho(2*N+1), OR(2*N+1), Ti(2*N+1), Ki(2*N+1), xnorm(2*N+1)
+ real :: rhoi(2*N+1), OR(2*N+1), Ti(2*N+1), Ki(2*N+1), xnorm(2*N+1)
  real :: OH, d2_axis, HR, q2, q, fact0, fact, h, h2, part_mass
  real :: delta_r, rmin_o, rmin_p, rmax_p, dr, r(3), xfact, rhoinv
  integer :: i, np, j, j_min, j_max, Nr
@@ -377,8 +347,7 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
     OR(i) = dr*i+rmin_o
  enddo
 
-
- rho(:) = 0.
+ rhoi(:) = 0.
  Teq(:) = 0.
  K3i(:) = 0.
  Ki(:) = 0.
@@ -412,7 +381,7 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
        q2 = (d2_axis+HR**2)/h2
        q  = sqrt(q2)
        xfact = fact*wkern(q2,q)
-       rho(j)   = rho(j) + xfact
+       rhoi(j)  = rhoi(j) + xfact
        xnorm(j) = xnorm(j)+xfact*rhoinv
        Ti(j)    = Ti(j)  + xfact*rhoinv*T(np)
        if (present(K3)) Ki(j) = Ki(j) + xfact*rhoinv*K3(np)
@@ -428,15 +397,44 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
     if (abs(OR(j))  <  r_star) then
        rho_over_r2(j) = 0.
     else
-       rho_over_r2(j) = rho(j)/OR(j)**2
+       rho_over_r2(j) = rhoi(j)/OR(j)**2
     endif
  enddo
  do j=1,N
+    rho_cgs(N+1-j) = (rhoi(j)+rhoi(2*N-j+2))*unit_density/2.
     Teq(N+1-j) = (Ti(j)+Ti(2*N-j+2))/2.
     if (present(K3)) K3i(N+1-j) = (Ki(j)+Ki(2*N-j+2))/2.
  enddo
 
 end subroutine density_along_line
+
+!-----------------------------------------------------------------------
+!+
+!  Interpolates a quantity computed on the discretized line of sight for all SPH particles
+!  (spherical symmetry assumed)
+!+
+!-----------------------------------------------------------------------
+subroutine interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
+ use part,    only:isdead_or_accreted
+ integer, intent(in)  :: npart, N
+ real,    intent(in)  :: dmax, r0(3), Teq(N), xyzh(:,:)
+ real,    intent(out) :: dust_temp(:)
+
+ real :: r(3), d, dr, d2
+ integer :: i, j
+
+ dr = dmax / N
+ !should start at nwall
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       r = xyzh(1:3,i) - r0
+       d2 = dot_product(r,r)
+       d = sqrt(d2)
+       j = min(int(d/dr),N-1)
+       dust_temp(i) = (d-dr*j)*(Teq(j+1)-Teq(j))/dr + Teq(j)
+    endif
+ enddo
+end subroutine interpolate_on_particles
 
 real function sq_distance_to_z(r)
   real, intent(in) :: r(3)
