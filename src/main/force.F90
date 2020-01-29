@@ -146,7 +146,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,ll,get_partinfo,iactive,gradh,&
                         hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
                         eta_nimhd,deltav,poten
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
@@ -2232,7 +2232,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,use_krome
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac,damp
- use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
+ use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -2309,7 +2309,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
- integer :: idudtcool,ichem,iamtypei
+ integer :: iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
 #ifdef IND_TIMESTEPS
  integer(kind=1)       :: ibin_neighi

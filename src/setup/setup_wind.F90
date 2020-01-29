@@ -53,8 +53,8 @@ module setup
 #endif
  integer, public :: icompanion_star = 0
  real, public :: spacial_resolution
- real, public :: semi_major_axis
- real, public :: eccentricity
+ real :: semi_major_axis
+ real :: eccentricity = 0.
 
  real :: primary_Teff = 3000.
  real :: primary_Reff
@@ -66,6 +66,7 @@ module setup
  real :: secondary_lum
  real :: secondary_mass
  real :: secondary_racc
+ real :: semi_major_axis_au = 3.7
  real :: default_particle_mass = 1.e-11
  real :: spacial_resolution_au = 0.01
  real :: primary_lum_lsun = 5315.
@@ -75,8 +76,9 @@ module setup
  real :: secondary_lum_lsun = 0.
  real :: secondary_mass_msun=0.6
  real :: secondary_Reff_au = 0.
- real :: secondary_racc_au
+ real :: secondary_racc_au = 0.1
  real :: temp_exponent = 0.
+
 
 contains
 
@@ -207,9 +209,9 @@ subroutine setup_interactive()
  use physcon,   only:au,solarm
  use units,     only:umass,udist
  use io,        only:fatal
- integer :: iproblem,iwind
+ integer :: ichoice,iwind
 
- iproblem = 1
+ ichoice = 1
  iwind = 2
  call prompt('Type of wind: 1=isoT, 2=adia, 3=T(r)',iwind,1,3)
  if (iwind == 1 .or. iwind == 3) wind_gamma = 1.
@@ -221,11 +223,16 @@ subroutine setup_interactive()
 #endif
 
  call prompt('Add binary?',icompanion_star,0,1)
+ if (icompanion_star > 0) then
+    print "(a)",'Primary star parameters'
+ else
+    print "(a)",'Stellar parameters'
+ endif
  print "(a)",' 2: Mass: 1.2 Msun, accretion radius: 0.2568 au',&
       ' 1: Mass: 1.0 Msun, accretion radius: 1.2568 au', &
       ' 0: custom'
- call prompt('select mass and radius of primary',iproblem,0,2)
- select case(iproblem)
+ call prompt('select mass and radius of primary',ichoice,0,2)
+ select case(ichoice)
  case(2)
     primary_mass = 1.2 * (solarm / umass)
     primary_racc = 0.2568 * (au / udist)
@@ -242,8 +249,43 @@ subroutine setup_interactive()
  end select
  primary_racc_au   = primary_racc*udist/au
  primary_mass_msun = primary_mass * (umass /solarm)
-
-end subroutine setup_interactive
+ ichoice = 1
+ if (icompanion_star > 0) then
+    print "(a)",'Primary star parameters'
+    print "(a)",' 1: Mass: 1.0 Msun, accretion radius: 0.1 au',' 0: custom'
+    call prompt('select mass and radius of secondary',ichoice,0,1)
+    select case(ichoice)
+    case(1)
+       secondary_mass = 1. * (solarm / umass)
+       secondary_racc = 0.1 * (au / udist)
+    case default
+       secondary_mass_msun = 1.
+       secondary_racc_au = 0.1
+       call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
+       call prompt('enter accretion radius in au ',secondary_racc_au,0.)
+       secondary_mass = secondary_mass_msun * (solarm / umass)
+       secondary_racc = secondary_racc_au * (au / udist)
+    end select
+    secondary_racc_au   = secondary_racc*udist/au
+    secondary_mass_msun = secondary_mass * (umass /solarm)
+    ichoice = 1
+    print "(a)",'Orbital parameters'
+    print "(a)",' 1: semi-axis: 3.7 au, eccentricity: 0',' 0: custom'
+    call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
+    select case(ichoice)
+    case(1)
+       semi_major_axis = 3.7 * au / udist
+       eccentricity = 0.
+    case default
+       semi_major_axis_au = 1.
+       eccentricity = 0.
+       call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
+       call prompt('enter eccentricity',eccentricity,0.)
+       semi_major_axis = semi_major_axis_au * au / udist
+    end select
+    semi_major_axis_au = semi_major_axis * udist / au
+ endif
+ end subroutine setup_interactive
 
 !----------------------------------------------------------------
 !+
@@ -286,7 +328,7 @@ subroutine write_setupfile(filename)
     call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
     call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
     call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
-    call write_inopt(semi_major_axis,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
+    call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
     call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
  endif
  call write_inopt(default_particle_mass,'mass_of_particles','mass resolution (Msun)',iunit)
@@ -343,7 +385,8 @@ subroutine read_setupfile(filename,ierr)
     secondary_Reff = secondary_Reff_au * au / udist
     call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
     secondary_racc = secondary_racc_au * au / udist
-    call read_inopt(semi_major_axis,'semi_major_axis',db,min=0.,errcount=nerr)
+    call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
+    semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
  endif
  call read_inopt(default_particle_mass,'mass_of_particles',db,min=0.,errcount=nerr)

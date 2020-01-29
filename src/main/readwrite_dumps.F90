@@ -339,7 +339,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part,       only:gamma_chem,mu_chem,T_chem
 #endif
 #ifdef NUCLEATION
- use units, only:unit_velocity, udist
  use part,  only:nucleation,nucleation_label,n_nucleation
 #endif
  real,             intent(in) :: t
