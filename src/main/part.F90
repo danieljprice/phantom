@@ -1389,7 +1389,7 @@ subroutine delete_particles_outside_sphere(center,radius,np)
     if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
  enddo
  call shuffle_part(np)
- if (np.ne.sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
+ if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 
 end subroutine delete_particles_outside_sphere
 
