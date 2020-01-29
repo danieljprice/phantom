@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, krome_getphys, krome_main, krome_user, part, units
+!  DEPENDENCIES: eos, krome_main, krome_user, part, units
 !+
 !--------------------------------------------------------------------------
 module krome_interface

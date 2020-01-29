@@ -23,7 +23,7 @@
 !    kappa_gas     -- constant gas opacity (cm²/g)
 !    wind_CO_ratio -- wind initial C/O ratio
 !
-!  DEPENDENCIES: dim, infile_utils, io, physcon, units
+!  DEPENDENCIES: dim, infile_utils, io, physcon
 !+
 !--------------------------------------------------------------------------
 

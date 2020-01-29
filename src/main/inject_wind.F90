@@ -18,6 +18,7 @@
 !  RUNTIME PARAMETERS:
 !    iboundary_spheres  -- number of boundary spheres (integer)
 !    iwind_resolution   -- if<>0 set number of particles on the sphere, reset particle mass
+!    nfill_domain       -- number of spheres used to set the background density profile
 !    outer_boundary     -- kill gas particles outside this radius (au)
 !    piston_velocity    -- velocity amplitude of the pulsation (km/s)
 !    pulsation_period   -- stellar pulsation period (days)
