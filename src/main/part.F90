@@ -255,17 +255,17 @@ module part
    +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
-   +ngradh                              &  ! gradh
+ +ngradh                              &  ! gradh
 #endif
 #ifdef MHD
-   +maxBevol                            &  ! Bevol
+ +maxBevol                            &  ! Bevol
    +maxBevol                            &  ! Bpred
 #endif
 #ifndef ANALYSIS
-   +1                                   &  ! iphase
+ +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +maxdusttypes                        &  ! dustfrac
+ +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -274,31 +274,31 @@ module part
 #endif
 #endif
 #ifdef H2CHEM
-   +nabundances                         &  ! abundance
+ +nabundances                         &  ! abundance
 #endif
 #ifdef NUCLEATION
-   +1                                   &  ! nucleation rate
+ +1                                   &  ! nucleation rate
    +4                                   &  ! moments
    +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
-   +krome_nmols                         &  ! abundance
+ +krome_nmols                         &  ! abundance
    +1                                   &  ! variable gamma
    +1                                   &  ! variable mu
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
 #endif
 #ifdef GRAVITY
-   +1                                   &  ! poten
+ +1                                   &  ! poten
 #endif
 #ifdef STORE_TEMPERATURE
-   +1                                   &  ! temperature
+ +1                                   &  ! temperature
 #endif
 #ifdef SINK_RADIATION
-   +1                                   &  ! dust temperature
+ +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
-   +1                                   &  ! ibin
+ +1                                   &  ! ibin
    +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
    +1                                   &  ! dt_in

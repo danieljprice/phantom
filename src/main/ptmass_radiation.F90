@@ -77,33 +77,33 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
     Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
     if (Lstar_cgs > 0.d0) then
-      xa = xyzmh_ptmass(1,j)
-      ya = xyzmh_ptmass(2,j)
-      za = xyzmh_ptmass(3,j)
-      !$omp parallel  do default(none) &
+       xa = xyzmh_ptmass(1,j)
+       ya = xyzmh_ptmass(2,j)
+       za = xyzmh_ptmass(3,j)
+       !$omp parallel  do default(none) &
 #ifdef NUCLEATION
-      !$omp shared(nucleation)&
+       !$omp shared(nucleation)&
 #endif
-      !$omp shared(dust_temp) &
-      !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
-      !$omp private(i,dx,dy,dz,ax,ay,az,r)
-      do i=1,npart
-         if (.not.isdead_or_accreted(xyzh(4,i))) then
-            dx = xyzh(1,i) - xa
-            dy = xyzh(2,i) - ya
-            dz = xyzh(3,i) - za
-            r = sqrt(dx**2 + dy**2 + dz**2)
+       !$omp shared(dust_temp) &
+       !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
+       !$omp private(i,dx,dy,dz,ax,ay,az,r)
+       do i=1,npart
+          if (.not.isdead_or_accreted(xyzh(4,i))) then
+             dx = xyzh(1,i) - xa
+             dy = xyzh(2,i) - ya
+             dz = xyzh(3,i) - za
+             r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-            call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(8,i))
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(8,i))
 #else
-            call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
 #endif
-            fext(1,i) = fext(1,i) + ax
-            fext(2,i) = fext(2,i) + ay
-            fext(3,i) = fext(3,i) + az
-         endif
-      enddo
-      !$omp end parallel do
+             fext(1,i) = fext(1,i) + ax
+             fext(2,i) = fext(2,i) + ay
+             fext(3,i) = fext(3,i) + az
+          endif
+       enddo
+       !$omp end parallel do
     endif
  enddo
 
@@ -180,7 +180,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
  select case (iget_tdust)
- ! simple T(r) relation
+    ! simple T(r) relation
  case (1)
     !$omp parallel  do default(none) &
     !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp) &
@@ -258,7 +258,7 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 #endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 
-end subroutine
+end subroutine get_Teq_from_Lucy
 
 !--------------------------------------------------------------------------
 !+
@@ -437,16 +437,16 @@ subroutine interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 end subroutine interpolate_on_particles
 
 real function sq_distance_to_z(r)
-  real, intent(in) :: r(3)
-  sq_distance_to_z = r(1)*r(1)+r(2)*r(2)
+ real, intent(in) :: r(3)
+ sq_distance_to_z = r(1)*r(1)+r(2)*r(2)
 end function sq_distance_to_z
 
 real function sq_distance_to_line(r,u)
-  real, intent(in) :: r(3),u(3)
-  real :: p,d(3)
-  p = dot_product(r,u)
-  d = r-p*u
-  sq_distance_to_line = dot_product(d,d)
+ real, intent(in) :: r(3),u(3)
+ real :: p,d(3)
+ p = dot_product(r,u)
+ d = r-p*u
+ sq_distance_to_line = dot_product(d,d)
 end function sq_distance_to_line
 
 !-----------------------------------------------------------------------

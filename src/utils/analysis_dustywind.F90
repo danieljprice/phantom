@@ -124,7 +124,7 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 #endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 
-end subroutine
+end subroutine get_Teq_from_Lucy
 
 !--------------------------------------------------------------------------
 !+
@@ -340,16 +340,16 @@ subroutine interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 end subroutine interpolate_on_particles
 
 real function sq_distance_to_z(r)
-  real, intent(in) :: r(3)
-  sq_distance_to_z = r(1)*r(1)+r(2)*r(2)
+ real, intent(in) :: r(3)
+ sq_distance_to_z = r(1)*r(1)+r(2)*r(2)
 end function sq_distance_to_z
 
 real function sq_distance_to_line(r,u)
-  real, intent(in) :: r(3),u(3)
-  real :: p,d(3)
-  p = dot_product(r,u)
-  d = r-p*u
-  sq_distance_to_line = dot_product(d,d)
+ real, intent(in) :: r(3),u(3)
+ real :: p,d(3)
+ p = dot_product(r,u)
+ d = r-p*u
+ sq_distance_to_line = dot_product(d,d)
 end function sq_distance_to_line
 
 end module analysis
