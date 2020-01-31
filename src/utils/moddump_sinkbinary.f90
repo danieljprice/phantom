@@ -52,10 +52,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  m1 = 1.4
  call prompt('enter mass of point mass in Msun ',m1,0.)
  print*,' code unit of distance in Rsun = ',udist/solarr
- 
+
  a = 2500.
  call prompt('enter semi-major axis in code units',a,0.)
- 
+
  racc = a/200.
  call prompt('enter accretion radius of point mass',racc,0.01*a,0.5*a)
  print*,' accretion radius in solar radii = ',racc*udist/solarr
