@@ -250,10 +250,11 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
 #ifdef NUCLEATION
  call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-      rho_over_r2, dust_temp, Teq,nucleation(5,:), K3)
+      rho_over_r2, dust_temp, Teq, nucleation(5,:), K3)
  call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
 #else
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2, dust_temp, Teq)
+ call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+      rho_over_r2, dust_temp, Teq)
  call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
 #endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)

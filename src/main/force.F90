@@ -783,7 +783,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
- use eos,         only:get_spsound
 #ifdef DUSTGROWTH
  use kernel,      only:wkern,cnormk
 #endif
