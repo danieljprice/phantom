@@ -25,7 +25,7 @@
 module wind
  implicit none
  public :: setup_wind
- public :: wind_state,wind_profile,evolve_dust,calc_wind_profile,wind_step,init_wind
+ public :: wind_state,wind_profile,calc_wind_profile,wind_step,init_wind
 
  private
  ! Shared variables
@@ -314,41 +314,6 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,JKmuS)
  !cs = state%c/unit_velocity
 end subroutine wind_profile
 
-
-!-----------------------------------------------------------------------
-!
-!  set particle dust properties
-!
-!-----------------------------------------------------------------------
-subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
- use options,        only:ieos
- use units,          only:udist,utime,unit_density
- use physcon,        only:pi
- use eos,            only:gmw,qfacdisc
- use part,           only:xyzmh_ptmass,iTeff
- use dust_formation, only:evolve_chem,calc_kappa_dust
-
- real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
- real,    intent(inout) :: JKmuS(:)
-
- integer, parameter :: wind_emitting_sink = 1
- real :: x, y, z, r, dt, T, expT, rho_cgs
-
- dt = dtsph* utime
- expT = 2.*qfacdisc
- rho_cgs = rho*unit_density
- if (ieos == 6) then
-    x = xyzh(1) - xyzmh_ptmass(1,wind_emitting_sink)
-    y = xyzh(2) - xyzmh_ptmass(2,wind_emitting_sink)
-    z = xyzh(3) - xyzmh_ptmass(3,wind_emitting_sink)
-    r = sqrt(x**2+y**2+z**2)*udist
-    T = Tstar*(Rstar_cgs/r)**expT
- elseif (ieos == 2) then
-    T = JKmuS(6)*u/(u_to_temperature_ratio*gmw)
- endif
- call evolve_chem(dt, T, rho_cgs, JKmuS)
- call calc_kappa_dust(JKmuS(5), Tdust, rho_cgs, JKmuS(8))
-end subroutine evolve_dust
 
 
 ! !-----------------------------------------------------------------------

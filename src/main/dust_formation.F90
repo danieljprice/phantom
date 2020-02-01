@@ -31,7 +31,7 @@ module dust_formation
  implicit none
  integer, public :: idust_opacity = 0
 
- public :: set_abundances,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+ public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
       calc_alpha_bowen,calc_alpha_dust
 !
@@ -102,6 +102,31 @@ subroutine set_abundances
  eps(iC)  = eps(iOx) * wind_CO_ratio
  mass_per_H = atomic_mass_unit*dot_product(Aw,eps)
 end subroutine set_abundances
+
+!-----------------------------------------------------------------------
+!
+!  set particle dust properties
+!
+!-----------------------------------------------------------------------
+subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
+ use options,        only:ieos
+ use units,          only:utime,unit_density
+ use eos,            only:get_temperature
+
+ real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
+ real,    intent(inout) :: JKmuS(:)
+
+ integer, parameter :: wind_emitting_sink = 1
+ real :: dt, T, rho_cgs, vxyzui(4)
+
+ dt = dtsph* utime
+ rho_cgs = rho*unit_density
+ vxyzui(4) = u
+ T = get_temperature(ieos,xyzh,rho,vxyzui)
+ ! T = T * JKmuS(6)/gmw
+ call evolve_chem(dt, T, rho_cgs, JKmuS)
+ call calc_kappa_dust(JKmuS(5), Tdust, rho_cgs, JKmuS(8))
+end subroutine evolve_dust
 
 !-----------------------------------------------------------------------
 !
@@ -388,20 +413,25 @@ end function solve_q
 !  Compute saturation pressure of carbon clusters C_1, ..., C_5 over graphite
 !
 !-------------------------------------------------------------------------
-pure real function psat_C(T)
+ real function psat_C(T)
 ! all quantities are in cgs
  real, intent(in) :: T
 
  real, parameter :: f = 13.8287
- real :: pC1,pC2,pC3,pC4,pC5,T2,T3
- T2 = T*T
- T3 = T*T2
- pC1 = exp(-8.61240d4/T + 1.85106d1 + 5.87980d-4*T - 2.51549d-7*T2 + 3.24892d-11*T3 + f)
- pC2 = exp(-1.01124d5/T + 2.35611d1 + 3.37807d-4*T - 2.94959d-7*T2 + 4.41801D-11*T3 + f)
- pC3 = exp(-9.90261d4/T + 2.81161d1 - 1.55820d-3*T + 1.60002d-7*T2 - 4.47171D-12*T3 + f)
- pC4 = exp(-1.17037d5/T + 2.55579d1 - 5.63869d-6*T - 2.13596d-7*T2 + 3.39660D-11*T3 + f)
- pC5 = exp(-1.18080d5/T + 2.65798d1 + 1.20285d-4*T - 2.68583d-7*T2 + 4.12365D-11*T3 + f)
- psat_C = pC1
+ real :: T2,T3,pC1!,pC2,pC3,pC4,pC5
+
+ if (T > 1.d4) then
+    Psat_C = 1.d99
+ else
+    T2 = T*T
+    T3 = T*T2
+    pC1 = exp(-8.61240d4/T + 1.85106d1 + 5.87980d-4*T - 2.51549d-7*T2 + 3.24892d-11*T3 + f)
+ !pC2 = exp(-1.01124d5/T + 2.35611d1 + 3.37807d-4*T - 2.94959d-7*T2 + 4.41801D-11*T3 + f)
+ !pC3 = exp(-9.90261d4/T + 2.81161d1 - 1.55820d-3*T + 1.60002d-7*T2 - 4.47171D-12*T3 + f)
+ !pC4 = exp(-1.17037d5/T + 2.55579d1 - 5.63869d-6*T - 2.13596d-7*T2 + 3.39660D-11*T3 + f)
+ !pC5 = exp(-1.18080d5/T + 2.65798d1 + 1.20285d-4*T - 2.68583d-7*T2 + 4.12365D-11*T3 + f)
+    psat_C = pC1
+ endif
 end function psat_C
 
 !------------------------------------

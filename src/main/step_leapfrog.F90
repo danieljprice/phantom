@@ -580,7 +580,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use cooling,        only:energ_cooling
 #ifdef NUCLEATION
  use part,           only:nucleation
- use wind,           only:evolve_dust
+ use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
  use part,            only: gamma_chem,mu_chem,T_chem
