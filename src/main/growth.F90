@@ -56,6 +56,8 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
+ logical, public        :: wbymass      = .false.
+
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
@@ -300,6 +302,8 @@ subroutine write_options_growth(iunit)
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
+ call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
+ if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  if (ifrag /= 0) then
     call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
@@ -312,7 +316,6 @@ subroutine write_options_growth(iunit)
        call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
- if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
 
 end subroutine write_options_growth
 
@@ -359,16 +362,18 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('flyby')
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
+ case('wbymass')
+    read(valstring,*,iostat=ierr) wbymass
  case default
     imatch = .false.
  end select
 
  if (nptmass > 1) then
-    if ((ifrag <= 0) .and. ngot == 2) igotall = .true.
+    if ((ifrag <= 0) .and. ngot == 3) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 5) igotall = .true.
+       if (ngot == 6) igotall = .true.
     elseif (isnow > 0) then
-       if (ngot == 7) igotall = .true.
+       if (ngot == 8) igotall = .true.
     else
        igotall = .false.
     endif
