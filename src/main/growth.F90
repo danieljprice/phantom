@@ -28,6 +28,7 @@
 !    vfrag        -- uniform fragmentation threshold in m/s
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- inward fragmentation threshold in m/s
+!    wbymass      -- weight dustgasprops by mass rather than mass/density
 !
 !  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
 !    viscosity
