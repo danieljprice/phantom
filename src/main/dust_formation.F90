@@ -528,7 +528,7 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  igotall = .false.
  select case(trim(name))
  case('idust_opacity')
-    read(valstring,*,iostat=ierr) wind_CO_ratio
+    read(valstring,*,iostat=ierr) idust_opacity
     ngot = ngot + 1
  case('wind_CO_ratio')
     read(valstring,*,iostat=ierr) wind_CO_ratio
