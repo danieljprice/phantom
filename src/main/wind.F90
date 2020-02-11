@@ -59,8 +59,9 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind)
  use dust_formation, only:set_abundances
  use part,           only:n_nucleation
  use io,             only:fatal
-#endif
  type(wind_state) :: state
+#endif
+
 
  real, intent(in) :: Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind
 

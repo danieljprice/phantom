@@ -412,9 +412,9 @@ subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
  case (2)
     call exact_cooling_table(u, rho, dt, dudt)
  case default
-    call exact_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+    !call exact_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
     !call implicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-    !call explicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+    call explicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
  end select
 
 end subroutine energ_cooling

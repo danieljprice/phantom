@@ -174,8 +174,8 @@ module part
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
-#ifdef NUCLEATION
  integer, parameter :: n_nucleation = 8
+#ifdef NUCLEATION
  real, allocatable :: nucleation(:,:)
  character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
 #endif
