@@ -1121,7 +1121,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--get individual timestep/ multiphase information (querying iphase)
        if (maxphase==maxp) then
-          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej,.false.)
+          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
 #ifdef IND_TIMESTEPS
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
@@ -1825,7 +1825,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2086,7 +2086,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2263,7 +2263,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
