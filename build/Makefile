@@ -488,7 +488,7 @@ ifeq ($(SETUP), growthtomulti)
     DUST=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
-    DUSTGROWTH = yes
+    DUSTGROWTH=yes
     MAXDUSTLARGE=25
 endif
 
