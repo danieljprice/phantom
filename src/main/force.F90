@@ -607,16 +607,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     endif
  endif
 #endif
+!$omp end parallel
 
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately
  if (ncheckbin==0) then
     nbinmaxnew    = nbinmax
     nbinmaxstsnew = nbinmaxsts
  endif
 #endif
-!$omp end parallel
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
