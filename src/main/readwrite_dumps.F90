@@ -1843,7 +1843,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
     call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
-    if (use_dust .and. .not.use_dustgrowth) then
+    if (use_dust) then
        call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
        call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
     endif

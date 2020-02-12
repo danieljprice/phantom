@@ -480,6 +480,18 @@ ifeq ($(SETUP), growingdisc)
     ANALYSIS=analysis_dustydisc.f90
 endif
 
+ifeq ($(SETUP), growthtomulti)
+#   transform dustgrowth dump into multi large grains dump
+    DISC_VISCOSITY=yes
+    MODFILE= moddump_growthtomultigrain.f90
+    ISOTHERMAL=yes
+    DUST=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    DUSTGROWTH = yes
+    MAXDUSTLARGE=25
+endif
+
 ifeq ($(SETUP), dustybox)
 #   dust in a box
     PERIODIC=yes
