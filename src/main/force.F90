@@ -2671,7 +2671,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !
     ibin(i) = max(ibin(i),ibin_neighi-1_1)
     !
-    ! find the new maximum number of bins
+    ! find the new maximum value of ibin
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
 
