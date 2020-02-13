@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: dim, initial_params, io, part, prompting, table_utils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump
