@@ -202,8 +202,7 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
  kappa_planck    = 5.9d0 * fC * Tdust
  kappa_rosseland = 6.7d0 * fC * Tdust
 
- kappa_cgs = kappa_rosseland
- !should add gas contribution
+ kappa_cgs = kappa_rosseland + kappa_gas
 
 end subroutine calc_kappa_dust
 
