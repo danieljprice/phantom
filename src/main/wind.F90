@@ -236,14 +236,15 @@ subroutine wind_step(state)
 #endif
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
-    !if no cooling or impose temperature profile, assume Tdust = Tgas
+    !if cooling disabled or no imposed temperature profile, set Tdust = Tgas
     state%Teq = state%Tg
  endif
+ !if (state%time_end > 93.) print *,state%time/state%time_end,(state%time + state%dt)/state%time_end
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
     state%dt_force = .true.
  endif
- state%nsteps = state%nsteps + 1
+ state%nsteps = mod(state%nsteps, 65536)+1
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
@@ -256,7 +257,7 @@ end subroutine wind_step
 !-----------------------------------------------------------------------
 subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use dust_formation, only:idust_opacity
+ use ptmass_radiation, only:iget_Tdust
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
  real :: tau_lucy_last
@@ -276,7 +277,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
     call wind_step(state)
 
-    tau_test = idust_opacity > 0 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6
+    tau_test = iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6
     if (state%r == state%r_old .or. state%tau_lucy < -1. .or. tau_test) state%error = .true.
  enddo
 end subroutine calc_wind_profile
@@ -286,13 +287,13 @@ end subroutine calc_wind_profile
 !  integrate wind equation up to time=local_time
 !+
 !-----------------------------------------------------------------------
-subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,JKmuS)
+subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  !in/out variables in code units (except Jstar,K,mu)
  use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
  use eos,          only:gamma
  real, intent(in)  :: local_time, GM, T0
  real, intent(inout) :: r, v
- real, intent(out) :: u, rho, e
+ real, intent(out) :: u, rho, e, fdone
  real, optional, intent(out) :: JKmuS(:)
 
  type(wind_state) :: state
@@ -303,8 +304,10 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,JKmuS)
  v = v*unit_velocity
  if (local_time == 0.) then
     call init_wind(r, v, T, local_time, state)
+    fdone = 1.d0
  else
     call calc_wind_profile(r, v, T, local_time*utime, state)
+    fdone = state%time/local_time/utime
  endif
  r = state%r/udist
  v = state%v/unit_velocity
@@ -315,7 +318,8 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,JKmuS)
 #ifdef NUCLEATION
  JKmuS = state%JKmuS
 #endif
- !cs = state%c/unit_velocity
+!cs = state%c/unit_velocity
+
 end subroutine wind_profile
 
 

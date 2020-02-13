@@ -31,7 +31,7 @@ module ptmass_radiation
 
  implicit none
  integer, public  :: isink_radiation = 0
- integer, private :: iget_tdust = 0
+ integer, public  :: iget_tdust = 0
  real,    public  :: alpha_rad = 0.
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
