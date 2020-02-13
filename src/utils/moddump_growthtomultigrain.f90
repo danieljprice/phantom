@@ -29,7 +29,8 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:use_dust,maxdusttypes,use_dustgrowth
  use part,           only:dustprop,idust,grainsize,graindens,iamtype,iphase,&
-                        set_particle_type,isdead_or_accreted,ndusttypes,ndustlarge
+                          set_particle_type,ndusttypes,ndustlarge,&
+                          delete_dead_or_accreted_particles
  use table_utils,    only:logspace
  use prompting,      only:prompt
  use units,          only:udist
@@ -92,10 +93,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     close(unit=420)
  endif
  
+ !- delete dead or accreted particles before doing anything
+ call delete_dead_or_accreted_particles(npart,npartoftype)
+ 
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
     itype = iamtype(iphase(i))
-    if (itype==idust .and. .not.isdead_or_accreted(xyzh(4,i))) then
+    if (itype==idust) then
        if (dustprop(1,i) < smintmp) smintmp = dustprop(1,i)
        if (dustprop(1,i) > smaxtmp) smaxtmp = dustprop(1,i)
     endif
@@ -132,7 +136,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ndustold = npartoftype(idust)
  mdustold = massoftype(idust)*npartoftype(idust) !- initial total mass
  do i=1,npart
-    if (iamtype(iphase(i))==idust .and. .not.isdead_or_accreted(xyzh(4,i))) then
+    itype = iamtype(iphase(i))
+    if (itype==idust) then
        !- figure out which bin
        do j=1,ndusttypes
           if ((dustprop(1,i) >= grid(j)) .and. (dustprop(1,i) < grid(j+1))) then

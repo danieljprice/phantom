@@ -25,7 +25,7 @@ def pimp_my_sim(gdump_name,
     input parameters are:
     
     gdump_name      : (str)   - name of dustgrowth dump (input)
-    outdump_name    : (str)   - name of desired multi large grains dump (output)
+    outdump_name    : (str)   - prefix of the name of desired output dump (output) - final name will be outdump_name_00000
     path_to_phantom : (str)   - path to phantom's directory
     bins_per_dex    : (int)   - number of bins per magnitude of size
     force_smax      : (bool)  - wether or not to force a maximum size for binning, else find it automatically
