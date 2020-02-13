@@ -569,6 +569,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  real                 :: discmass
  !
  i        = 1
+ j        = 1
  discmass = msink
  do while (i <= npart .and. discmass < discmasslim)
     j = indx(i)
