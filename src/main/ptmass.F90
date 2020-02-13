@@ -928,7 +928,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
  if (iverbose >= 1 .and. id==id_rhomax) &
     write(iprint,"(a,i10,a,i2,a)",advance='no') &
-     ' ptmass_create: Testing ',itest,' on thread ',id,' for ptmass creation...'
+     ' ptmass_create: Testing particle i=',itest,' on thread ',id,' for ptmass creation...'
 
  ! CHECK 0: make sure particle is a gas particle (sanity check, should be unnecessary)
  if (itype /= igas) then
@@ -948,7 +948,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 2: 2h < h_acc
  if (hi > 0.5*h_acc) then
-    if (iverbose >= 1) write(iprint,"(/,1x,a,es10.3,a,es10.3,a)") 'ptmass_create: FAILED because 2h > h_acc (',h_acc,')'
+    if (iverbose >= 1) write(iprint,"(/,1x,2(a,es10.3),a)") 'ptmass_create: FAILED because 2h > h_acc (',2*hi,' > ',h_acc,')'
     call summary_ptmass_fail(inosink_h)
     if (.not. record_created) return
     ifail_array(inosink_h) = 1
@@ -994,7 +994,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
-       call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej,.false.)
+       call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej)
        pmassj = massoftype(itypej)
        if (.not. is_accretable(itypej) ) cycle over_neigh ! Verify particle is 'accretable'
     endif

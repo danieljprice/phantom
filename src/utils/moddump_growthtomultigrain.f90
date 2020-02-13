@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: dim, initial_params, io, part, prompting, table_utils,
+!    timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -47,13 +48,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, allocatable, dimension(:) :: grid
  logical                         :: force_smax,file_exists
  character(len=20)               :: infile  = "bin_param.txt", &
-                                    outfile = "bin_distrib.dat" 
- 
+                                    outfile = "bin_distrib.dat"
+
  if ((.not. use_dust) .or. (.not. use_dustgrowth)) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes AND DUSTGROWTH=yes'
     stop
  endif
- 
+
  !- initialise variables
  smaxtmp      = 0.
  smax_user    = 1.
@@ -69,13 +70,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  force_smax   = .false.
  graindens    = maxval(dustprop(2,:)) !- it's actually a constant, we don't care
  code_to_mum  = udist*1.e4
- 
+
  !- set nmax to zero, we just want deriv called once after moddump
  nmax         = 0
- 
+
  !- check if param file exists, created by python script growthtomcfost.py
  inquire(file=infile, exist=file_exists)
- 
+
  !- if not, switch to interactive method
  if (.not.file_exists) then
     call prompt('Set smax manually? (1=yes, 2=no)',iforce_smax,1,2)
@@ -95,7 +96,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  
  !- delete dead or accreted particles before doing anything
  call delete_dead_or_accreted_particles(npart,npartoftype)
- 
+
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
     itype = iamtype(iphase(i))
@@ -104,7 +105,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        if (dustprop(1,i) > smaxtmp) smaxtmp = dustprop(1,i)
     endif
  enddo
- 
+
  !- force smax if needed
  if (force_smax) then
     smax = smax_user/udist
@@ -117,10 +118,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  nbins      = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
  ndusttypes = min(nbins, nbinmax) !- prevent memory allocation errors
  ndustlarge = ndusttypes !- this is written to the header
- 
+
  !- allocate memory for a grid of ndusttypes+1 elements
  allocate(grid(ndusttypes+1))
- 
+
  !- bin sizes in ndusttypes bins
  write(*,"(a,f10.1,a,f10.1,a,i3,a)") "Binning sizes between ",smin*code_to_mum, " (µm) and ",&
                                      smax*code_to_mum," (µm) in ",ndusttypes, " bins"
@@ -156,39 +157,39 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
     endif
  enddo
- 
+
  !- set massoftype for each bin and print info
  open (unit=3693, file=outfile, status="replace")
  write(*,"(a3,a1,a10,a1,a10,a1,a10,a5,a6)") "Bin #","|","s_min","|","s","|","s_max","|==>","npart"
- 
+
  do itype=idust,idust+ndusttypes-1
     write(*,"(i3,a1,f10.1,a1,f10.1,a1,f10.1,a5,i6)") itype-idust+1,"|",grid(itype-idust+1)*code_to_mum,"|", &
                                                      grainsize(itype-idust+1)*code_to_mum, &
                                                      "|",grid(itype-idust+2)*code_to_mum,"|==>",npartoftype(itype)
-                                                     
+
     if (itype > idust) massoftype(itype) = massoftype(idust)
     mdust_in(itype) = massoftype(itype)*npartoftype(itype)
     mdustnew        = mdustnew + mdust_in(itype)
     ndustnew        = ndustnew + npartoftype(itype)
-    
+
     write(3693,*) itype-idust+1,grid(itype-idust+1)*code_to_mum,grainsize(itype-idust+1)*code_to_mum,&
                   grid(itype-idust+2)*code_to_mum,npartoftype(itype)
  enddo
- 
+
  close(unit=3693)
- 
+
  !- sanity check for total number of dust particles
  if (sum(npartoftype(idust:)) /= ndustold) then
     write(*,*) 'ERROR! npartoftype not conserved'
     write(*,*) sum(npartoftype(idust:)), " <-- new vs. old --> ",ndustold
  endif
- 
+
  !- sanity check for total dust mass
  if (abs(mdustold-mdustnew)/mdustold > tolm) then
     write(*,*) 'ERROR! total dust mass not conserved'
     write(*,*) mdustnew, " <-- new vs. old --> ",mdustold
  endif
- 
+
 end subroutine modify_dump
 
 end module moddump

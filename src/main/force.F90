@@ -607,16 +607,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     endif
  endif
 #endif
+!$omp end parallel
 
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately
  if (ncheckbin==0) then
     nbinmaxnew    = nbinmax
     nbinmaxstsnew = nbinmaxsts
  endif
 #endif
-!$omp end parallel
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
@@ -1121,7 +1124,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--get individual timestep/ multiphase information (querying iphase)
        if (maxphase==maxp) then
-          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej,.false.)
+          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
 #ifdef IND_TIMESTEPS
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
@@ -1825,7 +1828,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2086,7 +2089,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2263,7 +2266,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas

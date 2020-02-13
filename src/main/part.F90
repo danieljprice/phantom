@@ -666,11 +666,10 @@ pure integer(kind=1) function isetphase(itype,iactive)
 
 end function isetphase
 
-pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype,set_active_boundaries)
+pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
  integer(kind=1), intent(in)  :: iphasei
  logical,         intent(out) :: isactive,isgas,isdust
  integer,         intent(out) :: itype
- logical,         intent(in)  :: set_active_boundaries
 
 ! isactive = iactive(iphasei)
 ! itype = iamtype(iphasei)
