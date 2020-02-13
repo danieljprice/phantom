@@ -192,9 +192,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! contains
 !  real function rhor(r)
 !    real, intent(in) :: r
-!
 !    rhor = 1./r**2
-!
 !  end function rhor
 
 end subroutine setpart

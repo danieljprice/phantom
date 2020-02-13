@@ -122,13 +122,15 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #ifdef NUCLEATION
  state%JKmuS = 0.
  state%jKmuS(6) = gmw
- state%tau_lucy = 2./3.
 #endif
+ state%tau_lucy = 2./3.
  state%mu = gmw
  state%kappa = 0.
  state%Q = 0.
  state%dQ_dr = 0.
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
+ state%spcode = 0
+ state%nsteps = 1
 
  Tstar = xyzmh_ptmass(iTeff,wind_emitting_sink)
  Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
@@ -154,15 +156,13 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #ifdef NUCLEATION
        call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu,state%JKmuS(4),state%kappa)
 #else
-       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq)
+       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
 #endif
     endif
  endif
  state%p = state%rho*Rg*state%Tg/state%mu
  state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
- state%spcode = 0
- state%nsteps = 1
  state%error = .false.
 
 end subroutine init_wind
@@ -232,9 +232,12 @@ subroutine wind_step(state)
 #ifdef NUCLEATION
     call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
-    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq)
+    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
 #endif
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+ else
+    !if no cooling or impose temperature profile, assume Tdust = Tgas
+    state%Teq = state%Tg
  endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
