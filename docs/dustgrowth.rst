@@ -170,6 +170,7 @@ However, a Python module is available for transforming a dump into a friendlier 
 To do so, you can open your favorite Python code editor and import the module:
 
 ::
+
    # you need to copy the script to your current directory before importing it
    import os
    os.system(f"cp path_to_phantom/scripts/growthtomcfost.py .")
@@ -180,6 +181,7 @@ You can learn more about those by printing the docstring attached to the functio
 in iPython or in a Jupyter Notebook. This should give you the following:
 
 :: 
+
    Signature:
    g.pimp_my_sim(
        gdump_name,
@@ -223,6 +225,7 @@ in iPython or in a Jupyter Notebook. This should give you the following:
 The resulting dump is ready to be processed by mcfost by typing 
 
 ::
+
    mcfost <paramfile> -phantom <output_dump> -<options>
    
 The advantage of doing this in a Jupyter Notebook or a python file is that the transition is made easy with pymcfost
