@@ -93,7 +93,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     read(420,*) force_smax, smax_user, bins_per_dex
     close(unit=420)
  endif
- 
+
  !- delete dead or accreted particles before doing anything
  call delete_dead_or_accreted_particles(npart,npartoftype)
 
