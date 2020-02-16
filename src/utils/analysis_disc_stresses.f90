@@ -746,7 +746,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        if (maxphase==maxp) then
-          call get_partinfo(iphase(i), iactivei,iamdusti,iamgasi,iamtypei,.false.)
+          call get_partinfo(iphase(i),iactivei,iamdusti,iamgasi,iamtypei)
        else
           iactivei = .true.
           iamtypei = igas
