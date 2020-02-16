@@ -141,6 +141,7 @@ subroutine check_setup(nerror,nwarn,restart)
        itype = iamtype(iphase(i))
        if (itype < 1 .or. itype > maxtypes) then
           nbad = nbad + 1
+          if (nbad < 10) print*,'ERROR: unknown particle type ',itype,' on particle ',i
        else
           ncount(itype) = ncount(itype) + 1
        endif
@@ -150,20 +151,10 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
     if (any(ncount /= npartoftype)) then
-       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'n(via iphase)=',ncount
+       print*,'npartoftype  =',npartoftype
        print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
-    endif
-!
-!--If boundary particles are present, then only gas and boundary particles may exist
-!
-    if (npartoftype(iboundary) > 0) then
-       do i = 1,maxtypes
-          if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-             nerror = nerror + 1
-          endif
-       enddo
     endif
  endif
 !

@@ -24,7 +24,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
 !    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
 !    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
@@ -162,9 +162,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,get_partinfo,iactive,gradh,&
-                        hrho,iphase,maxphase,igas,iboundary,maxgradh,dvdx, &
-                        eta_nimhd,deltav,poten
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,iactive,gradh,&
+                        hrho,iphase,maxphase,igas,maxgradh,dvdx, &
+                        eta_nimhd,deltav,poten,iamtype,is_accretable
  use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -595,7 +595,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     rhomax_thread = 0.
     ipart_rhomax_thread = 0
 !$omp do schedule(runtime)
-    do i=1,npart
+    over_parts: do i=1,npart
        hi = xyzh(4,i)
 #ifdef IND_TIMESTEPS
        if (iactive(iphase(i)) .and..not.isdead_or_accreted(hi)) then
@@ -603,7 +603,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
        if (.not.isdead_or_accreted(hi)) then
 #endif
           if (maxphase==maxp) then
-             call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
+             iamtypei = iamtype(iphase(i))
+             if (.not.is_accretable(iamtypei)) cycle over_parts
           else
              iamtypei = igas
           endif
@@ -631,7 +632,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
              endif
           endif
        endif
-    enddo
+    enddo over_parts
 !$omp enddo
     if (rhomax_thread > rho_crit) then
 !$omp critical(rhomaxadd)
@@ -643,16 +644,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     endif
  endif
 #endif
+!$omp end parallel
 
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately
  if (ncheckbin==0) then
     nbinmaxnew    = nbinmax
     nbinmaxstsnew = nbinmaxsts
  endif
 #endif
-!$omp end parallel
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
@@ -823,7 +827,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use fastmath,    only:finvsqrt
 #endif
  use kernel,      only:grkern,cnormk,radkern2
- use part,        only:igas,idust,iboundary,iohm,ihall,iambi,maxphase,iactive,&
+ use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature
  use part,        only:rhoh,dvdx
@@ -842,11 +846,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
+ use growth,      only:wbymass
  use kernel,      only:wkern,cnormk
 #endif
 #endif
 #ifdef IND_TIMESTEPS
- use part,        only:ibin_old
+ use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
@@ -1179,12 +1184,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--get individual timestep/ multiphase information (querying iphase)
        if (maxphase==maxp) then
-          call get_partinfo(iphase(j),iactivej,iamdustj,iamtypej)
-          iamgasj = (iamtypej==igas .or. iamtypej==iboundary)
+          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
 #ifdef IND_TIMESTEPS
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
-          if (iamtypej /= iboundary) then
+          if (.not.iamboundary(iamtypej)) then
 ! #ifndef MPI
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
 ! #endif
@@ -1674,11 +1678,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    else
                       winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
-                   fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
-                   fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
-                   fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                   fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
+                   if (wbymass) then
+                      fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
+                      fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
+                      fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
+                      fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
+                   else
+                      fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
+                      fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
+                      fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
+                      fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
+                   endif
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -1859,7 +1870,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use options,   only:alpha,use_dustfrac
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,store_temperature
- use part,      only:iamgas,maxphase,iboundary,rhoanddhdrho,igas,massoftype,get_partinfo,&
+ use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
@@ -1916,18 +1927,14 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = (iamtypei==igas)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
     endif
-    if (.not.iactivei) then ! handles case where first particle in cell is inactive
-       cycle over_parts
-    endif
-    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
+    if (.not.iactivei) then ! handles boundaries + case where first particle in cell is inactive
        cycle over_parts
     endif
 
@@ -2149,7 +2156,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 #endif
  use dim,         only:maxvxyzu
  use options,     only:beta,alphau,alphaB,iresistive_heating
- use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,massoftype
+ use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,massoftype
  use viscosity,   only:irealvisc,bulkvisc
 
  type(cellforce), intent(inout)  :: cell
@@ -2198,8 +2205,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamdusti,iamtypei)
-       iamgasi = (iamtypei==igas)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2208,10 +2214,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     endif
 
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
-       cycle over_parts
-    endif
-    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
-       cycle over_parts
+       cycle over_parts     ! also boundary particles are inactive
     endif
 
     i = inodeparts(cell%arr_index(ip))
@@ -2287,9 +2290,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth
  use eos,            only:use_entropy,gamma,ieos
  use options, only:ishock_heating,icooling,psidecayfac,overcleanfac,alpha,ipdv_heating,use_dustfrac,damp
- use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,&
-                          ithick,idtrad
+ use part,           only:h2chemistry,rhoanddhdrho,abundance,igas,maxphase,maxvxyzu,nabundances, &
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,idtrad
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
@@ -2310,6 +2312,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:luminosity
 #endif
 #ifdef DUSTGROWTH
+ use growth,         only:wbymass
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
 #endif
@@ -2390,8 +2393,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamdusti,iamtypei)
-       iamgasi = (iamtypei==igas)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2400,9 +2402,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (.not.iactivei) then ! handles case where first particle in cell is inactive
-       cycle over_parts
-    endif
-    if (iamtypei==iboundary) then ! do not compute forces on boundary parts
        cycle over_parts
     endif
 
@@ -2561,7 +2560,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
              if (ishock_heating > 0) then
-                if (fsum(idudtdissi) < 0.) call warning('force','du/dt_diss -ve: ',i,var='dudt',val=fsum(idudtdissi))
+                if (fsum(idudtdissi) < -epsilon(0.)) &
+                   call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif
 #ifdef LIGHTCURVE
@@ -2693,9 +2693,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
        if (iamdusti) then
           !- return interpolations to their respective arrays
-          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
-          dustgasprop(1,i) = fsum(icsi) !- sound speed
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
+          dustgasprop(1,i) = fsum(icsi)
+          !- if interpolations are mass weigthed, divide result by rhog,i
+          if (wbymass) then
+             dustgasprop(1,i) = dustgasprop(1,i)/dustgasprop(2,i) !- sound speed
+             dustgasprop(4,i) = dustgasprop(4,i)/dustgasprop(2,i) !- |dv|
+          endif
 
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)

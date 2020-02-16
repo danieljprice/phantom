@@ -71,6 +71,7 @@ module part
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
  logical, public             :: this_is_a_test = .false.
+ logical, public             :: this_is_a_flyby = .false.
 !
 !--storage in divcurlv
 !
@@ -306,12 +307,14 @@ module part
  integer, parameter :: ibulge      = 6
  integer, parameter :: idust       = 7
  integer, parameter :: idustlast   = idust + maxdustlarge - 1
+ integer, parameter :: idustbound  = idustlast + 1
+ integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
  logical            :: set_boundaries_to_active = .true.
  integer :: i
- character(len=5), dimension(maxtypes), parameter :: &
-   labeltype = (/'gas  ','empty','bound','star ','darkm','bulge', &
-                 ('dust ', i=idust,idustlast)/)
+ character(len=7), dimension(maxtypes), parameter :: &
+   labeltype = (/'gas    ','empty  ','bound  ','star   ','darkm  ','bulge  ', &
+                 ('dust   ', i=idust,idustlast),('dustbnd',i=idustbound,idustboundl)/)
 !
 !--generic interfaces for routines
 !
@@ -681,9 +684,9 @@ pure integer(kind=1) function isetphase(itype,iactive)
 
 end function isetphase
 
-pure subroutine get_partinfo(iphasei,isactive,isdust,itype)
+pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
  integer(kind=1), intent(in)  :: iphasei
- logical,         intent(out) :: isactive,isdust
+ logical,         intent(out) :: isactive,isgas,isdust
  integer,         intent(out) :: itype
 
 ! isactive = iactive(iphasei)
@@ -698,13 +701,32 @@ pure subroutine get_partinfo(iphasei,isactive,isdust,itype)
     isactive = .false.
     itype    = -iphasei
  endif
+ isgas = (itype==igas .or. itype==iboundary)
 #ifdef DUST
- isdust = ((itype>=idust) .and. (itype<=idustlast))
+ isdust = ((itype>=idust) .and. (itype<=idustlast))  .or. &
+          ((itype>=idustbound) .and. (itype<=idustboundl))
 #else
  isdust = .false.
 #endif
+ !
+ ! boundary particles (always inactive unless set to active)
+ !
+ if (itype==iboundary) then
+    if (set_boundaries_to_active) then
+       isactive = .true.
+       itype = igas
+    else
+       isactive = .false.
+    endif
+ elseif (itype>= idustbound .and. itype <= idustboundl) then
+    if (set_boundaries_to_active) then
+       isactive = .true.
+       itype = idust + itype - idustbound
+    else
+       isactive = .false.
+    endif
+ endif
 
- return
 end subroutine get_partinfo
 
 pure logical function iactive(iphasei)
@@ -745,6 +767,30 @@ pure elemental logical function iamgas(iphasei)
  iamgas = int(itype)==igas
 
 end function iamgas
+
+pure elemental logical function iamboundary(itype)
+ integer, intent(in) :: itype
+
+ !itype = abs(itype) unnecessary as always called with type, not iphase
+ iamboundary = itype==iboundary .or. (itype>=idustbound .and. itype<=idustboundl)
+
+end function iamboundary
+
+pure elemental integer function ibasetype(itype)
+ integer, intent(in) :: itype
+ !integer :: itype
+
+ ! return underlying (base) type for particle
+ !itype = abs(itype)
+ if (itype==iboundary) then
+    ibasetype = igas                       ! boundary particles are gas
+ elseif (itype>=idustbound .and. itype<=idustboundl) then
+    ibasetype = idust + (itype-idustbound) ! dust boundaries are dust
+ else
+    ibasetype = itype                      ! otherwise same as current type
+ endif
+
+end function ibasetype
 
 pure elemental logical function iamdust(iphasei)
  integer(kind=1), intent(in) :: iphasei
@@ -1401,7 +1447,7 @@ end subroutine
 
 !----------------------------------------------------------------
  !+
- !  Returns keplerian rotational frequency of particle i
+ !  Returns keplerian frequency of particle i
  !+
  !----------------------------------------------------------------
 real function Omega_k(i)
@@ -1410,18 +1456,21 @@ real function Omega_k(i)
  integer              :: j
 
  m_star = 0.
- r      = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
 
- !- WARNING: for nptmass = 2 mstar is the sum of both stars by default.
- !- Be careful: this would be relatively okay for a close binary but not for something like a flyby.
- select case(nptmass)
- case(1)
-    m_star    = xyzmh_ptmass(4,nptmass)
- case(2)
+ !-- if flyby: r should be centered around the primary, else around center of mass
+ if (this_is_a_flyby) then
+    r = sqrt((xyzh(1,i)-xyzmh_ptmass(1,1))**2 + (xyzh(2,i)-xyzmh_ptmass(2,1))**2 + (xyzh(3,i)-xyzmh_ptmass(3,1))**2)
+ else
+    r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+ endif
+
+ if (this_is_a_flyby) then
+    m_star = xyzmh_ptmass(4,1)
+ else
     do j=1,nptmass
        m_star = m_star + xyzmh_ptmass(4,j)
     enddo
- end select
+ endif
 
  if (r > 0. .and. m_star > 0.) then
     Omega_k = sqrt(m_star/r) / r

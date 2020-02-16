@@ -20,6 +20,7 @@
 !
 !  RUNTIME PARAMETERS:
 !    Tsnow        -- snow line condensation temperature in K
+!    flyby        -- use primary for keplerian freq. calculation
 !    grainsizemin -- minimum allowed grain size in cm
 !    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
 !    isnow        -- snow line (0=off,1=position based,2=temperature based)
@@ -27,6 +28,7 @@
 !    vfrag        -- uniform fragmentation threshold in m/s
 !    vfragin      -- inward fragmentation threshold in m/s
 !    vfragout     -- inward fragmentation threshold in m/s
+!    wbymass      -- weight dustgasprops by mass rather than mass/density
 !
 !  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
 !    viscosity
@@ -35,7 +37,7 @@
 module growth
  use units,        only:udist,unit_density,unit_velocity
  use physcon,      only:au,Ro
- use part,         only:xyzmh_ptmass
+ use part,         only:xyzmh_ptmass,this_is_a_flyby,nptmass
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
@@ -54,6 +56,8 @@ module growth
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
+
+ logical, public        :: wbymass      = .false.
 
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
@@ -299,6 +303,8 @@ subroutine write_options_growth(iunit)
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
+ call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
+ if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  if (ifrag /= 0) then
     call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
@@ -354,17 +360,33 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('vfragout')
     read(valstring,*,iostat=ierr) vfragoutSI
     ngot = ngot + 1
+ case('flyby')
+    read(valstring,*,iostat=ierr) this_is_a_flyby
+    ngot = ngot + 1
+ case('wbymass')
+    read(valstring,*,iostat=ierr) wbymass
  case default
     imatch = .false.
  end select
 
- if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
- if (isnow == 0) then
-    if (ngot == 4) igotall = .true.
- elseif (isnow > 0) then
-    if (ngot == 6) igotall = .true.
+ if (nptmass > 1) then
+    if ((ifrag <= 0) .and. ngot == 3) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 6) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 8) igotall = .true.
+    else
+       igotall = .false.
+    endif
  else
-    igotall = .false.
+    if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 4) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 6) igotall = .true.
+    else
+       igotall = .false.
+    endif
  endif
 
 end subroutine read_options_growth

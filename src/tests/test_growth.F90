@@ -108,7 +108,7 @@ subroutine test_farmingbox(ntests,npass)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,grainsizemin,gsizemincgs
+ use growth,         only:ifrag,init_growth,isnow,vfrag,grainsizemin,gsizemincgs,wbymass
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -172,6 +172,7 @@ subroutine test_farmingbox(ntests,npass)
  ! initialise
  !
  this_is_a_test = .true.
+ wbymass        = .false.
 
  !
  ! setup for dustybox problem

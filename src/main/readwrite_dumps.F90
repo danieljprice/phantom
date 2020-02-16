@@ -452,7 +452,7 @@ print*, "write_fulldump"
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierrs(3))
-          call write_array(1,dustgasprop(3,:),dustgasprop_label(3),npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
@@ -1860,7 +1860,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
     call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
-    if (use_dust .and. .not.use_dustgrowth) then
+    if (use_dust) then
        call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
        call add_to_rheader(graindens(1:ndusttypes),'graindens',hdr,ierr)
     endif
