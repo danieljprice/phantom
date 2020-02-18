@@ -61,7 +61,7 @@ module growth
  real, public           :: grainsizemin
 
  logical, public        :: wbymass      = .false.
- 
+
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
  real,    public        :: size_max  = 0.2 !- cm
@@ -534,7 +534,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge
  real, allocatable, dimension(:) :: grid
  character(len=20)               :: outfile = "bin_distrib.dat"
- 
+
  !- initialise
  code_to_mum = udist*1.e4
  tolm         = 1.e-5
@@ -548,7 +548,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  npartmin     = 50 !- limit to find neighbours
  init         = .false.
  graindens    = maxval(dustprop(2,:))
- 
+
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
     itype = iamtype(iphase(i))
@@ -563,7 +563,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     force_smax = .false.
     write(*,*) "Overruled force_smax from T to F"
  endif
- 
+
  !- force smax if needed, check for flat size distribution
  if (force_smax .and. (smintmp /= smaxtmp)) then
     smax = smax_user/udist
@@ -573,7 +573,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     init = .true.
     write(*,*) "Detected initial condition, restraining nbins = 1"
  endif
- 
+
  if (.not. init) then
     smin = smintmp
 
@@ -627,7 +627,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
        imerge = imerge + 1
        if (imerge > 50) call fatal('bin merging','merging number of iterations exceeded limit',var="imerge",ival=imerge)
     enddo
-    
+
     !- set massoftype for each bin and print info
     if (verbose) open (unit=3693, file=outfile, status="replace")
     write(*,"(a3,a1,a10,a1,a10,a1,a10,a5,a6)") "Bin #","|","s_min","|","s","|","s_max","|==>","npart"

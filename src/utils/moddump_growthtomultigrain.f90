@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  force_smax   = .false.
  smax_user    = 2
  nmax         = 0 !- deriv called once after moddump
- 
+
  !- check if param file exists, created by python script growthtomcfost.py
  inquire(file=infile, exist=file_exists)
 
@@ -78,7 +78,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !- bin dust particles into desired bins
  call bin_to_multi(bins_per_dex,force_smax,smax_user,verbose=.true.)
- 
+
 end subroutine modify_dump
 
 end module moddump
