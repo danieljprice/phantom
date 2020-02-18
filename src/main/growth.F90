@@ -19,19 +19,22 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Tsnow        -- snow line condensation temperature in K
-!    flyby        -- use primary for keplerian freq. calculation
-!    grainsizemin -- minimum allowed grain size in cm
-!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
-!    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    rsnow        -- snow line position in AU
-!    vfrag        -- uniform fragmentation threshold in m/s
-!    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- inward fragmentation threshold in m/s
-!    wbymass      -- weight dustgasprops by mass rather than mass/density
+!    Tsnow         -- snow line condensation temperature in K
+!    bin_per_dex   -- (mcfost) number of bins of sizes per dex
+!    flyby         -- use primary for keplerian freq. calculation
+!    force_smax    -- (mcfost) set manually maximum size for binning
+!    grainsizemin  -- minimum allowed grain size in cm
+!    ifrag         -- fragmentation of dust (0=off,1=on,2=Kobayashi)
+!    isnow         -- snow line (0=off,1=position based,2=temperature based)
+!    rsnow         -- snow line position in AU
+!    size_max_user -- (mcfost) maximum size for binning in cm
+!    vfrag         -- uniform fragmentation threshold in m/s
+!    vfragin       -- inward fragmentation threshold in m/s
+!    vfragout      -- inward fragmentation threshold in m/s
+!    wbymass       -- weight dustgasprops by mass rather than mass/density
 !
-!  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
-!    viscosity
+!  DEPENDENCIES: dust, eos, infile_utils, initial_params, io, part,
+!    physcon, table_utils, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module growth

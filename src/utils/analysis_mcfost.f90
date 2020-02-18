@@ -13,14 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Christophe Pinte
+!  OWNER: Arnaud Vericel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, io, mcfost2phantom, options, part, timestep,
-!    units
+!  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
+!    linklist, mcfost2phantom, options, part, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
