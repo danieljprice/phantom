@@ -65,7 +65,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        force_smax = .false.
     endif
     if (force_smax) call prompt('Enter smax in cm',smax_user,0.05)
-       call prompt('Enter number of bins per dex',bins_per_dex,1)
+    call prompt('Enter number of bins per dex',bins_per_dex,1)
  else
     !- file created by phantom/scripts/growthtomcfost.py module
     open (unit=420, file=infile)

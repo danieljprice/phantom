@@ -73,7 +73,7 @@ module growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
  public                 :: comp_snow_line,bin_to_multi
 
- contains
+contains
 
 !------------------------------------------------
 !+
@@ -671,89 +671,89 @@ end subroutine bin_to_multi
 !+
 !-----------------------------------------------------------------------
 subroutine merge_bins(npart,grid,npartmin)
-use part,           only:ndusttypes,ndustlarge,set_particle_type,&
+ use part,           only:ndusttypes,ndustlarge,set_particle_type,&
                          npartoftype,massoftype,idust,iphase,iamtype,&
                          grainsize,graindens
-use initial_params, only:mdust_in
-integer, intent(in) :: npart,npartmin
-real, intent(inout) :: grid(:)
-integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother
-logical             :: backward = .true.
+ use initial_params, only:mdust_in
+ integer, intent(in) :: npart,npartmin
+ real, intent(inout) :: grid(:)
+ integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother
+ logical             :: backward = .true.
 
 !- initialise
-i         = 0
-iculprit  = 0
-itype     = 0
-idusttype = 0
-nculprit  = 0
-nother    = 0
-iother    = 0
+ i         = 0
+ iculprit  = 0
+ itype     = 0
+ idusttype = 0
+ nculprit  = 0
+ nother    = 0
+ iother    = 0
 
 !- scan npartoftype, get index of most upper bin
-do i=ndusttypes+idust-1,idust,-1
-   if (npartoftype(i) < npartmin) then
-      iculprit  = i
-      idusttype = iculprit - idust + 1
-      nculprit  = npartoftype(iculprit)
-      if (iculprit == idust) then
-         iother = iculprit + 1
-         write(*,*) "Merging bin number ",idusttype," forward"
-         backward = .false.
-      else
-         iother = iculprit - 1
-         write(*,*) "Merging bin number ",idusttype," backward"
-      endif
-      nother = npartoftype(iother)
-      exit
-   endif
-enddo
+ do i=ndusttypes+idust-1,idust,-1
+    if (npartoftype(i) < npartmin) then
+       iculprit  = i
+       idusttype = iculprit - idust + 1
+       nculprit  = npartoftype(iculprit)
+       if (iculprit == idust) then
+          iother = iculprit + 1
+          write(*,*) "Merging bin number ",idusttype," forward"
+          backward = .false.
+       else
+          iother = iculprit - 1
+          write(*,*) "Merging bin number ",idusttype," backward"
+       endif
+       nother = npartoftype(iother)
+       exit
+    endif
+ enddo
 
 !- transfer particles of that type to bin n-1, set particle type to n-1
-do i=1,npart
-   itype = iamtype(iphase(i))
-   if (backward) then
-      if (itype == iculprit) then
-         npartoftype(iculprit) = npartoftype(iculprit) - 1
-         npartoftype(iother)   = npartoftype(iother) + 1
-         call set_particle_type(i,iother)
-      endif
-   else !- translate everyone to the bin to their left, except culprit bin
-      if (itype /= iculprit) then
-         npartoftype(itype)   = npartoftype(itype) - 1
-         npartoftype(itype-1) = npartoftype(itype-1) + 1
-         call set_particle_type(i,itype-1)
-      endif
-   endif
-enddo
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    if (backward) then
+       if (itype == iculprit) then
+          npartoftype(iculprit) = npartoftype(iculprit) - 1
+          npartoftype(iother)   = npartoftype(iother) + 1
+          call set_particle_type(i,iother)
+       endif
+    else !- translate everyone to the bin to their left, except culprit bin
+       if (itype /= iculprit) then
+          npartoftype(itype)   = npartoftype(itype) - 1
+          npartoftype(itype-1) = npartoftype(itype-1) + 1
+          call set_particle_type(i,itype-1)
+       endif
+    endif
+ enddo
 
 !- recompute grainsize and grid borders
-if (backward) then
-   massoftype(iculprit) = 0.
-   mdust_in(iculprit)   = 0.
-   graindens(idusttype) = 0.
+ if (backward) then
+    massoftype(iculprit) = 0.
+    mdust_in(iculprit)   = 0.
+    graindens(idusttype) = 0.
 
-   !- recompute size with weigthed sum
-   grainsize(idusttype-1) = (grainsize(idusttype-1)*nother + grainsize(idusttype)*nculprit) / (nother + nculprit)
-   grid(idusttype)        = grid(idusttype+1)
-else
-   do i=1,ndusttypes
-      if (i==1) then
-         grainsize(i) = (grainsize(i)*npartoftype(i+idust-1) + grainsize(i+1)*npartoftype(i+idust)) &
+    !- recompute size with weigthed sum
+    grainsize(idusttype-1) = (grainsize(idusttype-1)*nother + grainsize(idusttype)*nculprit) / (nother + nculprit)
+    grid(idusttype)        = grid(idusttype+1)
+ else
+    do i=1,ndusttypes
+       if (i==1) then
+          grainsize(i) = (grainsize(i)*npartoftype(i+idust-1) + grainsize(i+1)*npartoftype(i+idust)) &
                         / (npartoftype(i+idust-1)+npartoftype(i+idust))
-      else
-         grainsize(i) = grainsize(i+1)
-         grid(i)      = grid(i+1)
-      endif
-   enddo
-   massoftype(ndusttypes+idust-1) = 0.
-   mdust_in(ndusttypes+idust-1)   = 0.
-   graindens(ndusttypes+idust-1)  = 0.
-   grid(ndusttypes+1)             = 0.
-endif
+       else
+          grainsize(i) = grainsize(i+1)
+          grid(i)      = grid(i+1)
+       endif
+    enddo
+    massoftype(ndusttypes+idust-1) = 0.
+    mdust_in(ndusttypes+idust-1)   = 0.
+    graindens(ndusttypes+idust-1)  = 0.
+    grid(ndusttypes+1)             = 0.
+ endif
 
 !- reduce ndusttypes
-ndusttypes           = ndusttypes - 1
-ndustlarge           = ndusttypes
+ ndusttypes           = ndusttypes - 1
+ ndustlarge           = ndusttypes
 
 end subroutine merge_bins
 
