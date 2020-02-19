@@ -18,8 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, initial_params, io, part, prompting, table_utils,
-!    timestep, units
+!  DEPENDENCIES: dim, growth, part, prompting, timestep
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -53,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  force_smax   = .false.
  smax_user    = 2
  nmax         = 0 !- deriv called once after moddump
- 
+
  !- check if param file exists, created by python script growthtomcfost.py
  inquire(file=infile, exist=file_exists)
 
@@ -66,7 +65,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        force_smax = .false.
     endif
     if (force_smax) call prompt('Enter smax in cm',smax_user,0.05)
-       call prompt('Enter number of bins per dex',bins_per_dex,1)
+    call prompt('Enter number of bins per dex',bins_per_dex,1)
  else
     !- file created by phantom/scripts/growthtomcfost.py module
     open (unit=420, file=infile)
@@ -79,7 +78,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !- bin dust particles into desired bins
  call bin_to_multi(bins_per_dex,force_smax,smax_user,verbose=.true.)
- 
+
 end subroutine modify_dump
 
 end module moddump

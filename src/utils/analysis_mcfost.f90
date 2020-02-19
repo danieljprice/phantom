@@ -13,14 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Christophe Pinte
+!  OWNER: Arnaud Vericel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, io, mcfost2phantom, options, part, timestep,
-!    units
+!  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
+!    linklist, mcfost2phantom, options, part, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -115,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
-    
+
     if (use_mcfost .and. use_dustgrowth) then
        write(*,*) "Converting back to normal"
        call back_to_growth(npart)
@@ -157,14 +157,14 @@ subroutine growth_to_fake_multi(npart)
 
  !- bin sizes
  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
- 
+
  !- get neighbours
  call set_linklist(npart,npart,xyzh,vxyzu)
- 
+
  !- get new density
  call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh)
- 
+
 end subroutine growth_to_fake_multi
 
 subroutine back_to_growth(npart)
@@ -174,8 +174,8 @@ subroutine back_to_growth(npart)
  use initial_params, only:mdust_in
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
- 
- 
+
+
  ndustold = sum(npartoftype(idust:))
  do i=1,npart
     itype = iamtype(iphase(i))
@@ -185,23 +185,23 @@ subroutine back_to_growth(npart)
        call set_particle_type(i,idust)
     endif
  enddo
- 
+
  do j=2,ndusttypes
     if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
     massoftype(idust+j-1)      = 0.
     mdust_in(idust+j-1)        = 0.
  enddo
- 
+
  ndusttypes                    = 1
  ndustlarge                    = 1
  mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
- 
+
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then
     write(*,*) 'ERROR! npartoftype not conserved'
     write(*,*) npartoftype(idust), " <-- new vs. old --> ",ndustold
  endif
- 
+
 end subroutine back_to_growth
 
 end module
