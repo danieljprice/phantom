@@ -346,6 +346,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
 
  integer,save                        :: ngot = 0
  integer                             :: imcf = 0
+ logical                             :: tmp = .false.
 
  imatch  = .true.
  igotall = .false.
@@ -378,6 +379,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('flyby')
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
+    if (nptmass < 2) tmp = .true.
  case('wbymass')
     read(valstring,*,iostat=ierr) wbymass
     ngot = ngot + 1
@@ -400,7 +402,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  imcf = 3
 #endif
 
- if (nptmass > 1) then
+ if (nptmass > 1 .or. tmp) then
     if ((ifrag <= 0) .and. ngot == 3+imcf) igotall = .true.
     if (isnow == 0) then
        if (ngot == 6+imcf) igotall = .true.
