@@ -1361,11 +1361,11 @@ subroutine delete_particles_outside_sphere(center, radius, revert)
     r = xyzh(1:3,i) - center
     if (use_revert) then
        if (dot_product(r,r)  <  radius_squared) then
-          xyzh(4,i) = -abs(xyzh(4,i))
+          call kill_particle(i)
        endif
     else
        if (dot_product(r,r)  >  radius_squared) then
-          xyzh(4,i) = -abs(xyzh(4,i))
+          call kill_particle(i)
        endif
     endif
  enddo

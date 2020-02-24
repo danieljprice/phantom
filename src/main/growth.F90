@@ -19,19 +19,22 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Tsnow        -- snow line condensation temperature in K
-!    flyby        -- use primary for keplerian freq. calculation
-!    grainsizemin -- minimum allowed grain size in cm
-!    ifrag        -- fragmentation of dust (0=off,1=on,2=Kobayashi)
-!    isnow        -- snow line (0=off,1=position based,2=temperature based)
-!    rsnow        -- snow line position in AU
-!    vfrag        -- uniform fragmentation threshold in m/s
-!    vfragin      -- inward fragmentation threshold in m/s
-!    vfragout     -- inward fragmentation threshold in m/s
-!    wbymass      -- weight dustgasprops by mass rather than mass/density
+!    Tsnow         -- snow line condensation temperature in K
+!    bin_per_dex   -- (mcfost) number of bins of sizes per dex
+!    flyby         -- use primary for keplerian freq. calculation
+!    force_smax    -- (mcfost) set manually maximum size for binning
+!    grainsizemin  -- minimum allowed grain size in cm
+!    ifrag         -- fragmentation of dust (0=off,1=on,2=Kobayashi)
+!    isnow         -- snow line (0=off,1=position based,2=temperature based)
+!    rsnow         -- snow line position in AU
+!    size_max_user -- (mcfost) maximum size for binning in cm
+!    vfrag         -- uniform fragmentation threshold in m/s
+!    vfragin       -- inward fragmentation threshold in m/s
+!    vfragout      -- inward fragmentation threshold in m/s
+!    wbymass       -- weight dustgasprops by mass rather than mass/density
 !
-!  DEPENDENCIES: dust, eos, infile_utils, io, part, physcon, units,
-!    viscosity
+!  DEPENDENCIES: dust, eos, infile_utils, initial_params, io, part,
+!    physcon, table_utils, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module growth
@@ -59,10 +62,16 @@ module growth
 
  logical, public        :: wbymass      = .false.
 
+#ifdef MCFOST
+ logical, public        :: f_smax    = .false.
+ real,    public        :: size_max  = 0.2 !- cm
+ integer, public        :: b_per_dex = 5
+#endif
+
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
- public                 :: comp_snow_line
+ public                 :: comp_snow_line,bin_to_multi
 
 contains
 
@@ -317,6 +326,11 @@ subroutine write_options_growth(iunit)
        call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
+#ifdef MCFOST
+ call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
+ call write_inopt(size_max,'size_max_user','(mcfost) maximum size for binning in cm',iunit)
+ call write_inopt(b_per_dex,'bin_per_dex','(mcfost) number of bins of sizes per dex',iunit)
+#endif
 
 end subroutine write_options_growth
 
@@ -327,10 +341,12 @@ end subroutine write_options_growth
 !-----------------------------------------------------------------------
 subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)        :: name,valstring
- logical,intent(out)                        :: imatch,igotall
- integer,intent(out)                        :: ierr
+ logical,intent(out)                 :: imatch,igotall
+ integer,intent(out)                 :: ierr
 
- integer,save                                        :: ngot = 0
+ integer,save                        :: ngot = 0
+ integer                             :: imcf = 0
+ logical                             :: tmp = .false.
 
  imatch  = .true.
  igotall = .false.
@@ -363,27 +379,44 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('flyby')
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
+    if (nptmass < 2) tmp = .true.
  case('wbymass')
     read(valstring,*,iostat=ierr) wbymass
+    ngot = ngot + 1
+#ifdef MCFOST
+ case('force_smax')
+    read(valstring,*,iostat=ierr) f_smax
+    ngot = ngot + 1
+ case('size_max_user')
+    read(valstring,*,iostat=ierr) size_max
+    ngot = ngot + 1
+ case('bin_per_dex')
+    read(valstring,*,iostat=ierr) b_per_dex
+    ngot = ngot + 1
+#endif
  case default
     imatch = .false.
  end select
 
- if (nptmass > 1) then
-    if ((ifrag <= 0) .and. ngot == 3) igotall = .true.
+#ifdef MCFOST
+ imcf = 3
+#endif
+
+ if (nptmass > 1 .or. tmp) then
+    if ((ifrag <= 0) .and. ngot == 3+imcf) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 6) igotall = .true.
+       if (ngot == 6+imcf) igotall = .true.
     elseif (isnow > 0) then
-       if (ngot == 8) igotall = .true.
+       if (ngot == 8+imcf) igotall = .true.
     else
        igotall = .false.
     endif
  else
-    if ((ifrag <= 0) .and. ngot == 1) igotall = .true.
+    if ((ifrag <= 0) .and. ngot == 2+imcf) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 4) igotall = .true.
+       if (ngot == 5+imcf) igotall = .true.
     elseif (isnow > 0) then
-       if (ngot == 6) igotall = .true.
+       if (ngot == 7+imcf) igotall = .true.
     else
        igotall = .false.
     endif
@@ -479,6 +512,252 @@ subroutine set_dustprop(npart)
  enddo
 
 end subroutine set_dustprop
+
+!-----------------------------------------------------------------------
+!+
+!  Bin sizes to fake multi large grains (used by moddump and live mcfost)
+!+
+!-----------------------------------------------------------------------
+subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
+ use part,           only:npart,npartoftype,massoftype,ndusttypes,&
+                          ndustlarge,grainsize,dustprop,graindens,&
+                          iamtype,iphase,set_particle_type,idust
+ use units,          only:udist
+ use table_utils,    only:logspace
+ use io,             only:fatal
+ use initial_params, only:mdust_in
+ integer, intent(in)    :: bins_per_dex
+ real,    intent(in)    :: smax_user
+ logical, intent(inout) :: force_smax
+ logical, intent(in)    :: verbose
+ real                   :: smaxtmp,smintmp,smax,smin,tolm,&
+                           mdustold,mdustnew,code_to_mum
+ logical                :: init
+ integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge
+ real, allocatable, dimension(:) :: grid
+ character(len=20)               :: outfile = "bin_distrib.dat"
+
+ !- initialise
+ code_to_mum = udist*1.e4
+ tolm         = 1.e-5
+ smaxtmp      = 0.
+ smintmp      = 1.e26
+ ndustold     = 0
+ ndustnew     = 0
+ mdustold     = 0.
+ mdustnew     = 0.
+ nbinmax      = 25
+ npartmin     = 50 !- limit to find neighbours
+ init         = .false.
+ graindens    = maxval(dustprop(2,:))
+
+ !- loop over particles, find min and max on non-accreted dust particles
+ do i = 1,npart
+    itype = iamtype(iphase(i))
+    if (itype==idust) then
+       if (dustprop(1,i) < smintmp) smintmp = dustprop(1,i)
+       if (dustprop(1,i) > smaxtmp) smaxtmp = dustprop(1,i)
+    endif
+ enddo
+
+ !- overrule force_smax if particles are small, avoid empty bins
+ if ((maxval(dustprop(1,:))*udist < smax_user) .and. force_smax) then
+    force_smax = .false.
+    write(*,*) "Overruled force_smax from T to F"
+ endif
+
+ !- force smax if needed, check for flat size distribution
+ if (force_smax .and. (smintmp /= smaxtmp)) then
+    smax = smax_user/udist
+ elseif (smintmp /= smaxtmp) then
+    smax = smaxtmp
+ else
+    init = .true.
+    write(*,*) "Detected initial condition, restraining nbins = 1"
+ endif
+
+ if (.not. init) then
+    smin = smintmp
+
+    !- set ndusttypes based on desired log size spacing
+    nbins      = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
+    ndusttypes = min(nbins, nbinmax) !- prevent memory allocation errors
+    ndustlarge = ndusttypes !- this is written to the header
+
+    !- allocate memory for a grid of ndusttypes+1 elements
+    allocate(grid(ndusttypes+1))
+
+    !- bin sizes in ndusttypes bins
+    write(*,"(a,f10.1,a,f10.1,a,i3,a)") "Binning sizes between ",smin*code_to_mum, " (µm) and ",&
+                                     smax*code_to_mum," (µm) in ",ndusttypes, " bins"
+
+    call logspace(grid(1:ndusttypes+1),smin,smax) !- bad for live mcfost, need to compile it before growth.F90
+
+    !- find representative size for each bin
+    do i = 1,ndusttypes
+       grainsize(i) = sqrt(grid(i)*grid(i+1))
+    enddo
+
+    !- transfer particles from bin to bin depending on their size
+    ndustold = npartoftype(idust)
+    mdustold = massoftype(idust)*npartoftype(idust) !- initial total mass
+    do i=1,npart
+       itype = iamtype(iphase(i))
+       if (itype==idust) then
+          !- figure out which bin
+          do j=1,ndusttypes
+             if ((dustprop(1,i) >= grid(j)) .and. (dustprop(1,i) < grid(j+1))) then
+                if (j > 1) then
+                   npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
+                   npartoftype(idust)     = npartoftype(idust) - 1
+                   call set_particle_type(i,idust+j-1)
+                endif
+             endif
+             !- if smax has been forced, put larger grains inside last bin
+             if ((j==ndusttypes) .and. force_smax .and. (dustprop(1,i) >= grid(j+1))) then
+                npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
+                npartoftype(idust)     = npartoftype(idust) - 1
+                call set_particle_type(i,idust+j-1)
+             endif
+          enddo
+       endif
+    enddo
+
+    !- check npart inside each bin, merge bins if necessary (needed for mcfost live)
+    do while (any(npartoftype(idust:idust+ndusttypes-1) < npartmin))
+       call merge_bins(npart,grid,npartmin)
+       imerge = imerge + 1
+       if (imerge > 50) call fatal('bin merging','merging number of iterations exceeded limit',var="imerge",ival=imerge)
+    enddo
+
+    !- set massoftype for each bin and print info
+    if (verbose) open (unit=3693, file=outfile, status="replace")
+    write(*,"(a3,a1,a10,a1,a10,a1,a10,a5,a6)") "Bin #","|","s_min","|","s","|","s_max","|==>","npart"
+
+    do itype=idust,idust+ndusttypes-1
+       write(*,"(i3,a1,f10.1,a1,f10.1,a1,f10.1,a5,i6)") itype-idust+1,"|",grid(itype-idust+1)*code_to_mum,"|", &
+                                                                     grainsize(itype-idust+1)*code_to_mum, &
+                                                                     "|",grid(itype-idust+2)*code_to_mum,"|==>",npartoftype(itype)
+
+       if (itype > idust) massoftype(itype) = massoftype(idust)
+       mdust_in(itype) = massoftype(itype)*npartoftype(itype)
+       mdustnew        = mdustnew + mdust_in(itype)
+       ndustnew        = ndustnew + npartoftype(itype)
+
+       if (verbose) write(3693,*) itype-idust+1,grid(itype-idust+1)*code_to_mum,grainsize(itype-idust+1)*code_to_mum,&
+                     grid(itype-idust+2)*code_to_mum,npartoftype(itype)
+    enddo
+
+    if (verbose) close(unit=3693)
+
+    !- sanity check for total number of dust particles
+    if (sum(npartoftype(idust:)) /= ndustold) then
+       write(*,*) 'ERROR! npartoftype not conserved'
+       write(*,*) sum(npartoftype(idust:)), " <-- new vs. old --> ",ndustold
+    endif
+
+    !- sanity check for total dust mass
+    if (abs(mdustold-mdustnew)/mdustold > tolm) then
+       write(*,*) 'ERROR! total dust mass not conserved'
+       write(*,*) mdustnew, " <-- new vs. old --> ",mdustold
+    endif
+ else !- init
+    grainsize(ndusttypes) = smaxtmp !- only 1 bin, all particles have same size
+ endif
+
+end subroutine bin_to_multi
+
+!-----------------------------------------------------------------------
+!+
+!  Merge bins if too many particles are in them
+!+
+!-----------------------------------------------------------------------
+subroutine merge_bins(npart,grid,npartmin)
+ use part,           only:ndusttypes,ndustlarge,set_particle_type,&
+                         npartoftype,massoftype,idust,iphase,iamtype,&
+                         grainsize,graindens
+ use initial_params, only:mdust_in
+ integer, intent(in) :: npart,npartmin
+ real, intent(inout) :: grid(:)
+ integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother
+ logical             :: backward = .true.
+
+!- initialise
+ i         = 0
+ iculprit  = 0
+ itype     = 0
+ idusttype = 0
+ nculprit  = 0
+ nother    = 0
+ iother    = 0
+
+!- scan npartoftype, get index of most upper bin
+ do i=ndusttypes+idust-1,idust,-1
+    if (npartoftype(i) < npartmin) then
+       iculprit  = i
+       idusttype = iculprit - idust + 1
+       nculprit  = npartoftype(iculprit)
+       if (iculprit == idust) then
+          iother = iculprit + 1
+          write(*,*) "Merging bin number ",idusttype," forward"
+          backward = .false.
+       else
+          iother = iculprit - 1
+          write(*,*) "Merging bin number ",idusttype," backward"
+       endif
+       nother = npartoftype(iother)
+       exit
+    endif
+ enddo
+
+!- transfer particles of that type to bin n-1, set particle type to n-1
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    if (backward) then
+       if (itype == iculprit) then
+          npartoftype(iculprit) = npartoftype(iculprit) - 1
+          npartoftype(iother)   = npartoftype(iother) + 1
+          call set_particle_type(i,iother)
+       endif
+    else !- translate everyone to the bin to their left, except culprit bin
+       if (itype /= iculprit) then
+          npartoftype(itype)   = npartoftype(itype) - 1
+          npartoftype(itype-1) = npartoftype(itype-1) + 1
+          call set_particle_type(i,itype-1)
+       endif
+    endif
+ enddo
+
+!- recompute grainsize and grid borders
+ if (backward) then
+    massoftype(iculprit) = 0.
+    mdust_in(iculprit)   = 0.
+    graindens(idusttype) = 0.
+
+    !- recompute size with weigthed sum
+    grainsize(idusttype-1) = (grainsize(idusttype-1)*nother + grainsize(idusttype)*nculprit) / (nother + nculprit)
+    grid(idusttype)        = grid(idusttype+1)
+ else
+    do i=1,ndusttypes
+       if (i==1) then
+          grainsize(i) = (grainsize(i)*npartoftype(i+idust-1) + grainsize(i+1)*npartoftype(i+idust)) &
+                        / (npartoftype(i+idust-1)+npartoftype(i+idust))
+       else
+          grainsize(i) = grainsize(i+1)
+          grid(i)      = grid(i+1)
+       endif
+    enddo
+    massoftype(ndusttypes+idust-1) = 0.
+    mdust_in(ndusttypes+idust-1)   = 0.
+    graindens(ndusttypes+idust-1)  = 0.
+    grid(ndusttypes+1)             = 0.
+ endif
+
+!- reduce ndusttypes
+ ndusttypes           = ndusttypes - 1
+ ndustlarge           = ndusttypes
+
+end subroutine merge_bins
 
 !--Compute the relative velocity following Stepinski & Valageas (1997)
 real function vrelative(dustgasprop,Vt)
