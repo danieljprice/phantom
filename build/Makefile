@@ -2076,6 +2076,18 @@ showheader: checksys $(OBJSHOWHEADER)
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWHEADER)
 
 #----------------------------------------------------
+# these are the sources for the showarrays utility
+#
+SRCSHOWARRAYS= utils_dumpfiles.f90 showarrays.f90
+OBJSHOWARRAYS= $(SRCSHOWARRAYS:.f90=.o)
+showarrays: checksys $(OBJSHOWARRAYS)
+	@echo ""
+	@echo "showarrays: show me the arrays!"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWARRAYS)
+
+
+#----------------------------------------------------
 # these are the sources for the evol_dustywaves utility
 #
 SRCDUSTEVOL= cubicsolve.f90 dustywaves.f90 evol_dustywaves.f90
