@@ -63,7 +63,7 @@
 module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
-                     alpha,alphau,alphaB,beta,avdecayconst,damp, &
+                     alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &  
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
@@ -239,10 +239,11 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_photoevap(iwritein)
 #endif
 
+ write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
- write(iwritein,"(/,a)") '# options for injecting particles'
  call write_options_inject(iwritein)
 #endif
+ call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 
 #ifdef NONIDEALMHD
  call write_options_nicil(iwritein)
@@ -392,6 +393,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
        read(valstring,*,iostat=ierr) tolh
+    case('rkill')
+       read(valstring,*,iostat=ierr) rkill
     case('nfulldump')
        read(valstring,*,iostat=ierr) nfulldump
     case('alpha')

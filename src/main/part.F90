@@ -1429,6 +1429,30 @@ end subroutine
 
 !----------------------------------------------------------------
  !+
+ ! Accrete particles outside a given radius
+ !+
+ !----------------------------------------------------------------
+subroutine accrete_particles_outside_sphere(radius)
+ real, intent(in) :: radius
+ integer :: i
+ real :: r2 
+ !
+ ! accrete particles outside some outer radius
+ !
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,radius) &
+ !$omp private(i,r2)
+ do i=1,npart
+   r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+   if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
+ enddo
+ !$omp end parallel do
+
+end subroutine
+
+
+!----------------------------------------------------------------
+ !+
  !  Returns keplerian frequency of particle i
  !+
  !----------------------------------------------------------------
