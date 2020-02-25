@@ -35,6 +35,7 @@ module dump_utils
  public :: read_array_from_file
  public :: write_block_header, write_array
  public :: read_block_header, read_array
+ public :: print_arrays_in_file
  integer, parameter, public :: lentag = 16    ! tag length
  integer, parameter, public :: lenid  = 100
  integer, parameter, public :: maxphead = 256
@@ -1825,6 +1826,8 @@ subroutine read_block_header(nblocks,number,nums,iunit,ierr)
  integer,         intent(out) :: ierr
  integer :: iblock
 
+ number(:) = 0
+ nums(:,:) = 0
  do iblock=1,nblocks
     read(iunit, iostat=ierr) number(iblock), nums(1:ndatatypes,iblock)
  enddo
@@ -2205,5 +2208,42 @@ subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block)
  close(iunit)
 
 end subroutine read_array_from_file_r4
+
+!-------------------------------------------------------
+!+
+!  print array tags structure
+!+
+!-------------------------------------------------------
+subroutine print_arrays_in_file(iunit,filename)
+ integer,          intent(in) :: iunit
+ character(len=*), intent(in) :: filename
+ integer :: ierr,nblocks,narraylengths
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ character(len=lentag) :: mytag
+
+ ! open file for read
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ if (ierr /= 0) return
+
+ print*,'nblocks = ',nblocks,' array lengths per block = ',narraylengths
+ do iblock = 1,nblocks
+    call read_block_header(narraylengths,number8,nums,iunit,ierr)
+    print "(a,i3,a)",'[ block ',iblock,' ]'
+    !print*,'nums = ',nums(1:ndatatypes,1:narraylengths)
+    do j=1,narraylengths
+       do i=1,ndatatypes
+          do k=1,nums(i,j)
+             read(iunit, iostat=ierr) mytag
+             print "(i12,a16)",number8(j),trim(mytag)
+             read(iunit, iostat=ierr) ! skip actual array
+          enddo
+       enddo
+    enddo
+ enddo
+ close(iunit)
+
+end subroutine print_arrays_in_file
 
 end module dump_utils
