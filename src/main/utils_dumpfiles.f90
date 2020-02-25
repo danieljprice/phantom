@@ -2243,7 +2243,7 @@ subroutine print_arrays_in_file(iunit,filename)
     enddo
  enddo
  close(iunit)
-    
+
 end subroutine print_arrays_in_file
-  
+
 end module dump_utils
