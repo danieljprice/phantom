@@ -24,53 +24,13 @@ A full list is given below:
 |                       |                       | of a phantom dump     |
 |                       |                       | file                  |
 +-----------------------+-----------------------+-----------------------+
-| phantom2grid          | make phantom2grid     | Interpolate phantom   |
-|                       |                       | output to 3D grid,    |
-|                       |                       | with various output   |
-|                       |                       | formats               |
+| showheader            | make showheader       | Utility to print      |
+|                       |                       | contents of dump file |
+|                       |                       | headers               |
 +-----------------------+-----------------------+-----------------------+
-| phantom2pdf           | make phantom2pdf      | Compute Probability   |
-|                       |                       | Density Functions     |
-+-----------------------+-----------------------+-----------------------+
-| grid2pdf              | make grid2pdf         | Compute Probability   |
-|                       |                       | Density Function      |
-|                       |                       | using output of       |
-|                       |                       | phantom2grid          |
-+-----------------------+-----------------------+-----------------------+
-| phantom2pdf-amr       | make phantom2pdf-amr  | Compute               |
-|                       |                       | volume-weighted PDFs  |
-|                       |                       | via interpolation to  |
-|                       |                       | 3D AMR grid           |
-+-----------------------+-----------------------+-----------------------+
-| phantom2divv          | make phantom2divv     | Compute div and curl  |
-|                       |                       | of velocity field     |
-|                       |                       | from dump file using  |
-|                       |                       | post-processing       |
-+-----------------------+-----------------------+-----------------------+
-| phantom2divb          | make phantom2divb     | Compute div and curl  |
-|                       |                       | of magnetic field     |
-|                       |                       | from dump file using  |
-|                       |                       | post-processing       |
-+-----------------------+-----------------------+-----------------------+
-| phantom2struct        | make phantom2struct   | Compute structure     |
-|                       |                       | functions from        |
-|                       |                       | particles (SLOW!)     |
-+-----------------------+-----------------------+-----------------------+
-| struct2struct         | make struct2struct    | Convert structure     |
-|                       | (or make sfutils)     | function files        |
-|                       |                       | between various       |
-|                       |                       | formats               |
-+-----------------------+-----------------------+-----------------------+
-| get_struct_slope      | make get_struct_slope | Determine slope of    |
-|                       | (or make              | structure functions   |
-|                       | get_slope_sf)         | from output files     |
-+-----------------------+-----------------------+-----------------------+
-| time_average_sf       | make time_average_sf  | Produce time average  |
-|                       | (or make sfutils)     | from a bunch of       |
-|                       |                       | structure function    |
-|                       |                       | files (can also be    |
-|                       |                       | done with asplash     |
-|                       |                       | calc timeaverage)     |
+| showarrays            | make showarrays       | Utility to list       |
+|                       |                       | arrays written in     |
+|                       |                       | dump file             |
 +-----------------------+-----------------------+-----------------------+
 | diffdumps             | make diffdumps        | Check if two phantom  |
 |                       |                       | dump files are        |
@@ -95,7 +55,36 @@ A full list is given below:
 |                       |                       | kernel functions from |
 |                       |                       | the kernel module     |
 +-----------------------+-----------------------+-----------------------+
-| showheader            | make showheader       | Utility to print      |
-|                       |                       | contents of dump file |
-|                       |                       | headers               |
+| phantom2pdf-amr       | make phantom2pdf-amr  | Compute               |
+|                       |                       | volume-weighted PDFs  |
+|                       |                       | via interpolation to  |
+|                       |                       | 3D AMR grid           |
++-----------------------+-----------------------+-----------------------+
+| grid2pdf              | make grid2pdf         | Compute Probability   |
+|                       |                       | Density Function      |
+|                       |                       | using output of       |
+|                       |                       | splash to grid        |
++-----------------------+-----------------------+-----------------------+
+| phantom2divv          | make phantom2divv     | Compute div and curl  |
+|                       |                       | of velocity field     |
+|                       |                       | from dump file using  |
+|                       |                       | post-processing       |
++-----------------------+-----------------------+-----------------------+
+| phantom2divb          | make phantom2divb     | Compute div and curl  |
+|                       |                       | of magnetic field     |
+|                       |                       | from dump file using  |
+|                       |                       | post-processing       |
++-----------------------+-----------------------+-----------------------+
+| phantom2struct        | make phantom2struct   | Compute structure     |
+|                       |                       | functions from        |
+|                       |                       | particles (SLOW!)     |
++-----------------------+-----------------------+-----------------------+
+| struct2struct         | make struct2struct    | Convert structure     |
+|                       | (or make sfutils)     | function files        |
+|                       |                       | between various       |
+|                       |                       | formats               |
++-----------------------+-----------------------+-----------------------+
+| get_struct_slope      | make get_struct_slope | Determine slope of    |
+|                       | (or make              | structure functions   |
+|                       | get_slope_sf)         | from output files     |
 +-----------------------+-----------------------+-----------------------+
