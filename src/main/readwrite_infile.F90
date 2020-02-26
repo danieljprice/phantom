@@ -48,6 +48,7 @@
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
 !    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
+!    rkill              -- deactivate particles outside this radius (<0 is off)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
 !    tmax               -- end time
 !    tolh               -- tolerance on h-rho iterations
