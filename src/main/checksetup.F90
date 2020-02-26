@@ -341,12 +341,13 @@ subroutine check_setup(nerror,nwarn,restart)
           npartoftype(idust) = 0
        else
           if (id==master) then
-             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+             if (use_hybrid) then
+                print*, "WARNING: HYBRID DUST IMPLEMENTATION IS NOT YET FINISHED (IT'S NOT GONNA RUN ANYWAY)"
+             else
              print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
                                 '    calculation using the one fluid method (dustfrac) **'
+             endif
           endif
-          nerror = nerror + 1
        endif
     endif
  endif
