@@ -39,14 +39,26 @@ module set_dust_options
  integer, public :: dust_method
  real,    public :: dust_to_gas
  integer, public :: ndusttypesinp
+ integer, public :: ndustsmallinp
+ integer, public :: ndustlargeinp
  real,    public :: grainsizeinp(maxdusttypes)
  real,    public :: graindensinp(maxdusttypes)
  integer, public :: igrainsize
  integer, public :: igraindens
+ integer, public :: igrainsizelarge
+ integer, public :: igraindenslarge
+ integer, public :: igrainsizesmall
+ integer, public :: igraindenssmall
  integer, public :: isetdust
  real,    public :: smincgs
  real,    public :: smaxcgs
  real,    public :: sindex
+ real,    public :: sminsmallcgs
+ real,    public :: smaxsmallcgs
+ real,    public :: sindexsmall
+ real,    public :: sminlargecgs
+ real,    public :: smaxlargecgs
+ real,    public :: sindexlarge
  real,    public :: dustbinfrac(maxdusttypes)
  real,    public :: Kdrag
  logical, public :: ilimitdustfluxinp
@@ -71,14 +83,20 @@ subroutine set_dust_default_options()
  dust_method = 2
  dust_to_gas = 0.01
  ndusttypesinp = 1
+ ndustsmallinp = 0
+ ndustlargeinp = 1
  grainsizeinp(:) = 1.
  graindensinp(:) = 3.
- igrainsize = 0
- igraindens = 0
+ igrainsize      = 0
+ igraindens      = 0
+ igrainsizelarge = 0
+ igraindenslarge = 0
+ igrainsizesmall = 0
+ igraindenssmall = 0
  isetdust = 0
- smincgs = 1.e-4
- smaxcgs = 1.
- sindex = 3.5
+ smincgs  = 1.e-4
+ smaxcgs  = 1.
+ sindex   = 3.5
  dustbinfrac(:) = 0.
  dustbinfrac(1) = 1.
  Kdrag = 1000.
@@ -95,27 +113,48 @@ subroutine set_dust_interactively()
 
  !--can only use one dust method
  if (.not. use_dustgrowth) then
-    call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
+    call prompt('Which dust method do you want? (1=one fluid,2=two fluid,3=Hybrid)',dust_method,1,3)
  else !- if dustgrowth, enforce two-fluid, single grain population
     dust_method   = 2
     ndusttypesinp = 1
  endif
  call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
 
- if (dust_method==1) then
-    call prompt('How many grain sizes do you want?',ndusttypesinp,1,maxdustsmall)
+ if (dust_method==1 .or. dust_method==3) then
+    call prompt('How many small grain sizes do you want?',ndustsmallinp,1,maxdustsmall)
+    if (dust_method /= 1) call prompt('How many large grain sizes do you want?',ndustlargeinp,1,maxdustlarge)
     call prompt('Do you want to limit the dust flux?',ilimitdustfluxinp)
- elseif (dust_method==2 .and. .not.use_dustgrowth) then
-    call prompt('How many grain sizes do you want?',ndusttypesinp,1,maxdustlarge)
+ elseif ((dust_method==2) .and. .not.use_dustgrowth) then
+    call prompt('How many large grain sizes do you want?',ndustlargeinp,1,maxdustlarge)
  endif
+ ndusttypesinp = ndustlargeinp + ndustsmallinp
 
  if (ndusttypesinp > 1 .and. .not.use_dustgrowth) then
-    call prompt('How do you want to set the grain sizes?'//new_line('A')// &
+    if (dust_method == 3) then
+       !- integer choosing small dust size distribution shape
+       call prompt('How do you want to set the small grain sizes?'//new_line('A')// &
+               ' 0=log-spaced'//new_line('A')// &
+               ' 1=manually'//new_line('A'),igrainsizesmall,0,1)
+       !- integer choosing small dust intrinsic density
+       call prompt('How do you want to set the small (intrinsic) grain density?'//new_line('A')// &
+               ' 0=equal'//new_line('A')// &
+               ' 1=manually'//new_line('A'),igraindenssmall,0,1)
+       !- integer choosing large dust size distribution shape
+       call prompt('How do you want to set the large grain sizes?'//new_line('A')// &
+               ' 0=log-spaced'//new_line('A')// &
+               ' 1=manually'//new_line('A'),igrainsizelarge,0,1)
+       !- integer choosing large dust intrinsic density
+       call prompt('How do you want to set the large (intrinsic) grain density?'//new_line('A')// &
+               ' 0=equal'//new_line('A')// &
+               ' 1=manually'//new_line('A'),igraindenslarge,0,1)
+    else
+       call prompt('How do you want to set the grain sizes?'//new_line('A')// &
                ' 0=log-spaced'//new_line('A')// &
                ' 1=manually'//new_line('A'),igrainsize,0,1)
-    call prompt('How do you want to set the (intrinsic) grain density?'//new_line('A')// &
+       call prompt('How do you want to set the (intrinsic) grain density?'//new_line('A')// &
                ' 0=equal'//new_line('A')// &
                ' 1=manually'//new_line('A'),igraindens,0,1)
+    endif
  endif
 
  call prompt('How do you want to set the dust density profile?'//new_line('A')// &
@@ -142,10 +181,9 @@ subroutine read_dust_setup_options(db,nerr)
  character(len=120) :: varlabel(maxdusttypes)
  integer :: i,ierr
 
- !--can only use one method currently
- call read_inopt(dust_method,'dust_method',db,min=1,max=2,errcount=nerr)
+ call read_inopt(dust_method,'dust_method',db,min=1,max=3,errcount=nerr)
  call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
- if (dust_method == 1) then
+ if (dust_method == 1 .or. dust_method==3) then
     call read_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',db,err=ierr,errcount=nerr)
  endif
 
@@ -154,42 +192,118 @@ subroutine read_dust_setup_options(db,nerr)
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustsmall,errcount=nerr)
  elseif (dust_method == 2) then
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustlarge,errcount=nerr)
+ elseif (dust_method == 3) then
+    call read_inopt(ndustsmallinp,'ndustsmallinp',db,min=1,max=maxdustsmall,errcount=nerr)
+    call read_inopt(ndustlargeinp,'ndustlargeinp',db,min=1,max=maxdustlarge,errcount=nerr)
+    ndusttypesinp = ndustlargeinp + ndustsmallinp
  endif
 
  if (ndusttypesinp > 1) then
-    call read_inopt(igrainsize,'igrainsize',db,min=0,max=1,errcount=nerr)
-    select case(igrainsize)
-    case(0)
-       call read_inopt(smincgs,'smincgs',db,min=0.,errcount=nerr)
-       call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
-       call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
-    case(1)
-       varlabel = 'grainsizeinp'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       do i=1,ndusttypesinp
-          call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
-       enddo
-       varlabel = 'dustbinfrac'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       do i=1,ndusttypesinp
-          call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
-       enddo
-       if (abs(sum(dustbinfrac(:)) - 1.) > epsilon(1.)) then
-          call error('set_dust','dust bin fraction needs to add up to 1!')
-          nerr = nerr+1
-       endif
-    end select
-    call read_inopt(igraindens,'igraindens',db,min=0,errcount=nerr)
-    select case(igraindens)
-    case(0)
-       call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
-    case(1)
-       varlabel = 'graindensinp'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       do i=1,ndusttypesinp
-          call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
-       enddo
-    end select
+    if (dust_method == 3) then
+       !- small grains
+       call read_inopt(igrainsizesmall,'igrainsizesmall',db,min=0,max=1,errcount=nerr)
+       select case(igrainsizesmall)
+       case(0)
+          call read_inopt(sminsmallcgs,'sminsmallcgs',db,min=0.,errcount=nerr)
+          call read_inopt(smaxsmallcgs,'smaxsmallcgs',db,min=smincgs,errcount=nerr)
+          call read_inopt(sindexsmall ,'sindexsmall' ,db,errcount=nerr)
+       case(1)
+          varlabel = 'grainsizeinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndustsmallinp
+             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+          varlabel = 'dustbinfrac'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndusttypesinp
+             call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
+          enddo
+          print*,"sum dustbinfrac before", nerr
+          if (abs(sum(dustbinfrac(:)) - 1.) > epsilon(1.)) then
+             call error('set_dust','dust bin fraction needs to add up to 1!')
+             nerr = nerr+1
+          endif
+       end select
+       call read_inopt(igraindenssmall,'igraindenssmall',db,min=0,errcount=nerr)
+       select case(igraindenssmall)
+       case(0)
+          call read_inopt(graindensinp(1),'graindenssmallinp',db,min=0.,err=ierr,errcount=nerr)
+       case(1)
+         varlabel = 'graindensinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndustsmallinp
+             call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+       end select
+       !- large grains
+       call read_inopt(igrainsizelarge,'igrainsizelarge',db,min=0,max=1,errcount=nerr)
+       select case(igrainsizelarge)
+       case(0)
+          call read_inopt(sminlargecgs,'sminlargecgs',db,min=0.,errcount=nerr)
+          call read_inopt(smaxlargecgs,'smaxlargecgs',db,min=smincgs,errcount=nerr)
+          call read_inopt(sindexlarge ,'sindexlarge' ,db,errcount=nerr)
+       case(1)
+          varlabel = 'grainsizeinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=ndustsmallinp+1,ndusttypesinp
+             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+          varlabel = 'dustbinfrac'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=ndustsmallinp+1,ndusttypesinp
+             call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
+          enddo
+          if (abs(sum(dustbinfrac(:)) - 1.) > epsilon(1.)) then
+             call error('set_dust','dust bin fraction needs to add up to 1!')
+             nerr = nerr+1
+          endif
+       end select
+       call read_inopt(igraindenslarge,'igraindenslarge',db,min=0,errcount=nerr)
+       select case(igraindenslarge)
+       case(0)
+          call read_inopt(graindensinp(1),'graindenslargeinp',db,min=0.,err=ierr,errcount=nerr)
+       case(1)
+         varlabel = 'graindensinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=ndustsmallinp+1,ndusttypesinp
+             call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+       end select
+    else
+       call read_inopt(igrainsize,'igrainsize',db,min=0,max=1,errcount=nerr)
+       select case(igrainsize)
+       case(0)
+          call read_inopt(smincgs,'smincgs',db,min=0.,errcount=nerr)
+          call read_inopt(smaxcgs,'smaxcgs',db,min=smincgs,errcount=nerr)
+          call read_inopt(sindex ,'sindex' ,db,errcount=nerr)
+       case(1)
+          varlabel = 'grainsizeinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndustsmallinp
+             call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+          varlabel = 'dustbinfrac'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndusttypesinp
+             call read_inopt(dustbinfrac(i),trim(varlabel(i)),db,min=0.,max=1.,err=ierr,errcount=nerr)
+          enddo
+          if (abs(sum(dustbinfrac(:)) - 1.) > epsilon(1.)) then
+             call error('set_dust','dust bin fraction needs to add up to 1!')
+             nerr = nerr+1
+          endif
+       end select
+       call read_inopt(igraindens,'igraindens',db,min=0,errcount=nerr)
+       select case(igraindens)
+       case(0)
+          call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
+       case(1)
+         varlabel = 'graindensinp'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          do i=1,ndusttypesinp
+             call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
+          enddo
+       end select
+    endif
  else
     call read_inopt(grainsizeinp(1),'grainsizeinp',db,min=0.,err=ierr,errcount=nerr)
     call read_inopt(graindensinp(1),'graindensinp',db,min=0.,errcount=nerr)
@@ -217,59 +331,145 @@ subroutine write_dust_setup_options(iunit)
 
  write(iunit,"(/,a)") '# options for dust'
 
- !--can only use one method per calculation currently
- call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid)',iunit)
+ call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid,3=Hybrid)',iunit)
  call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
 
- call write_inopt(ndusttypesinp,'ndusttypesinp','number of grain sizes',iunit)
+ if (dust_method == 3) then
+    call write_inopt(ndustsmallinp,'ndustsmallinp','number of small grain sizes',iunit)
+    call write_inopt(ndustlargeinp,'ndustlargeinp','number of large grain sizes',iunit)
+ else
+    call write_inopt(ndusttypesinp,'ndusttypesinp','number of grain sizes',iunit)
+ endif
 
- if (dust_method==1) then
+ if (dust_method==1 .or. dust_method==3) then
     call write_inopt(ilimitdustfluxinp,'ilimitdustfluxinp',&
        'limit dust diffusion using Ballabio et al. (2018)',iunit)
  endif
 
  if (ndusttypesinp > 1) then
 
-    call write_inopt(igrainsize,'igrainsize', &
-       'grain size distribution (0=log-space,1=manually)',iunit)
-    select case(igrainsize)
-    case(0)
-       call write_inopt(smincgs,'smincgs','min grain size (in cm)',iunit)
-       call write_inopt(smaxcgs,'smaxcgs','max grain size (in cm)',iunit)
-       call write_inopt(sindex ,'sindex' ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
-    case(1)
-       varlabel = 'grainsizeinp'
-       varstring = 'grain size'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       call make_tags_unique(ndusttypesinp,varstring)
-       do i=1,ndusttypesinp
-          varstring(i) = trim(varstring(i))//' (in cm)'
-          call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
-       enddo
-       varlabel = 'dustbinfrac'
-       varstring = 'dust bin fraction'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       call make_tags_unique(ndusttypesinp,varstring)
-       do i=1,ndusttypesinp
-          varstring(i) = trim(varstring(i))//' (frac. of total dust)'
-          call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
-       enddo
-    end select
-    call write_inopt(igraindens,'igraindens','grain density input (0=equal,1=manually)',iunit)
-    select case(igraindens)
-    case(0)
-       call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
-    case(1)
-       varlabel = 'graindensinp'
-       varstring = 'grain density'
-       call make_tags_unique(ndusttypesinp,varlabel)
-       call make_tags_unique(ndusttypesinp,varstring)
-       do i=1,ndusttypesinp
-          varstring(i) = trim(varstring(i))//' (in g/cm^3)'
-          call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
-       enddo
-    end select
-
+    if (dust_method == 3) then
+       !- small grains
+       call write_inopt(igrainsizesmall,'igrainsizesmall', &
+          'small grain size distribution (0=log-space,1=manually)',iunit)
+       call write_inopt(igrainsizelarge,'igrainsizelarge', &
+          'large grain size distribution (0=log-space,1=manually)',iunit)
+       select case(igrainsizesmall)
+       case(0)
+          call write_inopt(sminsmallcgs,'sminsmallcgs','min small grain size (in cm)',iunit)
+          call write_inopt(smaxsmallcgs,'smaxsmallcgs','max small grain size (in cm)',iunit)
+          call write_inopt(sindexsmall ,'sindexsmall' ,'small grain size power-law index (e.g. MRN = 3.5)',iunit)
+       case(1)
+          varlabel = 'grainsizeinp'
+          varstring = 'grain size'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndustsmallinp
+             varstring(i) = trim(varstring(i))//' (in cm)'
+             call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+          varlabel = 'dustbinfrac'
+          varstring = 'dust bin fraction'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndustsmallinp
+             varstring(i) = trim(varstring(i))//' (frac. of total small dust)'
+             call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+       call write_inopt(igraindenssmall,'igraindenssmall','small grain density input (0=equal,1=manually)',iunit)
+       call write_inopt(igraindenslarge,'igraindenslarge','small grain density input (0=equal,1=manually)',iunit)
+       select case(igraindenssmall)
+       case(0)
+          call write_inopt(graindensinp(1),'graindenssmallinp','intrinsic grain density (in g/cm^3)',iunit)
+       case(1)
+          varlabel = 'graindensinp'
+          varstring = 'grain density'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndustsmallinp
+             varstring(i) = trim(varstring(i))//' (in g/cm^3)'
+             call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+       !- large grains
+       select case(igrainsizelarge)
+       case(0)
+          call write_inopt(sminlargecgs,'sminlargecgs','min large grain size (in cm)',iunit)
+          call write_inopt(smaxlargecgs,'smaxlargecgs','max large grain size (in cm)',iunit)
+          call write_inopt(sindexlarge ,'sindexlarge' ,'large grain size power-law index (e.g. MRN = 3.5)',iunit)
+       case(1)
+          varlabel = 'grainsizeinp'
+          varstring = 'grain size'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=ndustsmallinp+1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (in cm)'
+             call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+          varlabel = 'dustbinfrac'
+          varstring = 'dust bin fraction'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=ndustsmallinp+1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (frac. of total small dust)'
+             call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+       select case(igraindenslarge)
+       case(0)
+          call write_inopt(graindensinp(1),'graindenslargeinp','intrinsic grain density (in g/cm^3)',iunit)
+       case(1)
+          varlabel = 'graindensinp'
+          varstring = 'grain density'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=ndustsmallinp+1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (in g/cm^3)'
+             call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+    else
+       call write_inopt(igrainsize,'igrainsize', &
+          'grain size distribution (0=log-space,1=manually)',iunit)
+       select case(igrainsize)
+       case(0)
+          call write_inopt(smincgs,'smincgs','min grain size (in cm)',iunit)
+          call write_inopt(smaxcgs,'smaxcgs','max grain size (in cm)',iunit)
+          call write_inopt(sindex ,'sindex' ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
+       case(1)
+          varlabel = 'grainsizeinp'
+          varstring = 'grain size'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (in cm)'
+             call write_inopt(grainsizeinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+          varlabel = 'dustbinfrac'
+          varstring = 'dust bin fraction'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (frac. of total dust)'
+             call write_inopt(dustbinfrac(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+       call write_inopt(igraindens,'igraindens','grain density input (0=equal,1=manually)',iunit)
+       select case(igraindens)
+       case(0)
+          call write_inopt(graindensinp(1),'graindensinp','intrinsic grain density (in g/cm^3)',iunit)
+       case(1)
+          varlabel = 'graindensinp'
+          varstring = 'grain density'
+          call make_tags_unique(ndusttypesinp,varlabel)
+          call make_tags_unique(ndusttypesinp,varstring)
+          do i=1,ndusttypesinp
+             varstring(i) = trim(varstring(i))//' (in g/cm^3)'
+             call write_inopt(graindensinp(i),trim(varlabel(i)),trim(varstring(i)),iunit)
+          enddo
+       end select
+    endif
  else
 
     if (use_dustgrowth) then

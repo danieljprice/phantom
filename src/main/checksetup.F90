@@ -328,27 +328,27 @@ subroutine check_setup(nerror,nwarn,restart)
        if (id==master) print*,'Error in setup: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
-    if (use_dustfrac) then
-       call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
-       if (index(string,'yes') > 0) then
-          if (id==master) print "(/,a,/)",' DELETING DUST PARTICLES (from PHANTOM_RESTART_ONEFLUID=yes)'
-          if (maxphase==maxp) then
-             do i=1,npart
-                if (iamdust(iphase(i))) call kill_particle(i)
-             enddo
-          endif
-          call shuffle_part(npart)
-          npartoftype(idust) = 0
-       else
-          if (id==master) then
-             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
-             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
-                                '    calculation using the one fluid method (dustfrac) **'
-          endif
-          nerror = nerror + 1
-       endif
-    endif
+    !if (use_dustfrac) then
+       !call get_environment_variable('PHANTOM_RESTART_ONEFLUID',string)
+       !if (index(string,'yes') > 0) then
+          !if (id==master) print "(/,a,/)",' DELETING DUST PARTICLES (from PHANTOM_RESTART_ONEFLUID=yes)'
+          !if (maxphase==maxp) then
+            ! do i=1,npart
+            !    if (iamdust(iphase(i))) call kill_particle(i)
+           !  enddo
+          !endif
+         ! call shuffle_part(npart)
+        !  npartoftype(idust) = 0
+       !else
+          !if (id==master) then
+           !  print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
+          !   print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
+         !    print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+        !                        '    calculation using the one fluid method (dustfrac) **'
+       !   endif
+      !    nerror = nerror + 1
+     !  endif
+    !endif
  endif
 !
 !--check dust grid is sensible
