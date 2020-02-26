@@ -72,7 +72,7 @@ subroutine set_default_options
  use eos,       only:polyk2
 
  call set_defaults_timestep
- 
+
  nmaxdumps = -1
  twallmax  = 0.0             ! maximum wall time for run, in seconds
  nfulldump = 10              ! frequency of writing full dumps

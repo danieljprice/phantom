@@ -48,6 +48,7 @@
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
 !    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
+!    rkill              -- deactivate particles outside this radius (<0 is off)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
 !    tmax               -- end time
 !    tolh               -- tolerance on h-rho iterations
@@ -63,7 +64,7 @@
 module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
-                     alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &  
+                     alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
