@@ -1652,6 +1652,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  endif
  if (ntypesinfile > maxtypes) then
     write(*,*) 'WARNING: number of particle types in file exceeds array limits'
+    write(*,*) 'READING ONLY FIRST ',maxtypes,' OF ',ntypesinfile,' particle types'
     ntypesinfile = maxtypes
  endif
  call extract('npartoftype',npartoftypetoti(1:ntypesinfile),hdr,ierr1)
@@ -1696,8 +1697,11 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (got_tags) then
     call extract('ntypes',ntypesinfile8,hdr,ierr1)
     ntypesinfile = int(ntypesinfile8)
- elseif (ntypesinfile < 1) then
-    ntypesinfile = 5
+ endif
+ if (ntypesinfile > maxtypes) then
+    write(*,*) 'WARNING: number of particle types in file exceeds array limits'
+    write(*,*) 'READING ONLY FIRST ',maxtypes,' OF ',ntypesinfile,' particle types'
+    ntypesinfile = maxtypes
  endif
  call extract('nparttot',nparttot,hdr,ierr1)
  if (nblocks > 1) then
