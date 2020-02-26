@@ -49,7 +49,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
