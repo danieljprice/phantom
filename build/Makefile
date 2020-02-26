@@ -1578,7 +1578,7 @@ utils: phantomsetup phantomanalysis \
        phantom2divv phantom2divb \
        diffdumps showheader showarrays ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
-       sfutils phantom2pdf-amr \
+       sfutils phantom2pdf-amr splitpart \
        phantom2struct libphantom
 
 cleanutils: cleansetup cleananalysis \
@@ -1586,7 +1586,7 @@ cleanutils: cleansetup cleananalysis \
             cleanphantom2divv cleanphantom2divb \
             cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
-            cleansfutils cleanphantom2pdf-amr \
+            cleansfutils cleanphantom2pdf-amr cleansplitpart \
             cleanphantom2struct cleanphantomevcompare cleanlibphantom
 
 #--------------------------------------------------------------
@@ -1711,6 +1711,9 @@ interpolate3D_amr.o: adaptivemesh.o
 #----------------------------------------------------
 # these are the sources for the phantom_moddump utility
 #
+ifndef MODDUMPBIN
+MODDUMPBIN=phantommoddump
+endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_sort.f90 checksetup.f90 set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_dust.F90 set_binary.f90 ${SRCINJECT} \
@@ -1724,7 +1727,7 @@ phantom_moddump: checksystem checkparams $(OBJDA)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantommoddump $(OBJDA) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJDA) $(LDFLAGS)
 
 moddump: phantom_moddump
 
@@ -1811,6 +1814,17 @@ structutils: struct2struct get_slope_sf
 
 cleansfutils: cleanstructutils
 cleanstructutils: cleanstruct2struct cleanget_struct_slope
+
+#------------------------------------------------------
+# particle splitting utility (this is a moddump compiled as a standalone utility)
+#
+.PHONY: splitpart
+splitpart:
+	${MAKE} moddump MODFILE="icosahedron.f90 utils_inject.f90 splitpart.f90 moddump_splitpart.f90"\
+        MODDUMPBIN=$@
+
+cleansplitpart:
+	rm -f $(BINDIR)/splitpart
 
 #----------------------------------------------------
 # utility to calculate divv from a dump file

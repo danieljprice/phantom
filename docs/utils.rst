@@ -51,6 +51,10 @@ A full list is given below:
 |                       |                       | rates from the .ev    |
 |                       |                       | files                 |
 +-----------------------+-----------------------+-----------------------+
+| splitpart             | make splitpart        | Split particles       |
+|                       |                       | to create a high res  |
+|                       |                       | dump file             |
++-----------------------+-----------------------+-----------------------+
 | plotkernel            | make plotkernel       | Utility to plot the   |
 |                       |                       | kernel functions from |
 |                       |                       | the kernel module     |
