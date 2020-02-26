@@ -1435,7 +1435,7 @@ end subroutine
 subroutine accrete_particles_outside_sphere(radius)
  real, intent(in) :: radius
  integer :: i
- real :: r2 
+ real :: r2
  !
  ! accrete particles outside some outer radius
  !
