@@ -44,7 +44,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,rkill
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -93,7 +93,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
@@ -138,6 +138,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
+ real, parameter :: xor(3)=0.
 
  tprint    = 0.
  nsteps    = 0
@@ -573,6 +574,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                            massoftype(igas),npart,time,ianalysis)
        endif
 #endif
+       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
 
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
