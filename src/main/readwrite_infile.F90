@@ -232,7 +232,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
- if (.not.use_dustfrac) call write_options_growth(iwritein)
+ call write_options_growth(iwritein)
 #endif
 #endif
 

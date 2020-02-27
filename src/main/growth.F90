@@ -60,7 +60,7 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
- logical, public        :: wbymass      = .false.
+ logical, public        :: wbymass      = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -185,29 +185,46 @@ end subroutine print_growthinfo
 !+
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
- use part,            only:rhoh,idust,iamtype,iphase,isdead_or_accreted,massoftype
- real, intent(in)     :: dustprop(:,:),dustgasprop(:,:)
+ use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
+                           massoftype,Omega_k,dustfrac,tstop,deltav
+ use options,         only:use_dustfrac
+ use eos,             only:ieos,get_spsound
+ real, intent(in)     :: dustprop(:,:)
+ real, intent(inout)  :: dustgasprop(:,:)
  real, intent(in)     :: xyzh(:,:)
  real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhod,vrel
+ real                 :: rhog,rhod,vrel,rho
  integer              :: i,iam
 
  vrel = 0.
  rhod = 0.
+ rho  = 0.
 
- !--get ds/dt over all dust particles
+ !--get ds/dt over all particles
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
 
-       if (iam == idust) then
+       if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
 
-          rhod = rhoh(xyzh(4,i),massoftype(idust))
-
+          if (use_dustfrac) then
+          !- no need for interpolations
+             rho              = rhoh(xyzh(4,i),massoftype(igas))
+             rhog             = rho*(1-dustfrac(1,i))
+             rhod             = rhog*dustfrac(1,i)
+             dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             dustgasprop(2,i) = rhog
+             dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
+             dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
+          else
+             rhod = rhoh(xyzh(4,i),massoftype(idust))
+          endif
+          
           call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
+          
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
           !
@@ -482,13 +499,15 @@ end subroutine read_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine check_dustprop(npart,size)
- use part,                only:iamtype,iphase,idust
+ use part,                only:iamtype,iphase,idust,igas
+ use options,              only:use_dustfrac
  real,intent(inout)        :: size(:)
  integer,intent(in)        :: npart
- integer                   :: i
+ integer                   :: i,iam
 
  do i=1,npart
-    if (iamtype(iphase(i))==idust) then
+    iam = iamtype(iphase(i))
+    if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
        if (ifrag > 0 .and. size(i) < grainsizemin) size(i) = grainsizemin
     endif
  enddo
