@@ -241,7 +241,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindenssmallinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=1,ndustsmallinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
@@ -275,7 +275,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindenslargeinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=ndustsmallinp+1,ndusttypesinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
@@ -309,7 +309,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=1,ndusttypesinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)

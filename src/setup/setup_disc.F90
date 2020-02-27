@@ -1909,7 +1909,7 @@ subroutine setup_interactive()
  !--resolution
  if (use_dust .and. .not.use_dustfrac) then
     np_dust = np/ndusttypesinp/5
- !elseif (use_dust .and. use_hybrid) then
+    !elseif (use_dust .and. use_hybrid) then
     !np_dust = np/ndustlargeinp/5
  else
     np_dust = 0
