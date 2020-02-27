@@ -23,6 +23,7 @@
 !--------------------------------------------------------------------------
 module moddump
  implicit none
+ integer, parameter :: nchildren = 8
 
 contains
 
@@ -35,7 +36,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: ierr
 
- call split_particles(npart,npartoftype,xyzh,massoftype,ierr)
+ call split_particles(nchildren,npart,npartoftype,xyzh,massoftype,ierr)
  if (ierr /= 0) call fatal('moddump','could not split particles')
  print*,' got npart = ',npart
 

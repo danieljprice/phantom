@@ -26,23 +26,35 @@ module splitpart
 
 contains
 
-subroutine split_particles(npart,npartoftype,xyzh,massoftype,ierr)
+!--------------------------------------------------------------------------
+!+
+!  split particles into nchild particle
+!+
+!--------------------------------------------------------------------------
+subroutine split_particles(nchild,npart,npartoftype,xyzh,massoftype,ierr)
  use injectutils, only:get_parts_per_sphere
  use icosahedron, only:pixel2vector,compute_corners,compute_matrices
  use part,        only:copy_particle
  use io,          only:error
+ integer, intent(in)    :: nchild
  integer, intent(inout) :: npart,npartoftype(:)
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(inout) :: massoftype(:)
  integer, intent(out)   :: ierr
- integer :: npart_per_sphere,iold,inew,j
+ integer :: npart_per_sphere,iold,inew,j,iseed
  real    :: dhfac,dx(3),sep
  real    :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
 
  ierr = 0
- npart_per_sphere = get_parts_per_sphere(ires)
- call compute_matrices(geodesic_R)
- call compute_corners(geodesic_v)
+ if (nchild <= 0) then
+    npart_per_sphere = get_parts_per_sphere(ires)
+    call compute_matrices(geodesic_R)
+    call compute_corners(geodesic_v)
+ else
+    ! initialise random number generator
+    npart_per_sphere = nchild - 1
+    iseed = -6542
+ endif
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < npart*(npart_per_sphere+1)) then
@@ -73,7 +85,11 @@ subroutine split_particles(npart,npartoftype,xyzh,massoftype,ierr)
        ! copy all properties from original particle
        call copy_particle(iold,inew)
        ! find positions of original particles
-       call pixel2vector(j,ires,geodesic_R,geodesic_v,dx)
+       if (nchild <= 0) then
+          call pixel2vector(j,ires,geodesic_R,geodesic_v,dx)
+       else
+          call sample_kernel(iseed,dx)
+       endif
        xyzh(1:3,inew) = xyzh(1:3,iold) + sep*dx(:)
     enddo
     ! amend smoothing length of original particle
@@ -81,5 +97,19 @@ subroutine split_particles(npart,npartoftype,xyzh,massoftype,ierr)
  enddo
 
 end subroutine split_particles
+
+subroutine sample_kernel(iseed,dx)
+ use random, only:gauss_random,get_random_pos_on_sphere
+ integer, intent(inout) :: iseed
+ real :: dx(3),r
+
+ r = 3.
+ do while (r > 2.)
+    r = gauss_random(iseed)
+ enddo
+ dx = get_random_pos_on_sphere(iseed)
+ dx = r*dx
+
+end subroutine sample_kernel
 
 end module splitpart
