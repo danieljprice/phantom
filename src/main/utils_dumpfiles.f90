@@ -59,6 +59,15 @@ module dump_utils
                                i_real  = 6, &
                                i_real4 = 7, &
                                i_real8 = 8
+ character(len=*), parameter  :: datatype_label(ndatatypes) = &
+     (/'integer', &
+       'int*1  ', &
+       'int*2  ', &
+       'int*4  ', &
+       'int*8  ', &
+       'real   ', &
+       'real*4 ', &
+       'double '/)
 
  ! error codes
  integer, parameter, public :: ierr_fileopen  = 1,&
@@ -2045,16 +2054,23 @@ end subroutine read_array_real8arr
 !  Use instead of open_dumpfile_r
 !+
 !-----------------------------------------------------
-subroutine open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+subroutine open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec,id)
  integer,          intent(in)  :: iunit
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: nblocks,narraylengths,ierr
+ character(len=lenid), intent(out), optional :: id
+ logical,          intent(in),      optional :: singleprec
  character(len=lenid)  :: fileid
  character(len=lentag) :: tagarr(maxphead)
  integer :: intarr(maxphead)
  integer :: number,i
 
- call open_dumpfile_r(iunit,filename,fileid,ierr,requiretags=.true.)
+ if (present(singleprec)) then
+    call open_dumpfile_r(iunit,filename,fileid,ierr,singleprec=singleprec,requiretags=.true.)
+ else
+    call open_dumpfile_r(iunit,filename,fileid,ierr,requiretags=.true.)
+ endif
+ if (present(id)) id = fileid
  if (ierr /= 0) return
 
  ! read nblocks from int header
@@ -2220,24 +2236,49 @@ subroutine print_arrays_in_file(iunit,filename)
  integer :: ierr,nblocks,narraylengths
  integer, parameter :: maxarraylengths = 12
  integer(kind=8) :: number8(maxarraylengths)
- integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths),nread
  character(len=lentag) :: mytag
+ character(len=lenid)  :: fileid
+ character(len=4) :: str
+ integer, parameter :: ndisplay = 5
+ real            :: x(ndisplay)
+ real(kind=4)    :: x4(ndisplay)
+ integer(kind=1) :: i1(ndisplay)
 
  ! open file for read
- call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)
+ if (ierr == ierr_realsize) then
+    close(iunit)
+    call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec=.true.,id=fileid)
+ endif
  if (ierr /= 0) return
 
- print*,'nblocks = ',nblocks,' array lengths per block = ',narraylengths
+ print "(a)",trim(fileid)
+ print "(a,i3,a,i2)",':: nblocks = ',nblocks,' array lengths per block = ',narraylengths
  do iblock = 1,nblocks
     call read_block_header(narraylengths,number8,nums,iunit,ierr)
-    print "(a,i3,a)",'[ block ',iblock,' ]'
-    !print*,'nums = ',nums(1:ndatatypes,1:narraylengths)
     do j=1,narraylengths
+       print "(a,i3,a,i3,a,i10)",'Block ',iblock,' array block ',j,': size ',number8(j)
+       nread= min(ndisplay,int(number8(j)))
+       str = ' ...'
+       if (nread >= int(number8(j))) str = ']'
        do i=1,ndatatypes
           do k=1,nums(i,j)
              read(iunit, iostat=ierr) mytag
-             print "(i12,a16)",number8(j),trim(mytag)
-             read(iunit, iostat=ierr) ! skip actual array
+             select case(i)
+             case(i_int1)
+                read(iunit, iostat=ierr) i1(1:nread)
+                print*,mytag,datatype_label(i),' [',i1(1:nread),str
+             case(i_real)
+                read(iunit, iostat=ierr) x(1:nread)
+                print*,mytag,datatype_label(i),' [',x(1:nread),str
+             case(i_real4)
+                read(iunit, iostat=ierr) x4(1:nread)
+                print*,mytag,datatype_label(i),' [',x4(1:nread),str
+             case default
+                print*,mytag,datatype_label(i)
+                read(iunit, iostat=ierr) ! skip actual array
+             end select
           enddo
        enddo
     enddo
