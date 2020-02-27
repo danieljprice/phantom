@@ -545,6 +545,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write dump file
 !
+       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
        call get_timings(t1,tcpu1)
        if (fulldump) then
           call write_fulldump(time,dumpfile)
@@ -574,8 +575,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                            massoftype(igas),npart,time,ianalysis)
        endif
 #endif
-       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
-
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
                                              timer_dens,timer_force,timer_link)
