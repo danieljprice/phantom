@@ -2622,7 +2622,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     else
        dtf = bignumber
     endif
-    
+
     ! one fluid dust timestep
     dtdusti = bignumber
     if (use_dustfrac .and. iamgasi) then
