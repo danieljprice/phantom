@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: icosahedron, injectutils, io, part
+!  DEPENDENCIES: icosahedron, injectutils, io, part, random
 !+
 !--------------------------------------------------------------------------
 module splitpart
