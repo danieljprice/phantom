@@ -168,9 +168,9 @@ real function gauss_random(iseed)
 
  x1 = ran2(iseed)
  x2 = ran2(iseed)
- 
+
  gauss_random = sqrt(2.*log(1./x1))*cos(2.*pi*x2)
- 
+
 end function gauss_random
 
 end module random
