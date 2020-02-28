@@ -1602,7 +1602,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypei - idust + 1
-                   call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   if (use_hybrid) then
+                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj*(1-sum(dustfracj(1:ndustsmall))),&
+                                  rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   else
+                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                    endif
                 endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
