@@ -24,7 +24,7 @@
 module analysis
  use discanalysisutils, only:disc_analysis
  implicit none
- character(len=20), parameter, public :: analysistype = 'CJN'
+ character(len=20), parameter, public :: analysistype = 'disc'
  public :: do_analysis
 
  integer, parameter :: nr = 300
