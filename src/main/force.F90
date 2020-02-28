@@ -799,7 +799,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,use_hybrid
+ use options,     only:overcleanfac,use_dustfrac
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
