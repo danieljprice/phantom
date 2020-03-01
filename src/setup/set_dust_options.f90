@@ -12,20 +12,32 @@
 !
 !  REFERENCES:
 !
-!  OWNER: Daniel Mentiplay
+!  OWNER: Arnaud Vericel
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    dust_method   -- dust method (1=one fluid,2=two fluid)
-!    dust_to_gas   -- dust to gas ratio
-!    graindensinp  -- intrinsic grain density (in g/cm^3)
-!    grainsizeinp  -- grain size (in cm)
-!    igraindens    -- grain density input (0=equal,1=manually)
-!    ndusttypesinp -- number of grain sizes
-!    sindex        -- grain size power-law index (e.g. MRN = 3.5)
-!    smaxcgs       -- max grain size (in cm)
-!    smincgs       -- min grain size (in cm)
+!    dust_method       -- dust method (1=one fluid,2=two fluid,3=Hybrid)
+!    dust_to_gas       -- dust to gas ratio
+!    graindensinp      -- intrinsic grain density (in g/cm^3)
+!    graindenslargeinp -- intrinsic grain density (in g/cm^3)
+!    graindenssmallinp -- intrinsic grain density (in g/cm^3)
+!    grainsizeinp      -- grain size (in cm)
+!    igraindens        -- grain density input (0=equal,1=manually)
+!    igraindenslarge   -- small grain density input (0=equal,1=manually)
+!    igraindenssmall   -- small grain density input (0=equal,1=manually)
+!    ndustlargeinp     -- number of large grain sizes
+!    ndustsmallinp     -- number of small grain sizes
+!    ndusttypesinp     -- number of grain sizes
+!    sindex            -- grain size power-law index (e.g. MRN = 3.5)
+!    sindexlarge       -- large grain size power-law index (e.g. MRN = 3.5)
+!    sindexsmall       -- small grain size power-law index (e.g. MRN = 3.5)
+!    smaxcgs           -- max grain size (in cm)
+!    smaxlargecgs      -- max large grain size (in cm)
+!    smaxsmallcgs      -- max small grain size (in cm)
+!    smincgs           -- min grain size (in cm)
+!    sminlargecgs      -- min large grain size (in cm)
+!    sminsmallcgs      -- min small grain size (in cm)
 !
 !  DEPENDENCIES: dim, dust, eos, fileutils, growth, infile_utils, io,
 !    options, part, prompting
@@ -232,7 +244,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindenssmallinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=1,ndustsmallinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
@@ -266,7 +278,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindenslargeinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=ndustsmallinp+1,ndusttypesinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
@@ -300,7 +312,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(0)
           call read_inopt(graindensinp(1),'graindensinp',db,min=0.,err=ierr,errcount=nerr)
        case(1)
-         varlabel = 'graindensinp'
+          varlabel = 'graindensinp'
           call make_tags_unique(ndusttypesinp,varlabel)
           do i=1,ndusttypesinp
              call read_inopt(graindensinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)

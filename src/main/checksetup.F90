@@ -344,7 +344,7 @@ subroutine check_setup(nerror,nwarn,restart)
              if (use_hybrid) then
                 print*, "WARNING: HYBRID DUST IMPLEMENTATION IS NOT YET FINISHED (IT'S NOT GONNA RUN ANYWAY)"
              else
-             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+                print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
                                 '    calculation using the one fluid method (dustfrac) **'
              endif
           endif

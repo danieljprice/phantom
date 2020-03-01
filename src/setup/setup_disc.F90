@@ -245,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--setup grain size distribution
  call setup_dust_grain_distribution()
- 
+
  !--compute disc mass and surface density normalization
  call calculate_disc_mass()
 
@@ -1910,7 +1910,7 @@ subroutine setup_interactive()
  !--resolution
  if (use_dust .and. .not.use_dustfrac) then
     np_dust = np/ndusttypesinp/5
- !elseif (use_dust .and. use_hybrid) then
+    !elseif (use_dust .and. use_hybrid) then
     !np_dust = np/ndustlargeinp/5
  else
     np_dust = 0
@@ -2366,7 +2366,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(np_dust(i),duststring(i),db,min=0,errcount=nerr)
     enddo
  endif
- 
+
  !--multiple discs
  iuse_disc = .false.
  if ((icentral==1) .and. (nsinks==2)) then

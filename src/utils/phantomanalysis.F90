@@ -85,7 +85,7 @@ program phantomanalysis
        call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,headeronly=.true.)
        if (ierr==0) print "(a,/)",' (finished reading file -- this analysis reads the header only)'
     else
-       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr,dustydisc=.true.)
+       call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
     endif
 
     if (ierr==is_small_dump) then
