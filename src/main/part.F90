@@ -69,7 +69,8 @@ module part
  character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
- logical, public             :: this_is_a_test = .false.
+ !- options
+ logical, public             :: this_is_a_test  = .false.
  logical, public             :: this_is_a_flyby = .false.
 !
 !--storage in divcurlv

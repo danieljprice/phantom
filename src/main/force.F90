@@ -1602,15 +1602,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypei - idust + 1
-                   if (use_hybrid) then
-                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj*(1-sum(dustfracj(1:ndustsmall))),&
-                                  rhoi,spsoundj,dv2,tsijtmp,iregime)
-                   else
-                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
-                   endif
+                   call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                !print*,"DRAGTERM: ",pmassj, rhoi, rhoj, tsijtmp, projvstar
                 ts_min = min(ts_min,tsijtmp)
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
@@ -2654,7 +2648,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i
-    !print*,"IN FORCE: ",dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti
     dtitmp = min(dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti)
     if (dtitmp < dti .and. dtitmp < dtmax) then
        dti     = dtitmp
