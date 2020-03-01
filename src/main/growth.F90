@@ -40,7 +40,7 @@
 module growth
  use units,        only:udist,unit_density,unit_velocity
  use physcon,      only:au,Ro
- use part,         only:xyzmh_ptmass,this_is_a_flyby,nptmass
+ use part,         only:xyzmh_ptmass,nptmass,this_is_a_flyby
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
@@ -60,7 +60,7 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
- logical, public        :: wbymass      = .true.
+ logical, public        :: wbymass         = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -214,7 +214,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
           !- no need for interpolations
              rho              = rhoh(xyzh(4,i),massoftype(igas))
              rhog             = rho*(1-dustfrac(1,i))
-             rhod             = rhog*dustfrac(1,i)
+             rhod             = rho*dustfrac(1,i)
              dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
              dustgasprop(2,i) = rhog
              dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
@@ -810,7 +810,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
      xyzh(1,ipart) = xyzh(1,iloc)
      xyzh(2,ipart) = xyzh(2,iloc)
      xyzh(3,ipart) = xyzh(3,iloc)
-     xyzh(4,ipart) = xyzh(4,iloc) * (np_ratio*dust_to_gas/dustfrac(1,iloc))**(1./3.) !- smoothing length
+     xyzh(4,ipart) = xyzh(4,iloc) * (np_ratio*dust_to_gas/dustfrac(1,iloc))**(1./3.) !- smoothing lengths
 
      !- dust velocities out of the barycentric frame
      vxyzu(1,ipart) = vxyzu(1,iloc) + (1 - dustfrac(1,iloc)) * deltav(1,1,iloc)
@@ -828,10 +828,13 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
      call set_particle_type(ipart,idust)
   enddo
   
-  !- gas velocities out of the barycentric frame
+  !- gas quantities out of barycentric frame
   do j=1,npart
      iam = iamtype(iphase(j))
      if (iam == igas) then
+        !- smoothing lenghts
+        xyzh(4,j) =  xyzh(4,j) * (1-dustfrac(1,j))**(-1./3.)
+        !- velocities
         vxyzu(1,j) = vxyzu(1,j) - dustfrac(1,j) * deltav(1,1,j)
         vxyzu(2,j) = vxyzu(2,j) - dustfrac(1,j) * deltav(2,1,j)
         vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
