@@ -73,7 +73,7 @@ subroutine test_growth(ntests,npass)
  !
  ! The return of the dustybox test
  !
- !call test_dustybox(ntests,npass)
+ call test_dustybox(ntests,npass)
  call barrier_mpi()
 
  !
