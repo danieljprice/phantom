@@ -48,12 +48,12 @@ subroutine test_growth(ntests,npass)
 #endif
 #endif
  integer, intent(inout) :: ntests,npass
- logical, dimension(2)  :: logic = (/.false., .true./)
- integer                :: i,j
 
 #ifdef DUST
 #ifdef DUSTGROWTH
  integer :: nfailed(5),ierr !don't forget the dimension of nfailed
+ logical, dimension(2)  :: logic = (/.false., .true./)
+ integer                :: i,j
 
  if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
 
