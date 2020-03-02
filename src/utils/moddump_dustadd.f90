@@ -68,10 +68,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (use_dustgrowth .and. use_dustfrac) then
     print*,' Detected dustgrowth AND dustfrac: converting from one to two fluid'
-  
+
     call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1)
     call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
-  
+
     call convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,dust_to_gas)
  else
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)

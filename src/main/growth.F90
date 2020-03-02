@@ -222,9 +222,9 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
           else
              rhod = rhoh(xyzh(4,i),massoftype(idust))
           endif
-          
+
           call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
-          
+
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
           !
@@ -792,16 +792,16 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
   integer, intent(in)     :: np_ratio
   real, intent(in)        :: dust_to_gas
   integer                 :: np_gas,np_dust,j,ipart,iloc,iam
-  
+
   !- add number of dust particles
   np_gas = npartoftype(igas)
   ndustlarge = 1
   np_dust = np_gas/np_ratio
   npart = np_gas + np_dust
-  
+
   !- update memore allocation
-  call update_max_sizes(npart)  
-  
+  call update_max_sizes(npart)
+
   !- set dust quantities
   do j=1,np_dust
      ipart = np_gas + j
@@ -816,7 +816,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
      vxyzu(1,ipart) = vxyzu(1,iloc) + (1 - dustfrac(1,iloc)) * deltav(1,1,iloc)
      vxyzu(2,ipart) = vxyzu(2,iloc) + (1 - dustfrac(1,iloc)) * deltav(2,1,iloc)
      vxyzu(3,ipart) = vxyzu(3,iloc) + (1 - dustfrac(1,iloc)) * deltav(3,1,iloc)
-     
+
      dustprop(1,ipart)    = dustprop(1,iloc)
      dustprop(2,ipart)    = dustprop(2,iloc)
      dustgasprop(1,ipart) = dustgasprop(1,iloc)
@@ -827,7 +827,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
 
      call set_particle_type(ipart,idust)
   enddo
-  
+
   !- gas quantities out of barycentric frame
   do j=1,npart
      iam = iamtype(iphase(j))
@@ -840,7 +840,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
         vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
      endif
   enddo
-  
+
   !- unset onefluid, add mass of type dust
   massoftype(idust)  = massoftype(igas)*dust_to_gas*np_ratio
   npartoftype(idust) = np_dust
