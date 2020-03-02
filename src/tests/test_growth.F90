@@ -85,7 +85,7 @@ subroutine test_growth(ntests,npass)
        call barrier_mpi()
     enddo
  enddo
- 
+
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
 #else
  if (id==master) write(*,"(/,a)") '--> SKIPPING DUSTGROWTH TEST (REQUIRES -DDUST -DDUSTGROWTH)'
@@ -171,7 +171,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  real, parameter :: tolcs = 5.e-4
  real, parameter :: tols  = 5.e-4
  real, parameter :: tolrho = 5.e-4
- 
+
  character(len=15) :: stringfrag
  character(len=15) :: stringmethod
 
@@ -179,13 +179,13 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     sinit       = 1./udist
     gsizemincgs = 1.e-3
     dtgratio    = 0.5
-    stringfrag  = "fragmentation" 
+    stringfrag  = "fragmentation"
  else
     sinit       = 1.e-2/udist
     dtgratio    = 1.
-    stringfrag  = "growth" 
+    stringfrag  = "growth"
  endif
- 
+
  if (onefluid) then
     use_dustfrac = .true.
     stringmethod = "one fluid"
@@ -200,7 +200,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     ndustlarge   = 1
     allocate(ncheck(4),nerr(4),errmax(4))
  endif
- 
+
  dens  = 1./unit_density
 
  write(*,*)'--> testing FARMINGBOX using: ',trim(stringfrag),' and ',trim(stringmethod), ' dust method'
@@ -211,7 +211,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  !
  this_is_a_test = .true.
  wbymass        = .false.
- 
+
  !
  ! setup for dustybox problem
  !
@@ -332,12 +332,12 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
  call init_drag(ierr)
  call init_growth(ierr)
- 
+
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)   
-         
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
+
  call init_step(npart,t,dtmax)
- 
+
  do j=1,npart
     iam = iamtype(iphase(j))
     if (iam == idust .or. (use_dustfrac .and. iam == igas)) then
@@ -395,9 +395,9 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  endif
 
  call update_test_scores(ntests,nerr,npass)
- 
+
  deallocate(ncheck,nerr,errmax)
- 
+
 end subroutine test_farmingbox
 
 subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
