@@ -211,7 +211,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
        if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
 
           if (use_dustfrac .and. iam == igas) then
-          !- no need for interpolations
+             !- no need for interpolations
              rho              = rhoh(xyzh(4,i),massoftype(igas))
              rhog             = rho*(1-dustfrac(1,i))
              rhod             = rho*dustfrac(1,i)
@@ -783,69 +783,69 @@ end subroutine merge_bins
 !+
 !-----------------------------------------------------------------------
 subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,dust_to_gas)
-  use part,            only: dustprop,dustgasprop,ndustlarge,ndustsmall,igas,idust,VrelVf,&
+ use part,            only: dustprop,dustgasprop,ndustlarge,ndustsmall,igas,idust,VrelVf,&
                              dustfrac,iamtype,iphase,deltav,set_particle_type
-  use options,         only: use_dustfrac
-  use dim,             only: update_max_sizes
-  integer, intent(inout)  :: npart,npartoftype(:)
-  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),massoftype(:)
-  integer, intent(in)     :: np_ratio
-  real, intent(in)        :: dust_to_gas
-  integer                 :: np_gas,np_dust,j,ipart,iloc,iam
+ use options,         only: use_dustfrac
+ use dim,             only: update_max_sizes
+ integer, intent(inout)  :: npart,npartoftype(:)
+ real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer, intent(in)     :: np_ratio
+ real, intent(in)        :: dust_to_gas
+ integer                 :: np_gas,np_dust,j,ipart,iloc,iam
 
-  !- add number of dust particles
-  np_gas = npartoftype(igas)
-  ndustlarge = 1
-  np_dust = np_gas/np_ratio
-  npart = np_gas + np_dust
+ !- add number of dust particles
+ np_gas = npartoftype(igas)
+ ndustlarge = 1
+ np_dust = np_gas/np_ratio
+ npart = np_gas + np_dust
 
-  !- update memore allocation
-  call update_max_sizes(npart)
+ !- update memore allocation
+ call update_max_sizes(npart)
 
-  !- set dust quantities
-  do j=1,np_dust
-     ipart = np_gas + j
-     iloc  = np_ratio*j
+ !- set dust quantities
+ do j=1,np_dust
+    ipart = np_gas + j
+    iloc  = np_ratio*j
 
-     xyzh(1,ipart) = xyzh(1,iloc)
-     xyzh(2,ipart) = xyzh(2,iloc)
-     xyzh(3,ipart) = xyzh(3,iloc)
-     xyzh(4,ipart) = xyzh(4,iloc) * (np_ratio*dust_to_gas/dustfrac(1,iloc))**(1./3.) !- smoothing lengths
+    xyzh(1,ipart) = xyzh(1,iloc)
+    xyzh(2,ipart) = xyzh(2,iloc)
+    xyzh(3,ipart) = xyzh(3,iloc)
+    xyzh(4,ipart) = xyzh(4,iloc) * (np_ratio*dust_to_gas/dustfrac(1,iloc))**(1./3.) !- smoothing lengths
 
-     !- dust velocities out of the barycentric frame
-     vxyzu(1,ipart) = vxyzu(1,iloc) + (1 - dustfrac(1,iloc)) * deltav(1,1,iloc)
-     vxyzu(2,ipart) = vxyzu(2,iloc) + (1 - dustfrac(1,iloc)) * deltav(2,1,iloc)
-     vxyzu(3,ipart) = vxyzu(3,iloc) + (1 - dustfrac(1,iloc)) * deltav(3,1,iloc)
+    !- dust velocities out of the barycentric frame
+    vxyzu(1,ipart) = vxyzu(1,iloc) + (1 - dustfrac(1,iloc)) * deltav(1,1,iloc)
+    vxyzu(2,ipart) = vxyzu(2,iloc) + (1 - dustfrac(1,iloc)) * deltav(2,1,iloc)
+    vxyzu(3,ipart) = vxyzu(3,iloc) + (1 - dustfrac(1,iloc)) * deltav(3,1,iloc)
 
-     dustprop(1,ipart)    = dustprop(1,iloc)
-     dustprop(2,ipart)    = dustprop(2,iloc)
-     dustgasprop(1,ipart) = dustgasprop(1,iloc)
-     dustgasprop(2,ipart) = dustgasprop(2,iloc)
-     dustgasprop(3,ipart) = dustgasprop(3,iloc)
-     dustgasprop(4,ipart) = dustgasprop(4,iloc)
-     VrelVf(ipart)        = VrelVf(iloc)
+    dustprop(1,ipart)    = dustprop(1,iloc)
+    dustprop(2,ipart)    = dustprop(2,iloc)
+    dustgasprop(1,ipart) = dustgasprop(1,iloc)
+    dustgasprop(2,ipart) = dustgasprop(2,iloc)
+    dustgasprop(3,ipart) = dustgasprop(3,iloc)
+    dustgasprop(4,ipart) = dustgasprop(4,iloc)
+    VrelVf(ipart)        = VrelVf(iloc)
 
-     call set_particle_type(ipart,idust)
-  enddo
+    call set_particle_type(ipart,idust)
+ enddo
 
-  !- gas quantities out of barycentric frame
-  do j=1,npart
-     iam = iamtype(iphase(j))
-     if (iam == igas) then
-        !- smoothing lenghts
-        xyzh(4,j) =  xyzh(4,j) * (1-dustfrac(1,j))**(-1./3.)
-        !- velocities
-        vxyzu(1,j) = vxyzu(1,j) - dustfrac(1,j) * deltav(1,1,j)
-        vxyzu(2,j) = vxyzu(2,j) - dustfrac(1,j) * deltav(2,1,j)
-        vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
-     endif
-  enddo
+ !- gas quantities out of barycentric frame
+ do j=1,npart
+    iam = iamtype(iphase(j))
+    if (iam == igas) then
+       !- smoothing lenghts
+       xyzh(4,j) =  xyzh(4,j) * (1-dustfrac(1,j))**(-1./3.)
+       !- velocities
+       vxyzu(1,j) = vxyzu(1,j) - dustfrac(1,j) * deltav(1,1,j)
+       vxyzu(2,j) = vxyzu(2,j) - dustfrac(1,j) * deltav(2,1,j)
+       vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
+    endif
+ enddo
 
-  !- unset onefluid, add mass of type dust
-  massoftype(idust)  = massoftype(igas)*dust_to_gas*np_ratio
-  npartoftype(idust) = np_dust
-  ndustsmall         = 0
-  use_dustfrac       = .false.
+ !- unset onefluid, add mass of type dust
+ massoftype(idust)  = massoftype(igas)*dust_to_gas*np_ratio
+ npartoftype(idust) = np_dust
+ ndustsmall         = 0
+ use_dustfrac       = .false.
 
 end subroutine convert_to_twofluid
 !--Compute the relative velocity following Stepinski & Valageas (1997)
