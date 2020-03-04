@@ -98,7 +98,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:write_options_growth
- use options,         only:use_dustfrac
 #endif
 #endif
 #ifdef PHOTO
@@ -232,7 +231,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DUST
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
- if (.not.use_dustfrac) call write_options_growth(iwritein)
+ call write_options_growth(iwritein)
 #endif
 #endif
 

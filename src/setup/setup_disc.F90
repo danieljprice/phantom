@@ -1356,11 +1356,12 @@ end subroutine set_planet_atm
 subroutine initialise_dustprop(npart)
  integer, intent(in) :: npart
 
- integer :: i
+ integer :: i,iam
 
  if (use_dustgrowth) then
     do i=1,npart
-       if (iamtype(iphase(i))==idust) then
+       iam = iamtype(iphase(i))
+       if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
        else

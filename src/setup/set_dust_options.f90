@@ -123,17 +123,20 @@ end subroutine set_dust_default_options
 !--------------------------------------------------------------------------
 subroutine set_dust_interactively()
 
- !--can only use one dust method
- if (.not. use_dustgrowth) then
-    call prompt('Which dust method do you want? (1=one fluid,2=two fluid,3=Hybrid)',dust_method,1,3)
- else !- if dustgrowth, enforce two-fluid, single grain population
-    dust_method   = 2
-    ndusttypesinp = 1
+ call prompt('Which dust method do you want? (1=one fluid,2=two fluid,3=Hybrid)',dust_method,1,3)
+ if (use_dustgrowth) then
+    if (dust_method == 1) then
+       ndustsmallinp = 1
+       ndustlargeinp = 0
+    elseif (dust_method == 2) then
+       ndustsmallinp = 0
+       ndustlargeinp = 1
+    endif
  endif
  call prompt('Enter total dust to gas ratio',dust_to_gas,0.)
 
  if (dust_method==1 .or. dust_method==3) then
-    call prompt('How many small grain sizes do you want?',ndustsmallinp,1,maxdustsmall)
+    if (.not. use_dustgrowth) call prompt('How many small grain sizes do you want?',ndustsmallinp,1,maxdustsmall)
     if (dust_method /= 1) call prompt('How many large grain sizes do you want?',ndustlargeinp,1,maxdustlarge)
     call prompt('Do you want to limit the dust flux?',ilimitdustfluxinp)
  elseif ((dust_method==2) .and. .not.use_dustgrowth) then

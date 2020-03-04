@@ -1249,7 +1249,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(VrelVf,VrelVf_label,got_VrelVf,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(dustgasprop(3,:),dustgasprop_label(3),got_dustgasprop(3),ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(dustgasprop,dustgasprop_label,got_dustgasprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then

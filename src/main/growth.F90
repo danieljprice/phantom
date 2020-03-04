@@ -33,14 +33,14 @@
 !    vfragout      -- inward fragmentation threshold in m/s
 !    wbymass       -- weight dustgasprops by mass rather than mass/density
 !
-!  DEPENDENCIES: dust, eos, infile_utils, initial_params, io, part,
-!    physcon, table_utils, units, viscosity
+!  DEPENDENCIES: dim, dust, eos, infile_utils, initial_params, io, options,
+!    part, physcon, table_utils, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module growth
  use units,        only:udist,unit_density,unit_velocity
  use physcon,      only:au,Ro
- use part,         only:xyzmh_ptmass,this_is_a_flyby,nptmass
+ use part,         only:xyzmh_ptmass,nptmass,this_is_a_flyby
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
@@ -60,7 +60,7 @@ module growth
  real, public           :: vfragout
  real, public           :: grainsizemin
 
- logical, public        :: wbymass      = .false.
+ logical, public        :: wbymass         = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -71,7 +71,7 @@ module growth
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
- public                 :: comp_snow_line,bin_to_multi
+ public                 :: comp_snow_line,bin_to_multi,convert_to_twofluid
 
 contains
 
@@ -185,29 +185,46 @@ end subroutine print_growthinfo
 !+
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
- use part,            only:rhoh,idust,iamtype,iphase,isdead_or_accreted,massoftype
- real, intent(in)     :: dustprop(:,:),dustgasprop(:,:)
+ use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
+                           massoftype,Omega_k,dustfrac,tstop,deltav
+ use options,         only:use_dustfrac
+ use eos,             only:ieos,get_spsound
+ real, intent(in)     :: dustprop(:,:)
+ real, intent(inout)  :: dustgasprop(:,:)
  real, intent(in)     :: xyzh(:,:)
  real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
  real, intent(out)    :: dsdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhod,vrel
+ real                 :: rhog,rhod,vrel,rho
  integer              :: i,iam
 
  vrel = 0.
  rhod = 0.
+ rho  = 0.
 
- !--get ds/dt over all dust particles
+ !--get ds/dt over all particles
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
 
-       if (iam == idust) then
+       if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
 
-          rhod = rhoh(xyzh(4,i),massoftype(idust))
+          if (use_dustfrac .and. iam == igas) then
+             !- no need for interpolations
+             rho              = rhoh(xyzh(4,i),massoftype(igas))
+             rhog             = rho*(1-dustfrac(1,i))
+             rhod             = rho*dustfrac(1,i)
+             dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             dustgasprop(2,i) = rhog
+             dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
+             dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
+          else
+             rhod = rhoh(xyzh(4,i),massoftype(idust))
+          endif
 
           call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
+
           !
           !--dustprop(1)= size, dustprop(2) = intrinsic density,
           !
@@ -482,13 +499,15 @@ end subroutine read_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine check_dustprop(npart,size)
- use part,                only:iamtype,iphase,idust
+ use part,                only:iamtype,iphase,idust,igas
+ use options,              only:use_dustfrac
  real,intent(inout)        :: size(:)
  integer,intent(in)        :: npart
- integer                   :: i
+ integer                   :: i,iam
 
  do i=1,npart
-    if (iamtype(iphase(i))==idust) then
+    iam = iamtype(iphase(i))
+    if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
        if (ifrag > 0 .and. size(i) < grainsizemin) size(i) = grainsizemin
     endif
  enddo
@@ -758,7 +777,77 @@ subroutine merge_bins(npart,grid,npartmin)
  ndustlarge           = ndusttypes
 
 end subroutine merge_bins
+!-----------------------------------------------------------------------
+!+
+!  Convert a one-fluid dustgrowth sim into a two-fluid one (used by moddump_dustadd)
+!+
+!-----------------------------------------------------------------------
+subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,dust_to_gas)
+ use part,            only: dustprop,dustgasprop,ndustlarge,ndustsmall,igas,idust,VrelVf,&
+                             dustfrac,iamtype,iphase,deltav,set_particle_type
+ use options,         only: use_dustfrac
+ use dim,             only: update_max_sizes
+ integer, intent(inout)  :: npart,npartoftype(:)
+ real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer, intent(in)     :: np_ratio
+ real, intent(in)        :: dust_to_gas
+ integer                 :: np_gas,np_dust,j,ipart,iloc,iam
 
+ !- add number of dust particles
+ np_gas = npartoftype(igas)
+ ndustlarge = 1
+ np_dust = np_gas/np_ratio
+ npart = np_gas + np_dust
+
+ !- update memore allocation
+ call update_max_sizes(npart)
+
+ !- set dust quantities
+ do j=1,np_dust
+    ipart = np_gas + j
+    iloc  = np_ratio*j
+
+    xyzh(1,ipart) = xyzh(1,iloc)
+    xyzh(2,ipart) = xyzh(2,iloc)
+    xyzh(3,ipart) = xyzh(3,iloc)
+    xyzh(4,ipart) = xyzh(4,iloc) * (np_ratio*dust_to_gas/dustfrac(1,iloc))**(1./3.) !- smoothing lengths
+
+    !- dust velocities out of the barycentric frame
+    vxyzu(1,ipart) = vxyzu(1,iloc) + (1 - dustfrac(1,iloc)) * deltav(1,1,iloc)
+    vxyzu(2,ipart) = vxyzu(2,iloc) + (1 - dustfrac(1,iloc)) * deltav(2,1,iloc)
+    vxyzu(3,ipart) = vxyzu(3,iloc) + (1 - dustfrac(1,iloc)) * deltav(3,1,iloc)
+
+    dustprop(1,ipart)    = dustprop(1,iloc)
+    dustprop(2,ipart)    = dustprop(2,iloc)
+    dustgasprop(1,ipart) = dustgasprop(1,iloc)
+    dustgasprop(2,ipart) = dustgasprop(2,iloc)
+    dustgasprop(3,ipart) = dustgasprop(3,iloc)
+    dustgasprop(4,ipart) = dustgasprop(4,iloc)
+    VrelVf(ipart)        = VrelVf(iloc)
+
+    call set_particle_type(ipart,idust)
+ enddo
+
+ !- gas quantities out of barycentric frame
+ do j=1,npart
+    iam = iamtype(iphase(j))
+    if (iam == igas) then
+       !- smoothing lenghts
+       xyzh(4,j) =  xyzh(4,j) * (1-dustfrac(1,j))**(-1./3.)
+       !- velocities
+       vxyzu(1,j) = vxyzu(1,j) - dustfrac(1,j) * deltav(1,1,j)
+       vxyzu(2,j) = vxyzu(2,j) - dustfrac(1,j) * deltav(2,1,j)
+       vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
+    endif
+ enddo
+
+ !- unset onefluid, add mass of type dust
+ massoftype(idust)  = massoftype(igas)*dust_to_gas*np_ratio
+ npartoftype(idust) = np_dust
+ ndustsmall         = 0
+ use_dustfrac       = .false.
+
+end subroutine convert_to_twofluid
 !--Compute the relative velocity following Stepinski & Valageas (1997)
 real function vrelative(dustgasprop,Vt)
  use physcon,     only:roottwo

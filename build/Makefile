@@ -478,6 +478,8 @@ ifeq ($(SETUP), growingdisc)
     IND_TIMESTEPS=yes
     DUSTGROWTH = yes
     ANALYSIS=analysis_dustydisc.f90
+    MAXDUSTLARGE=1
+    MAXDUSTSMALL=1
 endif
 
 ifeq ($(SETUP), growthtomulti)

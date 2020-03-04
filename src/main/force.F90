@@ -799,7 +799,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,use_hybrid
+ use options,     only:overcleanfac,use_dustfrac
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1445,7 +1445,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              tsj = 0.
              do l=1,ndustsmall
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-                call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                if (use_dustgrowth) then !- only work for ndustsmall=1 though
+                   call get_ts(idrag,l,grainsizei,graindensi,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                else
+                   call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                endif
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
@@ -1598,15 +1602,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypei - idust + 1
-                   if (use_hybrid) then
-                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj*(1-sum(dustfracj(1:ndustsmall))),&
-                                  rhoi,spsoundj,dv2,tsijtmp,iregime)
-                   else
-                      call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
-                   endif
+                   call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
                 dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                !print*,"DRAGTERM: ",pmassj, rhoi, rhoj, tsijtmp, projvstar
                 ts_min = min(ts_min,tsijtmp)
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
@@ -1912,7 +1910,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_dustfrac .and. iamgasi) then
           tstopi = 0.
           do j=1,ndustsmall
-             call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             if (use_dustgrowth) then
+                call get_ts(idrag,j,dustprop(1,i),dustprop(2,i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             else
+                call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             endif
           enddo
        endif
 #endif
@@ -2646,7 +2648,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i
-    !print*,"IN FORCE: ",dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti
     dtitmp = min(dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti)
     if (dtitmp < dti .and. dtitmp < dtmax) then
        dti     = dtitmp
