@@ -805,7 +805,7 @@ end function get_ntypes
 pure logical function is_accretable(itype)
  integer, intent(in)  :: itype
 
- if (itype==igas .or. itype==idust) then
+ if (itype==igas .or. (itype>=idust .and. itype<=idustlast)) then
     is_accretable = .true.
  else
     is_accretable = .false.
