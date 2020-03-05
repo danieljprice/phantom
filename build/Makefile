@@ -1098,7 +1098,7 @@ ifeq ($(SYSTEM), nci)
     ifeq ($(MPI),yes)
        NPAR=32
     endif
-    QPROJECT='pt4'
+    QPROJECT='fu7'
     QNAME='normal'
     WALLTIME='48:00:00'
     MPIEXEC='mpiexec -npernode 1'
