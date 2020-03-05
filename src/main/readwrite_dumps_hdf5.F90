@@ -478,7 +478,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use options,        only:iexternalforce,use_dustfrac
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
@@ -489,7 +489,6 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use part,           only:dt_in
 #endif
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
  use extern_gwinspiral, only:Nstar
@@ -504,6 +503,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  real(kind=4), allocatable :: dtind(:)
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
+ real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -536,17 +536,17 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  iexternalforce = hdr%iexternalforce
  ieos = hdr%ieos
  tfile = hdr%time
- dtmax = hdr%dtmax
+ dtmaxi = hdr%dtmax
  gamma = hdr%gamma
  rhozero = hdr%rhozero
  polyk = hdr%polyk
  hfactfile = hdr%hfact
- tolh = hdr%tolh
- C_cour = hdr%C_cour
- C_force = hdr%C_force
- alpha = hdr%alpha
- alphau = hdr%alphau
- alphaB = hdr%alphaB
+ tolhfile = hdr%tolh
+ C_courfile = hdr%C_cour
+ C_forcefile = hdr%C_force
+ alphafile = hdr%alpha
+ alphaufile = hdr%alphau
+ alphaBfile = hdr%alphaB
  polyk2 = hdr%polyk2
  qfacdisc = hdr%qfacdisc
  massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
@@ -642,7 +642,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
                           dustgasprop,temperature,abundance,array_options,got_arrays)
 
     call check_arrays(1,npart,npartoftype,nptmass,nsinkproperties,massoftype,  &
-                      alpha,tfile,got_arrays%got_iphase,got_arrays%got_xyzh,   &
+                      alphafile,tfile,got_arrays%got_iphase,got_arrays%got_xyzh, &
                       got_arrays%got_vxyzu,got_arrays%got_alpha,               &
                       got_arrays%got_abund,got_arrays%got_dustfrac,            &
                       got_arrays%got_sink_data,got_arrays%got_sink_vels,       &
@@ -682,7 +682,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:error,fatal
  use memory,         only:allocate_memory
- use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
+ use options,        only:iexternalforce,use_dustfrac
  use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,   &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,      &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz, &
@@ -696,7 +696,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dim,            only:maxp_hard
 #endif
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
  use extern_gwinspiral, only:Nstar
@@ -711,6 +710,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  real(kind=4) :: dtind(npart)
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
+ real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
  character(len=200) :: fileident
  integer :: errors(5)
  logical :: smalldump,isothermal,ind_timesteps,const_av
@@ -737,17 +737,17 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  iexternalforce = hdr%iexternalforce
  ieos = hdr%ieos
  tfile = hdr%time
- dtmax = hdr%dtmax
+ dtmaxi = hdr%dtmax
  gamma = hdr%gamma
  rhozero = hdr%rhozero
  polyk = hdr%polyk
  hfactfile = hdr%hfact
- tolh = hdr%tolh
- C_cour = hdr%C_cour
- C_force = hdr%C_force
- alpha = hdr%alpha
- alphau = hdr%alphau
- alphaB = hdr%alphaB
+ tolhfile = hdr%tolh
+ C_courfile = hdr%C_cour
+ C_forcefile = hdr%C_force
+ alphafile = hdr%alpha
+ alphaufile = hdr%alphau
+ alphaBfile = hdr%alphaB
  polyk2 = hdr%polyk2
  qfacdisc = hdr%qfacdisc
  massoftype = reshape(hdr%massoftype,shape(massoftype),pad=[0.0])
@@ -855,26 +855,6 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  ierr = maxval(abs(errors))
 
 end subroutine read_smalldump
-
-!--------------------------------------------------------------------
-!+
-!  small utility to see if a parameter is different between the
-!  code and the dump file
-!+
-!-------------------------------------------------------------------
-subroutine checkparam(valfile,valcode,string)
- use io, only:iprint,id,master
- real,             intent(in) :: valfile,valcode
- character(len=*), intent(in) :: string
-
- if (id==master) then
-    if (abs(valfile-valcode) > tiny(valcode)) then
-       write(iprint,*) 'comment: '//trim(string)//' was ',valfile,' now ',valcode
-    endif
- endif
-
- return
-end subroutine checkparam
 
 !---------------------------------------------------------------
 !+
@@ -1168,19 +1148,6 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 
  return
 end subroutine write_gadgetdump
-
-subroutine count_particle_types(npartoftype)
- use part, only:iphase,iamtype,npart
- integer, intent(out) :: npartoftype(:)
- integer :: i, itype
-
- npartoftype(:) = 0
- do i = 1, npart
-    itype = iamtype(iphase(i))
-    npartoftype(itype) = npartoftype(itype) + 1
- enddo
-
-end subroutine count_particle_types
 
 #ifdef PHANTOM2HDF5
 end module readwrite_dumps_hdf5

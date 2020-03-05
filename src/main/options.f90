@@ -34,7 +34,7 @@ module options
 !
  real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
- real, public :: tolh,damp
+ real, public :: tolh,damp,rkill
  real(kind=4), public :: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
@@ -50,7 +50,7 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_dustfrac
+ logical, public :: use_dustfrac, use_hybrid
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
@@ -122,7 +122,8 @@ subroutine set_default_options
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
-
+ ! radius outside which we kill particles
+ rkill             = -1.
  call set_defaults_viscosity
 
  ! dust method

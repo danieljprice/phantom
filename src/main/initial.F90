@@ -140,12 +140,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use photoevap,        only:set_photoevap_grid
 #endif
 #ifdef NONIDEALMHD
- use units,            only:utime,udist,umass,unit_Bfield
+ use units,            only:utime,umass,unit_Bfield
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
-                            r_crit,r_crit2,rho_crit,rho_crit_cgs
+                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
@@ -200,7 +200,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
- use units,            only:unit_density
+ use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -454,6 +454,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
+ write(iprint,*) 'Sink radius and critical densities:'
+ write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
+ write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
+ write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
+ write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
 !
 !--inject particles at t=0, and get timestep constraint on this
 !

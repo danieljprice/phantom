@@ -24,7 +24,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
-!    fastmath, io, io_summary, kdtree, kernel, linklist, mpiderivs,
+!    fastmath, growth, io, io_summary, kdtree, kernel, linklist, mpiderivs,
 !    mpiforce, mpiutils, nicil, options, part, physcon, ptmass, stack,
 !    timestep, timestep_ind, timestep_sts, units, viscosity
 !+
@@ -607,16 +607,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dus
     endif
  endif
 #endif
+!$omp end parallel
 
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately
  if (ncheckbin==0) then
     nbinmaxnew    = nbinmax
     nbinmaxstsnew = nbinmaxsts
  endif
 #endif
-!$omp end parallel
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
@@ -788,6 +791,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ndustsmall,grainsize,graindens
  use eos,         only:get_spsound
 #ifdef DUSTGROWTH
+ use growth,      only:wbymass
  use kernel,      only:wkern,cnormk
 #endif
 #endif
@@ -1120,7 +1124,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--get individual timestep/ multiphase information (querying iphase)
        if (maxphase==maxp) then
-          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej,.false.)
+          call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
 #ifdef IND_TIMESTEPS
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
@@ -1441,7 +1445,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              tsj = 0.
              do l=1,ndustsmall
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
-                call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                if (use_dustgrowth) then !- only work for ndustsmall=1 though
+                   call get_ts(idrag,l,grainsizei,graindensi,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                else
+                   call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                endif
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
@@ -1578,11 +1586,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    else
                       winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
-                   fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
-                   fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
-                   fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                   fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
+                   if (wbymass) then
+                      fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
+                      fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
+                      fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
+                      fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
+                   else
+                      fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
+                      fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
+                      fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
+                      fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
+                   endif
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -1817,7 +1832,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -1895,7 +1910,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_dustfrac .and. iamgasi) then
           tstopi = 0.
           do j=1,ndustsmall
-             call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             if (use_dustgrowth) then
+                call get_ts(idrag,j,dustprop(1,i),dustprop(2,i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             else
+                call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+             endif
           enddo
        endif
 #endif
@@ -2078,7 +2097,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2181,6 +2200,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:luminosity
 #endif
 #ifdef DUSTGROWTH
+ use growth,         only:wbymass
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
 #endif
@@ -2254,7 +2274,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei,.false.)
+       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -2554,9 +2574,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DUSTGROWTH
        if (iamdusti) then
           !- return interpolations to their respective arrays
-          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
-          dustgasprop(1,i) = fsum(icsi) !- sound speed
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
+          dustgasprop(1,i) = fsum(icsi)
+          !- if interpolations are mass weigthed, divide result by rhog,i
+          if (wbymass) then
+             dustgasprop(1,i) = dustgasprop(1,i)/dustgasprop(2,i) !- sound speed
+             dustgasprop(4,i) = dustgasprop(4,i)/dustgasprop(2,i) !- |dv|
+          endif
 
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)
@@ -2654,7 +2679,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !
     ibin(i) = max(ibin(i),ibin_neighi-1_1)
     !
-    ! find the new maximum number of bins
+    ! find the new maximum value of ibin
     nbinmaxnew = max(nbinmaxnew,int(ibin(i)))
     ncheckbin  = ncheckbin + 1
 

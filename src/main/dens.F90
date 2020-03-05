@@ -1006,8 +1006,8 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
- if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
-! if (.false.) then ! do exact linear first derivatives
+! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
+ if (.false.) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
@@ -1227,7 +1227,7 @@ end subroutine reduce_and_print_neighbour_stats
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
  use dim,         only:maxvxyzu
- use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,set_boundaries_to_active
+ use part,        only:get_partinfo,iamgas,mhd,igas,maxphase
  use viscosity,   only:irealvisc
 #ifdef MPI
  use io,          only:id
@@ -1262,7 +1262,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     lli = inodeparts(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei,set_boundaries_to_active)
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -1321,7 +1321,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
  use part,        only:maxphase,get_partinfo,maxBevol,mhd,igas,iamgas,&
-                       set_boundaries_to_active,iamboundary,ibasetype
+                       iamboundary,ibasetype
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1344,7 +1344,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei,set_boundaries_to_active)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -1402,7 +1402,7 @@ end subroutine start_cell
 !--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,set_boundaries_to_active,maxphase,massoftype,igas,hrho
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1424,7 +1424,7 @@ subroutine finish_cell(cell,cell_converged)
     rhosum = cell%rhosums(:,i)
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei,set_boundaries_to_active)
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
@@ -1525,7 +1525,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
+ use part,        only:hrho,get_partinfo,iamgas,&
                        maxphase,massoftype,igas,n_R,n_electronT,&
                        eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
                        store_temperature,temperature,maxgradh,idust
@@ -1593,7 +1593,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     hi41  = hi21*hi21
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei,set_boundaries_to_active)
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas

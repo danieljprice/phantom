@@ -69,7 +69,9 @@ module part
  character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
- logical, public             :: this_is_a_test = .false.
+ !- options
+ logical, public             :: this_is_a_test  = .false.
+ logical, public             :: this_is_a_flyby = .false.
 !
 !--storage in divcurlv
 !
@@ -665,11 +667,10 @@ pure integer(kind=1) function isetphase(itype,iactive)
 
 end function isetphase
 
-pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype,set_active_boundaries)
+pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
  integer(kind=1), intent(in)  :: iphasei
  logical,         intent(out) :: isactive,isgas,isdust
  integer,         intent(out) :: itype
- logical,         intent(in)  :: set_active_boundaries
 
 ! isactive = iactive(iphasei)
 ! itype = iamtype(iphasei)
@@ -804,7 +805,7 @@ end function get_ntypes
 pure logical function is_accretable(itype)
  integer, intent(in)  :: itype
 
- if (itype==igas .or. itype==idust) then
+ if (itype==igas .or. (itype>=idust .and. itype<=idustlast)) then
     is_accretable = .true.
  else
     is_accretable = .false.
@@ -1361,11 +1362,11 @@ subroutine delete_particles_outside_sphere(center, radius, revert)
     r = xyzh(1:3,i) - center
     if (use_revert) then
        if (dot_product(r,r)  <  radius_squared) then
-          xyzh(4,i) = -abs(xyzh(4,i))
+          call kill_particle(i)
        endif
     else
        if (dot_product(r,r)  >  radius_squared) then
-          xyzh(4,i) = -abs(xyzh(4,i))
+          call kill_particle(i)
        endif
     endif
  enddo
@@ -1429,7 +1430,31 @@ end subroutine
 
 !----------------------------------------------------------------
  !+
- !  Returns keplerian rotational frequency of particle i
+ ! Accrete particles outside a given radius
+ !+
+ !----------------------------------------------------------------
+subroutine accrete_particles_outside_sphere(radius)
+ real, intent(in) :: radius
+ integer :: i
+ real :: r2
+ !
+ ! accrete particles outside some outer radius
+ !
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,radius) &
+ !$omp private(i,r2)
+ do i=1,npart
+    r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
+    if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
+ enddo
+ !$omp end parallel do
+
+end subroutine
+
+
+!----------------------------------------------------------------
+ !+
+ !  Returns keplerian frequency of particle i
  !+
  !----------------------------------------------------------------
 real function Omega_k(i)
@@ -1438,18 +1463,21 @@ real function Omega_k(i)
  integer              :: j
 
  m_star = 0.
- r      = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
 
- !- WARNING: for nptmass = 2 mstar is the sum of both stars by default.
- !- Be careful: this would be relatively okay for a close binary but not for something like a flyby.
- select case(nptmass)
- case(1)
-    m_star    = xyzmh_ptmass(4,nptmass)
- case(2)
+ !-- if flyby: r should be centered around the primary, else around center of mass
+ if (this_is_a_flyby) then
+    r = sqrt((xyzh(1,i)-xyzmh_ptmass(1,1))**2 + (xyzh(2,i)-xyzmh_ptmass(2,1))**2 + (xyzh(3,i)-xyzmh_ptmass(3,1))**2)
+ else
+    r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+ endif
+
+ if (this_is_a_flyby) then
+    m_star = xyzmh_ptmass(4,1)
+ else
     do j=1,nptmass
        m_star = m_star + xyzmh_ptmass(4,j)
     enddo
- end select
+ endif
 
  if (r > 0. .and. m_star > 0.) then
     Omega_k = sqrt(m_star/r) / r

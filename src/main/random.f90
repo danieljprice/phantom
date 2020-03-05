@@ -25,6 +25,8 @@
 module random
  implicit none
  public :: ran2,get_random,rayleigh_deviate
+ public :: get_random_pos_on_sphere,gauss_random
+ real, parameter :: pi = 4.*atan(1.)
 
  private
 
@@ -132,5 +134,43 @@ real function rayleigh_deviate(iseed)
  rayleigh_deviate = sqrt(-log(ran2(iseed)))
 
 end function rayleigh_deviate
+
+!-------------------------------------------------------------------------
+!
+! get random position on sphere
+!
+!-------------------------------------------------------------------------
+function get_random_pos_on_sphere(iseed) result(dx)
+ integer, intent(inout) :: iseed
+ real  :: phi,theta,sintheta,costheta,sinphi,cosphi
+ real  :: dx(3)
+
+ phi = 2.*pi*(ran2(iseed) - 0.5)
+ theta = acos(2.*ran2(iseed) - 1.)
+ sintheta = sin(theta)
+ costheta = cos(theta)
+ sinphi   = sin(phi)
+ cosphi   = cos(phi)
+ dx = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+end function get_random_pos_on_sphere
+
+!-------------------------------------------------------------------------
+!
+! get random number from gaussian
+! Using Box-Muller transformation.
+! Resulting gaussian has std deviation of unity
+!
+!-------------------------------------------------------------------------
+real function gauss_random(iseed)
+ integer, intent(inout) :: iseed
+ real :: x1,x2
+
+ x1 = ran2(iseed)
+ x2 = ran2(iseed)
+
+ gauss_random = sqrt(2.*log(1./x1))*cos(2.*pi*x2)
+
+end function gauss_random
 
 end module random
