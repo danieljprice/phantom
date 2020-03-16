@@ -205,8 +205,10 @@ subroutine read_dust_setup_options(db,nerr)
  !--options for setting up the dust grid
  if (dust_method == 1) then
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustsmall,errcount=nerr)
+    ndustsmallinp=ndusttypesinp
  elseif (dust_method == 2) then
     call read_inopt(ndusttypesinp,'ndusttypesinp',db,min=1,max=maxdustlarge,errcount=nerr)
+    ndustlargeinp=ndusttypesinp
  elseif (dust_method == 3) then
     call read_inopt(ndustsmallinp,'ndustsmallinp',db,min=1,max=maxdustsmall,errcount=nerr)
     call read_inopt(ndustlargeinp,'ndustlargeinp',db,min=1,max=maxdustlarge,errcount=nerr)
@@ -294,7 +296,7 @@ subroutine read_dust_setup_options(db,nerr)
        case(1)
           varlabel = 'grainsizeinp'
           call make_tags_unique(ndusttypesinp,varlabel)
-          do i=1,ndustsmallinp
+          do i=1,ndusttypesinp
              call read_inopt(grainsizeinp(i),trim(varlabel(i)),db,min=0.,err=ierr,errcount=nerr)
           enddo
           varlabel = 'dustbinfrac'
