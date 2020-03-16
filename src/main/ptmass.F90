@@ -931,7 +931,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
      ' ptmass_create: Testing particle i=',itest,' on thread ',id,' for ptmass creation...'
 
  ! CHECK 0: make sure particle is a gas particle (sanity check, should be unnecessary)
- if (itype /= igas) then
+ if (.not. is_accretable(itype)) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because not a gas particle'
     call summary_ptmass_fail(inosink_notgas)
     if (.not. record_created) return
