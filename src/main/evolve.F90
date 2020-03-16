@@ -445,7 +445,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
        endif
        if (np_cs_eq_0 > 0) then
-          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
+          call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position
