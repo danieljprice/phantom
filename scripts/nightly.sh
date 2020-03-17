@@ -395,7 +395,7 @@ commit_and_push_to_website ()
       #flags='';
       for logfile in `ls *.txt | grep -v old.txt`; do
           #flags+="-F files=@$logfile "
-          curl --silent -S, --show-error "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
+          curl --silent "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
                -F files=@"$logfile"
       done
       #curl -v "https://${BB_AUTH}@api.bitbucket.org/2.0/repositories/${webrepo}/downloads" \
@@ -422,7 +422,7 @@ clean_logs
 run_buildbot
 run_benchmarks
 #create_slack_performance_report
-#pull_wiki
+pull_wiki
 write_htmlfile_gittag_and_mailfile
 tag_code_and_push_tags
 send_email

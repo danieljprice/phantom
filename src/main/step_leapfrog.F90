@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -88,7 +88,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
-                          iboundary,get_ntypes,npartoftype,&
+                          iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,metricderivs
  use eos,            only:get_spsound
@@ -96,7 +96,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake,this_is_a_test
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
 #ifdef IND_TIMESTEPS
@@ -185,8 +185,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        hdti = hdtsph
 #endif
        if (store_itype) itype = iamtype(iphase(i))
-       if (itype==iboundary) cycle predictor
-
+       if (iamboundary(itype)) cycle predictor
        !
        ! predict v and u to the half step with "slow" forces
        !
@@ -201,7 +200,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
        if (itype==igas) then
           if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
-          if (use_dustfrac) dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
+          if (use_dustfrac) then
+             dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
+             if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+          endif
        endif
     endif
  enddo predictor
@@ -244,7 +246,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
+!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc,this_is_a_test) &
 !$omp shared(temperature) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
@@ -257,14 +259,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (store_itype) then
           itype = iamtype(iphase(i))
           pmassi = massoftype(itype)
-          if (itype==iboundary) then
-
+          if (iamboundary(itype)) then
              if (gr) then
                 ppred(:,i) = pxyzu(:,i)
              else
                 vpred(:,i) = vxyzu(:,i)
              endif
-
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
@@ -302,12 +302,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (use_dustfrac) then
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
+             if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method
 !             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
 !------------------------------------------------
 !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
+             if ((.not. this_is_a_test) .and. use_dustgrowth) dustfrac(1:ndustsmall,i) = &
+                                                            dustpred(:,i)**2/(1.+dustpred(:,i)**2)
 !------------------------------------------------
 !--asin(sqrt(epsilon)) method
 !             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
@@ -412,7 +414,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     corrector: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (store_itype) itype = iamtype(iphase(i))
-          if (itype==iboundary) cycle corrector
+          if (iamboundary(itype)) cycle corrector
 #ifdef IND_TIMESTEPS
           !
           !--update active particles
@@ -440,7 +442,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
-                if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
+                if (use_dustfrac) then
+                   dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
+                   if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
+                endif
              endif
              twas(i) = twas(i) + dti
           endif
@@ -457,7 +462,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
+             if (use_dustfrac) then
+                dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
+                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+             endif
           endif
           !
           !--Wake inactive particles for next step, if required
@@ -523,7 +531,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              ! corrector step for magnetic field and dust
              !
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
+             if (use_dustfrac) then
+                dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
+                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
+             endif
           endif
 #endif
        endif
@@ -574,7 +585,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
+             if (use_dustfrac) then
+                dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
+                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
+             endif
           endif
 #endif
        enddo
@@ -673,7 +687,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce,idamp
- use part,           only:maxphase,isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh
+ use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force,xtol,ptol
@@ -839,7 +853,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           dens(i) = densi
 
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-          if (itype==iboundary) cycle predictor
+          if (iamboundary(itype)) cycle predictor
        endif
     enddo predictor
     !$omp enddo
@@ -988,7 +1002,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
                           ndptmass,update_ptmass
  use options,        only:iexternalforce,idamp,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
-                          isdead_or_accreted,iboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
+                          isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink
  use chem,           only:energ_h2cooling
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
@@ -1126,7 +1140,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
           xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
           !
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-          if (itype==iboundary) cycle predictor
+          if (iamboundary(itype)) cycle predictor
           !
           ! compute and add sink-gas force
           !
@@ -1242,7 +1256,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              pmassi = massoftype(itype)
-             !if (itype==iboundary) cycle accreteloop
+             if (iamboundary(itype)) cycle accreteloop
           endif
           !
           ! correct v to the full step using only the external force

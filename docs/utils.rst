@@ -24,27 +24,50 @@ A full list is given below:
 |                       |                       | of a phantom dump     |
 |                       |                       | file                  |
 +-----------------------+-----------------------+-----------------------+
-| phantom2grid          | make phantom2grid     | Interpolate phantom   |
-|                       |                       | output to 3D grid,    |
-|                       |                       | with various output   |
-|                       |                       | formats               |
+| showheader            | make showheader       | Utility to print      |
+|                       |                       | contents of dump file |
+|                       |                       | headers               |
 +-----------------------+-----------------------+-----------------------+
-| phantom2pdf           | make phantom2pdf      | Compute Probability   |
-|                       |                       | Density Functions     |
+| showarrays            | make showarrays       | Utility to list       |
+|                       |                       | arrays written in     |
+|                       |                       | dump file             |
 +-----------------------+-----------------------+-----------------------+
-| grid2pdf              | make grid2pdf         | Compute Probability   |
-|                       |                       | Density Function      |
-|                       |                       | using output of       |
-|                       |                       | phantom2grid          |
+| diffdumps             | make diffdumps        | Check if two phantom  |
+|                       |                       | dump files are        |
+|                       |                       | identical             |
++-----------------------+-----------------------+-----------------------+
+| phantom2sphNG         | make phantom2sphNG    | Convert a phantom     |
+|                       |                       | dump to sphNG format  |
++-----------------------+-----------------------+-----------------------+
+| phantom2gadget        | make phantom2gadget   | Convert a phantom     |
+|                       | (or make p2g)         | dump to GADGET format |
++-----------------------+-----------------------+-----------------------+
+| multirun              | make multirun         | Utility to write a    |
+|                       |                       | batch of input files, |
+|                       |                       | varying input         |
+|                       |                       | parameters            |
++-----------------------+-----------------------+-----------------------+
+| ev2mdot               | make ev2mdot          | Compute accretion     |
+|                       |                       | rates from the .ev    |
+|                       |                       | files                 |
++-----------------------+-----------------------+-----------------------+
+| splitpart             | make splitpart        | Split particles       |
+|                       |                       | to create a high res  |
+|                       |                       | dump file             |
++-----------------------+-----------------------+-----------------------+
+| plotkernel            | make plotkernel       | Utility to plot the   |
+|                       |                       | kernel functions from |
+|                       |                       | the kernel module     |
 +-----------------------+-----------------------+-----------------------+
 | phantom2pdf-amr       | make phantom2pdf-amr  | Compute               |
 |                       |                       | volume-weighted PDFs  |
 |                       |                       | via interpolation to  |
 |                       |                       | 3D AMR grid           |
 +-----------------------+-----------------------+-----------------------+
-| phantom2power         | make phantom2power    | Compute power spectra |
-|                       |                       | (via interpolation to |
-|                       |                       | 3D grid)              |
+| grid2pdf              | make grid2pdf         | Compute Probability   |
+|                       |                       | Density Function      |
+|                       |                       | using output of       |
+|                       |                       | splash to grid        |
 +-----------------------+-----------------------+-----------------------+
 | phantom2divv          | make phantom2divv     | Compute div and curl  |
 |                       |                       | of velocity field     |
@@ -68,38 +91,4 @@ A full list is given below:
 | get_struct_slope      | make get_struct_slope | Determine slope of    |
 |                       | (or make              | structure functions   |
 |                       | get_slope_sf)         | from output files     |
-+-----------------------+-----------------------+-----------------------+
-| time_average_sf       | make time_average_sf  | Produce time average  |
-|                       | (or make sfutils)     | from a bunch of       |
-|                       |                       | structure function    |
-|                       |                       | files (can also be    |
-|                       |                       | done with asplash     |
-|                       |                       | calc timeaverage)     |
-+-----------------------+-----------------------+-----------------------+
-| diffdumps             | make diffdumps        | Check if two phantom  |
-|                       |                       | dump files are        |
-|                       |                       | identical             |
-+-----------------------+-----------------------+-----------------------+
-| phantom2sphNG         | make phantom2sphNG    | Convert a phantom     |
-|                       |                       | dump to sphNG format  |
-+-----------------------+-----------------------+-----------------------+
-| phantom2gadget        | make phantom2gadget   | Convert a phantom     |
-|                       | (or make p2g)         | dump to GADGET format |
-+-----------------------+-----------------------+-----------------------+
-| multirun              | make multirun         | Utility to write a    |
-|                       |                       | batch of input files, |
-|                       |                       | varying input         |
-|                       |                       | parameters            |
-+-----------------------+-----------------------+-----------------------+
-| ev2mdot               | make ev2mdot          | Compute accretion     |
-|                       |                       | rates from the .ev    |
-|                       |                       | files                 |
-+-----------------------+-----------------------+-----------------------+
-| plotkernel            | make plotkernel       | Utility to plot the   |
-|                       |                       | kernel functions from |
-|                       |                       | the kernel module     |
-+-----------------------+-----------------------+-----------------------+
-| showheader            | make showheader       | Utility to print      |
-|                       |                       | contents of dump file |
-|                       |                       | headers               |
 +-----------------------+-----------------------+-----------------------+

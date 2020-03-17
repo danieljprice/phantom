@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -89,7 +89,7 @@ subroutine test_dust(ntests,npass)
  graindensi = 1./unit_density
  rhogasi  = 0.5*rhoi
  rhodusti = 0.5*rhoi
- call get_ts(idrag,grainsizei,graindensi,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
+ call get_ts(idrag,1,grainsizei,graindensi,rhogasi,rhodusti,spsoundi,0.,tsi,iregime)
  call checkval(iregime,1,0,nfailed(1),'deltav=0 gives Epstein drag')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
@@ -294,10 +294,10 @@ subroutine test_dustybox(ntests,npass)
     call step(npart,npart,t,dt,dtext,dtnew)
     call compute_energies(t)
 
-    deltav = exp(-2.*K_code*t)
+    deltav = exp(-2.*K_code(1)*t)
     vg = 0.5*(1. - deltav)
     vd = 0.5*(1. + deltav)
-    fd = K_code*(vg - vd)
+    fd = K_code(1)*(vg - vd)
     do j=1,npart
        if (iamdust(iphase(j))) then
           call checkvalbuf(vxyzu(1,j),vd,tol,'vd',nerr(1),ncheck(1),errmax(1))
@@ -734,7 +734,7 @@ subroutine test_epsteinstokes(ntests,npass)
     do i=1,npts
        grainsizei = smin*10**((i-1)*ds)/udist
        !--no need to test drag transition 'ndusttypes' times...once is enough
-       call get_ts(idrag,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+       call get_ts(idrag,1,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
        !print*,'s = ',grainsizei,' ts = ',tsi*utime/years,',yr ',iregime
 
        if (i > 1) call checkvalbuf((tsi-ts1)/abs(tsi),0.,tol,'ts is continuous into Stokes regime',nfailed(1),ncheck,errmax)
@@ -758,7 +758,7 @@ subroutine test_epsteinstokes(ntests,npass)
  if (write_output) open(unit=lu,file='ts-deltav.out',status='replace')
  do i=1,npts
     deltav = (smin + (i-1)*ds)*spsoundi
-    call get_ts(idrag,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
+    call get_ts(idrag,1,grainsizei,graindensi,rhogas,0.,spsoundi,deltav**2,tsi,iregime)
     psi = sqrt(0.5)*deltav/spsoundi
     if (i==1) then
        ts1 = tsi

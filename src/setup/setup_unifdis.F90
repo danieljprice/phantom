@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -161,9 +161,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
+ if (maxvxyzu < 4 .or. gamma <= 1.) then
+    polyk = cs0**2
+ else
+    polyk = 0.
+ endif
  do i=1,npart
     vxyzu(1:3,i) = 0.
-    if (maxvxyzu >= 4) vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
+    if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
  enddo
 
  if (use_dustfrac) then
@@ -240,12 +245,6 @@ subroutine setup_interactive(id,polyk)
     call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  endif
  call bcast_mpi(cs0)
- if (maxvxyzu < 4) then
-    polyk = cs0**2
-    print*,' polyk = ',polyk
- else
-    polyk = 0.
- endif
  !
  ! dust to gas ratio
  !

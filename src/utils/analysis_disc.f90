@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,7 @@
 module analysis
  use discanalysisutils, only:disc_analysis
  implicit none
- character(len=20), parameter, public :: analysistype = 'CJN'
+ character(len=20), parameter, public :: analysistype = 'disc'
  public :: do_analysis
 
  integer, parameter :: nr = 300
@@ -62,6 +62,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: iprec   = 24
  logical :: do_precession,ifile
 
+! This variable should be set to false for any discs that use sink particles to set
+! the potential, any discs that have a warp or any time precession is measured
+! For any setup that uses iexternalforce and assumes that the vast majority of the angular
+! momentum is held by the central potential, this should be set to true
+ assume_Ltot_is_same_as_zaxis = .false.
+
+! Option for if you want precession files printed
  do_precession = .false.
 
 ! Print the analysis being done
@@ -103,11 +110,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  rmin = R_in
  rmax = R_out
 
-! This variable should be set to false for any discs that use sink particles to set
-! the potential or any discs that have a warp
-! For any setup that uses iexternalforce and assumes that the vast majority of the angular
-! momentum is held by the central potential, this should be set to true
- assume_Ltot_is_same_as_zaxis = .false.
+! If do_precession is true and then this variable should be false, so do a check
+ if (do_precession) assume_Ltot_is_same_as_zaxis = .false.
 
  ! Check, if iexternalforce > 0 from the *.in file
  ! this value should be set to true (or if GR is used)
@@ -124,7 +128,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     print*,'Resetting assume_Ltot_is_same_as_zaxis=.true. in analysis'
  endif
 
- call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,H_R,G,M_star,q_index,&
+ call disc_analysis(xyzh,vxyz,npart,pmass,time,nr,rmin,rmax,G,M_star,&
                      tilt,tilt_acc,twist,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&
                      Lx,Ly,Lz,ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
 

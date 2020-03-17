@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -13,14 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Christophe Pinte
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, io, mcfost2phantom, options, part, timestep,
-!    units
+!  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
+!    linklist, mcfost2phantom, options, part, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -36,11 +36,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,run_mcfost_phantom
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,luminosity,igas,&
+                          massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                           grainsize,graindens,ndusttypes
  use units,          only:umass,utime,udist
  use io,             only:fatal
- use dim,            only:use_dust,lightcurve,maxdusttypes
+ use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
@@ -66,6 +66,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
 
+ if (use_mcfost .and. use_dustgrowth) then
+    write(*,*) "Converting to fake multi large grains"
+    call growth_to_fake_multi(npart)
+ endif
 
  if (use_mcfost) then
     write(*,*) "Calling mcfost"
@@ -108,9 +112,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
-         xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
+         xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
+
+    if (use_mcfost .and. use_dustgrowth) then
+       write(*,*) "Converting back to normal"
+       call back_to_growth(npart)
+    endif
 
     write(*,*) ''
     write(*,*) 'Minimum temperature = ', minval(Tdust, mask=(Tdust > 1.))
@@ -136,5 +145,63 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  return
 
 end subroutine do_analysis
+
+subroutine growth_to_fake_multi(npart)
+ use part,         only:xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
+                        fxyzu,fext,alphaind,gradh
+ use growth,       only:bin_to_multi,f_smax,size_max,b_per_dex
+ use linklist,     only:set_linklist
+ use densityforce, only:densityiterate
+ integer, intent(in)  :: npart
+ real                 :: stressmax = 0.
+
+ !- bin sizes
+ call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
+
+ !- get neighbours
+ call set_linklist(npart,npart,xyzh,vxyzu)
+
+ !- get new density
+ call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                          fxyzu,fext,alphaind,gradh)
+
+end subroutine growth_to_fake_multi
+
+subroutine back_to_growth(npart)
+ use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
+                           npartoftype,iamtype,iphase,idust,&
+                           set_particle_type
+ use initial_params, only:mdust_in
+ integer, intent(in)    :: npart
+ integer                :: i,j,ndustold,itype
+
+
+ ndustold = sum(npartoftype(idust:))
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    if (itype > idust) then
+       npartoftype(idust) = npartoftype(idust) + 1
+       npartoftype(itype) = npartoftype(itype) - 1
+       call set_particle_type(i,idust)
+    endif
+ enddo
+
+ do j=2,ndusttypes
+    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
+    massoftype(idust+j-1)      = 0.
+    mdust_in(idust+j-1)        = 0.
+ enddo
+
+ ndusttypes                    = 1
+ ndustlarge                    = 1
+ mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
+
+ !- sanity checks for npartoftype
+ if (npartoftype(idust) /= ndustold) then
+    write(*,*) 'ERROR! npartoftype not conserved'
+    write(*,*) npartoftype(idust), " <-- new vs. old --> ",ndustold
+ endif
+
+end subroutine back_to_growth
 
 end module

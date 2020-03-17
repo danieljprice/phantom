@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -130,7 +130,7 @@ subroutine summary_initialise
  else
     iosum_print = iosum_nprint
  endif
- freason(inosink_notgas) = 'Not gas:           '
+ freason(inosink_notgas) = 'Not gas or dust:   '
  freason(inosink_divv)   = 'div v > 0:         '
  freason(inosink_h)      = '2h > h_acc:        '
  freason(inosink_active) = 'not all active:    '
@@ -571,8 +571,9 @@ subroutine summary_printout(iprint,nptmass)
  if (nrhomax > 0) then
     write(iprint,'(a)') '|* ptmass: rhomax values & reasons for not becoming a sink particle         *|'
     write(iprint,'(a)') '| part no |  #times  | # failures |max rho (cgs)|Reason & times failed       |'
-    do i = 1,nrhomax
+    do i = 1,nrhomax  ! the sink candidates
        j = 1
+       ! search for the first reason a sink did not form
        findfail = .true.
        do while( findfail )
           if ( iosum_rxf(j,i)==0 ) then
@@ -583,7 +584,7 @@ subroutine summary_printout(iprint,nptmass)
           endif
        enddo
        if (j == inosink_max+1) then
-          ! only one particle tested and it is accreted
+          ! only one particle tested and it is converted to a sink particle
           write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|','|'
        else
           ! list particle and its initial reason to not create a sink

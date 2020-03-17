@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -23,20 +23,20 @@
 !+
 !--------------------------------------------------------------------------
 module adaptivemesh
- use dim, only:maxp,maxp_hard,periodic
+ use dim, only:periodic
  implicit none
  !--this controls the number of cells on each level
  integer, parameter :: nsub = 2
  integer, parameter :: ndim = 3
  integer, parameter :: maxlevels = 20
- integer, parameter :: minlevels = 3
+ integer, parameter :: minlevels = 7
  real, parameter    :: overrefinefac = 1.25
  !
  !--memory allowed for tree:
  !  bear in mind that total number of cells is maxmeshes*nsub**ndim
  !  so use maxp/nsub**ndim to get number of cells = maxp
  !
- integer, parameter :: maxmeshes = maxp_hard/2 !8*maxp/nsub**ndim
+ integer :: maxmeshes = 0 ! zero until allocated
  !
  !--resolution of the root grid (2^ifirstlevel)^ndim
  !
@@ -47,7 +47,7 @@ module adaptivemesh
  !--grid array stores children in first 8 cells, then parent
  !  (currently we do not store the parent as it is not needed)
  !
- integer :: gridnodes(maxchildren,maxmeshes)
+ integer, allocatable :: gridnodes(:,:)
 ! integer, parameter :: ilocparent = maxchildren + 1
 
  integer :: maxlevel
@@ -55,12 +55,12 @@ module adaptivemesh
 contains
 
 subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  integer, intent(in)  :: np
  integer, intent(out) :: nmesh
- real,    intent(in),                         optional :: xmin(ndim),dxmax(ndim)
+ real,    intent(in), optional :: xmin(ndim),dxmax(ndim)
  real :: xminp(ndim),dxmaxp(ndim)
- integer :: i
+ integer :: i,ierr,nattempts
 
  if (present(xmin)) then
     if (.not.present(dxmax)) stop 'error in call to build_mesh: dxmax not present'
@@ -84,39 +84,64 @@ subroutine build_mesh(xyzh,np,nmesh,xmin,dxmax)
  print*,'build_mesh: xmin = ',xminp(:)
  print*,'            xmax = ',xminp(:) + dxmaxp(:)
  !
- !--initialise the tree structure
- !  (root node only)
+ !--build the mesh
  !
- maxlevel = ifirstlevel
- nmesh   = 1
- gridnodes(:,1) = -1
+ nattempts = 0
+ ierr = 1
+ maxmeshes = max(int(overrefinefac*(2*np + 1)),2**minlevels) ! allow twice the number of particles
 
- !$omp parallel do default(none) schedule(guided,10) &
- !$omp shared(np,xyzh,xminp,dxmaxp,nmesh) &
- !$omp private(i)
- do i=1,np
-    call refine_mesh(xyzh(:,i),1,ifirstlevel,xminp,dxmaxp,nmesh)
+ do while(ierr /= 0 .and. nattempts < 10)
+    nattempts = nattempts + 1
+    !
+    !--initialise the tree structure
+    !  (root node only)
+    !
+    maxlevel = ifirstlevel
+    nmesh   = 1
+    !
+    !--allocate memory
+    !
+    print*,' allocating mesh with max=',maxmeshes
+    allocate(gridnodes(maxchildren,maxmeshes))
+    gridnodes(:,1) = -1
+    ierr = 0
+
+    !$omp parallel do default(none) schedule(guided,10) &
+    !$omp shared(np,xyzh,xminp,dxmaxp,nmesh) &
+    !$omp private(i) &
+    !$omp reduction(+:ierr)
+    do i=1,np
+       call refine_mesh(xyzh(:,i),1,ifirstlevel,xminp,dxmaxp,nmesh,ierr)
+    enddo
+    !$omp end parallel do
+    if (ierr /= 0) then
+       maxmeshes = maxmeshes*2
+       call free_mesh
+    endif
  enddo
- !$omp end parallel do
+ if (ierr /= 0) stop 'could not allocate enough memory for mesh (after 10 attempts)'
+
  print "(a,i10,a,i10,a,i2,a,i6,a)",&
        ' build_mesh: nmeshes = ',nmesh,', ncells = ',nmesh*(nsub**ndim),', max level = ',maxlevel, &
        ' (effective resolution = ',nsub**maxlevel,'^3)'
 
 end subroutine build_mesh
 
-recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
+recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
  real,    intent(in)    :: xyzhi(4)
  integer, intent(in)    :: imesh
  integer, intent(in)    :: level
  real,    intent(in)    :: xminl(ndim)
  real,    intent(in)    :: dxmax(ndim)
  integer, intent(inout) :: nmesh
+ integer, intent(out)   :: ierr
  real :: dxcell(ndim),xminnew(ndim)
  real                     :: hmincell,radkern,dlevel
  integer                  :: icell,isubmesh,ipix,jpix,kpix,isublevel
  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
  !character(len=maxlevels), parameter :: string = '1234567890'
 
+ ierr = 0
  if (level > maxlevels) then
     print "(2(a,i2),a)",' INTERNAL ERROR: level ',level,' > maxlevels (',maxlevels,') in refine_mesh'
     stop
@@ -184,9 +209,8 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
              if (isublevel > maxlevels) then ! should never happen
                 print*,'INTERNAL ERROR: sublevel = ',isublevel, &
                        ' mesh ',imesh,' grid = ',gridnodes(:,imesh) !grid(imesh)%daughter(:)
-                stop
              endif
-             call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh)
+             call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh,ierr)
 
              !
              !--this line specifies the refinement criterion
@@ -202,38 +226,31 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
              !$omp critical
              nmesh = nmesh + 1
              if (nmesh > maxmeshes) then
-                print*,'ERROR: nmesh > maxmeshes (',maxmeshes,'): change parameter and recompile'
-                stop
-             endif
-             !print*,string(1:level)//'%refining: adding node ',nmesh,' on level ',level+1
-             gridnodes(icell,imesh) = nmesh
-             gridnodes(:,nmesh)     = -1
-             !gridnodes(ilocparent,   nmesh) = imesh
-             !grid(imesh)%daughter(icell) = nmesh
-             !grid(nmesh)%daughter(:)    = -1  ! null referenced
-             !grid(nmesh)%parent         = imesh
-             !
-             !--could stop here if the refinement criterion was
-             !  based on the number of particles in the cell
-             !  However, with hmin we should proceed to the next
-             !  level to see if this is refined or not
-             !
-             xminnew(1)  = xminl(1) + (ipix-1)*dxcell(1)
-             xminnew(2)  = xminl(2) + (jpix-1)*dxcell(2)
-             xminnew(3)  = xminl(3) + (kpix-1)*dxcell(3)
+                !print*,'ERROR: nmesh > maxmeshes (',maxmeshes,'): change parameter and recompile'
+                ierr = 1
+             else
+                !print*,string(1:level)//'%refining: adding node ',nmesh,' on level ',level+1
+                gridnodes(icell,imesh) = nmesh
+                gridnodes(:,nmesh)     = -1
+                !
+                !--could stop here if the refinement criterion was
+                !  based on the number of particles in the cell
+                !  However, with hmin we should proceed to the next
+                !  level to see if this is refined or not
+                !
+                xminnew(1)  = xminl(1) + (ipix-1)*dxcell(1)
+                xminnew(2)  = xminl(2) + (jpix-1)*dxcell(2)
+                xminnew(3)  = xminl(3) + (kpix-1)*dxcell(3)
 
-             isublevel = level + 1
-             isubmesh  = nmesh      ! be careful to pass by value here, not by reference...
+                isublevel = level + 1
+                isubmesh  = nmesh      ! be careful to pass by value here, not by reference...
+             endif
              !$omp end critical
-             call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh)
+
+             if (ierr /= 0) return
+
+             call refine_mesh(xyzhi,isubmesh,isublevel,xminnew,dxmax,nmesh,ierr)
              maxlevel = max(level+1,maxlevel)
-             !else
-             !
-             !--do not refine the cell any further
-             !  (would need to add particle to cell list here
-             !   if using for neighbour finding)
-             !
-             !print*,string(1:level)//'%no further refinement'
           endif
 
        enddo
@@ -241,5 +258,11 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh)
  enddo
 
 end subroutine refine_mesh
+
+subroutine free_mesh()
+
+ if (allocated(gridnodes)) deallocate(gridnodes)
+
+end subroutine free_mesh
 
 end module adaptivemesh

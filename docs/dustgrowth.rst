@@ -83,7 +83,7 @@ snow line distance to the star if isnow = 1
 
                   Tsnow =        150.    ! snow line condensation temperature in K
 
-snow line corresponding temperature to the star if isnow = 2
+snow line corresponding sublimation temperature if isnow = 2
 
 ::
 
@@ -136,9 +136,10 @@ physical viscosity, make sure ``shearparam`` is equal to the ``alphaSS``
 that you specified during the setup. This is important for consistency.
 
 After launching the simulation ``./phantom ilovegrowth.in``, the
-dumpfiles will contain the grain sizes, grain densities, the ratio
-Vrel/Vfrag (if ifrag > 0, else gives Vrel/(1 m/s)) and the Stokes number
-St.
+full dumpfiles will contain the grain sizes, grain densities, the ratio
+Vrel/Vfrag (if ifrag > 0, else gives Vrel/(1 m/s)), the Stokes number
+St and other usefull informations. 
+Meanwhile, small dumps will only contain the grainsizes and graindensities.
 
 Tips to perform great dust growth simulations
 ---------------------------------------------
@@ -147,22 +148,87 @@ Set more gas particles than dust particles. I typically recommend a
 ratio of 10 gas particles per dust particle (e.g. 10^6 gas and 10^5
 dust).
 
-Let the gas relax before injecting dust. This is pretty important,
-especially for small grains. To do that, the Makefile that you imported
-from growingdisc
-``~/phantom/scripts/writemake.sh growingdisc > Makefile`` has a moddump
-utility that you can compile using ``make moddump`` (:doc:`see
-here <moddump>`).
+Set the dust disc slighlty inside the gas disc to avoid numerical artefacts at the outer edge of the disc
+(e.g, rout_gas = 300 and rout_dust = 250).
 
-I also suggest you use another moddump to remove the few particles that
-eventually got ejected at large distances from the star. This will also
+I also suggest to eventually use another moddump to remove the few particles that
+got ejected at large distances from the star. This will
 accelerate your simulation. You can make that utility with
 ``make moddump MODFILE=moddump_removeparticles_radius.f90``.
 
 If you consider fragmentation, ``grainsizemin`` should not be too
-small or else tiny grains will dictate the timestepping and make your
+small or else small grains will dictate the timestepping and make your
 simulation ridiculously slow. I typically recommend to set that minimum
-to 10 to 50 μm.
+between 10 and 50 μm.
 
-**Have fun :) and make sure to cite the paper** `Vericel et al. (in
-prep) <https://imgflip.com/i/38bw62>`__
+Make synthetic images out of dustgrowth dumps with mcfost
+---------------------------------------------------------
+
+Dustgrowth dumps are not naturally ready to be interpreted by mcfost.
+However, a Python module is available for transforming a dump into a friendlier format for mcfost.
+
+To do so, you can open your favorite Python code editor and import the module:
+
+::
+
+   # you need to copy the script to your current directory before importing it
+   import os
+   os.system(f"cp path_to_phantom/scripts/growthtomcfost.py .")
+   import growthtomcfost as gtmcf
+   
+And simply call the function ``pimp_my_sim``, which takes a few arguments.
+You can learn more about those by printing the docstring attached to the function by typing ``gtmc.pimp_my_sim?``
+in iPython or in a Jupyter Notebook. This should give you the following:
+
+:: 
+
+   Signature:
+   g.pimp_my_sim(
+       gdump_name,
+       outdump_name,
+       path_to_phantom,
+       bins_per_dex=5,
+       force_smax=False,
+       smax_user=0.2,
+       maxdustlarge=25,
+       compil_logfile='compil.log',
+       logfile_moddump='moddump.log',
+       logfile_phantom='phantom.log',
+       save_plot=False,
+       scale='log',
+       color='black',
+       show=True)
+   Docstring:
+   pimp_my_sim transforms a dustgrowth dump into a multi large grains dump.
+   it runs phantom on that dump for 1 time step to recompute the densities.
+   the output dump is ready to be processed by mcfost through command line or pymcfost.
+
+   input parameters are:
+
+   gdump_name      : (str)   - name of dustgrowth dump (input)
+   outdump_name    : (str)   - prefix of the name of desired output dump (output) - final name will be outdump_name_00000
+   path_to_phantom : (str)   - path to phantom's directory
+   bins_per_dex    : (int)   - number of bins per magnitude of size
+   force_smax      : (bool)  - wether or not to force a maximum size for binning, else find it automatically
+   smax_user       : (float) - size of forced maximum in cm
+   maxdustlarge    : (int)   - maximum number of large dust species for memory allocation in phantom
+   compil_logfile  : (str)   - name of logfile to store compilation output
+   logfile_moddump : (str)   - name of logfile to store moddump run output
+   logfile_phantom : (str)   - name of logfile to store phantom run output
+   save_plot       : (bool)  - wether or not to save plot of size distribution in pdf file, else shows it interactively
+   scale           : (str)   - npart axis scale, options are "linear" or "log"
+   color           : (str)   - histogram color
+   show            : (bool)  - wether or not to show the distribution, only applies if save_plot=True
+   File:      /Users/Arnaud/Documents/Codes/phantom/scripts/growthtomcfost.py
+   Type:      function
+
+The resulting dump is ready to be processed by mcfost by typing 
+
+::
+
+   mcfost <paramfile> -phantom <output_dump> -<options>
+   
+The advantage of doing this in a Jupyter Notebook or a python file is that the transition is made easy with pymcfost
+which can be called directly after.
+
+**Have fun :)**

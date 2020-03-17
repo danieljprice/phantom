@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    options, part, physcon, timestep, units
+!    options, part, physcon, sortutils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module checksetup
@@ -49,7 +49,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
@@ -141,6 +141,7 @@ subroutine check_setup(nerror,nwarn,restart)
        itype = iamtype(iphase(i))
        if (itype < 1 .or. itype > maxtypes) then
           nbad = nbad + 1
+          if (nbad < 10) print*,'ERROR: unknown particle type ',itype,' on particle ',i
        else
           ncount(itype) = ncount(itype) + 1
        endif
@@ -150,20 +151,10 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
     if (any(ncount /= npartoftype)) then
-       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'n(via iphase)=',ncount
+       print*,'npartoftype  =',npartoftype
        print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
-    endif
-!
-!--If boundary particles are present, then only gas and boundary particles may exist
-!
-    if (npartoftype(iboundary) > 0) then
-       do i = 1,maxtypes
-          if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-             nerror = nerror + 1
-          endif
-       enddo
     endif
  endif
 !
@@ -249,6 +240,14 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  enddo
+ !
+ !  check for particles with identical positions
+ !
+ call check_for_identical_positions(npart,xyzh,nbad)
+ if (nbad > 0) then
+    print*,'Error in setup: ',nbad,' of ',npart,' particles have identical or near-identical positions'
+    nwarn = nwarn + 1
+ endif
 !
 !  check for particles outside boundaries
 !
@@ -342,12 +341,13 @@ subroutine check_setup(nerror,nwarn,restart)
           npartoftype(idust) = 0
        else
           if (id==master) then
-             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
-             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+             if (use_hybrid) then
+                print*, "WARNING: HYBRID DUST IMPLEMENTATION IS NOT YET FINISHED (IT'S NOT GONNA RUN ANYWAY)"
+             else
+                print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
                                 '    calculation using the one fluid method (dustfrac) **'
+             endif
           endif
-          nerror = nerror + 1
        endif
     endif
  endif
@@ -628,5 +628,60 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
 end subroutine check_gr
 #endif
+
+!------------------------------------------------------------------
+!+
+! check for particles with identical positions
+! the brute force approach of checking N^2 pairs is WAY too
+! slow to be practical here. Instead, we sort the particles by
+! radius and check particles with identical radii
+!+
+!------------------------------------------------------------------
+
+subroutine check_for_identical_positions(npart,xyzh,nbad)
+ use sortutils, only:indexxfunc,r2func
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ integer, intent(out) :: nbad
+ integer :: i,j,itypei,itypej
+ real    :: dx(3),dx2
+ integer, allocatable :: index(:)
+ !
+ ! sort particles by radius
+ !
+ allocate(index(npart))
+ call indexxfunc(npart,r2func,xyzh,index)
+
+ !
+ ! check for identical positions. Stop checking as soon as non-identical
+ ! positions are found.
+ !
+ nbad = 0
+ itypei = igas
+ itypej = igas
+ do i=1,npart
+    j = i+1
+    dx2 = 0.
+    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
+    do while (dx2 < epsilon(dx2) .and. j < npart)
+       dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
+       dx2 = dot_product(dx,dx)
+       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
+          nbad = nbad + 1
+          if (nbad <= 100) then
+             print*,'WARNING: particles of same type at same position: '
+             print*,' ',index(i),':',xyzh(1:3,index(i))
+             print*,' ',index(j),':',xyzh(1:3,index(j))
+          endif
+       endif
+       j = j + 1
+    enddo
+ enddo
+
+ deallocate(index)
+
+end subroutine check_for_identical_positions
 
 end module checksetup

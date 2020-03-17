@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -426,7 +426,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        !--external force timestep based on sqrt(h/accel)
        !
        if (hi > epsilon(hi)) then
-#ifdef FINVSQSRT
+#ifdef FINVSQRT
           dtf1 = sqrt(hi*finvsqrt(f2i))
 #else
           dtf1 = sqrt(hi/sqrt(f2i))

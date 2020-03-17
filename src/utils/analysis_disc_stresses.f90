@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ module analysis
  integer, parameter :: neighmax = 500
  integer, parameter :: maxcellcache = 50000
 
- integer, allocatable, dimension(:) :: neighcount, eigenpart
+ integer, allocatable, dimension(:) :: neighcount
  integer, allocatable, dimension(:,:) :: neighb
 
  real :: meanneigh, sdneigh, neighcrit
@@ -43,7 +43,7 @@ module analysis
  integer, allocatable,dimension(:) :: ipartbin
 
  real,allocatable,dimension(:) :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,allocatable,dimension(:) :: H,Q, toomre_q,epicyc
+ real,allocatable,dimension(:) :: H, toomre_q,epicyc
  real,allocatable,dimension(:) :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
 
  real,allocatable,dimension(:) :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
@@ -55,8 +55,7 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
- use dim,     only:maxp
- use part,    only:gravity,mhd,Bxyz
+ use part,    only:gravity,mhd
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -173,7 +172,7 @@ end subroutine read_analysis_options
 subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  use dim, only:gravity,maxp
- use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,get_partinfo
+ use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
  use kernel, only: get_kernel,get_kernel_grav1,cnormk
 
  implicit none
@@ -183,12 +182,12 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  integer,intent(in) :: npart
 
 
- integer :: j,k,igrav,iamtypei,ipart
+ integer :: j,k,igrav,ipart
  real,dimension(3) :: dr
  real :: rij,rij2, hj1,hj21,hj41,q2i,qi
  real :: rhoi, rhoj, wabi, grkerni, dphidhi, grpmrho1
 
- logical :: iactivei,iamdusti, iamgasi,existneigh
+ logical :: iamgasi,existneigh
  character(100) :: neighbourfile
 
  if (allocated(gravxyz))deallocate(gravxyz)
@@ -232,12 +231,8 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
        j = neighb(ipart,k)
 
        if (maxphase==maxp) then
-          call get_partinfo(iphase(j), iactivei,iamdusti,iamtypei)
-          iamgasi = (iamtypei ==igas)
+          iamgasi = iamgas(iphase(j))
        else
-          iactivei = .true.
-          iamtypei = igas
-          iamdusti = .false.
           iamgasi = .true.
        endif
 
@@ -751,8 +746,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
        endif
 
        if (maxphase==maxp) then
-          call get_partinfo(iphase(i), iactivei,iamdusti,iamtypei)
-          iamgasi = (iamtypei ==igas)
+          call get_partinfo(iphase(i),iactivei,iamdusti,iamgasi,iamtypei)
        else
           iactivei = .true.
           iamtypei = igas
@@ -765,10 +759,6 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile)
           i = ll(i)
           cycle over_parts
        endif
-
-       ! do not compute neighbours for boundary particles
-       if (iamtypei ==iboundary) cycle over_parts
-
 
        ! Fill neighbour list for this particle
 

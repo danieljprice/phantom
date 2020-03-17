@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -172,7 +172,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 7 + maxdustlarge - 1
+ integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed

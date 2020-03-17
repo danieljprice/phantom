@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,12 +17,13 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    dtg    -- Dust to gas ratio
-!    gamma  -- Adiabatic index
-!    nx     -- resolution (number of particles in x) for -xleft < x < xshock
-!    polyk  -- square of the isothermal sound speed
-!    xleft  -- x min boundary
-!    xright -- x max boundary
+!    dtg         -- Dust to gas ratio
+!    dust_method -- 1=one fluid, 2=two fluid
+!    gamma       -- Adiabatic index
+!    nx          -- resolution (number of particles in x) for -xleft < x < xshock
+!    polyk       -- square of the isothermal sound speed
+!    xleft       -- x min boundary
+!    xright      -- x max boundary
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
 !    mpiutils, nicil, options, part, physcon, prompting, set_dust,
@@ -31,8 +32,7 @@
 !--------------------------------------------------------------------------
 module setup
  implicit none
- !
- integer :: nx, icase
+ integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
  real    :: dxleft
  character(len=100) :: shocktype
@@ -55,11 +55,11 @@ module setup
    (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
 
  real :: leftstate(max_states), rightstate(max_states)
- !
+
  public  :: setpart
- !
+
  private
- !
+
 contains
 
 !----------------------------------------------------------------
@@ -69,11 +69,11 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total,ihavesetupB
- use io,           only:fatal,master,iprint
+ use io,           only:fatal,master,iprint,error
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd
+ use dim,          only:maxvxyzu,ndim,mhd,use_dust
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
  use kernel,       only:radkern,hfact_default
@@ -133,6 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (.not.iexist) hfact = hfact_default
  nstates = max_states
  if (.not.mhd) nstates = max_states - 3
+ if (use_dust) dust_method = 1 ! one fluid by default
  !
  ! setup particles
  !
@@ -152,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg)       ! write shock file with defaults
  endif
+
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
 
@@ -159,8 +161,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhoright = get_conserved_density(rightstate)
 
  !
+ ! choose dust method (from .setup file)
+ !
+ use_dustfrac = (dust_method == 1)
+
+ !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
+ dxleft = -xleft/float(nx)
+ xshock = 0.5*(xleft + xright)
  call adjust_shock_boundaries(dxleft,dxright,radkern, &
       leftstate(ivx),rightstate(ivx),rholeft,rhoright,tmax,ndim)
  !
@@ -196,14 +205,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     ! set particle mass
     volume           = product(xmaxleft-xminleft)
-    totmass          = volume*rholeft*(1. + dtg)
+    totmass          = volume*rholeft
+    if (use_dustfrac) totmass = totmass*(1. + dtg)
     massoftype(igas) = totmass/npart
     if (id==master) print*,' particle mass = ',massoftype(igas)
 
     if (use_closepacked) then
        ! now adjust spacing on right hand side to get correct density given the particle mass
        volume  = product(xmaxright - xminright)
-       totmass = volume*rhoright*(1. + dtg)
+       totmass = volume*rhoright
+       if (use_dustfrac) totmass = totmass*(1. + dtg)
        call get_ny_nz_closepacked(dxright,xminright(2),xmaxright(2),xminright(3),xmaxright(3),ny,nz)
        dxright = (xmaxright(1) - xminright(1))/((totmass/massoftype(igas))/(ny*nz))
     endif
@@ -244,6 +255,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     !
     ! one fluid dust: set dust fraction on gas particles
+    !
     if (use_dustfrac) call set_dustfrac(dtg,dustfrac(:,i))
  enddo
  massoftype(iboundary)  = massoftype(igas)
@@ -252,7 +264,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(iprint,'(1x,a,i8)') 'Setup_shock: npart     = ',npart
  write(iprint,'(1x,a,i8)') 'Setup_shock: ngas      = ',npartoftype(igas)
  write(iprint,'(1x,a,i8)') 'Setup_shock: nboundary = ',nbpts
- write(iprint,'(1x,a,es16.8,/)') 'Setup_shock: mass of gas & boundary particles = ', massoftype(igas)
  !
  ! now set particle properties
  !
@@ -286,9 +297,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
  if (mhd) ihavesetupB = .true.
+ !
+ ! set up dust (as separate set of particles)
+ !
+ if (use_dust .and. .not.use_dustfrac) then
+    if (dtg > 0.) call set_dust_particles(dtg,npart,npartoftype,massoftype,xyzh,vxyzu,ierr)
+    if (ierr /= 0) call error('setup','could not set up dust particles')
+ endif
+ write(iprint,'(1x,a,es16.8)') 'Setup_shock: mass of gas & boundary particles   = ', massoftype(igas)
 
 #ifdef NONIDEALMHD
- !Modifiy ion density from fraction to physical (for ambipolar diffusion)
+ !Modify ion density from fraction to physical (for ambipolar diffusion)
  if (.not.iexist) rho_i_cnst = rho_i_cnst * rhozero
 #endif
 
@@ -329,6 +348,62 @@ end subroutine adjust_shock_boundaries
 
 !-----------------------------------------------------------------------
 !+
+!  setup dust particles (at the moment setup only allows for fixed
+!  dust-to-gas ratio, so we just make copies of the gas particles)
+!+
+!-----------------------------------------------------------------------
+subroutine set_dust_particles(dtg,npart,npartoftype,massoftype,xyzh,vxyzu,ierr)
+ use part, only:iamtype,iphase,maxp,maxphase,igas,idust,iboundary,idustbound,set_particle_type
+ use io,   only:iprint
+ real,    intent(in)    :: dtg
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:),xyzh(:,:),vxyzu(:,:)
+ integer, intent(out)   :: ierr
+ integer :: i,j
+
+ if (maxphase /= maxp) then
+    print "(a)",' ERROR: cannot set dust particles (iphase not stored)'
+    ierr = -1
+    return
+ endif
+ ierr = 0
+ j = npart
+ do i=1,npart
+    if (j+1 > maxp) then
+       print*,' error: memory allocation too small for dust particles'
+       npartoftype(idust) = 0
+       ierr = 1
+       return
+    endif
+    select case(iamtype(iphase(i)))
+    case(igas)
+       npartoftype(idust) = npartoftype(idust) + 1
+       j = j + 1
+       xyzh(:,j) = xyzh(:,i)
+       vxyzu(1:3,j) = vxyzu(1:3,i)
+       call set_particle_type(j,idust)
+    case(iboundary)
+       npartoftype(idustbound) = npartoftype(idustbound) + 1
+       j = j + 1
+       xyzh(:,j) = xyzh(:,i)
+       vxyzu(1:3,j) = vxyzu(1:3,i)
+       call set_particle_type(j,idustbound)
+    end select
+ enddo
+ massoftype(idust) = dtg*massoftype(igas)
+ massoftype(idustbound) = massoftype(idust)
+ write(iprint,'(1x,a,i8)') 'Setup_shock: ndust     = ',npartoftype(idust)
+ write(iprint,'(1x,a,i8)') 'Setup_shock: ndustbound= ',npartoftype(idustbound)
+ write(iprint,'(1x,a,es16.8,/)') 'Setup_shock: mass of dust & dust boundary parts = ', massoftype(idust)
+
+ npart = npart + npartoftype(idust) + npartoftype(idustbound)
+
+end subroutine set_dust_particles
+
+
+!-----------------------------------------------------------------------
+!+
 !  Choose which shock tube problem to set up
 !+
 !-----------------------------------------------------------------------
@@ -353,7 +428,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  logical, intent(in)    :: iexist
  integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
- integer                :: i,choice,dust_method
+ integer                :: i,choice
  real                   :: const,uu,dens,pres,Tgas !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
@@ -583,19 +658,14 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
 
  if (use_dust) then
-    !--shock setup currently does not support two-fluid dust
+    !--shock setup supports both one-fluid and two-fluid dust
     dtg = 1.
     idrag = 2
     K_code = 1000.
-    dust_method = 1
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-    if (dust_method == 1) then
-       use_dustfrac = .true.
-    else
-       use_dustfrac = .false.
-    endif
+    use_dustfrac = (dust_method == 1)
     call prompt('Enter dust to gas ratio',dtg,0.)
-    call prompt('Enter constant drag coefficient',K_code,0.)
+    call prompt('Enter constant drag coefficient',K_code(1),0.)
  endif
 
  return
@@ -642,13 +712,12 @@ end function get_conserved_density
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu
- use options,      only:use_dustfrac
+ use dim,          only:tagline,maxvxyzu,use_dust
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
- integer                      :: i,ierr1,ierr2,dust_method
+ integer                      :: i,ierr1,ierr2
 
  write(iprint,"(a)") ' Writing '//trim(filename)//' with initial left/right states'
  open(unit=lu,file=filename,status='replace',form='formatted')
@@ -681,10 +750,11 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  endif
  if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing gamma, polyk'
 
- if (use_dustfrac) then
+ if (use_dust) then
     write(lu,"(/,a)") '# dust properties'
-    call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr1)
-    if (ierr1 /= 0) write(*,*) 'ERROR writing dtg'
+    call write_inopt(dust_method,'dust_method','1=one fluid, 2=two fluid',lu,ierr1)
+    call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr2)
+    if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing dust options'
  endif
 
  close(unit=lu)
@@ -698,14 +768,13 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu
- use options,      only:use_dustfrac
+ use dim,          only:maxvxyzu,use_dust
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
  integer,          intent(out) :: ierr
  real,             intent(out) :: gamma,polyk,dtg
- integer                       :: i,nerr,dust_method
+ integer                       :: i,nerr
  type(inopts), allocatable     :: db(:)
 
  call open_db_from_file(db,filename,lu,ierr)
@@ -726,7 +795,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
 
- if (use_dustfrac) then
+ if (use_dust) then
+    call read_inopt(dust_method,'dust_method',db,min=1,errcount=nerr)
     call read_inopt(dtg,'dtg',db,min=0.,errcount=nerr)
  endif
 

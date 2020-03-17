@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,16 +18,18 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: fileutils, hdf5utils, io
+!  DEPENDENCIES: fileutils, hdf5utils, io, readwrite_griddata
 !+
 !--------------------------------------------------------------------------
 module io_grid
  implicit none
- integer, parameter, public :: nformats = 1
- character(len=4), dimension(nformats) :: labelformat = &
-      (/'hdf5'/)
+ integer, parameter :: doub_prec = kind(0.d0)
+ integer, parameter, public :: nformats = 4
+ character(len=6), dimension(nformats) :: labelformat = &
+      (/'ascii ','binary','stream','hdf5  '/)
 
  public :: read_grid_header,read_grid_column
+ integer, parameter, private :: io_unit = 85
 
 contains
 
@@ -41,9 +43,9 @@ subroutine print_grid_formats()
 
  do i=1,nformats
     if (i==1) then
-       print "(i2,') ',a)",i,trim(labelformat(i))//'    (default if no format specified)'
+       print "(1x,a)",'"'//trim(labelformat(i))//'"    (default if no format specified)'
     else
-       print "(i2,') ',a)",i,trim(labelformat(i))
+       print "(1x,a)",'"'//trim(labelformat(i))//'"'
     endif
  enddo
 
@@ -66,7 +68,11 @@ integer function get_grid_format(filename,outfile)
  outfile = trim(filename)
  get_grid_format = 0
  if (index(lcase(filename),'.h5') /= 0) then
-    get_grid_format = 1
+    get_grid_format = 4
+ elseif (index(lcase(filename),'.gridstream') /= 0) then
+    get_grid_format = 3
+ elseif (index(lcase(filename),'.grid') /= 0) then
+    get_grid_format = 2
  endif
 
 end function get_grid_format
@@ -77,14 +83,16 @@ end function get_grid_format
 !+
 !----------------------------------------------------------------
 subroutine read_grid_header(gridformat,filename,nx,ny,nz,ncols,time,ierr)
- use hdf5utils, only:read_grid_hdf5_header
- use io,        only:cstring
+ use hdf5utils,          only:read_grid_hdf5_header
+ use readwrite_griddata, only:isgridformat,open_gridfile_r
+ use io,                 only:cstring
  character(len=*), intent(in)  :: gridformat,filename
  integer,          intent(out) :: nx,ny,nz,ncols,ierr
- real,             intent(out) :: time
+ real(doub_prec),  intent(out) :: time
+ integer :: npix(3)
 
  ierr = 0
- time = 0.
+ time = 0.d0
  nx   = 0
  ny   = 0
  nz   = 0
@@ -93,9 +101,13 @@ subroutine read_grid_header(gridformat,filename,nx,ny,nz,ncols,time,ierr)
  case('hdf5')
     call read_grid_hdf5_header(cstring(filename),nx,ny,nz,ncols,ierr)
  case default
-    print*,' input file format for '//trim(filename)//' not recognised, skipping...'
-    ierr = 1
-    return
+    if (isgridformat('grid'//gridformat)) then
+       call open_gridfile_r(io_unit,filename,'grid'//trim(gridformat),3,ncols,npix,time,ierr)
+       nx = npix(1); ny = npix(2); nz = npix(3)
+    else
+       print*,' input file format for '//trim(filename)//' not recognised, skipping...'
+       ierr = 1
+    endif
  end select
 
 end subroutine read_grid_header
@@ -106,20 +118,24 @@ end subroutine read_grid_header
 !+
 !----------------------------------------------------------------
 subroutine read_grid_column(gridformat,filename,icolumn,nx,ny,nz,datcol,ierr)
- use hdf5utils, only:read_grid_hdf5_column
- use io,        only:cstring
+ use hdf5utils,          only:read_grid_hdf5_column
+ use readwrite_griddata, only:read_gridcolumn,isgridformat
+ use io,                 only:cstring
  character(len=*), intent(in)  :: gridformat,filename
  integer,          intent(in)  :: icolumn,nx,ny,nz
- real,             intent(out) :: datcol(:)
+ real(doub_prec),  intent(out) :: datcol(:)
  integer,          intent(out) :: ierr
 
  select case(gridformat)
  case('hdf5')
     call read_grid_hdf5_column(cstring(filename),icolumn,nx,ny,nz,datcol,ierr)
  case default
-    print*,' input file format for '//trim(filename)//' not recognised, skipping...'
-    ierr = 1
-    return
+    if (isgridformat('grid'//gridformat)) then
+       call read_gridcolumn(io_unit,datcol,nx*ny*nz,ierr)
+    else
+       print*,' input file format for '//trim(filename)//' not recognised, skipping...'
+       ierr = 1
+    endif
  end select
 
 end subroutine read_grid_column
