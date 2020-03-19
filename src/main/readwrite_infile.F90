@@ -68,7 +68,7 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
- use timestep,  only:dtwallmax,tolv
+ use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
@@ -109,10 +109,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
 #endif
+#ifdef GR
+ use metric,          only:write_options_metric
+#endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
  use cooling,         only:write_options_cooling
- use dim,             only:maxvxyzu,maxptmass,gravity
+ use dim,             only:maxvxyzu,maxptmass,gravity,gr
  use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
@@ -169,6 +172,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iwritein,exp=.true.)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
+ if (gr) then
+    call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
+    call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
+ endif
 
  call write_inopts_link(iwritein)
 
@@ -249,6 +256,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_nicil(iwritein)
 #endif
 
+#ifdef GR
+ call write_options_metric(iwritein)
+#endif
+
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
@@ -276,6 +287,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUSTGROWTH
  use growth,          only:read_options_growth
 #endif
+#endif
+#ifdef GR
+ use metric,        only:read_options_metric
 #endif
 #ifdef PHOTO
  use photoevap,       only:read_options_photoevap
@@ -389,6 +403,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) C_force
     case('tolv')
        read(valstring,*,iostat=ierr) tolv
+    case('xtol')
+       read(valstring,*,iostat=ierr) xtol
+    case('ptol')
+       read(valstring,*,iostat=ierr) ptol
     case('hfact')
        read(valstring,*,iostat=ierr) hfact
     case('tolh')
@@ -447,6 +465,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef DUSTGROWTH
        if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #endif
+#endif
+#ifdef GR
+       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotalldust,ierr)
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
@@ -541,6 +562,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (C_force <= 0.) call fatal(label,'bad choice for force timestep control')
     if (tolv <= 0.)    call fatal(label,'silly choice for tolv (< 0)')
     if (tolv > 1.e-1) call warn(label,'dangerously large tolerance on v iterations')
+    if (xtol <= 0.)    call fatal(label,'silly choice for xtol (< 0)')
+    if (xtol > 1.e-1) call warn(label,'dangerously large tolerance on xyz iterations')
+    if (ptol <= 0.)    call fatal(label,'silly choice for ptol (< 0)')
+    if (ptol > 1.e-1) call warn(label,'dangerously large tolerance on pmom iterations')
     if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
     if (nfulldump >= 50) call warn(label,'no full dumps for a long time...',1)
     if (twallmax < 0.)  call fatal(label,'invalid twallmax (use 000:00 to ignore)')
@@ -571,8 +596,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 10 &
-       .and. ieos /= 15 .and. ieos /= 16)) &
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. ieos /= 15 .and. ieos /= 16)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')

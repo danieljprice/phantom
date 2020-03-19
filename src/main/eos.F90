@@ -128,6 +128,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real :: gammai
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
  integer :: ierr
+ real :: uthermconst
+#ifdef GR
+ real :: enthi,pondensi
+! Check to see if adiabatic equation of state is being used.
+ if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11) &
+ call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
+ var='eos_type',val=real(eos_type))
+#endif
 
  select case(eos_type)
  case(1)
@@ -145,6 +153,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !   check value of gamma
     if (gamma < tiny(gamma)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gamma)
 
+#ifdef GR
+    if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
+    if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
+    if (gamma == 1.) then
+       call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
+    else if (gamma > 1.0001) then
+       pondensi = (gamma-1.)*eni   ! eni is the thermal energy
+       enthi = 1. + eni + pondensi    ! enthalpy
+       spsoundi = sqrt(gamma*pondensi/enthi)
+       ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
+    endif
+#else
     if (present(eni)) then
        if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
 
@@ -159,6 +179,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
        ponrhoi = polyk*rhoi**(gamma-1.)
     endif
     spsoundi = sqrt(gamma*ponrhoi)
+#endif
 
  case(3)
 !
@@ -167,6 +188,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+
+!
+!--GR isothermal
+!
+ case(4)
+    uthermconst = polyk
+    ponrhoi = (gamma-1.)*uthermconst
+    spsoundi = sqrt(ponrhoi/(1.+uthermconst))
 
  case(6)
 !
@@ -859,7 +888,7 @@ end function diff
 !----------------------------------------------------------------
 
 subroutine eosinfo(eos_type,iprint)
- use dim,           only:maxvxyzu
+ use dim,           only:maxvxyzu,gr
  use io,            only:fatal
  use units,         only:unit_density, unit_velocity
  use eos_helmholtz, only:eos_helmholtz_eosinfo
@@ -887,7 +916,11 @@ subroutine eosinfo(eos_type,iprint)
           write(iprint,*) 'OK'
        endif
     elseif (maxvxyzu >= 4) then
-       write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+       if (gr) then
+          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma
+       else
+          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+       endif
     else
        write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
     endif

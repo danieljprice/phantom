@@ -96,11 +96,11 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
- if (hfact < 1.) then
+ if (hfact < 1. .or. hfact /= hfact) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0.) then
+ if (polyk < 0. .or. polyk /= polyk) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  elseif (polyk < tiny(0.) .and. ieos /= 2) then
@@ -394,6 +394,10 @@ subroutine check_setup(nerror,nwarn,restart)
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
 
+#ifdef GR
+ call check_gr(npart,nerror,xyzh,vxyzu)
+#endif
+
 !
 !--check dust growth arrays
 !
@@ -455,12 +459,18 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink
+
+ if (gr .and. nptmass > 0) then
+    print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    nwarn = nwarn + 1
+    return
+ endif
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
@@ -589,6 +599,35 @@ subroutine check_setup_dustgrid(nerror,nwarn)
  enddo
 
 end subroutine check_setup_dustgrid
+
+#ifdef GR
+subroutine check_gr(npart,nerror,xyzh,vxyzu)
+ use metric_tools, only:pack_metric,unpack_metric
+ use utils_gr,     only:get_u0
+ use part,         only:isdead_or_accreted
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real    :: metrici(0:3,0:3,2),gcov(0:3,0:3),u0
+ integer :: ierr,i,nbad
+
+ nbad = 0
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call pack_metric(xyzh(1:3,i),metrici)
+       call unpack_metric(metrici,gcov=gcov)
+       call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+       if (ierr/=0) nbad = nbad + 1
+    endif
+ enddo
+
+ if (nbad > 0) then
+    print*,'Error in setup: ',nbad,' of ',npart,' particles have undefined U0'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_gr
+#endif
 
 !------------------------------------------------------------------
 !+

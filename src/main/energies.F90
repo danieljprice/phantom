@@ -28,6 +28,7 @@
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
  use dim, only: maxdusttypes,maxdustsmall
+use units, only:utime
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
@@ -42,7 +43,7 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -64,7 +65,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
-                          maxdusttypes
+                          maxdusttypes,gws
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -73,6 +74,9 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes
+ use part,           only:pxyzu,metrics,metricderivs
+ use part,           only:fxyzu,fext
+ use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
  use io,             only:id,fatal,master
@@ -83,6 +87,14 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
+#ifdef GR
+ use metric_tools,   only:unpack_metric
+ use utils_gr,       only:dot_product_gr,get_geodesic_accel
+ use vectorutils,    only:cross_product3D
+#ifdef FINVSQRT
+ use fastmath,       only:finvsqrt
+#endif
+#endif
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
@@ -103,8 +115,15 @@ subroutine compute_energies(t)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
  real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3)
+ real    :: ethermi
+#ifdef GR
+ real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
+ real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
+#endif
  integer :: i,j,itype,ierr,iu
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
+
+ real    :: axyz(3,npart),hx,hp,hxx,hpp
 
  ! initialise values
  itype  = igas
@@ -153,6 +172,7 @@ subroutine compute_energies(t)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
+!$omp shared(pxyzu) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
@@ -164,6 +184,11 @@ subroutine compute_energies(t)
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp shared(temperature,grainsize,graindens,ndustsmall) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
+#ifdef GR
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+!$omp shared(metrics) &
+#endif
+!$omp private(ethermi) &
 !$omp private(ponrhoi,spsoundi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
@@ -229,6 +254,36 @@ subroutine compute_energies(t)
        vyi  = vxyzu(2,i)
        vzi  = vxyzu(3,i)
 
+#ifdef GR
+       pxi  = pxyzu(1,i)
+       pyi  = pxyzu(2,i)
+       pzi  = pxyzu(3,i)
+
+       !  linear momentum
+       xmom = xmom + pmassi*pxi
+       ymom = ymom + pmassi*pyi
+       zmom = zmom + pmassi*pzi
+
+       call unpack_metric(metrics(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
+       bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
+       v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+#ifdef FINVSQRT
+       lorentzi = finvsqrt(1.-v2i)
+#else
+       lorentzi = 1./sqrt(1.-v2i)
+#endif
+       pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
+
+       ! angular momentum
+       fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
+       call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
+       angx = angx + pmassi*angi(1)
+       angy = angy + pmassi*angi(2)
+       angz = angz + pmassi*angi(3)
+
+       ! kinetic energy
+       ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
+#else
        ! centre of mass
        xcom = xcom + pmassi*xi
        ycom = ycom + pmassi*yi
@@ -248,6 +303,8 @@ subroutine compute_energies(t)
        ! kinetic energy & rms velocity
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
        ekin = ekin + pmassi*v2i
+#endif
+
        vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
@@ -263,8 +320,12 @@ subroutine compute_energies(t)
           dumx = 0.
           dumy = 0.
           dumz = 0.
+#ifdef GR
+          epoti = 0.
+#else
           call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epoti)
+#endif
           epot = epot + pmassi*epoti
        endif
        if (nptmass > 0) then
@@ -305,7 +366,11 @@ subroutine compute_energies(t)
 
           ! thermal energy
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
+             ethermi = pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
+#ifdef GR
+             ethermi = (alpha_gr/lorentzi)*ethermi
+#endif
+             etherm = etherm + ethermi
              if (store_temperature) then
                 call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),temperature(i))
              else
@@ -326,7 +391,7 @@ subroutine compute_energies(t)
           endif
           vsigi = spsoundi
           ! entropy
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
+          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma)) !!!! GR version same ?
 
 #ifdef DUST
           ! min and mean stopping time
@@ -557,7 +622,9 @@ subroutine compute_energies(t)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)
+#ifndef GR
  ekin = 0.5*ekin
+#endif
  emag = 0.5*emag
  ekin = reduce_fn('+',ekin)
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
@@ -663,6 +730,24 @@ subroutine compute_energies(t)
     ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
+
+ if (gws) then
+#ifdef GR
+    call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
+#else
+    axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
+#endif
+    pmassi = massoftype(igas)
+    call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
+    hx  = reduce_fn('+',hx)
+    hp  = reduce_fn('+',hp)
+    hxx = reduce_fn('+',hxx)
+    hpp = reduce_fn('+',hpp)
+    ev_data(iev_sum,iev_gws(1)) = hx
+    ev_data(iev_sum,iev_gws(2)) = hp
+    ev_data(iev_sum,iev_gws(3)) = hxx
+    ev_data(iev_sum,iev_gws(4)) = hpp
+ endif
 
  return
 end subroutine compute_energies

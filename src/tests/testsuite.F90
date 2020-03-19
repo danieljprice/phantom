@@ -51,8 +51,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
+#ifdef GR
+ use testgr,       only:test_gr
+#else
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
+#endif
  use testexternf,  only:test_externf
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
@@ -67,7 +71,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
- logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
+ logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth,dogr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -109,6 +113,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  donimhd    = .false.
  docooling  = .false.
  dogeom     = .false.
+ dogr       = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -120,7 +125,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'sink')      /= 0) doptmass  = .true.
  if (index(string,'cool')      /= 0) docooling = .true.
  if (index(string,'geom')      /= 0) dogeom    = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom/))
+ if (index(string,'gr')        /= 0) dogr      = .true.
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -153,6 +159,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('gr')
+    dogr = .true.
  case('growth')
     dogrowth = .true.
  case('nimhd')
@@ -267,6 +275,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_ptmass(ntests,npass)
     call set_default_options ! restore defaults
  endif
+
+#ifdef GR
+ if (dogr.or.testall) then
+    call test_gr(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+#else
 !
 !--test of gnewton module
 !
@@ -281,6 +296,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_corotate(ntests,npass)
     call set_default_options ! restore defaults
  endif
+#endif
+
 !
 !--test of set_disc module
 !

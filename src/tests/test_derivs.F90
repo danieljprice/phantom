@@ -49,6 +49,7 @@ subroutine test_derivs(ntests,npass,string)
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
+ use part,         only:pxyzu,dens,metrics
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
  use deriv,        only:derivs
@@ -1100,7 +1101,7 @@ subroutine get_derivs(timing)
 
  call getused(t1)
  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master) call printused(t1)
  if (present(timing)) timing = t2 - t1
