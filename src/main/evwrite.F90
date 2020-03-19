@@ -57,7 +57,7 @@ module evwrite
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                           iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
+                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
                            iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_gws
@@ -135,9 +135,10 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
  if ( mhd ) then
+    call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
     call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
-    call fill_ev_tag(ev_fmt,      iev_beta,   'beta',   'xan',i,j)
+    call fill_ev_tag(ev_fmt,      iev_beta,   'beta_P', 'xan',i,j)
     if (mhd_nonideal) then
        call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
        call fill_ev_tag(ev_fmt,   iev_etaar,  'eta_ar',   'xan',i,j)

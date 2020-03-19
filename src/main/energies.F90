@@ -40,7 +40,7 @@ use units, only:utime
  integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
-                               iev_alpha,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
+                               iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
@@ -105,11 +105,11 @@ subroutine compute_energies(t)
 #endif
  real, intent(in) :: t
  real    :: ev_data_thread(4,0:inumev)
- real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,rhoi,angx,angy,angz
+ real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
- real    :: ponrhoi,spsoundi,B2i,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
+ real    :: ponrhoi,spsoundi,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
@@ -179,17 +179,17 @@ subroutine compute_energies(t)
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
-!$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
+!$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp shared(temperature,grainsize,graindens,ndustsmall) &
-!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
+!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 #ifdef GR
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 !$omp shared(metrics) &
 #endif
 !$omp private(ethermi) &
-!$omp private(ponrhoi,spsoundi,B2i,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,tempi,etaart,etaart1,etaohm,etahall,etaambi) &
@@ -431,10 +431,11 @@ subroutine compute_energies(t)
 
           ! mhd parameters
           if (mhd) then
-             Bxi = Bevol(1,i)*rhoi
-             Byi = Bevol(2,i)*rhoi
-             Bzi = Bevol(3,i)*rhoi
+             Bxi       = Bevol(1,i)*rhoi
+             Byi       = Bevol(2,i)*rhoi
+             Bzi       = Bevol(3,i)*rhoi
              B2i       = Bxi*Bxi + Byi*Byi + Bzi*Bzi
+             Bi        = sqrt(B2i)
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
              vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
@@ -442,19 +443,20 @@ subroutine compute_energies(t)
 
              divBi     = abs(divcurlB(1,i))
              if (B2i > 0.) then
-                hdivBonBi = hi*divBi/sqrt(B2i)
+                hdivBonBi = hi*divBi/Bi
                 betai     = 2.0*ponrhoi*rhoi/B2i ! plasma beta
              else
                 hdivBonBi = 0.
                 betai     = 0.
              endif
+             call ev_data_update(ev_data_thread,iev_B,    Bi       )
              call ev_data_update(ev_data_thread,iev_divB, divBi    )
              call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
              call ev_data_update(ev_data_thread,iev_beta, betai    )
 
              if ( mhd_nonideal ) then
                 tempi = get_temperature_from_ponrho(ponrhoi)
-                call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,tempi, &
+                call nicil_get_eta(etaohm,etahall,etaambi,Bi,rhoi,tempi, &
                                    n_R(:,i),n_electronT(i),ierr,data_out)
                 curlBi = divcurlB(2:4,i)
                 call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
