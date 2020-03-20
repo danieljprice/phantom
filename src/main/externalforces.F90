@@ -17,9 +17,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    accradius1 -- accretion radius of central object
-!    eps_soft   -- softening length (Plummer) for central potential in code units
-!    mass1      -- mass of central object in code units
+!    accradius1      -- soft accretion radius of central object
+!    accradius1_hard -- hard accretion radius of central object
+!    eps_soft        -- softening length (Plummer) for central potential in code units
+!    mass1           -- mass of central object in code units
 !
 !  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !    extern_gnewton, extern_gwinspiral, extern_lensethirring,

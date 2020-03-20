@@ -1,3 +1,25 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: cons2primsolver
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: eos, io, metric_tools, utils_gr
+!+
+!--------------------------------------------------------------------------
 module cons2primsolver
  use eos, only:ieos,polyk
  implicit none

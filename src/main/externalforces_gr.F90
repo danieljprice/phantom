@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: externalforces
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    accradius1      -- soft accretion radius of black hole
+!    accradius1_hard -- hard accretion radius of black hole
+!
+!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, physcon,
+!    units
+!+
+!--------------------------------------------------------------------------
 module externalforces
  implicit none
  character(len=80), parameter, public :: &  ! module version

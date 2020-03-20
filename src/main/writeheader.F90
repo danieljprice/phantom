@@ -18,7 +18,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
-!    options, part, physcon, readwrite_infile, units, viscosity
+!    metric_tools, options, part, physcon, readwrite_infile, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader

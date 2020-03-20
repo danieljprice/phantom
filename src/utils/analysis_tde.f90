@@ -16,9 +16,24 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    angmax -- max angular momentum
+!    angmin -- min angular momentum
+!    emax   -- max energy
+!    emin   -- min energy
+!    lummax -- max luminosity
+!    lummin -- min luminosity
+!    mh     -- black hole mass in code units
+!    nbins  -- number of bins
+!    rmax   -- max radius
+!    rmin   -- min radius
+!    trmax  -- max return time
+!    trmin  -- min return time
+!    vmax   -- max velocity
+!    vmin   -- min velocity
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon, sortutils
+!  DEPENDENCIES: dump_utils, infile_utils, io, physcon, prompting,
+!    readwrite_dumps, sortutils, vectorutils
 !+
 !--------------------------------------------------------------------------
 module analysis

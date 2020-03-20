@@ -1,3 +1,28 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: setup
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    filldomain -- filldomain to accretion radius (logical)
+!    pmassi     -- particle mass
+!
+!  DEPENDENCIES: bondiexact, eos, externalforces, infile_utils, inject, io,
+!    metric_tools, options, part, prompting, timestep, units
+!+
+!--------------------------------------------------------------------------
 module setup
  implicit none
  public :: setpart

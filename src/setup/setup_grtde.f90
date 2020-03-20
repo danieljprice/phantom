@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -16,17 +16,19 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!     mhole         ---  mass of black hole
-!     mstar         ---  mass of star
-!     rstar         ---  radius of star
-!     beta          ---  penetration factor
-!     ecc           ---  eccentricity
-!     norbits       ---  number of orbits
-!     dumpsperorbit ---  number of dumps per orbit
-!     nr            ---  particles per star radius (i.e. resolution)
+!    beta          -- penetration factor
+!    dumpsperorbit -- number of dumps per orbit
+!    ecc           -- eccentricity (1 for parabolic)
+!    mhole         -- mass of black hole (solar mass)
+!    mstar         -- mass of star       (solar mass)
+!    norbits       -- number of orbits
+!    nr            -- particles per star radius (i.e. resolution)
+!    rstar         -- radius of star     (solar radii)
+!    theta         -- inclination of orbit (degrees)
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
-!    timestep, units, metric, eos
+!  DEPENDENCIES: eos, externalforces, infile_utils, io, metric, part,
+!    physcon, rho_profile, setbinary, spherical, timestep, units,
+!    vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup

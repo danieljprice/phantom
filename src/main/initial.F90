@@ -19,12 +19,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
-!    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
-!    growth, h2cooling, initial_params, inject, io, io_summary, linklist,
-!    mf_write, mpi, mpiutils, nicil, nicil_sup, omputils, options, part,
-!    photoevap, ptmass, readwrite_dumps, readwrite_infile, sort_particles,
-!    timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!    chem, cons2prim, cooling, cpuinfo, densityforce, deriv, dim, domain,
+!    dust, energies, eos, evwrite, extern_gr, externalforces, fastmath,
+!    fileutils, forcing, growth, h2cooling, initial_params, inject, io,
+!    io_summary, linklist, metric_tools, mf_write, mpi, mpiutils, nicil,
+!    nicil_sup, omputils, options, part, photoevap, ptmass,
+!    readwrite_dumps, readwrite_infile, sort_particles, timestep,
+!    timestep_ind, timestep_sts, timing, units, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial

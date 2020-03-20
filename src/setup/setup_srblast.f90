@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -16,9 +16,14 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    npartx  -- number of particles in x-direction
+!    Pblast    -- pressure in blast
+!    Pmed      -- pressure in medium
+!    Rblast    -- radius of blast
+!    boxsize   -- size of the box
+!    npartx    -- number of particles in x-direction
+!    smoothfac -- IC smoothing factor (in terms of particle spacing)
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, prompting, setup_params, timestep, unifdis,
 !    units
 !+

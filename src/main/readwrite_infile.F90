@@ -47,6 +47,7 @@
 !    nout               -- number of steps between dumps (-ve=ignore)
 !    overcleanfac       -- factor to increase cleaning speed (decreases time step)
 !    psidecayfac        -- div B diffusion parameter
+!    ptol               -- tolerance on pmom iterations
 !    rhofinal_cgs       -- maximum allowed density (cgs) (<=0 to ignore)
 !    rkill              -- deactivate particles outside this radius (<0 is off)
 !    shearparam         -- magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
@@ -55,10 +56,11 @@
 !    tolv               -- tolerance on v iterations in timestepping
 !    twallmax           -- maximum wall time (hhh:mm, 000:00=ignore)
 !    use_mcfost         -- use the mcfost library
+!    xtol               -- tolerance on xyz iterations
 !
 !  DEPENDENCIES: cooling, damping, dim, dust, eos, externalforces, forcing,
-!    growth, infile_utils, inject, io, linklist, nicil_sup, options, part,
-!    photoevap, ptmass, timestep, viscosity
+!    growth, infile_utils, inject, io, linklist, metric, nicil_sup,
+!    options, part, photoevap, ptmass, timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile

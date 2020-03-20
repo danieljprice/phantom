@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: discanalysisutils, infile_utils, io, part, physcon
+!  DEPENDENCIES: dim, discanalysisutils, infile_utils, io, part, physcon
 !+
 !--------------------------------------------------------------------------
 module analysis

@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
-!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
-!    timing
+!  DEPENDENCIES: cons2prim, densityforce, derivutils, dim, externalforces,
+!    forces, forcing, growth, io, linklist, part, photoevap, ptmass,
+!    timestep, timing
 !+
 !--------------------------------------------------------------------------
 module deriv

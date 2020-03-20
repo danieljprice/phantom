@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -16,9 +16,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    nr -- resolution (number of radial particles)
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
-!    timestep, units, metric, eos
+!  DEPENDENCIES: eos, infile_utils, io, options, part, physcon, prompting,
+!    rho_profile, spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

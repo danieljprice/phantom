@@ -1,3 +1,25 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  PROGRAM: get_kdot
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  USAGE: ev2kdot [dt_min] file01.ev file02.ev ...
+!
+!  DEPENDENCIES: evutils, fileutils
+!+
+!--------------------------------------------------------------------------
 program get_kdot
  use evutils
  use fileutils, only:files_are_sequential

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
 !  MODULE: setup
@@ -17,9 +17,16 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!     For GR only: isol -- solution type: 1 = geodesic flow  |  2 = sonic point flow
+!    isol   -- (1 = geodesic flow  |  2 = sonic point flow)
+!    iswind -- wind option (logical)
+!    np     -- desired number of particles (stretch-mapping will only give this approx.)
+!    rmax   -- outer edge
+!    rmin   -- inner edge
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: bondiexact, centreofmass, dim, externalforces,
+!    infile_utils, io, kernel, metric, metric_tools, options, part,
+!    physcon, prompting, setup_params, spherical, stretchmap, timestep,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup

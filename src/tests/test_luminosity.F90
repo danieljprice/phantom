@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: deriv, dim, energies, eos, io, options, part, setdisc,
-!    testutils, timestep_ind, timing, viscosity
+!    testutils, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module testlum

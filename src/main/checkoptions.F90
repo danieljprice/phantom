@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, part
+!  DEPENDENCIES: dim, io, metric_tools, part
 !+
 !--------------------------------------------------------------------------
 module checkoptions

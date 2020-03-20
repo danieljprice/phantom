@@ -1,3 +1,30 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: inject
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: David Liptai
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS:
+!    drdp          -- desired ratio of sphere spacing to particle spacing
+!    iboundspheres -- number of boundary spheres (integer)
+!    isol          -- solution type (1=geodesic | 2=sonic point)
+!    rin           -- radius of injection of the wind
+!
+!  DEPENDENCIES: bondiexact, eos, icosahedron, infile_utils, injectutils,
+!    io, part, physcon, prompting
+!+
+!--------------------------------------------------------------------------
 module inject
  use physcon, only:pi
  implicit none
