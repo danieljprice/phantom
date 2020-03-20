@@ -330,7 +330,7 @@ subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  dgcovdz(3,1) = dgcovdz(1,3)
  dgcovdz(3,2) = dgcovdz(2,3)
 
- ! STOP 'No analytic metric derivatives implemented'
+ ! stop 'No analytic metric derivatives implemented'
 end subroutine metric_cartesian_derivatives
 
 !--- Derivatives of the covariant 'SPHERICAL' metric
