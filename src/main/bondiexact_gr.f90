@@ -142,7 +142,7 @@ subroutine Tsolve(T,r)
     its = its+1
  enddo
 
- if(.not.converged) print*,'Bondi exact solution not converged at r = ',r
+ if (.not.converged) print*,'Bondi exact solution not converged at r = ',r
 
 end subroutine Tsolve
 

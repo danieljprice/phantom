@@ -274,7 +274,7 @@ pure logical function was_accreted(iexternalforce,hi)
  ! (h=0 indicates dead MPI particle)
  was_accreted = (hi < 0.)
 
- if(imetric==imet_minkowski) was_accreted = .false.
+ if (imetric==imet_minkowski) was_accreted = .false.
 
 end function was_accreted
 

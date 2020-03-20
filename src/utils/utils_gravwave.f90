@@ -48,7 +48,7 @@ subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
  !$omp private(i,x,y,z,vx,vy,vz,ax,ay,az,r2) &
  !$omp reduction(+:q,ddq)
  do i=1,npart
-    if(xyzh(4,i)>tiny(xyzh)) then  !if not accreted
+    if (xyzh(4,i)>tiny(xyzh)) then  !if not accreted
       x  = xyzh(1,i)
       y  = xyzh(2,i)
       z  = xyzh(3,i)
@@ -76,7 +76,7 @@ subroutine calculate_strain(hx,hp,hxx,hpp,xyzh,vxyz,axyz,pmass,npart)
        ddq(4) = ddq(4) + pmass*(2.*vy*vy+y*ay+y*ay) !ddqyy
        ddq(5) = ddq(5) + pmass*(2.*vy*vz+y*az+z*ay) !ddqyz
        ddq(6) = ddq(6) + pmass*(2.*vz*vz+z*az+z*az) !ddqzz
-    end if
+    endif
  enddo
  !omp end parallel do
 

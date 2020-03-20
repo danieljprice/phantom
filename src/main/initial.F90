@@ -461,7 +461,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !$omp parallel do default(none) &
 !$omp shared(npart,fext,iphase) private(i)
     do i=1,npart
-       if(iamtype(iphase(i))==iboundary) fext(:,i)=0.
+       if (iamtype(iphase(i))==iboundary) fext(:,i)=0.
     enddo
 !$omp end parallel do
  endif

@@ -140,7 +140,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
     endif
- end do
+ enddo
 !$omp end parallel do
 
 end subroutine cons2primall

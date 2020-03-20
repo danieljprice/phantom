@@ -918,7 +918,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           endif
        endif
     enddo accreteloop
-    !$omp end do
+    !$omp enddo
     !$omp end parallel
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &

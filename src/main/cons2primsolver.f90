@@ -77,7 +77,7 @@ pure subroutine get_enthalpy(enth,dens,P,gamma)
 
  ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
  ! or gamma=1 gives divide-by-zero
- if(abs(p) < tiny(p)) then
+ if (abs(p) < tiny(p)) then
     enth = 1.
  else
     enth = 1.+p/dens*(gamma/(gamma-1.))
@@ -182,7 +182,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
 
     if (ien_type == ien_entropy) then
        p = en*dens**gamma
-    else if (ieos==4) then
+    elseif (ieos==4) then
        p = (gamma-1.)*dens*polyk
     else
        p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
@@ -197,7 +197,7 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_entropy) then
        df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
-    else if (ieos==4) then
+    elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     else
        df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))

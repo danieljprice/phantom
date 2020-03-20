@@ -158,7 +158,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
     if (gamma == 1.) then
        call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
-    else if (gamma > 1.0001) then
+    elseif (gamma > 1.0001) then
        pondensi = (gamma-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
        spsoundi = sqrt(gamma*pondensi/enthi)

@@ -192,7 +192,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (maxvxyzu >= 4) then
        if (gr) then
           write(iprint,"(a,f10.6)") ' Art. conductivity                          : alphau = ',alphau
-       else if (gravity .and. .not. gr) then
+       elseif (gravity .and. .not. gr) then
           write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
        else
           write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
