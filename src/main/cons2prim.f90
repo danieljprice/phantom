@@ -127,11 +127,11 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-      ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
-      call equationofstate(ieos,pondens,spsound,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-      p_guess = pondens*dens(i)
-      rhoi    = rhoh(xyzh(4,i),massoftype(igas))
-      call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
+       ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
+       call equationofstate(ieos,pondens,spsound,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       p_guess = pondens*dens(i)
+       rhoi    = rhoh(xyzh(4,i),massoftype(igas))
+       call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)

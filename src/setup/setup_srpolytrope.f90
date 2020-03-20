@@ -96,18 +96,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !-- Read runtime parameters from setup file
  !
-  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
-  filename = trim(fileprefix)//'.setup'
-  inquire(file=filename,exist=iexist)
-  if (iexist) call read_setupfile(filename,ierr)
-  if (.not. iexist .or. ierr /= 0) then
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
+ filename = trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) call read_setupfile(filename,ierr)
+ if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call prompt('Resolution -- number of radial particles',nr,0)
        call write_setupfile(filename)
        print*,' Edit '//trim(filename)//' and rerun phantomsetup'
     endif
     stop
-  endif
+ endif
 
 !-- resolution
  psep  = rstar/nr

@@ -130,11 +130,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
-  if (id==master) then
-     call write_setupfile(filename)
-     print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-  endif
-  stop
+    if (id==master) then
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
  endif
  accradius1 = accrad
  npart = np

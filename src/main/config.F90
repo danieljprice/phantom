@@ -234,20 +234,20 @@ module dim
 !--------------------
 ! General relativity
 !--------------------
-integer :: maxgr = 0
+ integer :: maxgr = 0
 #ifdef GR
-logical, parameter :: gr = .true.
+ logical, parameter :: gr = .true.
 #else
-logical, parameter :: gr = .false.
+ logical, parameter :: gr = .false.
 #endif
 
 !--------------------
 ! Gravitational wave strain
 !--------------------
 #ifdef GWS
-logical, parameter :: gws = .true.
+ logical, parameter :: gws = .true.
 #else
-logical, parameter :: gws = .false.
+ logical, parameter :: gws = .false.
 #endif
 
 !--------------------
@@ -343,7 +343,7 @@ subroutine update_max_sizes(n)
 #endif
 
 #ifdef GR
-    maxgr = maxp
+ maxgr = maxp
 #endif
 
 #ifdef STS_TIMESTEPS

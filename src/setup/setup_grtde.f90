@@ -118,11 +118,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
-   if (id==master) then
-      call write_setupfile(filename)
-      print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-   endif
-   stop
+    if (id==master) then
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
  endif
 
 !
@@ -147,9 +147,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  period   = 0.
 
  if (ecc<1.) then
- !
- !-- Set a binary orbit given the desired orbital parameters to get the position and velocity of the star
- !
+    !
+    !-- Set a binary orbit given the desired orbital parameters to get the position and velocity of the star
+    !
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
@@ -166,9 +166,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call rotatevec(xyzstar,(/0.,1.,0./),-theta)
     call rotatevec(vxyzstar,(/0.,1.,0./),-theta)
 
- !
- !-- Setup a parabolic orbit
- !
+    !
+    !-- Setup a parabolic orbit
+    !
  elseif (abs(ecc-1.) < tiny(0.)) then
     r0       = 10.*rtidal              ! A default starting distance from the black hole.
     period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number

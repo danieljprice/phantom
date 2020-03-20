@@ -389,29 +389,29 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
 
 #ifdef DISC_VISCOSITY
-    !
-    !--if disc viscosity is used, set the artificial viscosity parameter
-    !  in the input file so as to give the desired alpha_SS
-    !
-    if (present(alpha)) then
-       if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
-       alpha = alpha/(honH/10.0)
-       !--and the min and max alphaSS present
-       alphaSS_min = alpha*honHmin/10.
-       alphaSS_max = alpha*honHmax/10.
-       if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
-    else
-       alphaSS_min = honHmin/10.
-       alphaSS_max = honHmax/10.
-    endif
+ !
+ !--if disc viscosity is used, set the artificial viscosity parameter
+ !  in the input file so as to give the desired alpha_SS
+ !
+ if (present(alpha)) then
+    if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
+    alpha = alpha/(honH/10.0)
+    !--and the min and max alphaSS present
+    alphaSS_min = alpha*honHmin/10.
+    alphaSS_max = alpha*honHmax/10.
+    if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
+ else
+    alphaSS_min = honHmin/10.
+    alphaSS_max = honHmax/10.
+ endif
 #else
-    !
-    !--if disc viscosity is not used, simply return the range of alphaSS
-    !  implied in the disc by the chosen artificial viscosity parameter
-    !  see Meru & Bate (2010)
-    !
-    alphaSS_min = honHmin*(31./525.)
-    alphaSS_max = honHmax*(31./525.)
+ !
+ !--if disc viscosity is not used, simply return the range of alphaSS
+ !  implied in the disc by the chosen artificial viscosity parameter
+ !  see Meru & Bate (2010)
+ !
+ alphaSS_min = honHmin*(31./525.)
+ alphaSS_max = honHmax*(31./525.)
 #endif
  !
  !--adjust positions and velocities so the centre of mass is at the origin

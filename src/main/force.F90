@@ -942,10 +942,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     ii = imetricstart
     do ic = 1,2
        do ib = 0,3
-         do ia = 0,3
-            metrici(ia,ib,ic) = xpartveci(ii)
-            ii = ii + 1
-         enddo
+          do ia = 0,3
+             metrici(ia,ib,ic) = xpartveci(ii)
+             ii = ii + 1
+          enddo
        enddo
     enddo
  endif
@@ -2518,10 +2518,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ii = imetricstart
     do ic = 1,2
        do ib = 0,3
-         do ia = 0,3
-            metrici(ia,ib,ic) = xpartveci(ii)
-            ii = ii + 1
-         enddo
+          do ia = 0,3
+             metrici(ia,ib,ic) = xpartveci(ii)
+             ii = ii + 1
+          enddo
        enddo
     enddo
 

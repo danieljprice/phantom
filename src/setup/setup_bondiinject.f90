@@ -145,12 +145,12 @@ subroutine read_write_setupfile(id,fileprefix)
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
-   if (id==master) then
-      call setup_interactive()
-      call write_setupfile(filename)
-      write(iprint,*) 'Edit '//trim(filename)//' and rerun phantomsetup'
-   endif
-   stop
+    if (id==master) then
+       call setup_interactive()
+       call write_setupfile(filename)
+       write(iprint,*) 'Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
  endif
 
 end subroutine read_write_setupfile

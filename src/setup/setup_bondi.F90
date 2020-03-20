@@ -120,8 +120,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (iexist) then
     call read_setupfile(filename,ierr)
     if (ierr /= 0) then
-      if (id==master) call write_setupfile(filename)
-      call fatal('setup','failed to read in all the data from .setup.  Aborting')
+       if (id==master) call write_setupfile(filename)
+       call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'

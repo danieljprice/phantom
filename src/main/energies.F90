@@ -29,7 +29,7 @@
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies
  use dim, only: maxdusttypes,maxdustsmall
-use units, only:utime
+ use units, only:utime
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
