@@ -444,7 +444,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !  in energies can be correctly included in the dumpfiles
 !
     nskipped = nskipped + nskip
-    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed) then
+    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
