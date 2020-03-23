@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,13 +19,13 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: balance, boundary, centreofmass, checkoptions, checksetup,
-!    chem, cooling, cpuinfo, densityforce, deriv, dim, domain, dust,
-!    energies, eos, evwrite, externalforces, fastmath, fileutils, forcing,
-!    growth, h2cooling, initial_params, inject, io, io_summary,
-!    krome_interface, linklist, mf_write, mpi, mpiutils, nicil, nicil_sup,
-!    omputils, options, part, photoevap, ptmass, readwrite_dumps,
-!    readwrite_infile, sort_particles, timestep, timestep_ind,
-!    timestep_sts, timing, units, writeheader
+!    chem, cons2prim, cooling, cpuinfo, densityforce, deriv, dim, domain,
+!    dust, energies, eos, evwrite, extern_gr, externalforces, fastmath,
+!    fileutils, forcing, growth, h2cooling, initial_params, inject, io,
+!    io_summary, linklist, metric_tools, mf_write, mpi, mpiutils, nicil,
+!    nicil_sup, omputils, options, part, photoevap, ptmass,
+!    readwrite_dumps, readwrite_infile, sort_particles, timestep,
+!    timestep_ind, timestep_sts, timing, units, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -134,19 +134,26 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall
+                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
+ use part,             only:pxyzu,dens,metrics,metricderivs
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
+#ifdef GR
+ use cons2prim,        only:prim2consall
+ use eos,              only:equationofstate,ieos
+ use extern_gr,        only:get_grforce_all
+ use metric_tools,     only:init_metric,imet_minkowski,imetric
+#endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
 #endif
 #ifdef NONIDEALMHD
- use units,            only:utime,udist,umass,unit_Bfield
+ use units,            only:utime,umass,unit_Bfield
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
-                            r_crit,r_crit2,rho_crit,rho_crit_cgs
+                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
@@ -204,7 +211,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cooling,          only:init_cooling
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
- use units,            only:unit_density
+ use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -398,11 +405,39 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
  dtextforce = huge(dtextforce)
  fext(:,:)  = 0.
+
+#ifdef GR
+! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
+#ifdef PRIM2CONS_FIRST
+ ! -- The conserved quantites (momentum and entropy) are being computed
+ ! -- directly from the primitive values in the starting dumpfile.
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ write(iprint,*) ''
+ call warning('initial','using preprocessor flag -DPRIM2CONS_FIRST')
+ write(iprint,'(a,/)') ' This means doing prim2cons BEFORE the initial density calculation for this simulation.'
+#endif
+ ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
+ if (npart>0) then
+    call set_linklist(npart,npart,xyzh,vxyzu)
+    fxyzu = 0.
+    call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                              fxyzu,fext,alphaind,gradh)
+ endif
+#ifndef PRIM2CONS_FIRST
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+#endif
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+    call initialise_externalforces(iexternalforce,ierr)
+    if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+    write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
+#else
  if (iexternalforce > 0) then
     call initialise_externalforces(iexternalforce,ierr)
     call update_externalforce(iexternalforce,time,0.)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,time,iexternalforce,C_force) &
     !$omp private(i,poti,dtf,fextv) &
@@ -410,7 +445,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                             xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
+                              xyzh(4,i),time,fext(1,i),fext(2,i),fext(3,i),poti,dtf,i)
           dtextforce = min(dtextforce,C_force*dtf)
           ! add velocity-dependent part
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fextv,poti)
@@ -419,6 +454,19 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     enddo
     !$omp end parallel do
     write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
+#endif
+
+!
+!-- Set external force to zero on boundary particles
+!
+ if (maxphase==maxp) then
+!$omp parallel do default(none) &
+!$omp shared(npart,fext,iphase) private(i)
+    do i=1,npart
+       if (iamtype(iphase(i))==iboundary) fext(:,i)=0.
+    enddo
+!$omp end parallel do
  endif
 !
 !--get timestep and forces for sink particles
@@ -458,7 +506,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
-
+ write(iprint,*) 'Sink radius and critical densities:'
+ write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
+ write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
+ write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
+ write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
@@ -467,6 +519,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
+#ifdef GR
+ call init_metric(npart,xyzh,metrics,metricderivs)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+ endif
+#endif
 #endif
 !
 !--set initial chemical abundance values
@@ -482,8 +541,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  ! call derivs twice with Cullen-Dehnen switch to update accelerations
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  do j=1,nderivinit
-    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-         Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first)
+    if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+                              dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart

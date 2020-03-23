@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,12 +17,13 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    dtg    -- Dust to gas ratio
-!    gamma  -- Adiabatic index
-!    nx     -- resolution (number of particles in x) for -xleft < x < xshock
-!    polyk  -- square of the isothermal sound speed
-!    xleft  -- x min boundary
-!    xright -- x max boundary
+!    dtg         -- Dust to gas ratio
+!    dust_method -- 1=one fluid, 2=two fluid
+!    gamma       -- Adiabatic index
+!    nx          -- resolution (number of particles in x) for -xleft < x < xshock
+!    polyk       -- square of the isothermal sound speed
+!    xleft       -- x min boundary
+!    xright      -- x max boundary
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
 !    mpiutils, nicil, options, part, physcon, prompting, set_dust,
@@ -31,8 +32,7 @@
 !--------------------------------------------------------------------------
 module setup
  implicit none
- !
- integer :: nx, icase
+ integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
  real    :: dxleft
  character(len=100) :: shocktype
@@ -55,11 +55,11 @@ module setup
    (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
 
  real :: leftstate(max_states), rightstate(max_states)
- !
+
  public  :: setpart
- !
+
  private
- !
+
 contains
 
 !----------------------------------------------------------------
@@ -69,17 +69,18 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total,ihavesetupB
- use io,           only:fatal,master,iprint
+ use io,           only:fatal,master,iprint,error
  use unifdis,      only:set_unifdis,get_ny_nz_closepacked
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxp,maxvxyzu,ndim,mhd
+ use dim,          only:maxvxyzu,ndim,mhd,use_dust
  use options,      only:use_dustfrac
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
  use prompting,    only:prompt
  use set_dust,     only:set_dustfrac
+ use units,        only:set_units
 #ifdef NONIDEALMHD
  use nicil,          only:rho_i_cnst
 #endif
@@ -95,10 +96,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: totmass
  real                             :: xminleft(ndim),xmaxleft(ndim),xminright(ndim),xmaxright(ndim)
  real                             :: delta,gam1,xshock,fac,dtg
- real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright
+ real                             :: uuleft,uuright,volume,xbdyleft,xbdyright,dxright,rholeft,rhoright
  integer                          :: i,ierr,nbpts,ny,nz
  character(len=120)               :: shkfile, filename
  logical                          :: iexist
+
+ if (gr) call set_units(G=1.,c=1.)
+
  !
  ! quit if not periodic
  !
@@ -129,6 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (.not.iexist) hfact = hfact_default
  nstates = max_states
  if (.not.mhd) nstates = max_states - 3
+ if (use_dust) dust_method = 1 ! one fluid by default
  !
  ! setup particles
  !
@@ -148,13 +153,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg)       ! write shock file with defaults
  endif
+
  dxleft = -xleft/float(nx)
  xshock = 0.5*(xleft + xright)
+
+ rholeft  = get_conserved_density(leftstate)
+ rhoright = get_conserved_density(rightstate)
+
+ !
+ ! choose dust method (from .setup file)
+ !
+ use_dustfrac = (dust_method == 1)
+
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
+ dxleft = -xleft/float(nx)
+ xshock = 0.5*(xleft + xright)
  call adjust_shock_boundaries(dxleft,dxright,radkern, &
-      leftstate(ivx),rightstate(ivx),leftstate(idens),rightstate(idens),tmax,ndim)
+      leftstate(ivx),rightstate(ivx),rholeft,rhoright,tmax,ndim)
  !
  ! print setup parameters
  !
@@ -176,7 +193,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup the particles
  !
- if (abs(leftstate(idens)-rightstate(idens)) > epsilon(0.)) then
+ if (abs(rholeft-rhoright) > epsilon(0.)) then
     ! then divide the x axis into two halves at xshock
     xmaxleft(1)  = xshock
     xminright(1) = xshock
@@ -188,14 +205,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     ! set particle mass
     volume           = product(xmaxleft-xminleft)
-    totmass          = volume*leftstate(idens)*(1. + dtg)
+    totmass          = volume*rholeft
+    if (use_dustfrac) totmass = totmass*(1. + dtg)
     massoftype(igas) = totmass/npart
     if (id==master) print*,' particle mass = ',massoftype(igas)
 
     if (use_closepacked) then
        ! now adjust spacing on right hand side to get correct density given the particle mass
        volume  = product(xmaxright - xminright)
-       totmass = volume*rightstate(idens)*(1. + dtg)
+       totmass = volume*rhoright
+       if (use_dustfrac) totmass = totmass*(1. + dtg)
        call get_ny_nz_closepacked(dxright,xminright(2),xmaxright(2),xminright(3),xmaxright(3),ny,nz)
        dxright = (xmaxright(1) - xminright(1))/((totmass/massoftype(igas))/(ny*nz))
     endif
@@ -207,16 +226,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,npart,xyzh,npy=ny,npz=nz) ! set right half
 
     ! define rhozero as average density; required for certain simulations (e.g. non-ideal MHD with constant resistivity)
-    rhozero = (leftstate(idens)*product(xmaxleft-xminleft) + rightstate(idens)*product(xmaxright - xminright)) &
+    rhozero = (rholeft*product(xmaxleft-xminleft) + rhoright*product(xmaxright - xminright)) &
                / product(xmaxright - xminleft)
  else  ! set all of volume if densities are equal
     write(iprint,'(3(a,es16.8))') 'Setup_shock: one density  ',xminleft(1), ' to ',xmaxright(1), ' with dx  = ',dxleft
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
                      xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh)
     volume           = product(xmaxleft-xminleft)
-    rhozero          = leftstate(idens)
+    rhozero          = rholeft
     dxright          = dxleft
-    massoftype(igas) = leftstate(idens)*volume/real(npart)
+    massoftype(igas) = rholeft*volume/real(npart)
  endif
  !
  ! Fix the particles near x-boundary; else define as gas
@@ -236,6 +255,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     !
     ! one fluid dust: set dust fraction on gas particles
+    !
     if (use_dustfrac) call set_dustfrac(dtg,dustfrac(:,i))
  enddo
  massoftype(iboundary)  = massoftype(igas)
@@ -244,7 +264,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(iprint,'(1x,a,i8)') 'Setup_shock: npart     = ',npart
  write(iprint,'(1x,a,i8)') 'Setup_shock: ngas      = ',npartoftype(igas)
  write(iprint,'(1x,a,i8)') 'Setup_shock: nboundary = ',nbpts
- write(iprint,'(1x,a,es16.8,/)') 'Setup_shock: mass of gas & boundary particles = ', massoftype(igas)
  !
  ! now set particle properties
  !
@@ -262,14 +281,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
-       xyzh(4,i)  = hrho(rightstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(rhoright,massoftype(igas))
        vxyzu(1,i) = rightstate(ivx)
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
     else
-       xyzh(4,i)  = hrho(leftstate(idens),massoftype(igas))
+       xyzh(4,i)  = hrho(rholeft,massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)
@@ -278,9 +297,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
  if (mhd) ihavesetupB = .true.
+ !
+ ! set up dust (as separate set of particles)
+ !
+ if (use_dust .and. .not.use_dustfrac) then
+    if (dtg > 0.) call set_dust_particles(dtg,npart,npartoftype,massoftype,xyzh,vxyzu,ierr)
+    if (ierr /= 0) call error('setup','could not set up dust particles')
+ endif
+ write(iprint,'(1x,a,es16.8)') 'Setup_shock: mass of gas & boundary particles   = ', massoftype(igas)
 
 #ifdef NONIDEALMHD
- !Modifiy ion density from fraction to physical (for ambipolar diffusion)
+ !Modify ion density from fraction to physical (for ambipolar diffusion)
  if (.not.iexist) rho_i_cnst = rho_i_cnst * rhozero
 #endif
 
@@ -321,14 +348,72 @@ end subroutine adjust_shock_boundaries
 
 !-----------------------------------------------------------------------
 !+
+!  setup dust particles (at the moment setup only allows for fixed
+!  dust-to-gas ratio, so we just make copies of the gas particles)
+!+
+!-----------------------------------------------------------------------
+subroutine set_dust_particles(dtg,npart,npartoftype,massoftype,xyzh,vxyzu,ierr)
+ use part, only:iamtype,iphase,maxp,maxphase,igas,idust,iboundary,idustbound,set_particle_type
+ use io,   only:iprint
+ real,    intent(in)    :: dtg
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:),xyzh(:,:),vxyzu(:,:)
+ integer, intent(out)   :: ierr
+ integer :: i,j
+
+ if (maxphase /= maxp) then
+    print "(a)",' ERROR: cannot set dust particles (iphase not stored)'
+    ierr = -1
+    return
+ endif
+ ierr = 0
+ j = npart
+ do i=1,npart
+    if (j+1 > maxp) then
+       print*,' error: memory allocation too small for dust particles'
+       npartoftype(idust) = 0
+       ierr = 1
+       return
+    endif
+    select case(iamtype(iphase(i)))
+    case(igas)
+       npartoftype(idust) = npartoftype(idust) + 1
+       j = j + 1
+       xyzh(:,j) = xyzh(:,i)
+       vxyzu(1:3,j) = vxyzu(1:3,i)
+       call set_particle_type(j,idust)
+    case(iboundary)
+       npartoftype(idustbound) = npartoftype(idustbound) + 1
+       j = j + 1
+       xyzh(:,j) = xyzh(:,i)
+       vxyzu(1:3,j) = vxyzu(1:3,i)
+       call set_particle_type(j,idustbound)
+    end select
+ enddo
+ massoftype(idust) = dtg*massoftype(igas)
+ massoftype(idustbound) = massoftype(idust)
+ write(iprint,'(1x,a,i8)') 'Setup_shock: ndust     = ',npartoftype(idust)
+ write(iprint,'(1x,a,i8)') 'Setup_shock: ndustbound= ',npartoftype(idustbound)
+ write(iprint,'(1x,a,es16.8,/)') 'Setup_shock: mass of dust & dust boundary parts = ', massoftype(idust)
+
+ npart = npart + npartoftype(idust) + npartoftype(idustbound)
+
+end subroutine set_dust_particles
+
+
+!-----------------------------------------------------------------------
+!+
 !  Choose which shock tube problem to set up
 !+
 !-----------------------------------------------------------------------
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
  use dim,       only:mhd,maxvxyzu,use_dust
+ use eos,       only:equationofstate,ieos
  use physcon,   only:pi,Rg,au,solarm
  use options,   only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
+ use options,   only:alphau
  use timestep,  only:dtmax,tmax
  use prompting, only:prompt
  use dust,      only:K_code,idrag
@@ -341,13 +426,15 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
  logical, intent(in)    :: iexist
- integer, parameter     :: nshocks = 10
+ integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
- integer                :: i,choice,dust_method
+ integer                :: i,choice
  real                   :: const,uu,dens,pres,Tgas !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
 #endif
+ integer                :: relativistic_choice
+ real                   :: uthermconst,densleft,densright,pondens,spsound,soundspeed
 !
 !--set default file output parameters
 !
@@ -387,6 +474,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  shocks(7) = 'C-shock'
  shocks(8) = 'Steady shock'
  shocks(9) = 'Radiation shock'
+ shocks(10) = 'Relativistic Sod shock'
 
  do i = 1, nshocks
     if (trim(shocks(i)) /= 'none') write(*,"(a5,i2,1x,a30)") 'Case ', i, shocks(i)
@@ -399,6 +487,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 #else
  choice = 6
 #endif
+#endif
+#ifdef GR
+ choice = 10
 #endif
  call prompt('Enter shock choice',choice,1,nshocks)
  icase = choice
@@ -525,6 +616,40 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xleft      = -1e15/udist
     tmax       = 1e9/utime
     dtmax      = 1e7/utime
+ case(10)
+    !--Sod shock
+    relativistic_choice = 1
+    shocktype = "Mildly-Relativistic Sod shock"
+    gamma      = 5./3.
+    alphau     = 0.1
+    leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
+    rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
+    write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
+    write(*,"(a5,i2,1x,a20)") 'Case ', 2, 'Ultra relativistic'
+    write(*,"(a5,i2,1x,a20)") 'Case ', 3, 'Isothermal'
+    call prompt('Enter relativistic shock choice',relativistic_choice,1,3)
+    select case(relativistic_choice)
+    case(2)
+       shocktype = "Ultra-Relativistic Sod shock"
+       leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
+       rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
+    case(3)
+       shocktype = "Isothermal relativistic shock"
+       ieos        = 4
+       soundspeed  = 0.1
+       call prompt('Enter sound speed',soundspeed,0.,1.)
+       uthermconst = soundspeed**2/(gamma-1.-soundspeed**2)
+       polyk       = uthermconst
+       densleft    = 10.
+       densright   = 1.
+       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.)
+       if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
+       leftstate  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
+       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.)
+       rightstate = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
+       if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
+    case default
+    end select
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  end select
 
@@ -533,17 +658,12 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (abs(xright)  < epsilon(xright))  xright  = -xleft
 
  if (use_dust) then
-    !--shock setup currently does not support two-fluid dust
+    !--shock setup supports both one-fluid and two-fluid dust
     dtg = 1.
     idrag = 2
     K_code = 1000.
-    dust_method = 1
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-    if (dust_method == 1) then
-       use_dustfrac = .true.
-    else
-       use_dustfrac = .false.
-    endif
+    use_dustfrac = (dust_method == 1)
     call prompt('Enter dust to gas ratio',dtg,0.)
     call prompt('Enter constant drag coefficient',K_code(1),0.)
  endif
@@ -567,18 +687,37 @@ end subroutine print_shock_params
 
 !------------------------------------------
 !+
+!  Function to return conserved density
+!+
+!------------------------------------------
+real function get_conserved_density(state) result(rho)
+ use dim, only:gr
+ real, intent(in) :: state(max_states)
+ real :: lorentz,v2
+
+ if (gr) then
+    v2 = dot_product(state(ivx:ivz),state(ivx:ivz))
+    lorentz = 1./sqrt(1.-v2)
+    rho = lorentz*state(idens)
+ else
+    rho = state(idens)
+ endif
+
+end function get_conserved_density
+
+!------------------------------------------
+!+
 !  Write setup parameters to input file
 !+
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu
- use options,      only:use_dustfrac
+ use dim,          only:tagline,maxvxyzu,use_dust
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
- integer                      :: i,ierr1,ierr2,dust_method
+ integer                      :: i,ierr1,ierr2
 
  write(iprint,"(a)") ' Writing '//trim(filename)//' with initial left/right states'
  open(unit=lu,file=filename,status='replace',form='formatted')
@@ -611,10 +750,11 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  endif
  if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing gamma, polyk'
 
- if (use_dustfrac) then
+ if (use_dust) then
     write(lu,"(/,a)") '# dust properties'
-    call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr1)
-    if (ierr1 /= 0) write(*,*) 'ERROR writing dtg'
+    call write_inopt(dust_method,'dust_method','1=one fluid, 2=two fluid',lu,ierr1)
+    call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr2)
+    if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing dust options'
  endif
 
  close(unit=lu)
@@ -628,14 +768,13 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu
- use options,      only:use_dustfrac
+ use dim,          only:maxvxyzu,use_dust
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
  integer,          intent(out) :: ierr
  real,             intent(out) :: gamma,polyk,dtg
- integer                       :: i,nerr,dust_method
+ integer                       :: i,nerr
  type(inopts), allocatable     :: db(:)
 
  call open_db_from_file(db,filename,lu,ierr)
@@ -656,7 +795,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
 
- if (use_dustfrac) then
+ if (use_dust) then
+    call read_inopt(dust_method,'dust_method',db,min=1,errcount=nerr)
     call read_inopt(dtg,'dtg',db,min=0.,errcount=nerr)
  endif
 

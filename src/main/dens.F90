@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
-                     hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
+                     hrho,iphase,igas,idust,iamgas,periodic,&
                      all_active,dustfrac,Bxyz
 #ifdef KROME
  use part,      only:gamma_chem
@@ -592,7 +592,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
@@ -721,7 +721,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
           iphasej   = iphase(j)
           iamtypej  = iamtype(iphasej)
           iamdustj  = iamdust(iphasej)
-          same_type = ((iamtypei == iamtypej) .or. (iamtypej==iboundary))
+          same_type = ((iamtypei == iamtypej) .or. (ibasetype(iamtypej)==iamtypei))
           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
        endif
 
@@ -1055,12 +1055,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  endif
 
  dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
-! strain(1) = (dvxdxi + dvxdxi)
-! strain(2) = (dvxdyi + dvydxi)
-! strain(3) = (dvxdzi + dvzdxi)
-! strain(4) = (dvydyi + dvydyi)
-! strain(5) = (dvydzi + dvzdyi)
-! strain(6) = (dvzdzi + dvzdzi)
 
 end subroutine calculate_strain_from_sums
 
@@ -1247,7 +1241,7 @@ end subroutine reduce_and_print_neighbour_stats
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache)
  use dim,         only:maxvxyzu
- use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
+ use part,        only:get_partinfo,iamgas,mhd,igas,maxphase
  use viscosity,   only:irealvisc
 #ifdef MPI
  use io,          only:id
@@ -1282,22 +1276,11 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     lli = inodeparts(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.
-    endif
-
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
     endif
 
     hi    = cell%h(i)
@@ -1350,7 +1333,8 @@ end subroutine compute_hmax
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu
- use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
+ use part,        only:maxphase,get_partinfo,maxBevol,mhd,igas,iamgas,&
+                       iamboundary,ibasetype
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1373,25 +1357,15 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = (iamtypei==igas)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
     endif
-    if (.not.iactivei) then ! handles case where first particle in cell is inactive
+    if (.not.iactivei) then ! skip boundary particles + inactive particles
        cycle over_parts
-    endif
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
     endif
 
     cell%npcell = cell%npcell + 1
@@ -1441,7 +1415,7 @@ end subroutine start_cell
 !--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1463,23 +1437,13 @@ subroutine finish_cell(cell,cell_converged)
     rhosum = cell%rhosums(:,i)
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.
     endif
-
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
-    endif
+    !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
     pmassi = massoftype(iamtypei)
 
@@ -1577,8 +1541,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 #endif
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
-                       iboundary,maxphase,massoftype,igas,n_R,n_electronT,&
+ use part,        only:hrho,get_partinfo,iamgas,&
+                       maxphase,massoftype,igas,n_R,n_electronT,&
                        eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
                        store_temperature,temperature,maxgradh,idust
  use io,          only:fatal,real4
@@ -1648,15 +1612,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     hi41  = hi21*hi21
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
-       iactivei = .true.
-       iamtypei = igas
-       iamgasi  = .true.
-    endif
-
-    if (iamtypei==iboundary .and. set_boundaries_to_active) then
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.

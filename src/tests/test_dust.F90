@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -142,6 +142,7 @@ subroutine test_dustybox(ntests,npass)
                           fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,temperature,iphase,iamdust,maxtypes,&
                           ndusttypes,alphaind
+ use part,           only:pxyzu,dens,metrics
  use step_lf_global, only:step,init_step
  use deriv,          only:derivs
  use energies,       only:compute_energies,ekin
@@ -278,7 +279,7 @@ subroutine test_dustybox(ntests,npass)
  t = 0
  dtmax = nsteps*dt
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
  !
  ! run dustybox problem
  !
@@ -342,6 +343,7 @@ subroutine test_dustydiffuse(ntests,npass)
                      xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                      set_particle_type,rhoh,temperature,dustprop,ddustprop,&
                      ndusttypes,ndustsmall,alphaind
+ use part,      only:pxyzu,dens,metrics
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -458,7 +460,7 @@ subroutine test_dustydiffuse(ntests,npass)
  fxyzu = 0.
  fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustevol,temperature,time,dt,dtnew)
+             dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
 
  if (do_output) call write_file(time,xyzh,dustfrac,npart)
  do i=1,npart
@@ -496,7 +498,7 @@ subroutine test_dustydiffuse(ntests,npass)
     enddo
     !$omp end parallel do
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                dustprop,ddustprop,dustfrac,ddustevol,temperature,time,dt,dtnew)
+                dustprop,ddustprop,dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
     !$omp parallel do private(i)
     do i=1,npart
        dustevol(:,i) = dustevol(:,i) + 0.5*dt*(ddustevol(:,i) - ddustevol_prev(:,i))
@@ -551,6 +553,7 @@ subroutine test_drag(ntests,npass)
                        xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
                        set_particle_type,rhoh,temperature,dustprop,ddustprop,&
                        idust,iphase,iamtype,ndusttypes,grainsize,graindens,alphaind
+ use part,        only:pxyzu,dens,metrics
  use options,     only:use_dustfrac
  use eos,         only:polyk,ieos
  use kernel,      only:hfact_default
@@ -641,7 +644,7 @@ subroutine test_drag(ntests,npass)
 
  fext = 0.
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustevol,temperature,time,0.,dtnew)
+             dustfrac,ddustevol,temperature,time,0.,dtnew,pxyzu,dens,metrics)
 
 !
 ! check that momentum and energy are conserved

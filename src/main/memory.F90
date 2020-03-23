@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -81,9 +81,9 @@ subroutine allocate_memory(n, part_only)
 
  call bytes2human(nbytes_allocated, sizestring)
  if (nprocs == 1) then
-    write(iprint, '(a)') '---------------------------------------------------------'
-    write(iprint, *) 'Total memory allocated to arrays: ', sizestring
-    write(iprint, '(a)') '---------------------------------------------------------'
+    write(iprint, '(a)') '------------------------------------------------------------'
+    write(iprint, *) 'Total memory allocated to arrays: ', sizestring,' n = ',n
+    write(iprint, '(a)') '------------------------------------------------------------'
  else
     write(iprint, *) id, 'allocated ', sizestring
  endif

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -569,6 +569,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  real                 :: discmass
  !
  i        = 1
+ j        = 1
  discmass = msink
  do while (i <= npart .and. discmass < discmasslim)
     j = indx(i)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    options, part, physcon, sortutils, timestep, units
+!    metric_tools, options, part, physcon, sortutils, timestep, units,
+!    utils_gr
 !+
 !--------------------------------------------------------------------------
 module checksetup
@@ -49,7 +50,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
@@ -98,11 +99,11 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if (hfact < 1.) then
+ if (hfact < 1. .or. hfact /= hfact) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0.) then
+ if (polyk < 0. .or. polyk /= polyk) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
@@ -151,6 +152,7 @@ subroutine check_setup(nerror,nwarn,restart)
        itype = iamtype(iphase(i))
        if (itype < 1 .or. itype > maxtypes) then
           nbad = nbad + 1
+          if (nbad < 10) print*,'ERROR: unknown particle type ',itype,' on particle ',i
        else
           ncount(itype) = ncount(itype) + 1
        endif
@@ -160,20 +162,10 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
     if (any(ncount /= npartoftype)) then
-       print*,'ncount=',ncount,'; npartoftype=',npartoftype
+       print*,'n(via iphase)=',ncount
+       print*,'npartoftype  =',npartoftype
        print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
-    endif
-!
-!--If boundary particles are present, then only gas and boundary particles may exist
-!
-    if (npartoftype(iboundary) > 0) then
-       do i = 1,maxtypes
-          if (npartoftype(i) > 0 .and. (i/=igas .and. i/=iboundary)) then
-             print*, 'Error in setup: boundary particles cannot coexist with non-gas particles'
-             nerror = nerror + 1
-          endif
-       enddo
     endif
  endif
 !
@@ -360,12 +352,13 @@ subroutine check_setup(nerror,nwarn,restart)
           npartoftype(idust) = 0
        else
           if (id==master) then
-             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
-             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+             if (use_hybrid) then
+                print*, "WARNING: HYBRID DUST IMPLEMENTATION IS NOT YET FINISHED (IT'S NOT GONNA RUN ANYWAY)"
+             else
+                print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
                                 '    calculation using the one fluid method (dustfrac) **'
+             endif
           endif
-          nerror = nerror + 1
        endif
     endif
  endif
@@ -411,6 +404,10 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
+
+#ifdef GR
+ call check_gr(npart,nerror,xyzh,vxyzu)
+#endif
 
 !
 !--check dust growth arrays
@@ -473,12 +470,18 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,iTeff,sinks_have_luminosity
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink
+
+ if (gr .and. nptmass > 0) then
+    print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    nwarn = nwarn + 1
+    return
+ endif
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
@@ -617,6 +620,35 @@ subroutine check_setup_dustgrid(nerror,nwarn)
 
 end subroutine check_setup_dustgrid
 
+#ifdef GR
+subroutine check_gr(npart,nerror,xyzh,vxyzu)
+ use metric_tools, only:pack_metric,unpack_metric
+ use utils_gr,     only:get_u0
+ use part,         only:isdead_or_accreted
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real    :: metrici(0:3,0:3,2),gcov(0:3,0:3),u0
+ integer :: ierr,i,nbad
+
+ nbad = 0
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call pack_metric(xyzh(1:3,i),metrici)
+       call unpack_metric(metrici,gcov=gcov)
+       call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+       if (ierr/=0) nbad = nbad + 1
+    endif
+ enddo
+
+ if (nbad > 0) then
+    print*,'Error in setup: ',nbad,' of ',npart,' particles have undefined U0'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_gr
+#endif
+
 !------------------------------------------------------------------
 !+
 ! check for particles with identical positions
@@ -628,10 +660,11 @@ end subroutine check_setup_dustgrid
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
- integer :: i,j
+ integer :: i,j,itypei,itypej
  real    :: dx(3),dx2
  integer, allocatable :: index(:)
  !
@@ -645,16 +678,23 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  ! positions are found.
  !
  nbad = 0
+ itypei = igas
+ itypej = igas
  do i=1,npart
     j = i+1
     dx2 = 0.
+    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
        dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
        dx2 = dot_product(dx,dx)
-       if (dx2 < epsilon(dx2)) then
+       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
           nbad = nbad + 1
-          if (nbad <= 100) print*,'WARNING: particles ',index(i),' and ',index(j),&
-             ' at same position ',xyzh(1:3,index(i)),xyzh(1:3,index(j))
+          if (nbad <= 100) then
+             print*,'WARNING: particles of same type at same position: '
+             print*,' ',index(i),':',xyzh(1:3,index(i))
+             print*,' ',index(j),':',xyzh(1:3,index(j))
+          endif
        endif
        j = j + 1
     enddo

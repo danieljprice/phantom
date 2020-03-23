@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,11 +20,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: analysis, centreofmass, dim, energies, evwrite,
-!    externalforces, fileutils, forcing, initial_params, inject, io,
-!    io_summary, mf_write, mpiutils, options, part, ptmass, quitdump,
-!    readwrite_dumps, readwrite_infile, sort_particles, step_lf_global,
-!    supertimestep, timestep, timestep_ind, timestep_sts, timing
+!  DEPENDENCIES: analysis, centreofmass, cons2prim, derivutils, dim,
+!    energies, evwrite, extern_gr, externalforces, fileutils, forcing,
+!    initial_params, inject, io, io_summary, metric_tools, mf_write,
+!    mpiutils, options, part, ptmass, quitdump, readwrite_dumps,
+!    readwrite_infile, sort_particles, step_lf_global, supertimestep,
+!    timestep, timestep_ind, timestep_sts, timing
 !+
 !--------------------------------------------------------------------------
 module evolve
@@ -44,12 +45,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,rkill
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
- use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
-                            timer_dens,timer_force,timer_link
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
+ use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
@@ -82,6 +83,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:twas
  use timestep_ind,     only:get_dt
 #endif
+#ifdef GR
+ use part,             only:pxyzu,dens,metrics,metricderivs
+ use cons2prim,        only:prim2consall
+ use metric_tools,     only:init_metric,imet_minkowski,imetric
+ use extern_gr,        only:get_grforce_all
+#endif
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -91,7 +98,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
@@ -136,6 +143,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
+ real, parameter :: xor(3)=0.
 
  tprint    = 0.
  nsteps    = 0
@@ -239,6 +247,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call reset_timer(timer_dens,'density')
  call reset_timer(timer_force,'force')
  call reset_timer(timer_link,'link')
+ call reset_timer(timer_extf,'extf')
 
  call flush(iprint)
 #ifdef LIVE_ANALYSIS
@@ -261,6 +270,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     npart_old=npart
 #endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+#ifdef GR
+    call init_metric(npart,xyzh,metrics,metricderivs)
+    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
+    endif
+#endif
 #ifdef IND_TIMESTEPS
     ! find timestep bin associated with dtinject
     nbinmaxprev = nbinmax
@@ -444,7 +460,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
        endif
        if (np_cs_eq_0 > 0) then
-          call fatal('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
+          call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position
@@ -543,6 +559,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write dump file
 !
+       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
        call get_timings(t1,tcpu1)
        if (fulldump) then
           call write_fulldump(time,dumpfile)
@@ -572,10 +589,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                            massoftype(igas),npart,time,ianalysis)
        endif
 #endif
-
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                                             timer_dens,timer_force,timer_link)
+                                             timer_dens,timer_force,timer_link,timer_extf)
           !--Write out summary to log file
           call summary_printout(iprint,nptmass)
        endif
@@ -626,6 +642,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call reset_timer(timer_dens)
        call reset_timer(timer_force)
        call reset_timer(timer_link)
+       call reset_timer(timer_extf)
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1
@@ -710,12 +727,12 @@ end subroutine check_conservation_error
 !----------------------------------------------------------------
 subroutine print_timinginfo(iprint,nsteps,nsteplast,&
            timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-           timer_dens,timer_force,timer_link)
+           timer_dens,timer_force,timer_link,timer_extf)
  use io,     only:formatreal
  use timing, only:timer
  integer,      intent(in) :: iprint,nsteps,nsteplast
  type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                             timer_dens,timer_force,timer_link
+                             timer_dens,timer_force,timer_link,timer_extf
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
@@ -740,6 +757,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  call print_timer(iprint,"step (force)",  timer_force,time_fullstep)
  call print_timer(iprint,"step (dens) ",  timer_dens, time_fullstep)
  call print_timer(iprint,"step (link) ",  timer_link, time_fullstep)
+ call print_timer(iprint,"step (extf) ",  timer_extf, time_fullstep)
  call print_timer(iprint,timer_ev%label,  timer_ev,   time_fullstep)
  call print_timer(iprint,timer_io%label,  timer_io,   time_fullstep)
 

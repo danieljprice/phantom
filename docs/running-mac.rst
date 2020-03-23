@@ -60,12 +60,24 @@ error
    You can inspect what was checked out with ‘git status’.
    and retry the checkout with ‘git checkout -f HEAD’
 
-*Solution:* Use homebrew to install the git-lfs package:
+*Solution:* Use homebrew or macports to install the git-lfs package:
 
 ::
 
    brew install git-lfs
+
+OR
+
+::
+
+   port install git-lfs
+
+followed by
+
+::
+
    git lfs install
+
 
 *Issue*: Sometimes if you installed gfortran from binary (which installs
 to /usr/local/bin) you can get a clash with the copy of \`as’ installed
