@@ -68,11 +68,11 @@ subroutine allocate_linklist
 end subroutine allocate_linklist
 
 subroutine deallocate_linklist
- deallocate(cellatid)
- deallocate(ifirstincell)
- deallocate(nodeglobal)
- deallocate(node)
- deallocate(nodemap)
+ if (allocated(cellatid)) deallocate(cellatid)
+ if (allocated(ifirstincell)) deallocate(ifirstincell)
+ if (allocated(nodeglobal)) deallocate(nodeglobal)
+ if (allocated(node)) deallocate(node)
+ if (allocated(nodemap)) deallocate(nodemap)
 end subroutine deallocate_linklist
 
 subroutine get_hmaxcell(inode,hmaxcell)

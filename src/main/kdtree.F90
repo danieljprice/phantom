@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module kdtree
- use dim,         only:maxp,maxp_hard,ncellsmax,minpart
+ use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
@@ -94,13 +94,13 @@ subroutine allocate_kdtree
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
- deallocate(inoderange)
- deallocate(inodeparts)
+ if (allocated(inoderange)) deallocate(inoderange)
+ if (allocated(inodeparts)) deallocate(inodeparts)
 #ifdef MPI
- deallocate(refinementnode)
+ if (allocated(refinementnode)) deallocate(refinementnode)
 #endif
  !$omp parallel
- deallocate(list)
+ if (allocated(list)) deallocate(list)
  !$omp end parallel
 
 end subroutine deallocate_kdtree
