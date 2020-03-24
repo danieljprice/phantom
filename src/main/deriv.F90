@@ -28,7 +28,7 @@ module deriv
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- public :: derivs
+ public :: derivs, get_derivs_global
  real, private :: stressmax
 
  private
@@ -166,5 +166,38 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  return
 
 end subroutine derivs
+
+!--------------------------------------
+!+
+!  wrapper for the call to derivs
+!  so only one line needs changing
+!  if interface changes
+!
+!  this should NOT be called during timestepping, it is useful
+!  for when one requires just a single call to evaluate derivatives
+!  and store them in the global shared arrays
+!+
+!--------------------------------------
+subroutine get_derivs_global(timing)
+ use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature, &
+                pxyzu,dens,metrics
+ use timing, only:printused,getused
+ use io,     only:id,master
+ real(kind=4), intent(out), optional :: timing
+ real(kind=4) :: t1,t2
+ real :: dtnew
+ real :: time,dt
+
+ time = 0.
+ dt = 0.
+ call getused(t1)
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+             dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
+ call getused(t2)
+ if (id==master) call printused(t1)
+ if (present(timing)) timing = t2 - t1
+
+end subroutine get_derivs_global
 
 end module deriv
