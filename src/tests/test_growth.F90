@@ -333,7 +333,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  call init_growth(ierr)
 
  call get_derivs_global()
- 
+
  call init_step(npart,t,dtmax)
 
  do j=1,npart
