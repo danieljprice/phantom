@@ -1499,22 +1499,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ! non-ideal MHD terms
              !
              if (mhd_nonideal) then
-                call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi, &
-                                  jcbi,jcbcbi,runix,runiy,runiz)
+                call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi,jcbi,jcbcbi,runix,runiy,runiz)
                 dBnonideal = dBnonideal*pmjrho21grkerni
-                if (usej) then
-                   Bj  = sqrt(Bxj**2 + Byj**2 + Bzj**2)
-                   if (Bj > 0.0) then
-                      Bj1 = 1.0/Bj
-                   else
-                      Bj1 = 0.0
-                   endif
-                   curlBj = divcurlB(2:4,j)
-                   call nimhd_get_jcbcb(jcbcbj,jcbj,curlBj,Bxj,Byj,Bzj,Bj1)
-                   call nimhd_get_dBdt(dBnonidealj,eta_nimhd(iohm,j),eta_nimhd(ihall,j),eta_nimhd(iambi,j) &
-                                      ,curlBj,jcbj,jcbcbj,runix,runiy,runiz)
-                   dBnonideal = dBnonideal + dBnonidealj*pmjrho21grkernj
+                Bj  = sqrt(Bxj**2 + Byj**2 + Bzj**2)
+                if (Bj > 0.0) then
+                   Bj1 = 1.0/Bj
+                else
+                   Bj1 = 0.0
                 endif
+                curlBj = divcurlB(2:4,j)
+                call nimhd_get_jcbcb(jcbcbj,jcbj,curlBj,Bxj,Byj,Bzj,Bj1)
+                call nimhd_get_dBdt(dBnonidealj,eta_nimhd(iohm,j),eta_nimhd(ihall,j),eta_nimhd(iambi,j) &
+                                   ,curlBj,jcbj,jcbcbj,runix,runiy,runiz)
+                dBnonideal = dBnonideal + dBnonidealj*pmjrho21grkernj
              endif
              !
              ! dB/dt evolution equation
