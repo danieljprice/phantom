@@ -29,7 +29,7 @@ module wind
 
  private
  ! Shared variables
- real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
+ real, parameter :: Tdust_stop = 1.d-2 ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3 ! Minimum allowed timsestep (for 1D integration)
  integer, parameter :: wind_emitting_sink = 1
  character(len=*), parameter :: label = 'wind'
@@ -288,7 +288,7 @@ end subroutine calc_wind_profile
 !+
 !-----------------------------------------------------------------------
 subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
- !in/out variables in code units (except Jstar,K,mu)
+ !in/out variables in code units (except Jstar,K)
  use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
  use eos,          only:gamma
  real, intent(in)  :: local_time, GM, T0
@@ -318,7 +318,6 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
 #ifdef NUCLEATION
  JKmuS = state%JKmuS
 #endif
-!cs = state%c/unit_velocity
 
 end subroutine wind_profile
 
