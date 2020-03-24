@@ -322,7 +322,7 @@ module part
 contains
 
 subroutine allocate_part
- use allocutils, only:allocate_array,allocate_metric_array
+ use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
  call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
@@ -345,8 +345,8 @@ subroutine allocate_part
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
  call allocate_array('dens', dens, maxgr)
- call allocate_metric_array('metrics', metrics, 2, maxgr)
- call allocate_metric_array('metricderivs', metricderivs, 3, maxgr)
+ call allocate_array('metrics', metrics, 4, 4, 2, maxgr)
+ call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
