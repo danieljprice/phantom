@@ -629,7 +629,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
          call fatal(label,'cooling requires shock and work contributions')
 #ifdef WIND
     if (isink_radiation == 1 .and. idust_opacity == 0 .and. alpha_rad < 1.d-10) &
-         call fatal(label,'no radiation pressure force! change isink_radiation or idust_opacity')
+         call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
 #endif
  endif
  return

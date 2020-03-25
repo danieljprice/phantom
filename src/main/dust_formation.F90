@@ -81,7 +81,7 @@ module dust_formation
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
  real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 0., 55.847, 0.] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
- real, parameter :: Scrit = 2. ! Critical saturation ratio
+ real, parameter :: Scrit = 3. ! Critical saturation ratio
 
  real :: mass_per_H, eps(nElements)
 
@@ -202,7 +202,8 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
  kappa_planck    = 5.9d0 * fC * Tdust
  kappa_rosseland = 6.7d0 * fC * Tdust
 
- kappa_cgs = kappa_rosseland + kappa_gas
+ kappa_cgs = kappa_planck + kappa_gas
+! kappa_cgs = kappa_rosseland + kappa_gas
 
 end subroutine calc_kappa_dust
 
@@ -233,9 +234,9 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  real, parameter :: A0 = 20.7d-16
  real, parameter :: sigma = 1400.
  real, parameter :: theta_inf = A0*sigma/kboltz
- real, parameter :: alpha1 = 0.37
- real, parameter :: alpha2 = 0.34
- real, parameter :: alpha3 = 0.08
+ real, parameter :: alpha1 = 0.37 !sticking coef for C
+ real, parameter :: alpha2 = 0.34 !sticking coef for C2,C2H,C2H2
+ real, parameter :: alpha3 = 0.08 !sticking coef for C3
  real, parameter :: Nl = 5.
  real, parameter :: mproton = 1.6726485d-24
 
@@ -276,7 +277,8 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
- real :: d, i0, i1, i2, i3, i4, i5, dK3
+ real, parameter :: Nl_13 = 10. !(lower grain size limit)**1/3
+ real :: d, i0, i1, i2, i3, i4, i5, dK0, dK1, dK2, DK3
 
  d = dt/taustar
  if (d > 500.) then
@@ -290,12 +292,15 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  i4 = d**3/6. - i3
  i5 = d**4/24. - i4
  Jstar_new = Jstar*i0 + JstarS*i1
- K_new(0) = K(0) + taustar*(Jstar*i1 + JstarS*i2)
- K_new(1) = K(1) + K(0)*dt/(3.*taugr) + taustar**2/(3.*taugr)*(Jstar*i2 + JstarS*i3)
- K_new(2) = K(2) + 2.*K(1)*dt/(3.*taugr) + (dt/(3.*taugr))**2*K(0) + 2.*taustar**3/(3.*taugr)**2 * (Jstar*i3 + JstarS*i4)
- dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) &
-         + (dt/(3.*taugr))**3*K(0) + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
- K_new(3) = K(3) + dK3
+ dK0 = taustar*(Jstar*i1 + JstarS*i2)
+ K_new(0) = K(0) + dK0
+ dK1 = taustar**2/(3.*taugr)*(Jstar*i2 + JstarS*i3)
+ K_new(1) = K(1) + K(0)*dt/(3.*taugr) + dK1 + Nl_13*dK0
+ dK2 = 2.*taustar**3/(3.*taugr)**2 * (Jstar*i3 + JstarS*i4)
+ K_new(2) = K(2) + 2.*K(1)*dt/(3.*taugr) + (dt/(3.*taugr))**2*K(0) + dK2 + 2.*Nl_13*dK1 + Nl_13**2*dK0
+ dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
+     + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
+ K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
 end subroutine evol_K
 
 !---------------------------------------------------------------
