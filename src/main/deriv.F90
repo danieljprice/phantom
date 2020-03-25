@@ -178,13 +178,13 @@ end subroutine derivs
 !  and store them in the global shared arrays
 !+
 !--------------------------------------
-subroutine get_derivs_global(timing)
+subroutine get_derivs_global(tused)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature, &
                 pxyzu,dens,metrics
  use timing, only:printused,getused
  use io,     only:id,master
- real(kind=4), intent(out), optional :: timing
+ real(kind=4), intent(out), optional :: tused
  real(kind=4) :: t1,t2
  real :: dtnew
  real :: time,dt
@@ -196,7 +196,7 @@ subroutine get_derivs_global(timing)
              dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master) call printused(t1)
- if (present(timing)) timing = t2 - t1
+ if (present(tused)) tused = t2 - t1
 
 end subroutine get_derivs_global
 
