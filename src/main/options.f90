@@ -67,7 +67,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha
+ use dim,       only:maxp,maxvxyzu,nalpha,gr
  use kernel,    only:hfact_default
  use eos,       only:polyk2
 
@@ -83,6 +83,7 @@ subroutine set_default_options
  tolh      = 1.e-4           ! tolerance on h iterations
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
+ if (gr) iexternalforce = 1
 
  ! To allow rotational energies to be printed to .ev
  calc_erot = .false.
@@ -115,12 +116,14 @@ subroutine set_default_options
 
  ! artificial thermal conductivity
  alphau = 1.
+ if (gr) alphau = 0.1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
  beta              = 2.0     ! beta viscosity term
+ if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
  ! radius outside which we kill particles
  rkill             = -1.

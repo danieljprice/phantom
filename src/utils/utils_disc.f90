@@ -67,10 +67,10 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  real                             :: psi_x,psi_y,psi_z,tp(nbin)
  real                             :: L_tot(3),L_tot_mag,temp(3),temp_mag
  real                             :: rotate_about_z,rotate_about_y
- real                             :: meanzgas(nbin),zdash,twist(nbin),ai
- real, allocatable                :: zsetgas(:,:)
- integer, allocatable             :: mybin(:)
- integer                          :: i,ii,sorting_choice
+ real                             :: zdash,twist(nbin),ai
+ real, allocatable                :: zsetgas(:,:),myz(:)
+ integer                          :: mybin(npart)
+ integer                          :: i,ii,sorting_choice,iallocerr
  logical                          :: rotate,acceptance
 
 ! Options
@@ -104,9 +104,18 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  angy = 0.0
  angz = 0.0
  twist = 0.0
+ twistprev = 0.0
  mu = G*M_star
 
- allocate(zsetgas(npart,nbin),mybin(npart))
+ allocate(zsetgas(npart,nbin),stat=iallocerr)
+ ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
+ if (iallocerr/=0) then
+    write(*,'(/,a)') ' WARNING: Could not allocate memory for array zsetgas!'
+    write(*,'(a)')   '          (It possibly requires too much memory)'
+    write(*,'(a,/)') '          Height of the disc, H, will be calculated the slow way.'
+    if (allocated(zsetgas)) deallocate(zsetgas)
+    allocate(myz(npart))
+ endif
 
 ! Move everything so that the centre of mass is at the origin
 ! and run everything in CoM frame
@@ -179,9 +188,15 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  do i = 1,nbin
     Ltot = sqrt(Lx(i)*Lx(i) + Ly(i)*Ly(i) + Lz(i)*Lz(i))
 
-    unitlx(i) = Lx(i)/Ltot
-    unitly(i) = Ly(i)/Ltot
-    unitlz(i) = Lz(i)/Ltot
+    if (Ltot<tiny(Ltot)) then
+       unitlx(i) = 0.
+       unitly(i) = 0.
+       unitlz(i) = 0.
+    else
+       unitlx(i) = Lx(i)/Ltot
+       unitly(i) = Ly(i)/Ltot
+       unitlz(i) = Lz(i)/Ltot
+    endif
 
     if (ninbin(i) > 0) then
        h_smooth(i) = h_smooth(i)/ninbin(i)
@@ -205,24 +220,33 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
 
        ! get vertical height above disc midplane == z if disc is not warped
        zdash = unitlx(ii)*xi(1) + unitly(ii)*xi(2) + unitlz(ii)*xi(3)
-       zsetgas(ninbin(ii),ii) = zdash
+       if (iallocerr==0) then
+          zsetgas(ninbin(ii),ii) = zdash
+       else
+          myz(i) = zdash
+       endif
     endif
  enddo
 
 ! Calculate H from the particle positions
- do i = 1,nbin
-    meanzgas(i)  = sum(zsetgas(1:ninbin(i),i))/real(ninbin(i))
-    H(i) = sqrt(sum(((zsetgas(1:ninbin(i),i)-meanzgas(i))**2)/(real(ninbin(i)-1))))
- enddo
-
-! clean up
- deallocate(zsetgas,mybin)
+ if (iallocerr==0) then
+    call calculate_H_fast(nbin,H,zsetgas,ninbin)
+    deallocate(zsetgas) ! clean up
+ else
+    call calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
+    deallocate(myz) ! clean up
+ endif
 
 ! Print angular momentum of accreted particles
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
 
 ! For unit angular momentum accreted, z component
- unitangz = angz/angtot
+ if (angtot<tiny(angtot)) then
+    unitangz = 0.
+ else
+    unitangz = angz/angtot
+ endif
+
  print*,' angular momentum of accreted particles = ',angtot!,angx,angy,angz,unitangz
 
 ! Now loop over rings to calculate required quantities
@@ -286,7 +310,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
           twistprev(i) = 0.0
        endif
        ! Taking into account negative twist
-       if (twist(i) < 0) then
+       if (twist(i) < 0.) then
           twistprev(i) = 2.*pi + twist(i)
        else
           twistprev(i) = twist(i) !cumulative twist
@@ -318,5 +342,66 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  endif
 
 end subroutine disc_analysis
+
+subroutine calculate_H_fast(nbin,H,zsetgas,ninbin)
+ integer, intent(in)  :: nbin
+ real,    intent(out) :: H(:)
+ real,    intent(in)  :: zsetgas(:,:)
+ integer, intent(in)  :: ninbin(:)
+ integer :: ii
+ real    :: meanzii
+
+ do ii = 1,nbin
+    if (ninbin(ii)==0) then
+       meanzii = 0.
+    else
+       meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
+    endif
+    H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
+ enddo
+
+end subroutine calculate_H_fast
+
+subroutine calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
+ integer, intent(in)  :: nbin,npart
+ real,    intent(out) :: H(:)
+ integer, intent(in)  :: mybin(:),ninbin(:)
+ real,    intent(in)  :: myz(:)
+ integer :: ii,i
+ real :: zsum,hsum,zmeanii
+
+ !$omp parallel do default(none) &
+ !$omp private(ii,i,zsum,zmeanii,hsum) &
+ !$omp shared(nbin,npart,mybin,myz,ninbin,H)
+ do ii = 1,nbin
+    zsum = 0.
+    ! For each bin, loop over all the particles and see if they have the correct bin
+    do i = 1,npart
+       if (mybin(i)==ii) then
+          zsum = zsum + myz(i)
+       endif
+    enddo
+    ! Calculat the mean z for the bin
+    if (ninbin(ii)==0) then
+       zmeanii = 0.
+    else
+       zmeanii = zsum/real(ninbin(ii))
+    endif
+    ! Now that we have the mean z for the bin, calculate H for each bin
+    hsum = 0.
+    do i = 1,npart
+       if (mybin(i)==ii) then
+          hsum = hsum + (myz(i) - zmeanii)**2
+       endif
+    enddo
+    if (ninbin(ii)<1) then
+       H(ii) = 0.
+    else
+       H(ii) = sqrt(hsum/real(ninbin(ii)-1))
+    endif
+ enddo
+ !omp end parallel do
+
+end subroutine calculate_H_slow
 
 end module discanalysisutils

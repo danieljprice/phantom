@@ -35,7 +35,8 @@ module part
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh, &
+               gr,maxgr,maxgran
  use dtypekdtree, only:kdnode
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -124,6 +125,15 @@ module part
  character(len=*), parameter :: deltav_label(3) = &
    (/'deltavx','deltavy','deltavz'/)
 !
+!--General relativity
+!
+ real, allocatable :: pxyzu(:,:) !pxyzu(maxvxyzu,maxgr)
+ character(len=*), parameter :: pxyzu_label(4) = (/'px     ','py     ','pz     ','entropy'/)
+ real, allocatable :: dens(:) !dens(maxgr)
+ real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
+ real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+
+!
 !--sink particles
 !
  integer, parameter :: ihacc  = 5 ! accretion radius
@@ -178,6 +188,7 @@ module part
 !--storage associated with/dependent on timestepping
 !
  real, allocatable   :: vpred(:,:)
+ real, allocatable   :: ppred(:,:)
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
@@ -216,7 +227,7 @@ module part
  integer(kind=1), allocatable :: ibin_sts(:)
 
 !
-!--size of the buffer required for transferring particle
+!--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
@@ -332,6 +343,10 @@ subroutine allocate_part
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
  call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
+ call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
+ call allocate_array('dens', dens, maxgr)
+ call allocate_array('metrics', metrics, 4, 4, 2, maxgr)
+ call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
@@ -346,6 +361,7 @@ subroutine allocate_part
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
  call allocate_array('vpred', vpred, maxvxyzu, maxan)
+ call allocate_array('ppred', ppred, maxvxyzu, maxgran)
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
@@ -388,6 +404,10 @@ subroutine deallocate_part
  deallocate(ddustevol)
  deallocate(ddustprop)
  deallocate(deltav)
+ deallocate(pxyzu)
+ deallocate(dens)
+ deallocate(metrics)
+ deallocate(metricderivs)
  deallocate(xyzmh_ptmass)
  deallocate(vxyz_ptmass)
  deallocate(fxyz_ptmass)
@@ -402,6 +422,7 @@ subroutine deallocate_part
  deallocate(divBsymm)
  deallocate(fext)
  deallocate(vpred)
+ deallocate(ppred)
  deallocate(dustpred)
  deallocate(Bpred)
  deallocate(dustproppred)
@@ -865,6 +886,7 @@ subroutine copy_particle(src, dst)
     Bevol(:,dst) = Bevol(:,src)
     Bxyz(:,dst)  = Bxyz(:,dst)
  endif
+ if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
@@ -921,6 +943,7 @@ subroutine copy_particle_all(src,dst)
        eta_nimhd(:,dst) = eta_nimhd(:,src)
     endif
  endif
+ if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)

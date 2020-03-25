@@ -84,9 +84,7 @@ subroutine init_growth(ierr)
  use io,        only:error
  use viscosity, only:irealvisc,shearparam
  integer, intent(out) :: ierr
- integer              :: i
 
- i = 0
  ierr = 0
 
  !--initialise variables in code units

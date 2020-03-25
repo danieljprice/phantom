@@ -202,7 +202,7 @@ for! Use ssplash to look at the dump files produced by phantom:
 
 ::
 
-   ssplash blast_0*
+   ssplash blast_0* -r 6 -dev /xw
 
 For the Sedov example shown above, there’s even an exact solution
 included in splash (use o7 from the splash menu to change to spherical
@@ -210,19 +210,23 @@ coordinates, then plot density as a function of radius, then use o8 to
 plot the Sedov exact solution).
 
 The .ev files, which are just ascii files containing global quantities
-as a function of time, can be visualised using asplash with the -ev (or
+as a function of time:
+
+::
+
+   $ more blast01.ev 
+   # [01        time]   [02        ekin]   [03      etherm]   [04        emag]   [05        epot]   [06        etot]   [07      totmom]   [08      angtot]   [09     rho max]   [10     rho ave]   [11          dt]   [12   totentrop]   [13     rmsmach]   [14        vrms]   [15        xcom]   [16        ycom]   [17        zcom]   [18   alpha max]  
+   0.0000000000E+00   0.0000000000E+00   1.0000000000E+00   0.0000000000E+00   0.0000000000E+00   1.0000000000E+00   0.0000000000E+00   0.0000000000E+00   1.0008253226E+00   1.0008253226E+00   0.0000000000E+00   6.6630010871E-01   0.0000000000E+00   0.0000000000E+00  -1.4823076577E-21  -8.1592566227E-18   1.2378986725E-14   1.0000000000E+00
+   ...
+
+The .ev files can be visualised using any standard plotting tool. For example you can use splash with the -ev (or
 -e) option:
 
 ::
 
-   asplash -e blast*.ev
+   splash -e blast*.ev
 
-where to label the columns properly, set the following environment
-variable:
-
-::
-
-   export ASPLASH_COLUMNSFILE=~/phantom/scripts/columns
+where column labels should be read automatically from the header of the .ev file
 
 For more detailed analysis of Phantom dump files, write yourself an
 analysis module for the :doc:`phantomanalysis <analysis>` utility. Analysis

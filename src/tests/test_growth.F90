@@ -104,13 +104,13 @@ end subroutine test_growth
 subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:igas,idust,npart,xyzh, vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                          dustfrac,dustevol,ddustevol,temperature,iphase,maxtypes,&
+ use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
+                          fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
+                          dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
                           ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test
  use step_lf_global, only:step,init_step
- use deriv,          only:derivs
+ use deriv,          only:get_derivs_global
  use energies,       only:compute_energies
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
@@ -151,7 +151,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  real            :: hfact
  real            :: totmass
  real            :: rhozero
- real            :: dtext_dum
  real            :: Stcomp(20000),Stini(20000)
  real            :: cscomp(20000),tau(20000)
  real            :: s(20000),time,timelim(20000)
@@ -333,8 +332,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  call init_drag(ierr)
  call init_growth(ierr)
 
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum)
+ call get_derivs_global()
 
  call init_step(npart,t,dtmax)
 

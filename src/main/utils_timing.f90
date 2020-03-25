@@ -39,7 +39,6 @@ module timing
     real(kind=4) :: cpu
  end type
 
- type(timer), public     :: timer_dens,timer_force,timer_link
  private
 
 contains
