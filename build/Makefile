@@ -1007,6 +1007,7 @@ ifeq ($(SETUP), testgr)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     METRIC=kerr
+    SETUPFILE= setup_grdisc.f90
 endif
 
 ifeq ($(SETUP), default)
