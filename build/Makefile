@@ -1734,7 +1734,7 @@ endif
 #
 utils: phantomsetup phantomanalysis \
        multirun phantom_moddump \
-       phantom2divv phantom2divb \
+       phantom2divv phantom2divb combinedustdumps \
        diffdumps showheader showarrays ev2mdot phantomevcompare acc2ang \
        phantom2sphNG phantom2gadget testbinary \
        sfutils phantom2pdf-amr splitpart \
