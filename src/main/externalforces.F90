@@ -852,12 +852,10 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  use extern_neutronstar,   only:load_extern_neutronstar
  use extern_Bfield,        only:check_externB_settings
  use extern_gwinspiral,    only:initialise_gwinspiral
- use units,                only:umass,utime,udist
- use physcon,              only:gg,c
+ use units,                only:G_is_unity,c_is_unity,G_code,c_code
  use part,                 only:npart,nptmass
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
- real(kind=8) :: gcode, ccode
 
  ierr = 0
  select case(iexternalforce)
@@ -888,10 +886,9 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     !--check that G=1 in code units
     !
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > 1.e-10) then
+    if (.not.G_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes G=1 in code units but we have',var='G',val=real(gcode))
+                  ' external force assumes G=1 in code units but we have',var='G',val=real(G_code()))
        ierr = ierr + 1
     endif
  end select
@@ -901,10 +898,9 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     !--check that c=1 in code units for prdrag only
     !
-    ccode = c*utime/udist
-    if (abs(ccode-1.) > 1.e-10) then
+    if (.not.c_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes c=1 in code units but we have',var='c',val=real(ccode))
+                  ' external force assumes c=1 in code units but we have',var='c',val=real(c_code()))
        ierr = ierr + 1
     endif
  end select

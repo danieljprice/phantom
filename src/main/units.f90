@@ -279,7 +279,7 @@ end function is_digit
 !  Gravitational constant in code units
 !+
 !---------------------------------------------------------------------------
-real function G_code()
+real(kind=8) function G_code()
  use physcon, only:gg
 
  G_code = gg*umass*utime**2/udist**3
@@ -291,7 +291,7 @@ end function G_code
 !  speed of light in code units
 !+
 !---------------------------------------------------------------------------
-real function c_code()
+real(kind=8) function c_code()
  use physcon, only:c
 
  c_code = c*utime/udist
