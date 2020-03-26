@@ -31,7 +31,8 @@
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
+               maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
@@ -1506,6 +1507,32 @@ subroutine delete_particles_outside_cylinder(center, radius, zmax)
     endif
  enddo
 end subroutine delete_particles_outside_cylinder
+
+!----------------------------------------------------------------
+!+
+!  Delete particles within radius
+!+
+!----------------------------------------------------------------
+subroutine delete_dead_particles_inside_radius(center,radius,np)
+ use io, only:fatal
+ real, intent(in) :: center(3), radius
+ integer, intent(inout) :: np
+ integer :: i
+ real :: r(3), radius_squared
+
+
+ radius_squared = radius**2
+ do i=1,npart
+    if (isdead_or_accreted(xyzh(4,i))) then
+       r = xyzh(1:3,i) - center
+       if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+    endif
+ enddo
+ call shuffle_part(np)
+ if (np /= sum(npartoftype)) call fatal('del_dead_part_outside_sphere','particles not conserved')
+
+ return
+end subroutine delete_dead_particles_inside_radius
 
 !----------------------------------------------------------------
 !+

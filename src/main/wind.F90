@@ -36,11 +36,11 @@ module wind
 
  ! input parameters
  real :: Mstar_cgs, Rstar_cgs, Lstar_cgs, wind_gamma, Mdot_cgs, wind_temperature, Tstar
- real :: u_to_temperature_ratio
+ real :: u_to_temperature_ratio,deltaR_cgs
 
  ! wind properties
  type wind_state
-    real :: dt, time, r, v, a, time_end, Tg, Teq, mu
+    real :: dt, time, r, r0, v, a, time_end, Tg, Teq, mu
     real :: gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
     real :: tau_lucy, kappa
 #ifdef NUCLEATION
@@ -51,8 +51,8 @@ module wind
  end type wind_state
 contains
 
-subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind)
- use units,          only:umass,utime
+subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind, dR_osc)
+ use units,          only:umass,utime,udist
  use physcon,        only:c,solarm,years
  use eos,            only:gamma
 #ifdef NUCLEATION
@@ -63,7 +63,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind)
 #endif
 
 
- real, intent(in) :: Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind
+ real, intent(in) :: Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind, dR_osc
 
  Mstar_cgs = Mstar_in*solarm
  wind_gamma = gamma
@@ -71,6 +71,7 @@ subroutine setup_wind(Mstar_in, Rstar_cg, Mdot_code, u_to_T, Twind)
  Mdot_cgs = Mdot_code * umass/utime
  Rstar_cgs = Rstar_cg
  u_to_temperature_ratio = u_to_T
+ deltaR_cgs = dR_osc*udist
 
 #ifdef NUCLEATION
  if (size(state%JKmuS) /= n_nucleation) call fatal(label,'wrong dimension for JKmuS')
@@ -111,6 +112,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  endif
  state%time = 0.
  state%r_old = 0.
+ state%r0 = r0
  state%r = r0
  state%v = v0
  state%a = 0.
@@ -122,6 +124,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #ifdef NUCLEATION
  state%JKmuS = 0.
  state%jKmuS(6) = gmw
+ state%alpha = 1.
 #endif
  state%tau_lucy = 2./3.
  state%mu = gmw
@@ -320,113 +323,5 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
 #endif
 
 end subroutine wind_profile
-
-
-
-! !-----------------------------------------------------------------------
-! !
-! !  Determine the initial stellar radius for a trans-sonic solution
-! !
-! !-----------------------------------------------------------------------
-! subroutine profile_findr0(time_end, T0, r0, v0, step_factor, nsteps, sonic)
-! !all quantities in cgs
-!  use physcon, only:steboltz,pi
-!  real, intent(in) :: time_end, T0, step_factor
-!  real, intent(inout) :: r0
-!  real, intent(out) :: v0, sonic(8)
-!  integer, intent(out) :: nsteps
-!  logical :: verbose = .false.
-
-!  real :: r0min, r0max, r0best, v0best, tau_lucy_best, initial_guess
-!  integer :: i, nstepsbest
-!  type(wind_state) :: state
-
-! ! Find lower bound for initial radius
-!  !r0 = sqrt(Lstar_cgs/(4.*pi*steboltz*Tstar**4))
-!  initial_guess = r0
-!  r0max = r0
-!  if (verbose) print *, '[profile_findr0] Searching lower bound for r0'
-!  do
-!     Rstar_cgs = r0
-!     call get_initial_wind_speed(r0, T0, v0, sonic, 1)
-!     call calc_wind_profile(r0, v0, T0, time_end, state)
-!     if (verbose) print *, state%error,' r0 = ', r0, 'tau_lucy = ', state%tau_lucy
-!     if (state%error) then
-! ! something wrong happened!
-!        r0 = r0 / step_factor
-!     elseif (r0 < initial_guess/10.) then
-!        r0min = r0
-!        print *,'radius getting too small!',r0,step_factor
-!        exit
-!     elseif (state%tau_lucy < 0.) then
-!        r0min = r0
-!        exit
-!     else
-!        r0max = r0
-!        r0 = r0 / step_factor
-!     endif
-!  enddo
-!  if (verbose) print *, 'Lower bound found for r0 :', r0min
-
-! ! Find upper bound for initial radius
-!  r0 = r0max
-!  if (verbose) print *, 'Searching upper bound for r0'
-!  do
-!     Rstar_cgs = r0
-!     call get_initial_wind_speed(r0, T0, v0, sonic, 1)
-!     call calc_wind_profile(r0, v0, T0, time_end, state)
-!     if (verbose) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
-!     if (state%error) then
-!        ! something wrong happened!
-!        r0 = r0 * step_factor
-!     elseif (state%tau_lucy > 0.) then
-!        r0max = r0
-!        exit
-!     else
-!        r0min = max(r0, r0min)
-!        r0 = r0 * step_factor
-!     endif
-!  enddo
-!  if (verbose) print *, 'Upper bound found for r0 :', r0max
-
-! ! Find the initial radius by dichotomy between r0min and r0max
-!  if (verbose) print *, 'Searching r0 by dichotomy'
-!  r0best = r0
-!  v0best = v0
-!  nstepsbest = state%nsteps
-!  tau_lucy_best = state%tau_lucy
-!  do i=1,50
-!     r0 = (r0min+r0max)/2.
-!     Rstar_cgs = r0
-!     call get_initial_wind_speed(r0, T0, v0, sonic, 1)
-!     call calc_wind_profile(r0, v0, T0, time_end, state)
-!     if (verbose) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
-!     if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
-!        r0best = r0
-!        v0best = v0
-!        nstepsbest = state%nsteps
-!        tau_lucy_best = state%tau_lucy
-!     endif
-!     if (.not. state%error) then
-!        if (state%tau_lucy < 0.) then
-!           r0min = r0
-!        else
-!           r0max = r0
-!        endif
-!     else
-!        r0max = r0max + 12345.
-!     endif
-!     if (abs(r0min-r0max)/r0max < 1.e-5) exit
-!  enddo
-!  r0 = r0best
-!  v0 = v0best
-!  nsteps = nstepsbest
-!  if (verbose) then
-!     print *, 'Best initial radius found: r0 = ', r0,' , initial_guess = ',initial_guess
-!     print *, '  with v0 = ', v0,' , T0 = ',T0
-!     print *, '  it gives tau_lucy = ', tau_lucy_best
-!     print *, '  at t = ', time_end
-!  endif
-! end subroutine profile_findr0
 
 end module wind
