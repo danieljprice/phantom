@@ -280,7 +280,7 @@ end function is_digit
 !+
 !---------------------------------------------------------------------------
 real function G_code()
-use physcon, only:gg
+ use physcon, only:gg
 
  G_code = gg*umass*utime**2/udist**3
 
