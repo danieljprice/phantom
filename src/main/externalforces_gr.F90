@@ -19,8 +19,7 @@
 !    accradius1      -- soft accretion radius of black hole
 !    accradius1_hard -- hard accretion radius of black hole
 !
-!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, physcon,
-!    units
+!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, units
 !+
 !--------------------------------------------------------------------------
 module externalforces

@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: allocutils, dim, io, kdtree, linklist, part, photoevap
+!  DEPENDENCIES: allocutils, dim, io, linklist, part, photoevap
 !+
 !--------------------------------------------------------------------------
 module memory
