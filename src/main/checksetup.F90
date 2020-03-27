@@ -54,15 +54,13 @@ subroutine check_setup(nerror,nwarn,restart)
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:umass,udist,utime
- use physcon,         only:gg
+ use units,           only:G_is_unity,G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
  character(len=3) :: string
@@ -301,13 +299,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check G=1 in code units where necessary
 !
  if (gravity .or. nptmass > 0) then
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > max(1.e-15,real(epsilon(gcode)))) then
+    if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'Error in setup: self-gravity ON but G /= 1 in code units'
+          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',G_code()
        elseif (nptmass > 0) then
-          print*,'Error in setup: sink particles used but G /= 1 in code units'
-          print*,gcode,gcode-1.,epsilon(gcode)
+          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',G_code()
        endif
        nerror = nerror + 1
     endif
