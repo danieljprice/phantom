@@ -38,14 +38,15 @@ module dust_formation
 !--runtime settings for this module
 !
 
+ real, public :: kappa_gas   = 2.d-4
+
  private
+
  character(len=*), parameter :: label = 'dust_formation'
  real :: wind_CO_ratio = 2.
  real :: bowen_kmax  = 2.7991
  real :: bowen_Tcond = 1500.
  real :: bowen_delta = 60.
- real :: kappa_gas   = 2.d-4
-
 
 ! Indices for elements and molecules:
  integer, parameter :: nElements = 10, nMolecules = 25

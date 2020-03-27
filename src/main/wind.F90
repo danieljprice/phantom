@@ -91,14 +91,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
  use part,             only:xyzmh_ptmass,iTeff,ilum
- use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,calc_alpha_dust,idust_opacity
+ use dust_formation,   only:kappa_gas,evolve_chem
  use units,            only:umass,unit_energ,utime
- use cooling,          only:calc_cooling_rate,calc_Teq
- use options,          only:icooling
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
- real :: tau_lucy_bounded,dlnQ_dlnT
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -128,7 +125,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #endif
  state%tau_lucy = 2./3.
  state%mu = gmw
- state%kappa = 0.
+ state%kappa = kappa_gas
  state%Q = 0.
  state%dQ_dr = 0.
  state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
@@ -141,28 +138,8 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
 #ifdef NUCLEATION
  call evolve_chem(0., T0, state%rho, state%JKmuS)
- call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
- call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  state%mu = state%jKmuS(6)
-#else
- if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Teq)
 #endif
-
- if (icooling >0) then
-    if (r0 < Rstar_cgs .and. calc_Teq) then
-       call fatal(label,'cannot determine equilibrium temperature because injection_radius < Rstar')
-    else
-       if (calc_Teq) then
-          tau_lucy_bounded = max(0., state%tau_lucy)
-          state%Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
-       endif
-#ifdef NUCLEATION
-       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu,state%JKmuS(4),state%kappa)
-#else
-       call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
-#endif
-    endif
- endif
  state%p = state%rho*Rg*state%Tg/state%mu
  state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
@@ -194,7 +171,7 @@ subroutine wind_step(state)
  alpha_old = state%alpha
  state%mu  = state%JKmus(6)
  call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
- call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
+! call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
  if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
 #endif
 
@@ -230,7 +207,7 @@ subroutine wind_step(state)
     Q_old = state%Q
     if (calc_Teq) then
        tau_lucy_bounded = max(0., state%tau_lucy)
-       state%Teq = Tstar * (.5*(1.-sqrt(1.-(Rstar_cgs/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+       state%Teq = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     endif
 #ifdef NUCLEATION
     call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
