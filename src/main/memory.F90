@@ -56,7 +56,7 @@ subroutine allocate_memory(n, part_only)
     ! (this catches the case where first call was made with part_only=.true.)
     !
     if (.not.part_only_ .and. .not. allocated(ifirstincell)) then
-       write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS'
+       !write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS' ! no need to broadcast this
        call allocate_linklist()
     endif
     ! skip remaining memory allocation (arrays already big enough)

@@ -777,7 +777,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        !if (any(xyzh_soa(inoderange(1,ir):inoderange(2,ir),iaxis) <= xpivot)) print*,' ERROR x <= xpivot on right'
 
        if (nr + nl  /=  npnode) then
-          call error('maketree','number of left + right != parent number of particles while splitting node')
+          call error('maketree','number of left + right != parent while splitting (likely cause: NaNs in position arrays)')
        endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
@@ -883,68 +883,6 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
  nr = max_r - min_r + 1
 
 end subroutine sort_particles_in_cell
-
-subroutine sort_old(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
- integer, intent(in)  :: iaxis,imin,imax
- integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
- real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:)
- integer,         intent(inout) :: inodeparts(:)
- integer :: counterl,counterr,inodeparts_swap(imax),i,j
- integer(kind=1) :: iphase_swap(imax)
- real :: xyzh_swap(imax,4),xi
-
- nl = imin
- nr = imax
- inodeparts_swap(nl:nr) = inodeparts(nl:nr)
- do j=1,4
-    xyzh_swap(nl:nr,j) = xyzh_soa(nl:nr,j)
- enddo
- iphase_swap(nl:nr) = iphase_soa(nl:nr)
- counterl = 0
- !DIR$ ivdep
- do i = imin, imax
-    xi = xyzh_swap(i,iaxis)
-    if (xi  <=  xpivot) then
-       inodeparts(nl+counterl) = inodeparts_swap(i)
-       xyzh_soa(nl+counterl,1) = xyzh_swap(i,1)
-       xyzh_soa(nl+counterl,2) = xyzh_swap(i,2)
-       xyzh_soa(nl+counterl,3) = xyzh_swap(i,3)
-       xyzh_soa(nl+counterl,4) = xyzh_swap(i,4)
-       iphase_soa(nl+counterl) = iphase_swap(i)
-       counterl = counterl + 1
-    endif
- enddo
- nl = nl + counterl
- counterr=0
- !DIR$ ivdep
- do i = imin, imax
-    xi = xyzh_swap(i,iaxis)
-    if (xi  >  xpivot) then
-       inodeparts(nl+counterr) = inodeparts_swap(i)
-       xyzh_soa(nl+counterr,1) = xyzh_swap(i,1)
-       xyzh_soa(nl+counterr,2) = xyzh_swap(i,2)
-       xyzh_soa(nl+counterr,3) = xyzh_swap(i,3)
-       xyzh_soa(nl+counterr,4) = xyzh_swap(i,4)
-       iphase_soa(nl+counterr) = iphase_swap(i)
-       counterr = counterr + 1
-    endif
- enddo
- nr = nr - counterr
- min_l = imin
- max_l = nl - 1
- min_r = nr + 1
- max_r = imax
-! inoderange(1,il) = inoderange(1,nnode)
- !inoderange(2,il) = nl - 1
- !inoderange(1,ir) = nr + 1
- !inoderange(2,ir) = inoderange(2,nnode)
-! nl = nl - inoderange(1,nnode)
-! nr = inoderange(2,nnode) - nr
- nl = max_l - min_l + 1
- nr = max_r - min_r + 1
-
-end subroutine sort_old
 
 !----------------------------------------------------------------
 !+
