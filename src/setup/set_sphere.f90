@@ -97,8 +97,9 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
                              hfact,np,np_requested,xyzh,rmax,vol_sphere,nptot)
  else
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                     zmin,zmax,delta,hfact,np,xyzh,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.)
+                     zmin,zmax,delta,hfact,np,xyzh,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.,centre=.true.)
  endif
+
  !
  ! allow stretch mapping to give arbitrary density profiles
  ! in any of the coordinate directions as specified by

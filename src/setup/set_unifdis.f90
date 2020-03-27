@@ -37,7 +37,7 @@ contains
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,dir,geom)
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom)
  use random,     only:ran2
  use part,       only:periodic
  use stretchmap, only:set_density_profile
@@ -53,7 +53,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose
+ logical,          intent(in),    optional :: verbose,centre
 
  integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
@@ -61,11 +61,11 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real               :: delx,dely
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
- !real               :: xcentre,ycentre,zcentre
+ real               :: xcentre,ycentre,zcentre
  real               :: rmin2,rmax2,rcylmin2,rcylmax2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
- logical            :: is_verbose
+ logical            :: is_verbose,centre_lattice
  character(len=*), parameter :: fmt1 = "(/,1x,16('-'),' particles set on ',i3,2(' x ',i3),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
@@ -122,6 +122,11 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     is_verbose = verbose
  endif
 
+ centre_lattice = .true.
+ if (present(centre)) then
+    centre_lattice = centre
+ endif
+
  select case(trim(lattice))
  case('cubic')
     nx = nint(dxbound/delta)
@@ -141,18 +146,18 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     endif
     npnew=nx*ny*nz
 
-    xstart = 0.
-    ystart = 0.
-    zstart = 0.
+    xstart = xmin
+    ystart = ymin
+    zstart = zmin
 
     ipart = np
     do k=1,nz
-       zi = zmin + (k-0.5)*deltaz + zstart
+       zi = zstart + (k-0.5)*deltaz
        !print*,' z = ',zi
        do j=1,ny
-          yi = ymin + (j-0.5)*deltay + ystart
+          yi = ystart + (j-0.5)*deltay
           do i=1,nx
-             xi = xmin + (i-0.5)*deltax + xstart
+             xi = xstart + (i-0.5)*deltax
 
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
@@ -297,9 +302,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 !
 !--set uniform particle distribution, centred at the origin
 !
-    !xcentre = 0.5*(xmin + xmax)
-    !ycentre = 0.5*(ymin + ymax)
-    !zcentre = 0.5*(zmin + zmax)
+    xcentre = 0.5*(xmin + xmax)
+    ycentre = 0.5*(ymin + ymax)
+    zcentre = 0.5*(zmin + zmax)
     ! xmin = -rmax
     ! ymin = -rmax
     ! zmin = -rmax
@@ -387,17 +392,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           endif
        endif
 
-       !xstart = xcentre - 0.5*nx*deltax
-       !ystart = ycentre - 0.5*ny*deltay
-       !zstart = zcentre - 0.5*nz*deltaz
-
-       !   xstart = xmin
-       !   ystart = ymin + 0.5*dely
-       !   zstart = zmin + 0.5*deltaz
-
-       xstart = xmin + 0.5*delx
-       ystart = ymin + 0.5*dely
-       zstart = zmin + 0.5*deltaz
+       if (centre_lattice) then
+          xstart = xcentre - 0.5*nx*deltax
+          ystart = ycentre - 0.5*ny*deltay
+          zstart = zcentre - 0.5*nz*deltaz
+       else
+          xstart = xmin + 0.5*delx
+          ystart = ymin + 0.5*dely
+          zstart = zmin + 0.5*deltaz 
+       endif
 
        jy = mod(l, 2)
        jz = mod(m, 3)
