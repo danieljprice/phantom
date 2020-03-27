@@ -15,7 +15,7 @@ pipelines:
           - make SETUP=testkd MPI=yes OPENMP=no
           - mpirun --allow-run-as-root --mca btl self,sm -np 4 bin/phantom test
           - make SETUP=testgr
-          - ./bin/phantom testgr
+          - ./bin/phantom test gr
     - step:
         name: deploy to staging
         deployment: staging

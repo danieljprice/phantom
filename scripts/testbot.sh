@@ -92,6 +92,8 @@ for setup in $listofsetups; do
        arg="nimhd";
     elif [ $setup == "testgrowth" ]; then
        arg="dustgrowth";
+    elif [ $setup == "testgr" ]; then
+       arg="gr"
     else
        arg="";
     fi
