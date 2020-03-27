@@ -76,7 +76,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
  !
  !  This doesn't doesn't actually get used in gr...
- ! 
+ !
 end subroutine externalforce
 
 !-----------------------------------------------------------------------

@@ -399,7 +399,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        else
           xstart = xmin + 0.5*delx
           ystart = ymin + 0.5*dely
-          zstart = zmin + 0.5*deltaz 
+          zstart = zmin + 0.5*deltaz
        endif
 
        jy = mod(l, 2)
