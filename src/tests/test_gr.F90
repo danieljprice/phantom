@@ -23,6 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 module testgr
+ use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
 
  public :: test_gr
@@ -54,7 +55,6 @@ end subroutine test_gr
 !+
 !-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
- use testutils,    only:checkval,update_test_scores
  use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
 #ifdef KERR
  use metric,       only:a
@@ -104,11 +104,10 @@ end subroutine test_precession
 !+
 !-----------------------------------------------------------------------
 subroutine test_inccirc(ntests,npass)
- use physcon,   only:pi
- use testutils, only:checkval,update_test_scores
+ use physcon,      only:pi
  use metric_tools, only:imetric,imet_kerr
 #ifdef KERR
- use metric,    only:a
+ use metric,       only:a
 #else
  real :: a
 #endif
@@ -268,35 +267,39 @@ end subroutine calculate_angmom
 !-----------------------------------------------------------------------
 subroutine test_combinations(ntests,npass)
  use physcon,         only:pi
- use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
  use eos,             only:gamma,equationofstate,ieos
  use utils_gr,        only:dot_product_gr
- use metric_tools,    only:get_metric
+ use metric_tools,    only:get_metric,get_metric_derivs,imetric,imet_kerr
  use metric,          only:metric_type
  integer, intent(inout) :: ntests,npass
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(4),density(4),errmax,errmaxg,errmaxc
+ real    :: utherm(4),density(4),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
+ real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
  integer :: i,j,k,l,m,n,ii,jj
- integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim,ncheckg,nfailg
+ integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim
+ integer :: ncheckg,nfailg,ncheckd,nfaild
  real, parameter :: tol = 2.e-15
  real, parameter :: tolc = 1.e-12
-
+ real, parameter :: told = 1.5e-7
 
  write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
  write(*,'(a,/)') '    metric type = '//trim(metric_type)
 
- ntests = ntests + 3
+ ntests = ntests + 4
  ncheck_metric = 0
  nfail_metric = 0
  ncheckg = 0
  nfailg  = 0
  ncheck_cons2prim = 0
  nfail_cons2prim = 0
+ ncheckd = 0
+ nfaild = 0
  errmax = 0.
  errmaxg = 0.
  errmaxc = 0.
+ errmaxd = 0.
 
  gamma = 5./3.
 
@@ -321,8 +324,17 @@ subroutine test_combinations(ntests,npass)
           y = ri*sin(thetai)*sin(phii)
           z = ri*cos(thetai)
           position = (/x,y,z/)
+
           call get_metric(position,gcov,gcon,sqrtg)
           call test_metric_i(gcov,gcon,sqrtg,ncheck_metric,nfail_metric,errmax,ncheckg,nfailg,errmaxg,tol)
+
+          ! Check below is because Kerr metric derivatives currently badly behaved at the poles
+          ! Would be nice to remove this...
+          if ((imetric /= imet_kerr) .or. (x**2 + y**2 > 1.e-12)) then
+             call get_metric_derivs(position,dgdx1,dgdx2,dgdx3)
+             call test_metric_derivs_i(position,dgdx1,dgdx2,dgdx3,ncheckd,nfaild,errmaxd,told)
+          endif
+
           do l=1,size(vx)
              vxi=vx(l)
              do m=1,size(vy)
@@ -357,9 +369,11 @@ subroutine test_combinations(ntests,npass)
 
  call checkvalbuf_end('inv * metric = identity',ncheck_metric,nfail_metric,errmax,tol)
  call checkvalbuf_end('sqrt g = -det(g)',ncheckg,nfailg,errmaxg,tol)
+ call checkvalbuf_end('d/dx^i g_munu',ncheckd,nfaild,errmaxd,told)
  call checkvalbuf_end('conservative to primitive',ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
  if (nfail_metric==0)    npass = npass + 1
  if (nfailg==0)          npass = npass + 1
+ if (nfaild==0)          npass = npass + 1
  if (nfail_cons2prim==0) npass = npass + 1
 
 end subroutine test_combinations
@@ -370,7 +384,6 @@ end subroutine test_combinations
 !+
 !----------------------------------------------------------------
 subroutine test_metric_i(gcov,gcon,sqrtg,ncheck,nfail,errmax,ncheckg,nfailg,errmaxg,tol)
- use testutils,  only:checkvalbuf
  use inverse4x4, only:inv4x4
  integer, intent(inout)   :: ncheck,nfail,ncheckg,nfailg
  real,    intent(in)      :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,tol
@@ -410,12 +423,36 @@ end subroutine test_metric_i
 
 !----------------------------------------------------------------
 !+
+!  Check that analytic metric derivs give similar answer to
+!  numerical differences of the metric
+!+
+!----------------------------------------------------------------
+subroutine test_metric_derivs_i(x,dgdx1,dgdx2,dgdx3,ncheck,nfail,errmax,tol)
+ use metric_tools, only:numerical_metric_derivs
+ real, intent(in) :: x(1:3),dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3),tol
+ integer, intent(inout) :: ncheck,nfail
+ real,    intent(inout) :: errmax
+ real :: dgdx_1(0:3,0:3),dgdx_2(0:3,0:3),dgdx_3(0:3,0:3)
+ integer :: j,i
+
+ call numerical_metric_derivs(x,dgdx_1,dgdx_2,dgdx_3)
+ do j=0,3
+    do i=0,3
+       call checkvalbuf(dgdx1(i,j),dgdx_1(i,j),tol,'dgcov/dx',nfail,ncheck,errmax)
+       call checkvalbuf(dgdx2(i,j),dgdx_2(i,j),tol,'dgcov/dy',nfail,ncheck,errmax)
+       call checkvalbuf(dgdx3(i,j),dgdx_3(i,j),tol,'dgcov/dz',nfail,ncheck,errmax)
+    enddo
+ enddo
+
+end subroutine test_metric_derivs_i
+
+!----------------------------------------------------------------
+!+
 !  Test of the conservative to primitive variable solver
 !+
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy
- use testutils,       only:checkvalbuf
  use metric_tools,    only:pack_metric
  use eos,             only:gamma
  real, intent(in) :: x(1:3),v(1:3),dens,u,p,tol
