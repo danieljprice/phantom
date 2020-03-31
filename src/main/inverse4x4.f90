@@ -7,7 +7,7 @@
 !+
 !  MODULE: inverse4x4
 !
-!  DESCRIPTION: None
+!  DESCRIPTION: Invert a 4 x 4 matrix. Returns zero if determinant is zero
 !
 !  REFERENCES: None
 !
@@ -57,6 +57,11 @@ pure subroutine inv4x4(A,B,det)
        a14*a22*a31*a43 - a12*a24*a31*a43 - a14*a21*a32*a43 + a11*a24*a32*a43 + &
        a12*a21*a34*a43 - a11*a22*a34*a43 - a13*a22*a31*a44 + a12*a23*a31*a44 + &
        a13*a21*a32*a44 - a11*a23*a32*a44 - a12*a21*a33*a44 + a11*a22*a33*a44
+
+ if (abs(det) < tiny(0.)) then
+    B = 0.
+    return
+ endif
 
  det1 = 1./det
 

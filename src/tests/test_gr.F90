@@ -7,9 +7,9 @@
 !+
 !  MODULE: testgr
 !
-!  DESCRIPTION: None
+!  DESCRIPTION: Unit tests of General Relativity
 !
-!  REFERENCES: None
+!  REFERENCES: Liptai & Price (2019), MNRAS 
 !
 !  OWNER: David Liptai
 !
@@ -31,6 +31,11 @@ module testgr
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!   Unit tests for General Relativity
+!+
+!-----------------------------------------------------------------------
 subroutine test_gr(ntests,npass)
  use io,  only:id,master
  integer, intent(inout)   :: ntests,npass
@@ -43,7 +48,11 @@ subroutine test_gr(ntests,npass)
 
 end subroutine test_gr
 
-! Indivdual test subroutines start here
+!-----------------------------------------------------------------------
+!+
+!   Test of orbital precession in the Kerr metric
+!+
+!-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
  use testutils,    only:checkval,update_test_scores
  use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
@@ -89,6 +98,11 @@ subroutine test_precession(ntests,npass)
 
 end subroutine test_precession
 
+!-----------------------------------------------------------------------
+!+
+!   Test of inclined circular orbit in the Kerr metric
+!+
+!-----------------------------------------------------------------------
 subroutine test_inccirc(ntests,npass)
  use physcon,   only:pi
  use testutils, only:checkval,update_test_scores
@@ -155,6 +169,12 @@ subroutine test_inccirc(ntests,npass)
 
 end subroutine test_inccirc
 
+!-----------------------------------------------------------------------
+!+
+!   test the geodesic integrator using test particle integration
+!   and the step_extern_gr routine
+!+
+!-----------------------------------------------------------------------
 subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use io,             only:iverbose
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes
@@ -218,6 +238,11 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
 
 end subroutine integrate_geodesic
 
+!-----------------------------------------------------------------------
+!+
+!   compute the angular momentum for the orbit
+!+
+!-----------------------------------------------------------------------
 subroutine calculate_angmom(xyzi,metrici,massi,vxyzi,angmomi)
  use metric_tools, only:unpack_metric
  use vectorutils,  only:cross_product3D
@@ -236,6 +261,11 @@ subroutine calculate_angmom(xyzi,metrici,massi,vxyzi,angmomi)
 
 end subroutine calculate_angmom
 
+!-----------------------------------------------------------------------
+!+
+!  Test various combinations of position, velocity and fluid quantities
+!+
+!-----------------------------------------------------------------------
 subroutine test_combinations(ntests,npass)
  use physcon,         only:pi
  use testutils,       only:checkvalbuf,checkvalbuf_end,checkval
@@ -245,25 +275,34 @@ subroutine test_combinations(ntests,npass)
  use metric,          only:metric_type
  integer, intent(inout) :: ntests,npass
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(4),density(4)
+ real    :: utherm(4),density(4),errmax,errmaxg,errmaxc
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
- integer :: i,j,k,l,m,n,ii,jj,count
- integer :: ncomb_metric,npass_metric,ncomb_cons2prim,npass_cons2prim
+ integer :: i,j,k,l,m,n,ii,jj
+ integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim,ncheckg,nfailg
+ real, parameter :: tol = 2.e-15
+ real, parameter :: tolc = 1.e-12
+
+
  write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
  write(*,'(a,/)') '    metric type = '//trim(metric_type)
 
- ntests = ntests + 1
- ncomb_metric = 0
- npass_metric = 0
- ncomb_cons2prim = 0
- npass_cons2prim = 0
+ ntests = ntests + 3
+ ncheck_metric = 0
+ nfail_metric = 0
+ ncheckg = 0
+ nfailg  = 0
+ ncheck_cons2prim = 0
+ nfail_cons2prim = 0
+ errmax = 0.
+ errmaxg = 0.
+ errmaxc = 0.
 
  gamma = 5./3.
 
  radii  = (/2.1,2.5,3.0,5.0,10.0/)
  theta  = (/0.,pi/4.,pi/2.,3.*pi/4.,pi/)
- phi    = (/0.,pi/4.,pi/2.,pi,3*pi/2./)
+ phi    = (/0.,pi/4.,pi/2.,pi,3.*pi/2./)
 
  vx = (/0.,0.25,0.5,0.75,1./)
  vy = vx
@@ -282,6 +321,8 @@ subroutine test_combinations(ntests,npass)
           y = ri*sin(thetai)*sin(phii)
           z = ri*cos(thetai)
           position = (/x,y,z/)
+          call get_metric(position,gcov,gcon,sqrtg)
+          call test_metric_i(gcov,gcon,sqrtg,ncheck_metric,nfail_metric,errmax,ncheckg,nfailg,errmaxg,tol)
           do l=1,size(vx)
              vxi=vx(l)
              do m=1,size(vy)
@@ -289,7 +330,6 @@ subroutine test_combinations(ntests,npass)
                 do n=1,size(vz)
                    vzi=vz(n)
 
-                   call get_metric(position,gcov,gcon,sqrtg)
                    v = (/vxi,vyi,vzi/)
                    v4(0) = 1.
                    v4(1:3) = v(:)
@@ -297,16 +337,13 @@ subroutine test_combinations(ntests,npass)
                    ! Only allow valid combinations of position and velocity to be tested.
                    ! i.e. Not faster than the speed of light locally (U0 real, not imaginary).
                    if (dot_product_gr(v4,v4,gcov) < 0.) then
-                      count = npass_metric
-                      call test_metric_i(gcov,gcon,ncomb_metric,npass_metric)
-                      if (npass_metric/=count+1) print*,'Warning: Metric test failed so cons2prim may also fail...'
                       do ii=1,size(utherm)
                          u = utherm(ii)
                          do jj=1,size(density)
                             dens = density(jj)
                             call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
                             p = pondens*dens
-                            call test_cons2prim_i(position,v,dens,u,p,ncomb_cons2prim,npass_cons2prim)
+                            call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
                          enddo
                       enddo
                    endif
@@ -318,9 +355,12 @@ subroutine test_combinations(ntests,npass)
     enddo
  enddo
 
- print*,ncomb_metric,' combinations tried, out of which ',npass_metric,'passed the metric test'
- print*,ncomb_cons2prim,' combinations tried, out of which ',npass_cons2prim,'passed the cons2prim test'
- if (npass_metric==ncomb_metric .and. npass_cons2prim==ncomb_cons2prim) npass = npass + 1
+ call checkvalbuf_end('inv * metric = identity',ncheck_metric,nfail_metric,errmax,tol)
+ call checkvalbuf_end('sqrt g = -det(g)',ncheckg,nfailg,errmaxg,tol)
+ call checkvalbuf_end('conservative to primitive',ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+ if (nfail_metric==0)    npass = npass + 1
+ if (nfailg==0)          npass = npass + 1
+ if (nfail_cons2prim==0) npass = npass + 1
 
 end subroutine test_combinations
 
@@ -329,17 +369,15 @@ end subroutine test_combinations
 !  Test of the metric
 !+
 !----------------------------------------------------------------
-subroutine test_metric_i(gcov,gcon,ntests,npass)
- use testutils, only:checkvalbuf
- integer, intent(inout)   :: ntests,npass
- real,    intent(in)      :: gcov(0:3,0:3),gcon(0:3,0:3)
+subroutine test_metric_i(gcov,gcon,sqrtg,ncheck,nfail,errmax,ncheckg,nfailg,errmaxg,tol)
+ use testutils,  only:checkvalbuf
+ use inverse4x4, only:inv4x4
+ integer, intent(inout)   :: ncheck,nfail,ncheckg,nfailg
+ real,    intent(in)      :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,tol
+ real,    intent(inout)   :: errmax,errmaxg
  real, dimension(0:3,0:3) :: gg
- real, parameter          :: tol = 6.e-11
- real                     :: sum,errmax
- integer                  :: i,j,error,ncheck
-
- ntests = ntests+1
- error  = 0
+ real                     :: sum,det
+ integer                  :: i,j
 
  ! Product of metric and its inverse
  gg = 0.
@@ -351,71 +389,64 @@ subroutine test_metric_i(gcov,gcon,ntests,npass)
     enddo
  enddo
 
-! Check to see that the product is 4 (trace of identity)
- call checkvalbuf(sum,4.,tol,'[F]: gddgUU ',error,ncheck,errmax)
+ ! Check to see that the product is 4 (trace of identity)
+ call checkvalbuf(sum,4.,tol,'[F]: gddgUU ',nfail,ncheck,errmax)
 
- if (error/=0) then
-    print*, 'gdown*gup /= Identity'
-    do i=0,3
-       write(*,*) gg(i,:)
-    enddo
- else
-    npass = npass+1
- endif
+ !if (nfail /= 0) then
+ !   print*,' metric '
+ !   print "(4(es10.3,1x))",gcov
+ !   print*,' inverse '
+ !   print "(4(es10.3,1x))",gcon
+ !   print*,' gg '
+ !   print "(4(es10.3,1x))",gg
+ !   print*, 'gdown*gup /= Identity'
+ !endif
+
+ ! Check that the determinant of the metric matches the one returned
+ call inv4x4(gcov,gg,det)
+ call checkvalbuf(-det,sqrtg,tol,'sqrt(g) ',nfailg,ncheckg,errmaxg)
 
 end subroutine test_metric_i
 
-subroutine test_cons2prim_i(x,v,dens,u,p,ntests,npass)
+!----------------------------------------------------------------
+!+
+!  Test of the conservative to primitive variable solver
+!+
+!----------------------------------------------------------------
+subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy
- use testutils,       only:checkval,checkvalbuf,update_test_scores
+ use testutils,       only:checkvalbuf
  use metric_tools,    only:pack_metric
  use eos,             only:gamma
- real, intent(in) :: x(1:3),v(1:3),dens,u,p
- integer, intent(inout) :: ntests,npass
+ real, intent(in) :: x(1:3),v(1:3),dens,u,p,tol
+ integer, intent(inout) :: ncheck,nfail
+ real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
  real :: rho,pmom(1:3),en
  real :: v_out(1:3),dens_out,u_out,p_out
- real, parameter :: tol = 4.e-12
- integer :: nerrors(1), ierr, j
- integer :: ncheck
- real :: errmax
-
- nerrors = 0
+ integer :: ierr, j, nfailprev
 
  ! Used for initial guess in conservative2primitive
  v_out    = v
  dens_out = dens
  u_out    = u
  p_out    = p
+ errmax   = 0.
+ nfailprev = nfail
 
  call pack_metric(x,metrici)
  call primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_entropy,gamma)
  call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_entropy,gamma)
 
- ! call checkval(ierr,0,0,n_error,'ierr = 0 for convergence')
- call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nerrors(1),ncheck)
- ! nerrors = nerrors + n_error
-
- ! call checkval(3,v_out,v,tol,n_error,'v_out = v')
+ call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
  do j=1,3
-    call checkvalbuf(v_out(j),v(j),tol,'[F]: v_out',nerrors(1),ncheck,errmax)
-    ! nerrors = nerrors + n_error
+    call checkvalbuf(v_out(j),v(j),tol,'[F]: v_out',nfail,ncheck,errmax)
  enddo
+ call checkvalbuf(dens_out,dens,tol,'[F]: dens_out',nfail,ncheck,errmax)
+ call checkvalbuf(u_out,u,tol,'[F]: u_out',nfail,ncheck,errmax)
+ call checkvalbuf(p_out,p,tol,'[F]: p_out',nfail,ncheck,errmax)
 
- ! call checkval(dens_out,dens,tol,n_error,'dens_out = dens')
- call checkvalbuf(dens_out,dens,tol,'[F]: dens_out',nerrors(1),ncheck,errmax)
- ! nerrors = nerrors + n_error
-
- ! call checkval(u_out,u,tol,n_error,'u_out = u')
- call checkvalbuf(u_out,u,tol,'[F]: u_out',nerrors(1),ncheck,errmax)
- ! nerrors = nerrors + n_error
-
- ! call checkval(p_out,p,tol,n_error,'p_out = p')
- call checkvalbuf(p_out,p,tol,'[F]: p_out',nerrors(1),ncheck,errmax)
- ! nerrors = nerrors + n_error
-
- call update_test_scores(ntests,nerrors,npass)
- if (nerrors(1)/=0) then
+ if (nfail > nfailprev .and. nfail < 10) then
     print*,'-- cons2prim test failed with'
     print*,'  - IN:'
     print*,'     x    =',x
