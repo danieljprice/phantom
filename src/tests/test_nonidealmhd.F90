@@ -50,24 +50,41 @@ contains
 !  unit tests of non-ideal MHD
 !+
 !--------------------------------------------------------------------------
-subroutine test_nonidealmhd(ntests,npass)
+subroutine test_nonidealmhd(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
+ character(len=*), intent(in) :: string
 #ifndef MPI
 #ifdef NONIDEALMHD
-
+ logical :: testdamp,testshock,testeta,testall
+ 
  if (id==master) write(*,"(/,a)") '--> TESTING NON-IDEAL MHD ALGORITHMS'
+ testdamp   = .false.
+ testshock  = .false.
+ testeta = .false.
+ testall    = .false.
+ select case(string)
+ case('nimhddamp','wavedamp')
+    testdamp = .true.
+ case('nimhdshock')
+    testshock = .true.
+ case('nimhdarrays','nimhdeta')
+    testeta = .true.
+ case default
+    testall = .true.
+ end select
+
  !
  ! Test decay of a wave by ambipolar diffusion
  !
- call test_wavedamp(ntests,npass)
+ if (testdamp .or. testall) call test_wavedamp(ntests,npass)
  !
  ! Test Standing Shock using the Hall effect
  !
- call test_standingshock(ntests,npass)
+ if (testshock .or. testall) call test_standingshock(ntests,npass)
  !
  ! Test the passage of arrays required for non-constant eta
  !
- call test_narrays(ntests,npass)
+ if (testeta .or. testall) call test_narrays(ntests,npass)
  !
  if (id==master) write(*,"(/,a)") '<-- NON-IDEALMHD TEST COMPLETE'
 #else
@@ -93,10 +110,9 @@ subroutine test_wavedamp(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,temperature,igas,alphaind,&
-                          dustprop,ddustprop,pxyzu,dens,metrics
+                          Bevol,igas,alphaind
  use step_lf_global, only:step,init_step
- use deriv,          only:derivs
+ use deriv,          only:get_derivs_global
  use eos,            only:ieos,polyk,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
@@ -113,20 +129,20 @@ subroutine test_wavedamp(ntests,npass)
  integer                :: i,j,nx,nsteps,ierr,itmp
  integer                :: nerr(4)
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
- real                   :: t,dt,dtext_dum,dtext,dtnew
+ real                   :: t,dt,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
  real, parameter        :: toltime = 4.00d-4
  logical                :: valid_dt
- logical                :: print_output = .false.
+ logical, parameter     :: print_output = .false.
 
 #ifndef ISOTHERMAL
- if (id==master) write(*,"(/,a)") '--> skipping wave dampening test (need -DISOTHERMAL)'
+ if (id==master) write(*,"(/,a)") '--> skipping wave damping test (need -DISOTHERMAL)'
 #endif
  if (periodic) then
-    if (id==master) write(*,"(/,a)") '--> testing wave dampening test'
+    if (id==master) write(*,"(/,a)") '--> testing wave damping test (nimhddamp)'
  else
-    if (id==master) write(*,"(/,a)") '--> skipping wave dampening test (need -DPERIODIC)'
+    if (id==master) write(*,"(/,a)") '--> skipping wave damping test (need -DPERIODIC)'
     return
  endif
  !
@@ -204,8 +220,7 @@ subroutine test_wavedamp(ntests,npass)
  !
  ! call derivs the first time around
  use_sts = .true.
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+ call get_derivs_global()
  use_sts = .false.  ! Since we only want to run supertimestepping once to verify we get the correct dt
  !
  ! run wave damp problem
@@ -264,11 +279,9 @@ subroutine test_standingshock(ntests,npass)
  use boundary,       only:set_boundary,ymin,ymax,zmin,zmax,dybound,dzbound
  use kernel,         only:hfact_default,radkern
  use part,           only:npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,igas,iboundary,&
-                          set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,dustprop,ddustprop,temperature,&
-                          pxyzu,dens,metrics
+                          Bevol,fext,igas,iboundary,set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz
  use step_lf_global, only:step,init_step
- use deriv,          only:derivs
+ use deriv,          only:get_derivs_global
  use testutils,      only:checkval
  use eos,            only:ieos,polyk,gamma
  use options,        only:alpha,alphamax,alphaB
@@ -282,19 +295,19 @@ subroutine test_standingshock(ntests,npass)
  integer                :: i,nx,ny,nz,nsteps,ierr,idr,npts
  integer                :: nerr(5)
  real                   :: volume,totmass,fac,xleft,xright,dxleft,dxright,yleft,yright,zleft,zright,rhoi
- real                   :: t,dt,dtext_dum,dtext,dtnew
+ real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
  real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
  logical                :: valid_dt
- logical                :: print_output = .false.
+ logical, parameter     :: print_output = .false.
  logical                :: valid_bdy
 
 #ifndef ISOTHERMAL
  if (id==master) write(*,"(/,a)") '--> skipping standing shock test (need -DISOTHERMAL)'
 #endif
  if (periodic) then
-    if (id==master) write(*,"(/,a)") '--> testing standing shock & boundary particles'
+    if (id==master) write(*,"(/,a)") '--> testing standing shock & boundary particles (nimhdshock)'
  else
     if (id==master) write(*,"(/,a)") '--> skipping standing shock test (cannot have -DPERIODIC)'
     return
@@ -395,8 +408,7 @@ subroutine test_standingshock(ntests,npass)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  ! call derivs the first time around
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+ call get_derivs_global()
  set_boundaries_to_active = .false.
  !
  ! run standing shock problem
@@ -498,10 +510,8 @@ subroutine test_narrays(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,igas,alphaind,&
-                          n_R,n_electronT,rhoh,dustprop,ddustprop,eta_nimhd,iohm,ihall,iambi,temperature,&
-                          pxyzu,dens,metrics
- use deriv,          only:derivs
+                          Bevol,igas,alphaind,n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+ use deriv,          only:get_derivs_global
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
  use options,        only:alphaB,alpha,alphamax
@@ -515,12 +525,12 @@ subroutine test_narrays(ntests,npass)
  integer                :: i,k,nx,ierr,itmp
  integer                :: nerr(3*kmax)
  real                   :: deltax,x_min,y_min,z_min,totmass,cs_sphere,cs_medium
- real                   :: t,dtext_dum,Bi,rhoi,tempi
+ real                   :: Bi,rhoi,tempi
  real                   :: rho0(2),Bz0(2),eta_act(3,kmax)
  real, parameter        :: tol = 6.3e-5  ! 1.0e-7 (The higher tolerance is needed for some compilers during certain phases of the moon)
  !
  if (periodic) then
-    if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta'
+    if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta (nimhdeta)'
  else
     if (id==master) write(*,"(/,a)") '--> skipping calculation of non-constant eta (need -DPERIODIC)'
     return
@@ -606,8 +616,7 @@ subroutine test_narrays(ntests,npass)
     alphaind          = real(alpha,kind=kind(alphaind(1,itmp)))
     !
     ! call derivs, which will also calculate eta
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+    call get_derivs_global()
     !
     ! Calculate eta from NICIL
     rhoi  = rhoh(xyzh(4,itmp),massoftype(itmp))

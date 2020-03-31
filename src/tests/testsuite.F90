@@ -86,6 +86,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(/,a,/)") '--> RUNNING PHANTOM TEST SUITE'
        write(*,"(2x,a)") '"Nobody cares how fast you can calculate the wrong answer."'
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
+       write(*,"(2x,a)") '"Trace, test and treat"'
+       write(*,"(14x,a,/)") '-- South Korea'
     endif
     ntests = 0
     npass  = 0
@@ -237,7 +239,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of non-ideal MHD
 !
  if (donimhd.or.testall) then
-    call test_nonidealmhd(ntests,npass)
+    call test_nonidealmhd(ntests,npass,string)
     call set_default_options ! restore defaults
  endif
 !
