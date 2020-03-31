@@ -122,7 +122,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     is_verbose = verbose
  endif
 
- centre_lattice = .true.
+ centre_lattice = .false.
  if (present(centre)) then
     centre_lattice = centre
  endif
@@ -420,9 +420,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xstart = xstart + delx
        endif
 
-       xi = xstart + float(k - 1)*deltax
-       yi = ystart + float(l - 1)*deltay
-       zi = zstart + float(m - 1)*deltaz
+       xi = xstart + real(k - 1)*deltax
+       yi = ystart + real(l - 1)*deltay
+       zi = zstart + real(m - 1)*deltaz
 
        xpartmin = min(xpartmin,xi)
        ypartmin = min(ypartmin,yi)
