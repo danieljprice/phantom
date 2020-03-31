@@ -575,7 +575,7 @@ subroutine checkvalbuf_int(ix,ival,itol,label,ndiff,ncheck,ierrmax)
  ncheck = ncheck + 1
  if (erri > itol) then
     ndiff = ndiff + 1
-    if (ndiff < 10 .or. erri > 2*ierrmax) call printerr(label,ix,ival,erri,itol)
+    if (ndiff < 10) call printerr(label,ix,ival,erri,itol)
  endif
  if (present(ierrmax)) ierrmax = max(ierrmax,erri)
 
