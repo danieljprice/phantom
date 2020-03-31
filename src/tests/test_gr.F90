@@ -282,7 +282,7 @@ subroutine test_combinations(ntests,npass)
  integer :: ncheckg,nfailg,ncheckd,nfaild
  real, parameter :: tol = 2.e-15
  real, parameter :: tolc = 1.e-12
- real, parameter :: told = 1.5e-7
+ real, parameter :: told = 4.e-7
 
  write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
  write(*,'(a,/)') '    metric type = '//trim(metric_type)
