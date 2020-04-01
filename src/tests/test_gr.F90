@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION: Unit tests of General Relativity
 !
-!  REFERENCES: Liptai & Price (2019), MNRAS 
+!  REFERENCES: Liptai & Price (2019), MNRAS
 !
 !  OWNER: David Liptai
 !
