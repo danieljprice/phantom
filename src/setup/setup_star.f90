@@ -46,7 +46,7 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use io,             only: fatal
+ use io,             only: fatal,error,master
  use part,           only: gravity
  use physcon,        only: solarm,solarr,km,pi,c
  use options,        only: nfulldump,iexternalforce,calc_erot
@@ -70,7 +70,7 @@ module setup
  logical            :: use_exactN,use_prompt
  character(len=120) :: densityfile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice = 'cubic'  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -99,8 +99,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
- use io,             only: master
- use part,           only: igas
+ use part,           only: igas,isetphase,iphase
  use spherical,      only: set_sphere
  use centreofmass,   only: reset_centreofmass
  use table_utils,    only: yinterp
@@ -111,6 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,            only: init_eos, finish_eos, equationofstate
  use part,           only: rhoh, temperature, store_temperature
+ !use relaxstar,      only:relax_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = 20000
  integer, parameter               :: ng     = 12000
- integer                          :: i,nx,npts,npmax,ierr
+ integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
  real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
@@ -257,17 +257,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=np)
+
+ nstar = int(npart_total,kind=(kind(nstar)))
+ massoftype(igas) = Mstar/nstar
+ !
+ ! set total particle number (on this MPI thread)
+ !
+ npart             = nstar
+ npartoftype(igas) = npart
+ iphase(1:npart)   = isetphase(igas,iactive=.true.)
+
+ !if (nstar==npart) then
+    !call relax_star(npts,pres,den,r,npart,xyzh)
+ !else
+ !   call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
+ !endif
  !
  ! reset centre of mass
  !
- nstar = int(npart_total,kind=(kind(nstar)))
- massoftype(igas) = Mstar/nstar
  call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar))
  !
  ! add energies
  !
  call init_eos(ieos,ierr)
- if (ierr /= 0) call fatal('setup_spheres','error initialising equation of state')
+ if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
        if (gamma < 1.00001 .or. isphere==ievrard) then
@@ -305,11 +318,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
  call finish_eos(ieos,ierr)
- !
- ! set total particle number
- !
- npart          = nstar
- npartoftype(1) = npart
  !
  ! Reset centre of mass (again)
  !
