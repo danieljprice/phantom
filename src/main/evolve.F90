@@ -44,17 +44,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,rkill
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
  use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
-#ifdef SORT
- use sort_particles,   only:sort_part
-#endif
 #ifdef IND_TIMESTEPS
  use dim,              only:maxp
  use part,             only:maxphase,ibin,iphase
@@ -81,16 +77,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,           only:inject_particles
  use part,             only:npartoftype
-#ifdef IND_TIMESTEPS
- use part,             only:twas
- use timestep_ind,     only:get_dt
-#endif
-#ifdef GR
- use part,             only:pxyzu,dens,metrics,metricderivs
- use cons2prim,        only:prim2consall
- use metric_tools,     only:init_metric,imet_minkowski,imetric
- use extern_gr,        only:get_grforce_all
-#endif
+ use partinject,       only:update_injected_particles
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -131,13 +118,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
-#ifdef INJECT_PARTICLES
- integer         :: iloop,npart_old
-#endif
 #else
  real            :: dtprint
- integer         :: nactive
+ integer         :: nactive,istepfrac
+ integer(kind=1) :: nbinmax
  logical, parameter :: dt_changed = .false.
+#endif
+#ifdef INJECT_PARTICLES
+ integer         :: npart_old
 #endif
  logical         :: fulldump,abortrun,at_dump_time
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
@@ -156,24 +144,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
 
- should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
-                           ipdv_heating==1 .and. ishock_heating==1 &
-                           .and. (.not.mhd .or. iresistive_heating==1))
- if (iexternalforce/=0) then
-    should_conserve_momentum = .false.
- else
-    should_conserve_momentum = (npartoftype(iboundary)==0)
- endif
- should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic &
-                            .and. iexternalforce <= 1)
- should_conserve_dustmass = use_dustfrac
-
-! Each injection routine will need to bookeep conserved quantities, but until then...
-#ifdef INJECT_PARTICLES
- should_conserve_energy   = .false.
- should_conserve_momentum = .false.
- should_conserve_angmom   = .false.
-#endif
+ call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+                               should_conserve_angmom,should_conserve_dustmass)
 
  noutput          = 1
  noutput_dtmax    = 1
@@ -220,6 +192,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use_global_dt = .true.
  nskip   = npart
  nactive = npart
+ istepfrac = 0 ! dummy values
+ nbinmax   = 0 
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
 #endif
 !
@@ -266,30 +240,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! injection of new particles into simulation
     !
-#ifdef IND_TIMESTEPS
     npart_old=npart
-#endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-#ifdef GR
-    call init_metric(npart,xyzh,metrics,metricderivs)
-    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
-    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
-    endif
-#endif
-#ifdef IND_TIMESTEPS
-    ! find timestep bin associated with dtinject
-    nbinmaxprev = nbinmax
-    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
-    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
-       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
-    endif
-    ! put all injected particles on shortest bin
-    do iloop=npart_old+1,npart
-       ibin(iloop) = nbinmax
-       twas(iloop) = time + 0.5*get_dt(dtmax,ibin(iloop))
-    enddo
-#endif
+    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 
     dtmaxold    = dtmax
@@ -571,12 +524,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
           endif
           ncount_fulldumps = ncount_fulldumps + 1
-
-#ifndef IND_TIMESTEPS
-#ifdef SORT
-          if (time < tmax) call sort_part()
-#endif
-#endif
        else
           call write_smalldump(time,dumpfile)
        endif
@@ -661,21 +608,65 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     call correct_bulk_motion()
 #endif
 
-#ifndef IND_TIMESTEPS
-#ifdef INJECT_PARTICLES
-    !call dt_spheres_sync(time, dt)
-#endif
-#endif
-
     if (iverbose >= 1 .and. id==master) write(iprint,*)
     call flush(iprint)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
 
-
  enddo timestepping
 
 end subroutine evol
+
+!----------------------------------------------------------------
+!+
+!  check if conservation of various properties *should* be
+!  possible given the range of physics selected
+!+
+!----------------------------------------------------------------
+subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+                                    should_conserve_angmom,should_conserve_dustmass)
+ use options, only:icooling,ieos,ipdv_heating,ishock_heating,&
+                   iresistive_heating,use_dustfrac,iexternalforce
+ use dim,     only:mhd,maxvxyzu,periodic
+ use part,    only:iboundary,npartoftype
+ logical, intent(out) :: should_conserve_energy,should_conserve_momentum
+ logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
+
+ !
+ ! should conserve energy if using adiabatic equation of state with no cooling
+ ! as long as all heating terms are included
+ ! 
+ should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. &
+                          icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
+                          .and. (.not.mhd .or. iresistive_heating==1))
+ !
+ ! code should conserve momentum unless boundary particles are employed
+ !
+ if (iexternalforce/=0) then
+    should_conserve_momentum = .false.
+ else
+    should_conserve_momentum = (npartoftype(iboundary)==0)
+ endif
+ !
+ ! code should conserve angular momentum as long as no boundaries (fixed or periodic)
+ ! and as long as there are no non-radial forces (iexternalforce > 1)
+ !
+ should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
+                          .and. iexternalforce <= 1)
+ !
+ ! should always conserve dust mass
+ !
+ should_conserve_dustmass = use_dustfrac
+
+! Each injection routine will need to bookeep conserved quantities, but until then...
+#ifdef INJECT_PARTICLES
+ should_conserve_energy   = .false.
+ should_conserve_momentum = .false.
+ should_conserve_angmom   = .false.
+#endif
+
+end subroutine init_conservation_checks
+
 !----------------------------------------------------------------
 !+
 !  routine to check conservation errors during the calculation
