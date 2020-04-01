@@ -62,7 +62,7 @@ contains
 
 !-------------------------------------------------------------------------------
 !+
-!  This is a wrapper subroutine to get the metric tensor in both 
+!  This is a wrapper subroutine to get the metric tensor in both
 !  covariant (gcov) and contravariant (gcon) form.
 !+
 !-------------------------------------------------------------------------------

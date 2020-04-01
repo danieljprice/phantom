@@ -56,7 +56,7 @@ subroutine test_nonidealmhd(ntests,npass,string)
 #ifndef MPI
 #ifdef NONIDEALMHD
  logical :: testdamp,testshock,testeta,testall
- 
+
  if (id==master) write(*,"(/,a)") '--> TESTING NON-IDEAL MHD ALGORITHMS'
  testdamp   = .false.
  testshock  = .false.

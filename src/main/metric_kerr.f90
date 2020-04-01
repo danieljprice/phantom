@@ -400,7 +400,7 @@ end subroutine metric_spherical_derivatives
 
 !----------------------------------------------------------------
 !+
-!  (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical' 
+!  (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical'
 !  with respect to 'Cartesian' coordinates
 !+
 !----------------------------------------------------------------
