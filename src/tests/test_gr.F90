@@ -17,9 +17,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: cons2prim, cons2primsolver, eos, extern_gr, io, metric,
-!    metric_tools, part, physcon, step_lf_global, testutils, utils_gr,
-!    vectorutils
+!  DEPENDENCIES: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
+!    io, metric, metric_tools, part, physcon, step_lf_global, testutils,
+!    utils_gr, vectorutils
 !+
 !--------------------------------------------------------------------------
 module testgr
