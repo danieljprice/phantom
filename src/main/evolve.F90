@@ -56,7 +56,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use part,             only:maxphase,ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind,get_newbin
+                            print_dtlog_ind,get_newbin,print_dtind_efficiency
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use step_lf_global,   only:init_step
@@ -86,7 +86,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
@@ -114,7 +114,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  integer         :: i,nalive,inbin,iamtypei
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
+ real            :: tlast,tcheck,dtau
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
@@ -308,24 +308,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
 
     !--print efficiency of partial timestep
-    if (id==master .and. iverbose >= 0 .and. nalivetot > 0) then
-       if (nactivetot==nalivetot) then
-          tall = t2-t1
-       elseif (tall > 0.) then
-          fracactive = nactivetot/real(nalivetot)
-          speedup = (t2-t1)/tall
-          if (iverbose >= 2) then
-             if (speedup > 0) then
-                efficiency = 100.*fracactive/speedup
-             else
-                efficiency = 0.
-             endif
-             write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
-                  'moved ',100.*fracactive,' of particles in ',100.*speedup, &
-                  ' of time, efficiency = ',efficiency
-          endif
-       endif
-    endif
+    if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,t2-t1,1)
+    
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
     nmovedtot = nmovedtot + nactivetot
 
@@ -545,18 +529,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
 #ifdef IND_TIMESTEPS
        !--print summary of timestep bins
-       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. nalivetot > 0) then
-          fracactive = nmovedtot/real(nalivetot)
-          speedup = timer_lastdump%wall/(tall + tiny(tall))
-          write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
-          if (iverbose >= 1) then
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
-          endif
-       endif
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
           timeperbin(:) = 0.
+          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timer_lastdump%wall,2)
        endif
        tlast = tprint
        istepfrac = 0
