@@ -192,7 +192,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nskip   = npart
  nactive = npart
  istepfrac = 0 ! dummy values
- nbinmax   = 0 
+ nbinmax   = 0
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
 #endif
 !
@@ -634,7 +634,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  !
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
- ! 
+ !
  should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. &
                           icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
                           .and. (.not.mhd .or. iresistive_heating==1))
