@@ -268,7 +268,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iphase(1:npart)   = isetphase(igas,iactive=.true.)
 
  !if (nstar==npart) then
-    !call relax_star(npts,pres,den,r,npart,xyzh)
+ !call relax_star(npts,pres,den,r,npart,xyzh)
  !else
  !   call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
  !endif
