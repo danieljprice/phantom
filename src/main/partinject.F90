@@ -21,7 +21,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, timestep_ind
+!  DEPENDENCIES: cons2prim, extern_gr, io, metric_tools, options, part,
+!    timestep_ind
 !+
 !--------------------------------------------------------------------------
 module partinject
