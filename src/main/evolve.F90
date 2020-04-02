@@ -52,8 +52,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
- use dim,              only:maxp
- use part,             only:maxphase,ibin,iphase
+ use part,             only:ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
                             print_dtlog_ind,get_newbin,print_dtind_efficiency
@@ -111,7 +110,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
- integer         :: i,nalive,inbin,iamtypei
+ integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
  real            :: tlast,tcheck,dtau
@@ -168,21 +167,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  tcheck        = time
  timeperbin(:) = 0.
  dt_changed    = .false.
-!
-! first time through, move all particles on shortest timestep
-! then allow them to gradually adjust levels.
-! Keep boundary particles on level 0 since forces are never calculated
-! and to prevent boundaries from limiting the timestep
-!
- if (time < tiny(time)) then
-    !$omp parallel do schedule(static) private(i,iamtypei)
-    do i=1,npart
-       ibin(i) = nbinmax
-       if (maxphase==maxp) then
-          if (abs(iphase(i))==iboundary) ibin(i) = 0
-       endif
-    enddo
- endif
  call init_step(npart,time,dtmax)
  if (use_sts) then
     call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
@@ -209,7 +193,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nskipped_sink = 0
  nsinkwrite_threshold  = int(0.99*ntot)
 !
-! timing between dumps
+! code timings
 !
  call get_timings(twalllast,tcpulast)
  tstart    = twalllast
@@ -296,7 +280,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtlast = dt
 
     !--timings for step call
-
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
@@ -345,11 +328,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
 #endif
-
-!    if (abs(dt) < 1e-8*dtmax) then
-!       write(iprint,*) 'main loop: timestep too small, dt = ',dt
-!       call quit   ! also writes dump file, safe here because called by all threads
-!    endif
 
 !   check that MPI threads are synchronised in time
     timecheck = reduceall_mpi('+',time)
@@ -410,9 +388,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef BINPOS
        call binpos_write(time,dt)
 #endif
-       !--timings for step call
        call get_timings(t2,tcpu2)
-       call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)
+       call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
     endif
 !-- Print out the sink particle properties & reset dt_changed.
 !-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
@@ -454,7 +431,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !   be reduced it too long between dumps)
 !
        call increment_timer(timer_fromstart,t2-tstart,tcpu2-tcpustart)
-       !call increment_timer(timer_lastdump,t2-twalllast,tcpu2-tcpulast)
        timer_fromstart%cpu  = reduce_mpi('+',timer_fromstart%cpu)
        timer_lastdump%cpu   = reduce_mpi('+',timer_lastdump%cpu)
        timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
@@ -697,7 +673,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
            timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
            timer_dens,timer_force,timer_link,timer_extf)
  use io,     only:formatreal
- use timing, only:timer
+ use timing, only:timer,print_timer
  integer,      intent(in) :: iprint,nsteps,nsteplast
  type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
                              timer_dens,timer_force,timer_link,timer_extf
@@ -736,35 +712,5 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  endif
 
 end subroutine print_timinginfo
-
-!-----------------------------------------------
-!+
-!  Pretty-print timing entries in a nice table
-!+
-!-----------------------------------------------
-subroutine print_timer(lu,label,my_timer,time_between_dumps)
- use timing, only:timer
- integer,          intent(in) :: lu
- real(kind=4),     intent(in) :: time_between_dumps
- character(len=*), intent(in) :: label
- type(timer),      intent(in) :: my_timer
-
- if (my_timer%wall > epsilon(0._4)) then
-    if (time_between_dumps > 7200.0) then
-       write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    elseif (time_between_dumps > 120.0) then
-       write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    else
-       write(lu,"(1x,a12,':',f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall,my_timer%cpu,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    endif
- endif
-
-end subroutine print_timer
 
 end module evolve

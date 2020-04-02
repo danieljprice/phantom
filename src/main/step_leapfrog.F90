@@ -50,13 +50,28 @@ contains
 !------------------------------------------------------------
 subroutine init_step(npart,time,dtmax)
 #ifdef IND_TIMESTEPS
- use timestep_ind, only:get_dt
- use part,         only:ibin,twas
+ use timestep_ind, only:get_dt,nbinmax
+ use part,         only:ibin,twas,maxphase,maxp,iphase,iamboundary,iamtype
 #endif
  integer, intent(in) :: npart
  real,    intent(in) :: time,dtmax
 #ifdef IND_TIMESTEPS
  integer             :: i
+ !
+ ! first time through, move all particles on shortest timestep
+ ! then allow them to gradually adjust levels.
+ ! Keep boundary particles on level 0 since forces are never calculated
+ ! and to prevent boundaries from limiting the timestep
+ !
+ if (time < tiny(time)) then
+    !$omp parallel do schedule(static) private(i)
+    do i=1,npart
+       ibin(i) = nbinmax
+       if (maxphase==maxp) then
+          if (iamboundary(iamtype(iphase(i)))) ibin(i) = 0
+       endif
+    enddo
+ endif
 !
 ! twas is set so that at start of step we predict
 ! forwards to half of current timestep
