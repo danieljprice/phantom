@@ -176,10 +176,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     ! print information to screen
     !
     if (use_step) then
-        print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
+       print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     else
-        print "(a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,', dens error:',rmserr,'%, R*:',rmax, &
+       print "(a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     endif
     !
