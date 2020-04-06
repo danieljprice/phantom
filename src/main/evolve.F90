@@ -291,7 +291,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--print efficiency of partial timestep
     if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,t2-t1,1)
-    
+
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
     nmovedtot = nmovedtot + nactivetot
 

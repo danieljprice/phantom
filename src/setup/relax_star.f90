@@ -345,7 +345,7 @@ real function get_mstar(rho,r)
     rprev  = ri
  enddo
  get_mstar = 4.*pi*get_mstar
-   
+
 end function get_mstar
 
 !----------------------------------------------------------------
@@ -375,8 +375,8 @@ end subroutine restore_original_options
 subroutine write_options_relax(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
- 
- call write_inopt(tol_ekin,'tol_ekin','tolerance on ekin/epot to stop relaxation',iunit)   
+
+ call write_inopt(tol_ekin,'tol_ekin','tolerance on ekin/epot to stop relaxation',iunit)
  call write_inopt(tol_dens,'tol_dens','% error in density to stop relaxation',iunit)
  call write_inopt(maxits,'maxits','maximum number of relaxation iterations',iunit)
 
@@ -391,11 +391,11 @@ subroutine read_options_relax(db,nerr)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
-    
+
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)
  call read_inopt(tol_dens,'tol_dens',db,errcount=nerr)
  call read_inopt(maxits,'maxits',db,errcount=nerr)
 
 end subroutine read_options_relax
-   
+
 end module relaxstar

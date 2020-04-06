@@ -87,7 +87,7 @@ subroutine print_timer(lu,label,my_timer,time_total)
  real(kind=4),     intent(in) :: time_total
  character(len=*), intent(in) :: label
  type(timer),      intent(in) :: my_timer
-   
+
  if (my_timer%wall > epsilon(0._4)) then
     if (time_total > 7200.0) then
        write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
@@ -103,8 +103,8 @@ subroutine print_timer(lu,label,my_timer,time_total)
             my_timer%wall/time_total*100.
     endif
  endif
-   
-end subroutine print_timer   
+
+end subroutine print_timer
 
 !--------------------------------------------------------------------
 !+
