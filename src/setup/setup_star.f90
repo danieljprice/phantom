@@ -37,12 +37,13 @@
 !    mass_unit   -- mass unit (e.g. solarm)
 !    np          -- approx number of particles (in box of size 2R)
 !    polyk       -- sound speed .or. constant in EOS
+!    relax_star  -- relax star automatically during setup
 !    ui_coef     -- specific internal energy (units of GM/R)
 !
 !  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
 !    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, rho_profile, setup_params, spherical, table_utils,
-!    timestep, units
+!    prompting, relaxstar, rho_profile, setup_params, spherical,
+!    table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

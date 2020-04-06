@@ -17,9 +17,14 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    maxits   -- maximum number of relaxation iterations
+!    tol_dens -- % error in density to stop relaxation
+!    tol_ekin -- tolerance on ekin/epot to stop relaxation
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
+!    infile_utils, initial, io, memory, options, part, physcon,
+!    readwrite_dumps, step_lf_global, table_utils, units
 !+
 !--------------------------------------------------------------------------
 module relaxstar
