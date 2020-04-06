@@ -69,6 +69,7 @@ LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
 SRCPHOTO=
+LIBTOOL=libtool
 
 #----------------------------------------------------------------
 # here follows specific configuration options used
@@ -1344,6 +1345,7 @@ ifeq ($(SYSTEM), lyoccf)
     LIBCXX = -cxxlib
 endif
 
+FFLAGS+=-fPIC
 # Set some default files if not defined above
 ifdef MAXP
    FPPFLAGS += -DMAXP=${MAXP}
@@ -1671,7 +1673,7 @@ ifndef SRCMETRIC
 ifdef METRIC
    SRCMETRIC= metric_${METRIC}.f90
 else
-   SRCMETRIC= metric_schwarzschild.f90
+   SRCMETRIC= metric_minkowski.f90
 endif
 endif
    SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90 cons2prim.f90
@@ -1709,7 +1711,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
-         set_sphere.f90 set_vfield.f90 ${SETUPFILE} checksetup.F90 utils_testsuite.f90 \
+         set_sphere.f90 set_vfield.f90 checksetup.F90 utils_testsuite.f90 \
          ${SRCTEST} \
          testsuite.F90 initial.F90 leastsquares.f90 solvelinearsystem.f90
 
@@ -1784,7 +1786,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 \
-          geometry.f90 stretchmap.f90 density_profiles.f90 \
+          geometry.f90 relax_star.f90 stretchmap.f90 density_profiles.f90 \
           set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
@@ -1796,8 +1798,8 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS)
+setup: checksystem checkparams libphantom $(OBJSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -1925,15 +1927,15 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
-SRCLIB=icosahedron.f90 libphantom-evolve.F90  libphantom-splash.f90  libphantom.F90
+SRCLIB=icosahedron.f90 # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
-libphantom: checksystem checkparams
-	${MAKE} phantom ${OBJLIB} SETUP=${SETUP} FFLAGS="${FFLAGS} -fPIC"
-	$(FC) -shared -fPIC $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
+libphantom: checksystem checkparams phantom ${OBJLIB}
+	$(LIBTOOL) -static ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.a
+	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
 cleanlibphantom:
-	rm -f $(BINDIR)/libphantom.so
+	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
 
 .PHONY: pyanalysis
 pyanalysis: libphantom

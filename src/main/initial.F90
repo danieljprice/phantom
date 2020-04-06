@@ -517,6 +517,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
 #ifdef GR
+! call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then

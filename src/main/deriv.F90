@@ -195,7 +195,7 @@ subroutine get_derivs_global(tused)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
              dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
  call getused(t2)
- if (id==master) call printused(t1)
+ if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1
 
 end subroutine get_derivs_global

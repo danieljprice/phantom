@@ -67,10 +67,10 @@ module setup
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
  logical            :: iexist,input_polyk
- logical            :: use_exactN,use_prompt
+ logical            :: use_exactN,use_prompt,relax_star_in_setup
  character(len=120) :: densityfile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'cubic'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -110,7 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,            only: init_eos, finish_eos, equationofstate
  use part,           only: rhoh, temperature, store_temperature
- !use relaxstar,      only:relax_star
+ use relaxstar,      only:relax_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -139,6 +139,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  maxvxyzu     = size(vxyzu(:,1))
  write_setup  = .false.
  use_exactN   = .true.
+ relax_star_in_setup = .false.
  !
  ! General defaults
  !
@@ -216,6 +217,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(isphere)
  case(ipoly,ihelmholtz)
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
+    pres = polyk*den**gamma
  case(insfile)
     call read_rhotab_wrapper(trim(densityfile),ng_max,r,den,npts,&
                              polyk,gamma,rhocentre,Mstar,iexist,ierr)
@@ -267,11 +269,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(igas) = npart
  iphase(1:npart)   = isetphase(igas,iactive=.true.)
 
- !if (nstar==npart) then
- !call relax_star(npts,pres,den,r,npart,xyzh)
- !else
- !   call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
- !endif
+ !
+ ! relax the density profile to achieve nice hydrostatic equilibrium
+ !
+ if (relax_star_in_setup .and. maxvxyzu >= 4) then
+    if (nstar==npart) then
+       call relax_star(npts,den,pres,r,npart,xyzh)
+    else
+       call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
+    endif
+ endif
  !
  ! reset centre of mass
  !
@@ -484,6 +491,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter temperature',initialtemp,1.0e4,1.0e11)
     endif
  endif
+ call prompt('Relax star automatically during setup?',relax_star_in_setup)
 
 end subroutine setup_interactive
 
@@ -603,8 +611,9 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils, only: write_inopt,get_optstring
- use dim,          only: tagline
+ use infile_utils, only:write_inopt,get_optstring
+ use dim,          only:tagline
+ use relaxstar,    only:write_options_relax
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -656,6 +665,10 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  endif
 
+ write(iunit,"(/,a)") '# relaxation options'
+ call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
+ if (relax_star_in_setup) call write_options_relax(iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -665,9 +678,10 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,polyk,ierr)
- use infile_utils, only: open_db_from_file,inopts,close_db,read_inopt
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
+ use io,           only:error
+ use units,        only:select_unit
+ use relaxstar,    only:read_options_relax
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
@@ -716,6 +730,9 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(initialtemp,'initialtemp',db,errcount=nerr)
     endif
  endif
+ call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
+ if (relax_star_in_setup) call read_options_relax(db,nerr)
+ if (nerr /= 0) ierr = ierr + 1
  !
  ! parse units
  !
