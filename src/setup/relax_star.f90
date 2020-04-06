@@ -131,7 +131,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  endif
  print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
-   '       WILL STOP WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=0'
+   '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=0'
 
  filename = 'relax_00000'
  if (write_files) then
