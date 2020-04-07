@@ -45,6 +45,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
+ use testsmol,     only:test_smol
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
@@ -69,7 +70,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
+ logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth,dogr
 #ifdef FINVSQRT
@@ -116,6 +117,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  docooling  = .false.
  dogeom     = .false.
  dogr       = .false.
+ dosmol     = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -128,7 +130,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'cool')      /= 0) docooling = .true.
  if (index(string,'geom')      /= 0) dogeom    = .true.
  if (index(string,'gr')        /= 0) dogr      = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr/))
+ if (index(string,'smol')      /= 0) dosmol    = .true.
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr,dosmol/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -233,6 +236,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dogrowth.or.testall) then
     call test_growth(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+!
+!--test of smoluchowsky growth solver
+!
+ if (dosmol.or.testall) then
+    call test_smol(ntests,npass)
     call set_default_options ! restore defaults
  endif
 !

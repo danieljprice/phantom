@@ -1096,6 +1096,10 @@ ifndef SRCDUST
     SRCDUST = dust.F90 growth.F90
 endif
 
+ifdef SMOL
+    SRCDUST+= growth_smol.F90
+endif
+
 #ifndef SRCGROWTH
 #    SRCGROWTH = growth.F90
 #endif
@@ -1436,6 +1440,11 @@ ifeq ($(DUSTGROWTH), yes)
     FPPFLAGS += -DDUSTGROWTH
 endif
 
+ifeq ($(SMOL), yes)
+    FPPFLAGS += -DSMOL
+    LDFLAGS += -L$(SMOL_DIR) -lsmol
+endif
+
 ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
@@ -1657,7 +1666,8 @@ ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
 
-SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_nonidealmhd.F90 test_gravity.F90 \
+SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_smol.F90 \
+         test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
@@ -1815,6 +1825,11 @@ phantom-version.h:
 	@echo "#define PHANTOM_VERSION_MINOR $(PHANTOM_VERSION_MINOR)" >> $@
 	@echo "#define PHANTOM_VERSION_MICRO $(PHANTOM_VERSION_MICRO)" >> $@
 	@echo "#define PHANTOM_VERSION_STRING \"$(VERSION)\"" >> $@
+
+#----------------------------------------------------
+# Smoluchowsky library
+growth_smol.o: checksmol ../src/main/growth_smol.F90
+	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) ../src/main/growth_smol.F90 -I$(SMOL_DIR) -o $@
 
 #----------------------------------------------------
 # Probability Distribution Functions from fixed grid
@@ -2822,6 +2837,13 @@ checkmcfost:
 	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
    else
 	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+   endif
+
+checksmol:
+   ifneq ("X$(SMOL_DIR)","X")
+	@echo; echo "Linking SMOLUCHOWSKY library from "$(SMOL_DIR); echo
+   else
+	@echo; echo "ERROR: cannot find SMOL_DIR directory needed for Smoluchowsky library - try \"export SMOL_DIR=${HOME}/smol\""; echo
    endif
 
 giza-fortran.o : $(SPLASH_DIR)/giza/interface/giza-fortran.F90 $(SPLASH_DIR)/giza/lib/libgiza.a
