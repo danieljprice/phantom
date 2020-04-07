@@ -82,7 +82,7 @@ module dust_formation
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
  real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 0., 55.847, 0.] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
- real, parameter :: Scrit = 3. ! Critical saturation ratio
+ real, parameter :: Scrit = 2. ! Critical saturation ratio
 
  real :: mass_per_H, eps(nElements)
 
@@ -149,12 +149,14 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  nH_tot = rho_cgs/mass_per_H
- epsC = eps(iC) - JKmuS(5)/nH_tot
+ epsC = eps(iC) - JKmuS(5)
+ if (epsC < 0.) stop '[S-dust_formation] epsC < 0!'
  if (T > 450.) then
     call chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(6))
     S = pC/psat_C(T)
     if (S > Scrit) then
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
+       JstarS = JstarS/ nH_tot
        call evol_K(JKmuS(1), JKmuS(2:5), JstarS, taustar, taugr, dt, Jstar_new, K_new)
     else
        Jstar_new = JKmuS(1)
@@ -189,22 +191,22 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
  real, intent(in) :: K3, Tdust, rho_cgs
  real, intent(out) :: kappa_cgs
 
- real :: fC,kappa_planck, kappa_rosseland
+ real :: kappa, fac
  real, parameter :: rho_Cdust = 2.62, mc = 12.*atomic_mass_unit
  real, parameter :: Qplanck_abs = 1.6846124267740528e+04
  real, parameter :: Qross_ext = 9473.2722815583311
 
  !carbon fraction
- fC = max(1.d-15,3./4.*K3/rho_cgs*mc/rho_Cdust)
- !kappa_planck    = Qplanck_abs * fC
- !kappa_rosseland = Qross_ext * fC
+ !fC = max(1.d-15,K3/eps(iC))
+ fac = max(0.75*K3*mc/(mass_per_H*rho_Cdust),1.d-15)
 
-!Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
- kappa_planck    = 5.9d0 * fC * Tdust
- kappa_rosseland = 6.7d0 * fC * Tdust
+ !kappa = Qplanck_abs *fac ! planck
+ !kappa = Qross_ext * fac  ! Rosseland
+ ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
+ ! kappa = 6.7d0 * fac * Tdust ! planck
+ kappa = 5.9d0 * fac * Tdust  ! Rosseland
 
- kappa_cgs = kappa_planck + kappa_gas
-! kappa_cgs = kappa_rosseland + kappa_gas
+ kappa_cgs = kappa + kappa_gas
 
 end subroutine calc_kappa_dust
 
@@ -318,6 +320,16 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
  real :: pH, pCO, pO, pSi, pS, pTi, pN
  real :: pC_old, pO_old, pSi_old, pS_old, pTi_old
  integer :: i, nit
+
+ !to avoid overflow
+ if (T > 1.d5) then
+    pC = 1.d-50
+    pC2 = 1.d-50
+    pC2H = 0.
+    pC2H2 = 0.
+    mu = (1.+4.*eps(iHe))/(1.+eps(iHe))
+    return
+ endif
 
 ! Total partial pressure of H (in atm)
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
@@ -512,7 +524,6 @@ subroutine write_options_dust_formation(iunit)
     call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
  endif
 #endif
-
 end subroutine write_options_dust_formation
 
 !-----------------------------------------------------------------------
