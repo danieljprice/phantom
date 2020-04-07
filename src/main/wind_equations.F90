@@ -9,9 +9,9 @@
 !
 !  DESCRIPTION: integrate the 1D wind equation to determine the initial wind profile
 !
-!  REFERENCES: None
+!  REFERENCES: Introduction to stellar winds (Lamers & Cassinelli)
 !
-!  OWNER: Lionel
+!  OWNER: Lionel Siess
 !
 !  $Id$
 !
@@ -24,32 +24,29 @@ module wind_equations
 
  implicit none
 
- public :: evolve_hydro,energy_profile,RK4_step_dr,init_wind_equations
+ public :: evolve_hydro,init_wind_equations
 
  private
 
 ! Wind properties
- real :: Mstar_cgs, Tstar, Rstar, Rstar_cgs, expT, u_to_temperature_ratio
+ real :: Mstar_cgs, Tstar, expT, u_to_temperature_ratio
 
 contains
 
-subroutine init_wind_equations (Mstar_in, Tstar_in, Rstar_in, u_to_T)
+subroutine init_wind_equations (Mstar_in, Tstar_in, u_to_T)
  use physcon, only:solarm
- use units,   only:udist
  use eos,     only:qfacdisc
- real, intent(in) :: Mstar_in, Tstar_in, Rstar_in, u_to_T
+ real, intent(in) :: Mstar_in, Tstar_in, u_to_T
  Mstar_cgs = Mstar_in*solarm
  expT = 2.*qfacdisc
  Tstar = Tstar_in
- Rstar = Rstar_in
- Rstar_cgs = Rstar*udist
  u_to_temperature_ratio = u_to_T
 end subroutine init_wind_equations
 
-subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
+subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
 !all quantities in cgs
  logical, intent(in) :: dt_force
- real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs
  real, intent(inout) :: dt, rvT(3)
  integer, intent(out) :: spcode
  real, intent(out) :: dt_next
@@ -60,12 +57,13 @@ subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, 
 
  rold = rvT(1)
  do
-    call RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+    call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
     if (dt_force) exit
     if (err > .01) then
        dt = dt * .9
     else
-       dt = min(dt*1.05,abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+       !dt = dt * 1.05
+       dt = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
        !dt = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
        exit
     endif
@@ -80,10 +78,10 @@ subroutine evolve_hydro(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, 
 
 end subroutine evolve_hydro
 
-subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+subroutine RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in) ::  dt, rvT(3), Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
@@ -92,19 +90,19 @@ subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_
  v0 = rvT(2)
  T0 = rvT(3)
  H = v0*dt
- call calc_dvT_dr(r0, v0, T0, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv1_dr, dT1_dr, numerator, denominator)
+ call calc_dvT_dr(r0, v0, T0, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv1_dr, dT1_dr, numerator, denominator)
  r = r0+0.5*H
  v = v0+0.5*H*dv1_dr
  T = T0+0.5*H*dT1_dr
- call calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv2_dr, dT2_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv2_dr, dT2_dr, numerator, denominator)
  r = r0+0.5*H
  v = v0+0.5*H*dv2_dr
  T = T0+0.5*H*dT2_dr
- call calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
  r = r0+H
  v = v0+dv3_dr*H
  T = T0+dT3_dr*H
- call calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
  if (dv2_dr == dv1_dr) then
     err = 0.
  else
@@ -113,6 +111,7 @@ subroutine RK4_step_dr(dt, rvT, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_
  new_rvT(1) = r
  new_rvT(2) = v0 + H*(dv1_dr+2.*(dv2_dr+dv3_dr)+dv4_dr)/6.
  new_rvT(3) = T0 + H*(dT1_dr+2.*(dT2_dr+dT3_dr)+dT4_dr)/6.
+
  ! imposed temperature profile
  if (ieos == 6) new_rvT(3) = Tstar*(Rstar_cgs/new_rvT(1))**expT
 end subroutine RK4_step_dr
@@ -122,11 +121,11 @@ end subroutine RK4_step_dr
 !  Space derivative dv/dr and dT/dr, for Runge-Kutta (stationary solution)
 !
 !--------------------------------------------------------------------------
-subroutine calc_dvT_dr(r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
+subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
  use options, only:icooling,ieos
- real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
 
@@ -195,11 +194,4 @@ pure real function solve_q(a, b, c)
  endif
 end function solve_q
 
-real function energy_profile(xyzh)
- !called only when temperature profile is imposed
- real, intent(in) :: xyzh(4)
- real :: r
- r = sqrt(xyzh(1)**2+xyzh(2)**2+xyzh(3)**2)
- energy_profile = u_to_temperature_ratio*Tstar*(Rstar/r)**expT
-end function energy_profile
 end module wind_equations

@@ -100,9 +100,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake,this_is_a_test
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
-#ifdef WIND
- use wind_equations, only:energy_profile
-#endif
 #ifdef KROME
  use part,           only:gamma_chem
 #endif

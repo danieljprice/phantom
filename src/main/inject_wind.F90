@@ -76,7 +76,6 @@ module inject
 
 
 ! global variables
- integer, parameter :: nsonic = 7
  integer, parameter :: wind_emitting_sink = 1
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
@@ -96,39 +95,36 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- use options,        only:icooling
- use io,             only:fatal
+ use options,        only:icooling,ieos
+ use io,             only:fatal,iverbose
  use timestep,       only:tmax,dtmax
  use wind_equations, only:init_wind_equations
- use part,           only:xyzmh_ptmass
- use wind,           only:setup_wind
- use physcon,      only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi
- use icosahedron,  only:compute_matrices, compute_corners
- use eos,          only:gmw,gamma,polyk
- use units,        only:unit_velocity, umass, utime, udist
- use part,         only:massoftype,igas,iboundary,xyzmh_ptmass,imloss,ilum,iTeff,iReff
- use io,           only:iverbose
- use injectutils,  only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
+ use wind,           only:setup_wind,save_windprofile
+ use physcon,        only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi, Gg
+ use icosahedron,    only:compute_matrices, compute_corners
+ use eos,            only:gmw,gamma,polyk
+ use units,          only:unit_velocity, umass, utime, udist
+ use part,           only:xyzmh_ptmass,massoftype,igas,iboundary,xyzmh_ptmass,imloss,ilum,iTeff,iReff
+ use injectutils,    only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point
- real :: mV_on_MdotR,initial_wind_velocity_cgs,sonic(nsonic),dist_to_sonic_point
- real :: dr,dp,mass_of_particles1,tcross,tend
+ real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point
+ real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
 
 
-#ifdef NUCLEATION
- nwrite = 18
-#else
- nwrite = 10
-#endif
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
+ if (pulsating_wind .and. ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
  !
  ! convert input parameters to code units
  !
+ Rstar_cgs        = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
+ Mstar_cgs        = xyzmh_ptmass(4,wind_emitting_sink)*umass
  wind_velocity    = wind_velocity_km_s * (km / unit_velocity)
  wind_mass_rate   = wind_mass_rate_Msun_yr * (solarm/umass) / (years/utime)
+ if (wind_injection_radius_au == 0.)  wind_injection_radius_au = Rstar_cgs/au
  wind_injection_radius = wind_injection_radius_au * au / udist
  if (pulsating_wind) then
     pulsation_period = pulsation_period_days * (days/utime)
@@ -136,7 +132,7 @@ subroutine init_inject(ierr)
     dtpulsation      = pulsation_period/50.
     omega_osc        = 2.*pi/pulsation_period
     deltaR_osc       = pulsation_period*piston_velocity/(2.*pi)
-    sonic_type       = 0
+    sonic_type       = 1
  else
     deltaR_osc       = 0.d0
     piston_velocity  = 0.d0
@@ -149,10 +145,8 @@ subroutine init_inject(ierr)
     u_to_temperature_ratio = Rg/(gmw*2./3.) / unit_velocity**2
  endif
 
- Rstar_cgs = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
- Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 #ifdef ISOTHERMAL
- Rstar_cgs = wind_injection_radius_au *au
+ !Rstar_cgs = wind_injection_radius_au *au
  wind_temperature = polyk* mass_proton_cgs/kboltz * unit_velocity**2*gmw
 #endif
  if (wind_injection_radius_au < Rstar_cgs/au) then
@@ -160,21 +154,18 @@ subroutine init_inject(ierr)
     !call fatal(label,'WARNING wind_inject_radius (< Rstar)')
  endif
 
+ initial_Rinject = wind_injection_radius
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     if (pulsating_wind) then
        !implement background spheres starting from the smallest radius
-       Rinject = min(wind_injection_radius,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
-    else
-       Rinject = wind_injection_radius
+       !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
     endif
-    if (Rinject < xyzmh_ptmass(5,wind_emitting_sink)) then
+    if (initial_Rinject < xyzmh_ptmass(5,wind_emitting_sink)) then
        print *,'STOP wind_inject_radius < Racc (au)',wind_injection_radius_au,xyzmh_ptmass(5,wind_emitting_sink)
        call fatal(label,'invalid setting wind_inject_radius < accretion radius')
     endif
-    call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), Rinject, &
+    call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), &
          xyzmh_ptmass(iTeff,wind_emitting_sink), u_to_temperature_ratio)
-    call setup_wind(xyzmh_ptmass(4,wind_emitting_sink), Rstar_cgs, wind_mass_rate, &
-         u_to_temperature_ratio, wind_temperature,deltaR_osc)
 !if (ieos == 6 .and. wind_temperature /= star_Teff) then
 !    wind_injection_radius_au = Rstar_cgs/au*(star_Teff/wind_temperature)**(1./wind_expT)
 !    wind_injection_radius  = wind_injection_radius_au * au / udist
@@ -182,9 +173,13 @@ subroutine init_inject(ierr)
 !wind_injection_radius = max(wind_injection_radius_au * au, Rstar_cgs) / udist
 !Rstar = min(wind_injection_radius_au*au,Rstar_cgs)
 
-    ! integrate wind equation to get initial velocity required to set the resolution
-    call get_initial_wind_speed(Rinject*udist,wind_temperature,initial_wind_velocity_cgs,sonic,sonic_type)
+! integrate wind equation to get initial velocity and radius required to set the resolution
+    Rinject = initial_Rinject*udist
+    call setup_wind(Mstar_cgs, wind_mass_rate, u_to_temperature_ratio, Rinject,&
+         wind_temperature,initial_wind_velocity_cgs,rsonic,tsonic,sonic_type)
+    initial_Rinject = Rinject/udist
  endif
+ Rinject = initial_Rinject
  wind_injection_speed = initial_wind_velocity_cgs/unit_velocity
  rho_ini = wind_mass_rate/(4.*pi*Rinject**2*wind_injection_speed)
 
@@ -194,7 +189,7 @@ subroutine init_inject(ierr)
     ! per distance to sonic point
     !
     nzones_per_sonic_point = 8
-    dist_to_sonic_point = sonic(1)/udist-Rinject
+    dist_to_sonic_point = rsonic/udist-Rinject
     dr = abs(dist_to_sonic_point)/nzones_per_sonic_point
     mass_of_particles = rho_ini*dr**3
     massoftype(igas) = mass_of_particles
@@ -239,7 +234,7 @@ subroutine init_inject(ierr)
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, sonic(4), tend, tcross, 'windprofile1D.dat')
+         wind_temperature, outer_boundary_au*au, tsonic, tend, tcross, 'windprofile1D.dat')
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
@@ -260,24 +255,29 @@ subroutine init_inject(ierr)
  endif
 
 
- !logging
+!logging
+ vesc = sqrt(2.*Gg*Mstar_cgs/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
+ print*,'distance between injection = ',time_between_spheres*wind_injection_speed
+ print*,'hmax/dist_between_spheres  = ',wind_shell_spacing*neighbour_distance*initial_wind_velocity_cgs**2/&
+      (vesc**2-initial_wind_velocity_cgs**2)
  if (sonic_type == 1) then
-    print*,'distance to sonic point    = ',sonic(1)/udist-Rinject
-    print*,'sonic radius               = ',sonic(1)/udist,sonic(1)
-    print*,'number of shells to sonic  = ',(sonic(1)/udist-Rinject)/(wind_shell_spacing*neighbour_distance)
-    print*,'time_to_sonic_point        = ',sonic(4)/utime
+    print*,'distance to sonic point    = ',rsonic/udist-Rinject
+    print*,'sonic radius               = ',rsonic/udist,rsonic
+    print*,'number of shells to sonic  = ',(rsonic/udist-Rinject)/(wind_shell_spacing*neighbour_distance)
+    print*,'time_to_sonic_point        = ',tsonic/utime
  endif
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'wind_temperature           = ',wind_temperature
  print*,'injection_radius           = ',Rinject
  print*,'stellar_radius             = ',Rstar_cgs / udist
+ print*,'rho_ini                    = ',rho_ini
  if (pulsating_wind) then
     print*,'number of ejected shells per pulsation period (should at least be > 10) ',pulsation_period/time_between_spheres
     print*,'width of the boundary layer/ R* (should be < 1) = ',1.-(iboundary_spheres*dr3)**(1./3.)/Rinject
-    print*,'radial pulsation amplitude/ R* = ',piston_velocity*pulsation_period/(2.*pi*Rinject)
+    print*,'radial pulsation amplitude/ R* = ',piston_velocity*pulsation_period/(2.*pi*Rinject),dr3/Rinject
     print*,'pulsation period in code units = ',pulsation_period
     !sanity checks
     ! 1 - ensure that a minimum number of shells are ejected during a pulsation period
@@ -286,11 +286,11 @@ subroutine init_inject(ierr)
     ! 2 - make sure the size of the boundary layer is not too big (< 0.2 injection_radius)
     if (1.-(iboundary_spheres*dr3)**(1./3.)/Rinject > 0.2)  print*,'WARNING! the width of the boundary layer = ',&
          1.-(iboundary_spheres*dr3)**(1./3.)/Rinject,' Rinject'
- elseif (sonic(1)/udist > Rinject) then
+ elseif (rsonic/udist > Rinject) then
     !save a few models before the particles reach the sonic point
-    if (dtmax > sonic(4)/utime) print *,'WARNING! dtmax > time to sonic point'
+    if (dtmax > tsonic/utime) print *,'WARNING! dtmax > time to sonic point'
     !if solution subsonic, minimum resolution required so a few shells can be inserted between the injection radius and the sonic point
-    ires_min = int(iboundary_spheres*wind_shell_spacing*0.5257/(sonic(1)/udist/Rinject-1.)+.5)
+    ires_min = int(iboundary_spheres*wind_shell_spacing*0.5257/(rsonic/udist/Rinject-1.)+.5)
     if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
@@ -310,7 +310,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use dim,          only:store_dust_temperature
  use wind,         only:wind_profile
  use part,         only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
-      delete_dead_particles_inside_radius,dust_temp,n_nucleation
+      delete_dead_particles_inside_radius,dust_temp,n_nucleation,massoftype
 
  use partinject,   only:add_or_update_particle
  use injectutils,  only:inject_geodesic_sphere
@@ -322,7 +322,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
             nreleased, nboundaries
- real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), surface_radius, fdone
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
 #ifdef NUCLEATION
@@ -339,15 +339,18 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     GM = 0.
  endif
 
- !
- ! delete particles that exit the outer boundary
- !
- i = npart
- call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
- call delete_dead_particles_inside_radius(x0,xyzmh_ptmass(4,wind_emitting_sink),npart)
- if (npart.ne.i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
 
  if (npart > 0) then
+    !
+    ! delete particles that exit the outer boundary
+    !
+    i = npart
+    inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
+    call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
+    call delete_dead_particles_inside_radius(x0,inner_radius,npart)
+    print *,npart,i,inner_radius,dtlast,dtlast*wind_mass_rate/massoftype(igas)
+    if (npart.ne.i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
+
     nreleased = nfill_domain
     nboundaries = iboundary_spheres
     !release particles and declare inner boundary shells as gas particles so they can exert some pressure
@@ -429,9 +432,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
     xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_lost
     if (pulsating_wind) then
-       surface_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
-       !v2 xyzmh_ptmass(5,wind_emitting_sink) = (surface_radius**3-dr3)**(1./3.) !accretion radius
-       !xyzmh_ptmass(5,wind_emitting_sink) = sqrt(xyzh(1,1)**2+xyzh(2,1)**2+xyzh(3,1)**2)
+       inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
+       !v2 xyzmh_ptmass(5,wind_emitting_sink) = (inner_radius**3-dr3)**(1./3.) !accretion radius
+       xyzmh_ptmass(5,wind_emitting_sink) = inner_radius
     endif
  endif
 
@@ -462,24 +465,24 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, 
 
  integer, parameter :: nrho_index = 10
  integer :: k
- real :: surface_radius,r3
+ real :: inner_radius,r3
  logical :: verbose = .true.
 
  v = wind_velocity + piston_velocity* cos(omega_osc*time) !same velocity for all wall particles
- surface_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
+ inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
  !ejected spheres
  if (sphere_number <= inner_sphere) then
-    r = surface_radius
+    r = inner_radius
     v = max(piston_velocity,wind_velocity)
  else
     !boundary spheres
-    r3 = surface_radius**3-dr3
+    r3 = inner_radius**3-dr3
     do k = 2,sphere_number-inner_sphere
-       r3 = r3-dr3*(r3/surface_radius**3)**(nrho_index/3.)
+       r3 = r3-dr3*(r3/inner_radius**3)**(nrho_index/3.)
     enddo
     r = r3**(1./3)
  endif
- !r = (surface_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
+ !r = (inner_radius**3-(sphere_number-inner_sphere)*dr3)**(1./3)
  !rho = rho_ini
  u = wind_temperature * u_to_temperature_ratio
  if (gamma > 1.0001) then
@@ -487,278 +490,20 @@ subroutine pulsating_wind_profile(time,local_time,r,v,u,rho,e,GM,sphere_number, 
  else
     e = .5*v**2 - GM/r + u
  endif
- rho = rho_ini*(surface_radius/r)**nrho_index
+ rho = rho_ini*(inner_radius/r)**nrho_index
  if (verbose) then
     if (sphere_number > inner_sphere) then
        print '("boundary, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
-             sphere_number,inner_sphere,surface_radius,r,v*unit_velocity,time/pulsation_period
+             sphere_number,inner_sphere,inner_radius,r,v*unit_velocity,time/pulsation_period
     else
        print '("ejected, i = ",i5," inner = ",i5," base_r = ",es11.4,'// &
              '" r = ",es11.4," v = ",es11.4," phase = ",f7.4)', &
-             sphere_number,inner_sphere,surface_radius,r,v*unit_velocity,time/pulsation_period
+             sphere_number,inner_sphere,inner_radius,r,v*unit_velocity,time/pulsation_period
     endif
  endif
 
 end subroutine pulsating_wind_profile
-
-!-----------------------------------------------------------------------
-!
-!  Determine the initial wind speed
-!    stype = 0 : do nothing, initial velocity is set
-!    stype = 1 : determine the trans-sonic solution
-!
-!-----------------------------------------------------------------------
-subroutine get_initial_wind_speed(r0, T0, v0, sonic, stype)
-!all quantities in cgs
- use timestep, only:tmax
- use io,       only:fatal,iverbose
- use units,    only:utime,udist
- use eos,      only:gmw,gamma
- use physcon,  only:Rg,Gg,au,years
- use wind,     only:wind_state,calc_wind_profile
- use ptmass_radiation, only:alpha_rad
- integer, intent(in) :: stype
- real, intent(in)    :: r0, T0
- real, intent(inout) :: v0
- real, intent(out)   :: sonic(nsonic)
-
- type(wind_state) :: state
-
- real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max,vin
- integer, parameter :: ncount_max = 20
- integer :: icount
- character(len=*), parameter :: label = 'get_initial_wind_speed'
-
- vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/r0)
- cs   = sqrt(gamma*Rg*T0/gmw)
- vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
- Rs   = Gg*Mstar_cgs*(1.-alpha_rad)/(2.*cs*cs)
- if (iverbose>0) then
-    if (vesc> 1.d-50) then
-       alpha_max = 1.-(2.*cs/vesc)**2
-    else
-       alpha_max = 0.
-    endif
-    print *, "[get_initial_wind_speed] searching for initial velocity."
-    print *, ' * stype      = ',stype
-    print *, ' * unit(au)   = ',udist/au
-    print *, ' * Mstar      = ',Mstar_cgs/1.9891d33
-    print *, ' * Twind      = ',T0
-#ifndef ISOTHERMAL
-    print *, ' * Rstar(au)  = ',Rstar_cgs/1.496d13,Rstar_cgs/69600000000.
-    print *, ' * r0(au)     = ',r0/1.496d13,r0/69600000000.
-    print *, ' * gamma      = ',gamma
-#else
-    print *, ' * Rstar (Ro) = ',r0/69600000000.,Rstar_cgs/69600000000.
-#endif
-    print *, ' * mu         = ',gmw
-    print *, ' * cs  (km/s) = ',cs/1e5
-    print *, ' * vesc(km/s) = ',vesc/1e5
-    if (stype == 1) then
-       print *, ' * v0  (km/s) = ',vin/1e5
-    else
-       print *, ' * v0  (km/s) = ',v0/1e5
-    endif
-    print *, ' * alpha      = ',alpha_rad
-    print *, ' * alpha_max  = ',alpha_max
-    print *, ' * tend (s)   = ',tmax*utime,tmax*utime/years
- endif
-
- !
- ! seach for trans-sonic solution
- !
- if (stype == 1) then
-
-    ! Find lower bound for initial velocity
-    v0 = cs*0.991
-    v0max = v0
-    icount = 0
-    do while (icount < ncount_max)
-       call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
-       if (state%spcode == -1) then
-          v0min = v0
-          exit
-       else
-          v0max = v0
-          v0 = v0 / 2.
-       endif
-       icount = icount+1
-    enddo
-    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
-    if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
-    if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
-
-    ! Find upper bound for initial velocity
-    v0 = v0max
-    icount = 0
-    do while (icount < ncount_max)
-       call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
-       if (state%spcode == 1) then
-          v0max = v0
-          exit
-       else
-          v0min = max(v0min, v0)
-          v0 = v0 * 1.1
-       endif
-       icount = icount+1
-    enddo
-    if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
-
-    ! Find sonic point by dichotomy between v0min and v0max
-    do
-       v0last = v0
-       v0 = (v0min+v0max)/2.
-       call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs
-       if (state%spcode == -1) then
-          v0min = v0
-       elseif (state%spcode == 1) then
-          v0max = v0
-       else
-          exit
-       endif
-       if (abs(v0-v0last)/v0last < 1.e-5) then
-          exit
-       endif
-    enddo
-
-    write (*,'("Sonic point properties  cs (km/s) =",f9.3,", Rs/r0 = ",f7.3,", Rs/R* = ",f7.3,", v0/cs = ",f9.6,", ts =",f8.1)') &
-         state%v/1e5,state%r/r0,state%r/Rstar_cgs,v0/state%v,state%time/utime
-
- else
-    if (v0 >= cs) then
-       print *,' supersonic wind : v0/cs = ',v0/cs
-    else
-       print *,' sub-sonic wind : v0/cs = ',v0/cs
-    endif
-    call calc_wind_profile(r0, v0, T0, 0., state)
- endif
- !
- !store sonic point properties (location, time to reach, ...)
- !
- sonic(1) = state%r
- sonic(2) = state%v
- sonic(3) = state%c
- sonic(4) = state%time
- sonic(5) = state%Tg
- sonic(6) = state%p
- sonic(7) = state%alpha
- !mdot = 4.*pi*rho*v0*ro*ro
-
-end subroutine get_initial_wind_speed
-
-!-----------------------------------------------------------------------
-!
-!  Integrate the steady wind equation and save wind profile to a file
-!
-!-----------------------------------------------------------------------
-subroutine save_windprofile(r0, v0, T0, tsonic, tend, tcross, filename)
- use physcon,  only:au
- use units,    only:utime
- use timestep, only:tmax
- use wind,     only:wind_state,wind_step,init_wind
- real, intent(in) :: r0, v0, T0, tsonic, tend
- real, intent(out) :: tcross
- character(*), intent(in) :: filename
- real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
- real :: dt_print,time_end,rout
- type(wind_state) :: state
- integer :: n,iter
-
- write (*,'("Saving 1D model : ")')
- time_end = tmax*utime
- rout = outer_boundary_au*au
- call init_wind(r0, v0, T0, tend, state)
-
- open(unit=1337,file=filename)
- call filewrite_header(1337)
- call filewrite_state(1337, state)
-
- n = 1
- iter = 0
- tcross = 1.d99
- dt_print = max(min(tsonic/10.,time_end/256.),time_end/5000.)
- do while(state%time < time_end .and. iter < 10000000 .and. state%Tg > Tdust_stop)
-    iter = iter+1
-    call wind_step(state)
-    if (state%time > n*dt_print) then
-       n = floor(state%time/dt_print)+1
-       call filewrite_state(1337, state)
-    endif
-    if (state%r > rout) tcross = min(state%time,tcross)
- enddo
- if (state%time/time_end < .3) then
-    write(*,'("[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5,&
-         " Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
-         state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
- endif
- close(1337)
- rout = state%r
-end subroutine save_windprofile
-
-subroutine filewrite_header(iunit)
- use options, only : icooling
- integer, intent(in) :: iunit
-
-#ifdef NUCLEATION
- if (icooling > 0) then
-    write(iunit,'("#",11x,a1,19(a20))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
- else
-    write(iunit,'("#",11x,a1,18(a20))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
- endif
-#else
- if (icooling > 0) then
-    write(iunit,'("#",11x,a1,10(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','Q'
- else
-    write(iunit,'("#",11x,a1,9(a20))') 't','r','v','T','c','p','rho','alpha','a','mu'
- endif
-#endif
-end subroutine filewrite_header
-
-subroutine state_to_array(state, array)
- use options, only:icooling
- use wind,    only:wind_state
- type(wind_state), intent(in) :: state
- real, intent(out) :: array(:)
-
- array(1) = state%time
- array(2) = state%r
- array(3) = state%v
- array(4) = state%Tg
- array(5) = state%c
- array(6) = state%p
- array(7) = state%rho
- array(8)  = state%alpha
- array(9) = state%a
-#ifdef NUCLEATION
- array(10)  = state%JKmuS(6)
- array(11)  = state%JKmuS(7)
- array(12) = state%JKmuS(1)
- array(13:16) = state%JKmuS(2:5)
- array(17) = state%tau_lucy
- array(18) = state%kappa
-#else
- array(10)  = state%mu
-#endif
- if (icooling > 0) array(nwrite) = state%Q
-end subroutine state_to_array
-
-subroutine filewrite_state(iunit, state)
- use wind,     only:wind_state
- integer, intent(in) :: iunit
- type(wind_state), intent(in) :: state
-
- real :: array(nwrite)
-
- call state_to_array(state, array)
- write(iunit, '(20E20.10E3)') array(1:nwrite)
-end subroutine filewrite_state
 
 !-----------------------------------------------------------------------
 !+
@@ -773,7 +518,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
  call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
- call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au)',iunit)
+ call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au, if 0 take Rstar)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
  if (maxvxyzu==4) then
     call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
