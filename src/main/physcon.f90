@@ -26,12 +26,12 @@ module physcon
 !
 !--Mathematical constants
 !
- real(kind=8), parameter :: pi       =  3.1415926536d0
- real(kind=8), parameter :: twopi    =  6.2831853072d0
- real(kind=8), parameter :: fourpi   = 12.5663706144d0
- real(kind=8), parameter :: piontwo  =  1.5707963268d0
+ real(kind=8), parameter :: pi       =  4.d0*atan(1.d0)
+ real(kind=8), parameter :: twopi    =  8.d0*atan(1.d0)
+ real(kind=8), parameter :: fourpi   =  1.6d1*atan(1.d0)
+ real(kind=8), parameter :: piontwo  =  2.d0*atan(1.d0)
  real(kind=8), parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
- real(kind=8), parameter :: roottwo  =  1.4142135624d0
+ real(kind=8), parameter :: roottwo  =  sqrt(2.d0)
 !
 !--Physical constants
 !
@@ -39,7 +39,7 @@ module physcon
  real(kind=8), parameter :: gg = 6.672041d-8                    !Gravitational constant    dyn cm^2 g^-2
  !                          cm^3 s^-2 g^-1
 
- real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              ergs mole^-1 K^-1
+ real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              erg/K/g
  real(kind=8), parameter :: cgsmu0 = 4.*pi
  real(kind=8), parameter :: mass_electron_cgs = 9.10938291d-28  !Electron mass             g
  real(kind=8), parameter :: mass_proton_cgs = 1.67262158d-24    !Proton mass               g
@@ -79,8 +79,13 @@ module physcon
  real(kind=8), parameter :: ly = 9.4605d17                      !Light year                cm
  real(kind=8), parameter :: pc = 3.086d18                       !Parsec                    cm
  real(kind=8), parameter :: kpc = 3.086d21                      !Kiloparsec                cm
- real(kind=8), parameter :: mpc = 3.086d24                      !Megaparsec                cm
+ real(kind=8), parameter :: Mpc = 3.086d24                      !Megaparsec                cm
  real(kind=8), parameter :: km = 1.d5                           !Kilometer                 cm
+ real(kind=8), parameter :: cm = 1.d0                           !Centimetre                cm
+ real(kind=8), parameter :: mm = 0.1d0                          !Millimetre                cm
+ real(kind=8), parameter :: micron = 1.d-4                      !Micron                    cm
+ real(kind=8), parameter :: nm = 1.d-7                          !Nanometre                 cm
+ real(kind=8), parameter :: angstrom = 1.d-8                    !Angstrom                  cm
 !
 !--Time scale
 !
