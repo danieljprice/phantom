@@ -421,7 +421,7 @@ ifeq ($(SETUP), grbondi)
 endif
 ifeq ($(SETUP), grbondi-inject)
     SETUPFILE= setup_bondiinject.F90
-    SRCINJECT=bondiexact_gr.f90 icosahedron.f90 utils_inject.f90 inject_bondi.f90
+    SRCINJECT=bondiexact_gr.f90 inject_bondi.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -827,7 +827,7 @@ ifeq ($(SETUP), isowind)
     FPPFLAGS=
     ISOTHERMAL=yes
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    SRCINJECT= inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -836,7 +836,7 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup (adiabatic supersonic spherical wind from a sink particle)
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 inject_wind.f90
+    SRCINJECT= inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -846,7 +846,7 @@ ifeq ($(SETUP), bowen)
 # bowen wind setup (pulsating dusty wind)
     FPPFLAGS= -DBOWEN
     SETUPFILE= setup_wind.f90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 bowen_dust.F90 inject_wind.f90
+    SRCINJECT= bowen_dust.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1706,14 +1706,14 @@ endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_allocate.f90 \
+         utils_allocate.f90 icosahedron.f90 \
          utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
          set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
-         set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
+         set_disc.F90 partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
@@ -1942,7 +1942,7 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
-SRCLIB=icosahedron.f90 # libphantom.F90
+SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 libphantom: checksystem checkparams phantom ${OBJLIB}
