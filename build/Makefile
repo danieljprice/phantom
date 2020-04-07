@@ -1931,7 +1931,7 @@ SRCLIB=icosahedron.f90 # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 libphantom: checksystem checkparams phantom ${OBJLIB}
-	$(LIBTOOL) -static ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.a
+	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS} $(LDFLAGS)
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
 cleanlibphantom:
