@@ -5,20 +5,20 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: testeos
+!  MODULE: testsmol
 !
 !  DESCRIPTION:
 !  Unit tests of the equation of state module
 !
 !  REFERENCES: None
 !
-!  OWNER: Terrence Tricco
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!  DEPENDENCIES: dim, growth_smol, io, part, physcon, set_dust, testutils,
 !    units
 !+
 !--------------------------------------------------------------------------

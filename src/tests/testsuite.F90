@@ -23,7 +23,7 @@
 !    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
 !    testgr, testgravity, testgrowth, testindtstep, testkdtree, testkernel,
 !    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
-!    testsetdisc, teststep, timing
+!    testsetdisc, testsmol, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test

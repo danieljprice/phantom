@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: growth
+!  MODULE: growth_smol
 !
 !  DESCRIPTION:
 !   Interface to library for dust growth and fragmentation 
@@ -19,9 +19,9 @@
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS:
+!  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: physcon, smol2other, units
 !+
 !--------------------------------------------------------------------------
 module growth_smol
