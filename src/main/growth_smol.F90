@@ -8,7 +8,7 @@
 !  MODULE: growth_smol
 !
 !  DESCRIPTION:
-!   Interface to library for dust growth and fragmentation 
+!   Interface to library for dust growth and fragmentation
 !   using Smoluchowsky solver. This module can be compiled
 !   with a special rule in the Makefile to link against the
 !   Smoluchowsky library
