@@ -49,11 +49,7 @@ subroutine test_derivs(ntests,npass,string)
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
-<<<<<<< HEAD
- use part,         only:radiation
-=======
- use part,         only:pxyzu,dens,metrics
->>>>>>> master
+ use part,         only:pxyzu,dens,metrics,radiation
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
  use deriv,        only:derivs

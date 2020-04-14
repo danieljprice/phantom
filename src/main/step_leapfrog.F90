@@ -588,7 +588,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(i) &
 !$omp shared(npart,hdtsph)&
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
-!$omp shared(Bevol,dBevol,Bpred) &
+!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
 !$omp shared(radiation) &
 !$omp firstprivate(itype) &
