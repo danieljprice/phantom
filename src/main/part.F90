@@ -166,6 +166,7 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
+ real, allocatable :: accretor(:)
 !
 !--self-gravity
 !
@@ -198,6 +199,7 @@ module part
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
  real, allocatable :: T_chem(:)
+ real, allocatable :: dudt_chem(:)
 !
 !--lightcurves
 !
@@ -318,7 +320,7 @@ module part
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
-   +0
+   +1                                     ! accretor
 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
@@ -434,6 +436,8 @@ subroutine allocate_part
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
  call allocate_array('T_chem', T_chem, maxp_krome)
+ call allocate_array('dudt_chem', dudt_chem, maxp_krome)
+ call allocate_array('accretor', accretor, maxp)
 
 
 end subroutine allocate_part
@@ -502,6 +506,7 @@ subroutine deallocate_part
  deallocate(gamma_chem)
  deallocate(mu_chem)
  deallocate(T_chem)
+ deallocate(dudt_chem)
  deallocate(dust_temp)
 
 end subroutine deallocate_part
@@ -1073,8 +1078,10 @@ subroutine copy_particle_all(src,dst)
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
     T_chem(dst)           = T_chem(src)
+    dudt_chem(dst)        = dudt_chem(src)
  endif
-ibelong(dst) = ibelong(src)
+ accretor(dst) = accretor(src)
+ ibelong(dst) = ibelong(src)
  if (maxsts==maxp) then
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)

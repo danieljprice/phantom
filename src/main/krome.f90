@@ -25,7 +25,7 @@
 module krome_interface
 
  implicit none
-
+ 
  public :: initialise_krome,update_krome,write_KromeSetupFile
 
  private
@@ -111,6 +111,7 @@ end subroutine initialise_krome
 
 subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
 
+ use krome_main, only: krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
  use eos,           only:ieos,get_local_temperature,get_local_u_internal!equationofstate
@@ -127,7 +128,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
 ! normalise abudances and balance charge conservation with e-
  call krome_consistent_x(xchem)
 ! evolve the chemistry and update the abundances
- call evolve_chemistry(xchem,rho_cgs,T_local,dt_cgs)
+ call krome(xchem,rho_cgs,T_local,dt_cgs)
 ! update the particle's mean molecular weight
  mu_chem =  krome_get_mu_x(xchem)
 ! update the particle's adiabatic index
@@ -138,54 +139,6 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
  u = get_local_u_internal(gamma_chem,mu_chem,T_local)
 
 end subroutine update_krome
-
-subroutine evolve_chemistry(species, dens, temp, time)
-
- use krome_main, only: krome
-
- real, intent(inout) :: species(:), temp
- real, intent(in)    :: dens, time
- real, allocatable   :: dupl_species1(:), dupl_species2(:)
- real                :: dupl_temp1, dupl_temp2, dupl_dens, dupl_time
- real                :: dudt, dt_cool
- integer             :: i, N
-
- allocate(dupl_species1(size(species)))
- allocate(dupl_species2(size(species)))
-
-! Duplicate input arrays
- !VERY BAD, these arrays are huge!
- dupl_species1 = species
- dupl_species2 = species
-
- dupl_dens     = dens
- dupl_temp1    = temp
- dupl_temp2    = temp
- dupl_time     = time
-
- call krome(dupl_species2,dupl_dens,dupl_temp2,dupl_time)
-
- ! Calculate cooling timescale
- dudt = abs(dupl_temp2 - dupl_temp1)/dupl_time
- dt_cool = abs(dupl_temp1/dudt)
-
- ! Substepping if dt_cool < input timestep
- if (dt_cool < dupl_time) then
-    N = ceiling(dupl_time/dt_cool)
-    do i = 1,N
-       call krome(dupl_species1,dupl_dens,dupl_temp1,dupl_time/N)
-    enddo
-    species = dupl_species1
-    temp    = dupl_temp1
- else
-    species = dupl_species2
-    temp    = dupl_temp2
- endif
-
- deallocate(dupl_species1)
- deallocate(dupl_species2)
-
-end subroutine evolve_chemistry
 
 !----------------------------------------------------------------
 !+

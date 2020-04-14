@@ -135,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
- use part,             only:pxyzu,dens,metrics,metricderivs
+ use part,             only:pxyzu,dens,metrics,metricderivs,accretor
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
@@ -234,6 +234,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
 #endif
+
+ accretor(:) = -10
 !
 !--do preliminary initialisation
 !

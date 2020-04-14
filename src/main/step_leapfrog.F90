@@ -1027,8 +1027,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,T_chem
+ use part,            only: gamma_chem,mu_chem,T_chem,dudt_chem
  use krome_interface, only: update_krome
+ use eos,             only: get_local_u_internal
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
@@ -1134,7 +1135,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,T_chem) &
+    !$omp shared(gamma_chem,mu_chem,T_chem,dudt_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
@@ -1235,7 +1236,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
                                abundance(:,i),gamma_chem(i),mu_chem(i),T_chem(i))
-             dudtcool = (ui-vxyzu(4,i))/dt
+             dudt_chem(i) = (ui-vxyzu(4,i))/dt
+             dudtcool     = dudt_chem(i)
 #else
 #ifdef NUCLEATION
              !evolve dust chemistry and compute dust cooling
@@ -1352,7 +1354,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 #ifdef IND_TIMESTEPS
              ibin_wakei = ibin_wake(i)
 #endif
-             call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+             call ptmass_accrete(1,nptmass,i,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
                                  itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
                                  accreted,dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)

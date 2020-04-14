@@ -549,12 +549,12 @@ end function ptmass_not_obscured
 ! values will be used to update the sink's characteristics since the order
 ! in which particles is added is irrelevant.
 !----------------------------------------------------------------
-subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
+subroutine ptmass_accrete(is,nptmass,ipart,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
- use part,       only: ihacc
+ use part,       only: ihacc,accretor
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
@@ -568,6 +568,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
+ integer, optional, intent(in)    :: ipart
  integer            :: i,ifail
  real               :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter :: iofailreason=.false.
@@ -720,6 +721,8 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
             xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i))
           !$omp end critical(trackacc)
        endif
+       
+       accretor(ipart)=i
 
 ! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
        exit sinkloop
@@ -1290,7 +1293,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
-       call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
+       call ptmass_accrete(nptmass,nptmass,n,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
                            dptmass,time,1.0,ibin_wakei,ibin_wakei)
