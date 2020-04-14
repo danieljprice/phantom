@@ -508,6 +508,7 @@ subroutine deallocate_part
  deallocate(T_chem)
  deallocate(dudt_chem)
  deallocate(dust_temp)
+ deallocate(accretor)
 
 end subroutine deallocate_part
 
