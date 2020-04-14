@@ -151,12 +151,11 @@ end subroutine
 subroutine test_uniform_derivs(ntests,npass)
  use dim,             only:maxp
  use io,              only:id,master
- use part,            only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,divcurlB,&
+ use part,            only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,&
                            iphase,maxphase,isetphase,rhoh,&
-                           bevol,divcurlv,fext,npartoftype,&
+                           bevol,fext,npartoftype,&
                            radiation,ifluxx,&
-                           Bextx,Bexty,Bextz,maxvxyzu,dBevol,ddustevol,ddustprop,&
-                           dustfrac,temperature,Bpred,vpred,dustproppred
+                           Bextx,Bexty,Bextz,maxvxyzu
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use units,           only:set_units,udist,utime,umass,unit_energ,unit_velocity,unit_ergg
@@ -167,7 +166,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use readwrite_dumps, only:write_fulldump
  use boundary,        only:set_boundary
  use testutils,       only:checkvalbuf,checkvalbuf_end
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
 
  integer,intent(inout) ::&
@@ -176,7 +175,7 @@ subroutine test_uniform_derivs(ntests,npass)
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
  real :: dtmax,dtext,pmassi, dt,t,kappa_code
  real :: xmin,xmax,ymin,ymax,zmin,zmax,Tref,xi0,D0,rho0,l0
- real :: dtsph,dtnew,timei
+ real :: dtsph,dtnew
  real :: exact_grE,exact_DgrF,exact_xi
  real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi
 
@@ -213,8 +212,6 @@ subroutine test_uniform_derivs(ntests,npass)
  divcurlv(:,:) = 0.
  nactive = npart
 
- call set_linklist(npart,nactive,xyzh,vxyzu)
-
  c_code = c/unit_velocity
  steboltz_code = steboltz/(unit_energ/(udist**2*utime))
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
@@ -238,9 +235,7 @@ subroutine test_uniform_derivs(ntests,npass)
  enddo
 
  do i = 1,2
-    call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,&
-                ddustevol,temperature,timei,dtsph,dtnew)
+    call get_derivs_global()
  enddo
 
  nerr_e = 0

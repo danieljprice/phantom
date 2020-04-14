@@ -111,7 +111,7 @@ module forces
        iradlambdai    = lastxpvdust + 6, &
        iradrbigi      = lastxpvdust + 7, &
        !--final radiation index
-       lastxpvrad     = lastxpvdust + 7
+       lastxpvrad     = lastxpvdust + 7, &
        !--gr primitive density
        idensGRi      = lastxpvrad + 1, &
        !--gr metrics
