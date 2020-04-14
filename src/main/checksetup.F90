@@ -19,7 +19,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    options, part, physcon, sortutils, timestep, units
+!    metric_tools, options, part, physcon, sortutils, timestep, units,
+!    utils_gr
 !+
 !--------------------------------------------------------------------------
 module checksetup
@@ -49,19 +50,17 @@ subroutine check_setup(nerror,nwarn,restart)
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:umass,udist,utime
- use physcon,         only:gg
+ use units,           only:G_is_unity,G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
  character(len=3) :: string
@@ -96,11 +95,11 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
- if (hfact < 1.) then
+ if (hfact < 1. .or. hfact /= hfact) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0.) then
+ if (polyk < 0. .or. polyk /= polyk) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  elseif (polyk < tiny(0.) .and. ieos /= 2) then
@@ -300,13 +299,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check G=1 in code units where necessary
 !
  if (gravity .or. nptmass > 0) then
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > max(1.e-15,real(epsilon(gcode)))) then
+    if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'Error in setup: self-gravity ON but G /= 1 in code units'
+          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',G_code()
        elseif (nptmass > 0) then
-          print*,'Error in setup: sink particles used but G /= 1 in code units'
-          print*,gcode,gcode-1.,epsilon(gcode)
+          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',G_code()
        endif
        nerror = nerror + 1
     endif
@@ -341,12 +338,13 @@ subroutine check_setup(nerror,nwarn,restart)
           npartoftype(idust) = 0
        else
           if (id==master) then
-             print*,'ERROR in setup: use of dust particles AND a dust fraction not implemented'
-             print*,'                i.e. cannot yet mix two-fluid and one-fluid methods'
-             print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
+             if (use_hybrid) then
+                print*, "WARNING: HYBRID DUST IMPLEMENTATION IS NOT YET FINISHED (IT'S NOT GONNA RUN ANYWAY)"
+             else
+                print "(2(/,a),/)",' ** Set PHANTOM_RESTART_ONEFLUID=yes to restart a two fluid', &
                                 '    calculation using the one fluid method (dustfrac) **'
+             endif
           endif
-          nerror = nerror + 1
        endif
     endif
  endif
@@ -392,6 +390,10 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
+
+#ifdef GR
+ call check_gr(npart,nerror,xyzh,vxyzu)
+#endif
 
 !
 !--check dust growth arrays
@@ -454,12 +456,18 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink
+
+ if (gr .and. nptmass > 0) then
+    print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    nwarn = nwarn + 1
+    return
+ endif
 
  if (nptmass < 0) then
     print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
@@ -588,6 +596,53 @@ subroutine check_setup_dustgrid(nerror,nwarn)
  enddo
 
 end subroutine check_setup_dustgrid
+
+#ifdef GR
+subroutine check_gr(npart,nerror,xyzh,vxyzu)
+ use metric_tools, only:pack_metric,unpack_metric
+ use utils_gr,     only:get_u0
+ use part,         only:isdead_or_accreted
+ use units,        only:in_geometric_units,G_code,c_code
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real    :: metrici(0:3,0:3,2),gcov(0:3,0:3),u0
+ integer :: ierr,i,nbad
+
+ !
+ ! check code units are set for geometric units
+ !
+ if (.not. in_geometric_units()) then
+    print "(/,a)",' ERROR: units are incorrect for GR, need G = c = 1'
+    print *,' ...but we have G = ',G_code(),' and c = ',c_code()
+    print*
+    nerror = nerror + 1
+ endif
+
+ !
+ ! check for bad U0, indicating v or u > 1
+ !
+ nbad = 0
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call pack_metric(xyzh(1:3,i),metrici)
+       call unpack_metric(metrici,gcov=gcov)
+       call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+       if (ierr /= 0) then
+          print*,vxyzu(1:3,i),gcov,U0
+          read*
+       endif
+       if (ierr/=0) nbad = nbad + 1
+    endif
+ enddo
+
+ if (nbad > 0) then
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nbad,' of ',npart,' particles have |v| > 1 or u > 1, giving undefined U^0'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_gr
+#endif
 
 !------------------------------------------------------------------
 !+

@@ -12,10 +12,36 @@ Log in
 
    ssh -Y USER@gadi.nci.org.au
 
-Make a shortcut to the /short filesystem
-----------------------------------------
+Configure your environment
+------------------
 
-::
+First edit your .bashrc file in your favourite text editor::
+
+   vi ~/.bashrc
+
+Mine has::
+
+   export SYSTEM=nci
+   export OMP_STACKSIZE=512M
+   export PATH=$PATH:/scratch/fu7/splash/bin
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
+   export MAXP=2000000
+   source ~/.modules
+
+Then relevant modules in your .modules file::
+
+   vi ~/.modules
+
+Mine contains::
+
+   module load intel-compiler
+   module load intel-mpi
+
+Initialise git-lfs as follows::
+
+   $ git lfs install
+
+Make a shortcut to the /scratch filesystem::
 
    cd /scratch/fu7
    mkdir $USER
@@ -24,28 +50,83 @@ Make a shortcut to the /short filesystem
    cd runs
    pwd -P
 
-Edit your ~/.bashrc file
+Get phantom
+-----------
+
+Clone a copy of phantom into your home directory::
+
+   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+
+Run a calculation
 ------------------
+   
+then make a subdirectory for the name of the calculation you want to run
+(e.g. tde)::
 
-Mine has:
+   $ cd; cd runs
+   $ mkdir tde
+   $ cd tde
+   $ ~/phantom/scripts/writemake.sh grtde > Makefile
+   $ make setup
+   $ make
 
-::
+then run phantomsetup to create your initial conditions::
 
-   export SYSTEM=nci
-   export OMP_STACKSIZE=512M
-   export PATH=$PATH:$HOME/splash/bin
-   export MAXP=2000000
-   source ~/.modules
+   $ ./phantomsetup tde
+   (just press enter to all the questions to get the default)
 
-Put relevant modules in your .modules file
-------------------------------------------
+To run the code, you need to write a pbs script. You can get an
+example by typing “make qscript”::
 
-Mine contains:
+   $ make qscript INFILE=tde.in JOBNAME=myrun > run.qscript
 
-::
+should produce something like::
 
-   module load intel-compiler
-   module load intel-mpi
+  $ cat run.qscript
+  #!/bin/bash
+  ## PBS Job Submission Script, created by "make qscript" Tue Mar 31 12:32:08 AEDT 2020
+  #PBS -l ncpus=48
+  #PBS -N myrun
+  #PBS -q normal
+  #PBS -P fu7
+  #PBS -o tde.in.pbsout
+  #PBS -j oe
+  #PBS -m e
+  #PBS -M daniel.price@monash.edu
+  #PBS -l walltime=48:00:00
+  #PBS -l mem=16G
+  #PBS -l other=hyperthread
+  ## phantom jobs can be restarted:
+  #PBS -r y
+
+  cd $PBS_O_WORKDIR
+  echo "PBS_O_WORKDIR is $PBS_O_WORKDIR"
+  echo "PBS_JOBNAME is $PBS_JOBNAME"
+  env | grep PBS
+  cat $PBS_NODEFILE > nodefile
+  echo "HOSTNAME = $HOSTNAME"
+  echo "HOSTTYPE = $HOSTTYPE"
+  echo Time is `date`
+  echo Directory is `pwd`
+
+  ulimit -s unlimited
+  export OMP_SCHEDULE="dynamic"
+  export OMP_NUM_THREADS=48
+  export OMP_STACKSIZE=1024m
+
+  echo "starting phantom run..."
+  export outfile=`grep logfile "tde.in" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`
+  echo "writing output to $outfile"
+  ./phantom tde.in >& $outfile
+
+You can then proceed to submit the job to the queue using::
+
+  qsub run.qscript
+
+Check the status using::
+
+  qstat -u $USER
+
 
 more info
 ---------

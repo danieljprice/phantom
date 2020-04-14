@@ -31,7 +31,7 @@ module timing
  public :: getused,get_timings,printused
  public :: wallclock,log_timing,print_time
 
- public :: timer,reset_timer,increment_timer
+ public :: timer,reset_timer,increment_timer,print_timer
 
  type timer
     character(len=20) :: label
@@ -39,7 +39,6 @@ module timing
     real(kind=4) :: cpu
  end type
 
- type(timer), public     :: timer_dens,timer_force,timer_link
  private
 
 contains
@@ -77,6 +76,35 @@ subroutine increment_timer(my_timer,wall,cpu)
  my_timer%cpu  = my_timer%cpu + cpu
 
 end subroutine increment_timer
+
+!-----------------------------------------------
+!+
+!  Pretty-print timing entries in a nice table
+!+
+!-----------------------------------------------
+subroutine print_timer(lu,label,my_timer,time_total)
+ integer,          intent(in) :: lu
+ real(kind=4),     intent(in) :: time_total
+ character(len=*), intent(in) :: label
+ type(timer),      intent(in) :: my_timer
+
+ if (my_timer%wall > epsilon(0._4)) then
+    if (time_total > 7200.0) then
+       write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
+            label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
+            my_timer%wall/time_total*100.
+    elseif (time_total > 120.0) then
+       write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
+            label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
+            my_timer%wall/time_total*100.
+    else
+       write(lu,"(1x,a12,':',f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
+            label,my_timer%wall,my_timer%cpu,my_timer%cpu/my_timer%wall, &
+            my_timer%wall/time_total*100.
+    endif
+ endif
+
+end subroutine print_timer
 
 !--------------------------------------------------------------------
 !+

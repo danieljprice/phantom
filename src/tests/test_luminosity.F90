@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: deriv, dim, energies, eos, io, options, part, setdisc,
-!    testutils, timestep_ind, timing, viscosity
+!    testutils, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module testlum
@@ -37,7 +37,7 @@ subroutine test_lum(ntests,npass)
  use io,       only:iverbose
  use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
-                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB
+                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,pxyzu,dens,metrics
  use eos,             only:gamma,polyk
  use testutils,       only:checkval,checkvalf,update_test_scores
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
@@ -52,9 +52,6 @@ subroutine test_lum(ntests,npass)
 #endif
  use options,         only:ieos,alpha,iexternalforce,ipdv_heating,ishock_heating
  !use part,            only:luminosity
-#ifdef IND_TIMESTEPS
- use timestep_ind,    only:nactive
-#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef LIGHTCURVE
@@ -64,6 +61,7 @@ subroutine test_lum(ntests,npass)
  real(kind=4) :: t1,t2
  integer                :: nfail(1),ii
 #endif
+ integer :: nactive
 
 !#ifdef DISC_VISCOSITY
 !    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (cannot have -DDISC_VISCOSITY)'
@@ -162,7 +160,7 @@ subroutine test_lum(ntests,npass)
        call getused(t1)
        fext = 0.
        call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
        call getused(t2)
 
        !print*,maxalpha,maxp,alphaind(1)
@@ -192,7 +190,7 @@ subroutine test_lum(ntests,npass)
 !-- Check with regular viscosity
  call getused(t1)
  call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
+             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
  call getused(t2)
  totlum_saved(2) = totlum
  diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)

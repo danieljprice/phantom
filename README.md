@@ -28,6 +28,20 @@ The Phantom source code is structured as follows:
 | `src/tests`      | source for unit tests and the Phantom testsuite       |
 | `src/utils`      | source for optional utilities and analysis            |
 
+Getting help
+------------
+
+If you need help, please try the following, in order:
+
+1. Check the [documentation](https://phantomsph.readthedocs.org/).
+2. File an issue, as a [bug report](https://bitbucket.org/danielprice/phantom/issues/new) or [feature request](https://bitbucket.org/danielprice/phantom/issues/new), using the issue tracker.
+
+Slack
+-----
+
+We welcome general discussion about Phantom, smoothed particle hydrodynamics,
+and astrophysics at the [Phantom Slack](https://phantomsph.slack.com/).
+
 Citation
 --------
 

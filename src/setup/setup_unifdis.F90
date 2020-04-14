@@ -59,7 +59,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry
+ use dim,          only:maxvxyzu,h2chemistry,gr
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
@@ -107,7 +107,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npartx = 64
  ilattice = 1
- cs0 = 1.
+ rhozero = 1.
+ if (gr) then
+    cs0 = 1.e-4
+ else
+    cs0 = 1.
+ endif
  if (use_dust) then
     use_dustfrac = .true.
     dust_to_gas = 0.01
@@ -134,7 +139,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set units and boundaries
  !
- call set_units(dist=udist,mass=umass,G=1.d0)
+ if (gr) then
+    call set_units(mass=umass,c=1.d0,G=1.d0)
+ else
+    call set_units(dist=udist,mass=umass,G=1.d0)
+ endif
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
@@ -225,7 +234,6 @@ subroutine setup_interactive(id,polyk)
  !
  ! number of particles
  !
- npartx = 64
  if (id==master) then
     print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
     call prompt('enter number of particles in x direction ',npartx,1)
@@ -234,14 +242,12 @@ subroutine setup_interactive(id,polyk)
  !
  ! mean density
  !
- rhozero = 1.
  if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
  call bcast_mpi(rhozero)
  !
  ! sound speed in code units
  !
  if (id==master) then
-    cs0 = 1.
     call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  endif
  call bcast_mpi(cs0)
@@ -256,7 +262,6 @@ subroutine setup_interactive(id,polyk)
  ! type of lattice
  !
  if (id==master) then
-    ilattice = 1
     call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
  endif
  call bcast_mpi(ilattice)

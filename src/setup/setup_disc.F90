@@ -80,7 +80,7 @@ module setup
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
- use options,          only:use_dustfrac,iexternalforce
+ use options,          only:use_dustfrac,iexternalforce,use_hybrid
 #ifdef MCFOST
  use options,          only:use_mcfost,use_mcfost_stellar_parameters
 #endif
@@ -91,7 +91,8 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,isetdust,dustbinfrac,check_dust_method
+                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
+                            dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
  use part,             only:radiation
  use dim,              only:do_radiation
@@ -449,7 +450,9 @@ subroutine get_setup_parameters(id,fileprefix)
  if (iexist) then
 
     !--read from setup file
+    print*,"read setup file?"
     call read_setupfile(filename,ierr)
+    print*,"after read setup file?"
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
@@ -1049,6 +1052,59 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           npart = npart + npingasdisc
           npartoftype(igas) = npartoftype(igas) + npingasdisc
 
+          if (use_hybrid) then
+             if (ndustlarge > 1) then
+                dustprefix = trim(prefix)//'-'
+                call make_tags_unique(ndustlarge,dustprefix)
+             else
+                dustprefix = trim(prefix)
+             endif
+
+             !--dust disc(s)
+             do j=1,ndustlarge
+
+                npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
+                itype = idust + j - 1
+
+                !--taper dust disc
+                iprofiledust = 0
+                if (itaperdust(i,j)) iprofiledust = 1
+
+                call set_disc(id,master      = master,             &
+                              npart          = npindustdisc,       &
+                              npart_start    = npart + 1,          &
+                              particle_type  = itype,              &
+                              rref           = R_ref(i),           &
+                              rmin           = R_indust(i,j),      &
+                              rmax           = R_outdust(i,j),     &
+                              indexprofile   = iprofiledust,       &
+                              rc             = R_c_dust(i,j),      &
+                              p_index        = pindex_dust(i,j),   &
+                              q_index        = qindex_dust(i,j),   &
+                              HoverR         = H_R_dust(i,j),      &
+                              disc_mass      = disc_mdust(i,j),    &
+                              star_mass      = star_m(i),          &
+                              gamma          = gamma,              &
+                              particle_mass  = massoftype(itype),  &
+                              xyz_origin     = xorigini,           &
+                              vxyz_origin    = vorigini,           &
+                              hfact          = hfact,              &
+                              xyzh           = xyzh,               &
+                              vxyzu          = vxyzu,              &
+                              polyk          = polyk_dust,         &
+                              ismooth        = ismoothdust(i,j),   &
+                              position_angle = posangl(i),         &
+                              inclination    = incl(i),            &
+                              rwarp          = R_warp(i),          &
+                              warp_smoothl   = H_warp(i),          &
+                              bh_spin        = bhspin,             &
+                              prefix         = dustprefix(j))
+
+                npart = npart + npindustdisc
+                npartoftype(itype) = npartoftype(itype) + npindustdisc
+
+             enddo
+          endif
        else
 
           !--gas disc
@@ -1305,11 +1361,12 @@ end subroutine set_planet_atm
 subroutine initialise_dustprop(npart)
  integer, intent(in) :: npart
 
- integer :: i
+ integer :: i,iam
 
  if (use_dustgrowth) then
     do i=1,npart
-       if (iamtype(iphase(i))==idust) then
+       iam = iamtype(iphase(i))
+       if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
        else
@@ -1858,6 +1915,8 @@ subroutine setup_interactive()
  !--resolution
  if (use_dust .and. .not.use_dustfrac) then
     np_dust = np/ndusttypesinp/5
+    !elseif (use_dust .and. use_hybrid) then
+    !np_dust = np/ndustlargeinp/5
  else
     np_dust = 0
  endif
@@ -1925,11 +1984,11 @@ subroutine write_setupfile(filename)
  !--resolution
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
- if (use_dust .and. .not.use_dustfrac) then
+ if (use_dust .and. (.not.use_dustfrac .or. use_hybrid)) then
     duststring = 'np_dust'
-    call make_tags_unique(ndusttypesinp,duststring)
-    do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),trim(duststring(i)),'number of dust particles',iunit)
+    call make_tags_unique(ndustlargeinp,duststring)
+    do i=1,ndustlargeinp
+       call write_inopt(np_dust(i),trim(duststring(i)),'number of large dust particles',iunit)
     enddo
  endif
  !--units
@@ -2295,16 +2354,22 @@ subroutine read_setupfile(filename,ierr)
     case(2)
        use_dustfrac = .false.
        ndustlarge = ndusttypesinp
+    case(3)
+       use_dustfrac   = .true.
+       use_hybrid     = .true.
+       ndustlarge     = ndustlargeinp
+       ndustsmall     = ndustsmallinp
+       ilimitdustflux = ilimitdustfluxinp
     end select
     ndusttypes = ndusttypesinp
  endif
 
  !--resolution
  call read_inopt(np,'np',db,min=0,errcount=nerr)
- if (use_dust .and. .not.use_dustfrac) then
+ if (use_dust .and. (.not.use_dustfrac .or. use_hybrid)) then
     duststring = 'np_dust'
-    call make_tags_unique(ndusttypesinp,duststring)
-    do i=1,ndustlarge
+    call make_tags_unique(ndustlargeinp,duststring)
+    do i=1,ndustlargeinp
        call read_inopt(np_dust(i),duststring(i),db,min=0,errcount=nerr)
     enddo
  endif
@@ -2495,7 +2560,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
           dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-    dustfrac(:,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(:)
+    dustfrac(1:ndustsmall,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(1:ndustsmall)
 
  enddo
 

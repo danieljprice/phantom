@@ -17,9 +17,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    accradius1 -- accretion radius of central object
-!    eps_soft   -- softening length (Plummer) for central potential in code units
-!    mass1      -- mass of central object in code units
+!    accradius1      -- soft accretion radius of central object
+!    accradius1_hard -- hard accretion radius of central object
+!    eps_soft        -- softening length (Plummer) for central potential in code units
+!    mass1           -- mass of central object in code units
 !
 !  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !    extern_gnewton, extern_gwinspiral, extern_lensethirring,
@@ -49,6 +50,7 @@ module externalforces
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
+ real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
 
  !
@@ -425,7 +427,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        !--external force timestep based on sqrt(h/accel)
        !
        if (hi > epsilon(hi)) then
-#ifdef FINVSQSRT
+#ifdef FINVSQRT
           dtf1 = sqrt(hi*finvsqrt(f2i))
 #else
           dtf1 = sqrt(hi/sqrt(f2i))
@@ -476,7 +478,7 @@ end function is_velocity_dependent
 !  This routine returns an explicit evaluation
 !+
 !-----------------------------------------------------------------------
-subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
+subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
  use extern_corotate,      only:get_coriolis_force
  use extern_prdrag,        only:get_prdrag_vdependent_force
  use extern_lensethirring, only:get_lense_thirring_force
@@ -485,6 +487,7 @@ subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti)
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
+ real,    intent(in), optional :: densi,ui ! Needed for compatibility with gr
 
  select case(iexternalforce)
  case(iext_corotate,iext_corot_binary)
@@ -509,7 +512,7 @@ end subroutine externalforce_vdependent
 !+
 !-----------------------------------------------------------------------
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi)
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  use extern_corotate,      only:update_coriolis_leapfrog
  use extern_prdrag,        only:update_prdrag_leapfrog
  use extern_lensethirring, only:update_ltforce_leapfrog
@@ -519,6 +522,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
+ real,    intent(in), optional :: densi,ui ! Needed for compatibility with gr
 
  select case(iexternalforce)
  case(iext_corotate,iext_corot_binary)
@@ -574,12 +578,14 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use extern_binary, only:binary_accreted,accradius1
+ use part,          only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
+ integer, intent(in), optional :: i
  real :: r2
 
  accreted = .false.
@@ -587,7 +593,12 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
 
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < accradius1**2) accreted = .true.
+    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
+       call set_particle_type(i,iboundary)
+       !npartoftype(igas) = npartoftype(igas) - 1
+       !npartoftype(iboundary) = npartoftype(iboundary) + 1
+    endif
+    if (r2 < (accradius1_hard)**2) accreted = .true.
 
  case(iext_binary,iext_corot_binary)
 
@@ -649,7 +660,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  select case(iexternalforce)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
-    call write_inopt(accradius1,'accradius1','accretion radius of central object',iunit)
+    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
+    call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
+    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
  end select
 
  select case(iexternalforce)
@@ -780,6 +793,10 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
+ case('accradius1_hard')
+    read(valstring,*,iostat=ierr) accradius1_hard
+    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1_hard value')
+    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case('eps_soft')
     read(valstring,*,iostat=ierr) eps_soft
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
@@ -835,12 +852,10 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  use extern_neutronstar,   only:load_extern_neutronstar
  use extern_Bfield,        only:check_externB_settings
  use extern_gwinspiral,    only:initialise_gwinspiral
- use units,                only:umass,utime,udist
- use physcon,              only:gg,c
+ use units,                only:G_is_unity,c_is_unity,G_code,c_code
  use part,                 only:npart,nptmass
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
- real(kind=8) :: gcode, ccode
 
  ierr = 0
  select case(iexternalforce)
@@ -871,10 +886,9 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     !--check that G=1 in code units
     !
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > 1.e-10) then
+    if (.not.G_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes G=1 in code units but we have',var='G',val=real(gcode))
+                  ' external force assumes G=1 in code units but we have',var='G',val=real(G_code()))
        ierr = ierr + 1
     endif
  end select
@@ -884,10 +898,9 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     !--check that c=1 in code units for prdrag only
     !
-    ccode = c*utime/udist
-    if (abs(ccode-1.) > 1.e-10) then
+    if (.not.c_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes c=1 in code units but we have',var='c',val=real(ccode))
+                  ' external force assumes c=1 in code units but we have',var='c',val=real(c_code()))
        ierr = ierr + 1
     endif
  end select

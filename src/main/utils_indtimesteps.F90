@@ -500,6 +500,50 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
 
 end subroutine print_dtlog_ind
 
+!-----------------------------------------------------------------
+!+
+!  compute and print individual timestep "efficiency"
+!  efficiency is 100% if evolving 1% of the particles takes
+!  1% of the time
+!+
+!-----------------------------------------------------------------
+subroutine print_dtind_efficiency(iverbose,nalive,nmoved,tall,tlast,icall)
+ integer,      intent(in)    :: iverbose,icall
+ integer(kind=8), intent(in) :: nalive,nmoved
+ real(kind=4), intent(in)    :: tlast
+ real(kind=4), intent(inout) :: tall
+ real :: fracactive,speedup,efficiency
+ character(len=12) :: string
+
+ if (iverbose >= 0 .and. nalive > 0) then
+    if (nmoved==nalive .and. icall==1) then
+       tall = tlast
+    elseif (tall > 0.) then
+       fracactive = nmoved/real(nalive)
+       speedup = tlast/tall
+       if (speedup > 0.) then
+          efficiency = 100.*fracactive/speedup
+       else
+          efficiency = 0.
+       endif
+       if (icall == 2) then
+          write(string,"(f12.2)") 1e-6*real(nmoved)/tlast
+          write(*,"(1x,a,a,f6.2,'%',/)") trim(adjustl(string))//'M particles per second',&
+               ', IND TIMESTEPS efficiency:',efficiency
+          if (iverbose >= 1) then
+             write(*,"(a,1pf12.1,'s')") '  particles per second (last full step) : ',real(nalive)/tall
+             write(*,"(a,1pf12.1,'s')") '  particles per second (ave. all steps) : ',real(nmoved)/tlast
+          endif
+       elseif (iverbose >= 2) then
+          write(*,"(1x,'(',3(a,f6.2,'%'),')')") &
+               'moved ',100.*fracactive,' of particles in ',100.*speedup, &
+               ' of time, efficiency = ',efficiency
+       endif
+    endif
+ endif
+
+end subroutine print_dtind_efficiency
+
 !----------------------------------------------------------------
 !+
 !  Checks which timestep is the limiting dt.  Book keeping is done here

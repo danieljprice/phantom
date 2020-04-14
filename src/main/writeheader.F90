@@ -18,7 +18,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
-!    options, part, physcon, readwrite_infile, units, viscosity
+!    metric_tools, options, part, physcon, readwrite_infile, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader
@@ -71,7 +72,7 @@ end subroutine write_codeinfo
 !+
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
@@ -86,6 +87,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use units,            only:print_units
  use dust,             only:print_dustinfo
  use growth,           only:print_growthinfo
+#ifdef GR
+ use metric_tools,     only:print_metricinfo
+#endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -186,12 +190,15 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
     endif
     if (maxvxyzu >= 4) then
-       if (gravity) then
+       if (gr) then
+          write(iprint,"(a,f10.6)") ' Art. conductivity                          : alphau = ',alphau
+       elseif (gravity .and. .not. gr) then
           write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
        else
           write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
        endif
     endif
+    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2018) for implementaion of shock dissipation terms'
     write(iprint,*)
 
 !
@@ -201,6 +208,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
     if (use_dust) call print_dustinfo(iprint)
     if (use_dustgrowth) call print_growthinfo(iprint)
+
+#ifdef GR
+    call print_metricinfo(iprint)
+#endif
 !
 !  print units information
 !

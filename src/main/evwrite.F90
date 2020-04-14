@@ -57,10 +57,10 @@ module evwrite
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                            iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                           iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
+                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_erad
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_erad,iev_gws
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -82,7 +82,7 @@ contains
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only: id,master,warning
  use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve, &
-                      use_CMacIonize
+                      use_CMacIonize,gws
  use options,   only: calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
@@ -136,9 +136,10 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
  if ( mhd ) then
+    call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
     call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
-    call fill_ev_tag(ev_fmt,      iev_beta,   'beta',   'xan',i,j)
+    call fill_ev_tag(ev_fmt,      iev_beta,   'beta_P', 'xan',i,j)
     if (mhd_nonideal) then
        call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
        call fill_ev_tag(ev_fmt,   iev_etaar,  'eta_ar',   'xan',i,j)
@@ -217,6 +218,12 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
  if (use_CMacIonize) then
     call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
+ endif
+ if (gws) then
+    call fill_ev_tag(ev_fmt,iev_gws(1),'hx','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(2),'hp','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(3),'hxx','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(4),'hpp','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
@@ -341,8 +348,10 @@ subroutine write_evfile(t,dt)
  use timestep,      only:dtmax
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
+#ifndef GR
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
+#endif
  real, intent(in)  :: t,dt
  integer           :: i,j
  real              :: ev_data_out(ielements)
@@ -352,12 +361,14 @@ subroutine write_evfile(t,dt)
 
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
+#ifndef GR
     ev_data(iev_sum,iev_dt)  = dt
     ev_data(iev_sum,iev_dtx) = dtmax
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2
     endif
+#endif
     ! Fill in the data_out array
     j = 1
     do i = 1,iquantities

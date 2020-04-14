@@ -133,7 +133,7 @@ subroutine summary_initialise
  else
     iosum_print = iosum_nprint
  endif
- freason(inosink_notgas) = 'Not gas:           '
+ freason(inosink_notgas) = 'Not gas or dust:   '
  freason(inosink_divv)   = 'div v > 0:         '
  freason(inosink_h)      = '2h > h_acc:        '
  freason(inosink_active) = 'not all active:    '

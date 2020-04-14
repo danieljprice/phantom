@@ -27,17 +27,19 @@ module allocutils
  implicit none
 
  public :: allocate_array
-
- real :: nbytes_allocated = 0.0
+ real, public :: nbytes_allocated = 0.0
+ public :: bytes2human
 
  interface allocate_array
   module procedure &
       allocate_array_real8_1d, &
       allocate_array_real8_2d, &
       allocate_array_real8_3d, &
+      allocate_array_real8_4d, &
       allocate_array_real4_1d, &
       allocate_array_real4_2d, &
       allocate_array_real4_3d, &
+      allocate_array_real4_4d, &
       allocate_array_integer4_1d, &
       allocate_array_integer4_2d, &
       allocate_array_integer4_3d, &
@@ -47,6 +49,8 @@ module allocutils
       allocate_array_kdnode_1d, &
       allocate_array_logical
  end interface
+
+ private
 
 contains
 
@@ -86,6 +90,18 @@ subroutine allocate_array_real8_3d(name, x, n1, n2, n3)
 
 end subroutine allocate_array_real8_3d
 
+subroutine allocate_array_real8_4d(name, x, n1, n2, n3, n4)
+ character(len=*),            intent(in)     :: name
+ real(kind=8), allocatable,   intent(inout)  :: x(:,:,:,:)
+ integer,                     intent(in)     :: n1, n2, n3, n4
+ integer                                     :: allocstat
+
+ allocate(x(n1, n2, n3, n4), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(8)')
+
+end subroutine allocate_array_real8_4d
+
 subroutine allocate_array_real4_1d(name, x, n1)
  character(len=*),            intent(in)     :: name
  real(kind=4), allocatable,   intent(inout)  :: x(:)
@@ -121,6 +137,18 @@ subroutine allocate_array_real4_3d(name, x, n1, n2, n3)
  call print_allocation_stats(name, (/n1, n2, n3/), 'real(4)')
 
 end subroutine allocate_array_real4_3d
+
+subroutine allocate_array_real4_4d(name, x, n1, n2, n3, n4)
+ character(len=*),            intent(in)     :: name
+ real(kind=4), allocatable,   intent(inout)  :: x(:,:,:,:)
+ integer,                     intent(in)     :: n1, n2, n3, n4
+ integer                                     :: allocstat
+
+ allocate(x(n1, n2, n3, n4), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(4)')
+
+end subroutine allocate_array_real4_4d
 
 subroutine allocate_array_integer4_1d(name, x, n1)
  character(len=*),               intent(in)     :: name

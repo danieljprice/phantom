@@ -346,18 +346,21 @@ subroutine update_abundances(ui,rhoi,chemarrays,nchem,abund,tempiso,np1,dt,xi,yi
 !
 !--Need some built in case for when all the HI is in H2, stops a div0 occurring
 !--from:  nh1=np1*(1.-2.*h2ratio) when h2ratio=0.5
-    if (nh1t==0.0d0 .AND. nh1==0.0d0) then
-       abHIq=1.0d0
-    else
+    if (nh1t > 0.0d0 .and. nh1 > 0.0d0) then
        abHIq=nh1t/nh1
+    else
+       abHIq=1.0d0
     endif
 !
 ! Make sure abHI not >1 - should be taken care of by Simon's chemistry.
 !
 !--Also make sure that the abundance dosen't drop below 0, and above 1
 !--by fixing HI we also fix HII and e- problem.
-    if (abHIq > 1.d0) abHIq = 1.d0
-    if (abHIq < 0.d0) abHIq = 0.d0
+    if (abHIq > 1.d0) then
+       abHIq = 1.d0
+    elseif (abHIq < 0.d0) then
+       abHIq = 0.d0
+    endif
 
 !--Abundance of protons
     abhpq = 1.0d0 - abHIq

@@ -21,9 +21,9 @@
 !
 !  DEPENDENCIES: io, io_summary, options, testcooling, testcorotate,
 !    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
-!    testgravity, testgrowth, testindtstep, testkdtree, testkernel,
+!    testgr, testgravity, testgrowth, testindtstep, testkdtree, testkernel,
 !    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
-!    testsetdisc, teststep, timing
+!    testsetdisc, testsmol, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -45,14 +45,19 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
+ use testsmol,     only:test_smol
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
+#ifdef GR
+ use testgr,       only:test_gr
+#else
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
+#endif
  use testexternf,  only:test_externf
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
@@ -68,10 +73,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
+ logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: doradiation
+ logical :: dogr,doradiation
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -86,6 +91,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(/,a,/)") '--> RUNNING PHANTOM TEST SUITE'
        write(*,"(2x,a)") '"Nobody cares how fast you can calculate the wrong answer."'
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
+       write(*,"(2x,a)") '"Trace, test and treat"'
+       write(*,"(14x,a,/)") '-- South Korea'
     endif
     ntests = 0
     npass  = 0
@@ -113,6 +120,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  donimhd    = .false.
  docooling  = .false.
  dogeom     = .false.
+ dogr       = .false.
+ dosmol     = .false.
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -124,7 +133,9 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'sink')      /= 0) doptmass  = .true.
  if (index(string,'cool')      /= 0) docooling = .true.
  if (index(string,'geom')      /= 0) dogeom    = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom/))
+ if (index(string,'gr')        /= 0) dogr      = .true.
+ if (index(string,'smol')      /= 0) dosmol    = .true.
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr,dosmol/))
 
  doradiation = .false.
  if (index(string,'radiation') /= 0) doradiation = .true.
@@ -161,6 +172,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('gr')
+    dogr = .true.
  case('growth')
     dogrowth = .true.
  case('nimhd')
@@ -235,10 +248,17 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options ! restore defaults
  endif
 !
+!--test of smoluchowsky growth solver
+!
+ if (dosmol.or.testall) then
+    call test_smol(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+!
 !--test of non-ideal MHD
 !
  if (donimhd.or.testall) then
-    call test_nonidealmhd(ntests,npass)
+    call test_nonidealmhd(ntests,npass,string)
     call set_default_options ! restore defaults
  endif
 !
@@ -276,6 +296,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_ptmass(ntests,npass)
     call set_default_options ! restore defaults
  endif
+
+#ifdef GR
+ if (dogr.or.testall) then
+    call test_gr(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+#else
 !
 !--test of gnewton module
 !
@@ -290,6 +317,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_corotate(ntests,npass)
     call set_default_options ! restore defaults
  endif
+#endif
+
 !
 !--test of set_disc module
 !

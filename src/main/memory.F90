@@ -17,7 +17,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: allocutils, dim, io, kdtree, linklist, part, photoevap
+!  DEPENDENCIES: allocutils, dim, io, linklist, part, photoevap
 !+
 !--------------------------------------------------------------------------
 module memory
@@ -33,8 +33,7 @@ subroutine allocate_memory(n, part_only)
  use dim, only:update_max_sizes,maxp
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
- use kdtree, only:allocate_kdtree
- use linklist, only:allocate_linklist
+ use linklist, only:allocate_linklist,ifirstincell
 #ifdef PHOTO
  use photoevap, only:allocate_photoevap
 #endif
@@ -50,8 +49,19 @@ subroutine allocate_memory(n, part_only)
  else
     part_only_ = .false.
  endif
-
- if (nbytes_allocated > 0.0 .and. n <= maxp) return ! just silently skip if arrays are already large enough
+ if (nbytes_allocated > 0.0 .and. n <= maxp) then
+    !
+    ! just silently skip if arrays are already large enough
+    ! but make sure additional arrays are allocated
+    ! (this catches the case where first call was made with part_only=.true.)
+    !
+    if (.not.part_only_ .and. .not. allocated(ifirstincell)) then
+       !write(iprint, '(a)') '--> ALLOCATING KDTREE ARRAYS' ! no need to broadcast this
+       call allocate_linklist()
+    endif
+    ! skip remaining memory allocation (arrays already big enough)
+    return
+ endif
  call update_max_sizes(n)
 
  if (nprocs == 1) then
@@ -72,7 +82,6 @@ subroutine allocate_memory(n, part_only)
 
  call allocate_part
  if (.not. part_only_) then
-    call allocate_kdtree
     call allocate_linklist
 #ifdef PHOTO
     call allocate_photoevap
@@ -93,7 +102,6 @@ end subroutine allocate_memory
 subroutine deallocate_memory(part_only)
  use dim, only:update_max_sizes
  use part, only:deallocate_part
- use kdtree, only:deallocate_kdtree
  use linklist, only:deallocate_linklist
 #ifdef PHOTO
  use photoevap, only:deallocate_photoevap
@@ -111,7 +119,6 @@ subroutine deallocate_memory(part_only)
 
  call deallocate_part
  if (.not. part_only_) then
-    call deallocate_kdtree
     call deallocate_linklist
 #ifdef PHOTO
     call deallocate_photoevap

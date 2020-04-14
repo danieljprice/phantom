@@ -37,16 +37,17 @@
 !    mass_unit   -- mass unit (e.g. solarm)
 !    np          -- approx number of particles (in box of size 2R)
 !    polyk       -- sound speed .or. constant in EOS
+!    relax_star  -- relax star automatically during setup
 !    ui_coef     -- specific internal energy (units of GM/R)
 !
 !  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
 !    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, rho_profile, setup_params, spherical, table_utils,
-!    timestep, units
+!    prompting, relaxstar, rho_profile, setup_params, spherical,
+!    table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
- use io,             only: fatal
+ use io,             only: fatal,error,master
  use part,           only: gravity
  use physcon,        only: solarm,solarr,km,pi,c
  use options,        only: nfulldump,iexternalforce,calc_erot
@@ -67,7 +68,7 @@ module setup
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
  logical            :: iexist,input_polyk
- logical            :: use_exactN,use_prompt
+ logical            :: use_exactN,use_prompt,relax_star_in_setup
  character(len=120) :: densityfile
  character(len=20)  :: dist_unit,mass_unit
  character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
@@ -99,8 +100,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
- use io,             only: master
- use part,           only: igas
+ use part,           only: igas,isetphase,iphase
  use spherical,      only: set_sphere
  use centreofmass,   only: reset_centreofmass
  use table_utils,    only: yinterp
@@ -111,6 +111,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,            only: init_eos, finish_eos, equationofstate
  use part,           only: rhoh, temperature, store_temperature
+ use relaxstar,      only:relax_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -122,7 +123,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = 20000
  integer, parameter               :: ng     = 12000
- integer                          :: i,nx,npts,npmax,ierr
+ integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
  real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
@@ -139,6 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  maxvxyzu     = size(vxyzu(:,1))
  write_setup  = .false.
  use_exactN   = .true.
+ relax_star_in_setup = .false.
  !
  ! General defaults
  !
@@ -216,6 +218,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(isphere)
  case(ipoly,ihelmholtz)
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
+    pres = polyk*den**gamma
  case(insfile)
     call read_rhotab_wrapper(trim(densityfile),ng_max,r,den,npts,&
                              polyk,gamma,rhocentre,Mstar,iexist,ierr)
@@ -257,17 +260,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=np)
+
+ nstar = int(npart_total,kind=(kind(nstar)))
+ massoftype(igas) = Mstar/nstar
+ !
+ ! set total particle number (on this MPI thread)
+ !
+ npart             = nstar
+ npartoftype(igas) = npart
+ iphase(1:npart)   = isetphase(igas,iactive=.true.)
+
+ !
+ ! relax the density profile to achieve nice hydrostatic equilibrium
+ !
+ if (relax_star_in_setup .and. maxvxyzu >= 4) then
+    if (nstar==npart) then
+       call relax_star(npts,den,pres,r,npart,xyzh)
+    else
+       call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
+    endif
+ endif
  !
  ! reset centre of mass
  !
- nstar = int(npart_total,kind=(kind(nstar)))
- massoftype(igas) = Mstar/nstar
  call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar))
  !
  ! add energies
  !
  call init_eos(ieos,ierr)
- if (ierr /= 0) call fatal('setup_spheres','error initialising equation of state')
+ if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
        if (gamma < 1.00001 .or. isphere==ievrard) then
@@ -305,11 +326,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
  call finish_eos(ieos,ierr)
- !
- ! set total particle number
- !
- npart          = nstar
- npartoftype(1) = npart
  !
  ! Reset centre of mass (again)
  !
@@ -476,6 +492,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter temperature',initialtemp,1.0e4,1.0e11)
     endif
  endif
+ call prompt('Relax star automatically during setup?',relax_star_in_setup)
 
 end subroutine setup_interactive
 
@@ -595,8 +612,9 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils, only: write_inopt,get_optstring
- use dim,          only: tagline
+ use infile_utils, only:write_inopt,get_optstring
+ use dim,          only:tagline
+ use relaxstar,    only:write_options_relax
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -648,6 +666,10 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  endif
 
+ write(iunit,"(/,a)") '# relaxation options'
+ call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
+ if (relax_star_in_setup) call write_options_relax(iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -657,9 +679,10 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,polyk,ierr)
- use infile_utils, only: open_db_from_file,inopts,close_db,read_inopt
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
+ use io,           only:error
+ use units,        only:select_unit
+ use relaxstar,    only:read_options_relax
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
@@ -708,6 +731,9 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(initialtemp,'initialtemp',db,errcount=nerr)
     endif
  endif
+ call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
+ if (relax_star_in_setup) call read_options_relax(db,nerr)
+ if (nerr /= 0) ierr = ierr + 1
  !
  ! parse units
  !

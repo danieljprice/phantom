@@ -144,9 +144,11 @@ module dim
 
  integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
+ integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
                                            maxxpartvecarrs*(maxdusttypes-1) + &
-                                           radenxpartvecforce
+                                           radenxpartvecforce + &
+                                           maxxpartvecGR
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -250,6 +252,25 @@ module dim
 #endif
 
 !--------------------
+! General relativity
+!--------------------
+ integer :: maxgr = 0
+#ifdef GR
+ logical, parameter :: gr = .true.
+#else
+ logical, parameter :: gr = .false.
+#endif
+
+!--------------------
+! Gravitational wave strain
+!--------------------
+#ifdef GWS
+ logical, parameter :: gws = .true.
+#else
+ logical, parameter :: gws = .false.
+#endif
+
+!--------------------
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1
@@ -281,6 +302,7 @@ module dim
  integer :: maxan = 0
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
+ integer :: maxgran = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -341,6 +363,10 @@ subroutine update_max_sizes(n)
  maxgrav = maxp
 #endif
 
+#ifdef GR
+ maxgr = maxp
+#endif
+
 #ifdef STS_TIMESTEPS
 #ifdef IND_TIMESTEPS
  maxsts = maxp
@@ -363,6 +389,7 @@ subroutine update_max_sizes(n)
  maxan = maxp
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
+ maxgran = maxgr
 #endif
 
 #ifdef RADIATION
