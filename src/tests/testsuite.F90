@@ -122,6 +122,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dogeom     = .false.
  dogr       = .false.
  dosmol     = .false.
+ doradiation = .false.
+
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -135,11 +137,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'geom')      /= 0) dogeom    = .true.
  if (index(string,'gr')        /= 0) dogr      = .true.
  if (index(string,'smol')      /= 0) dosmol    = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom,dogr,dosmol/))
+ if (index(string,'rad')       /= 0) doradiation = .true.
 
- doradiation = .false.
- if (index(string,'radiation') /= 0) doradiation = .true.
- doany = any([doany,doradiation])
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
+               doptmass,docooling,dogeom,dogr,dosmol,doradiation/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -335,13 +336,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  endif
 
  if (doradiation.or.testall) then
-   if(do_radiation) then
-    call test_radiation(ntests,npass)
-    call set_default_options ! restore defaults
-    call barrier_mpi()
-   else
-     print*, 'Radiation: Compiled without RADIATION=yes. Skip.'
-   endif
+    if (do_radiation) then
+       call test_radiation(ntests,npass)
+       call set_default_options ! restore defaults
+       call barrier_mpi()
+    else
+       print*, 'Radiation: Compiled without RADIATION=yes. Skip.'
+    endif
  endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)

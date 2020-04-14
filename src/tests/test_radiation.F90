@@ -202,14 +202,10 @@ subroutine test_uniform_derivs(ntests,npass)
  npartoftype(1) = npart
 
  vxyzu(4,:) = 0.
- fxyzu(:,:) = 0.
- fext(:,:)  = 0.
  Bevol(:,:) = 0.
  Bextx = 0.
  Bexty = 0.
  Bextz = 0.
- dBevol(:,:) = 0.
- divcurlv(:,:) = 0.
  nactive = npart
 
  c_code = c/unit_velocity
