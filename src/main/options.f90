@@ -143,8 +143,8 @@ subroutine set_default_options
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
  else
-   exchange_radiation_energy = .false.
-   limit_radiation_flux = .false.
+    exchange_radiation_energy = .false.
+    limit_radiation_flux = .false.
  endif
 
 end subroutine set_default_options

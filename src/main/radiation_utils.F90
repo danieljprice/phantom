@@ -89,30 +89,30 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  use io,           only:warning
  use dim,          only:maxphase,maxp
 
-  real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
-  real, intent(inout) ::vxyzu(:,:),radiation(:,:)
-  integer, intent(in) ::npart
+ real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
+ real, intent(inout) ::vxyzu(:,:),radiation(:,:)
+ integer, intent(in) ::npart
 
-  real :: ui,pmassi,rhoi,xii
-  real :: ack,a,cv1,kappa,dudt,etot,unew
-  real :: c_code, steboltz_code
-  integer :: i
+ real :: ui,pmassi,rhoi,xii
+ real :: ack,a,cv1,kappa,dudt,etot,unew
+ real :: c_code, steboltz_code
+ integer :: i
 
-  pmassi        = massoftype(igas)
-  steboltz_code = steboltz/(unit_energ/(udist**2*utime))
-  c_code        = c/unit_velocity
+ pmassi        = massoftype(igas)
+ steboltz_code = steboltz/(unit_energ/(udist**2*utime))
+ c_code        = c/unit_velocity
 
-  a   = 4.*steboltz_code/c_code
-  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
+ a   = 4.*steboltz_code/c_code
+ cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
 
-  !$omp parallel do default(none)&
-  !$omp private(kappa,ack,rhoi,ui)&
-  !$omp private(dudt,xii,etot,unew)&
-  !$omp shared(radiation,xyzh,vxyzu)&
-  !$omp shared(fxyzu,pmassi,maxphase,maxp)&
-  !$omp shared(iphase,npart)&
-  !$omp shared(dt,cv1,a,steboltz_code)
-  do i = 1,npart
+ !$omp parallel do default(none)&
+ !$omp private(kappa,ack,rhoi,ui)&
+ !$omp private(dudt,xii,etot,unew)&
+ !$omp shared(radiation,xyzh,vxyzu)&
+ !$omp shared(fxyzu,pmassi,maxphase,maxp)&
+ !$omp shared(iphase,npart)&
+ !$omp shared(dt,cv1,a,steboltz_code)
+ do i = 1,npart
     if (maxphase==maxp) then
        if (iamtype(iphase(i)) /= igas) cycle
     endif
@@ -148,8 +148,8 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
        call warning('radiation','thermal energy negative after exchange', i,var='u',val=vxyzu(4,i))
        vxyzu(4,i) = 0.
     endif
-  enddo
-  !$omp end parallel do
+ enddo
+ !$omp end parallel do
 end subroutine update_radenergy
 
 subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
@@ -165,22 +165,22 @@ subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  dunew = (unewp-unew)/unew
  level = 1
  do while((abs(dunew) > eps).and.(level <= 2**10))
-   unewp = unew
-   dts   = dt/level
-   uip   = ui
-   do i=1,level
-     iter  = 0
-     fu    = huge(1.)
-     do while((abs(fu) > eps).and.(iter < 10))
-       iter = iter + 1
-       fu   = unew/dts - uip/dts - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
-       dfu  = 1./dts + ack*(rho/a + 4.*(unew**3*cv1**4))
-       unew = unew - fu/dfu
-     enddo
-     uip = unew
-   enddo
-   dunew = (unewp-unew)/unew
-   level = level*2
+    unewp = unew
+    dts   = dt/level
+    uip   = ui
+    do i=1,level
+       iter  = 0
+       fu    = huge(1.)
+       do while((abs(fu) > eps).and.(iter < 10))
+          iter = iter + 1
+          fu   = unew/dts - uip/dts - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+          dfu  = 1./dts + ack*(rho/a + 4.*(unew**3*cv1**4))
+          unew = unew - fu/dfu
+       enddo
+       uip = unew
+    enddo
+    dunew = (unewp-unew)/unew
+    level = level*2
  enddo
 end subroutine solve_internal_energy_implicit_substeps
 
@@ -197,11 +197,11 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
  iter = 0
  eps = 1e-16
  do while ((abs(unew-uold) > eps).and.(iter < 10))
-   uold = unew
-   iter = iter + 1
-   fu   = unew/dt - u0/dt - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
-   dfu  = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
-   unew = unew - fu/dfu
+    uold = unew
+    iter = iter + 1
+    fu   = unew/dt - u0/dt - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+    dfu  = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
+    unew = unew - fu/dfu
  enddo
 end subroutine solve_internal_energy_implicit
 
@@ -228,16 +228,16 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  unews = 2*unew
  du = (unew-unews)/unew
  do while((abs(du) > eps).and.(level <= 2**10))
-   unews = unew
-   level = level*2
-   dts  = dt/level
-   unew = 0.
-   uis  = ui
-   do i=1,level
-     unew = uis + dts*(dudt + ack*(rho*(etot-uis)/a - (uis*cv1)**4))
-     uis  = unew
-   enddo
-   du = (unew-unews)/unew
+    unews = unew
+    level = level*2
+    dts  = dt/level
+    unew = 0.
+    uis  = ui
+    do i=1,level
+       unew = uis + dts*(dudt + ack*(rho*(etot-uis)/a - (uis*cv1)**4))
+       uis  = unew
+    enddo
+    du = (unew-unews)/unew
  enddo
 end subroutine solve_internal_energy_explicit_substeps
 

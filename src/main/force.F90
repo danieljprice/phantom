@@ -2292,8 +2292,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)
-         !  cell%xpartvec(iradlambdai,cell%npcell)     = &
-         !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          !  cell%xpartvec(iradlambdai,cell%npcell)     = &
+          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
           cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif

@@ -525,7 +525,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 #endif
        if (do_radiation) then
           call write_array(1,radiation,radenergy_label,maxirad,npart,k,ipass,idump,nums,ierrs(21))
-      endif
+       endif
        if (any(ierrs(1:23) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 

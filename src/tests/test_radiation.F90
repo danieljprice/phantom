@@ -84,7 +84,7 @@ subroutine test_radiation(ntests,npass)
  call test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu,ntests,npass)
 
 #ifndef PERIODIC
-  if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION MODULE (need -DPERIODIC)'
+ if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION MODULE (need -DPERIODIC)'
 #else
 
  call test_uniform_derivs(ntests,npass)
@@ -105,64 +105,64 @@ subroutine test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu,ntests,np
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,ierr
 
-  do i=1,npart
-     rhoi         = rhoh(xyzh(4,i),pmassi)
-     radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
-     radiation(ikappa,i)  = 0.4/(udist**2/umass)
-     vxyzu(4,i)   = 1e10/(unit_ergg*unit_density)
-     vxyzu(4,i)   = vxyzu(4,i)/rhoi
-     fxyzu(4,i)  = 0
-  enddo
+ do i=1,npart
+    rhoi         = rhoh(xyzh(4,i),pmassi)
+    radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
+    radiation(ikappa,i)  = 0.4/(udist**2/umass)
+    vxyzu(4,i)   = 1e10/(unit_ergg*unit_density)
+    vxyzu(4,i)   = vxyzu(4,i)/rhoi
+    fxyzu(4,i)  = 0
+ enddo
 
-  maxt = 5e-7*seconds
-  t = 0.
-  rhoi    = rhoh(xyzh(4,1),pmassi)
-  physrho = rhoi*unit_density
-  i = 0
-  do while(t < maxt/utime)
-     dt = max(1e-18*seconds/utime,0.05*t)
-     ! dt = maxt/utime
-     call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
-     ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-     ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-     t = t + dt
-     if (mod(i,10)==0) then
-        laste = (vxyzu(4,1)*unit_ergg)*physrho
-        write(24,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
-      endif
-     i = i + 1
-  enddo
-  call checkval(laste,21195027.055207778,1e-10,ierr,'energy exchange for gas cooling')
-  ntests = ntests + 1
-  if (ierr == 0) npass = npass + 1
+ maxt = 5e-7*seconds
+ t = 0.
+ rhoi    = rhoh(xyzh(4,1),pmassi)
+ physrho = rhoi*unit_density
+ i = 0
+ do while(t < maxt/utime)
+    dt = max(1e-18*seconds/utime,0.05*t)
+    ! dt = maxt/utime
+    call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
+    ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+    t = t + dt
+    if (mod(i,10)==0) then
+       laste = (vxyzu(4,1)*unit_ergg)*physrho
+       write(24,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
+    endif
+    i = i + 1
+ enddo
+ call checkval(laste,21195027.055207778,1e-10,ierr,'energy exchange for gas cooling')
+ ntests = ntests + 1
+ if (ierr == 0) npass = npass + 1
 
-  do i=1,npart
-     rhoi         = rhoh(xyzh(4,i),pmassi)
-     radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
-     radiation(ikappa,i) = 0.4/(udist**2/umass)
-     vxyzu(4,i)   = 1e2/(unit_ergg*unit_density)
-     vxyzu(4,i)   = vxyzu(4,i)/rhoi
-     fxyzu(4,i)  = 0
-  enddo
+ do i=1,npart
+    rhoi         = rhoh(xyzh(4,i),pmassi)
+    radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
+    radiation(ikappa,i) = 0.4/(udist**2/umass)
+    vxyzu(4,i)   = 1e2/(unit_ergg*unit_density)
+    vxyzu(4,i)   = vxyzu(4,i)/rhoi
+    fxyzu(4,i)  = 0
+ enddo
 
-  dt = 1e-11*seconds/utime
-  t = 0.
-  physrho = rhoi*unit_density
-  i = 0
-  do while(t < maxt/utime)
-     dt = max(1e-18*seconds/utime,0.05*t)
-     ! dt = maxt/utime
-     call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
-     t = t + dt
-     if (mod(i,10)==0) then
-        laste = (vxyzu(4,1)*unit_ergg)*physrho
-        write(25,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
-      endif
-     i = i + 1
-  enddo
-  call checkval(laste,21142367.365743987,1e-10,ierr,'energy exchange for gas heating')
-  ntests = ntests + 1
-  if (ierr == 0) npass = npass + 1
+ dt = 1e-11*seconds/utime
+ t = 0.
+ physrho = rhoi*unit_density
+ i = 0
+ do while(t < maxt/utime)
+    dt = max(1e-18*seconds/utime,0.05*t)
+    ! dt = maxt/utime
+    call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
+    t = t + dt
+    if (mod(i,10)==0) then
+       laste = (vxyzu(4,1)*unit_ergg)*physrho
+       write(25,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
+    endif
+    i = i + 1
+ enddo
+ call checkval(laste,21142367.365743987,1e-10,ierr,'energy exchange for gas heating')
+ ntests = ntests + 1
+ if (ierr == 0) npass = npass + 1
 end subroutine
 
 subroutine test_uniform_derivs(ntests,npass)

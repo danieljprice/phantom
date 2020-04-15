@@ -154,39 +154,39 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(1)
 
  case(2)
-   h0   = xyzh(4,1)
-   rho0 = rhoh(h0,pmassi)
-   kappa_code = 1.0/(udist**2/umass)
+    h0   = xyzh(4,1)
+    rho0 = rhoh(h0,pmassi)
+    kappa_code = 1.0/(udist**2/umass)
 
-   dtmax = C_rad*h0*h0*rho0*kappa_code/c_code*25
-   tmax  = 10*dtmax
-   nfulldump = 1
+    dtmax = C_rad*h0*h0*rho0*kappa_code/c_code*25
+    tmax  = 10*dtmax
+    nfulldump = 1
 
-   radiation(ithick,:) = 1.
-   do i=1,npart
-      rhoi = rhoh(xyzh(4,1),pmassi)
-      vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
-      xi0 = a*Tref**4.0/rhoi
-      radiation(ikappa,i) = kappa_code
-      radiation(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
-   enddo
+    radiation(ithick,:) = 1.
+    do i=1,npart
+       rhoi = rhoh(xyzh(4,1),pmassi)
+       vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
+       xi0 = a*Tref**4.0/rhoi
+       radiation(ikappa,i) = kappa_code
+       radiation(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
+    enddo
  case(3)
-   h0   = xyzh(4,1)
-   rho0 = rhoh(h0,pmassi)
-   kappa_code = 1.0/(udist**2/umass)
+    h0   = xyzh(4,1)
+    rho0 = rhoh(h0,pmassi)
+    kappa_code = 1.0/(udist**2/umass)
 
-   dtmax = C_rad*h0*h0*rho0*kappa_code/c_code/5
-   tmax  = 200*dtmax
-   nfulldump = 1
+    dtmax = C_rad*h0*h0*rho0*kappa_code/c_code/5
+    tmax  = 200*dtmax
+    nfulldump = 1
 
-   radiation(ithick,:) = 1.
-   do i=1,npart
-      rhoi = rhoh(xyzh(4,1),pmassi)
-      vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
-      xi0 = a*Tref**4.0/rhoi
-      radiation(ikappa,i) = kappa_code
-      radiation(iradxi,i) = xi0*exp(-500.*xyzh(1,i)**2)
-   enddo
+    radiation(ithick,:) = 1.
+    do i=1,npart
+       rhoi = rhoh(xyzh(4,1),pmassi)
+       vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
+       xi0 = a*Tref**4.0/rhoi
+       radiation(ikappa,i) = kappa_code
+       radiation(iradxi,i) = xi0*exp(-500.*xyzh(1,i)**2)
+    enddo
  case default
     call fatal('setup_radiativebox', 'radiation setup is not available')
  end select
