@@ -128,8 +128,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 !
 ! calculate density by direct summation
 !
-! print*, maxrhosum, maxxpartvecidens
-! read*
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                         stressmax,fxyzu,fext,alphaind,gradh,&
@@ -151,8 +149,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature,&
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,&
+            dustgasprop,dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature,&
             dens,metrics,radiation)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
