@@ -276,8 +276,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
        endif
 #endif
-
-    if (do_radiation.and.exchange_radiation_energy.and.(id==master)) then
+    !
+    ! Strang splitting: implicit update for half step
+    !
+    if (do_radiation.and.exchange_radiation_energy) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
     endif
     nsteps = nsteps + 1
@@ -291,9 +293,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     else
        call step(npart,nactive,time,dt,dtextforce,dtnew)
     endif
-
+    !
+    ! Strang splitting: implicit update for another half step
+    !
     if (do_radiation.and.exchange_radiation_energy) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dtnew)
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
     endif
 
     dtlast = dt
