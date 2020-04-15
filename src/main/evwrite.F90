@@ -412,7 +412,8 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust,maxdusttypes
+ use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
+                         use_dust,maxdusttypes,do_radiation
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
  use part,          only:ndusttypes
@@ -431,10 +432,9 @@ subroutine write_evlog(iprint)
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
 
- write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") 'rad',erad
-
- if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
- if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
+ if (mhd)          write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
+ if (do_radiation) write(iprint,"(1x,('E',a,'=',es10.3))") 'rad',erad
+ if (track_mass)   write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
       'Linm',ev_data(iev_sum,iev_totmom),'Angm',ev_data(iev_sum,iev_angmom)
  if (iexternalforce > 0) then
