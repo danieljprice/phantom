@@ -34,7 +34,7 @@ module analysis
 
 contains
 
-subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,initial)
+subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use mcfost2phantom, only:init_mcfost_phantom,&
                           run_mcfost_phantom,&
                           diffusion_opacity,&
@@ -61,14 +61,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
- logical, optional,intent(in)    :: initial
 
- logical, save   :: init_mcfost = .false.
+ logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor,T_to_u
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
  integer(kind=1) :: itype(maxp)
- logical         :: compute_Frad,isinitial
+ logical         :: compute_Frad
  real(kind=8), dimension(6), save            :: SPH_limits
  real,         dimension(:),     allocatable :: dudt
  real,    parameter :: Tdefault = 1.
@@ -157,11 +156,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
     a_code        = 4.*steboltz_code/c_code
     pmassi        = massoftype(igas)
     ! set thermal energy
-    if (.not.present(initial)) then
-       isinitial=.false.
-    else
-       isinitial=initial
-    endif
 
     if (do_radiation) then
       radiation(inumph,:) = 0.
@@ -235,6 +229,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit,ini
     call omp_set_num_threads(omp_threads)
     ! call omp_set_dynamic(.true.)
     call deinit_mcfost_phantom()
+    isinitial = .false.
+
+    write(iprint,"(/,a,f6.2,'%')") &
+          ' -}+{- RADIATION particles done by SPH = ',&
+          100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
+
     write(*,*) "End of analysis mcfost"
  endif ! use_mcfost
 

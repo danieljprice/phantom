@@ -266,16 +266,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
-
-#ifdef LIVE_ANALYSIS
-       if ((id==master).and.(mod(nsteps,200)==0)) then
-          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                           massoftype(igas),npart,time,ianalysis)
-          write(iprint,"(/,a,f6.2,'%')") &
-               ' -}+{- RADIATION particles done by SPH = ',&
-               100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-       endif
-#endif
     !
     ! Strang splitting: implicit update for half step
     !
@@ -518,9 +508,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (id==master) then
           call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                            massoftype(igas),npart,time,ianalysis)
-!          write(iprint,"(/,a,f6.2,'%')") &
-!               ' -}+{- RADIATION particles done by SPH = ',&
-!               100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
        endif
 #endif
        if (id==master) then

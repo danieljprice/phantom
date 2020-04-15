@@ -565,21 +565,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        enddo
     endif
 #ifdef LIVE_ANALYSIS
-    if(do_radiation) then
-       if (time==0) then
-          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                           massoftype(igas),npart,time,ianalysis,initial=.true.)
-       else
-          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                           massoftype(igas),npart,time,ianalysis)
-       endif
-       write(iprint,"(/,a,f6.2,'%')") &
-          ' -}+{- RADIATION particles done by SPH = ',&
-          100.*count(radiation(ithick,:)==1)/real(size(radiation(ithick,:)))
-       call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,&
-                   0.,dtnew_first)
-     endif
+    if (do_radiation) then
+       call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                        massoftype(igas),npart,time,ianalysis)
+    endif
+    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,&
+                0.,dtnew_first)
 #endif
  enddo
 
