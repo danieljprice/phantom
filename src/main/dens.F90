@@ -1464,7 +1464,7 @@ subroutine finish_cell(cell,cell_converged)
     endif
     !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
-    pmassi = massoftype(igas)
+    pmassi = massoftype(iamtypei)
 
     call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
                        gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
