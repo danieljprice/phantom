@@ -429,7 +429,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh)
+                              fxyzu,fext,alphaind,gradh,radiation)
  endif
 #ifndef PRIM2CONS_FIRST
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
