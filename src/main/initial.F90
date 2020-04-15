@@ -361,11 +361,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       if (mhd) then
-          Bevol(1,i) = Bxyz(1,i) * rhoi1
-          Bevol(2,i) = Bxyz(2,i) * rhoi1
-          Bevol(3,i) = Bxyz(3,i) * rhoi1
-       endif
+       Bevol(1,i) = Bxyz(1,i) * rhoi1
+       Bevol(2,i) = Bxyz(2,i) * rhoi1
+       Bevol(3,i) = Bxyz(3,i) * rhoi1
     enddo
  endif
 

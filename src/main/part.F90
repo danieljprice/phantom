@@ -488,6 +488,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
+ if (do_radiation) radiation = 0.
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)

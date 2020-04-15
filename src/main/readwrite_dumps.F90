@@ -350,8 +350,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
  real :: ponrhoi,rhoi,spsoundi
-
-print*, "write_fulldump"
 !
 !--collect global information from MPI threads
 !
@@ -441,7 +439,6 @@ print*, "write_fulldump"
     write_itype = any(npartoftypetot(2:) > 0)
  endif
  do ipass=1,2
-   print*, "pass in write full dump", ipass
     do k=1,ndatatypes
        !
        ! Block 1 arrays (hydrodynamics)

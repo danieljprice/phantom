@@ -75,16 +75,9 @@ subroutine test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu,ntests,np
  use part,       only:rhoh
  use testutils,  only:checkval
  use physcon,    only:seconds
-
- implicit none
-
- real,intent(inout) :: &
-   pmassi
- real,intent(inout) :: &
-   radiation(:,:),xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
- integer,intent(inout) ::&
-   npart,ntests,npass
-
+ real,intent(inout) :: pmassi
+ real,intent(inout) :: radiation(:,:),xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
+ integer,intent(inout) :: npart,ntests,npass
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,ierr
 
@@ -151,11 +144,9 @@ end subroutine
 subroutine test_uniform_derivs(ntests,npass)
  use dim,             only:maxp
  use io,              only:id,master
- use part,            only:npart,xyzh,fxyzu,vxyzu,massoftype,igas,&
-                           iphase,maxphase,isetphase,rhoh,&
-                           bevol,fext,npartoftype,&
-                           radiation,ifluxx,&
-                           Bextx,Bexty,Bextz,maxvxyzu
+ use part,            only:npart,xyzh,vxyzu,massoftype,igas,&
+                           iphase,maxphase,isetphase,rhoh,npartoftype,&
+                           radiation,ifluxx,maxvxyzu,init_part
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use units,           only:set_units,udist,utime,umass,unit_energ,unit_velocity,unit_ergg
@@ -169,13 +160,12 @@ subroutine test_uniform_derivs(ntests,npass)
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
 
- integer,intent(inout) ::&
-    ntests,npass
+ integer,intent(inout) :: ntests,npass
 
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
  real :: dtmax,dtext,pmassi, dt,t,kappa_code
  real :: xmin,xmax,ymin,ymax,zmin,zmax,Tref,xi0,D0,rho0,l0
- real :: dtsph,dtnew
+ real :: dtnew
  real :: exact_grE,exact_DgrF,exact_xi
  real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi
 
@@ -193,19 +183,14 @@ subroutine test_uniform_derivs(ntests,npass)
  ymax =  0.1
  zmin = -0.1
  zmax =  0.1
+ call init_part()
  call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
  massoftype(igas) = 1./npart*1e-25
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0
- npartoftype(1) = npart
-
- vxyzu(4,:) = 0.
- Bevol(:,:) = 0.
- Bextx = 0.
- Bexty = 0.
- Bextz = 0.
+ npartoftype(igas) = npart
  nactive = npart
 
  c_code = c/unit_velocity
@@ -294,6 +279,10 @@ subroutine test_uniform_derivs(ntests,npass)
     ! write (filename,'(A5,I2.2)') 'rad_test_', i
     ! call write_fulldump(t,filename)
  enddo
+
+ ! reset various things
+ call init_part()
+
 end subroutine
 
 end module testradiation

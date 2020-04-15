@@ -34,14 +34,13 @@ subroutine test_sedov(ntests,npass)
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
- use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
-                    divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustevol,dustevol,dustprop,ddustprop,temperature,pxyzu,dens,metrics
+ use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
+                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi
- use deriv,    only:derivs
+ use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce
@@ -57,7 +56,7 @@ subroutine test_sedov(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
- real    :: psep,denszero,enblast,rblast,prblast,gam1,dtext_dum
+ real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotin,momtotin,etotend,momtotend
  character(len=20) :: logfile,evfile,dumpfile
 
@@ -138,8 +137,7 @@ subroutine test_sedov(ntests,npass)
 !
 !--call derivs the first time around
 !
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+    call get_derivs_global()
 !
 !--now call evolve
 !
