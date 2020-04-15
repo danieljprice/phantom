@@ -64,7 +64,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  use units,        only:udist,utime,&
                         unit_energ,unit_velocity
  use physcon,      only:Rg,steboltz,c
- use io,           only:fatal,warning
+ use io,           only:warning
  use dim,          only:maxphase,maxp
 
   real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
@@ -103,25 +103,29 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
     xii  = radiation(iradxi,i)
     etot = ui + xii
     unew = ui
-    if (xii <= 0) then
+    if (xii < 0.) then
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
-    ! if (i==3273) then
-    !    print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-    ! endif
+!     if (i==584) then
+!        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
+!     endif
     call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,i)
     ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
     radiation(iradxi,i) = etot - unew
-    ! if (i==3273) then
-    !     print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-    !     read*
-    ! endif
-    if (radiation(iradxi,i) <= 0) &
-       call fatal('radiation','radiation energy is negative after exchange', i)
-    if (vxyzu(4,i) <= 0) &
-       call fatal('radiation','thermal energy is negative after exchange', i)
+!   if (i==584) then
+!      print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',unew,etot,(rhoi*(etot-unew)/a)**(1./4.)
+!         read*
+!     endif
+    if (radiation(iradxi,i) < 0.) then
+       call warning('radiation','radiation energy negative after exchange', i,var='xi',val=radiation(iradxi,i))
+       radiation(iradxi,i) = 0.
+    endif
+    if (vxyzu(4,i) < 0.) then
+       call warning('radiation','thermal energy negative after exchange', i,var='u',val=vxyzu(4,i))
+       vxyzu(4,i) = 0.
+    endif
   end do
   !$omp end parallel do
 end subroutine update_radenergy
