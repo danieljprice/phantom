@@ -23,8 +23,9 @@
 !  DEPENDENCIES: analysis, centreofmass, derivutils, dim, energies,
 !    evwrite, externalforces, fileutils, forcing, initial_params, inject,
 !    io, io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!    quitdump, readwrite_dumps, readwrite_infile, step_lf_global,
-!    supertimestep, timestep, timestep_ind, timestep_sts, timing
+!    quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
+!    step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
+!    timing
 !+
 !--------------------------------------------------------------------------
 module evolve

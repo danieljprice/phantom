@@ -13,14 +13,15 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Sergei Biriukov
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
-!    linklist, mcfost2phantom, options, part, timestep, units
+!    linklist, mcfost2phantom, omp_lib, options, part, physcon, timestep,
+!    units
 !+
 !--------------------------------------------------------------------------
 module analysis

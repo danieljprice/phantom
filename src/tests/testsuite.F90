@@ -19,11 +19,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, io_summary, options, testcooling, testcorotate,
-!    testderivs, testdust, testeos, testexternf, testgeometry, testgnewton,
-!    testgr, testgravity, testgrowth, testindtstep, testkdtree, testkernel,
-!    testlink, testmath, testnimhd, testptmass, testrwdump, testsedov,
-!    testsetdisc, testsmol, teststep, timing
+!  DEPENDENCIES: dim, io, io_summary, mpiutils, options, testcooling,
+!    testcorotate, testderivs, testdust, testeos, testexternf,
+!    testgeometry, testgnewton, testgr, testgravity, testgrowth,
+!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
+!    testptmass, testradiation, testrwdump, testsedov, testsetdisc,
+!    testsmol, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test

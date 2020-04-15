@@ -26,8 +26,8 @@
 !  DEPENDENCIES: boundary, chem, cooling, dim, dust, eos, eos_shen,
 !    fastmath, growth, io, io_summary, kdtree, kernel, linklist,
 !    metric_tools, mpiderivs, mpiforce, mpiutils, nicil, options, part,
-!    physcon, ptmass, stack, timestep, timestep_ind, timestep_sts, units,
-!    utils_gr, viscosity
+!    physcon, ptmass, radiation_utils, stack, timestep, timestep_ind,
+!    timestep_sts, units, utils_gr, viscosity
 !+
 !--------------------------------------------------------------------------
 module forces

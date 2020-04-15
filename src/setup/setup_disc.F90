@@ -56,6 +56,7 @@
 !    np            -- number of gas particles
 !    nplanets      -- number of planets
 !    nsinks        -- number of sinks
+!    radkappa      -- constant radiation opacity kappa
 !    ramp          -- Do you want to ramp up the planet mass slowly?
 !    rho_core      -- planet core density (cgs units)
 !    setplanets    -- add planets? (0=no,1=yes)
@@ -65,8 +66,8 @@
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
 !    growth, infile_utils, io, kernel, options, part, physcon, prompting,
-!    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
-!    timestep, units, vectorutils
+!    radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
+!    setflyby, spherical, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup

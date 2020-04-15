@@ -1,3 +1,27 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+!+
+!  MODULE: testradiation
+!
+!  DESCRIPTION: None
+!
+!  REFERENCES: None
+!
+!  OWNER: Sergei Biriukov
+!
+!  $Id$
+!
+!  RUNTIME PARAMETERS: None
+!
+!  DEPENDENCIES: boundary, densityforce, deriv, dim, eos, forces, io,
+!    kernel, linklist, options, part, physcon, radiation_utils,
+!    readwrite_dumps, step_lf_global, testutils, unifdis, units
+!+
+!--------------------------------------------------------------------------
 module testradiation
  use part, only:ithick,iradxi,ifluxx,ifluxy,ifluxz,idflux,ikappa
 

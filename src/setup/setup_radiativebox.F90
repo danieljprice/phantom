@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -12,12 +12,27 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Sergei Biriukov
 !
 !  $Id$
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
-!    physcon, prompting, set_dust, setup_params, unifdis, units
+!  RUNTIME PARAMETERS:
+!    cs0       -- initial sound speed in code units
+!    dist_unit -- distance unit (e.g. au)
+!    ilattice  -- lattice type (1=cubic, 2=closepacked)
+!    mass_unit -- mass unit (e.g. solarm)
+!    nx        -- number of particles in x direction
+!    rhozero   -- initial density in code units
+!    xmax      -- xmax boundary
+!    xmin      -- xmin boundary
+!    ymax      -- ymax boundary
+!    ymin      -- ymin boundary
+!    zmax      -- zmax boundary
+!    zmin      -- zmin boundary
+!
+!  DEPENDENCIES: boundary, eos, infile_utils, io, kernel, mpiutils,
+!    options, part, physcon, set_dust, setup_params, timestep, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
