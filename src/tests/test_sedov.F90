@@ -30,12 +30,12 @@ module testsedov
 contains
 
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,do_radiation
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
-                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol
+                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol,radiation
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
@@ -53,6 +53,7 @@ subroutine test_sedov(ntests,npass)
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
@@ -132,6 +133,9 @@ subroutine test_sedov(ntests,npass)
           Bextz = 0.
        endif
     enddo
+    if (do_radiation) then
+       call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation)
+    endif
     tmax = 0.1
     dtmax = tmax
 !

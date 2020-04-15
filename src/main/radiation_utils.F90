@@ -1,10 +1,62 @@
 module radiation_utils
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
+ public :: set_radiation_and_gas_temperature_equal
+ public :: get_rad_R
 
  private
 
 contains
+!-------------------------------------------------
+!+
+!  get R factor needed for flux limited diffusion
+!+
+!-------------------------------------------------
+pure real function get_rad_R(rho,xi,flux,kappa) result(radR)
+ real, intent(in) :: rho,xi,flux(3),kappa
+
+ if (abs(xi) > epsilon(xi)) then
+    radR = sqrt(dot_product(flux,flux))/(kappa*rho*rho*xi)
+ else
+    radR = 0.
+ endif
+
+end function get_rad_R
+
+!-------------------------------------------------
+!+
+!  set equal gas and radiation temperatures
+!+
+!-------------------------------------------------
+subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation,opacity)
+ use physcon,   only:Rg,steboltz,c
+ use units,     only:udist,umass,unit_ergg,unit_density
+ use part,      only:rhoh,igas,iradxi,ikappa
+ use eos,       only:gmw
+
+ integer, intent(in) :: npart
+ real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real, intent(inout) :: radiation(:,:)
+ real, intent(in), optional :: opacity
+ real                :: kappa,kappa_code,Tgas,rhoi,pmassi
+ integer             :: i
+
+ kappa = 1e5
+ if (present(opacity)) then
+    if (opacity > 0.) kappa = opacity
+ endif
+ kappa_code = kappa/(udist**2/umass)
+ pmassi = massoftype(igas)
+
+ do i=1,npart
+    rhoi = rhoh(xyzh(4,i),pmassi)
+    Tgas = gmw*((gamma-1.)*vxyzu(4,i)*unit_ergg)/Rg
+    radiation(iradxi,i) = (4.0*steboltz*Tgas**4.0/c/(rhoi*unit_density))/unit_ergg
+    radiation(ikappa,i) = kappa_code
+    !print*,i,' Tgas = ',Tgas,'rad=',radiation(iradxi,i),radiation(ikappa,i)
+ enddo
+
+end subroutine set_radiation_and_gas_temperature_equal
 
 subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick

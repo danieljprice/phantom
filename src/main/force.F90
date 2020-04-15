@@ -868,6 +868,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use utils_gr,    only:get_bigv
  use metric_tools,only:imet_minkowski,imetric
 #endif
+ use radiation_utils, only:get_rad_R
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1649,7 +1650,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radFj(1:3) = radiation(ifluxx:ifluxz,j)
                 radkappaj = radiation(ikappa,j)
                 radenj = radiation(iradxi,j)
-                radRj = sqrt(dot_product(radFj(:),radFj(:)))/(radkappaj*rhoj*rhoj*radenj)
+                radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
                 ! radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
                 radlambdaj = 1./3.
 
@@ -2038,6 +2039,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use part,      only:grainsize,graindens
 #endif
  use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
+ use radiation_utils, only:get_rad_R
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
@@ -2286,8 +2288,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #endif
 
        if (do_radiation) then
-          radRi = sqrt(dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
-                   /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
+          radRi = get_rad_R(rhoi,radiation(iradxi,i),radiation(ifluxx:ifluxz,i),radiation(ikappa,i))
           cell%xpartvec(iradxii,cell%npcell)         = radiation(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radiation(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radiation(ikappa,i)

@@ -96,6 +96,7 @@ module setup
  use units,            only:umass,udist,utime
  use part,             only:radiation
  use dim,              only:do_radiation
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 
  implicit none
 
@@ -279,7 +280,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_tmax_dtmax()
 
  if (do_radiation) &
-   call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation)
+   call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation,opacity=iradkappa)
 
  !--remind user to check for warnings and errors
  write(*,20)
@@ -2658,31 +2659,4 @@ subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
 
 end subroutine make_corotate
 
-subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation)
- use physcon,   only:Rg,steboltz,c
- use units,     only:udist,umass,unit_ergg,unit_density
- use part,      only:rhoh,igas,iradxi,ikappa
- use eos,       only:gmw
-
- integer, intent(in) :: npart
- real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(inout) :: radiation(:,:)
- real                :: kappa,kappa_code,Tgas,rhoi,pmassi
- integer             :: i
-
- if (iradkappa > 0) then
-    kappa = iradkappa
- else
-    kappa = 1e5
- end if
- kappa_code = kappa/(udist**2/umass)
- pmassi = massoftype(igas)
-
- do i=1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
-    Tgas = gmw*((gamma-1.)*vxyzu(4,i)*unit_ergg)/Rg
-    radiation(iradxi,i) = (4.0*steboltz*Tgas**4.0/c/(rhoi*unit_density))/unit_ergg
-    radiation(ikappa,i) = kappa_code
- enddo
-end subroutine set_radiation_and_gas_temperature_equal
 end module setup
