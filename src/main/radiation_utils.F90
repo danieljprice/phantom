@@ -148,7 +148,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
        call warning('radiation','thermal energy negative after exchange', i,var='u',val=vxyzu(4,i))
        vxyzu(4,i) = 0.
     endif
-  end do
+  enddo
   !$omp end parallel do
 end subroutine update_radenergy
 
@@ -176,12 +176,12 @@ subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
        fu   = unew/dts - uip/dts - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
        dfu  = 1./dts + ack*(rho/a + 4.*(unew**3*cv1**4))
        unew = unew - fu/dfu
-     end do
+     enddo
      uip = unew
-   end do
+   enddo
    dunew = (unewp-unew)/unew
    level = level*2
- end do
+ enddo
 end subroutine solve_internal_energy_implicit_substeps
 
 subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
@@ -202,7 +202,7 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
    fu   = unew/dt - u0/dt - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
    dfu  = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
    unew = unew - fu/dfu
- end do
+ enddo
 end subroutine solve_internal_energy_implicit
 
 subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
@@ -236,9 +236,9 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
    do i=1,level
      unew = uis + dts*(dudt + ack*(rho*(etot-uis)/a - (uis*cv1)**4))
      uis  = unew
-   end do
+   enddo
    du = (unew-unews)/unew
- end do
+ enddo
 end subroutine solve_internal_energy_explicit_substeps
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
@@ -272,12 +272,12 @@ end subroutine solve_internal_energy_explicit_substeps
 !     !     radiation(ifluxy:ifluxz,i) = 0.
 !     !     radiation(ifluxx,i)        = -rhoi*abs(radiation(iradxi,i))*0.5
 !     !     radiation(ithick,i) = 0
-!     !   else if (xyzh(1,i) > 0.) then
+!     !   elseif (xyzh(1,i) > 0.) then
 !     !     radiation(ifluxy:ifluxz,i) = 0.
 !     !     radiation(ifluxx,i)        =  rhoi*abs(radiation(iradxi,i))*0.5
 !     !     radiation(ithick,i) = 0
-!     !   end if
-!     ! end if
+!     !   endif
+!     ! endif
 !     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
 !     r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
 !     H  = cs*sqrt(r**3)
@@ -287,12 +287,12 @@ end subroutine solve_internal_energy_explicit_substeps
 !        !   radiation(ifluxx:ifluxy,i) = 0.
 !        !   radiation(ifluxz,i)        =  rhoi*abs(radiation(iradxi,i))
 !        !   radiation(ithick,i) = 0
-!        ! else if (xyzh(3,i) > 0.) then
+!        ! elseif (xyzh(3,i) > 0.) then
 !        !   radiation(ifluxx:ifluxy,i) = 0.
 !        !   radiation(ifluxz,i)        =  -rhoi*abs(radiation(iradxi,i))
 !        !   radiation(ithick,i) = 0
-!        ! end if
-!     end if
+!        ! endif
+!     endif
 !     ! Ri = sqrt(&
 !     !   dot_product(radiation(ifluxx:ifluxz,i),radiation(ifluxx:ifluxz,i)))&
 !     !   /(radiation(ikappa,i)*rhoi*rhoi*radiation(iradxi,i))
@@ -303,7 +303,7 @@ end subroutine solve_internal_energy_explicit_substeps
 !     ! if (xyzh(4,i) > lambdai/radiation(ikappa,i)/rhoi*c_code/cs) then
 !     !    radiation(ithick,i) = 0
 !     ! endif
-!   end do
+!   enddo
 ! end subroutine set_radfluxesandregions
 ! subroutine mcfost_do_analysis()
 !

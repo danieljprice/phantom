@@ -129,7 +129,7 @@ subroutine test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu,ntests,np
      if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
         write(24,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
-      end if
+      endif
      i = i + 1
   enddo
   call checkval(laste,21195027.055207778,1e-10,ierr,'energy exchange for gas cooling')
@@ -157,7 +157,7 @@ subroutine test_exchange_terms(npart,pmassi,radiation,xyzh,vxyzu,fxyzu,ntests,np
      if (mod(i,10)==0) then
         laste = (vxyzu(4,1)*unit_ergg)*physrho
         write(25,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
-      end if
+      endif
      i = i + 1
   enddo
   call checkval(laste,21142367.365743987,1e-10,ierr,'energy exchange for gas heating')
