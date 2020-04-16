@@ -76,7 +76,7 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,radiation,iradxi
+                          iamdust,ndusttypes,rad,iradxi
  use part,           only:pxyzu,metrics,metricderivs,fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
@@ -209,7 +209,7 @@ subroutine compute_energies(t)
 #endif
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
-!$omp shared(radiation,iev_erad) &
+!$omp shared(rad,iev_erad) &
 !$omp reduction(+:erad) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot,vrms,rmsmach)
@@ -347,7 +347,7 @@ subroutine compute_energies(t)
           mdust(idusttype) = mdust(idusttype) + pmassi
        endif
 #endif
-       if (do_radiation) erad = erad + pmassi*radiation(iradxi,i)
+       if (do_radiation) erad = erad + pmassi*rad(iradxi,i)
        !
        ! the following apply ONLY to gas particles
        !

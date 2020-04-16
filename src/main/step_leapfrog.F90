@@ -35,7 +35,7 @@
 module step_lf_global
  use dim,  only:maxp,maxvxyzu,maxBevol,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
- use part, only:radiation,iradxi,idflux,ixipred
+ use part, only:radpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -103,12 +103,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                          isdead_or_accreted,rhoh,dhdrho,&
+                          rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,metricderivs
- use part,           only:radiation
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -183,7 +182,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(radiation,pxyzu)&
+ !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
@@ -217,8 +216,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
-          if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
-          if (do_radiation) radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
+          if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
+          if (do_radiation) rad(:,i)   = rad(:,i) + hdti*drad(:,i)
           if (use_dustfrac) then
              dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
              if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
@@ -270,7 +269,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
-!$omp shared(radiation)&
+!$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci,divvdti) &
 !$omp firstprivate(pmassi,itype,avdecayconst,alpha)
@@ -288,7 +287,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_dustfrac)   dustpred(:,i) = dustevol(:,i)
-             if (do_radiation)   radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation)   radpred(:,i) = rad(:,i)
              cycle predict_sph
           endif
        endif
@@ -324,21 +323,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
-!------------------------------------------------
 !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
              if ((.not. this_is_a_test) .and. use_dustgrowth) dustfrac(1:ndustsmall,i) = &
                                                             dustpred(:,i)**2/(1.+dustpred(:,i)**2)
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
-!------------------------------------------------
           endif
-          if (do_radiation) then
-             radiation(ixipred,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
-          endif
+          if (do_radiation) rad(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
        !
        ! viscosity switch ONLY (conductivity and resistivity do not use MM97-style switches)
@@ -382,7 +371,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
+                divcurlB,Bpred,dBevol,rad,drad,radprop,dustproppred,ddustprop,&
+                dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
  endif
@@ -428,7 +418,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
 #endif
-!$omp shared(radiation)&
+!$omp shared(rad,radpred,drad)&
 !$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
@@ -466,10 +456,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
-                if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
-                if (do_radiation) then
-                   radiation(iradxi,i) = radiation(iradxi,i) + dti*radiation(idflux,i)
-                endif
+                if (mhd)          Bevol(:,i) = Bevol(:,i) + dti*dBevol(:,i)
+                if (do_radiation) rad(:,i)   = rad(:,i)   + dti*drad(:,i)
                 if (use_dustfrac) then
                    dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
                    if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
@@ -489,10 +477,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
-             if (do_radiation) then
-                radiation(iradxi,i) = radiation(iradxi,i) + hdti*radiation(idflux,i)
-             endif
+             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
+             if (do_radiation) rad(:,i)   = rad(:,i)   + hdti*drad(:,i)
              if (use_dustfrac) then
                 dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
@@ -561,10 +547,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              ! corrector step for magnetic field and dust
              !
-             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (do_radiation) then
-                radiation(iradxi,i) = radiation(iradxi,i) + hdtsph*radiation(idflux,i)
-             endif
+             if (mhd)          Bevol(:,i) = Bevol(:,i)  + hdtsph*dBevol(:,i)
+             if (do_radiation) rad(:,i)   = rad(:,i) + hdtsph*drad(:,i)
              if (use_dustfrac) then
                 dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
@@ -590,7 +574,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
-!$omp shared(radiation) &
+!$omp shared(rad,drad,radpred) &
 !$omp firstprivate(itype) &
 !$omp schedule(static)
        do i=1,npart
@@ -606,7 +590,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-             if (do_radiation) radiation(ixipred,i) = radiation(iradxi,i)
+             if (do_radiation) radpred(:,i) = rad(:,i)
           endif
 #else
           if (gr) then
@@ -617,7 +601,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-          if (do_radiation) radiation(ixipred,i) = radiation(iradxi,i)
+          if (do_radiation) radpred(:,i) = rad(:,i)
           !
           ! shift v back to the half step
           !
@@ -633,9 +617,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              endif
-             if (do_radiation) then
-                radiation(iradxi,i) = radiation(iradxi,i) - hdtsph*radiation(idflux,i)
-             endif
+             if (do_radiation) rad(:,i) = rad(:,i) - hdtsph*drad(:,i)
           endif
 
 #endif
@@ -649,7 +631,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
+                     Bpred,dBevol,rad,drad,radprop,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif

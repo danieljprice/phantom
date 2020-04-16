@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,ndim,mhd,do_radiation,use_dust
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
- use part,         only:radiation,iradxi,ikappa
+ use part,         only:rad,radprop,iradxi,ikappa
  use eos,          only:gmw
  use physcon,      only:Rg,c,steboltz
  use units,        only:unit_pressure,unit_density,unit_ergg
@@ -298,8 +298,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
        if (do_radiation) then
           Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
-          radiation(iradxi,i) = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
-          radiation(ikappa,i) = rightstate(iradkappa)
+          rad(iradxi,i)     = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
+          radprop(ikappa,i) = rightstate(iradkappa)
        endif
     else
        xyzh(4,i)  = hrho(rholeft,massoftype(igas))
@@ -310,8 +310,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
        if (do_radiation) then
           Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
-          radiation(iradxi,i) = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
-          radiation(ikappa,i) = leftstate(iradkappa)
+          rad(iradxi,i)     = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
+          radprop(ikappa,i) = leftstate(iradkappa)
        endif
     endif
  enddo
@@ -440,7 +440,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
 #endif
- use units,     only:umass,set_units,udist,utime,unit_density,unit_pressure
+ use units,     only:umass,set_units,udist,utime,unit_density,unit_pressure,unit_opacity
  use eos,       only:gmw
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
@@ -651,10 +651,10 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
 
     if (do_radiation) then
        call prompt('Kappa left (total radiation opacity)',kappa,0.,1e6)
-       kappa_code = kappa/(udist**2/umass)
+       kappa_code = kappa/unit_opacity
        leftstate(iradkappa) = kappa_code
        call prompt('Kappa right (total radiation opacity)',kappa,0.,1e6)
-       kappa_code = kappa/(udist**2/umass)
+       kappa_code = kappa/unit_opacity
        rightstate(iradkappa) = kappa_code
     endif
  case(10)

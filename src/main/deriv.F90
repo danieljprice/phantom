@@ -41,7 +41,8 @@ contains
 !  (wrapper for call to density and rates, calls neighbours etc first)
 !+
 !-------------------------------------------------------------
-subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
+subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                  Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
@@ -65,7 +66,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:radiation,iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
 #ifdef GR
  use cons2prim,      only:cons2primall
@@ -81,6 +82,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
+ real,         intent(in)    :: rad(:,:)
+ real,         intent(out)   :: drad(:,:)
+ real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
@@ -130,8 +134,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 !
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,&
-                        radiation)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop)
     call do_timing('dens',tlast,tcpulast)
  endif
 
@@ -149,9 +152,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,&
-            dustgasprop,dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature,&
-            dens,metrics,radiation)
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
+            rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
+            ipart_rhomax,dt,stressmax,temperature,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
@@ -183,8 +186,8 @@ end subroutine derivs
 !--------------------------------------
 subroutine get_derivs_global(tused)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature, &
-                pxyzu,dens,metrics
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
+                dustfrac,ddustevol,temperature,pxyzu,dens,metrics
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
@@ -195,8 +198,9 @@ subroutine get_derivs_global(tused)
  time = 0.
  dt = 0.
  call getused(t1)
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-             dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+             rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,temperature,&
+             time,dt,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

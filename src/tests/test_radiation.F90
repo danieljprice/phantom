@@ -23,7 +23,7 @@
 !+
 !--------------------------------------------------------------------------
 module testradiation
- use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,idflux,ikappa
+ use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end
  implicit none
@@ -77,7 +77,7 @@ subroutine test_exchange_terms(ntests,npass)
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,&
-                      npartoftype,radiation,maxvxyzu
+                      npartoftype,rad,radprop,maxvxyzu
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk
@@ -95,8 +95,6 @@ subroutine test_exchange_terms(ntests,npass)
  iverbose = 1
  exchange_radiation_energy = .false.
 
- radiation(:,:) = 0.
- radiation(ithick,:) = 1.
  psep = 1./16.
  hfact = hfact_default
  npart = 0
@@ -115,12 +113,12 @@ subroutine test_exchange_terms(ntests,npass)
  pmassi = massoftype(igas)
 
  do i=1,npart
-    rhoi         = rhoh(xyzh(4,i),pmassi)
-    radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
-    radiation(ikappa,i)  = 0.4/unit_opacity
-    vxyzu(4,i)   = 1e10/(unit_ergg*unit_density)
-    vxyzu(4,i)   = vxyzu(4,i)/rhoi
-    fxyzu(4,i)  = 0
+    rhoi              = rhoh(xyzh(4,i),pmassi)
+    rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
+    radprop(ikappa,i) = 0.4/unit_opacity
+    vxyzu(4,i)        = 1e10/(unit_ergg*unit_density)
+    vxyzu(4,i)        = vxyzu(4,i)/rhoi
+    fxyzu(4,i)        = 0
  enddo
 
  maxt = 5e-7*seconds
@@ -131,13 +129,13 @@ subroutine test_exchange_terms(ntests,npass)
  do while(t < maxt/utime)
     dt = max(1e-18*seconds/utime,0.05*t)
     ! dt = maxt/utime
-    call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
+    call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     t = t + dt
     if (mod(i,10)==0) then
        laste = (vxyzu(4,1)*unit_ergg)*physrho
-       if (write_output) write(24,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
+       if (write_output) write(24,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
     endif
     i = i + 1
  enddo
@@ -145,12 +143,12 @@ subroutine test_exchange_terms(ntests,npass)
  call update_test_scores(ntests,nerr,npass)
 
  do i=1,npart
-    rhoi         = rhoh(xyzh(4,i),pmassi)
-    radiation(iradxi,i) = 1e12/(unit_ergg*unit_density)/rhoi
-    radiation(ikappa,i) = 0.4/unit_opacity
-    vxyzu(4,i)   = 1e2/(unit_ergg*unit_density)
-    vxyzu(4,i)   = vxyzu(4,i)/rhoi
-    fxyzu(4,i)  = 0
+    rhoi              = rhoh(xyzh(4,i),pmassi)
+    rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
+    radprop(ikappa,i) = 0.4/unit_opacity
+    vxyzu(4,i)        = 1e2/(unit_ergg*unit_density)
+    vxyzu(4,i)        = vxyzu(4,i)/rhoi
+    fxyzu(4,i)        = 0
  enddo
 
  dt = 1e-11*seconds/utime
@@ -160,11 +158,11 @@ subroutine test_exchange_terms(ntests,npass)
  do while(t < maxt/utime)
     dt = max(1e-18*seconds/utime,0.05*t)
     ! dt = maxt/utime
-    call update_radenergy(1,xyzh,fxyzu,vxyzu,radiation,dt)
+    call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     t = t + dt
     if (mod(i,10)==0) then
        laste = (vxyzu(4,1)*unit_ergg)*physrho
-       if (write_output) write(25,*) t*utime, laste,(radiation(iradxi,1)*unit_ergg)*physrho
+       if (write_output) write(25,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
     endif
     i = i + 1
  enddo
@@ -183,7 +181,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use io,              only:id,master
  use part,            only:npart,xyzh,vxyzu,massoftype,igas,&
                            iphase,maxphase,isetphase,rhoh,npartoftype,&
-                           radiation,ifluxx,maxvxyzu,init_part
+                           rad,radprop,drad,ifluxx,maxvxyzu,init_part
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use units,           only:set_units,unit_opacity,get_c_code,get_steboltz_code,unit_velocity,unit_ergg
@@ -234,7 +232,6 @@ subroutine test_uniform_derivs(ntests,npass)
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
  a   = 4.*steboltz_code/c_code
  pmassi = massoftype(igas)
- radiation(ithick,:) = 1.
  kappa_code = 1.0/unit_opacity
  Tref = 100.
 
@@ -242,8 +239,9 @@ subroutine test_uniform_derivs(ntests,npass)
  xi0 = a*Tref**4.0/rho0
  do i=1,npart
     vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
-    radiation(ikappa,i) = kappa_code
-    radiation(iradxi,i) = xi0*(1. + 1e-1*sin(xyzh(1,i)*2.*pi/(xmax-xmin)))
+    radprop(ikappa,i) = kappa_code
+    rad(iradxi,i)     = xi0*(1. + 1e-1*sin(xyzh(1,i)*2.*pi/(xmax-xmin)))
+    radprop(ithick,i) = 1.
     ! etot = vxyzu(4,i) + radiation(iradxi,i)
     ! Tgas = vxyzu(4,i)*unit_ergg*cv1
     ! print*, vxyzu(4,i),radiation(iradxi,i),etot
@@ -276,9 +274,9 @@ subroutine test_uniform_derivs(ntests,npass)
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
 
-    call checkvalbuf(radiation(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
+    call checkvalbuf(radprop(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
-    call checkvalbuf(radiation(idflux,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
+    call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
  enddo
  call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e(1),errmax_e,tol_e)
  call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f(1),errmax_f,tol_f)
@@ -301,9 +299,8 @@ subroutine test_uniform_derivs(ntests,npass)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,i)*l0)*exp(-l0*l0*t*D0))
           write (string,"(a,i2.2,a)") 'xi(t_', i, ')'
-          call checkvalbuf(&
-             radiation(iradxi,i),exact_xi,tol_xi,&
-             trim(string),nerr_xi(1),ncheck_xi,errmax_xi)
+          call checkvalbuf(rad(iradxi,i),exact_xi,tol_xi,trim(string),&
+                           nerr_xi(1),ncheck_xi,errmax_xi)
        enddo
        call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
        call update_test_scores(ntests,nerr_xi,npass)

@@ -312,8 +312,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 radiation,radenergy_label,iradxi,ikappa,ifluxx,ifluxy,ifluxz,&
-                 do_radiation,maxirad
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -524,7 +523,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
 #endif
        if (do_radiation) then
-          call write_array(1,radiation,radenergy_label,maxirad,npart,k,ipass,idump,nums,ierrs(21))
+          call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierrs(21))
+          call write_array(1,radprop,radprop_label,maxradprop,npart,k,ipass,idump,nums,ierrs(22))
        endif
        if (any(ierrs(1:23) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
@@ -594,8 +594,7 @@ subroutine write_smalldump(t,dumpfile)
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                       dustprop,dustprop_label,dustfrac_label,ndusttypes,&
-                      radiation,radenergy_label,iradxi,ifluxx,ifluxy,ifluxz,ikappa,&
-                      do_radiation,maxirad
+                      rad,rad_label,do_radiation,maxirad
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -689,7 +688,7 @@ subroutine write_smalldump(t,dumpfile)
                         i_real,ipass,idump,nums,ierr,singleprec=.true.)
     endif
     if (do_radiation) then
-       call write_array(1,radiation,radenergy_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     endif
     !
     !--Block 4 (MHD)
@@ -1200,8 +1199,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       temperature,dustprop,dustprop_label,divcurlv,divcurlv_label,&
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label, &
-                      radiation,radenergy_label,iradxi,ikappa,ifluxx,ifluxy,ifluxz,&
-                      do_radiation,maxirad
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1216,7 +1214,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
  logical               :: got_psi,got_temp,got_dustprop(2),got_VrelVf,got_dustgasprop(4),got_divcurlv(4),&
-                          got_raden(maxirad),got_pxyzu(4)
+                          got_raden(maxirad),got_kappa,got_pxyzu(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
 
@@ -1240,6 +1238,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_dustgasprop = .false.
  got_divcurlv    = .false.
  got_raden       = .false.
+ got_kappa       = .false.
  got_pxyzu       = .false.
 
  ndustfraci = 0
@@ -1297,7 +1296,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
              if (do_radiation) then
-                call read_array(radiation,radenergy_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ikappa,:),radprop_label(ikappa),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
@@ -1320,7 +1320,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                   got_dustgasprop,got_temp,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   got_dustgasprop,got_temp,got_raden,got_kappa,iphase,&
+                   xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 
  return
 100 continue
@@ -1392,8 +1393,10 @@ end subroutine check_block_header
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                        got_dustgasprop,got_temp,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,use_dustgrowth,gr
+                        got_dustgasprop,got_temp,got_raden,got_kappa,&
+                        iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,&
+                use_dustgrowth,gr,do_radiation
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes
@@ -1405,7 +1408,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
- logical,         intent(in)    :: got_psi,got_temp,got_pxyzu(:)
+ logical,         intent(in)    :: got_psi,got_temp,got_pxyzu(:),got_raden(:),got_kappa
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -1568,6 +1571,18 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
           print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
        enddo
        if (nptmass > 0) print "(1x,47('-'))"
+    endif
+ endif
+ !
+ ! radiation arrays
+ !
+ if (do_radiation) then
+    if (.not.all(got_raden)) then
+       if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
+       ierr = ierr + 1
+    endif
+    if (.not.got_kappa) then
+       if (id==master .and. i1==1) write(*,*) 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif
 

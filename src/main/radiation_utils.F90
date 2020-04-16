@@ -50,7 +50,7 @@ end function get_rad_R
 !  set equal gas and radiation temperatures
 !+
 !-------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation,opacity)
+subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,rad,radprop,opacity)
  use physcon,   only:Rg,steboltz,c
  use units,     only:unit_opacity,unit_ergg,unit_density
  use part,      only:rhoh,igas,iradxi,ikappa
@@ -58,7 +58,7 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massof
 
  integer, intent(in) :: npart
  real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(inout) :: radiation(:,:)
+ real, intent(inout) :: rad(:,:),radprop(:,:)
  real, intent(in), optional :: opacity
  real                :: kappa,kappa_code,Tgas,rhoi,pmassi
  integer             :: i
@@ -73,9 +73,9 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massof
  do i=1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
     Tgas = gmw*((gamma-1.)*vxyzu(4,i)*unit_ergg)/Rg
-    radiation(iradxi,i) = (4.0*steboltz*Tgas**4.0/c/(rhoi*unit_density))/unit_ergg
-    radiation(ikappa,i) = kappa_code
-    !print*,i,' Tgas = ',Tgas,'rad=',radiation(iradxi,i),radiation(ikappa,i)
+    rad(iradxi,i) = (4.0*steboltz*Tgas**4.0/c/(rhoi*unit_density))/unit_ergg
+    radprop(ikappa,i) = kappa_code
+    !print*,i,' Tgas = ',Tgas,'rad=',rad(iradxi,i),radprop(ikappa,i)
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
@@ -85,15 +85,15 @@ end subroutine set_radiation_and_gas_temperature_equal
 !  integrate radiation energy exchange terms over a time interval dt
 !+
 !--------------------------------------------------------------------
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
+subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
  use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
  use units,        only:get_steboltz_code,get_c_code,unit_velocity
  use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
- real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:)
- real, intent(inout) :: vxyzu(:,:),radiation(:,:)
+ real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
+ real, intent(inout) :: vxyzu(:,:),rad(:,:)
  integer, intent(in) :: npart
  real :: ui,pmassi,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
@@ -110,7 +110,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  !$omp parallel do default(none)&
  !$omp private(kappa,ack,rhoi,ui)&
  !$omp private(dudt,xii,etot,unew)&
- !$omp shared(radiation,xyzh,vxyzu)&
+ !$omp shared(rad,radprop,xyzh,vxyzu)&
  !$omp shared(fxyzu,pmassi,maxphase,maxp)&
  !$omp shared(iphase,npart)&
  !$omp shared(dt,cv1,a,steboltz_code)
@@ -118,13 +118,13 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
     if (maxphase==maxp) then
        if (iamtype(iphase(i)) /= igas) cycle
     endif
-    kappa = radiation(ikappa,i)
+    kappa = radprop(ikappa,i)
     ack = 4.*steboltz_code*kappa
 
     rhoi = rhoh(xyzh(4,i),pmassi)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
-    xii  = radiation(iradxi,i)
+    xii  = rad(iradxi,i)
     etot = ui + xii
     unew = ui
     if (xii < 0.) then
@@ -137,14 +137,14 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
     ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
-    radiation(iradxi,i) = etot - unew
+    rad(iradxi,i) = etot - unew
 !   if (i==584) then
 !      print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',unew,etot,(rhoi*(etot-unew)/a)**(1./4.)
 !         read*
 !     endif
-    if (radiation(iradxi,i) < 0.) then
-       call warning('radiation','radiation energy negative after exchange', i,var='xi',val=radiation(iradxi,i))
-       radiation(iradxi,i) = 0.
+    if (rad(iradxi,i) < 0.) then
+       call warning('radiation','radiation energy negative after exchange', i,var='xi',val=rad(iradxi,i))
+       rad(iradxi,i) = 0.
     endif
     if (vxyzu(4,i) < 0.) then
        call warning('radiation','thermal energy negative after exchange', i,var='u',val=vxyzu(4,i))

@@ -81,7 +81,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy
- use part,             only:radiation,ithick
+ use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
 #ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
@@ -271,7 +271,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Strang splitting: implicit update for half step
     !
     if (do_radiation.and.exchange_radiation_energy) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
     nsteps = nsteps + 1
 !
@@ -288,7 +288,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Strang splitting: implicit update for another half step
     !
     if (do_radiation.and.exchange_radiation_energy) then
-       call update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,0.5*dt)
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
 
     dtlast = dt

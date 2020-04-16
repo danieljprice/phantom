@@ -135,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
- use part,             only:pxyzu,dens,metrics,metricderivs,radiation,ithick
+ use part,             only:pxyzu,dens,metrics,metricderivs,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
@@ -344,15 +344,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  So we now convert our primitive variable read, B, to the conservative B/rho
 !  This necessitates computing the density sum.
 !
- if (do_radiation) radiation(ithick,:) = 1
-
-
  if (mhd) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,radiation)
+                              fxyzu,fext,alphaind,gradh,rad,radprop)
     endif
 
     ! now convert to B/rho
@@ -427,7 +424,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,radiation)
+                              fxyzu,fext,alphaind,gradh,rad,radprop)
  endif
 #ifndef PRIM2CONS_FIRST
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -544,7 +541,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
+                              rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,&
+                              temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
     if (use_dustfrac) then
        ! set grainsize parameterisation from the initial dustfrac setting now we know rho
        do i=1,npart
@@ -568,8 +566,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                         massoftype(igas),npart,time,ianalysis)
     endif
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,&
-                0.,dtnew_first)
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
+                ddustevol,temperature,time,0.,dtnew_first)
 #endif
  enddo
 

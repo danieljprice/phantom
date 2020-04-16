@@ -126,8 +126,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,&
-                          radiation)
+                          fxyzu,fext,alphaind,gradh,rad,radprop)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -163,7 +162,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real(kind=4), intent(out)   :: alphaind(:,:)
  real(kind=4), intent(out)   :: gradh(:,:)
  real,         intent(out)   :: stressmax
- real,         intent(inout) :: radiation(:,:)
+ real,         intent(in)    :: rad(:,:)
+ real,         intent(inout) :: radprop(:,:)
 
  integer, save :: listneigh(maxneigh)
  real,   save :: xyzcache(isizecellcache,3)
@@ -259,7 +259,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(realviscosity) &
 !$omp shared(iverbose) &
 !$omp shared(iprint) &
-!$omp shared(radiation)&
+!$omp shared(rad,radprop)&
 #ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
@@ -325,7 +325,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
 
-    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,radiation)
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
@@ -346,8 +346,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 #endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
-                      radiation)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
 #ifdef MPI
     if (do_export) then
@@ -380,8 +379,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
                 nrelink = nrelink + 1
              endif
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
-                               radiation)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 #ifdef MPI
              if (do_export) then
                 stack_waiting%cells(cell%waiting_index) = cell
@@ -395,7 +393,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
                              dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,&
-                             radiation)
+                             radprop)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -441,7 +439,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
-                            radiation)
+                            rad)
 
           cell%remote_export(id+1) = .false.
 
@@ -504,13 +502,13 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
-             radiation)
+             rad)
 
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
                                 dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,&
-                                radiation)
+                                radprop)
 
           endif
 
@@ -585,7 +583,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,&
-                                 radiation)
+                                 rad)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -612,7 +610,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,         intent(in)    :: Bevol(:,:)
  logical,      intent(in)    :: ignoreself
- real,         intent(in)    :: radiation(:,:)
+ real,         intent(in)    :: rad(:,:)
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
  integer                     :: j,n,iloc
@@ -827,7 +825,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
              if (do_radiation .and. gas_gas) then
                 rhoi = rhoh(real(hi), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
-                dradenij = radiation(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
+                dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
                 rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
                 rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
                 rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
@@ -1250,8 +1248,7 @@ end subroutine reduce_and_print_neighbour_stats
 !+
 !--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache,&
-                             radiation)
+                             xyzcache,rad)
  use dim,         only:maxvxyzu
  use part,        only:get_partinfo,iamgas,mhd,igas,maxphase
  use viscosity,   only:irealvisc
@@ -1268,7 +1265,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(isizecellcache,3)
- real,            intent(in)     :: radiation(:,:)
+ real,            intent(in)     :: rad(:,:)
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1315,8 +1312,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
-                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,&
-                          radiation)
+                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
@@ -1345,8 +1341,7 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,&
-                      radiation)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu,do_radiation
  use part,        only:maxphase,get_partinfo,maxBevol,mhd,igas,iamgas,&
@@ -1359,7 +1354,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,&
  real,               intent(in)    :: fxyzu(:,:)
  real,               intent(in)    :: fext(:,:)
  real,               intent(in)    :: Bevol(:,:)
- real,               intent(in)    :: radiation(:,:)
+ real,               intent(in)    :: rad(:,:)
 
  integer :: i,ip
  integer :: iamtypei
@@ -1424,7 +1419,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,&
        endif
     endif
 
-    if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = radiation(iradxi,i)
+    if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
  enddo over_parts
 
@@ -1556,7 +1551,7 @@ end subroutine finish_rhosum
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
-                         maxneighact,np,ncalc,radiation)
+                         maxneighact,np,ncalc,radprop)
  use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
                        maxphase,massoftype,igas,n_R,n_electronT,&
                        eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
@@ -1596,7 +1591,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  integer,         intent(inout) :: maxneighact
  integer,         intent(inout) :: np
  integer(kind=8), intent(inout) :: ncalc
- real,            intent(inout) :: radiation(:,:)
+ real,            intent(inout) :: radprop(:,:)
 
  real         :: rhosum(maxrhosum)
 
@@ -1763,14 +1758,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
 
-    if (do_radiation.and.iamgasi) then
-       ! if (radiation(ithick,i) > 0.5) then
-       radiation(ifluxx:ifluxz,lli) = &
-          cell%rhosums(iradfxi:iradfzi,i)*term
-       ! else
-       !    radiation(ifluxx:ifluxz,lli) = 0.
-       ! endif
-    endif
+    if (do_radiation.and.iamgasi) radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
 
     ! stats
     nneightry = nneightry + cell%nneightry

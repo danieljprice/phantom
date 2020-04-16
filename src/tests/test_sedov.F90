@@ -39,7 +39,7 @@ subroutine test_sedov(ntests,npass)
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
-                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol,radiation
+                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol,rad,radprop
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
@@ -138,7 +138,7 @@ subroutine test_sedov(ntests,npass)
        endif
     enddo
     if (do_radiation) then
-       call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation)
+       call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,rad,radprop)
     endif
     tmax = 0.1
     dtmax = tmax

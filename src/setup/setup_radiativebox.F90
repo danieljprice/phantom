@@ -62,8 +62,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
- use units,         only:set_units,unit_energ,unit_ergg,unit_velocity,utime
- use part,          only:rhoh,igas,radiation,ithick,iradxi,ikappa
+ use units,         only:set_units,unit_energ,unit_ergg,unit_velocity,utime,unit_opacity
+ use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa
  use eos,           only:gmw
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
@@ -156,36 +156,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(2)
     h0   = xyzh(4,1)
     rho0 = rhoh(h0,pmassi)
-    kappa_code = 1.0/(udist**2/umass)
+    kappa_code = 1.0/unit_opacity
 
     dtmax = C_rad*h0*h0*rho0*kappa_code/c_code*25
     tmax  = 10*dtmax
     nfulldump = 1
 
-    radiation(ithick,:) = 1.
+    radprop(ithick,:) = 1.
     do i=1,npart
        rhoi = rhoh(xyzh(4,1),pmassi)
        vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
        xi0 = a*Tref**4.0/rhoi
-       radiation(ikappa,i) = kappa_code
-       radiation(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
+       radprop(ikappa,i) = kappa_code
+       rad(iradxi,i) = xi0*(1 + 1e-1*sin(xyzh(1,i)*2*pi/(xmax-xmin)))
     enddo
  case(3)
     h0   = xyzh(4,1)
     rho0 = rhoh(h0,pmassi)
-    kappa_code = 1.0/(udist**2/umass)
+    kappa_code = 1.0/unit_opacity
 
     dtmax = C_rad*h0*h0*rho0*kappa_code/c_code/5
     tmax  = 200*dtmax
     nfulldump = 1
 
-    radiation(ithick,:) = 1.
+    radprop(ithick,:) = 1.
     do i=1,npart
        rhoi = rhoh(xyzh(4,1),pmassi)
        vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
        xi0 = a*Tref**4.0/rhoi
-       radiation(ikappa,i) = kappa_code
-       radiation(iradxi,i) = xi0*exp(-500.*xyzh(1,i)**2)
+       radprop(ikappa,i) = kappa_code
+       rad(iradxi,i) = xi0*exp(-500.*xyzh(1,i)**2)
     enddo
  case default
     call fatal('setup_radiativebox', 'radiation setup is not available')

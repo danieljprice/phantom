@@ -169,23 +169,27 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
-
+!
+!--radiation hydro, evolved quantities (which have time derivatives)
+!
+ real, allocatable  :: rad(:,:)
  integer, parameter :: iradxi = 1, &
-                       ifluxx = 2, &
-                       ifluxy = 3, &
-                       ifluxz = 4, &
-                       idflux = 5, &
-                       ikappa = 6, &
-                       ithick = 7, &
-                       ixipred= 8, &
-                       idtrad = 9, &
-                       inumph = 10,&
-                       ivorcl = 11,&
-                       maxirad= 11
- real, allocatable :: radiation(:,:)
- character(len=*), parameter :: radenergy_label(maxirad) = &
-    (/'xi   ','radFx','radFy','radFz','dradF','radK ',&
-      'thick','pxi  ', 'dtrad', 'numph', 'vorcl'/)
+                       maxirad= 1
+ character(len=*), parameter :: rad_label(maxirad) = (/'xi'/)
+!
+!--additional quantities required for radiation hydro (not evolved)
+!
+ real, allocatable  :: radprop(:,:)
+ integer, parameter :: ifluxx = 1, &
+                       ifluxy = 2, &
+                       ifluxz = 3, &
+                       ikappa = 4, &
+                       ithick = 5, &
+                       inumph = 6, &
+                       ivorcl = 7, &
+                       maxradprop = 7
+ character(len=*), parameter :: radprop_label(maxradprop) = &
+    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl'/)
 !
 !--lightcurves
 !
@@ -199,6 +203,7 @@ module part
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
  real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: drad(:,:)
  character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
@@ -208,6 +213,7 @@ module part
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
+ real, allocatable   :: radpred(:,:)
 #ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
@@ -264,7 +270,7 @@ module part
    +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
-   +maxirad                             &  ! radiation
+   +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
    +1                                   &  ! iphase
@@ -384,7 +390,10 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
- call allocate_array('radiation', radiation, maxirad, maxprad)
+ call allocate_array('rad', rad, maxirad, maxprad)
+ call allocate_array('radpred', radpred, maxirad, maxprad)
+ call allocate_array('drad', drad, maxirad, maxprad)
+ call allocate_array('radprop', radprop, maxradprop, maxprad)
 #ifdef IND_TIMESTEPS
  call allocate_array('ibin', ibin, maxan)
  call allocate_array('ibin_old', ibin_old, maxan)
@@ -453,7 +462,7 @@ subroutine deallocate_part
  deallocate(dt_in)
  deallocate(twas)
 #endif
- deallocate(radiation)
+ deallocate(rad,radpred,drad,radprop)
  deallocate(iphase)
  deallocate(iphase_soa)
  deallocate(gradh)
@@ -502,8 +511,10 @@ subroutine init_part
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
  if (do_radiation) then
-    radiation(:,:) = 0.
-    radiation(ikappa,:) = huge(0.) ! set opacity to infinity
+    rad(:,:) = 0.
+    radprop(:,:) = 0.
+    radprop(ikappa,:) = huge(0.) ! set opacity to infinity
+    radprop(ithick,:) = 1.       ! optically thick, i.e. use diffusion approximation
  endif
 !
 !--initialise chemistry arrays if this has been compiled
@@ -920,7 +931,10 @@ subroutine copy_particle(src, dst)
     Bevol(:,dst) = Bevol(:,src)
     Bxyz(:,dst)  = Bxyz(:,dst)
  endif
- if (do_radiation) radiation(:,dst) = radiation(:,src)
+ if (do_radiation) then
+    rad(:,dst) = rad(:,src)
+    radprop(:,dst) = radprop(:,src)
+ endif
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -978,7 +992,12 @@ subroutine copy_particle_all(src,dst)
        eta_nimhd(:,dst) = eta_nimhd(:,src)
     endif
  endif
- if (do_radiation) radiation(:,dst) = radiation(:,src)
+ if (do_radiation) then
+    rad(:,dst) = rad(:,src)
+    radpred(:,dst) = radpred(:,src)
+    radprop(:,dst) = radprop(:,src)
+    drad(:,dst) = drad(:,src)
+ endif
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
@@ -1204,7 +1223,10 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp,Bpred(:,i),nbuf)
     endif
     if (do_radiation) then
-       call fill_buffer(xtemp,radiation(:,i),nbuf)
+       call fill_buffer(xtemp,rad(:,i),nbuf)
+       call fill_buffer(xtemp,radpred(:,i),nbuf)
+       call fill_buffer(xtemp,drad(:,i),nbuf)
+       call fill_buffer(xtemp,radprop(:,i),nbuf)
     endif
     if (maxphase==maxp) then
        call fill_buffer(xtemp,iphase(i),nbuf)
@@ -1268,7 +1290,10 @@ subroutine unfill_buffer(ipart,xbuf)
     Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
  endif
  if (do_radiation) then
-    radiation(:,ipart)  = real(unfill_buf(xbuf,j,maxirad))
+    rad(:,ipart)     = real(unfill_buf(xbuf,j,maxirad))
+    radpred(:,ipart) = real(unfill_buf(xbuf,j,maxirad))
+    drad(:,ipart)    = real(unfill_buf(xbuf,j,maxirad))
+    radprop(:,ipart) = real(unfill_buf(xbuf,j,maxradprop))
  endif
  if (maxphase==maxp) then
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)

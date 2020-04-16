@@ -48,11 +48,11 @@ subroutine test_derivs(ntests,npass,string)
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
-                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,dustprop,ddustprop,ndustsmall
- use part,         only:pxyzu,dens,metrics,radiation
+                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
+ use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
- use deriv,        only:derivs
+ use deriv,        only:get_derivs_global
  use densityforce, only:get_neighbour_stats,densityiterate
  use linklist,     only:set_linklist
  use timing,       only:getused,printused
@@ -204,7 +204,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--calculate derivatives
     !
-    call get_derivs(tused)
+    call get_derivs_global(tused)
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
     !
     !--check hydro quantities come out as they should do
@@ -255,7 +255,7 @@ subroutine test_derivs(ntests,npass,string)
        !
        !--check timing for one active particle
        !
-       call get_derivs(tused)
+       call get_derivs_global(tused)
        if (id==master) then
           fracactive = nactive/real(npart)
           speedup = (tused)/tallactive
@@ -316,7 +316,7 @@ subroutine test_derivs(ntests,npass,string)
        alpha  = 0.753 ! an arbitrary number that is not 1 or 0.
        if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
 
-       call get_derivs
+       call get_derivs_global()
        call rcut_checkmask(rcut,xyzh,npart,checkmask)
        nfailed(:) = 0; m = 0
        call check_hydro(np,nfailed,m)
@@ -357,7 +357,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           radiation)
+                           rad,radprop)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0
@@ -391,7 +391,7 @@ subroutine test_derivs(ntests,npass,string)
     shearparam = 6.66
     bulkvisc = 0.75
 
-    call get_derivs
+    call get_derivs_global()
     call rcut_checkmask(rcut,xyzh,npart,checkmask)
 
     nfailed(:) = 0; m = 0
@@ -493,7 +493,7 @@ subroutine test_derivs(ntests,npass,string)
           enddo
        enddo
 
-       call get_derivs
+       call get_derivs_global()
 
        nfailed(:) = 0; m = 0
        call check_hydro(np,nfailed,m)
@@ -566,7 +566,7 @@ subroutine test_derivs(ntests,npass,string)
 !--calculate derivatives with MHD forces ON, zero pressure
 !
  testmhd: if (testmhdderivs .or. testall) then
-    if (.not.testall) call get_derivs    ! obtain smoothing lengths
+    if (.not.testall) call get_derivs_global()    ! obtain smoothing lengths
 #ifdef IND_TIMESTEPS
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
@@ -588,7 +588,7 @@ subroutine test_derivs(ntests,npass,string)
              if (maxBevol >= 4) Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive/nprocs,igas)
-          call get_derivs
+          call get_derivs_global()
           !
           !--check that various quantities come out as they should do
           !
@@ -636,7 +636,7 @@ subroutine test_derivs(ntests,npass,string)
              if (maxBevol >= 4) Bevol(4,i) = 0. ! psi=0 for this test
           enddo
           call set_active(npart,nactive,igas)
-          call get_derivs
+          call get_derivs_global()
           call rcut_checkmask(rcut,xyzh,npart,checkmask)
           !
           !--check that various quantities come out as they should do
@@ -694,7 +694,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_only
           call set_magnetic_field
           call set_active(npart,nactive,igas)
-          call get_derivs
+          call get_derivs_global()
           !
           !--check that various quantities come out as they should do
           !
@@ -735,7 +735,7 @@ subroutine test_derivs(ntests,npass,string)
              if (maxBevol>=4) Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
-          call get_derivs
+          call get_derivs_global()
           !
           !--check that various quantities come out as they should do
           !
@@ -803,7 +803,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     nactive = npart
     call set_active(npart,nactive,igas)
-    call get_derivs(tused)
+    call get_derivs_global(tused)
     !
     !--check hydro quantities come out as they should do
     !
@@ -845,7 +845,7 @@ subroutine test_derivs(ntests,npass,string)
        if (id==master) write(*,"(/,a,i6,a)") '--> testing Hydro derivs in setup with density contrast (nactive=',nactive,') '
 
        call set_active(npart,nactive,igas)
-       call get_derivs(tused)
+       call get_derivs_global(tused)
        if (id==master) then
           fracactive = nactive/real(npart)
           speedup = tused/tallactive
@@ -899,7 +899,7 @@ subroutine test_derivs(ntests,npass,string)
     !
     nactive = npart
     call set_active(npart,nactive,igas)
-    call get_derivs
+    call get_derivs_global()
     !
     !--first do the calculation with all particles active, then
     !  perform the force calculation with only a fraction of particles active
@@ -922,7 +922,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_and_energy
           call set_magnetic_field
           call set_active(npart,nactive,igas)
-          call get_derivs
+          call get_derivs_global()
           if (itest==1) then
              fxyzstore(:,1:nptest) = fxyzu(:,1:nptest)
              if (mhd) then
@@ -1089,26 +1089,6 @@ subroutine reset_mhd_to_zero
  endif
 
 end subroutine reset_mhd_to_zero
-
-!--------------------------------------
-!+
-!  wrapper for the call to derivs
-!  so only one line needs changing
-!  if interface changes
-!+
-!--------------------------------------
-subroutine get_derivs(timing)
- real(kind=4), intent(out), optional :: timing
- real(kind=4) :: t1,t2
-
- call getused(t1)
- call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
- call getused(t2)
- if (id==master) call printused(t1)
- if (present(timing)) timing = t2 - t1
-
-end subroutine get_derivs
 
 !--------------------------------------
 !+
