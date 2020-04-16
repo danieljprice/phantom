@@ -440,7 +440,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
 #endif
- use units,     only:umass,set_units,udist,utime,unit_density,unit_pressure,unit_opacity
+ use units,     only:set_units,udist,utime,unit_density,unit_pressure,unit_opacity
  use eos,       only:gmw
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
@@ -448,11 +448,10 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
  integer                :: i,choice,dust_method
- real                   :: const,uu,dens,pres,Tgas !, dxright
 #ifdef NONIDEALMHD
  real                   :: gamma_AD,rho_i_cnst
 #endif
- real                   :: kappa,kappa_code,dens,pres,Tgas,uu
+ real                   :: const,uu,dens,pres,Tgas,kappa,kappa_code
  integer                :: relativistic_choice
  real                   :: uthermconst,densleft,densright,pondens,spsound,soundspeed
 !
@@ -663,8 +662,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     shocktype = "Mildly-Relativistic Sod shock"
     gamma      = 5./3.
     alphau     = 0.1
-    leftstate  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
-    rightstate = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
+    leftstate(1:iBz)  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
+    rightstate(1:iBz) = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
     write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
     write(*,"(a5,i2,1x,a20)") 'Case ', 2, 'Ultra relativistic'
     write(*,"(a5,i2,1x,a20)") 'Case ', 3, 'Isothermal'
@@ -672,8 +671,8 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     select case(relativistic_choice)
     case(2)
        shocktype = "Ultra-Relativistic Sod shock"
-       leftstate  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
-       rightstate = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
+       leftstate(1:iBz)  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
+       rightstate(1:iBz) = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
     case(3)
        shocktype = "Isothermal relativistic shock"
        ieos        = 4
@@ -685,9 +684,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        densright   = 1.
        call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
-       leftstate  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
+       leftstate(1:iBz)  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
        call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.)
-       rightstate = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
+       rightstate(1:iBz) = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
     case default
     end select
