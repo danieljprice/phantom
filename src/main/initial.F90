@@ -508,11 +508,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
- write(iprint,*) 'Sink radius and critical densities:'
- write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
- write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
- write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
- write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
+ if (nptmass > 0) then
+    write(iprint,*) 'Sink radius and critical densities:'
+    write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
+    write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
+    write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
+    write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
+ endif
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
