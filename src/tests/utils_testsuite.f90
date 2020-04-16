@@ -25,7 +25,7 @@
 !+
 !--------------------------------------------------------------------------
 module testutils
- use mpiutils, only:reduce_mpi,barrier_mpi
+ use mpiutils, only:reduce_mpi,reduceall_mpi,barrier_mpi
  use io,       only:id,master
  implicit none
  public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
@@ -454,7 +454,6 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  real :: errmaxr,errl2i
 
  call print_testinfo(trim(label))
-
  ndiff = 0
  errmax = 0.
  errl2  = 0.
@@ -774,15 +773,15 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
  integer(kind=8) :: np,nval
  real            :: valmax,errl2
 
- np     = reduce_mpi('+',npi)
- ndiff  = int(reduce_mpi('+',ndiff))
- errmax = reduce_mpi('max',errmax)
+ np     = reduceall_mpi('+',npi)
+ ndiff  = int(reduceall_mpi('+',ndiff))
+ errmax = reduceall_mpi('max',errmax)
 
  if (present(errl2i)) then
-    errl2 = reduce_mpi('+',errl2i)
+    errl2 = reduceall_mpi('+',errl2i)
     if (present(valmaxi) .and. present(nvali)) then
-       valmax = reduce_mpi('max',valmaxi)
-       nval   = reduce_mpi('+',nvali)
+       valmax = reduceall_mpi('max',valmaxi)
+       nval   = reduceall_mpi('+',nvali)
        if (nval > 0 .and. valmax > 0.) then
           errl2 = sqrt(errl2/(real(nval)*valmax*valmax))
        endif
