@@ -371,7 +371,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                divcurlB,Bpred,dBevol,rad,drad,radprop,dustproppred,ddustprop,&
+                divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
@@ -631,7 +631,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,rad,drad,radprop,dustproppred,ddustprop,dustfrac,ddustevol,&
+                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
