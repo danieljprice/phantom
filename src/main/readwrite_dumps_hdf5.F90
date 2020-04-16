@@ -137,15 +137,15 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use gitinfo,        only:gitsha
  use io,             only:nprocs,fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
- use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes,  &
-                          alphaind,rhoh,divBsymm,maxphase,iphase,nptmass,    &
-                          xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,      &
-                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,     &
-                          dustprop,temperature,VrelVf,dustgasprop,ndustsmall,&
-                          luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty, &
-                          Bextz,ndustlarge,idust,grainsize,graindens,        &
-                          h2chemistry,lightcurve,maxBevol,                   &
-                          ndivcurlB,ndivcurlv
+ use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes,    &
+                          alphaind,rhoh,divBsymm,maxphase,iphase,nptmass,      &
+                          xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,        &
+                          divcurlv,divcurlB,poten,dustfrac,deltav,tstop,       &
+                          dustprop,temperature,VrelVf,dustgasprop,ndustsmall,  &
+                          luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
+                          Bextz,ndustlarge,idust,idustbound,grainsize,         &
+                          graindens,h2chemistry,lightcurve,maxBevol,ndivcurlB, &
+                          ndivcurlv
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
 #ifdef PHANTOM2HDF5
@@ -322,6 +322,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  hdr%ndustlarge = ndustlarge
  hdr%ndustsmall = ndustsmall
  hdr%idust = idust
+ hdr%idustbound = idustbound
  hdr%phantom_version_major = phantom_version_major
  hdr%phantom_version_minor = phantom_version_minor
  hdr%phantom_version_micro = phantom_version_micro
@@ -388,6 +389,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
 
  ! create options derived type for writing arrays
+ array_options%ieos = ieos
  array_options%isothermal = isothermal
  array_options%const_av = const_av
  array_options%ind_timesteps = ind_timesteps

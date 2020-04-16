@@ -451,6 +451,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     call prompt('Enter the desired EoS for setup', ieos)
  endif
 
+ if ((isphere==imesa .or. isphere==ikepler) .and. (ieos==2)) then
+    call prompt('Enter the desired gamma for the EoS', gamma)
+ endif
+
+
  if (isphere==ibinpoly) call fatal('setup','Binary polytrope option has been removed.')
  !
  ! Using prompts, determine the parameters the users wishes

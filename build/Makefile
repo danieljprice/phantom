@@ -57,7 +57,7 @@ endif
 ifndef SPLASH_DIR
    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
 endif
-# MPI= yes
+#MPI= yes
 #
 # endian can be "BIG", "LITTLE" or anything else which has no effect
 #
@@ -829,6 +829,7 @@ ifeq ($(SETUP), star)
     MAXP=10000000
     GRAVITY=yes
     MHD=no
+    DOUBLEPRECISION=yes
 endif
 
 ifeq ($(SETUP), isowind)
@@ -1271,6 +1272,13 @@ ifeq ($(SYSTEM), nci)
     QEXTRA='-l other=hyperthread'
 endif
 
+ifeq ($(SYSTEM), xc40_mpi)
+#   YITP Cray machine, using Cray Compiler, with MPI
+    OPENMP=yes
+    MPI=cray
+    KNOWN_SYSTEM=yes
+endif
+
 ifeq ($(SYSTEM), gfortran)
     include Makefile_defaults_gfortran
 ifneq ($(UNAME), Darwin)
@@ -1585,7 +1593,7 @@ endif
 
 ifeq ($(MPI), zen)
     FC= mpif90
-    LDFLAGS+= -lmpi -lmpiif
+    LDFLAGS+= -lwmpi -lmpiif
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
@@ -1605,6 +1613,13 @@ endif
 
 ifeq ($(MPI), intel)
     FC= mpif90
+    FPPFLAGS += -DMPI
+    USEMPI=yes
+endif
+
+ifeq ($(MPI), cray)
+    FC= ftn 
+    CC= cc
     FPPFLAGS += -DMPI
     USEMPI=yes
 endif
