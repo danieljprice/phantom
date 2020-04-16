@@ -29,10 +29,9 @@ module testsmol
  private
 
 contains
-
 !----------------------------------------------------------
 !+
-!  run all unit tests of smoluchowsky dust growth solver
+!  Unit tests of smoluchowsky dust growth solver
 !+
 !----------------------------------------------------------
 subroutine test_smol(ntests,npass)

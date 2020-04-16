@@ -29,7 +29,11 @@ module testrwdump
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of reading/writing dump files
+!+
+!-----------------------------------------------------------------------
 subroutine test_rwdump(ntests,npass)
  use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
                            Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&

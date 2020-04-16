@@ -28,7 +28,11 @@ module testsedov
  public :: test_sedov
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit test of the "complete" code, performing sedov test
+!+
+!-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
  use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,do_radiation
  use io,       only:id,master,iprint,ievfile,iverbose,real4

@@ -29,7 +29,11 @@ module testexternf
  private
 
 contains
-
+!----------------------------------------------------------
+!+
+!  unit tests of external forces
+!+
+!----------------------------------------------------------
 subroutine test_externf(ntests,npass)
  use io,       only:id,master
  use part,     only:npart,xyzh,hfact,massoftype,igas

@@ -29,7 +29,11 @@ module testsetdisc
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of the set_disc routine
+!+
+!-----------------------------------------------------------------------
 subroutine test_setdisc(ntests,npass)
  use dim,        only:maxp
  use io,         only:id,master

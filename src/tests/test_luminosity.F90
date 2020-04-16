@@ -29,7 +29,11 @@ module testlum
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of fake lightcurve output
+!+
+!-----------------------------------------------------------------------
 subroutine test_lum(ntests,npass)
  use dim,      only:periodic,lightcurve
  use io,       only:id,master

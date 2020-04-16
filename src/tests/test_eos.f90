@@ -29,10 +29,9 @@ module testeos
  private
 
 contains
-
 !----------------------------------------------------------
 !+
-!  run all unit tests of equation of state module
+!  unit tests of equation of state module
 !+
 !----------------------------------------------------------
 subroutine test_eos(ntests,npass)

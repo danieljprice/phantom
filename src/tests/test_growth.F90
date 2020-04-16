@@ -37,7 +37,11 @@ module testgrowth
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests for dust growth using Stepinksi & Valageas method
+!+
+!-----------------------------------------------------------------------
 subroutine test_growth(ntests,npass)
 #ifdef DUST
 #ifdef DUSTGROWTH

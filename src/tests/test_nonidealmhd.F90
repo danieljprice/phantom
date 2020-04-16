@@ -44,7 +44,6 @@ module testnimhd
 #endif
 
 contains
-
 !--------------------------------------------------------------------------
 !+
 !  unit tests of non-ideal MHD

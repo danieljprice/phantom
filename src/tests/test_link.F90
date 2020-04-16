@@ -29,7 +29,11 @@ module testlink
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of neighbour finding routines
+!+
+!-----------------------------------------------------------------------
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh
  use io,       only:id,master,nprocs!,iverbose

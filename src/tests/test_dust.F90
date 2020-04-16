@@ -44,6 +44,11 @@ module testdust
 
 contains
 
+!--------------------------------------------
+!+
+!  Unit tests of dust physics
+!+
+!--------------------------------------------
 subroutine test_dust(ntests,npass)
 #ifdef DUST
  use dust,        only:idrag,init_drag,get_ts
@@ -589,6 +594,7 @@ subroutine test_drag(ntests,npass)
  if (idrag==2) K_code = 100.
 
  fext = 0.
+ fxyzu = 0.
  call get_derivs_global()
 
 !

@@ -31,7 +31,6 @@ module testgr
  private
 
 contains
-
 !-----------------------------------------------------------------------
 !+
 !   Unit tests for General Relativity

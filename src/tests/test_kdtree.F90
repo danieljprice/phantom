@@ -31,7 +31,11 @@ module testkdtree
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of tree code
+!+
+!-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
  use dim,       only:maxp
  use io,        only:id,master,iverbose

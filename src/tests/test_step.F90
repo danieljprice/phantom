@@ -30,7 +30,11 @@ module teststep
  private
 
 contains
-
+!----------------------------------------------------------
+!+
+!  Unit tests of timestepping and boundary crossing
+!+
+!----------------------------------------------------------
 subroutine test_step(ntests,npass)
  use io,       only:id,master
 #ifdef PERIODIC

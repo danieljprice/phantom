@@ -29,7 +29,11 @@ module testgravity
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests for Newtonian gravity (i.e. Poisson solver)
+!+
+!-----------------------------------------------------------------------
 subroutine test_gravity(ntests,npass,string)
  use io,        only:id,master
 #ifdef GRAVITY
