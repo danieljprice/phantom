@@ -24,6 +24,7 @@ module radiation_utils
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
  public :: set_radiation_and_gas_temperature_equal
+ public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
 
  private
@@ -45,40 +46,44 @@ pure real function get_rad_R(rho,xi,flux,kappa) result(radR)
 
 end function get_rad_R
 
-!-------------------------------------------------
+!-------------------------------------------------------------
 !+
-!  set equal gas and radiation temperatures
+!  set equal gas and radiation temperatures for all particles
 !+
-!-------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,rad,radprop,opacity)
- use physcon,   only:Rg,steboltz,c
- use units,     only:unit_opacity,unit_ergg,unit_density
- use part,      only:rhoh,igas,iradxi,ikappa
- use eos,       only:gmw
-
+!-------------------------------------------------------------
+subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+ use part,      only:rhoh,igas,iradxi
+ use eos,       only:gmw,gamma
  integer, intent(in) :: npart
- real, intent(in)    :: gamma,xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(inout) :: rad(:,:),radprop(:,:)
- real, intent(in), optional :: opacity
- real                :: kappa,kappa_code,Tgas,rhoi,pmassi
+ real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real, intent(out)   :: rad(:,:)
+ real                :: rhoi,pmassi
  integer             :: i
 
- kappa = 1e5
- if (present(opacity)) then
-    if (opacity > 0.) kappa = opacity
- endif
- kappa_code = kappa/unit_opacity
  pmassi = massoftype(igas)
-
  do i=1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
-    Tgas = gmw*((gamma-1.)*vxyzu(4,i)*unit_ergg)/Rg
-    rad(iradxi,i) = (4.0*steboltz*Tgas**4.0/c/(rhoi*unit_density))/unit_ergg
-    radprop(ikappa,i) = kappa_code
-    !print*,i,' Tgas = ',Tgas,'rad=',rad(iradxi,i),radprop(ikappa,i)
+    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,gmw)
+    !print*,i,' Tgas = ',Tgas,'rad=',rad(iradxi,i)
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
+
+!-------------------------------------------------
+!+
+!  set equal gas and radiation temperature
+!+
+!-------------------------------------------------
+real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(e_rad)
+ use physcon,   only:Rg,steboltz,c
+ use units,     only:unit_ergg,unit_density
+ real, intent(in) :: rho,u_gas,gamma,gmw
+ real :: Tgas
+
+ Tgas = gmw*((gamma-1.)*u_gas*unit_ergg)/Rg
+ e_rad = (4.0*steboltz*Tgas**4.0/c/(rho*unit_density))/unit_ergg
+
+end function radiation_and_gas_temperature_equal
 
 !--------------------------------------------------------------------
 !+

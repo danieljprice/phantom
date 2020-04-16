@@ -82,16 +82,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
  use part,         only:rad,radprop,iradxi,ikappa
  use eos,          only:gmw
- use physcon,      only:Rg,c,steboltz
- use units,        only:unit_pressure,unit_density,unit_ergg
  use kernel,       only:radkern,hfact_default
  use timestep,     only:tmax
  use prompting,    only:prompt
  use set_dust,     only:set_dustfrac
  use units,        only:set_units
 #ifdef NONIDEALMHD
- use nicil,          only:rho_i_cnst
+ use nicil,           only:rho_i_cnst
 #endif
+ use physcon,         only:au,solarm
+ use radiation_utils, only:radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
  integer,           intent(inout) :: npart
@@ -108,10 +108,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,ierr,nbpts,ny,nz
  character(len=120)               :: shkfile, filename
  logical                          :: iexist
- real                             :: Tgas
 
  if (gr) call set_units(G=1.,c=1.)
-
+ if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
  !
@@ -141,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 0.1
  if (.not.iexist) hfact = hfact_default
  nstates = max_states
- if (.not.mhd) nstates = max_states - 3
+ !if (.not.mhd) nstates = max_states - 3
  if (use_dust) dust_method = 1 ! one fluid by default
  !
  ! setup particles
@@ -253,7 +252,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  fac       = nint(2.01*radkern*hfact)
  xbdyleft  = fac*dxleft
  xbdyright = fac*dxright
- dustfrac  = 0.
  do i=1,npart
     if ( (xyzh(1,i) < (xminleft (1) + xbdyleft ) ) .or. &
          (xyzh(1,i) > (xmaxright(1) - xbdyright) ) ) then
@@ -262,10 +260,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        call set_particle_type(i,igas)
     endif
-    !
-    ! one fluid dust: set dust fraction on gas particles
-    !
-    if (use_dustfrac) call set_dustfrac(dtg,dustfrac(:,i))
  enddo
  massoftype(iboundary)  = massoftype(igas)
  npartoftype(iboundary) = nbpts
@@ -287,6 +281,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  Bxyz = 0.
  vxyzu = 0.
+ dustfrac = 0.
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
@@ -297,8 +292,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4) vxyzu(4,i) = uuright
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
        if (do_radiation) then
-          Tgas = gmw*(rightstate(ipr)*unit_pressure)/(rightstate(idens)*unit_density)/Rg
-          rad(iradxi,i)     = 4.0*steboltz*Tgas**4.0/c/(rightstate(idens)*unit_density)/unit_ergg
+          rad(iradxi,i)     = radiation_and_gas_temperature_equal(rhoright,uuright,gamma,gmw)
           radprop(ikappa,i) = rightstate(iradkappa)
        endif
     else
@@ -309,11 +303,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4) vxyzu(4,i) = uuleft
        if (mhd) Bxyz(1:3,i) = leftstate(iBx:iBz)
        if (do_radiation) then
-          Tgas = gmw*(leftstate(ipr)*unit_pressure)/(leftstate(idens)*unit_density)/Rg
-          rad(iradxi,i)     = 4.0*steboltz*Tgas**4.0/c/(leftstate(idens)*unit_density)/unit_ergg
+          rad(iradxi,i)     = radiation_and_gas_temperature_equal(rholeft,uuleft,gamma,gmw)
           radprop(ikappa,i) = leftstate(iradkappa)
        endif
     endif
+    !
+    ! one fluid dust: set dust fraction on gas particles
+    !
+    if (use_dustfrac) call set_dustfrac(dtg,dustfrac(:,i))
  enddo
  if (mhd) ihavesetupB = .true.
  !
@@ -440,7 +437,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
 #endif
- use units,     only:set_units,udist,utime,unit_density,unit_pressure,unit_opacity
+ use units,     only:udist,utime,unit_density,unit_pressure,unit_opacity
  use eos,       only:gmw
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
@@ -620,8 +617,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  case(9)
     ! if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
     shocktype = 'Radiation shock'
-
-    call set_units(dist=au,mass=solarm,G=1.d0)
     gamma = 5./3.
     gmw   = 2.38
     Tgas  = 1500.
