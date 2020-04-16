@@ -23,8 +23,9 @@
 !+
 !--------------------------------------------------------------------------
 module testradiation
- use part, only:ithick,iradxi,ifluxx,ifluxy,ifluxz,idflux,ikappa
- use io,   only:id,master
+ use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,idflux,ikappa
+ use io,        only:id,master
+ use testutils, only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end
  implicit none
 
  public :: test_radiation
@@ -65,7 +66,6 @@ end subroutine test_radiation
 subroutine test_exchange_terms(ntests,npass)
  use radiation_utils, only:update_radenergy
  use units,      only:set_units,unit_ergg,unit_density,unit_opacity,utime
- use testutils,  only:checkval
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp
  use options,    only:exchange_radiation_energy
@@ -77,15 +77,16 @@ subroutine test_exchange_terms(ntests,npass)
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
+ use mpiutils,   only:reduceall_mpi
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
  real :: dt,t,physrho,rhoi,maxt,laste
- integer :: i,ierr
+ integer :: i,nerr(1)
+ integer(kind=8) :: nptot
  logical, parameter :: write_output = .false.
 
  call init_part()
- fxyzu(:,:) = 0.
  iverbose = 1
  exchange_radiation_energy = .false.
 
@@ -98,7 +99,8 @@ subroutine test_exchange_terms(ntests,npass)
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
  rhozero = 1.e-7/unit_density  ! 1e-7 g/cm^3
  totmass = rhozero*(dxbound*dybound*dzbound)
- massoftype(igas) = totmass/npart
+ nptot = reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/nptot
  gamma = 5./3.
  gmw = 2.0
  polyk = 0.
@@ -134,9 +136,8 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21195027.055207778,1e-10,ierr,'energy exchange for gas cooling')
- ntests = ntests + 1
- if (ierr == 0) npass = npass + 1
+ call checkval(laste,21195027.055207778,1e-10,nerr(1),'energy exchange for gas cooling')
+ call update_test_scores(ntests,nerr,npass)
 
  do i=1,npart
     rhoi         = rhoh(xyzh(4,i),pmassi)
@@ -162,10 +163,8 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21142367.365743987,1e-10,ierr,'energy exchange for gas heating')
-
- ntests = ntests + 1
- if (ierr == 0) npass = npass + 1
+ call checkval(laste,21142367.365743987,1e-10,nerr(1),'energy exchange for gas heating')
+ call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_exchange_terms
 
@@ -187,10 +186,10 @@ subroutine test_uniform_derivs(ntests,npass)
  use eos,             only:gamma,gmw
  use readwrite_dumps, only:write_fulldump
  use boundary,        only:set_boundary
- use testutils,       only:checkvalbuf,checkvalbuf_end
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
+ use mpiutils,        only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
  real :: dtext,pmassi, dt,t,kappa_code
@@ -199,7 +198,8 @@ subroutine test_uniform_derivs(ntests,npass)
  real :: exact_grE,exact_DgrF,exact_xi
  real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi
  integer :: i,j
- integer :: nactive,nerr_e,ncheck_e,nerr_f,ncheck_f,nerr_xi,ncheck_xi
+ integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
+ integer(kind=8) :: nptot
  character(len=20) :: string
 
  psep = 1./32.
@@ -214,7 +214,8 @@ subroutine test_uniform_derivs(ntests,npass)
  call init_part()
  call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
- massoftype(igas) = 1./npart*1e-25
+ nptot = reduceall_mpi('+',npart)
+ massoftype(igas) = 1./nptot*1e-25
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0
@@ -270,17 +271,14 @@ subroutine test_uniform_derivs(ntests,npass)
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
 
-    call checkvalbuf(radiation(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e,ncheck_e,errmax_e)
+    call checkvalbuf(radiation(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
-    call checkvalbuf(radiation(idflux,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f,ncheck_f,errmax_f)
+    call checkvalbuf(radiation(idflux,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
  enddo
- call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e,errmax_e,tol_e)
- call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f,errmax_f,tol_f)
-
- ntests = ntests + 1
- if (nerr_e == 0) npass = npass + 1
- ntests = ntests + 1
- if (nerr_f == 0) npass = npass + 1
+ call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e(1),errmax_e,tol_e)
+ call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f(1),errmax_f,tol_f)
+ call update_test_scores(ntests,nerr_e,npass)
+ call update_test_scores(ntests,nerr_f,npass)
 
  call init_step(npart,t,dtmax)
  do i = 1,50
@@ -300,11 +298,10 @@ subroutine test_uniform_derivs(ntests,npass)
           write (string,"(a,i2.2,a)") 'xi(t_', i, ')'
           call checkvalbuf(&
              radiation(iradxi,i),exact_xi,tol_xi,&
-             trim(string),nerr_xi,ncheck_xi,errmax_xi)
+             trim(string),nerr_xi(1),ncheck_xi,errmax_xi)
        enddo
-       call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi,errmax_xi,tol_xi)
-       ntests = ntests + 1
-       if (nerr_e == 0) npass = npass + 1
+       call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
+       call update_test_scores(ntests,nerr_xi,npass)
     endif
     ! write (filename,'(A5,I2.2)') 'rad_test_', i
     ! call write_fulldump(t,filename)

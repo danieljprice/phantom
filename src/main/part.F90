@@ -263,6 +263,9 @@ module part
    +maxBevol                            &  ! Bevol
    +maxBevol                            &  ! Bpred
 #endif
+#ifdef RADIATION
+   +maxirad                             &  ! radiation
+#endif
 #ifndef ANALYSIS
    +1                                   &  ! iphase
 #endif
@@ -916,6 +919,7 @@ subroutine copy_particle(src, dst)
     Bevol(:,dst) = Bevol(:,src)
     Bxyz(:,dst)  = Bxyz(:,dst)
  endif
+ if (do_radiation) radiation(:,dst) = radiation(:,src)
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv  > 0) divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -973,6 +977,7 @@ subroutine copy_particle_all(src,dst)
        eta_nimhd(:,dst) = eta_nimhd(:,src)
     endif
  endif
+ if (do_radiation) radiation(:,dst) = radiation(:,src)
  if (gr) pxyzu(:,dst) = pxyzu(:,src)
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
@@ -1197,6 +1202,9 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
        call fill_buffer(xtemp,Bpred(:,i),nbuf)
     endif
+    if (do_radiation) then
+       call fill_buffer(xtemp,radiation(:,i),nbuf)
+    endif
     if (maxphase==maxp) then
        call fill_buffer(xtemp,iphase(i),nbuf)
     endif
@@ -1257,6 +1265,9 @@ subroutine unfill_buffer(ipart,xbuf)
  if (mhd) then
     Bevol(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
     Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+ endif
+ if (do_radiation) then
+    radiation(:,ipart)  = real(unfill_buf(xbuf,j,maxirad))
  endif
  if (maxphase==maxp) then
     iphase(ipart)       = nint(unfill_buf(xbuf,j),kind=1)

@@ -97,7 +97,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  integer, intent(in) :: npart
  real :: ui,pmassi,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
- real :: c_code, steboltz_code
+ real :: c_code,steboltz_code
  integer :: i
 
  pmassi        = massoftype(igas)
