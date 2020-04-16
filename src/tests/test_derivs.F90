@@ -47,7 +47,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
-                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
@@ -87,7 +87,7 @@ subroutine test_derivs(ntests,npass,string)
  real              :: trialmean,actualmean,realneigh
 #endif
  real              :: rcut
- real              :: dtext_dum,rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
+ real              :: rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
  integer           :: nfailed(21),i,j,npartblob,nparttest,m
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
