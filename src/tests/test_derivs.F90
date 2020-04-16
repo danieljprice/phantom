@@ -44,7 +44,7 @@ subroutine test_derivs(ntests,npass,string)
  use mpiutils,     only:reduceall_mpi
  use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
  use kernel,       only:radkern,kernelname
- use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,&
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,temperature,&
@@ -137,6 +137,7 @@ subroutine test_derivs(ntests,npass,string)
  end select
  testgradh = (maxgradh==maxp .and. index(kernelname,'cubic') > 0)
 
+ call init_part()
  iprint = 6
  iverbose = max(iverbose,2)
  psep = dxbound/100.

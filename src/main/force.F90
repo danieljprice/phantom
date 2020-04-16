@@ -862,8 +862,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
- use units,       only:unit_velocity
- use physcon,     only:c
+ use units,       only:get_c_code
 #ifdef GR
  use utils_gr,    only:get_bigv
  use metric_tools,only:imet_minkowski,imetric
@@ -1046,6 +1045,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  ! dust
  ts_min = bignumber
 
+ ! radiation
+ c_code = get_c_code()
+
  ! various pre-calculated quantities
  if (mhd) then
     Bxi  = xpartveci(iBevolxi)*rhoi
@@ -1120,6 +1122,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  psij = 0.
  visctermisoj = 0.
  visctermanisoj = 0.
+
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1644,8 +1647,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           if (do_radiation) then
              radDFWj = 0.
-
-             c_code = c/unit_velocity
              if (usej) then
                 radFj(1:3) = radiation(ifluxx:ifluxz,j)
                 radkappaj = radiation(ikappa,j)

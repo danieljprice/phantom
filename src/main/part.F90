@@ -470,6 +470,7 @@ end subroutine deallocate_part
 subroutine init_part
 
  npart = 0
+ nptmass = 0
  npartoftype(:) = 0
  massoftype(:)  = 0.
 !--initialise point mass arrays to zero
@@ -477,18 +478,29 @@ subroutine init_part
  vxyz_ptmass  = 0.
 
  ! initialise arrays not passed to setup routine to zero
- if (mhd) Bevol = 0.
+ if (mhd) then
+    Bevol = 0.
+    Bextx = 0.
+    Bexty = 0.
+    Bextz = 0.
+ endif
  if (maxphase > 0) iphase = 0 ! phases not set
  if (maxalpha==maxp)  alphaind = 0.
  if (ndivcurlv > 0) divcurlv = 0.
  if (maxdvdx==maxp) dvdx = 0.
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
- if (use_dust) dustfrac = 0.
+ if (use_dust) then
+    dustfrac = 0.
+    dustevol = 0.
+ endif
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
- if (do_radiation) radiation = 0.
+ if (do_radiation) then
+    radiation(:,:) = 0.
+    radiation(ikappa,:) = huge(0.) ! set opacity to infinity
+ endif
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)

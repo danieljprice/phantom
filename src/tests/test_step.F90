@@ -40,9 +40,8 @@ subroutine test_step(ntests,npass)
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,divcurlv, &
-                    Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,fext, &
-                    maxphase,mhd,maxBevol,igas
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
+                    dBevol,alphaind,maxphase,mhd,maxBevol,igas
  use unifdis,  only:set_unifdis
  use physcon,  only:pi
  use timing,   only:getused
@@ -66,6 +65,7 @@ subroutine test_step(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING STEP MODULE / boundary crossing'
 
+ call init_part()
  npart = 0
  psep = dxbound/50.
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
@@ -85,22 +85,11 @@ subroutine test_step(ntests,npass)
 !--set constant velocity (in all components)
 !
  vxyzu(1:3,:) = 1.
-!
-!--set everything else to zero
-!
- if (maxvxyzu >= 4) vxyzu(4,:) = 0.
- fxyzu(:,:) = 0.
- fext(:,:)  = 0.
- Bevol(:,:) = 0.
- Bextx = 0.
- Bexty = 0.
- Bextz = 0.
- dBevol(:,:) = 0.
- divcurlv(:,:) = 0.
- polyk = 0.
+ if (maxvxyzu>=4) vxyzu(4,:) = 0.
 !
 !--make sure AV is off
 !
+ polyk = 0.
  alpha = 0.
  alphau = 0.
  alphaB = 0.

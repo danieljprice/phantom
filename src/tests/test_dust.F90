@@ -144,7 +144,7 @@ subroutine test_dustybox(ntests,npass)
                           ndusttypes,alphaind
  use part,           only:pxyzu,dens,metrics
  use step_lf_global, only:step,init_step
- use deriv,          only:derivs
+ use deriv,          only:get_derivs_global
  use energies,       only:compute_energies,ekin
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma
@@ -278,8 +278,7 @@ subroutine test_dustybox(ntests,npass)
  nsteps = 100
  t = 0
  dtmax = nsteps*dt
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+ call get_derivs_global()
  !
  ! run dustybox problem
  !

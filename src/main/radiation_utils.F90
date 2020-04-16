@@ -52,7 +52,7 @@ end function get_rad_R
 !-------------------------------------------------
 subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,radiation,opacity)
  use physcon,   only:Rg,steboltz,c
- use units,     only:udist,umass,unit_ergg,unit_density
+ use units,     only:unit_opacity,unit_ergg,unit_density
  use part,      only:rhoh,igas,iradxi,ikappa
  use eos,       only:gmw
 
@@ -67,7 +67,7 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massof
  if (present(opacity)) then
     if (opacity > 0.) kappa = opacity
  endif
- kappa_code = kappa/(udist**2/umass)
+ kappa_code = kappa/unit_opacity
  pmassi = massoftype(igas)
 
  do i=1,npart
@@ -80,27 +80,29 @@ subroutine set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massof
 
 end subroutine set_radiation_and_gas_temperature_equal
 
+!--------------------------------------------------------------------
+!+
+!  integrate radiation energy exchange terms over a time interval dt
+!+
+!--------------------------------------------------------------------
 subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
- use units,        only:udist,utime,&
-                        unit_energ,unit_velocity
- use physcon,      only:Rg,steboltz,c
+ use units,        only:get_steboltz_code,get_c_code,unit_velocity
+ use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
-
- real, intent(in)    ::dt,xyzh(:,:),fxyzu(:,:)
- real, intent(inout) ::vxyzu(:,:),radiation(:,:)
- integer, intent(in) ::npart
-
+ real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:)
+ real, intent(inout) :: vxyzu(:,:),radiation(:,:)
+ integer, intent(in) :: npart
  real :: ui,pmassi,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
  real :: c_code, steboltz_code
  integer :: i
 
  pmassi        = massoftype(igas)
- steboltz_code = steboltz/(unit_energ/(udist**2*utime))
- c_code        = c/unit_velocity
+ steboltz_code = get_steboltz_code()
+ c_code        = get_c_code()
 
  a   = 4.*steboltz_code/c_code
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
@@ -152,6 +154,11 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,radiation,dt)
  !$omp end parallel do
 end subroutine update_radenergy
 
+!--------------------------------------------------------------------
+!+
+!  update internal energy using implicit substeps
+!+
+!--------------------------------------------------------------------
 subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt)
  real, intent(out) :: unew
  real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
@@ -184,6 +191,11 @@ subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  enddo
 end subroutine solve_internal_energy_implicit_substeps
 
+!--------------------------------------------------------------------
+!+
+!  update internal energy using implicit backwards Euler method
+!+
+!--------------------------------------------------------------------
 subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
  real, intent(out) :: unew
  real, intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
@@ -203,16 +215,28 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
     dfu  = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
     unew = unew - fu/dfu
  enddo
+
 end subroutine solve_internal_energy_implicit
 
+!--------------------------------------------------------------------
+!+
+!  update internal energy using explicit Euler method
+!+
+!--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
  real, intent(out) :: unew
  real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
  integer, intent(in) :: di
 
  unew = ui + dt*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
+
 end subroutine solve_internal_energy_explicit
 
+!--------------------------------------------------------------------
+!+
+!  update internal energy using series of explicit Euler steps
+!+
+!--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
  real, intent(out) :: unew
  real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
@@ -239,6 +263,7 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
     enddo
     du = (unew-unews)/unew
  enddo
+
 end subroutine solve_internal_energy_explicit_substeps
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)

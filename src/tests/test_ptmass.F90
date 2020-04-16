@@ -35,12 +35,10 @@ contains
 subroutine test_ptmass(ntests,npass)
  use dim,      only:maxp,mhd,periodic,gravity,maxptmass
  use io,       only:id,master,iverbose,iskfile
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,epot_sinksink,&
                     ihacc,isdead_or_accreted,igas,divcurlv,iphase,isetphase,maxphase,&
-                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB,fxyzu,set_particle_type,&
-                    ispinx,ispiny,ispinz,dustprop,ddustprop,poten,rhoh
- use part,            only:pxyzu,dens,metrics
+                    Bevol,fxyzu,set_particle_type,ispinx,ispiny,ispinz,poten,rhoh
  use eos,             only:gamma,polyk
  use timestep,        only:dtmax,C_force,tolv
  use testutils,       only:checkval,checkvalf,update_test_scores
@@ -57,7 +55,7 @@ subroutine test_ptmass(ntests,npass)
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
  use boundary,        only:set_boundary
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  use kdtree,          only:tree_accuracy
  !use readwrite_dumps, only:write_fulldump,write_smalldump
  use fileutils,       only:getnextfilename
@@ -76,7 +74,7 @@ subroutine test_ptmass(ntests,npass)
  logical                :: accreted
  real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
- real                   :: r2,r2min,dtext_dum,xcofm(3),totmass,dum,dum2,psep,tolen
+ real                   :: r2,r2min,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
  real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
  real                   :: dptmass(ndptmass,maxptmass)
@@ -101,6 +99,7 @@ subroutine test_ptmass(ntests,npass)
  polyk = 0.
  gamma = 1.
  iexternalforce = 0
+ call init_part()
 !
 !  Test 1: orbit of a single binary
 !  Test 2: with gas disc around it
@@ -212,8 +211,7 @@ subroutine test_ptmass(ntests,npass)
        !
        if (itest==2 .or. itest==3) then
           fxyzu(:,:) = 0.
-          call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,t,0.,dtext_dum,pxyzu,dens,metrics)
+          call get_derivs_global()
        endif
        !
        !--evolve this for a number of orbits
@@ -539,8 +537,7 @@ subroutine test_ptmass(ntests,npass)
        tree_accuracy = 0.
        icreate_sinks = 1
        iverbose = 1
-       call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                   Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,0.,0.,dtext_dum,pxyzu,dens,metrics)
+       call get_derivs_global()
        !
        ! check that particle being tested is at the maximum density
        !

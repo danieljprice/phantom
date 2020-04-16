@@ -54,7 +54,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:G_is_unity,G_code
+ use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
@@ -301,9 +301,9 @@ subroutine check_setup(nerror,nwarn,restart)
  if (gravity .or. nptmass > 0) then
     if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',G_code()
+          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',G_code()
+          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
     endif
@@ -602,7 +602,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
  use part,         only:isdead_or_accreted
- use units,        only:in_geometric_units,G_code,c_code
+ use units,        only:in_geometric_units,get_G_code,get_c_code
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
@@ -614,7 +614,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  !
  if (.not. in_geometric_units()) then
     print "(/,a)",' ERROR: units are incorrect for GR, need G = c = 1'
-    print *,' ...but we have G = ',G_code(),' and c = ',c_code()
+    print *,' ...but we have G = ',get_G_code(),' and c = ',get_c_code()
     print*
     nerror = nerror + 1
  endif

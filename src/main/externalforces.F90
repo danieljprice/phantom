@@ -852,7 +852,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  use extern_neutronstar,   only:load_extern_neutronstar
  use extern_Bfield,        only:check_externB_settings
  use extern_gwinspiral,    only:initialise_gwinspiral
- use units,                only:G_is_unity,c_is_unity,G_code,c_code
+ use units,                only:G_is_unity,c_is_unity,get_G_code,get_c_code
  use part,                 only:npart,nptmass
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
@@ -888,7 +888,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     if (.not.G_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes G=1 in code units but we have',var='G',val=real(G_code()))
+                  ' external force assumes G=1 in code units but we have',var='G',val=real(get_G_code()))
        ierr = ierr + 1
     endif
  end select
@@ -900,7 +900,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     !
     if (.not.c_is_unity()) then
        call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes c=1 in code units but we have',var='c',val=real(c_code()))
+                  ' external force assumes c=1 in code units but we have',var='c',val=real(get_c_code()))
        ierr = ierr + 1
     endif
  end select

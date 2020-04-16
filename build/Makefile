@@ -937,6 +937,7 @@ ifeq ($(SETUP), test)
     CURLV=yes
     MHD=yes
     DUST=yes
+    RADIATION=yes
     KERNEL=cubic
 endif
 
@@ -964,6 +965,7 @@ ifeq ($(SETUP), testkd)
     CONST_ARTRES=yes
     CURLV=yes
     MHD=yes
+    RADIATION=yes
 endif
 
 ifeq ($(SETUP), testgrav)
