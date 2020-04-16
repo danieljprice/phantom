@@ -483,6 +483,7 @@ subroutine init_part
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
     Bevol = 0.
+    Bxyz  = 0.
     Bextx = 0.
     Bexty = 0.
     Bextz = 0.
