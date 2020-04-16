@@ -40,8 +40,13 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
+ use dim,     only:do_radiation
  integer, intent(inout) :: ntests,npass
 
+ if (.not.do_radiation) then
+    if (id==master) write(*,"(/,a,/)") '--> SKIPPING RADIATION TEST (NEED RADIATION=yes)'
+    return
+ endif
  if (id==master) write(*,"(/,a,/)") '--> TESTING RADIATION MODULE'
 
  call set_units(dist=au,mass=solarm,G=1.d0)

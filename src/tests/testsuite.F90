@@ -320,7 +320,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options ! restore defaults
  endif
 #endif
-
 !
 !--test of set_disc module
 !
@@ -337,13 +336,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  endif
 
  if (doradiation.or.testall) then
-    if (do_radiation) then
-       call test_radiation(ntests,npass)
-       call set_default_options ! restore defaults
-       call barrier_mpi()
-    else
-       print*, 'Radiation: Compiled without RADIATION=yes. Skip.'
-    endif
+    call test_radiation(ntests,npass)
+    call set_default_options ! restore defaults
  endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
