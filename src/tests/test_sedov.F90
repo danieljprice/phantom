@@ -38,8 +38,8 @@ subroutine test_sedov(ntests,npass)
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
- use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
-                    Bevol,Bextx,Bexty,Bextz,alphaind,dustfrac,dustevol,rad,radprop
+ use part,     only:init_part,mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
+                    alphaind,rad
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
@@ -94,6 +94,7 @@ subroutine test_sedov(ntests,npass)
 !
 !--setup particles
 !
+    call init_part()
     npart = 16
     psep  = dxbound/npart
 
@@ -120,25 +121,14 @@ subroutine test_sedov(ntests,npass)
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
-       if (use_dust) then
-          dustfrac(:,i) = 0.
-          dustevol(:,i) = 0.
-       endif
-
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
           vxyzu(iu,i) = prblast/(gam1*denszero)
        else
           vxyzu(iu,i) = 0.
        endif
-       if (mhd) then
-          Bevol(:,i) = 0.
-          Bextx = 0.
-          Bexty = 0.
-          Bextz = 0.
-       endif
     enddo
     if (do_radiation) then
-       call set_radiation_and_gas_temperature_equal(npart,gamma,xyzh,vxyzu,massoftype,rad,radprop)
+       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     endif
     tmax = 0.1
     dtmax = tmax
