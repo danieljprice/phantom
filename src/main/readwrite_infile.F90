@@ -262,10 +262,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
-    call write_inopt(exchange_radiation_energy,'gas-rad_exchange',&
-    'do or do not exchange energy  between gas and radiation',iwritein)
-    call write_inopt(limit_radiation_flux,'flux_limiter',&
-    'do or do not limit radiation  flux',iwritein)
+    call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
+    call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
  endif
 #ifdef GR
  call write_options_metric(iwritein)
