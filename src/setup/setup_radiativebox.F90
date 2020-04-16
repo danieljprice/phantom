@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
- use units,         only:set_units,unit_energ,unit_ergg,unit_velocity,utime,unit_opacity
+ use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_steboltz_code
  use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa
  use eos,           only:gmw
  use kernel,        only:hfact_default
@@ -140,8 +140,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  vxyzu(1:3,:) = 0.
 
- c_code = c/unit_velocity
- steboltz_code = steboltz/(unit_energ/(udist**2*utime))
+ c_code = get_c_code()
+ steboltz_code = get_steboltz_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
  a   = 4.*steboltz_code/c_code
  pmassi = massoftype(igas)
