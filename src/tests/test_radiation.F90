@@ -37,10 +37,13 @@ contains
 !+
 !-------------------------------------------------
 subroutine test_radiation(ntests,npass)
+ use physcon, only:solarm,au
+ use units,   only:set_units
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING RADIATION MODULE'
 
+ call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass)
 
 #ifndef PERIODIC
@@ -90,7 +93,6 @@ subroutine test_exchange_terms(ntests,npass)
  radiation(ithick,:) = 1.
  psep = 1./16.
  hfact = hfact_default
- call set_units(dist=au,mass=solarm,G=1.d0)
  npart = 0
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
@@ -181,18 +183,17 @@ subroutine test_uniform_derivs(ntests,npass)
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use units,           only:set_units,unit_opacity,get_c_code,get_steboltz_code,unit_velocity,unit_ergg
- use linklist,        only:set_linklist
- use forces,          only:force
- use physcon,         only:c,Rg,pi,steboltz
+ use physcon,         only:Rg,pi,seconds
  use eos,             only:gamma,gmw
  use readwrite_dumps, only:write_fulldump
  use boundary,        only:set_boundary
  use testutils,       only:checkvalbuf,checkvalbuf_end
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
+ use timestep,        only:dtmax
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
- real :: dtmax,dtext,pmassi, dt,t,kappa_code
+ real :: dtext,pmassi, dt,t,kappa_code
  real :: xmin,xmax,ymin,ymax,zmin,zmax,Tref,xi0,D0,rho0,l0
  real :: dtnew
  real :: exact_grE,exact_DgrF,exact_xi
@@ -244,6 +245,10 @@ subroutine test_uniform_derivs(ntests,npass)
     ! print*, Tref, Trad, Tgas
  enddo
 
+ dt = 1e-23 !*seconds/utime
+ t  = 0
+ dtmax = dt
+ dtext = dt
  do i = 1,2
     call get_derivs_global()
  enddo
@@ -277,10 +282,6 @@ subroutine test_uniform_derivs(ntests,npass)
  ntests = ntests + 1
  if (nerr_f == 0) npass = npass + 1
 
- dt = 1e-23
- t  = 0
- dtmax = dt
- dtext = dt
  call init_step(npart,t,dtmax)
  do i = 1,50
     t = t + dt
