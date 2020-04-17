@@ -185,8 +185,8 @@ subroutine solve_internal_energy_implicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
        fu    = huge(1.)
        do while((abs(fu) > eps).and.(iter < 10))
           iter = iter + 1
-          fu   = unew/dts - uip/dts - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
-          dfu  = 1./dts + ack*(rho/a + 4.*(unew**3*cv1**4))
+          fu   = unew - uip - dts*dudt - dts*ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+          dfu  = 1. + dts*ack*(rho/a + 4.*(unew**3*cv1**4))
           unew = unew - fu/dfu
        enddo
        uip = unew
@@ -210,14 +210,13 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
 
  unew = u0
  uold = 2*u0
-
  iter = 0
  eps = 1e-16
  do while ((abs(unew-uold) > eps).and.(iter < 10))
     uold = unew
     iter = iter + 1
-    fu   = unew/dt - u0/dt - dudt - ack*(rho*(etot-unew)/a - (unew*cv1)**4)
-    dfu  = 1./dt + ack*(rho/a + 4.*(unew**3*cv1**4))
+    fu   = unew - u0 - dt*dudt - dt*ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+    dfu  = 1. + dt*ack*(rho/a + 4.*(unew**3*cv1**4))
     unew = unew - fu/dfu
  enddo
 
