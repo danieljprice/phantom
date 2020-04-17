@@ -772,7 +772,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
 
-    minglobdt = min(dtvisc,dtohm,dthall,dtambi,dtrad)
+    minglobdt = min(dtvisc,dtohm,dthall,dtambi)
 
     if (minglobdt < dtcourant) then
        dtcourant = minglobdt

@@ -52,6 +52,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
  use part,           only:dustgasprop
+#ifdef IND_TIMESTEPS
+ use timestep_ind,   only:nbinmax
+#endif
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -165,7 +168,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! set new timestep from Courant/forces condition
 !
+#ifdef IND_TIMESTEPS
+ dtnew = dtmax/2**nbinmax  ! minimum timestep over all particles
+#else
  dtnew = min(dtforce,dtcourant,dtrad,dtmax)
+#endif
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 

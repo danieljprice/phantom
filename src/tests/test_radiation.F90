@@ -92,7 +92,7 @@ subroutine test_exchange_terms(ntests,npass)
  logical, parameter :: write_output = .false.
 
  call init_part()
- iverbose = 1
+ iverbose = 0
  exchange_radiation_energy = .false.
 
  psep = 1./16.
@@ -203,7 +203,7 @@ subroutine test_uniform_derivs(ntests,npass)
  integer :: i,j
  integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
  integer(kind=8) :: nptot
- character(len=20) :: string
+ character(len=20) :: string !,filename
 
  psep = 1./32.
  hfact = hfact_default
@@ -243,6 +243,8 @@ subroutine test_uniform_derivs(ntests,npass)
     ! print*, Tref, Trad, Tgas
  enddo
 
+ tmax = 5.e-22
+ dtmax = tmax
  do i = 1,2
     call get_derivs_global(dt_new=dtnew)
  enddo
@@ -274,9 +276,7 @@ subroutine test_uniform_derivs(ntests,npass)
  call update_test_scores(ntests,nerr_f,npass)
 
  t  = 0.
- tmax = 5.e-22
  dt = dtnew
- dtmax = dt
  dtext = dt
  call init_step(npart,t,dtmax)
  i = 0
@@ -291,7 +291,7 @@ subroutine test_uniform_derivs(ntests,npass)
        nerr_xi = 0
        ncheck_xi = 0
        errmax_xi = 0.
-       tol_xi = 2.8e-4
+       tol_xi = 3.e-4
        do j = 1,npart
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
@@ -303,8 +303,8 @@ subroutine test_uniform_derivs(ntests,npass)
        call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
        call update_test_scores(ntests,nerr_xi,npass)
     endif
-    ! write (filename,'(A5,I2.2)') 'rad_test_', i
-    ! call write_fulldump(t,filename)
+     !write (filename,'(A5,I3.3)') 'rad_test_', i
+     !call write_fulldump(t,filename)
  enddo
 
  ! reset various things
