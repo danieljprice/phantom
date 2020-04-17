@@ -30,13 +30,15 @@ module eos_shen
  integer, parameter :: nr = 328, nt = 109, ny = 53
  real, parameter :: MevtoK=1.1604*1.e10,amu=1.660538921*1.e-24
  real, parameter :: fmtocm=1.e-13,Mevtoerg=1.60217733*1.e-6
-! real, allocatable, dimension(:,:,:) :: tl,yl,dl
- real :: t1(nr,nt,ny),y1(nr,nt,ny),d1(nr,nt,ny),&
-         f1(nr,nt,ny),p1(nr,nt,ny),s1(nr,nt,ny),cn1(nr,nt,ny),&
-         cp1(nr,nt,ny),an1(nr,nt,ny),pn1(nr,nt,ny),xn1(nr,nt,ny),&
-         xp1(nr,nt,ny),xa1(nr,nt,ny),xi1(nr,nt,ny),em1(nr,nt,ny),&
-         ce1(nr,nt,ny),e1(nr,nt,ny)
- real :: t2(nr,nt,ny),y2(nr,nt,ny),d2(nr,nt,ny)
+ real, allocatable, dimension(:,:,:) :: &
+       t1,y1,d1,f1,p1,s1, &
+       cn1,cp1,an1,pn1,xn1,xp1,xa1,xi1,em1,ce1,e1,t2,y2,d2
+! real :: t1(nr,nt,ny),y1(nr,nt,ny),d1(nr,nt,ny),&
+!         f1(nr,nt,ny),p1(nr,nt,ny),s1(nr,nt,ny),cn1(nr,nt,ny),&
+!         cp1(nr,nt,ny),an1(nr,nt,ny),pn1(nr,nt,ny),xn1(nr,nt,ny),&
+!         xp1(nr,nt,ny),xa1(nr,nt,ny),xi1(nr,nt,ny),em1(nr,nt,ny),&
+!         ce1(nr,nt,ny),e1(nr,nt,ny)
+! real :: t2(nr,nt,ny),y2(nr,nt,ny),d2(nr,nt,ny)
 
 contains
 
@@ -55,14 +57,13 @@ subroutine init_eos_shen_NL3(ierr)
 
 ! test is table exists
  open(unit=1,file=trim(filename),status='old',iostat=ierr,form='unformatted')
- print*,ierr
  if (ierr /= 0) then
     call warning('eos_shen','could not find eos_binary_table.dat to initialise eos')
     ierr = 1
     return
+ else
+    call read_binary_table()
  endif
-
- call read_binary_table()
 
 end subroutine init_eos_shen_NL3
 
@@ -206,6 +207,12 @@ subroutine read_binary_table()
  filename = find_phantom_datafile('eos_binary_table.dat', 'eos/shen')
 ! open the table datafile
  open(unit=1,file=trim(filename),status='old',form='unformatted')
+
+ if (.not.allocated(t1)) then
+    allocate(t1(nr,nt,ny),y1(nr,nt,ny),d1(nr,nt,ny))
+    allocate(f1(nr,nt,ny),p1(nr,nt,ny),s1(nr,nt,ny))
+    allocate(t2(nr,nt,ny),d2(nr,nt,ny))
+ endif
 
  m=0
  do i=1,nt
