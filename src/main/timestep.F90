@@ -24,14 +24,12 @@
 module timestep
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
 
- real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
- real    :: dtrad,C_rad = 1.2
- ! real    :: dtrad,C_rad = 1.2
+ real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor
@@ -46,9 +44,10 @@ contains
 !-----------------------------------------------------------------
 subroutine set_defaults_timestep
 
- C_cour  =  0.3
- C_force =  0.25
- C_cool  =  0.05
+ C_cour  = 0.3
+ C_force = 0.25
+ C_cool  = 0.05
+ C_rad   = 1.0  ! see Biriukov & Price (2019)
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2

@@ -327,7 +327,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if ((.not. this_is_a_test) .and. use_dustgrowth) dustfrac(1:ndustsmall,i) = &
                                                             dustpred(:,i)**2/(1.+dustpred(:,i)**2)
           endif
-          if (do_radiation) rad(:,i) = rad(:,i) + hdti*drad(:,i)
+          if (do_radiation) radpred(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
        !
        ! viscosity switch ONLY (conductivity and resistivity do not use MM97-style switches)

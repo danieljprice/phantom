@@ -48,7 +48,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use timestep,       only:dtcourant,dtforce,dtmax
+ use timestep,       only:dtcourant,dtforce,dtrad,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
  use part,           only:dustgasprop
@@ -165,7 +165,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! set new timestep from Courant/forces condition
 !
- dtnew = min(dtforce,dtcourant,dtmax)
+ dtnew = min(dtforce,dtcourant,dtrad,dtmax)
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 
@@ -184,13 +184,14 @@ end subroutine derivs
 !  and store them in the global shared arrays
 !+
 !--------------------------------------
-subroutine get_derivs_global(tused)
+subroutine get_derivs_global(tused,dt_new)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                 dustfrac,ddustevol,temperature,pxyzu,dens,metrics
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
+ real,         intent(out), optional :: dt_new
  real(kind=4) :: t1,t2
  real :: dtnew
  real :: time,dt
@@ -204,6 +205,7 @@ subroutine get_derivs_global(tused)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1
+ if (present(dt_new)) dt_new = dtnew
 
 end subroutine get_derivs_global
 

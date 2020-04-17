@@ -188,7 +188,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use physcon,         only:Rg,pi,seconds
  use eos,             only:gamma,gmw
  use readwrite_dumps, only:write_fulldump
- use boundary,        only:set_boundary
+ use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
@@ -196,8 +196,8 @@ subroutine test_uniform_derivs(ntests,npass)
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
  real :: dtext,pmassi, dt,t,kappa_code
- real :: xmin,xmax,ymin,ymax,zmin,zmax,Tref,xi0,D0,rho0,l0
- real :: dtnew
+ real :: Tref,xi0,D0,rho0,l0
+ real :: dtnew,tmax
  real :: exact_grE,exact_DgrF,exact_xi
  real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi
  integer :: i,j
@@ -208,14 +208,8 @@ subroutine test_uniform_derivs(ntests,npass)
  psep = 1./32.
  hfact = hfact_default
  npart = 0
- xmin = -0.5
- xmax =  0.5
- ymin = -0.1
- ymax =  0.1
- zmin = -0.1
- zmax =  0.1
  call init_part()
- call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
+ call set_boundary(-0.5,0.5,-0.1,0.1,-0.1,0.1)
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
  nptot = reduceall_mpi('+',npart)
  massoftype(igas) = 1./nptot*1e-25
@@ -249,12 +243,8 @@ subroutine test_uniform_derivs(ntests,npass)
     ! print*, Tref, Trad, Tgas
  enddo
 
- dt = 1e-23 !*seconds/utime
- t  = 0
- dtmax = dt
- dtext = dt
  do i = 1,2
-    call get_derivs_global()
+    call get_derivs_global(dt_new=dtnew)
  enddo
 
  nerr_e = 0
@@ -283,17 +273,25 @@ subroutine test_uniform_derivs(ntests,npass)
  call update_test_scores(ntests,nerr_e,npass)
  call update_test_scores(ntests,nerr_f,npass)
 
+ t  = 0.
+ tmax = 5.e-22
+ dt = dtnew
+ dtmax = dt
+ dtext = dt
  call init_step(npart,t,dtmax)
- do i = 1,50
+ i = 0
+ do while(t < tmax)
     t = t + dt
     dtext = dt
     call step(npart,nactive,t,dt,dtext,dtnew)
+    dt = dtnew
+    i = i + 1
 
     if (mod(i,10) == 0) then
        nerr_xi = 0
        ncheck_xi = 0
        errmax_xi = 0.
-       tol_xi = 2e-2
+       tol_xi = 2.8e-4
        do j = 1,npart
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
