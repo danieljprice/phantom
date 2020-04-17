@@ -285,7 +285,8 @@ subroutine test_uniform_derivs(ntests,npass)
  enddo
  !print*,' GOT ',pmassi*dekin,pmassi*degas,pmassi*derad
  de = pmassi*(dekin + degas + derad)
- call checkval(de,0.,4.e-11,nerr_e(1),'dE/dt = 0')
+ de = reduceall_mpi('+',de)
+ call checkval(de,0.,2.5e-9,nerr_e(1),'dE/dt = 0')
  call update_test_scores(ntests,nerr_e,npass)
  !
  ! now solve diffusion as a function of time
