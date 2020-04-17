@@ -170,7 +170,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,iactive,gradh,&
                         hrho,iphase,maxphase,igas,maxgradh,dvdx, &
                         eta_nimhd,deltav,poten,iamtype,is_accretable
- use timestep,     only:dtcourant,dtforce,bignumber,dtdiff
+ use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
                         iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte
@@ -214,7 +214,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use stack,        only:stack_waiting => force_stack_2
 #endif
  use io_summary,   only:iosumdtr
- use timestep,     only:dtrad
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -778,23 +777,23 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (minglobdt < dtcourant) then
        dtcourant = minglobdt
        if      (abs(dtcourant-dtvisc) < tiny(dtcourant) ) then
-          if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
+          if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining timestep')
           call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
        elseif (abs(dtcourant-dthall) < tiny(dtcourant) ) then
-          if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining Courant timestep')
+          if (iverbose >= 1 .and. id==master) call warning('force','Hall Effect constraining timestep')
           call summary_variable('dt',iosumdth,0,0.0,0.0, .true. )
        elseif (abs(dtcourant-dtohm ) < tiny(dtcourant) ) then
-          if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining Courant timestep')
+          if (iverbose >= 1 .and. id==master) call warning('force','ohmic resistivity constraining timestep')
           call summary_variable('dt',iosumdto,0,0.0,0.0, .true. )
        elseif (abs(dtcourant-dtambi) < tiny(dtcourant) ) then
-          if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining Courant timestep')
+          if (iverbose >= 1 .and. id==master) call warning('force','ambipolar diffusion constraining timestep')
           call summary_variable('dt',iosumdta,0,0.0,0.0, .true. )
        endif
     endif
  else
     if (dtvisc < dtcourant) then
        dtcourant = dtvisc
-       if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining Courant timestep')
+       if (iverbose >= 1 .and. id==master) call warning('force','viscosity constraining timestep')
        call summary_variable('dt',iosumdtv,0,0.0,0.0, .true. )
     endif
  endif
@@ -803,9 +802,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     dtrad = reduceall_mpi('min',dtrad)
     if (dtrad < dtcourant) then
        call summary_variable('dt',iosumdtr,0,0.0)
-       dtcourant = dtrad
        if (iverbose >= 1 .and. id==master) &
-          call warning('force','radiation is constraining Courant timestep')
+          call warning('force','radiation is constraining timestep')
        call summary_variable('dt',iosumdtr,0,0.0,0.0,.true.)
     endif
  endif
@@ -3020,7 +3018,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           ! additional timestep constraint to ensure that
           ! radiation energy is positive after the integration
           if ((rad(iradxi,i) + dtradi*drad(iradxi,i)) < 0) then
-             dtradi = -rad(iradxi,i)/drad(iradxi,i)/1e1
+             if (rad(iradxi,i) > 0.) dtradi = -rad(iradxi,i)/drad(iradxi,i)/1e1
              call warning('force','radiation may become negative, limiting timestep')
           endif
        endif
