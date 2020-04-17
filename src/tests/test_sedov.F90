@@ -39,16 +39,17 @@ subroutine test_sedov(ntests,npass)
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:init_part,mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
-                    alphaind,rad
+                    alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
- use physcon,  only:pi
+ use physcon,  only:pi,au,solarm
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
 #ifndef IND_TIMESTEPS
- use timestep, only:dtcourant,dtforce
+ use timestep, only:dtcourant,dtforce,dtrad
 #endif
+ use timestep, only:bignumber
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
@@ -129,9 +130,12 @@ subroutine test_sedov(ntests,npass)
     enddo
     if (do_radiation) then
        call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+       radprop(ikappa,1:npart) = bignumber
     endif
     tmax = 0.1
     dtmax = tmax
+    C_cour = 0.15
+    C_force = 0.25
 !
 !--call derivs the first time around
 !
@@ -140,10 +144,8 @@ subroutine test_sedov(ntests,npass)
 !--now call evolve
 !
 #ifndef IND_TIMESTEPS
-    dt = min(C_cour*dtcourant,C_force*dtforce)
+    dt = min(dtcourant,dtforce,dtrad)
 #endif
-    C_cour = 0.15
-    C_force = 0.25
     iprint = 6
     logfile  = 'test01.log'
     evfile   = 'test01.ev'
