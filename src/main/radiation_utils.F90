@@ -132,7 +132,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     xii  = rad(iradxi,i)
     etot = ui + xii
     unew = ui
-    if (xii < 0.) then
+    if (xii < -epsilon(0.)) then
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
 !     if (i==584) then
@@ -205,14 +205,13 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
  real, intent(out) :: unew
  real, intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
  integer, intent(in) :: i
- real     :: fu,dfu,eps,uold
+ real     :: fu,dfu,uold
  integer  :: iter
 
  unew = u0
  uold = 2*u0
  iter = 0
- eps = 1e-16
- do while ((abs(unew-uold) > eps).and.(iter < 10))
+ do while ((abs(unew-uold) > epsilon(unew)).and.(iter < 10))
     uold = unew
     iter = iter + 1
     fu   = unew - u0 - dt*dudt - dt*ack*(rho*(etot-unew)/a - (unew*cv1)**4)
