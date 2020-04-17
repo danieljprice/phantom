@@ -478,7 +478,6 @@ ifeq ($(SETUP), shock)
 #   sod shock tube test
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
-    DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
     KNOWN_SETUP=yes
@@ -489,7 +488,6 @@ ifeq ($(SETUP), dustyshock)
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DUST=yes
-    DOUBLEPRECISION=yes
     KERNEL=quintic
     ISOTHERMAL=no
     KNOWN_SETUP=yes
@@ -499,7 +497,6 @@ ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
-    DOUBLEPRECISION=yes
     MHD=yes
     KERNEL=quintic
     KNOWN_SETUP=yes
@@ -509,7 +506,6 @@ ifeq ($(SETUP), nimhdshock)
 #   non-ideal mhd standing and C shock tests
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
-    DOUBLEPRECISION=yes
     MHD=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -521,11 +517,10 @@ ifeq ($(SETUP), nimhdshock)
 endif
 
 ifeq ($(SETUP), radshock)
-    FPPFLAGS= -DPERIODIC -DRADIATION
+    PERIODIC=yes
+    RADIATION=yes
     SETUPFILE= setup_shock.F90
-    DOUBLEPRECISION=yes
     KERNEL=quintic
-    ISOTHERMAL=no
     KNOWN_SETUP=yes
     MPI=no
 endif
@@ -534,7 +529,6 @@ ifeq ($(SETUP), srshock)
 #   special relativistic sod shock tube test
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
-    DOUBLEPRECISION=yes
     KERNEL=quintic
     GR=yes
     METRIC=minkowski
@@ -548,7 +542,6 @@ ifeq ($(SETUP), testparticles)
 #   test particles
     PERIODIC=no
     SETUPFILE= setup_testparticles.F90
-    DOUBLEPRECISION=yes
     GR=no
     ISOTHERMAL=no
     KNOWN_SETUP=yes
@@ -560,7 +553,6 @@ ifeq ($(SETUP), gr_testparticles)
 #   test particles in GR
     PERIODIC=no
     SETUPFILE= setup_testparticles.f90
-    DOUBLEPRECISION=yes
     GR=yes
     METRIC=kerr
     ISOTHERMAL=no
@@ -829,7 +821,6 @@ ifeq ($(SETUP), star)
     MAXP=10000000
     GRAVITY=yes
     MHD=no
-    DOUBLEPRECISION=yes
 endif
 
 ifeq ($(SETUP), isowind)
@@ -1618,7 +1609,7 @@ ifeq ($(MPI), intel)
 endif
 
 ifeq ($(MPI), cray)
-    FC= ftn 
+    FC= ftn
     CC= cc
     FPPFLAGS += -DMPI
     USEMPI=yes
