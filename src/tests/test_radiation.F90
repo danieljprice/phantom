@@ -181,7 +181,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use io,              only:id,master
  use part,            only:npart,xyzh,vxyzu,massoftype,igas,&
                            iphase,maxphase,isetphase,rhoh,npartoftype,&
-                           rad,radprop,drad,ifluxx,maxvxyzu,init_part
+                           rad,radprop,drad,ifluxx,maxvxyzu,init_part,fxyzu
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use units,           only:set_units,unit_opacity,get_c_code,get_steboltz_code,unit_velocity,unit_ergg
@@ -199,7 +199,7 @@ subroutine test_uniform_derivs(ntests,npass)
  real :: Tref,xi0,D0,rho0,l0
  real :: dtnew,tmax
  real :: exact_grE,exact_DgrF,exact_xi
- real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi
+ real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi,de,dekin,degas,derad
  integer :: i,j
  integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
  integer(kind=8) :: nptot
@@ -265,7 +265,7 @@ subroutine test_uniform_derivs(ntests,npass)
     D0  = c_code*(1./3)/kappa_code/rhoi
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
-
+    !print*,' got drad=',drad(iradxi,i), ' should be ',exact_DgrF
     call checkvalbuf(radprop(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
     call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
@@ -274,7 +274,22 @@ subroutine test_uniform_derivs(ntests,npass)
  call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f(1),errmax_f,tol_f)
  call update_test_scores(ntests,nerr_e,npass)
  call update_test_scores(ntests,nerr_f,npass)
-
+ !
+ ! check that energy is conserved (i.e. dEtot/dt = 0)
+ !
+ de = 0.; degas = 0.; derad = 0.; dekin = 0.
+ do i=1,npart
+    dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))  ! v.dv/dt
+    degas = degas + fxyzu(4,i)       ! du/dt
+    derad = derad + drad(iradxi,i)   ! dxi/dt
+ enddo
+ !print*,' GOT ',pmassi*dekin,pmassi*degas,pmassi*derad
+ de = pmassi*(dekin + degas + derad)
+ call checkval(de,0.,4.e-11,nerr_e(1),'dE/dt = 0')
+ call update_test_scores(ntests,nerr_e,npass)
+ !
+ ! now solve diffusion as a function of time
+ !
  t  = 0.
  dt = dtnew
  dtext = dt
