@@ -678,6 +678,7 @@ subroutine write_smalldump(t,dumpfile)
 #ifdef LIGHTCURVE
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
 #endif
+       if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     enddo
     !
     !--Block 2 (sinks)
@@ -686,9 +687,6 @@ subroutine write_smalldump(t,dumpfile)
        ilen(2) = nptmass
        call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,&
                         i_real,ipass,idump,nums,ierr,singleprec=.true.)
-    endif
-    if (do_radiation) then
-       call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
     endif
     !
     !--Block 4 (MHD)

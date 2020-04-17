@@ -639,8 +639,7 @@ subroutine compute_energies(t)
  erad = reduce_fn('+',erad)
  if (nptmass > 1) epot = epot + epot_sinksink
 
- etot = ekin + etherm + emag + epot
- etot = etot + erad
+ etot = ekin + etherm + emag + epot + erad
 
  xcom = reduce_fn('+',xcom)
  ycom = reduce_fn('+',ycom)
