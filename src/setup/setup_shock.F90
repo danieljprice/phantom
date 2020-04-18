@@ -26,8 +26,8 @@
 !    xright      -- x max boundary
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
-!    mpiutils, nicil, options, part, physcon, prompting, set_dust,
-!    setup_params, timestep, unifdis, units
+!    mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
+!    set_dust, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup

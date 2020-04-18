@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Sergei Biriukov
+!  OWNER: Daniel Price
 !
 !  $Id$
 !

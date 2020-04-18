@@ -11,15 +11,15 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Sergei Biriukov
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, densityforce, deriv, dim, eos, forces, io,
-!    kernel, linklist, options, part, physcon, radiation_utils,
-!    readwrite_dumps, step_lf_global, testutils, unifdis, units
+!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, options,
+!    part, physcon, radiation_utils, readwrite_dumps, step_lf_global,
+!    testutils, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testradiation

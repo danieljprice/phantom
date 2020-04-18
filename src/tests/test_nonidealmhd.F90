@@ -24,9 +24,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, nicil, options,
-!    part, physcon, step_lf_global, testutils, timestep, timestep_sts,
-!    unifdis, units
+!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, nicil,
+!    options, part, physcon, step_lf_global, testutils, timestep,
+!    timestep_sts, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testnimhd
