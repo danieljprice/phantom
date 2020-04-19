@@ -7,9 +7,12 @@
 !+
 !  MODULE: testradiation
 !
-!  DESCRIPTION: None
+!  DESCRIPTION: Unit tests for radiation hydro
 !
-!  REFERENCES: None
+!  REFERENCES:
+!    Whitehouse & Bate (2004), 353, 1078
+!    Whitehouse, Bate & Monaghan (2005), 364, 1367
+!    Biriukov (2019), PhD thesis, Monash Univ.
 !
 !  OWNER: Daniel Price
 !
@@ -127,7 +130,7 @@ subroutine test_exchange_terms(ntests,npass)
  physrho = rhoi*unit_density
  i = 0
  do while(t < maxt/utime)
-    dt = max(1e-18*seconds/utime,0.05*t)
+    dt = max(1d-18*seconds/utime,0.05d0*t)
     ! dt = maxt/utime
     call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
@@ -156,7 +159,7 @@ subroutine test_exchange_terms(ntests,npass)
  physrho = rhoi*unit_density
  i = 0
  do while(t < maxt/utime)
-    dt = max(1e-18*seconds/utime,0.05*t)
+    dt = max(1d-18*seconds/utime,0.05d0*t)
     ! dt = maxt/utime
     call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     t = t + dt
