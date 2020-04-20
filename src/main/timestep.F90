@@ -47,7 +47,7 @@ subroutine set_defaults_timestep
  C_cour  = 0.3
  C_force = 0.25
  C_cool  = 0.05
- C_rad   = 1.0  ! see Biriukov & Price (2019)
+ C_rad   = 0.8  ! see Biriukov & Price (2019)
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2
