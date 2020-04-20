@@ -67,7 +67,8 @@ module setup
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
- logical            :: iexist,input_polyk
+ real               :: mcore,hsoft
+ logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,use_prompt,relax_star_in_setup
  character(len=120) :: densityfile
  character(len=20)  :: dist_unit,mass_unit
@@ -100,7 +101,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
- use part,           only: igas,isetphase,iphase
+ use part,           only: igas,isetphase,iphase,ihsoft
  use spherical,      only: set_sphere
  use centreofmass,   only: reset_centreofmass
  use table_utils,    only: yinterp
@@ -111,6 +112,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,            only: init_eos, finish_eos, equationofstate
  use part,           only: rhoh, temperature, store_temperature
+ use setstellarcore, only:set_stellar_core
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,      only:relax_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -210,7 +213,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total    = 0
  vxyzu          = 0.0
  if (isphere==ievrard) polyk = ui_coef*Mstar/Rstar
-
+ !
+ ! add sink particle stellar core
+ !
+ if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
  !
  ! setup tabulated density profile
  !
@@ -474,6 +480,12 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  enddo
  np    = 100000 ! default number of particles
  call prompt('Enter the approximate number of particles in the sphere ',np,0)
+
+ call prompt('Create a sink particle stellar core?',isinkcore)
+ if (isinkcore) then
+   call prompt('Enter mass of the created sink particle core',mcore)
+   call prompt('Enter softening length of the sink particle core',hsoft)
+ endif
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter file name containing density profile ', densityfile)
  endif
@@ -576,7 +588,9 @@ subroutine set_default_options(polyk,istar,iexist)
     input_polyk = .true.
     need_grav   = 0 ! to prevent setupfail
  end select
-
+ isinkcore = .false.
+ mcore     = 0.
+ hsoft     = 0.
 end subroutine set_default_options
 
 !-----------------------------------------------------------------------
@@ -671,6 +685,11 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  endif
 
+ write(iunit,"(/,a)") '# sink stellar core options'
+ call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
+ call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
+ call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
+
  write(iunit,"(/,a)") '# relaxation options'
  call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
  if (relax_star_in_setup) call write_options_relax(iunit)
@@ -736,6 +755,13 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(initialtemp,'initialtemp',db,errcount=nerr)
     endif
  endif
+
+ call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
+ if (isinkcore) then
+    call read_inopt(mcore,'mcore',db,errcount=nerr)
+    call read_inopt(hsoft,'hsoft',db,errcount=nerr)
+ endif
+
  call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
  if (relax_star_in_setup) call read_options_relax(db,nerr)
  if (nerr /= 0) ierr = ierr + 1
