@@ -310,7 +310,7 @@ subroutine test_uniform_derivs(ntests,npass)
        nerr_xi = 0
        ncheck_xi = 0
        errmax_xi = 0.
-       tol_xi = 3.e-4
+       tol_xi = 3.5e-4
        do j = 1,npart
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
