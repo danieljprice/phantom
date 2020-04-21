@@ -33,11 +33,13 @@ module extern_corotate
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
- real, public :: omega_corotate = 1.
+ real, public    :: omega_corotate = 1.
+ real, public    :: companion_xpos = 1.,companion_mass = 1.
+ logical, public :: add_companion_grav = .false.
 
- public :: update_coriolis_leapfrog
- public :: get_coriolis_force,get_centrifugal_force
- public :: write_options_corotate, read_options_corotate
+ public          :: update_coriolis_leapfrog
+ public          :: get_coriolis_force,get_centrifugal_force,get_companion_force
+ public          :: write_options_corotate, read_options_corotate
  private
 
 contains
@@ -185,7 +187,25 @@ subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
  fzi = fzi + vcrossomega(3)
 
 end subroutine update_coriolis_leapfrog
+!-----------------------------------------------------------------------
+!+
+!  Calculate gravitational force due to a companion, given its x-position
+!  and mass
+!+
+!-----------------------------------------------------------------------
+subroutine get_companion_force(r,fextxi,fextyi,fextzi,phi)
+ real, intent(in)    :: r(3)
+ real, intent(inout) :: fextxi,fextyi,fextzi
+ real, intent(inout) :: phi
+ real                :: sep(3),companiongravity
 
+ sep = r - (/companion_xpos,0.,0./)
+ companiongravity = - companion_mass / dot_product(sep,sep)
+ fextxi = fextxi + companiongravity * sep(1) / sqrt(dot_product(sep,sep))
+ fextyi = fextyi + companiongravity * sep(2) / sqrt(dot_product(sep,sep))
+ fextzi = fextzi + companiongravity * sep(3) / sqrt(dot_product(sep,sep))
+ phi = phi - companion_mass / sqrt(dot_product(sep,sep))
+end subroutine get_companion_force
 !-----------------------------------------------------------------------
 !+
 !  writes input options to the input file
@@ -197,7 +217,12 @@ subroutine write_options_corotate(iunit)
 
  write(iunit,"(/,a)") '# options relating to corotating frame'
  call write_inopt(omega_corotate,'omega_corotate','angular speed of corotating frame',iunit)
+ call write_inopt(add_companion_grav,'add_companion_grav','add gravity due to companion',iunit)
 
+ if (add_companion_grav) then
+   call write_inopt(companion_mass,'companion_mass','mass of companion',iunit)
+   call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
+ endif
 end subroutine write_options_corotate
 
 !-----------------------------------------------------------------------
@@ -220,11 +245,20 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
  case('omega_corotate')
     read(valstring,*,iostat=ierr) omega_corotate
     ngot = ngot + 1
+ case('companion_mass')
+    read(valstring,*,iostat=ierr) companion_mass
+    ngot = ngot + 1
+ case('companion_xpos')
+    read(valstring,*,iostat=ierr) companion_xpos
+    ngot = ngot + 1
+ case('add_companion_grav')
+    read(valstring,*,iostat=ierr) add_companion_grav
+    ngot = ngot + 1  
  case default
     imatch = .false.
  end select
 
- igotall = (ngot >= 1)
+ igotall = (ngot >= 2)
 
 end subroutine read_options_corotate
 
