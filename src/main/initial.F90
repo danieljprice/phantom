@@ -133,7 +133,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            set_boundaries_to_active,n_R,n_electronT,dustevol,rhoh,gradh, &
+                            n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
  use part,             only:pxyzu,dens,metrics,metricderivs,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -580,7 +580,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        alphaind(1,i) = max(alphaind(1,i),alphaind(ialphaloc,i)) ! set alpha = max(alphaloc,alpha)
     enddo
  endif
- set_boundaries_to_active = .false.
 !
 !--set initial timestep
 !

@@ -323,9 +323,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             if ((.not. this_is_a_test) .and. use_dustgrowth) dustfrac(1:ndustsmall,i) = &
-                                                            dustpred(:,i)**2/(1.+dustpred(:,i)**2)
+             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             if ((.not. this_is_a_test) .and. use_dustgrowth) then
+                dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
+             endif
           endif
           if (do_radiation) radpred(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
@@ -577,8 +578,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(rad,drad,radpred) &
 !$omp firstprivate(itype) &
 !$omp schedule(static)
-       do i=1,npart
+       until_converged: do i=1,npart
           if (store_itype) itype = iamtype(iphase(i))
+          if (iamboundary(itype)) cycle until_converged
+
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
 
@@ -621,7 +624,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 
 #endif
-       enddo
+       enddo until_converged
 !$omp end parallel do
 
        call check_dustprop(npart,dustprop(1,:))

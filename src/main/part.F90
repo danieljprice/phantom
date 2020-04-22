@@ -316,7 +316,7 @@ module part
 !  NOTE: If new particle is added, and it is allowed to be accreted onto
 !        a sink particle, add it to the list in 'is_accretable' below
 !  NOTE: set_boundaries_to_active = .true., but will be set to .false. at the
-!        end of initial.  This will allow boundary particles to always be
+!        end of densityiterate.  This will allow boundary particles to always be
 !         initialised (even on restarts where not all arrays, e.g. gradh,
 !         are not saved)
 !

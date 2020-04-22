@@ -135,7 +135,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,&
-                     all_active,dustfrac,Bxyz
+                     all_active,dustfrac,Bxyz,set_boundaries_to_active
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -544,14 +544,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  call sync_hmax_mpi
 #endif
 
- ! reduce max stress across MPI procs
+ !--reduce values
  if (realviscosity .and. maxdvdx==maxp) then
     stressmax = reduceall_mpi('max',stressmax)
  endif
-
- ! reduce rhomax
- rhomax = reduceall_mpi('max',rhomax)
+ rhomax    = reduceall_mpi('max',rhomax)
  rhomaxnow = rhomax
+
+ !--boundary particles are no longer treated as active
+ set_boundaries_to_active = .false.
 
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
@@ -1492,6 +1493,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
+       write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ixi:izi,i)
        call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
     endif
 
@@ -1552,7 +1554,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
+ use part,        only:hrho,get_partinfo,iamgas,&
                        maxphase,massoftype,igas,n_R,n_electronT,&
                        eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
                        store_temperature,temperature,maxgradh,idust,&
