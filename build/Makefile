@@ -1333,6 +1333,13 @@ ifeq ($(SYSTEM), skylake)
     WALLTIME='36:00:00'
 endif
 
+ifeq ($(SYSTEM), kennedy)
+# HPCs cluster at University of St. Andrews
+    include Makefile_defaults_ifort
+    OMPFLAGS = -qopenmp
+    QSYS = slurm
+endif
+
 ifeq ($(SYSTEM), ifort)
     include Makefile_defaults_ifort
 endif
