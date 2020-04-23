@@ -256,7 +256,7 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('add_companion_grav')
     read(valstring,*,iostat=ierr) add_companion_grav
-    ngot = ngot + 1  
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
