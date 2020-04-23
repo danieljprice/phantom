@@ -22,7 +22,10 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    omega_corotate -- angular speed of corotating frame
+!    add_companion_grav -- add gravity due to companion
+!    companion_mass     -- mass of companion
+!    companion_xpos     -- x-position of companion
+!    omega_corotate     -- angular speed of corotating frame
 !
 !  DEPENDENCIES: infile_utils, io, physcon, vectorutils
 !+

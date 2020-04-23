@@ -33,8 +33,11 @@
 !    densityfile -- File containing data for stellar profile
 !    dist_unit   -- distance unit (e.g. au)
 !    gamma       -- Adiabatic index
+!    hsoft       -- Softening length of sink particle stellar core
 !    initialtemp -- initial temperature of the star
+!    isinkcore   -- Add a sink particle stellar core
 !    mass_unit   -- mass unit (e.g. solarm)
+!    mcore       -- Mass of sink particle stellar core
 !    np          -- approx number of particles (in box of size 2R)
 !    polyk       -- sound speed .or. constant in EOS
 !    relax_star  -- relax star automatically during setup
@@ -42,8 +45,8 @@
 !
 !  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
 !    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, relaxstar, rho_profile, setup_params, spherical,
-!    table_utils, timestep, units
+!    prompting, relaxstar, rho_profile, setstellarcore, setup_params,
+!    spherical, table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
