@@ -32,31 +32,33 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                              delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,kill_particle
  use setbinary,         only:set_binary
  use units,             only:umass,udist,utime
- use physcon,           only:au,solarm,solarr,gg
+ use physcon,           only:au,solarm,solarr,gg,pi
  use centreofmass,      only:reset_centreofmass,get_centreofmass
  use prompting,         only:prompt
  use options,           only:iexternalforce
  use externalforces,    only:omega_corotate,iext_corotate
+ use extern_corotate,   only:companion_xpos,companion_mass,add_companion_grav
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use rho_profile,       only:read_mesa_file
  use dim,               only:maxptmass
  use io,                only:fatal
 
- integer, intent(inout) :: npart
- integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, irhomax, n
- integer                :: iremove = 2
- real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
- real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
- real                   :: hacc1,hacc2,hacc3,mcore,comp_shift=100, sink_dist, vel_shift
- real                   :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
- integer, parameter     :: ng_max = 5000
- real                   :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
- logical                :: corotate_answer
- character(len=20)      :: filename = 'binary.in'
- character(len=100)     :: densityfile
+ integer, intent(inout)    :: npart
+ integer, intent(inout)    :: npartoftype(:)
+ real,    intent(inout)    :: massoftype(:)
+ real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                   :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, irhomax, n
+ integer                   :: iremove = 2
+ real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio
+ real                      :: mass_donor,separation,newCoM
+ real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
+ real                      :: hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
+ real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
+ integer, parameter        :: ng_max = 5000
+ real                      :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
+ logical                   :: corotate_answer
+ character(len=20)         :: filename = 'binary.in'
+ character(len=100)        :: densityfile
  type(inopts), allocatable :: db(:)
 
 !control: more than one sink particle already in the code could cause problems
@@ -156,14 +158,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  else
 
 !choose what to do with the star: set a binary or setup a magnetic field
-    print "(5(/,a))",'1) setup a binary system', &
-                  '2) setup a magnetic field in the star', &
-                  '3) manually cut profile to create sink in core', &
-                  '4) manually create sink in core', &
-                  '5) setup trinary system'
+    print "(6(/,a))",'1) Set up a binary system', &
+                     '2) Set up a magnetic field in the star', &
+                     '3) Manually cut profile to create sink in core', &
+                     '4) Manually create sink in core', &
+                     '5) Set up trinary system', &
+                     '6) Set up star for relaxation in corotating frame with companion potential'
 
     setup_case = 1
-    call prompt('Choose a setup option ',setup_case,1,5)
+    call prompt('Choose a setup option ',setup_case,1,6)
 
     select case(setup_case)
 
@@ -413,9 +416,41 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        !resets to (0,0,0) position and velocity of centre of mass for whole system after creating the binary
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+   
+    case(6)
+      companion_mass = 1.26
+      call prompt('Enter companion mass in code units',companion_mass,0.)
+      separation = 865.24
+      call prompt('Enter orbital separation in code units',separation,0.)
+      
+      !centre the star
+      call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+      mass_donor = npartoftype(igas)*massoftype(igas) + xyzmh_ptmass(4,1)
+      newCoM = companion_mass / (mass_donor + companion_mass) * separation
 
+      !centre to new CoM with the companion
+      xyzmh_ptmass(1,1) = xyzmh_ptmass(1,1) - newCoM
+      do i=1,npart
+         xyzh(1,i) = xyzh(1,i) - newCoM
+      enddo
+
+      !zero all particle velocities in the corotating frame, implying that the star is
+      !instantaneously spun up to the orbital frequency.
+      vxyz_ptmass(1:3,1) = 0.0
+      do i=1,npart
+          vxyzu(1,i) = 0.0
+          vxyzu(2,i) = 0.0
+          vxyzu(3,i) = 0.0
+      enddo
+
+      iexternalforce = iext_corotate
+      add_companion_grav = .true.
+      companion_xpos = separation - newCoM
+      omega_corotate = sqrt((mass_donor + companion_mass)/separation**3)
+      print*,'Angular velocity of the corotating frame is ',omega_corotate
+      print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
+   
     end select
-
  endif
 
  return
