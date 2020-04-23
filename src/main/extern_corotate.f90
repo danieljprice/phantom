@@ -223,8 +223,8 @@ subroutine write_options_corotate(iunit)
  call write_inopt(add_companion_grav,'add_companion_grav','add gravity due to companion',iunit)
 
  if (add_companion_grav) then
-   call write_inopt(companion_mass,'companion_mass','mass of companion',iunit)
-   call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
+    call write_inopt(companion_mass,'companion_mass','mass of companion',iunit)
+    call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
  endif
 end subroutine write_options_corotate
 

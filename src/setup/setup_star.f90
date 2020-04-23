@@ -486,8 +486,8 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
  call prompt('Create a sink particle stellar core?',isinkcore)
  if (isinkcore) then
-   call prompt('Enter mass of the created sink particle core',mcore)
-   call prompt('Enter softening length of the sink particle core',hsoft)
+    call prompt('Enter mass of the created sink particle core',mcore)
+    call prompt('Enter softening length of the sink particle core',hsoft)
  endif
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter file name containing density profile ', densityfile)
