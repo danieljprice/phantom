@@ -18,8 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: centreofmass, dim, externalforces, infile_utils, io,
-!    options, part, physcon, prompting, rho_profile, setbinary, units
+!  DEPENDENCIES: centreofmass, dim, extern_corotate, externalforces,
+!    infile_utils, io, options, part, physcon, prompting, rho_profile,
+!    setbinary, units
 !+
 !--------------------------------------------------------------------------
 module moddump
