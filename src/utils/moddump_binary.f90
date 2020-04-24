@@ -417,13 +417,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        !resets to (0,0,0) position and velocity of centre of mass for whole system after creating the binary
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-   
+
     case(6)
       companion_mass = 1.26
       call prompt('Enter companion mass in code units',companion_mass,0.)
       separation = 865.24
       call prompt('Enter orbital separation in code units',separation,0.)
-      
+
       !centre the star
       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
       mass_donor = npartoftype(igas)*massoftype(igas) + xyzmh_ptmass(4,1)
@@ -450,7 +450,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
       omega_corotate = sqrt((mass_donor + companion_mass)/separation**3)
       print*,'Angular velocity of the corotating frame is ',omega_corotate
       print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
-   
+
     end select
  endif
 
