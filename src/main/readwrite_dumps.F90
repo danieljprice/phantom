@@ -315,7 +315,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
-                 VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,accretor
+                 VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -351,7 +351,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: i,ipass,k,l,iu
- integer            :: ierr,ierrs(25)
+ integer            :: ierr,ierrs(24)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
  logical            :: sphNGdump, write_itype, use_gas
@@ -552,8 +552,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(12))
        endif
-       call write_array(1,accretor,'accretor',npart,k,ipass,idump,nums,ierrs(25))
-       if (any(ierrs(1:25) /= 0)) call error('write_dump','error writing hydro arrays')
+       if (any(ierrs(1:24) /= 0)) call error('write_dump','error writing hydro arrays')
     enddo
 
     do k=1,ndatatypes
@@ -1223,7 +1222,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,tstop,deltav,dustfrac_label, &
                       tstop_label,deltav_label,temperature,dustprop,dustprop_label,divcurlv,divcurlv_label,&
-                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp,accretor
+                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1254,7 +1253,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_nucleation(n_nucleation)
 #endif
  logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
-                          got_divcurlv(4),got_pxyzu(4),got_accr
+                          got_divcurlv(4),got_pxyzu(4)
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
 
@@ -1288,7 +1287,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_nucleation  = .false.
 #endif
  got_pxyzu       = .false.
- got_accr        = .false.
 
  ndustfraci = 0
  over_arraylengths: do iarr=1,narraylengths
@@ -1341,7 +1339,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (store_temperature) then
                 call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-             call read_array(accretor,'accretor',got_accr,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read divcurlv if it is in the file
@@ -1377,13 +1374,13 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
 #ifdef KROME
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_accr, &
+                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_krome_mols, got_krome_gamma,got_krome_mu,got_krome_T, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                    got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
  call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_accr, &
+                   alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                    got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #endif
@@ -1457,13 +1454,13 @@ end subroutine check_block_header
 !---------------------------------------------------------------
 #ifdef KROME
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_accr, &
+                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols, got_krome_gamma,got_krome_mu,got_krome_T, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #else
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
-                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha,got_accr, &
+                        alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_temp,got_Tdust,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
 #endif
@@ -1485,7 +1482,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  logical,         intent(in)    :: got_krome_mu
  logical,         intent(in)    :: got_krome_T
 #endif
- logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:),got_accr
+ logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:)
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
@@ -1598,11 +1595,6 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  endif
  if (store_dust_temperature .and. .not.got_Tdust) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
- endif
- if (.not.got_accr .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: accretor label not found'
-!     ierr = 9
-    return
  endif
  if (maxalpha==maxp) then
     if (got_alpha) then
