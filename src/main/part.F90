@@ -319,7 +319,8 @@ module part
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
-
+ +0
+ 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
  integer(kind=8) :: ntot
