@@ -71,9 +71,9 @@ module setup
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
  real               :: mcore,hsoft
- logical            :: iexist,input_polyk,isinkcore
+ logical            :: iexist,input_polyk,isinkcore,icubiccore
  logical            :: use_exactN,use_prompt,relax_star_in_setup
- character(len=120) :: densityfile
+ character(len=120) :: densityfile,outputfilename ! outputfilename is the path to the cubic-cored profile
  character(len=20)  :: dist_unit,mass_unit
  character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
  !
@@ -103,7 +103,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,npart_total
+ use setup_params,   only:rhozero,npart_total
  use part,           only: igas,isetphase,iphase,ihsoft
  use spherical,      only: set_sphere
  use centreofmass,   only: reset_centreofmass
@@ -116,6 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,            only: init_eos, finish_eos, equationofstate
  use part,           only: rhoh, temperature, store_temperature
  use setstellarcore, only:set_stellar_core
+ use setcubiccore,   only:set_cubic_core
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,      only:relax_star
  integer,           intent(in)    :: id
@@ -135,7 +136,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
  logical                          :: calc_polyk,write_setup
  character(len=120)               :: setupfile,inname
- !
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -240,6 +240,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rmin  = r(1)
     Rstar = r(npts)
  case(imesa)
+    if (icubiccore) then
+      call set_cubic_core(densityfile,outputfilename,mcore,hsoft)
+      densityfile = outputfilename
+    endif
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
     if (ierr==2) call fatal('setup','insufficient data points read from file')
@@ -483,8 +487,16 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  enddo
  np    = 100000 ! default number of particles
  call prompt('Enter the approximate number of particles in the sphere ',np,0)
-
- call prompt('Create a sink particle stellar core?',isinkcore)
+ if (isphere==imesa) then
+    call prompt('Create a cubic core density profile?',icubiccore)
+ endif
+ if (.not. icubiccore) then
+    call prompt('Create a sink particle stellar core?',isinkcore)
+ else
+    isinkcore = .true. ! sink core will be created if icubiccore
+    outputfilename = 'mycubiccoredstar.dat'
+    call prompt('Enter output file name of cored stellar profile:',outputfilename)
+ endif
  if (isinkcore) then
     call prompt('Enter mass of the created sink particle core',mcore)
     call prompt('Enter softening length of the sink particle core',hsoft)
@@ -594,6 +606,7 @@ subroutine set_default_options(polyk,istar,iexist)
  isinkcore = .false.
  mcore     = 0.
  hsoft     = 0.
+ icubiccore= .false.
 end subroutine set_default_options
 
 !-----------------------------------------------------------------------
