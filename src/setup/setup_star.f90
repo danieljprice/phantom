@@ -241,8 +241,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Rstar = r(npts)
  case(imesa)
     if (icubiccore) then
-      call set_cubic_core(densityfile,outputfilename,mcore,hsoft)
-      densityfile = outputfilename
+       call set_cubic_core(densityfile,outputfilename,mcore,hsoft)
+       densityfile = outputfilename
     endif
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
