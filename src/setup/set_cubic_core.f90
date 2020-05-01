@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: set_cubic_core
+!  MODULE: setcubiccore
 !
 !  DESCRIPTION:
 !   This module replaces the core of a MESA stellar profile with a cubic
@@ -13,6 +13,8 @@
 !   for adding a sink particle core. CAUTION: This module does not output
 !   self-consistent internal energy and temperature profiles, and just
 !   returns the input MESA data.
+!
+!  REFERENCES: None
 !
 !  OWNER: Mike Lau
 !

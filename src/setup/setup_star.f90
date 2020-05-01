@@ -45,8 +45,8 @@
 !
 !  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
 !    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, relaxstar, rho_profile, setstellarcore, setup_params,
-!    spherical, table_utils, timestep, units
+!    prompting, relaxstar, rho_profile, setcubiccore, setstellarcore,
+!    setup_params, spherical, table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
