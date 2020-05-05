@@ -1984,7 +1984,7 @@ SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 libphantom: checksystem checkparams phantom ${OBJLIB}
-	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS} $(LDFLAGS)
+	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
 cleanlibphantom:
