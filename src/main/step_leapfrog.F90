@@ -324,9 +324,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
              !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             if ((.not. this_is_a_test) .and. use_dustgrowth) then
+             if (.not.(use_dustgrowth .and. this_is_a_test)) &
                 dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
-             endif
           endif
           if (do_radiation) radpred(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
