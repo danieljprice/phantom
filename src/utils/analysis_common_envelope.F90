@@ -792,7 +792,6 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  integer                        :: i, j, k, ncols, mean_rad_num, iorder(npart), npart_a, iorder_a(npart)
  real                           :: star_stability(8)
  real                           :: total_mass, rhovol, totvol, rhopart
- real                           :: xyz_a(3,1)
  integer, parameter             :: ivoleqrad    = 1
  integer, parameter             :: idensrad     = 2
  integer, parameter             :: imassout     = 3
@@ -802,38 +801,45 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  integer, parameter             :: ipdensrad    = 7
  integer, parameter             :: ip2hdensrad  = 8
 
- totvol = 0
- rhovol = 0
 
+
+ ! Set origin to be sink particle 1
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
+
+ ! Sort all particles by radius
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
+ ! Get density of outermost particle in initial star dump
  if (dump_number == 0) then
-    rho_surface = rhoh(xyzh(4,iorder(npart)), particlemass)
+    rho_surface = rhoh(xyzh(4,iorder(npart)), particlemass) 
  endif
 
- mean_rad_num = npart / 200
  npart_a = 0
- do i=1,npart
+ totvol = 0
+ rhovol = 0
+ do i = 1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
-    totvol = totvol + particlemass / rhopart
+    totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
     if (rhopart > rho_surface) then
-       rhovol = rhovol + particlemass / rhopart
-       npart_a = npart_a + 1
-       xyz_a(1:3,npart_a) = xyzh(1:3,i)
+      ! Sum "volume" of particles within "surface" of initial star dump
+       rhovol = rhovol + particlemass / rhopart 
+       npart_a = npart_a + 1 ! Number of particles within "surface" of initial star dump
     endif
  enddo
 
+ ! Sort particles within "surface" by radius
  call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
 
- do i=npart-mean_rad_num,npart
+ mean_rad_num = npart / 200
+ star_stability = 0.
+ ! Loop over the outermost npart/200 particles that are within the "surface"
+ do i = npart_a - mean_rad_num,npart_a
     j = iorder(i)
     k = iorder_a(i)
     star_stability(ipartrad) = star_stability(ipartrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
     star_stability(ipart2hrad) = star_stability(ipart2hrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
     star_stability(ipdensrad) = star_stability(ipdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
     star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
-
  enddo
 
  star_stability(ipartrad) = star_stability(ipartrad) / real(mean_rad_num)
