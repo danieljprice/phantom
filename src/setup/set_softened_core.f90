@@ -35,7 +35,7 @@ module setsoftenedcore
  ! mcore: Mass of core particle
  ! msoft: Softened mass (mass at softening length minus mass of core particle)
 
-  contains
+contains
 
 !-----------------------------------------------------------------------
 !+
@@ -60,7 +60,7 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
  mc = mcore * solarm ! Convert to g
  msoft = m(hidx) - mc
  if (msoft < 0) then
-     stop 'ERROR: mcore cannot exceed m(r = h)'
+    stop 'ERROR: mcore cannot exceed m(r = h)'
  endif
  !
  ! Output data to be sorted from stellar surface to interior?
@@ -86,23 +86,23 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  !
  if (sortedDecreasing) then
-     call flip_array(m)
-     call flip_array(pres)
-     call flip_array(temp)
-     call flip_array(r)
-     call flip_array(rho)
-     call flip_array(ene)
-     call flip_array(phi)
+    call flip_array(m)
+    call flip_array(pres)
+    call flip_array(temp)
+    call flip_array(r)
+    call flip_array(rho)
+    call flip_array(ene)
+    call flip_array(phi)
  endif
 
  if (excludeCoreMass) then
-     m = m - mc
+    m = m - mc
  endif
 
  open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
- 42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
+42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
  close(1,status='keep')
 end subroutine set_softened_core
 
@@ -165,7 +165,7 @@ subroutine calc_phi(r,mgas,phi,mc,h)
  ! (ii) Gravitational potential due to softened gas
  phi_gas(size(r)) = - gg * mgas(size(r)) / r(size(r)) ! Surface boundary condition for phi
  do i = 1, size(r) - 1
-  phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2d0 &
+    phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2d0 &
                                               * (r(size(r)-i+1) - r(size(r)-i))
  enddo
 
@@ -184,8 +184,8 @@ subroutine calc_pres(r, rho, phi,pres)
 
  pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
  do i = 1, size(r)-1
-  ! Reverse Euler
-  pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
+    ! Reverse Euler
+    pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  enddo
 end subroutine calc_pres
 
@@ -209,7 +209,7 @@ subroutine flip_array(array)
  ! A subroutine that reverses the elements of a 1-d array
  allocate(flipped_array(size(array)))
  do i = 1, size(array)
-  flipped_array(i) = array(size(array) - i + 1)
+    flipped_array(i) = array(size(array) - i + 1)
  enddo
  array = flipped_array
 end subroutine flip_array
@@ -234,11 +234,11 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  read(40,'(a)') dumc! counting rows
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
- 101 do i = 1, 500
-  if (dum(i)=='aaa') then
-   rows = i-1
-  exit
-  endif
+101 do i = 1, 500
+    if (dum(i)=='aaa') then
+       rows = i-1
+       exit
+    endif
  enddo
 
  allocate(header(1:rows),dat(1:lines,1:rows))
@@ -246,7 +246,7 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  deallocate(dum)
 
  do i = 1, lines
-  read(40,*) dat(lines-i+1,1:rows)
+    read(40,*) dat(lines-i+1,1:rows)
  enddo
 
  allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
@@ -259,12 +259,12 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
 !   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
 !   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
 !   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
  enddo
 end subroutine read_mesa
 

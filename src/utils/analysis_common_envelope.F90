@@ -821,7 +821,7 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
     rhopart = rhoh(xyzh(4,i), particlemass)
     totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
     if (rhopart > rho_surface) then
-      ! Sum "volume" of particles within "surface" of initial star dump
+       ! Sum "volume" of particles within "surface" of initial star dump
        rhovol = rhovol + particlemass / rhopart
        npart_a = npart_a + 1 ! Number of particles within "surface" of initial star dump
     endif
