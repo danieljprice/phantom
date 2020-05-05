@@ -33,7 +33,7 @@ module setsoftenedcore
 
  ! hsoft: Softening length of core particle
  ! mcore: Mass of core particle
- ! msoft: Softened mass (mass at softening length minus mass of core particle) 
+ ! msoft: Softened mass (mass at softening length minus mass of core particle)
 
   contains
 
@@ -99,7 +99,7 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
      m = m - mc
  endif
 
- open(1, file = outputpath, status = 'new')  
+ open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
  42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
@@ -113,7 +113,7 @@ subroutine calc_rho_and_m(rho,m,r,mc,h)
  real(kind=8), intent(in) :: mc, h
  real(kind=8), dimension(1:hidx+1), intent(in) :: r
  real(kind=8), dimension(1:hidx+1), intent(inout) :: rho, m
-            
+
  ! a, b, d: Coefficients of cubic density profile defined by rho(r) = ar**3 + br**2 + d
  drhodr_h = (rho(hidx+1) - rho(hidx)) / (r(hidx+1) - r(hidx)) ! drho/dr at r = h
  a = 2d0/h**2d0 * drhodr_h - 1d1/h**3d0 * rho(hidx) + 7.5d0/pi/h**6d0 * msoft
@@ -168,9 +168,9 @@ subroutine calc_phi(r,mgas,phi,mc,h)
   phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2d0 &
                                               * (r(size(r)-i+1) - r(size(r)-i))
  end do
-      
- ! (iii) Add the potentials 
- phi = phi_gas + phi_core 
+
+ ! (iii) Add the potentials
+ phi = phi_gas + phi_core
 end subroutine calc_phi
 
 
@@ -188,19 +188,19 @@ subroutine calc_pres(r, rho, phi,pres)
   pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  end do
 end subroutine calc_pres
-    
+
 
 subroutine interpolator(array, value, valueidx)
  implicit none
- real(kind=8), dimension(:), intent(in) :: array(:) 
+ real(kind=8), dimension(:), intent(in) :: array(:)
  real(kind=8), intent(in) :: value
  integer, intent(out) :: valueidx
  ! A subroutine to interpolate an array given a value, returning the index closest to the
  ! required value. Only works if array is ordered.
  valueidx = minloc(abs(array - value), dim = 1)
 end subroutine interpolator
-  
-  
+
+
 subroutine flip_array(array)
  implicit none
  real(kind=8), dimension(:), intent(inout) :: array(:)
@@ -223,7 +223,7 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  character(len=24),allocatable                     :: header(:),dum(:)
  real(kind=8),allocatable,dimension(:,:)           :: dat
  real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp
-    
+
  ! reading data from datafile ! -----------------------------------------------
  open(unit=40,file=filepath,status='old')
  read(40,'()')
@@ -244,14 +244,14 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  allocate(header(1:rows),dat(1:lines,1:rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
-        
+
  do i = 1, lines
   read(40,*) dat(lines-i+1,1:rows)
  end do
-        
+
  allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
           temp(1:lines))
-                    
+
  do i = 1, rows
 !   if(trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
 !   if(trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
