@@ -66,6 +66,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use growth,         only:get_growth_rate
  use part,           only:VrelVf
 #endif
+#ifdef PERIODIC
+ use ptmass,         only:ptmass_boundary_crossing
+ use part,           only:nptmass,xyzmh_ptmass
+#endif
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
  use forces,         only:force
@@ -96,12 +100,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
  real,         intent(in)    :: metrics(:,:,:,:)
- real(kind=4)       :: t1,tcpu1,tlast,tcpulast
+ real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
- t1 = 0.
+ t1    = 0.
  tcpu1 = 0.
  call get_timings(t1,tcpu1)
- tlast = t1
+ tlast    = t1
  tcpulast = tcpu1
 !
 !--check for errors in input options
@@ -118,7 +122,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! call link list to find neighbours
 !
- if (icall==1 .or. icall==0) call set_linklist(npart,nactive,xyzh,vxyzu)
+ if (icall==1 .or. icall==0) then
+    call set_linklist(npart,nactive,xyzh,vxyzu)
+#ifdef PERIODIC
+    if (nptmass > 0) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
+#endif
+ endif
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
