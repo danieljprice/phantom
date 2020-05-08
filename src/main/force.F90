@@ -173,7 +173,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
-                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte
+                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB
 #ifdef FINVSQRT
  use fastmath,     only:finvsqrt
 #endif
@@ -232,8 +232,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(out)   :: drad(:,:)
  real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dens(:), metrics(:,:,:,:)
- integer :: ndtrad
- real    :: dtradmean,dtradfacmax
 
  real, save :: xyzcache(maxcellcache,4)
  integer, save :: listneigh(maxneigh)
@@ -260,12 +258,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #else
  integer :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
- integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust
+ integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real    :: dtitmp,dtrat,dtmaxi
- real    :: dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean
- real    :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax
- real    :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean,dtdustfacmean
- real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax
+ real    :: dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean,dtcleanfacmean
+ real    :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax ,dtcleanfacmax
+ real    :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean,dtdustfacmean ,dtradfacmean
+ real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
  logical :: allow_decrease,dtcheck
 #endif
  integer(kind=1)           :: ibinnow_m1
@@ -294,6 +292,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndtohm          = 0
  ndthall         = 0
  ndtambi         = 0
+ ndtrad          = 0
+ ndtclean        = 0
  dtfrcfacmean    = 0.0
  dtfrcngfacmean  = 0.0
  dtdragfacmean   = 0.0
@@ -314,17 +314,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  dthallfacmax    = 0.0
  dtambifacmax    = 0.0
  dtdustfacmax    = 0.0
- ibinnow_m1      = ibinnow - 1_1
- ndtrad          = 0
- dtradmean       = 0.0
+ dtradfacmean    = 0.0
  dtradfacmax     = 0.0
+ dtcleanfacmean  = 0.0
+ dtcleanfacmax   = 0.0
+ ibinnow_m1      = ibinnow - 1_1
 #else
  ibinnow_m1      = 0
 #endif
- dtmaxi          = 0.
-
  dustresfacmean  = 0.0
  dustresfacmax   = 0.0
+ dtmaxi          = 0.
  dtcourant       = bignumber
  dtforce         = bignumber
  dtvisc          = bignumber
@@ -416,22 +416,20 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_sts,nbinmax,nbinmaxsts) &
 !$omp private(allow_decrease,dtitmp,dtcheck,dtrat) &
-!$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc) &
+!$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc,ndtrad,ndtclean) &
 !$omp reduction(+:ndtohm,ndthall,ndtambi,ndtdust,dtohmfacmean,dthallfacmean,dtambifacmean,dtdustfacmean) &
 !$omp reduction(+:dtfrcfacmean,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean,dtviscfacmean) &
-!$omp reduction(max:dtohmfacmax,dthallfacmax,dtambifacmax,dtdustfacmax) &
+!$omp reduction(+:dtradfacmean,dtcleanfacmean) &
+!$omp reduction(max:dtohmfacmax,dthallfacmax,dtambifacmax,dtdustfacmax,dtradfacmax,dtcleanfacmax) &
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
-!$omp reduction(+:ndtrad,dtradmean) &
-!$omp reduction(max:dtradfacmax) &
 #endif
+!$omp reduction(+:ndustres,dustresfacmean) &
 !$omp reduction(min:dtrad) &
 !$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
-!$omp reduction(max:dtmaxi) &
+!$omp reduction(max:dtmaxi,dustresfacmax) &
 !$omp reduction(min:dtmini) &
-!$omp reduction(+:ndustres,dustresfacmean) &
-!$omp reduction(max:dustresfacmax) &
 !$omp shared(dustfrac) &
 !$omp shared(ddustevol) &
 !$omp shared(deltav) &
@@ -497,15 +495,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                              ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
-                             ndtvisc,ndtohm,ndthall,ndtambi,ndtdust, &
+                             ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                              dtitmp,dtrat, &
                              dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean, &
                              dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
                              dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                              dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                             ndtrad,dtradmean,dtradfacmax,&
+                             dtradfacmean ,dtcleanfacmean, &
+                             dtradfacmax  ,dtcleanfacmax, &
 #endif
-                             ndustres,dustresfacmax,dustresfacmean,&
+                             ndustres,dustresfacmax,dustresfacmean, &
                              rad,drad,radprop,dtrad)
 
 #ifdef MPI
@@ -573,17 +572,19 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
+
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                                           ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
-                                          ndtvisc,ndtohm,ndthall,ndtambi,ndtdust, &
+                                          ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                                           dtitmp,dtrat, &
                                           dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean, &
                                           dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
                                           dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
                                           dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                                          ndtrad,dtradmean,dtradfacmax, &
+                                          dtradfacmean ,dtcleanfacmean, &
+                                          dtradfacmax  ,dtcleanfacmax, &
 #endif
-                                          ndustres,dustresfacmax,dustresfacmean,&
+                                          ndustres,dustresfacmax,dustresfacmean, &
                                           rad,drad,radprop,dtrad)
 
     enddo over_waiting
@@ -694,7 +695,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     frac_stokes = 0.
     frac_super  = 0.
  endif
- if (ndustres > 0) call summary_variable('dust',iosumdgr,ndustres,dustresfacmean /real(ndustres),dustresfacmax )
+ if (ndustres > 0) call summary_variable('dust',iosumdgr,ndustres  ,dustresfacmean/real(ndustres), dustresfacmax )
 #endif
 
 #ifdef IND_TIMESTEPS
@@ -717,6 +718,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (ndtdragd   > 0) write(iprint,*) 'drag controlling timestep on ',ndtdrag,' dust particles'
     if (ndtdust    > 0) write(iprint,*) 'dust diffusion controlling timestep on ',ndtdust,' particles'
     if (ndtrad     > 0) write(iprint,*) 'radiation diffusion controlling timestep on ',ndtrad,' particles'
+    if (ndtclean   > 0) write(iprint,*) 'B-cleaning controlling timestep on ',ndtclean,' particles'
     if (ndtvisc    > 0) then
        write(iprint,*)   'thread ',id,' WARNING: viscosity           constraining timestep on ',ndtvisc,' particles by factor ', &
                        dtviscfacmean/real(ndtvisc)
@@ -749,7 +751,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (ndthall > 0)  call summary_variable('dt',iosumdth  ,ndthall   ,dthallfacmean /real(ndthall)   ,dthallfacmax )
     if (ndtambi > 0)  call summary_variable('dt',iosumdta  ,ndtambi   ,dtambifacmean /real(ndtambi)   ,dtambifacmax )
  endif
- if (ndtrad     > 0)  call summary_variable('dt',iosumdtr  ,ndtrad    ,dtradmean/real(ndtrad)         ,dtradfacmax)
+ if (ndtrad     > 0)  call summary_variable('dt',iosumdtr  ,ndtrad    ,dtradfacmean  /real(ndtrad)    ,dtradfacmax  )
+ if (ndtclean   > 0)  call summary_variable('dt',iosumdtB  ,ndtclean  ,dtcleanfacmean/real(ndtclean)  ,dtcleanfacmax)
 #else
 
  dtcourant = reduceall_mpi('min',dtcourant)
@@ -2461,13 +2464,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                                          ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
-                                         ndtvisc,ndtohm,ndthall,ndtambi,ndtdust, &
+                                         ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
                                          dtitmp,dtrat, &
                                          dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean, &
-                                         dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax, &
+                                         dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax,  &
                                          dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean, &
-                                         dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax, &
-                                         ndtrad,dtradmean,dtradfacmax,&
+                                         dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax,  &
+                                         dtradfacmean ,dtcleanfacmean, &
+                                         dtradfacmax  ,dtcleanfacmax, &
 #endif
                                          ndustres,dustresfacmax,dustresfacmean,&
                                          rad,drad,radprop,dtrad)
@@ -2529,20 +2533,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: ddustevol(:,:)
  real,               intent(out)   :: deltav(:,:,:)
  real,               intent(out)   :: dustgasprop(:,:)
-
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
  integer,            intent(inout) :: nbinmaxnew,nbinmaxstsnew,ncheckbin
  integer,            intent(inout) :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
- integer,            intent(inout) :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust
+ integer,            intent(inout) :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real,               intent(inout) :: dtitmp,dtrat
- real,               intent(inout) :: dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean
- real,               intent(inout) :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax
- real,               intent(inout) :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean ,dtdustfacmean
- real,               intent(inout) :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax  ,dtdustfacmax
- integer,            intent(inout) :: ndtrad
- real,               intent(inout) :: dtradmean,dtradfacmax
+ real,               intent(inout) :: dtfrcfacmean ,dtfrcngfacmean,dtdragfacmean ,dtdragdfacmean,dtcoolfacmean
+ real,               intent(inout) :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax  ,dtdragdfacmax ,dtcoolfacmax
+ real,               intent(inout) :: dtviscfacmean,dtohmfacmean  ,dthallfacmean ,dtambifacmean ,dtdustfacmean
+ real,               intent(inout) :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax  ,dtambifacmax  ,dtdustfacmax
+ real,               intent(inout) :: dtradfacmean ,dtcleanfacmean
+ real,               intent(inout) :: dtradfacmax  ,dtcleanfacmax
 #endif
  integer,            intent(inout) :: ndustres
  real,               intent(inout) :: dustresfacmean,dustresfacmax
@@ -2887,9 +2890,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! timestep based on Courant condition
        vsigdtc = max(vsigmax,vwavei)
        if (vsigdtc > tiny(vsigdtc)) then
-          dtc = min(C_cour*hi/(vsigdtc*max(alpha,1.0)),dtclean)
+          dtc = C_cour*hi/(vsigdtc*max(alpha,1.0))
        else
-          dtc = min(dtmax,dtclean)
+          dtc = dtmax
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
@@ -3028,7 +3031,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef IND_TIMESTEPS
     !-- The new timestep for particle i
-    dtitmp = min(dtf,dtcool,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti,dtradi)
+    dtitmp = min(dtf,dtcool,dtclean,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti,dtradi)
 
     if (dtitmp < dti .and. dtitmp < dtmax) then
        dti     = dtitmp
@@ -3036,18 +3039,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtcheck = .true.
        dtrat   = dtc/dti
        if ( iamgasi ) then
-          call check_dtmin(dtcheck,dti,dtf    ,dtrat,ndtforce  ,dtfrcfacmean  ,dtfrcfacmax ,dtchar,'dt_gasforce')
-          call check_dtmin(dtcheck,dti,dtcool ,dtrat,ndtcool   ,dtcoolfacmean ,dtcoolfacmax,dtchar,'dt_cool'    )
-          call check_dtmin(dtcheck,dti,dtvisci,dtrat,ndtvisc   ,dtviscfacmean ,dtviscfacmax,dtchar,'dt_visc'    )
-          call check_dtmin(dtcheck,dti,dtdrag ,dtrat,ndtdrag   ,dtdragfacmean ,dtdragfacmax,dtchar,'dt_gasdrag' )
-          call check_dtmin(dtcheck,dti,dtohmi ,dtrat,ndtohm    ,dtohmfacmean  ,dtohmfacmax ,dtchar,'dt_ohm'     )
-          call check_dtmin(dtcheck,dti,dthalli,dtrat,ndthall   ,dthallfacmean ,dthallfacmax,dtchar,'dt_hall'    )
-          call check_dtmin(dtcheck,dti,dtambii,dtrat,ndtambi   ,dtambifacmean ,dtambifacmax,dtchar,'dt_ambi'    )
-          call check_dtmin(dtcheck,dti,dtdusti,dtrat,ndtdust   ,dtdustfacmean ,dtdustfacmax,dtchar,'dt_dust'    )
-          call check_dtmin(dtcheck,dti,dtradi ,dtrat,ndtrad    ,dtradmean     ,dtradfacmax ,dtchar,'dt_radiation')
+          call check_dtmin(dtcheck,dti,dtf    ,dtrat,ndtforce  ,dtfrcfacmean  ,dtfrcfacmax  ,dtchar,'dt_gasforce' )
+          call check_dtmin(dtcheck,dti,dtcool ,dtrat,ndtcool   ,dtcoolfacmean ,dtcoolfacmax ,dtchar,'dt_cool'     )
+          call check_dtmin(dtcheck,dti,dtvisci,dtrat,ndtvisc   ,dtviscfacmean ,dtviscfacmax ,dtchar,'dt_visc'     )
+          call check_dtmin(dtcheck,dti,dtdrag ,dtrat,ndtdrag   ,dtdragfacmean ,dtdragfacmax ,dtchar,'dt_gasdrag'  )
+          call check_dtmin(dtcheck,dti,dtohmi ,dtrat,ndtohm    ,dtohmfacmean  ,dtohmfacmax  ,dtchar,'dt_ohm'      )
+          call check_dtmin(dtcheck,dti,dthalli,dtrat,ndthall   ,dthallfacmean ,dthallfacmax ,dtchar,'dt_hall'     )
+          call check_dtmin(dtcheck,dti,dtambii,dtrat,ndtambi   ,dtambifacmean ,dtambifacmax ,dtchar,'dt_ambi'     )
+          call check_dtmin(dtcheck,dti,dtdusti,dtrat,ndtdust   ,dtdustfacmean ,dtdustfacmax ,dtchar,'dt_dust'     )
+          call check_dtmin(dtcheck,dti,dtradi ,dtrat,ndtrad    ,dtradfacmean  ,dtradfacmax  ,dtchar,'dt_radiation')
+          call check_dtmin(dtcheck,dti,dtclean,dtrat,ndtclean  ,dtcleanfacmean,dtcleanfacmax,dtchar,'dt_clean'    )
        else
-          call check_dtmin(dtcheck,dti,dtf    ,dtrat,ndtforceng,dtfrcngfacmean,dtfrcngfacmax,dtchar,'dt_force'  )
-          call check_dtmin(dtcheck,dti,dtdrag ,dtrat,ndtdragd  ,dtdragdfacmean,dtdragdfacmax,dtchar,'dt_drag'   )
+          call check_dtmin(dtcheck,dti,dtf    ,dtrat,ndtforceng,dtfrcngfacmean,dtfrcngfacmax,dtchar,'dt_force'    )
+          call check_dtmin(dtcheck,dti,dtdrag ,dtrat,ndtdragd  ,dtdragdfacmean,dtdragdfacmax,dtchar,'dt_drag'     )
        endif
        if (dtcheck) call fatal('force','unknown dti',var='dti',val=dti)
     else
@@ -3076,16 +3080,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! global timestep needs to be minimum over all particles
 
     dtcourant = min(dtcourant,dtc)
-    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti)
+    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
     dtvisc    = min(dtvisc,dtvisci)
     if (mhd_nonideal .and. iamgasi) then
        dtohm  = min(dtohm,  dtohmi  )
        dthall = min(dthall, dthalli )
        dtambi = min(dtambi, dtambii )
     endif
-    dtmini = min(dtmini,dti)
-    dtmaxi = max(dtmaxi,dti)
-    dtrad  = min(dtrad,dtradi)
+    dtmini  = min(dtmini,dti)
+    dtmaxi  = max(dtmaxi,dti)
+    dtrad   = min(dtrad,dtradi)
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
