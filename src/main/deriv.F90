@@ -48,12 +48,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use timestep,       only:dtcourant,dtforce,dtrad,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
  use part,           only:dustgasprop
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
+#else
+ use timestep,       only:dtcourant,dtforce,dtrad,dtmax
 #endif
 #ifdef DRIVING
  use forcing,        only:forceit
