@@ -54,8 +54,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
- use timestep,       only:dtcourant,dtforce,dtrad,dtmax
+ use timestep,       only:dtcourant,dtforce,dtrad
 #endif
+ use timestep,       only:dtmax
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
