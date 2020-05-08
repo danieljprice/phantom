@@ -50,10 +50,13 @@ module ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
  public :: ptmass_predictor, ptmass_corrector
- public :: ptmass_not_obscured,ptmass_boundary_crossing
+ public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+#ifdef PERIODIC
+ public :: ptmass_boundary_crossing
+#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -396,14 +399,12 @@ end subroutine get_accel_sink_sink
 !  Update position of sink particles if they cross the periodic boundary
 !+
 !----------------------------------------------------------------
-subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
 #ifdef PERIODIC
+subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  use boundary, only:cross_boundary
  use domain,   only:isperiodic
-#endif
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
-#ifdef PERIODIC
  integer                :: i,ncross
 
  ncross = 0
@@ -411,8 +412,8 @@ subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
     call cross_boundary(isperiodic,xyzmh_ptmass(:,i),ncross)
  enddo
 
-#endif
 end subroutine ptmass_boundary_crossing
+#endif
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses
