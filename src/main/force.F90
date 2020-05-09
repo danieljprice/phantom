@@ -2618,6 +2618,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ibin_neighi   = cell%ibinneigh(ip)
 #endif
 
+    dtc     = dtmax
+    dtf     = bignumber
+    dtcool  = bignumber
+    dtvisci = bignumber
+    dtohmi  = bignumber
+    dthalli = bignumber
+    dtambii = bignumber
+    dtdiffi = bignumber
+    dtclean = bignumber
+    dtdusti = bignumber
+    dtdrag  = bignumber
+    dtradi  = bignumber
+
     xi         = xpartveci(ixi)
     yi         = xpartveci(iyi)
     zi         = xpartveci(izi)
@@ -2844,7 +2857,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
        endif
 
-       dtclean = bignumber
        if (mhd) then
           !
           ! sum returns d(B/rho)/dt, just what we want!
@@ -2891,15 +2903,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        vsigdtc = max(vsigmax,vwavei)
        if (vsigdtc > tiny(vsigdtc)) then
           dtc = C_cour*hi/(vsigdtc*max(alpha,1.0))
-       else
-          dtc = dtmax
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
        if (maxvxyzu >= 4 .and. icooling > 0) then
           dtcool = C_cool*abs(eni/fxyzu(4,i))
-       else
-          dtcool = bignumber
        endif
 
        ! timestep based on non-ideal MHD
@@ -2911,11 +2919,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              dtohmi  = bignumber
              dtambii = bignumber
           endif
-       else
-          dtohmi  = bignumber
-          dthalli = bignumber
-          dtambii = bignumber
-          dtdiffi = bignumber
        endif
 
        ! timestep from physical viscosity
@@ -2959,16 +2962,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        vsigdtc = vsigmax
        if (vsigdtc > tiny(vsigdtc)) then
           dtc = C_cour*hi/vsigdtc
-       else
-          dtc = dtmax
        endif
-       dtcool  = bignumber
-       dtvisci = bignumber
-       dtohmi  = bignumber
-       dthalli = bignumber
-       dtambii = bignumber
-       dtdiffi = bignumber
-
     endif isgas
 
     ! initialise timestep to Courant timestep & perform sanity check
@@ -2982,12 +2976,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #else
        dtf = C_force*sqrt(hi/sqrt(f2i))
 #endif
-    else
-       dtf = bignumber
     endif
 
     ! one fluid dust timestep
-    dtdusti = bignumber
     if (use_dustfrac .and. iamgasi) then
        if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
           tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
@@ -2999,7 +2990,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     ! stopping time and timestep based on it (when using dust-as-particles)
-    dtdrag = bignumber
     if (use_dust .and. use_dustfrac) then
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
@@ -3010,7 +3000,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     if (do_radiation.and.iamgasi) then
        if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
-          dtradi = bignumber
        else
           drad(iradxi,i) = fsum(idradi)
           c_code     = c/unit_velocity
@@ -3025,8 +3014,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              call warning('force','radiation may become negative, limiting timestep')
           endif
        endif
-    else
-       dtradi = bignumber
     endif
 
 #ifdef IND_TIMESTEPS
