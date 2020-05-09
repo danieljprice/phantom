@@ -122,7 +122,7 @@ subroutine test_wavedamp(ntests,npass)
                           use_ohm,use_hall,use_ambi,C_AD
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:sts_initialise
- use timestep,       only:dtdiff,dtcourant
+ use timestep,       only:dtdiff,dtcourant,dtforce
 #endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr,itmp
@@ -259,8 +259,9 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- write(*,'(1x,a,3Es18.11)') 'dtcourant, dtdiff: ',dtcourant,dtdiff
- call checkval(dtcourant,4.51922587536d-3,toltime,nerr(3),'initial courant dt')
+ write(*,'(1x,a,3Es18.11)') 'dtcourant, dtforce, dtdiff: ',dtcourant,dtforce,dtdiff
+ call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtforce,  4.51922587536d-3,toltime,nerr(3),'initial force dt')
  call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
