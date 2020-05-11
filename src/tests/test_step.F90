@@ -45,7 +45,7 @@ subroutine test_step(ntests,npass)
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
-                    dBevol,alphaind,maxphase,mhd,maxBevol,igas
+                    dBevol,alphaind,maxphase,mhd,igas
  use unifdis,  only:set_unifdis
  use physcon,  only:pi
  use timing,   only:getused
@@ -141,7 +141,7 @@ subroutine test_step(ntests,npass)
        call checkval(npart,dBevol(1,:),0.,tiny(0.),nfailed(6),'dBevolx/dt')
        call checkval(npart,dBevol(2,:),0.,tiny(0.),nfailed(7),'dBevoly/dt')
        call checkval(npart,dBevol(3,:),0.,tiny(0.),nfailed(8),'dBevolz/dt')
-       if (maxBevol==4) call checkval(npart,dBevol(4,:),0.,tiny(0.),nfailed(9),'dpsi/dt')
+       call checkval(npart,dBevol(4,:),0.,tiny(0.),nfailed(9),'dpsi/dt')
     endif
     call update_test_scores(ntests,nfailed,npass)
  enddo

@@ -144,7 +144,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
                           dustprop,temperature,VrelVf,dustgasprop,ndustsmall,  &
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
-                          graindens,h2chemistry,lightcurve,maxBevol,ndivcurlB, &
+                          graindens,h2chemistry,lightcurve,ndivcurlB, &
                           ndivcurlv
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -301,11 +301,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  fileident = trim(dumptype)//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
 
  if (mhd) then
-    if (maxBevol==4) then
-       fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    else
-       fileident = trim(fileident)//' (mhd'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    endif
+    fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
  else
     fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
  endif
@@ -403,7 +399,6 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  array_options%lightcurve = lightcurve
  array_options%prdrag = prdrag
  array_options%store_temperature = store_temperature
- array_options%maxBevol = maxBevol
  array_options%ndivcurlB = ndivcurlB
  array_options%ndivcurlv = ndivcurlv
  array_options%ndustsmall = ndustsmall
@@ -1043,7 +1038,7 @@ subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype,   
     if (.not.got_Bxyz) then
        if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
-    if (maxBevol==4 .and. .not.got_psi) then
+    if (.not.got_psi) then
        if (id==master .and. i1==1) write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif

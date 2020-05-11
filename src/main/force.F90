@@ -31,7 +31,7 @@
 !+
 !--------------------------------------------------------------------------
 module forces
- use dim, only:maxfsum,maxxpartveciforce,maxBevol,maxp,ndivcurlB,ndivcurlv,&
+ use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
@@ -838,7 +838,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
-                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxBevol,maxdvdx
+                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,store_temperature,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
@@ -954,7 +954,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iamtypei
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
- real    :: xi,yi,zi,densi,densj,eni,metrici(0:3,0:3,2),metricj(0:3,0:3,2)
+ real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2),metricj(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
@@ -962,6 +962,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef GR
  real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
  real    :: enthi,enthj
+ real    :: densj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
  real    :: veli(3),velj(3),vij
@@ -1171,8 +1172,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !   ykpt = xyzmh_ptmass(2,k)
        !   zkpt = xyzmh_ptmass(3,k)
        !   vpos = (xkpt-xpartveci(ixi))*(xkpt-xj) &
-       !         + (ykpt-xpartveci(iyi))*(ykpt-yj) &
-       !         + (zkpt-xpartveci(izi))*(zkpt-zj)
+       !        + (ykpt-xpartveci(iyi))*(ykpt-yj) &
+       !        + (zkpt-xpartveci(izi))*(zkpt-zj)
        !   if (vpos < 0.0) then
        !      add_contribution = ptmass_not_obscured(-dx,-dy,-dz,  &
        !                          xkpt-xpartveci(ixi),ykpt-xpartveci(iyi),zkpt-xpartveci(izi), &
@@ -1320,8 +1321,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              Bxj  = Bevol(1,j)*rhoj
              Byj  = Bevol(2,j)*rhoj
              Bzj  = Bevol(3,j)*rhoj
+             psij = Bevol(4,j)
 
-             if (maxBevol >= 4) psij = Bevol(4,j)
              dBx = Bxi - Bxj
              dBy = Byi - Byj
              dBz = Bzi - Bzj
@@ -1556,9 +1557,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dBrhoterm    = -termi
              !
              ! grad psi term for divergence cleaning
-             ! new cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
+             ! cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
              !
-             if (maxBevol >= 4) dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
+             dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
              !
              ! non-ideal MHD terms
              !
@@ -2249,11 +2250,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iBevolxi,cell%npcell)      = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell)      = Bevol(2,i)
           cell%xpartvec(iBevolzi,cell%npcell)      = Bevol(3,i)
-
-          if (maxBevol >= 4) then
-             cell%xpartvec(ipsi,cell%npcell)       = Bevol(4,i)
-          endif
-          if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
+          cell%xpartvec(ipsi,cell%npcell)          = Bevol(4,i)
 
           cell%xpartvec(icurlBxi,cell%npcell)      = divcurlB(2,i)
           cell%xpartvec(icurlByi,cell%npcell)      = divcurlB(3,i)
@@ -2480,7 +2477,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:alpha,icooling,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,abundance,igas,maxphase,maxvxyzu,nabundances, &
@@ -2867,7 +2864,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !
           ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
           !
-          if (maxBevol >= 4 .and. psidecayfac > 0.) then
+          if (psidecayfac > 0.) then
              vcleani = overcleanfac*vwavei
              dtau = psidecayfac*vcleani*hi1
              !
