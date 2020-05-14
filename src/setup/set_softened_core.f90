@@ -163,7 +163,7 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
      call flip_array(rho)
      call flip_array(ene)
      call flip_array(phi)
- end if
+ endif
 
  if (iexclude_core_mass) then
      m = m - mc
@@ -233,7 +233,7 @@ subroutine calc_phi(r,mgas,phi,mc,hphi)
  do i = 1, size(r) - 1
      phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
- end do
+ enddo
 
  ! (iii) Add the potentials
  phi = phi_gas + phi_core
@@ -252,7 +252,7 @@ subroutine calc_pres(r, rho, phi, pres)
  do i = 1, size(r)-1
   ! Reverse Euler
   pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
- end do
+ enddo
 end subroutine calc_pres
 
 
@@ -276,7 +276,7 @@ subroutine flip_array(array)
  allocate(flipped_array(size(array)))
  do i = 1, size(array)
   flipped_array(i) = array(size(array) - i + 1)
- end do
+ enddo
  array = flipped_array
 end subroutine flip_array
 
@@ -292,7 +292,7 @@ subroutine diff(array, darray)
  allocate(darray(size(array)-1))
  do i = 1, size(array)-1
     darray(i) = array(i+1) - array(i)
- end do
+ enddo
 end subroutine diff
 
 
@@ -332,8 +332,8 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
   if (dum(i)=='aaa') then
    rows = i-1
   exit
-  end if
- end do
+  endif
+ enddo
 
  allocate(header(1:rows),dat(1:lines,1:rows))
  header(1:rows) = dum(1:rows)
@@ -341,25 +341,25 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
 
  do i = 1, lines
   read(40,*) dat(lines-i+1,1:rows)
- end do
+ enddo
 
  allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
           temp(1:lines))
 
  do i = 1, rows
-!   if(trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
- end do
+!   if (trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
+  if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+ enddo
 end subroutine read_mesa
 
 end module setsoftenedcore
