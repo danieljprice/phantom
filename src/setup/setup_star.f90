@@ -64,7 +64,7 @@ module setup
  !
  integer, parameter :: numEOS       =  4 ! maximum number of piecewise polytrope defaults
  integer, parameter :: numparam     =  4 ! number of parameters governing the piecewise polytrope
- integer            :: isphere,np,EOSopt
+ integer            :: isphere,np,EOSopt,isofteningopt
  integer            :: nstar
  integer            :: need_iso, need_grav, need_temp
  real(kind=8)       :: udist,umass
@@ -217,10 +217,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu          = 0.0
  if (isphere==ievrard) polyk = ui_coef*Mstar/Rstar
  !
- ! add sink particle stellar core
- !
- if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
- !
  ! setup tabulated density profile
  !
  calc_polyk = .true.
@@ -241,7 +237,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Rstar = r(npts)
  case(imesa)
     if (isoftcore) then
+      if (isofteningopt==1) mcore = -1. ! User specifies hsoft only (default)
+      if (isofteningopt==2) hsoft = -1. ! User specifies mcore only
       call set_softened_core(densityfile,outputfilename,mcore,hsoft)
+      call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
       densityfile = outputfilename
     endif
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
@@ -273,6 +272,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=np)
+ !
+ ! add sink particle stellar core
+ !
+ if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
 
  nstar = int(npart_total,kind=(kind(nstar)))
  massoftype(igas) = Mstar/nstar
@@ -488,18 +491,33 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  np    = 100000 ! default number of particles
  call prompt('Enter the approximate number of particles in the sphere ',np,0)
  if (isphere==imesa) then
-    call prompt('Create a softened core density profile?',isoftcore)
+    call prompt('Soften the core density profile and add a sink particle core?',isoftcore)
  endif
  if (.not. isoftcore) then
     call prompt('Add a sink particle stellar core?',isinkcore)
  else
-    isinkcore = .true. ! sink core will be created if isoftcore
+    isinkcore = .true. ! Create sink particle core automatically
     outputfilename = 'mysoftenedstar.dat'
+    print*,'Options for core softening:'
+    print "(4(/,a))",'1. Specify softening length of sink particle core', &
+                     '2. Specify mass of sink particle core (not recommended)', &
+                     '3. Specify both softening length and mass of sink particle core (if you do not', &
+                     '   know what you are doing, you will obtain a poorly softened profile)'
+    call prompt('Select option above : ',isofteningopt,1,3)
+    select case(isofteningopt)
+    case(1)
+       call prompt('Enter softening length of the sink particle core',hsoft,0.)
+    case(2)
+       call prompt('Enter mass of the created sink particle core',mcore,0.)
+    case(3)
+       call prompt('Enter mass of the created sink particle core',mcore,0.)
+       call prompt('Enter softening length of the sink particle core',hsoft,0.)
+    end select
     call prompt('Enter output file name of cored stellar profile:',outputfilename)
  endif
- if (isinkcore) then
-    call prompt('Enter mass of the created sink particle core',mcore)
-    call prompt('Enter softening length of the sink particle core',hsoft)
+ if (isinkcore .and. (.not. isoftcore)) then
+    call prompt('Enter mass of the created sink particle core',mcore,0.)
+    call prompt('Enter softening length of the sink particle core',hsoft,0.)
  endif
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter file name containing density profile ', densityfile)
@@ -606,7 +624,8 @@ subroutine set_default_options(polyk,istar,iexist)
  isinkcore = .false.
  mcore     = 0.
  hsoft     = 0.
- isoftcore= .false.
+ isoftcore = .false.
+ isofteningopt = 1 ! By default, specify hsoft
 end subroutine set_default_options
 
 !-----------------------------------------------------------------------
