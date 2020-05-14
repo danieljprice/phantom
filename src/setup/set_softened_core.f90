@@ -38,7 +38,7 @@ module setsoftenedcore
  ! hphi:  Softening length for the point particle potential, defined in
  !        Price & Monaghan (2006). Set to be 0.5*hsoft.
 
-  contains
+contains
 
 !-----------------------------------------------------------------------
 !+
@@ -73,73 +73,73 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
  ! Case 1 (default): hsoft specified only
  !
  if ((hsoft > 0) .and. (mcore < 0)) then ! Default case
-     h = hsoft * solarr ! Convert to cm
-     call interpolator(r, h, hidx) ! Find index in r closest to h
-     mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
-     do
-         msoft = m0(hidx) - mc
-         rho = rho0 ! Reset density
-         m = m0 ! Reset mass
-         call calc_rho_and_m(rho, m, r, mc, h)
-         call diff(rho, drho)
-         if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
-         if (mc > 0.98*m0(hidx)) then
-             stop 'ERROR: Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)'
-         endif
-         mc = mc + 0.01*m0(hidx) ! Increase mcore/m(h) by 1 percent
-     enddo
-     ! Write out mcore
-     mcore = mc / solarm
- !
- ! Case 2: mcore specified only
- !
+    h = hsoft * solarr ! Convert to cm
+    call interpolator(r, h, hidx) ! Find index in r closest to h
+    mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
+    do
+       msoft = m0(hidx) - mc
+       rho = rho0 ! Reset density
+       m = m0 ! Reset mass
+       call calc_rho_and_m(rho, m, r, mc, h)
+       call diff(rho, drho)
+       if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
+       if (mc > 0.98*m0(hidx)) then
+          stop 'ERROR: Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)'
+       endif
+       mc = mc + 0.01*m0(hidx) ! Increase mcore/m(h) by 1 percent
+    enddo
+    ! Write out mcore
+    mcore = mc / solarm
+    !
+    ! Case 2: mcore specified only
+    !
  elseif ((hsoft < 0) .and. (mcore > 0)) then
-     mc = mcore * solarm ! Convert to g
-     mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
-     do
-         call interpolator(m0, mh, hidx)
-         h = r(hidx)
-         msoft = mh - mc
-         rho = rho0 ! Reset density
-         m = m0 ! Reset mass
-         call calc_rho_and_m(rho, m, r, mc, h)
-         call diff(rho, drho)
-         if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
-         if (mc > 0.98*m0(hidx)) then
-             stop 'ERROR: Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)'
-         endif
-         call interpolator(m0, 1.3*mc, hidx)
-         mh = 1./(1./mh + 0.01/mc) ! Increase mcore/m(h) by 1 percent
-     enddo
-     ! Write out hsoft
-     hsoft = h / solarr
- !
- ! Case 3: Both hsoft and mcore specified
- !
+    mc = mcore * solarm ! Convert to g
+    mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
+    do
+       call interpolator(m0, mh, hidx)
+       h = r(hidx)
+       msoft = mh - mc
+       rho = rho0 ! Reset density
+       m = m0 ! Reset mass
+       call calc_rho_and_m(rho, m, r, mc, h)
+       call diff(rho, drho)
+       if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
+       if (mc > 0.98*m0(hidx)) then
+          stop 'ERROR: Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)'
+       endif
+       call interpolator(m0, 1.3*mc, hidx)
+       mh = 1./(1./mh + 0.01/mc) ! Increase mcore/m(h) by 1 percent
+    enddo
+    ! Write out hsoft
+    hsoft = h / solarr
+    !
+    ! Case 3: Both hsoft and mcore specified
+    !
  elseif ((hsoft > 0) .and. (mcore > 0)) then
-     h = hsoft * solarr ! Convert to cm
-     mc = mcore * solarm ! Convert to g
-     call interpolator(r, h, hidx) ! Find index in r closest to h
-     msoft = m0(hidx) - mc
-     ! Check for sensible choices
-     if (msoft < 0) then
-         print*,'mcore = ',mcore,', m(r=h) = ',m0(hidx)/solarm
-         stop 'ERROR: mcore cannot exceed m(r=h)'
-     endif
-     rho = rho0
-     m = m0
-     call calc_rho_and_m(rho, m, r, mc, h)
-     ! Test if profile is sensible
-     if (any(rho/rho0 > tolerance)) then
-         print*,'Warning: softenedrho/rho > tolerance'
-     endif
-     call diff(rho, drho)
-     if (any(drho(1:hidx) > 0)) then
-         stop 'ERROR: drho/dr > 0 found in softened profile'
-     endif
+    h = hsoft * solarr ! Convert to cm
+    mc = mcore * solarm ! Convert to g
+    call interpolator(r, h, hidx) ! Find index in r closest to h
+    msoft = m0(hidx) - mc
+    ! Check for sensible choices
+    if (msoft < 0) then
+       print*,'mcore = ',mcore,', m(r=h) = ',m0(hidx)/solarm
+       stop 'ERROR: mcore cannot exceed m(r=h)'
+    endif
+    rho = rho0
+    m = m0
+    call calc_rho_and_m(rho, m, r, mc, h)
+    ! Test if profile is sensible
+    if (any(rho/rho0 > tolerance)) then
+       print*,'Warning: softenedrho/rho > tolerance'
+    endif
+    call diff(rho, drho)
+    if (any(drho(1:hidx) > 0)) then
+       stop 'ERROR: drho/dr > 0 found in softened profile'
+    endif
 
  else
-     stop 'ERROR: Neither hsoft nor mcore were specified.'
+    stop 'ERROR: Neither hsoft nor mcore were specified.'
  endif
 
  ! Calculate gravitational potential
@@ -156,17 +156,17 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  !
  if (isort_decreasing) then
-     call flip_array(m)
-     call flip_array(pres)
-     call flip_array(temp)
-     call flip_array(r)
-     call flip_array(rho)
-     call flip_array(ene)
-     call flip_array(phi)
+    call flip_array(m)
+    call flip_array(pres)
+    call flip_array(temp)
+    call flip_array(r)
+    call flip_array(rho)
+    call flip_array(ene)
+    call flip_array(phi)
  endif
 
  if (iexclude_core_mass) then
-     m = m - mc
+    m = m - mc
  endif
 
  call write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
@@ -231,7 +231,7 @@ subroutine calc_phi(r,mgas,phi,mc,hphi)
  ! (ii) Gravitational potential due to softened gas
  phi_gas(size(r)) = - gg * mgas(size(r)) / r(size(r)) ! Surface boundary condition for phi
  do i = 1, size(r) - 1
-     phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
+    phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
  enddo
 
@@ -250,8 +250,8 @@ subroutine calc_pres(r, rho, phi, pres)
 
  pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
  do i = 1, size(r)-1
-  ! Reverse Euler
-  pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
+    ! Reverse Euler
+    pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  enddo
 end subroutine calc_pres
 
@@ -275,7 +275,7 @@ subroutine flip_array(array)
  ! A subroutine that reverses the elements of a 1-d array
  allocate(flipped_array(size(array)))
  do i = 1, size(array)
-  flipped_array(i) = array(size(array) - i + 1)
+    flipped_array(i) = array(size(array) - i + 1)
  enddo
  array = flipped_array
 end subroutine flip_array
@@ -304,7 +304,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
  open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
- 42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
+42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
  close(1, status = 'keep')
 end subroutine write_softened_profile
 
@@ -328,11 +328,11 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  read(40,'(a)') dumc! counting rows
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
- 101 do i = 1, 500
-  if (dum(i)=='aaa') then
-   rows = i-1
-  exit
-  endif
+101 do i = 1, 500
+    if (dum(i)=='aaa') then
+       rows = i-1
+       exit
+    endif
  enddo
 
  allocate(header(1:rows),dat(1:lines,1:rows))
@@ -340,7 +340,7 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  deallocate(dum)
 
  do i = 1, lines
-  read(40,*) dat(lines-i+1,1:rows)
+    read(40,*) dat(lines-i+1,1:rows)
  enddo
 
  allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
@@ -353,12 +353,12 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
 !   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
 !   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
 !   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-  if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
  enddo
 end subroutine read_mesa
 

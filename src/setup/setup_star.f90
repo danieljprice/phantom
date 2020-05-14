@@ -237,11 +237,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Rstar = r(npts)
  case(imesa)
     if (isoftcore) then
-      if (isofteningopt==1) mcore = -1. ! User specifies hsoft only (default)
-      if (isofteningopt==2) hsoft = -1. ! User specifies mcore only
-      call set_softened_core(densityfile,outputfilename,mcore,hsoft)
-      call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
-      densityfile = outputfilename
+       if (isofteningopt==1) mcore = -1. ! User specifies hsoft only (default)
+       if (isofteningopt==2) hsoft = -1. ! User specifies mcore only
+       call set_softened_core(densityfile,outputfilename,mcore,hsoft)
+       call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
+       densityfile = outputfilename
     endif
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
