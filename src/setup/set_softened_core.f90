@@ -14,6 +14,8 @@
 !   self-consistent internal energy and temperature profiles, and just
 !   returns the input MESA data.
 !
+!  REFERENCES: None
+!
 !  OWNER: Mike Lau
 !
 !  $Id$
