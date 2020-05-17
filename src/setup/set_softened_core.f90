@@ -25,6 +25,8 @@
 !--------------------------------------------------------------------------
 module setsoftenedcore
  use physcon,          only:pi,gg
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
+                            get_idealplusrad_enfromtemp
  implicit none
  real(kind=8)  :: hsoft,msoft,mcore
  integer       :: hidx
@@ -53,8 +55,9 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
                                             ene(:),temp(:),drho(:)
  character(len=120), intent(in)          :: filepath,outputpath
  real(kind=8), intent(inout)             :: mcore,hsoft
- real(kind=8)                            :: mc,mh,h,hphi,tolerance
+ real(kind=8)                            :: mc,mh,h,hphi,tolerance,tempi,eni
  logical                                 :: isort_decreasing,iexclude_core_mass
+ integer                                 :: i
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true. ! Needs to be true if to be read by Phantom
@@ -139,14 +142,36 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
  else
      stop 'ERROR: Neither hsoft nor mcore were specified.'
  endif
-
+ !
  ! Calculate gravitational potential
+ !
  hphi = 0.5*h
  call calc_phi(r, m-mc, phi, mc, hphi)
  !
  ! Calculate pressure profile inside softening length
+ !
  pres = pres0
  call calc_pres(r, rho, phi, pres)
+ !
+ ! Calculate temperature profile from pressure and density
+ ! (only implemented for ideal gas plus radiation pressure
+ ! EoS for now)
+ !
+ temp(size(r)) = 0.
+ do i = 1,size(r)-1
+     tempi = temp(i)
+     call get_idealgasplusrad_tempfrompres(pres(i), rho(i), tempi)
+     temp(i) = tempi
+ enddo
+ !
+ ! Calculate internal energy per unit mass
+ ! (only implemented for ideal gas plus radiation pressure
+ ! EoS for now)
+ !
+ do i = 1,size(r)
+    call get_idealplusrad_enfromtemp(rho(i), temp(i), eni)
+    ene(i) = eni
+ enddo
  !
  ! Write data
  ! Note: The temperature and internal energy are fake, since they are from the original mesa file
