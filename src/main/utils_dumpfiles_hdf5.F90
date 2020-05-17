@@ -162,7 +162,6 @@ module utils_dumpfiles_hdf5
                prdrag,            &
                store_temperature
     integer :: ieos,              &
-               maxBevol,          &
                ndivcurlB,         &
                ndivcurlv,         &
                ndustsmall,        &
@@ -380,9 +379,7 @@ subroutine write_hdf5_arrays( &
  ! MHD arrays
  if (array_options%mhd) then
     call write_to_hdf5(Bxyz(:,1:npart), 'Bxyz', group_id, error)
-    if (array_options%maxBevol >= 4) then
-       call write_to_hdf5(Bevol(4,1:npart), 'psi', group_id, error)
-    endif
+    call write_to_hdf5(Bevol(4,1:npart), 'psi', group_id, error)
     if (array_options%ndivcurlB >= 1) then
        call write_to_hdf5(divcurlB(1,1:npart), 'divB', group_id, error)
        call write_to_hdf5(divcurlB(2:4,1:npart), 'curlBxyz', group_id, error)

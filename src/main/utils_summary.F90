@@ -23,63 +23,63 @@
 !--------------------------------------------------------------------------
 module io_summary
  implicit none
- integer, parameter :: maxiosum = 40         ! Number of values to summarise
-
- integer, parameter :: maxrhomx = 16         ! Number of maximum possible rhomax' per set
+ integer, parameter :: maxrhomx = 32         ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
  !  Timesteps
- integer, parameter :: iosumdtf   =  1       ! dtforce (gas particles)
- integer, parameter :: iosumdtfng =  2       ! dtforce (non-gas particles)
- integer, parameter :: iosumdtd   =  3       ! dtdrag (gas)
- integer, parameter :: iosumdtdd  =  4       ! dtdrag (dust)
- integer, parameter :: iosumdtv   =  5       ! dtviscous
- integer, parameter :: iosumdtc   =  6       ! dtcool
- integer, parameter :: iosumdto   =  7       ! dtohmic
- integer, parameter :: iosumdth   =  8       ! dthall
- integer, parameter :: iosumdta   =  9       ! dtambipolar
- integer, parameter :: iosumdte   = 10       ! dtdust
-
+ integer, parameter :: iosumdtf   =  1              ! dtforce (gas particles)
+ integer, parameter :: iosumdtfng =  2              ! dtforce (non-gas particles)
+ integer, parameter :: iosumdtd   =  3              ! dtdrag (gas)
+ integer, parameter :: iosumdtdd  =  4              ! dtdrag (dust)
+ integer, parameter :: iosumdtv   =  5              ! dtviscous
+ integer, parameter :: iosumdtc   =  6              ! dtcool
+ integer, parameter :: iosumdto   =  7              ! dtohmic
+ integer, parameter :: iosumdth   =  8              ! dthall
+ integer, parameter :: iosumdta   =  9              ! dtambipolar
+ integer, parameter :: iosumdte   = 10              ! dtdust
+ integer, parameter :: iosumdtr   = 11              ! dtradiation
+ integer, parameter :: iosumdtB   = 12              ! dtclean
  !  Dust Parameters
- integer, parameter :: iosumdge   = 11       ! Stokes drag regime
- integer, parameter :: iosumdgs   = 12       ! supersonic Epstein regime
- integer, parameter :: iosumdgr   = 13       ! ensuring h < t_s*c_s
+ integer, parameter :: iosumdge   = iosumdtB +  1   ! Stokes drag regime
+ integer, parameter :: iosumdgs   = iosumdtB +  2   ! supersonic Epstein regime
+ integer, parameter :: iosumdgr   = iosumdtB +  3   ! ensuring h < t_s*c_s
  !  Super-timetsepping
- integer, parameter :: iosumstse  = 14       ! STS enabled with N -> Nsts
- integer, parameter :: iosumsts   = 15       ! Nreal for STS enabled with N -> Nsts
- integer, parameter :: iosumstsi  = 16       ! ***Nviaibin for STS enabled with N -> Nsts
- integer, parameter :: iosumstsm  = 17       ! STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsr  = 18       ! Nreal for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsri = 19       ! ***Nviaibin for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsd  = 20       ! STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsdi = 21       ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstso  = 22       ! STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsoi = 23       ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsnn = 24       ! number of particles using Nsts
- integer, parameter :: iosumstsnm = 25       ! number of particles using Nsts*Nmega
- integer, parameter :: iosumstsns = 26       ! number of particles using Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsnl = 27       ! number of particles using Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstse  = iosumdgr +  1   ! STS enabled with N -> Nsts
+ integer, parameter :: iosumsts   = iosumdgr +  2   ! Nreal for STS enabled with N -> Nsts
+ integer, parameter :: iosumstsi  = iosumdgr +  3   ! ***Nviaibin for STS enabled with N -> Nsts
+ integer, parameter :: iosumstsm  = iosumdgr +  4   ! STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsr  = iosumdgr +  5   ! Nreal for STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsri = iosumdgr +  6   ! ***Nviaibin for STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsd  = iosumdgr +  7   ! STS disabled since Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstsdi = iosumdgr +  8   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstso  = iosumdgr +  9   ! STS disabled since Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstsoi = iosumdgr + 10   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstsnn = iosumdgr + 11   ! number of particles using Nsts
+ integer, parameter :: iosumstsnm = iosumdgr + 12   ! number of particles using Nsts*Nmega
+ integer, parameter :: iosumstsns = iosumdgr + 13   ! number of particles using Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstsnl = iosumdgr + 14   ! number of particles using Nsupersteps=Nreal for large Nreal
  !  Substeps for dtextf < dthydro
- integer, parameter :: iosumextr  = 28       ! ratio due to external force .or. sink-sink
- integer, parameter :: iosumextt  = 29       ! dtmin due to external force .or. sink-sink
- integer, parameter :: iosumexter = 30       ! ratio due to external force
- integer, parameter :: iosumextet = 31       ! dtmin due to external force
- integer, parameter :: iosumextsr = 32       ! ratio due to sink-sink
- integer, parameter :: iosumextst = 33       ! dtmin due to sink-sink
+ integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to external force .or. sink-sink
+ integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to external force .or. sink-sink
+ integer, parameter :: iosumexter = iosumstsnl + 3  ! ratio due to external force
+ integer, parameter :: iosumextet = iosumstsnl + 4  ! dtmin due to external force
+ integer, parameter :: iosumextsr = iosumstsnl + 5  ! ratio due to sink-sink
+ integer, parameter :: iosumextst = iosumstsnl + 6  ! dtmin due to sink-sink
  !  restricted h jump
- integer, parameter :: iosumhup   = 34       ! jump up
- integer, parameter :: iosumhdn   = 35       ! jump down
+ integer, parameter :: iosumhup   = iosumextst + 1  ! jump up
+ integer, parameter :: iosumhdn   = iosumextst + 2  ! jump down
  !  velocity-dependent force iterations
- integer, parameter :: iosumtvi   = 36       ! number of iterations
- integer, parameter :: iosumtve   = 37       ! errmax
- integer, parameter :: iosumtvv   = 38       ! vmean
+ integer, parameter :: iosumtvi   = iosumhdn + 1    ! number of iterations
+ integer, parameter :: iosumtve   = iosumhdn + 2    ! errmax
+ integer, parameter :: iosumtvv   = iosumhdn + 3    ! vmean
  !  particle waking
- integer, parameter :: iowake     = 39       ! number of woken particles
+ integer, parameter :: iowake     = iosumtvv + 1    ! number of woken particles
  !  Number of steps
- integer, parameter :: iosumdtr   = maxiosum
-
- integer, parameter :: iosum_nreal = maxiosum+1  ! number of 'real' steps taken
- integer, parameter :: iosum_nsts  = maxiosum+2  ! number of 'actual' steps (including STS) taken
+ integer, parameter :: iosum_nreal = iowake + 1     ! number of 'real' steps taken
+ integer, parameter :: iosum_nsts  = iowake + 2     ! number of 'actual' steps (including STS) taken
+ ! Maximum number of values to summarise
+ integer, parameter :: maxiosum = iosum_nsts        ! Number of values to summarise
+ !
  !  Reason sink particle was not created
  integer, parameter :: inosink_notgas = 1  ! not gas particles
  integer, parameter :: inosink_divv   = 2  ! div v > 0
@@ -432,11 +432,13 @@ subroutine summary_printout(iprint,nptmass)
       ,iosum_nstep(iosumdte  ),'|',iosum_rpart(iosumdte  ),'|',iosum_ave(iosumdte  ),'|',iosum_max(iosumdte  ),'|'
     if (iosum_nstep(iosumdtr  )/=0) write(iprint,30) '| dtradiation        |' &
       ,iosum_nstep(iosumdtr  ),'|',iosum_rpart(iosumdtr  ),'|',iosum_ave(iosumdtr  ),'|',iosum_max(iosumdtr  ),'|'
+    if (iosum_nstep(iosumdtB  )/=0) write(iprint,30) '| dtclean            |' &
+      ,iosum_nstep(iosumdtB  ),'|',iosum_rpart(iosumdtB  ),'|',iosum_ave(iosumdtB  ),'|',iosum_max(iosumdtB  ),'|'
 30  format(a,i13,a,3(f13.2,a))
 #else
     write(iprint,'(a)') '| dt                    |       < dt_Courant      |     #times smallest      |'
     if (iosum_nstep(iosumdtf)/=0) &
-     write(iprint,40)   '| dtforce/dtcool/dtdrag | ',iosum_nstep(iosumdtf),' |',iosum_npart(iosumdtf),'   |'
+     write(iprint,40)   '| force/cool/drag/clean | ',iosum_nstep(iosumdtf),' |',iosum_npart(iosumdtf),'   |'
     if (iosum_nstep(iosumdtv)/=0) &
      write(iprint,40)   '| dtvisc                | ',iosum_nstep(iosumdtv),' |',iosum_npart(iosumdtv),'   |'
     if (iosum_nstep(iosumdto)/=0) &
@@ -447,6 +449,8 @@ subroutine summary_printout(iprint,nptmass)
      write(iprint,40)   '| dtambi                | ',iosum_nstep(iosumdta),' |',iosum_npart(iosumdta),'   |'
     if (iosum_nstep(iosumdtr)/=0) &
      write(iprint,40)   '| dtradiation           | ',iosum_nstep(iosumdtr),' |',iosum_npart(iosumdtr),'   |'
+    if (iosum_nstep(iosumdtB)/=0) &
+     write(iprint,40)   '| dtclean               | ',iosum_nstep(iosumdtB),' |',iosum_npart(iosumdtB),'   |'
 40  format(a,2(i23,a))
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'

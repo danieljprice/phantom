@@ -213,7 +213,7 @@ module dim
 #else
  logical, parameter :: mhd = .false.
 #endif
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD

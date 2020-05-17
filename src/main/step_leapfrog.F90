@@ -626,7 +626,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo until_converged
 !$omp end parallel do
 
-       call check_dustprop(npart,dustprop(1,:))
+       if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
 !
 !   get new force using updated velocity: no need to recalculate density etc.

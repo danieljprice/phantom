@@ -53,7 +53,6 @@ subroutine initialise()
 #endif
  use omputils,         only:init_omp,info_omp
  use options,          only:set_default_options
- use part,             only:maxBevol
  use units,            only:set_units
  use io_summary,       only:summary_initialise
  use boundary,         only:set_boundary

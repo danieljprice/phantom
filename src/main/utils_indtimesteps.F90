@@ -404,7 +404,7 @@ subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
 
     if (maxphase==maxp .and. any(noftypeinbin(:,2:) > 0)) then
        !--multiphase printout
-       write(fmtstring2,"(a,i2,a)") '(',17 + 32 + 11*ntypesprint,'(''-''))'
+       write(fmtstring2,"(a,i3,a)") '(',17 + 32 + 11*ntypesprint,'(''-''))'
        write(iprint,fmtstring2)
        write(iprint,"(a)",ADVANCE='no') '| bin |    dt    '   ! 17 chars
        write(fmtstring,"(a,i2,a)") '(',ntypesprint,'(a11))'

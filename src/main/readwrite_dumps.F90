@@ -193,7 +193,7 @@ end subroutine end_threadwrite
 !+
 !--------------------------------------------------------------------
 character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:h2chemistry,mhd,maxBevol,npartoftype,idust,gravity,lightcurve
+ use part,    only:h2chemistry,mhd,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
  use dim,     only:use_dustgrowth,phantom_version_string
  use gitinfo, only:gitsha
@@ -223,11 +223,7 @@ character(len=lenid) function fileident(firstchar,codestring)
  endif
 
  if (mhd) then
-    if (maxBevol==4) then
-       fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    else
-       fileident = trim(fileident)//' (mhd'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
-    endif
+    fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
  else
     fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
  endif
@@ -308,7 +304,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
-                 maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,maxBevol,&
+                 maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
@@ -547,9 +543,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (mhd) then
           ilen(4) = int(npart,kind=8)
           call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1))
-          if (maxBevol >= 4) then
-             call write_array(4,Bevol(4,:),'psi',npart,k,ipass,idump,nums,ierrs(1))
-          endif
+          call write_array(4,Bevol(4,:),'psi',npart,k,ipass,idump,nums,ierrs(1))
           if (ndivcurlB >= 1) then
              call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,ierrs(2))
           else
@@ -963,7 +957,7 @@ end subroutine check_npartoftype
 
 subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxvxyzu,mhd,maxBevol,maxphase,maxp
+ use dim,      only:maxvxyzu,mhd,maxphase,maxp
 #ifdef INJECT_PARTICLES
  use dim,      only:maxp_hard
 #endif
@@ -1189,7 +1183,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,maxBevol, &
+ use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, &
                       store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
@@ -1590,7 +1584,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     if (.not.all(got_Bxyz(1:3))) then
        if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
-    if (maxBevol==4 .and. .not.got_psi) then
+    if (.not.got_psi) then
        if (id==master .and. i1==1) write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
