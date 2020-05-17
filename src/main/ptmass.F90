@@ -34,7 +34,7 @@
 !    r_crit          -- critical radius for point mass creation (no new sinks < r_crit from existing sink)
 !    rho_crit_cgs    -- density above which sink particles are created (g/cm^3)
 !
-!  DEPENDENCIES: boundary, dim, eos, externalforces, fastmath,
+!  DEPENDENCIES: boundary, dim, domain, eos, externalforces, fastmath,
 !    infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
 !    options, part, units
 !+
@@ -54,6 +54,9 @@ module ptmass
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+#ifdef PERIODIC
+ public :: ptmass_boundary_crossing
+#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -391,7 +394,26 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  enddo
 
 end subroutine get_accel_sink_sink
+!----------------------------------------------------------------
+!+
+!  Update position of sink particles if they cross the periodic boundary
+!+
+!----------------------------------------------------------------
+#ifdef PERIODIC
+subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
+ integer, intent(in)    :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ integer                :: i,ncross
 
+ ncross = 0
+ do i = 1,nptmass
+    call cross_boundary(isperiodic,xyzmh_ptmass(:,i),ncross)
+ enddo
+
+end subroutine ptmass_boundary_crossing
+#endif
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses

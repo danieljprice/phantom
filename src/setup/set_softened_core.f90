@@ -14,6 +14,8 @@
 !   self-consistent internal energy and temperature profiles, and just
 !   returns the input MESA data.
 !
+!  REFERENCES: None
+!
 !  OWNER: Mike Lau
 !
 !  $Id$
@@ -36,9 +38,9 @@ module setsoftenedcore
  ! msoft: Softened mass (mass at softening length minus mass of core
  !        particle)
  ! hphi:  Softening length for the point particle potential, defined in
- !        Price & Monaghan (2006). Set to be 0.5*hsoft. 
+ !        Price & Monaghan (2006). Set to be 0.5*hsoft.
 
-  contains
+contains
 
 !-----------------------------------------------------------------------
 !+
@@ -143,6 +145,76 @@ subroutine set_softened_core(filepath,outputpath,mcore,hsoft)
      stop 'ERROR: Neither hsoft nor mcore were specified.'
  endif
  !
+ if ((hsoft > 0) .and. (mcore < 0)) then ! Default case
+    h = hsoft * solarr ! Convert to cm
+    call interpolator(r, h, hidx) ! Find index in r closest to h
+    mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
+    do
+       msoft = m0(hidx) - mc
+       rho = rho0 ! Reset density
+       m = m0 ! Reset mass
+       call calc_rho_and_m(rho, m, r, mc, h)
+       call diff(rho, drho)
+       if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
+       if (mc > 0.98*m0(hidx)) then
+          stop 'ERROR: Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)'
+       endif
+       mc = mc + 0.01*m0(hidx) ! Increase mcore/m(h) by 1 percent
+    enddo
+    ! Write out mcore
+    mcore = mc / solarm
+    !
+    ! Case 2: mcore specified only
+    !
+ elseif ((hsoft < 0) .and. (mcore > 0)) then
+    mc = mcore * solarm ! Convert to g
+    mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
+    do
+       call interpolator(m0, mh, hidx)
+       h = r(hidx)
+       msoft = mh - mc
+       rho = rho0 ! Reset density
+       m = m0 ! Reset mass
+       call calc_rho_and_m(rho, m, r, mc, h)
+       call diff(rho, drho)
+       if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
+       if (mc > 0.98*m0(hidx)) then
+          stop 'ERROR: Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)'
+       endif
+       call interpolator(m0, 1.3*mc, hidx)
+       mh = 1./(1./mh + 0.01/mc) ! Increase mcore/m(h) by 1 percent
+    enddo
+    ! Write out hsoft
+    hsoft = h / solarr
+    !
+    ! Case 3: Both hsoft and mcore specified
+    !
+ elseif ((hsoft > 0) .and. (mcore > 0)) then
+    h = hsoft * solarr ! Convert to cm
+    mc = mcore * solarm ! Convert to g
+    call interpolator(r, h, hidx) ! Find index in r closest to h
+    msoft = m0(hidx) - mc
+    ! Check for sensible choices
+    if (msoft < 0) then
+       print*,'mcore = ',mcore,', m(r=h) = ',m0(hidx)/solarm
+       stop 'ERROR: mcore cannot exceed m(r=h)'
+    endif
+    rho = rho0
+    m = m0
+    call calc_rho_and_m(rho, m, r, mc, h)
+    ! Test if profile is sensible
+    if (any(rho/rho0 > tolerance)) then
+       print*,'Warning: softenedrho/rho > tolerance'
+    endif
+    call diff(rho, drho)
+    if (any(drho(1:hidx) > 0)) then
+       stop 'ERROR: drho/dr > 0 found in softened profile'
+    endif
+
+ else
+    stop 'ERROR: Neither hsoft nor mcore were specified.'
+ endif
+ !
  ! Calculate gravitational potential
  !
  hphi = 0.5*h
@@ -203,7 +275,7 @@ subroutine calc_rho_and_m(rho,m,r,mc,h)
  real(kind=8), dimension(1:hidx+1), intent(in) :: r
  real(kind=8), dimension(1:hidx+1), intent(inout) :: rho, m
  
-! a, b, d: Coefficients of cubic density profile defined by rho(r) = ar**3 + br**2 + d
+ ! a, b, d: Coefficients of cubic density profile defined by rho(r) = ar**3 + br**2 + d
  drhodr_h = (rho(hidx+1) - rho(hidx)) / (r(hidx+1) - r(hidx)) ! drho/dr at r = h
  a = 2./h**2. * drhodr_h - 10./h**3. * rho(hidx) + 7.5/pi/h**6. * msoft
  b = 0.5*drhodr_h/h - 1.5*a*h
@@ -273,23 +345,23 @@ subroutine calc_pres(r, rho, phi, pres)
 
  pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
  do i = 1, size(r)-1
-  ! Reverse Euler
-  pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
- end do
+    ! Reverse Euler
+    pres(size(r) - i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
+ enddo
 end subroutine calc_pres
-    
+
 
 subroutine interpolator(array, value, valueidx)
  implicit none
- real(kind=8), dimension(:), intent(in) :: array(:) 
+ real(kind=8), dimension(:), intent(in) :: array(:)
  real(kind=8), intent(in) :: value
  integer, intent(out) :: valueidx
  ! A subroutine to interpolate an array given a value, returning the index closest to the
  ! required value. Only works if array is ordered.
  valueidx = minloc(abs(array - value), dim = 1)
 end subroutine interpolator
-  
-  
+
+
 subroutine flip_array(array)
  implicit none
  real(kind=8), dimension(:), intent(inout) :: array(:)
@@ -298,8 +370,8 @@ subroutine flip_array(array)
  ! A subroutine that reverses the elements of a 1-d array
  allocate(flipped_array(size(array)))
  do i = 1, size(array)
-  flipped_array(i) = array(size(array) - i + 1)
- end do
+    flipped_array(i) = array(size(array) - i + 1)
+ enddo
  array = flipped_array
 end subroutine flip_array
 
@@ -315,7 +387,7 @@ subroutine diff(array, darray)
  allocate(darray(size(array)-1))
  do i = 1, size(array)-1
     darray(i) = array(i+1) - array(i)
- end do
+ enddo
 end subroutine diff
 
 
@@ -340,7 +412,7 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  character(len=24),allocatable                     :: header(:),dum(:)
  real(kind=8),allocatable,dimension(:,:)           :: dat
  real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp
-    
+
  ! reading data from datafile ! -----------------------------------------------
  open(unit=40,file=filepath,status='old')
  read(40,'()')
@@ -351,38 +423,38 @@ subroutine read_mesa(rho,r,pres,m,ene,temp,filepath)
  read(40,'(a)') dumc! counting rows
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
- 101 do i = 1, 500
-  if (dum(i)=='aaa') then
-   rows = i-1
-  exit
-  end if
- end do
+101 do i = 1, 500
+    if (dum(i)=='aaa') then
+       rows = i-1
+       exit
+    endif
+ enddo
 
  allocate(header(1:rows),dat(1:lines,1:rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
-        
+
  do i = 1, lines
-  read(40,*) dat(lines-i+1,1:rows)
- end do
-        
+    read(40,*) dat(lines-i+1,1:rows)
+ enddo
+
  allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
           temp(1:lines))
-                    
+
  do i = 1, rows
-!   if(trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
-!   if(trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-  if(trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
- end do
+!   if (trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
+!   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+ enddo
 end subroutine read_mesa
 
 end module setsoftenedcore

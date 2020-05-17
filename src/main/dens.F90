@@ -27,7 +27,7 @@
 module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
- use part,    only:maxBevol,mhd,dvdx
+ use part,    only:mhd,dvdx
  use kdtree,      only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
@@ -132,7 +132,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,&
                      all_active,dustfrac,Bxyz,set_boundaries_to_active
@@ -1345,7 +1345,7 @@ end subroutine compute_hmax
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu,do_radiation
- use part,        only:maxphase,get_partinfo,maxBevol,mhd,igas,iamgas,&
+ use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
                        iamboundary,ibasetype,iradxi
 
  type(celldens),     intent(inout) :: cell
@@ -1410,11 +1410,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
           cell%xpartvec(iBevolzi,cell%npcell) = Bevol(3,i)
-
-          if (maxBevol >= 4) then
-             cell%xpartvec(ipsi,cell%npcell)  = Bevol(4,i)
-          endif
-          if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
+          cell%xpartvec(ipsi,cell%npcell)     = Bevol(4,i)
        else
           cell%xpartvec(iBevolxi:ipsi,cell%npcell)   = 0. ! to avoid compiler warning
        endif
@@ -1707,7 +1703,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        Bxi = cell%xpartvec(iBevolxi,i) * rhoi
        Byi = cell%xpartvec(iBevolyi,i) * rhoi
        Bzi = cell%xpartvec(iBevolzi,i) * rhoi
-       if (maxBevol >= 4) psii = cell%xpartvec(ipsi,i)
+       psii = cell%xpartvec(ipsi,i)
 
        ! store primitive variables (if icall < 2)
        if (icall==0 .or. icall==1) then

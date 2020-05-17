@@ -823,7 +823,7 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
 
  ! Get density of outermost particle in initial star dump
  if (dump_number == 0) then
-    rho_surface = rhoh(xyzh(4,iorder(npart)), particlemass) 
+    rho_surface = rhoh(xyzh(4,iorder(npart)), particlemass)
  endif
 
  npart_a = 0
@@ -833,8 +833,8 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
     rhopart = rhoh(xyzh(4,i), particlemass)
     totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
     if (rhopart > rho_surface) then
-      ! Sum "volume" of particles within "surface" of initial star dump
-       rhovol = rhovol + particlemass / rhopart 
+       ! Sum "volume" of particles within "surface" of initial star dump
+       rhovol = rhovol + particlemass / rhopart
        npart_a = npart_a + 1 ! Number of particles within "surface" of initial star dump
     endif
  enddo

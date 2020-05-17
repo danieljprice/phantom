@@ -585,7 +585,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_only
           call set_magnetic_field
           do i=1,npart
-             if (maxBevol >= 4) Bevol(4,i) = 0.
+             Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive/nprocs,igas)
           call get_derivs_global()
@@ -632,8 +632,8 @@ subroutine test_derivs(ntests,npass,string)
           ieos  = 1  ! isothermal eos, so that the PdV term is zero
           call set_magnetic_field
           do i=1,npart
-             vxyzu(:,i) = 0.                    ! v=0 for this test
-             if (maxBevol >= 4) Bevol(4,i) = 0. ! psi=0 for this test
+             vxyzu(:,i) = 0.     ! v=0 for this test
+             Bevol(4,i) = 0.     ! psi=0 for this test
           enddo
           call set_active(npart,nactive,igas)
           call get_derivs_global()
@@ -680,7 +680,7 @@ subroutine test_derivs(ntests,npass,string)
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
-       if (mhd .and. maxBevol==4) then
+       if (mhd) then
           if (id==master) then
              write(*,"(/,a)") '--> testing div B cleaning terms'
              if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
@@ -732,7 +732,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_only
           call set_magnetic_field
           do i=1,npart
-             if (maxBevol>=4) Bevol(4,i) = 0.
+             Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
           call get_derivs_global()
@@ -941,9 +941,7 @@ subroutine test_derivs(ntests,npass,string)
                 call checkval(nptest,dBevol(1,:),dBdtstore(1,1:nptest),1.e-5,nfailed(5),'dBx/dt')
                 call checkval(nptest,dBevol(2,:),dBdtstore(2,1:nptest),1.e-5,nfailed(6),'dBy/dt')
                 call checkval(nptest,dBevol(3,:),dBdtstore(3,1:nptest),1.e-5,nfailed(7),'dBz/dt')
-                if (maxBevol >= 4) then
-                   call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
-                endif
+                call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
                 call checkval(nptest,divBsymm,real(dBdtstore(maxBevol+1,1:nptest),kind=kind(divBsymm)),&
                               1.e-3,nfailed(9),'div B (symm)')
              endif
@@ -1060,10 +1058,8 @@ subroutine set_magnetic_field
        Bevol(1,i) = Bxyz(1,i) * rho1i
        Bevol(2,i) = Bxyz(2,i) * rho1i
        Bevol(3,i) = Bxyz(3,i) * rho1i
-       if (maxBevol >= 4) then
-          vwavei = sqrt(polyk + (Bxyz(1,i)**2 + Bxyz(2,i)**2 + Bxyz(3,i)**2)*rho1i)
-          Bevol(4,i) = psi(xyzh(:,i))/vwavei
-       endif
+       vwavei     = sqrt(polyk + (Bxyz(1,i)**2 + Bxyz(2,i)**2 + Bxyz(3,i)**2)*rho1i)
+       Bevol(4,i) = psi(xyzh(:,i))/vwavei
     endif
  enddo
 
