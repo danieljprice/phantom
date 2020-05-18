@@ -227,7 +227,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     volume           = product(xmaxleft-xminleft)
     totmass          = volume*rholeft
     if (use_dustfrac) totmass = totmass*(1. + dtg)
-    print*,' HEREEE, dustfrac=',use_dustfrac,1.+dtg,' rholeft = ',rholeft
     massoftype(igas) = totmass/npart
     if (id==master) print*,' particle mass = ',massoftype(igas)
 
