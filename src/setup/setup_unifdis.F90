@@ -64,10 +64,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:abundance,iHI,dustfrac
- use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
+ use part,         only:abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
- use units,        only:set_units
+ use units,        only:set_units,udist,unit_density
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -116,6 +116,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (use_dust) then
     use_dustfrac = .true.
     dust_to_gas = 0.01
+    ndustsmall = 1
+    ndusttypes = 1
+    grainsize(1) = 1.*micron/udist
+    graindens(1) = 3./unit_density
  endif
  !
  ! get disc setup parameters from file or interactive setup
