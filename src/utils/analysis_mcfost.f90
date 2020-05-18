@@ -43,10 +43,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes,rad,radprop
+                          grainsize,graindens,ndusttypes,rad,radprop,&
+                          rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl
  use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
- use io,             only:fatal
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth
+ use io,             only:fatal,iprint
+ use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
@@ -121,32 +122,27 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! this this the factor needed to compute u^(n+1)/dtmax from temperature
     T_to_u = factor * massoftype(igas) /dtmax
 
-    !  Call to mcfost on phantom-radiation branch
-    !  call run_mcfost_phantom(&
-    !    npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
-    !    xyzh,vxyzu,radiation,ivorcl,&
-    !    itype,grainsize,graindens,dustfrac,massoftype,&
-    !    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-    !    n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
-
+    !-- calling mcfost to get Tdust
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+         n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
 
     Tmin = minval(Tdust, mask=(Tdust > 0.))
     Tmax = maxval(Tdust)
-    ! (176-17)*0.25
-    if (use_mcfost .and. use_dustgrowth) then
-       write(*,*) "Converting back to normal"
-       call back_to_growth(npart)
-    endif
 
     write(*,*) ''
     write(*,*) 'Minimum temperature = ', Tmin
     write(*,*) 'Maximum temperature = ', Tmax
     write(*,*) ''
+
+    if (use_mcfost .and. use_dustgrowth) then
+       write(*,*) "Converting back to normal"
+       call back_to_growth(npart)
+    endif
+
+
 
     c_code        = get_c_code()
     steboltz_code = get_steboltz_code()
@@ -154,63 +150,63 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     pmassi        = massoftype(igas)
     ! set thermal energy
 
-    if (do_radiation) then
-       radprop(inumph,:) = 0.
-       if (isinitial) then
-          default_kappa = 0.5
-       else
-          default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
-            *(udist**2/umass)
-       endif
-       write(iprint,"(/,a,f4.2,' cm^2/g')") &
-          ' -}+{- RADIATION: cutoff particles kappa = ',&
-          default_kappa
-       do i=1,npart
-          if (maxphase==maxp) then
-             if (iamtype(iphase(i)) /= igas) cycle
-          endif
-          radprop(inumph,i) = n_packets(i)
-          if (radprop(inumph,i) > 1e2) then
-             radprop(ithick,i) = 0.
-          else
-             radprop(ithick,i) = 1.
-          endif
-          if (isinitial.or.(radprop(ithick,i) < 0.5)) then
-             ! initial run (t == 0) OR it has got enough info from mcfost
-             ! => set new temperature for gas and radiation
-             if (Tdust(i) > 1.) then
-                vxyzu(4,i) = Tdust(i)*factor
-                ! if the temperature is correct and set by mcfost
-                ! => suppose we are at equilibrium
-                rhoi = rhoh(xyzh(4,i),pmassi)
-                rad(iradxi,i) = a_code*Tdust(i)**4.0/rhoi
-                drad(iradxi,i) = 0
-             else
-                ! if I got no temperature from mcfost
-                ! => lets try to handle the particle by SPH
-                if (isinitial) then
-                   vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
-                   rhoi = rhoh(xyzh(4,i),pmassi)
-                   rad(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
-                   drad(iradxi,i) = 0
-                else
-                   radprop(ithick,i) = 1.
-                endif
-             endif
-             ! else
-             ! it is not initial run AND the particle has not got info from mcfost
-             ! => temperature is old because of diffusion
-          endif
-          ! no matter what happend on previous stage, we need to set new
-          ! diffusion coefficien with regards to a new/old temperatures
-          if (radprop(ivorcl,i) > 0) then
-             call diffusion_opacity(vxyzu(4,i)/factor,int(radprop(ivorcl,i)),kappa_diffusion)
-             radprop(ikappa,i) = kappa_diffusion*(cm**2/gram)/(udist**2/umass)
-          else
-             radprop(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
-          endif
-       enddo
-    else
+   if (do_radiation) then
+      radprop(inumph,:) = 0.
+      if (isinitial) then
+         default_kappa = 0.5
+      else
+         default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
+           *(udist**2/umass)
+      endif
+      write(iprint,"(/,a,f4.2,' cm^2/g')") &
+         ' -}+{- RADIATION: cutoff particles kappa = ',&
+         default_kappa
+      do i=1,npart
+         if (maxphase==maxp) then
+            if (iamtype(iphase(i)) /= igas) cycle
+         endif
+         radprop(inumph,i) = n_packets(i)
+         if (radprop(inumph,i) > 1e2) then
+            radprop(ithick,i) = 0.
+         else
+            radprop(ithick,i) = 1.
+         endif
+         if (isinitial.or.(radprop(ithick,i) < 0.5)) then
+            ! initial run (t == 0) OR it has got enough info from mcfost
+            ! => set new temperature for gas and radiation
+            if (Tdust(i) > 1.) then
+               vxyzu(4,i) = Tdust(i)*factor
+               ! if the temperature is correct and set by mcfost
+               ! => suppose we are at equilibrium
+               rhoi = rhoh(xyzh(4,i),pmassi)
+               rad(iradxi,i) = a_code*Tdust(i)**4.0/rhoi
+               drad(iradxi,i) = 0
+            else
+               ! if I got no temperature from mcfost
+               ! => lets try to handle the particle by SPH
+               if (isinitial) then
+                  vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
+                  rhoi = rhoh(xyzh(4,i),pmassi)
+                  rad(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
+                  drad(iradxi,i) = 0
+               else
+                  radprop(ithick,i) = 1.
+               endif
+            endif
+            ! else
+            ! it is not initial run AND the particle has not got info from mcfost
+            ! => temperature is old because of diffusion
+         endif
+         ! no matter what happend on previous stage, we need to set new
+         ! diffusion coefficien with regards to a new/old temperatures
+         if (radprop(ivorcl,i) > 0) then
+            call diffusion_opacity(vxyzu(4,i)/factor,int(radprop(ivorcl,i)),kappa_diffusion)
+            radprop(ikappa,i) = kappa_diffusion*(cm**2/gram)/(udist**2/umass)
+         else
+            radprop(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
+         endif
+      enddo
+   else
        do i=1,npart
           if (Tdust(i) > 1.) then
              vxyzu(4,i) = Tdust(i) * factor
@@ -240,23 +236,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 subroutine growth_to_fake_multi(npart)
- use part,         only:xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        fxyzu,fext,alphaind,gradh
- use growth,       only:bin_to_multi,f_smax,size_max,b_per_dex
- use linklist,     only:set_linklist
- use densityforce, only:densityiterate
- integer, intent(in)  :: npart
- real                 :: stressmax = 0.
 
- !- bin sizes
- call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
+  use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
+  use deriv,  only:get_derivs_global
 
- !- get neighbours
- call set_linklist(npart,npart,xyzh,vxyzu)
+  integer, intent(in)  :: npart
 
- !- get new density
- call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh)
+  !- bin sizes
+  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
+
+  !-- recompute density
+  call get_derivs_global()
+
+  return
 
 end subroutine growth_to_fake_multi
 
