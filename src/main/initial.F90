@@ -568,7 +568,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     endif
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
-                ddustevol,temperature,time,0.,dtnew_first)
+                ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
 #endif
  enddo
 

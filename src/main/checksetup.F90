@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    metric_tools, options, part, physcon, sortutils, timestep, units,
+!  DEPENDENCIES: boundary, centreofmass, dim, dust, eos, externalforces,
+!    io, metric_tools, options, part, physcon, sortutils, timestep, units,
 !    utils_gr
 !+
 !--------------------------------------------------------------------------
