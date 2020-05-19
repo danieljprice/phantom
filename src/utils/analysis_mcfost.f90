@@ -13,15 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Christophe Pinte
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
-!    linklist, mcfost2phantom, omp_lib, options, part, physcon, timestep,
-!    units
+!  DEPENDENCIES: deriv, dim, eos, growth, initial_params, io,
+!    mcfost2phantom, omp_lib, options, part, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
