@@ -149,63 +149,63 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     pmassi        = massoftype(igas)
     ! set thermal energy
 
-   if (do_radiation) then
-      radprop(inumph,:) = 0.
-      if (isinitial) then
-         default_kappa = 0.5
-      else
-         default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
+    if (do_radiation) then
+       radprop(inumph,:) = 0.
+       if (isinitial) then
+          default_kappa = 0.5
+       else
+          default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
            *(udist**2/umass)
-      endif
-      write(iprint,"(/,a,f4.2,' cm^2/g')") &
+       endif
+       write(iprint,"(/,a,f4.2,' cm^2/g')") &
          ' -}+{- RADIATION: cutoff particles kappa = ',&
          default_kappa
-      do i=1,npart
-         if (maxphase==maxp) then
-            if (iamtype(iphase(i)) /= igas) cycle
-         endif
-         radprop(inumph,i) = n_packets(i)
-         if (radprop(inumph,i) > 1e2) then
-            radprop(ithick,i) = 0.
-         else
-            radprop(ithick,i) = 1.
-         endif
-         if (isinitial.or.(radprop(ithick,i) < 0.5)) then
-            ! initial run (t == 0) OR it has got enough info from mcfost
-            ! => set new temperature for gas and radiation
-            if (Tdust(i) > 1.) then
-               vxyzu(4,i) = Tdust(i)*factor
-               ! if the temperature is correct and set by mcfost
-               ! => suppose we are at equilibrium
-               rhoi = rhoh(xyzh(4,i),pmassi)
-               rad(iradxi,i) = a_code*Tdust(i)**4.0/rhoi
-               drad(iradxi,i) = 0
-            else
-               ! if I got no temperature from mcfost
-               ! => lets try to handle the particle by SPH
-               if (isinitial) then
-                  vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
-                  rhoi = rhoh(xyzh(4,i),pmassi)
-                  rad(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
-                  drad(iradxi,i) = 0
-               else
-                  radprop(ithick,i) = 1.
-               endif
-            endif
-            ! else
-            ! it is not initial run AND the particle has not got info from mcfost
-            ! => temperature is old because of diffusion
-         endif
-         ! no matter what happend on previous stage, we need to set new
-         ! diffusion coefficien with regards to a new/old temperatures
-         if (radprop(ivorcl,i) > 0) then
-            call diffusion_opacity(vxyzu(4,i)/factor,int(radprop(ivorcl,i)),kappa_diffusion)
-            radprop(ikappa,i) = kappa_diffusion*(cm**2/gram)/(udist**2/umass)
-         else
-            radprop(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
-         endif
-      enddo
-   else
+       do i=1,npart
+          if (maxphase==maxp) then
+             if (iamtype(iphase(i)) /= igas) cycle
+          endif
+          radprop(inumph,i) = n_packets(i)
+          if (radprop(inumph,i) > 1e2) then
+             radprop(ithick,i) = 0.
+          else
+             radprop(ithick,i) = 1.
+          endif
+          if (isinitial.or.(radprop(ithick,i) < 0.5)) then
+             ! initial run (t == 0) OR it has got enough info from mcfost
+             ! => set new temperature for gas and radiation
+             if (Tdust(i) > 1.) then
+                vxyzu(4,i) = Tdust(i)*factor
+                ! if the temperature is correct and set by mcfost
+                ! => suppose we are at equilibrium
+                rhoi = rhoh(xyzh(4,i),pmassi)
+                rad(iradxi,i) = a_code*Tdust(i)**4.0/rhoi
+                drad(iradxi,i) = 0
+             else
+                ! if I got no temperature from mcfost
+                ! => lets try to handle the particle by SPH
+                if (isinitial) then
+                   vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
+                   rhoi = rhoh(xyzh(4,i),pmassi)
+                   rad(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
+                   drad(iradxi,i) = 0
+                else
+                   radprop(ithick,i) = 1.
+                endif
+             endif
+             ! else
+             ! it is not initial run AND the particle has not got info from mcfost
+             ! => temperature is old because of diffusion
+          endif
+          ! no matter what happend on previous stage, we need to set new
+          ! diffusion coefficien with regards to a new/old temperatures
+          if (radprop(ivorcl,i) > 0) then
+             call diffusion_opacity(vxyzu(4,i)/factor,int(radprop(ivorcl,i)),kappa_diffusion)
+             radprop(ikappa,i) = kappa_diffusion*(cm**2/gram)/(udist**2/umass)
+          else
+             radprop(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
+          endif
+       enddo
+    else
        do i=1,npart
           if (Tdust(i) > 1.) then
              vxyzu(4,i) = Tdust(i) * factor
@@ -236,18 +236,18 @@ end subroutine do_analysis
 
 subroutine growth_to_fake_multi(npart)
 
-  use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
-  use deriv,  only:get_derivs_global
+ use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
+ use deriv,  only:get_derivs_global
 
-  integer, intent(in)  :: npart
+ integer, intent(in)  :: npart
 
-  !- bin sizes
-  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
+ !- bin sizes
+ call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
 
-  !-- recompute density
-  call get_derivs_global()
+ !-- recompute density
+ call get_derivs_global()
 
-  return
+ return
 
 end subroutine growth_to_fake_multi
 
