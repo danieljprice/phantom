@@ -20,6 +20,7 @@
 !     9 = Piecewise polytrope
 !    10 = MESA EoS
 !    11 = isothermal eos with zero pressure
+!    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !
 !  REFERENCES: None
@@ -118,6 +119,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen, only: eos_shen_NL3
+ use eos_idealplusrad
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -125,7 +127,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
  real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai
+ real :: gammai,temperaturei
  real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
  integer :: ierr
  real :: uthermconst
@@ -294,6 +296,20 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
+
+case(12)
+!
+!--ideal gas plus radiation pressure
+!
+   if (present(tempi)) then
+       temperaturei = tempi
+   else
+       temperaturei = -1.
+   endif
+    call get_idealplusrad_temp(rhoi,eni,gmw,temperaturei)
+    call get_idealplusrad_ponrhoi(rhoi,temperaturei,gmw,ponrhoi)
+    call get_idealplusrad_spsoundi(ponrhoi,eni,spsoundi)
+   if (present(tempi)) tempi = temperaturei
 
  case(14)
 !
