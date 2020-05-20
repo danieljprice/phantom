@@ -1846,7 +1846,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams libphantom $(OBJSETUP)
+setup: checksystem checkparams libphantom.a $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
 	@echo ""
 	@echo "Phantom setup built"
@@ -1984,9 +1984,14 @@ cleananalysis:
 SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
-libphantom: checksystem checkparams phantom ${OBJLIB}
+
+libphantom.a: checksystem checkparams phantom ${OBJLIB}
 	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS}
+
+libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
+
+libphantom: libphantom.a libphantom.so
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
