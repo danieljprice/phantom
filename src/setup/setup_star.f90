@@ -109,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,       only: set_sphere
  use centreofmass,    only: reset_centreofmass
  use table_utils,     only: yinterp
- use units,           only: set_units,select_unit,utime,unit_density,unit_pressure
+ use units,           only: set_units,select_unit,utime,unit_density
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
                             rho_evrard,read_mesa_file,read_kepler_file
@@ -250,8 +250,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! Get mean molecular weight (temporary: Find gmw at R/2)
        !
        call interpolator(r0, 0.5*Rstar, i)
-       pgas = pres0(i)*unit_pressure - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
-       gmw = (rho0(i)*unit_density*kb_on_mh*temp0(i)) / pgas 
+       pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
+       gmw = (rho0(i)*kb_on_mh*temp0(i)) / pgas 
        !
        ! Get values of hsoft and mcore
        !
