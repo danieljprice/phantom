@@ -813,12 +813,20 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  integer, parameter             :: ipdensrad    = 7
  integer, parameter             :: ip2hdensrad  = 8
 
+ ncols = 9
+ allocate(columns(ncols))
+ columns = (/'vol. eq. rad',&
+             ' density rad',&
+             'mass outside',&
+             'frac outside',&
+             '    part rad',&
+             ' part 2h rad',&
+             '  p dens rad',&
+             'p2h dens rad'/)
+            ! 'virial cond.'/)
 
-
- ! Set origin to be sink particle 1
+ ! Get order of particles by distance from sink particle core
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
-
- ! Sort all particles by radius
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
  ! Get density of outermost particle in initial star dump
@@ -827,8 +835,8 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  endif
 
  npart_a = 0
- totvol = 0
- rhovol = 0
+ totvol = 0.
+ rhovol = 0.
  do i = 1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
@@ -858,7 +866,6 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  star_stability(ipart2hrad) = star_stability(ipart2hrad) / real(mean_rad_num)
  star_stability(ipdensrad) = star_stability(ipdensrad) / real(mean_rad_num)
  star_stability(ip2hdensrad) = star_stability(ip2hdensrad) / real(mean_rad_num)
-
  star_stability(ivoleqrad) = (3. * totvol/(4. * pi))**(1./3.)
  star_stability(idensrad)  = (3. * rhovol/(4. * pi))**(1./3.)
 
@@ -868,7 +875,7 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
 
  star_stability(imassout) = 0.
  total_mass = xyzmh_ptmass(4,1)
- do i=1,npart
+ do i = 1,npart
     if (separation(xyzmh_ptmass(1:3,1),xyzh(1:3,i)) > init_radius) then
        star_stability(imassout) = star_stability(imassout) + particlemass
     endif
@@ -876,18 +883,16 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  enddo
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
-
- ncols = 8
- allocate(columns(ncols))
- columns = (/'vol. eq. rad',&
-             ' density rad',&
-             'mass outside',&
-             'frac outside',&
-             '    part rad',&
-             ' part 2h rad',&
-             '  p dens rad',&
-             'p2h dens rad'/)
-
+ !
+ !--Calculate virial condition
+ !
+!  total_binding_energy = 0.
+!  total_eint           = 0.
+!  do i = 1,npart
+!     total_eint = total_eint + vxyzu(4,i)*particlemass
+!     total_binding_energy = total_binding_energy + 
+!  enddo
+ 
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
  deallocate(columns)
 end subroutine star_stabilisation_suite
