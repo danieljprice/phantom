@@ -85,14 +85,13 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
  real, intent(inout) :: tempi
  real                :: numerator,denominator,correction
 
- do
-    numerator = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4/3. 
+ correction = huge(0.)
+ do while (abs(correction) > tolerance*tempi)
+    numerator   = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4 /3. 
     denominator =  - rhoi*kb_on_mh/mu - 4./3.*radconst*tempi**3
-    correction = numerator/denominator
+    correction  = numerator/denominator
     tempi = tempi - correction
-    if (abs(correction) < tolerance*tempi) exit
  enddo
-
 end subroutine get_idealgasplusrad_tempfrompres
 
 
@@ -107,7 +106,6 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(out) :: eni
 
  eni = 1.5*kb_on_mh*tempi/mu + radconst*tempi**4/densi
-
 end subroutine get_idealplusrad_enfromtemp
 
 end module eos_idealplusrad

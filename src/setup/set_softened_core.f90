@@ -65,10 +65,10 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
  ! Exclude core mass in output mass coordinate?
  iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
- h    = hsoft * solarr         ! Convert to cm
+ h       = hsoft * solarr      ! Convert to cm
  hphi_cm = hphi  * solarr      ! Convert to cm
- mc   = mcore * solarm         ! Convert to g
- call interpolator(r, h, hidx) ! Find index in r closest to h
+ mc      = mcore * solarm      ! Convert to g
+ call interpolator(r,h,hidx)   ! Find index in r closest to h
  msoft = m(hidx) - mc
 
  call calc_rho_and_m(rho, m, r, mc, h)    ! Calculate density and mass profile
