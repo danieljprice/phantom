@@ -81,9 +81,9 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
  !
  temp(size(r)) = 0.
  do i = 1,size(r)-1
-     tempi = temp(i)
-     call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
-     temp(i) = tempi
+    tempi = temp(i)
+    call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
+    temp(i) = tempi
  enddo
  !
  ! Calculate internal energy per unit mass
@@ -97,17 +97,17 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
-     call flip_array(m)
-     call flip_array(pres)
-     call flip_array(temp)
-     call flip_array(r)
-     call flip_array(rho)
-     call flip_array(ene)
-     call flip_array(phi)
+    call flip_array(m)
+    call flip_array(pres)
+    call flip_array(temp)
+    call flip_array(r)
+    call flip_array(rho)
+    call flip_array(ene)
+    call flip_array(phi)
  endif
 
  if (iexclude_core_mass) then
-     m = m - mc
+    m = m - mc
  endif
 
 end subroutine set_softened_core
@@ -287,7 +287,7 @@ subroutine calc_phi(r,mc,mgas,hphi,phi)
  ! (ii) Gravitational potential due to softened gas
  phi_gas(size(r)) = - gg * mgas(size(r)) / r(size(r)) ! Surface boundary condition for phi
  do i = 1,size(r)-1
-     phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
+    phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
  enddo
 
@@ -370,7 +370,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
  open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
- 42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
+42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
  close(1, status = 'keep')
 end subroutine write_softened_profile
 

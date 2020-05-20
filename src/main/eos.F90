@@ -297,19 +297,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
 
-case(12)
+ case(12)
 !
 !--ideal gas plus radiation pressure
 !
-   if (present(tempi)) then
+    if (present(tempi)) then
        temperaturei = tempi
-   else
+    else
        temperaturei = -1.
-   endif
+    endif
     call get_idealplusrad_temp(rhoi,eni,gmw,temperaturei)
     call get_idealplusrad_ponrhoi(rhoi,temperaturei,gmw,ponrhoi)
     call get_idealplusrad_spsoundi(ponrhoi,eni,spsoundi)
-   if (present(tempi)) tempi = temperaturei
+    if (present(tempi)) tempi = temperaturei
 
  case(14)
 !

@@ -30,7 +30,7 @@ module eos_idealplusrad
 
  private
 
- contains
+contains
 
 !----------------------------------------------------------------
 !+

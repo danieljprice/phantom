@@ -272,7 +272,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
-                         ! are same as the original profile for r > hsoft
+       ! are same as the original profile for r > hsoft
 
        call set_softened_core(gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0)
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
@@ -345,40 +345,40 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
-      !
-      !  Interpolate pressure from table
-      !
-      ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-      densi      = yinterp(den(1:npts),r(1:npts),ri)
-      presi      = yinterp(pres(1:npts),r(1:npts),ri)
-      !
-      ! Set internal energy of particles given pressure and density depending on EoS
-      !
-      select case(ieos)
-      case(16) ! Shen EoS
-         vxyzu(4,i) = 1.e3
-      case(15) ! Helmholtz EoS
-         xi    = xyzh(1,i)
-         yi    = xyzh(2,i)
-         zi    = xyzh(3,i)
-         tempi = initialtemp
-         call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
-         vxyzu(4,i) = eni
-         if (store_temperature) temperature(i) = initialtemp
-      case(12) ! Ideal gas plus radiation EoS
-         call get_idealgasplusrad_tempfrompres(presi,densi,gmw,tempi)
-         call get_idealplusrad_enfromtemp(densi,tempi,gmw,eni)
-         vxyzu(4,i) = eni
-         if (store_temperature) temperature(i) = tempi
-      case(10) ! MESA EoS
-         vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-      case default
-         if (gamma < 1.00001) then
-            vxyzu(4,i) = polyk
-         else
-            vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-         endif
-      end select
+       !
+       !  Interpolate pressure from table
+       !
+       ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       densi      = yinterp(den(1:npts),r(1:npts),ri)
+       presi      = yinterp(pres(1:npts),r(1:npts),ri)
+       !
+       ! Set internal energy of particles given pressure and density depending on EoS
+       !
+       select case(ieos)
+       case(16) ! Shen EoS
+          vxyzu(4,i) = 1.e3
+       case(15) ! Helmholtz EoS
+          xi    = xyzh(1,i)
+          yi    = xyzh(2,i)
+          zi    = xyzh(3,i)
+          tempi = initialtemp
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          vxyzu(4,i) = eni
+          if (store_temperature) temperature(i) = initialtemp
+       case(12) ! Ideal gas plus radiation EoS
+          call get_idealgasplusrad_tempfrompres(presi,densi,gmw,tempi)
+          call get_idealplusrad_enfromtemp(densi,tempi,gmw,eni)
+          vxyzu(4,i) = eni
+          if (store_temperature) temperature(i) = tempi
+       case(10) ! MESA EoS
+          vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+       case default
+          if (gamma < 1.00001) then
+             vxyzu(4,i) = polyk
+          else
+             vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+          endif
+       end select
     endif
  enddo
  call finish_eos(ieos,ierr)
@@ -531,7 +531,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  np    = 100000 ! default number of particles
  call prompt('Enter the approximate number of particles in the sphere ',np,0)
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
-   call prompt('Enter file name containing density profile ', densityfile)
+    call prompt('Enter file name containing density profile ', densityfile)
  endif
  if (isphere==imesa) then
     call prompt('Soften the core density profile and add a sink particle core?',isoftcore)
@@ -853,8 +853,8 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (isofteningopt==1) call read_inopt(hdens,'hdens',db,errcount=nerr)
     if (isofteningopt==2) call read_inopt(mcore,'mcore',db,errcount=nerr)
     if (isofteningopt==3) then
-      call read_inopt(mcore,'mcore',db,errcount=nerr)
-      call read_inopt(hdens,'hdens',db,errcount=nerr)
+       call read_inopt(mcore,'mcore',db,errcount=nerr)
+       call read_inopt(hdens,'hdens',db,errcount=nerr)
     endif
  endif
 
