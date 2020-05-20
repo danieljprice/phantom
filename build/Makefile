@@ -821,6 +821,7 @@ ifeq ($(SETUP), star)
     MAXP=10000000
     GRAVITY=yes
     MHD=no
+    STORE_TEMP=yes
 endif
 
 ifeq ($(SETUP), isowind)
@@ -1733,7 +1734,7 @@ endif
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos.F90
+SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
    SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90
@@ -1845,7 +1846,7 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams libphantom $(OBJSETUP)
+setup: checksystem checkparams libphantom.a $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
 	@echo ""
 	@echo "Phantom setup built"
@@ -1983,9 +1984,14 @@ cleananalysis:
 SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
-libphantom: checksystem checkparams phantom ${OBJLIB}
+
+libphantom.a: checksystem checkparams phantom ${OBJLIB}
 	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS}
+
+libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
+
+libphantom: libphantom.a libphantom.so
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
