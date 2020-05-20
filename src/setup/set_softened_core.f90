@@ -22,7 +22,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: physcon
+!  DEPENDENCIES: eos_idealplusrad, physcon
 !+
 !--------------------------------------------------------------------------
 module setsoftenedcore

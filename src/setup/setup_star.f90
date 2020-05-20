@@ -26,28 +26,32 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    EOSopt      -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar_1     -- mass of star
-!    Nstar_1     -- particle number in the star
-!    Rstar_1     -- radius of star
-!    densityfile -- File containing data for stellar profile
-!    dist_unit   -- distance unit (e.g. au)
-!    gamma       -- Adiabatic index
-!    hcore       -- Softening length of sink particle stellar core, hcore = hdens/2
-!    hdens       -- Core softening radius of stellar profile
-!    initialtemp -- initial temperature of the star
-!    isinkcore   -- Add a sink particle stellar core
-!    mass_unit   -- mass unit (e.g. solarm)
-!    mcore       -- Mass of sink particle stellar core
-!    np          -- approx number of particles (in box of size 2R)
-!    polyk       -- sound speed .or. constant in EOS
-!    relax_star  -- relax star automatically during setup
-!    ui_coef     -- specific internal energy (units of GM/R)
+!    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
+!    Mstar_1            -- mass of star
+!    Nstar_1            -- particle number in the star
+!    Rstar_1            -- radius of star
+!    densityfile        -- File containing data for stellar profile
+!    dist_unit          -- distance unit (e.g. au)
+!    gamma              -- Adiabatic index
+!    hdens              -- Radius of core softening
+!    hsoft              -- Softening length of sink particle stellar core
+!    initialtemp        -- initial temperature of the star
+!    isinkcore          -- Add a sink particle stellar core
+!    isoftcore          -- Soften the core of an input MESA profile
+!    isofteningopt      -- 1=supply hsoft, 2=supply mcore, 3=supply both
+!    mass_unit          -- mass unit (e.g. solarm)
+!    mcore              -- Mass of sink particle stellar core
+!    np                 -- approx number of particles (in box of size 2R)
+!    outputfilename     -- Output path for softened MESA profile
+!    polyk              -- sound speed .or. constant in EOS
+!    relax_star         -- relax star automatically during setup
+!    ui_coef            -- specific internal energy (units of GM/R)
+!    unsoftened_profile -- Path to MESA profile for softening
 !
-!  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
-!    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, relaxstar, rho_profile, setsoftenedcore, setstellarcore,
-!    setup_params, spherical, table_utils, timestep, units
+!  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
+!    extern_neutronstar, externalforces, infile_utils, io, kernel, options,
+!    part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
+!    setstellarcore, setup_params, spherical, table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup

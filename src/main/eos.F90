@@ -51,8 +51,8 @@
 !    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
 !    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
 !
-!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, eos_shen, infile_utils, io,
-!    part, physcon, units
+!  DEPENDENCIES: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
+!    infile_utils, io, part, physcon, units
 !+
 !--------------------------------------------------------------------------
 module eos
