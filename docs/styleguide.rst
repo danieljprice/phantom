@@ -100,6 +100,32 @@ not
    real ::x
    real:: x
 
+Do not use spaces in variable declaration lists:
+
+::
+
+   real :: xmin,xmax,ymin,ymax
+
+not
+
+::
+
+   real :: xmin, xmax, ymin, ymax
+
+No spaces after only statements and put a single space between comma and only:
+
+::
+
+   use part, only:xyzmh_ptmass,vxyz_ptmass
+
+not
+
+::
+   use part, only: xyzmh_ptmass, vxyz_ptmass
+   use part, only : xyzmh_ptmass, vxyz_ptmass
+   use part, only: xyzmh_ptmass,vxyz_ptmass
+   use part,only:xyzmh_ptmass,vxyz_ptmass
+
 Line continuation
 ~~~~~~~~~~~~~~~~~
 

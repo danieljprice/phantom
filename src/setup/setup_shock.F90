@@ -79,7 +79,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use dim,          only:maxvxyzu,ndim,mhd,do_radiation,use_dust
  use options,      only:use_dustfrac
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,periodic,dustfrac,gr
+ use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
+                        periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes
  use part,         only:rad,radprop,iradxi,ikappa
  use eos,          only:gmw
  use kernel,       only:radkern,hfact_default
@@ -87,6 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use set_dust,     only:set_dustfrac
  use units,        only:set_units
+ use dust,         only:idrag
 #ifdef NONIDEALMHD
  use nicil,           only:rho_i_cnst
 #endif
@@ -171,8 +173,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! choose dust method (from .setup file)
  !
- use_dustfrac = (dust_method == 1)
-
+ if (use_dust) then
+    idrag = 2
+    use_dustfrac = (dust_method == 1)
+    if (dust_method==1) then
+       ndustsmall = 1
+       ndustlarge = 0
+    elseif (dust_method==2) then
+       ndustsmall = 0
+       ndustlarge = 1
+    endif
+    ndusttypes = ndustsmall + ndustlarge
+ endif
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
@@ -243,7 +255,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     volume           = product(xmaxleft-xminleft)
     rhozero          = rholeft
     dxright          = dxleft
-    massoftype(igas) = rholeft*volume/real(npart)
+    totmass          = rholeft*volume
+    if (use_dustfrac) totmass = totmass*(1. + dtg)
+    massoftype(igas) = totmass/real(npart)
  endif
  !
  ! Fix the particles near x-boundary; else define as gas
@@ -432,7 +446,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use options,   only:alphau
  use timestep,  only:dtmax,tmax
  use prompting, only:prompt
- use dust,      only:K_code,idrag
+ use dust,      only:K_code
 #ifdef NONIDEALMHD
  use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
                        C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
@@ -695,7 +709,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (use_dust) then
     !--shock setup supports both one-fluid and two-fluid dust
     dtg = 1.
-    idrag = 2
     K_code = 1000.
     call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
     use_dustfrac = (dust_method == 1)
@@ -825,7 +838,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  enddo
  call read_inopt(xleft,'xleft',db,errcount=nerr)
  call read_inopt(xright,'xright',db,min=xleft,errcount=nerr)
- call read_inopt(nx,'nx',db,min=8,errcount=nerr)
+ call read_inopt(nx,'nx',db,min=2,errcount=nerr)
 
  call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)
