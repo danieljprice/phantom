@@ -104,7 +104,7 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
      call flip_array(rho)
      call flip_array(ene)
      call flip_array(phi)
- end if
+ endif
 
  if (iexclude_core_mass) then
      m = m - mc
@@ -289,7 +289,7 @@ subroutine calc_phi(r,mc,mgas,hphi,phi)
  do i = 1,size(r)-1
      phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
- end do
+ enddo
 
  ! (iii) Add the potentials
  phi = phi_gas + phi_core
