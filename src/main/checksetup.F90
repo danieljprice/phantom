@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    metric_tools, options, part, physcon, sortutils, timestep, units,
+!  DEPENDENCIES: boundary, centreofmass, dim, dust, eos, externalforces,
+!    io, metric_tools, options, part, physcon, sortutils, timestep, units,
 !    utils_gr
 !+
 !--------------------------------------------------------------------------
@@ -566,18 +566,29 @@ end subroutine check_setup_growth
 !------------------------------------------------------------------
 subroutine check_setup_dustgrid(nerror,nwarn)
  use part,    only:grainsize,graindens,ndustsmall,ndustlarge,ndusttypes
+ use options, only:use_dustfrac
+ use dim,     only:use_dust
  use units,   only:udist
  use physcon, only:km
+ use dust,    only:idrag
  integer, intent(inout) :: nerror,nwarn
  integer :: i
 
+ if (use_dustfrac .and. ndustsmall <= 0) then
+    print*,'ERROR: Using one fluid dust but no dust types have been set (ndustsmall=',ndustsmall,')'
+    nerror = nerror + 1
+ endif
+ if (use_dust .and. ndusttypes <= 0) then
+    print*,'WARNING: Using dust but no dust species are used (ndusttypes=',ndusttypes,')'
+    nwarn = nwarn + 1
+ endif
  if (ndusttypes /= ndustsmall + ndustlarge) then
     print*,'ERROR: nsmall + nlarge ',ndustsmall+ndustlarge,&
            ' not equal to ndusttypes: ',ndusttypes
     nerror = nerror + 1
  endif
  do i=1,ndusttypes
-    if (grainsize(i) <= 0.) then
+    if (idrag == 1 .and. grainsize(i) <= 0.) then
        print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
        nerror = nerror + 1
     endif
@@ -589,7 +600,7 @@ subroutine check_setup_dustgrid(nerror,nwarn)
     endif
  enddo
  do i=1,ndusttypes
-    if (graindens(i) <= 0.) then
+    if (idrag == 1 .and. graindens(i) <= 0.) then
        print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
        nerror = nerror + 1
     endif

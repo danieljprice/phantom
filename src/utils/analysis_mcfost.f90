@@ -13,15 +13,14 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Daniel Price
+!  OWNER: Christophe Pinte
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, eos, growth, initial_params, io,
-!    linklist, mcfost2phantom, omp_lib, options, part, physcon, timestep,
-!    units
+!  DEPENDENCIES: deriv, dim, eos, growth, initial_params, io,
+!    mcfost2phantom, omp_lib, options, part, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module analysis
@@ -43,10 +42,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                           get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                           massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes,rad,radprop
+                          grainsize,graindens,ndusttypes,rad,radprop,&
+                          rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl
  use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
- use io,             only:fatal
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth
+ use io,             only:fatal,iprint
+ use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
@@ -121,32 +121,27 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! this this the factor needed to compute u^(n+1)/dtmax from temperature
     T_to_u = factor * massoftype(igas) /dtmax
 
-    !  Call to mcfost on phantom-radiation branch
-    !  call run_mcfost_phantom(&
-    !    npart,nptmass,ntypes,ndusttypes,dustfluidtype,npartoftype,maxirad,&
-    !    xyzh,vxyzu,radiation,ivorcl,&
-    !    itype,grainsize,graindens,dustfrac,massoftype,&
-    !    xyzmh_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-    !    n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
-
+    !-- calling mcfost to get Tdust
     call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         Frad,n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+         n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
     !print*,' mu_gas = ',mu_gas
 
     Tmin = minval(Tdust, mask=(Tdust > 0.))
     Tmax = maxval(Tdust)
-    ! (176-17)*0.25
-    if (use_mcfost .and. use_dustgrowth) then
-       write(*,*) "Converting back to normal"
-       call back_to_growth(npart)
-    endif
 
     write(*,*) ''
     write(*,*) 'Minimum temperature = ', Tmin
     write(*,*) 'Maximum temperature = ', Tmax
     write(*,*) ''
+
+    if (use_mcfost .and. use_dustgrowth) then
+       write(*,*) "Converting back to normal"
+       call back_to_growth(npart)
+    endif
+
+
 
     c_code        = get_c_code()
     steboltz_code = get_steboltz_code()
@@ -160,11 +155,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           default_kappa = 0.5
        else
           default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
-            *(udist**2/umass)
+           *(udist**2/umass)
        endif
        write(iprint,"(/,a,f4.2,' cm^2/g')") &
-          ' -}+{- RADIATION: cutoff particles kappa = ',&
-          default_kappa
+         ' -}+{- RADIATION: cutoff particles kappa = ',&
+         default_kappa
        do i=1,npart
           if (maxphase==maxp) then
              if (iamtype(iphase(i)) /= igas) cycle
@@ -240,23 +235,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 end subroutine do_analysis
 
 subroutine growth_to_fake_multi(npart)
- use part,         only:xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        fxyzu,fext,alphaind,gradh
- use growth,       only:bin_to_multi,f_smax,size_max,b_per_dex
- use linklist,     only:set_linklist
- use densityforce, only:densityiterate
+
+ use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
+ use deriv,  only:get_derivs_global
+
  integer, intent(in)  :: npart
- real                 :: stressmax = 0.
 
  !- bin sizes
  call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
 
- !- get neighbours
- call set_linklist(npart,npart,xyzh,vxyzu)
+ !-- recompute density
+ call get_derivs_global()
 
- !- get new density
- call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh)
+ return
 
 end subroutine growth_to_fake_multi
 
