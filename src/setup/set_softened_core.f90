@@ -94,7 +94,7 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
     call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,eni)
     ene(i) = eni
  enddo
- 
+
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
      call flip_array(m)
@@ -115,7 +115,7 @@ end subroutine set_softened_core
 
 !----------------------------------------------------------------
 !+
-!  Iteratively look for a value of mcore for given hsoft that 
+!  Iteratively look for a value of mcore for given hsoft that
 !  produces a nice softened density profile
 !+
 !----------------------------------------------------------------
@@ -126,7 +126,7 @@ subroutine find_mcore_given_hsoft(hsoft,r,rho0,m0,mcore,ierr)
  real,    allocatable :: rho(:),drho(:),m(:)
  real                 :: h,mc,tolerance
  integer              :: hidx,counter=0
- 
+
  h = hsoft * solarr ! Convert to cm
  call interpolator(r, h, hidx) ! Find index in r closest to h
  mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
@@ -155,7 +155,7 @@ end subroutine find_mcore_given_hsoft
 
 !----------------------------------------------------------------
 !+
-!  Iteratively look for a value of hsoft for given mcore that 
+!  Iteratively look for a value of hsoft for given mcore that
 !  produces a nice softened density profile
 !+
 !----------------------------------------------------------------
@@ -175,8 +175,8 @@ subroutine find_hsoft_given_mcore(mcore,r,rho0,m0,hsoft,ierr)
  allocate(m( size(m0) ))
  allocate(drho( size(rho0)-1 ))
  do
-    call interpolator(m0, mh, hidx) 
-    h   = r(hidx) 
+    call interpolator(m0, mh, hidx)
+    h   = r(hidx)
     rho = rho0   ! Reset density
     m   = m0     ! Reset mass
     call calc_rho_and_m(rho, m, r, mc, h)
@@ -223,7 +223,7 @@ subroutine check_hsoft_and_mcore(hsoft,mcore,r,rho0,m0,ierr)
  m   = m0
  call calc_rho_and_m(rho, m, r, mc, h)
  if (any(rho/rho0 > tolerance)) ierr = 2
-        
+
  call diff(rho, drho)
  if (any(drho(1:hidx) > 0)) ierr = 3
 end subroutine check_hsoft_and_mcore
@@ -235,7 +235,7 @@ subroutine calc_rho_and_m(rho,m,r,mc,h)
  real, intent(in)    :: mc,h
  real                :: a,b,d,msoft,drhodr_h
  integer             :: hidx
- 
+
  call interpolator(r,h,hidx) ! Find index in r closest to h
  msoft    = m(hidx) - mc
  drhodr_h = (rho(hidx+1) - rho(hidx)) / (r(hidx+1) - r(hidx)) ! drho/dr at r = h
@@ -290,9 +290,9 @@ subroutine calc_phi(r,mc,mgas,hphi,phi)
      phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
  end do
-      
- ! (iii) Add the potentials 
- phi = phi_gas + phi_core 
+
+ ! (iii) Add the potentials
+ phi = phi_gas + phi_core
 end subroutine calc_phi
 
 
@@ -367,7 +367,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
  real, allocatable               :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
  character(len=120), intent(in)  :: outputpath
  integer                         :: i
- open(1, file = outputpath, status = 'new')  
+ open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
  42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)

@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION: Ideal gas equation of state plus radiation pressure
 !
-!  REFERENCES: 
+!  REFERENCES:
 !
 !  OWNER: Mike Lau
 !
@@ -24,12 +24,12 @@ module eos_idealplusrad
  use physcon,  only:kb_on_mh,radconst
  implicit none
  real, parameter :: tolerance = 1d-15
- 
+
  public :: get_idealplusrad_temp,get_idealplusrad_ponrhoi,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
 
  private
- 
+
  contains
 
 !----------------------------------------------------------------
@@ -46,10 +46,10 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi)
  if (tempi <= 0.) then
     tempi = eni*mu/(1.5*kb_on_mh)  ! Take gas temperature as initial guess
  endif
- 
+
  correction = huge(0.)
  do while (abs(correction) > tolerance*tempi)
-    numerator = eni*rhoi - 1.5*kb_on_mh*tempi*rhoi/mu - radconst*tempi**4 
+    numerator = eni*rhoi - 1.5*kb_on_mh*tempi*rhoi/mu - radconst*tempi**4
     denominator =  - 1.5*kb_on_mh/mu*rhoi - 4.*radconst*tempi**3
     correction = numerator/denominator
     tempi = tempi - correction
@@ -64,7 +64,7 @@ subroutine get_idealplusrad_ponrhoi(rhoi,tempi,mu,ponrhoi)
 
  ponrhoi = kb_on_mh*tempi/mu + 1./3.*radconst*tempi**4/rhoi
 end subroutine get_idealplusrad_ponrhoi
-   
+
 
 subroutine get_idealplusrad_spsoundi(ponrhoi,eni,spsoundi)
  real, intent(in)  :: ponrhoi,eni
@@ -86,7 +86,7 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
  real                :: numerator,denominator,correction
 
  do
-    numerator = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4/3. 
+    numerator = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4/3.
     denominator =  - rhoi*kb_on_mh/mu - 4./3.*radconst*tempi**3
     correction = numerator/denominator
     tempi = tempi - correction

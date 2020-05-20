@@ -246,16 +246,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (isoftcore) then
        !
        ! Read the MESA profile to be softened
-       ! 
+       !
        call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0)
        rmin  = r0(1)
        Rstar = r0(size(r0))
-       !    
+       !
        ! Get mean molecular weight (temporary: Find gmw at R/2)
        !
        call interpolator(r0, 0.5*Rstar, i)
        pgas = pres0(i)*unit_pressure - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
-       gmw = (rho0(i)*unit_density*kb_on_mh*temp0(i)) / pgas 
+       gmw = (rho0(i)*unit_density*kb_on_mh*temp0(i)) / pgas
        !
        ! Get values of hsoft and mcore
        !
@@ -272,7 +272,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
-                         ! are same as the original profile for r > hsoft 
+                         ! are same as the original profile for r > hsoft
 
        call set_softened_core(gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0)
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
@@ -356,7 +356,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
       !
       select case(ieos)
       case(16) ! Shen EoS
-         vxyzu(4,i) = 1.e3 
+         vxyzu(4,i) = 1.e3
       case(15) ! Helmholtz EoS
          xi    = xyzh(1,i)
          yi    = xyzh(2,i)
@@ -378,7 +378,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          else
             vxyzu(4,i) = presi / ((gamma - 1.) * densi)
          endif
-      end select          
+      end select
     endif
  enddo
  call finish_eos(ieos,ierr)
@@ -769,7 +769,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
     call write_inopt(unsoftened_profile,'unsoftened_profile','Path to MESA profile for softening',iunit)
     call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
-    call write_inopt(hdens,'hdens','Radius of core softening',iunit)    
+    call write_inopt(hdens,'hdens','Radius of core softening',iunit)
     call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
     call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
  endif
