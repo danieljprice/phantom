@@ -26,28 +26,32 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    EOSopt      -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar_1     -- mass of star
-!    Nstar_1     -- particle number in the star
-!    Rstar_1     -- radius of star
-!    densityfile -- File containing data for stellar profile
-!    dist_unit   -- distance unit (e.g. au)
-!    gamma       -- Adiabatic index
-!    hcore       -- Softening length of sink particle stellar core, hcore = hdens/2
-!    hdens       -- Core softening radius of stellar profile
-!    initialtemp -- initial temperature of the star
-!    isinkcore   -- Add a sink particle stellar core
-!    mass_unit   -- mass unit (e.g. solarm)
-!    mcore       -- Mass of sink particle stellar core
-!    np          -- approx number of particles (in box of size 2R)
-!    polyk       -- sound speed .or. constant in EOS
-!    relax_star  -- relax star automatically during setup
-!    ui_coef     -- specific internal energy (units of GM/R)
+!    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
+!    Mstar_1            -- mass of star
+!    Nstar_1            -- particle number in the star
+!    Rstar_1            -- radius of star
+!    densityfile        -- File containing data for stellar profile
+!    dist_unit          -- distance unit (e.g. au)
+!    gamma              -- Adiabatic index
+!    hdens              -- Radius of core softening
+!    hsoft              -- Softening length of sink particle stellar core
+!    initialtemp        -- initial temperature of the star
+!    isinkcore          -- Add a sink particle stellar core
+!    isoftcore          -- Soften the core of an input MESA profile
+!    isofteningopt      -- 1=supply hsoft, 2=supply mcore, 3=supply both
+!    mass_unit          -- mass unit (e.g. solarm)
+!    mcore              -- Mass of sink particle stellar core
+!    np                 -- approx number of particles (in box of size 2R)
+!    outputfilename     -- Output path for softened MESA profile
+!    polyk              -- sound speed .or. constant in EOS
+!    relax_star         -- relax star automatically during setup
+!    ui_coef            -- specific internal energy (units of GM/R)
+!    unsoftened_profile -- Path to MESA profile for softening
 !
-!  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
-!    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, relaxstar, rho_profile, setsoftenedcore, setstellarcore,
-!    setup_params, spherical, table_utils, timestep, units
+!  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
+!    extern_neutronstar, externalforces, infile_utils, io, kernel, options,
+!    part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
+!    setstellarcore, setup_params, spherical, table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -242,16 +246,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (isoftcore) then
        !
        ! Read the MESA profile to be softened
-       ! 
+       !
        call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0)
        rmin  = r0(1)
        Rstar = r0(size(r0))
-       !    
+       !
        ! Get mean molecular weight (temporary: Find gmw at R/2)
        !
        call interpolator(r0, 0.5*Rstar, i)
        pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
-       gmw = (rho0(i)*kb_on_mh*temp0(i)) / pgas 
+       gmw = (rho0(i)*kb_on_mh*temp0(i)) / pgas
        !
        ! Get values of hsoft and mcore
        !
@@ -268,7 +272,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
-                         ! are same as the original profile for r > hsoft 
+       ! are same as the original profile for r > hsoft
 
        call set_softened_core(gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0)
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
@@ -341,40 +345,40 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
-      !
-      !  Interpolate pressure from table
-      !
-      ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-      densi      = yinterp(den(1:npts),r(1:npts),ri)
-      presi      = yinterp(pres(1:npts),r(1:npts),ri)
-      !
-      ! Set internal energy of particles given pressure and density depending on EoS
-      !
-      select case(ieos)
-      case(16) ! Shen EoS
-         vxyzu(4,i) = 1.e3 
-      case(15) ! Helmholtz EoS
-         xi    = xyzh(1,i)
-         yi    = xyzh(2,i)
-         zi    = xyzh(3,i)
-         tempi = initialtemp
-         call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
-         vxyzu(4,i) = eni
-         if (store_temperature) temperature(i) = initialtemp
-      case(12) ! Ideal gas plus radiation EoS
-         call get_idealgasplusrad_tempfrompres(presi,densi,gmw,tempi)
-         call get_idealplusrad_enfromtemp(densi,tempi,gmw,eni)
-         vxyzu(4,i) = eni
-         if (store_temperature) temperature(i) = tempi
-      case(10) ! MESA EoS
-         vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-      case default
-         if (gamma < 1.00001) then
-            vxyzu(4,i) = polyk
-         else
-            vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-         endif
-      end select          
+       !
+       !  Interpolate pressure from table
+       !
+       ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       densi      = yinterp(den(1:npts),r(1:npts),ri)
+       presi      = yinterp(pres(1:npts),r(1:npts),ri)
+       !
+       ! Set internal energy of particles given pressure and density depending on EoS
+       !
+       select case(ieos)
+       case(16) ! Shen EoS
+          vxyzu(4,i) = 1.e3
+       case(15) ! Helmholtz EoS
+          xi    = xyzh(1,i)
+          yi    = xyzh(2,i)
+          zi    = xyzh(3,i)
+          tempi = initialtemp
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          vxyzu(4,i) = eni
+          if (store_temperature) temperature(i) = initialtemp
+       case(12) ! Ideal gas plus radiation EoS
+          call get_idealgasplusrad_tempfrompres(presi,densi,gmw,tempi)
+          call get_idealplusrad_enfromtemp(densi,tempi,gmw,eni)
+          vxyzu(4,i) = eni
+          if (store_temperature) temperature(i) = tempi
+       case(10) ! MESA EoS
+          vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+       case default
+          if (gamma < 1.00001) then
+             vxyzu(4,i) = polyk
+          else
+             vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+          endif
+       end select
     endif
  enddo
  call finish_eos(ieos,ierr)
@@ -527,7 +531,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  np    = 100000 ! default number of particles
  call prompt('Enter the approximate number of particles in the sphere ',np,0)
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
-   call prompt('Enter file name containing density profile ', densityfile)
+    call prompt('Enter file name containing density profile ', densityfile)
  endif
  if (isphere==imesa) then
     call prompt('Soften the core density profile and add a sink particle core?',isoftcore)
@@ -765,7 +769,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
     call write_inopt(unsoftened_profile,'unsoftened_profile','Path to MESA profile for softening',iunit)
     call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
-    call write_inopt(hdens,'hdens','Radius of core softening',iunit)    
+    call write_inopt(hdens,'hdens','Radius of core softening',iunit)
     call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
     call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
  endif
@@ -849,8 +853,8 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (isofteningopt==1) call read_inopt(hdens,'hdens',db,errcount=nerr)
     if (isofteningopt==2) call read_inopt(mcore,'mcore',db,errcount=nerr)
     if (isofteningopt==3) then
-      call read_inopt(mcore,'mcore',db,errcount=nerr)
-      call read_inopt(hdens,'hdens',db,errcount=nerr)
+       call read_inopt(mcore,'mcore',db,errcount=nerr)
+       call read_inopt(hdens,'hdens',db,errcount=nerr)
     endif
  endif
 
