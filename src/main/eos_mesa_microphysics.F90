@@ -104,7 +104,8 @@ subroutine read_opacity_mesa(x,z)
 
 
  !Find the opacity table
- filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
+ filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
+! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
  opacs_file = find_phantom_datafile(filename,'eos/mesa')
  open(unit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
