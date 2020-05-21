@@ -1991,13 +1991,13 @@ libphantom.a: checksystem checkparams phantom ${OBJLIB}
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
-libphantom: libphantom.a libphantom.so
+libphantom: libphantom.a #libphantom.so
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
 
 .PHONY: pyanalysis
-pyanalysis: libphantom
+pyanalysis: libphantom.so
 
 #------------------------------------------------------
 # Various utilities for computing structure functions
