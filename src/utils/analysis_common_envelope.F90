@@ -823,7 +823,7 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
              ' part 2h rad',&
              '  p dens rad',&
              'p2h dens rad'/)
-            ! 'virial cond.'/)
+ ! 'virial cond.'/)
 
  ! Get order of particles by distance from sink particle core
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
@@ -1431,7 +1431,7 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
        ang_mom_old(i) = ang_mom(3)
     enddo
     time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
-                    ! This should actually be -dtmax in the infile
+    ! This should actually be -dtmax in the infile
  endif
 
  ! Calculate CoM of the stellar cores plus with the inclusion

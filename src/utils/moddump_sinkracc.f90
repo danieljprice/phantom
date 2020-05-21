@@ -25,7 +25,7 @@ module moddump
  use prompting, only:prompt
  implicit none
 
- contains
+contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  implicit none
@@ -38,9 +38,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  print*,'Sink particles in dump:'
  do i=1,nptmass
-     !print*,'Sink ',i,' : ','pos = (',xyzmh_ptmass(1:3,i),') ',&
-     !       'mass = ',xyzmh_ptmass(4,i),' h = ',xyzmh_ptmass(ihsoft,i),&
-     print*,'Sink',i,'hacc = ',xyzmh_ptmass(ihacc,i)
+    !print*,'Sink ',i,' : ','pos = (',xyzmh_ptmass(1:3,i),') ',&
+    !       'mass = ',xyzmh_ptmass(4,i),' h = ',xyzmh_ptmass(ihsoft,i),&
+    print*,'Sink',i,'hacc = ',xyzmh_ptmass(ihacc,i)
  enddo
  isinkpart = 2
  call prompt('Enter the sink particle number to modify:',isinkpart,1,nptmass)
