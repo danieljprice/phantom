@@ -35,7 +35,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(:,:), intent(inout)  :: xyzh,vxyzu
  integer                              :: i,isinkpart
  real                                 :: racc,hsoft
- 
+
  print*,'Sink particles in dump:'
  do i=1,nptmass
      !print*,'Sink ',i,' : ','pos = (',xyzmh_ptmass(1:3,i),') ',&
