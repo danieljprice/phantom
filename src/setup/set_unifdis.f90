@@ -24,6 +24,7 @@
 module unifdis
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked
+ public :: is_valid_lattice, is_closepacked
 
  private
 
@@ -546,10 +547,10 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
  return
 end subroutine set_unifdis
-!
+
 !-------------------------------------------------------------
 !+
-!  Supplementary function & subroutine
+!  check if value of x is between xmin and xmax
 !+
 !-------------------------------------------------------------
 pure logical function in_range(x,xmin,xmax)
@@ -559,7 +560,13 @@ pure logical function in_range(x,xmin,xmax)
 
 end function in_range
 
-subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
+!-------------------------------------------------------------
+!+
+!  helper routine to figure out exact spacing in y and z
+!  directions for close sphere packing
+!+
+!-------------------------------------------------------------
+pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  real,     intent(in) :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
@@ -575,5 +582,37 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
-!-------------------------------------------------------------
+!---------------------------------------------------------------
+!+
+!  helper routine to sanity check that the latticetype is valid
+!+
+!---------------------------------------------------------------
+pure logical function is_valid_lattice(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ select case(trim(latticetype))
+ case ('random','cubic','closepacked','hcp')
+    is_valid_lattice = .true.
+ case default
+    is_valid_lattice = .false.
+ end select
+
+end function is_valid_lattice
+
+!---------------------------------------------------------------
+!+
+!  check that the latticetype is closepacked
+!+
+!---------------------------------------------------------------
+pure logical function is_closepacked(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ if (trim(latticetype)=='closepacked') then
+    is_closepacked = .true.
+ else
+    is_closepacked = .false.
+ endif
+
+end function is_closepacked
+
 end module unifdis
