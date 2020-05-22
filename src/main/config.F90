@@ -133,8 +133,8 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
- integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
+ integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
                                   radensumforce
@@ -142,7 +142,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values

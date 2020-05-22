@@ -489,6 +489,8 @@ subroutine write_evlog(iprint)
       'div B ',ev_data(iev_max,iev_divB),'div B ',ev_data(iev_ave,iev_divB)
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),(a,'(mean)=',es10.3))") &
       'h|div B|/B ',ev_data(iev_max,iev_hdivB),'h|div B|/B ',ev_data(iev_ave,iev_hdivB)
+    if (ev_data(iev_max,iev_hdivB) > 10.) &
+      write(iprint,'(a)') 'WARNING! h|div B|/B is growing!  Recommend increasing hdivbbmax_max for better stability'
  endif
  write(iprint,"(/)")
 
