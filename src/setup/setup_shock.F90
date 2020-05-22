@@ -34,7 +34,7 @@ module setup
  implicit none
  integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
- real    :: dxleft, kappa
+ real    :: dxleft, kappa, smooth_fac
  character(len=100) :: shocktype
  character(len=100) :: latticetype = 'closepacked'
  integer :: nstates
@@ -89,7 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #endif
  use physcon,         only:au,solarm
  use radiation_utils, only:radiation_and_gas_temperature_equal
- use setshock,     only:set_shock,adjust_shock_boundaries
+ use setshock,     only:set_shock,adjust_shock_boundaries,fsmooth
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
  integer,           intent(inout) :: npart
@@ -130,6 +130,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 5.0/3.0
  polyk = 0.1
  kappa = 1.e6
+ smooth_fac = 0. ! smooth shock front
  if (.not.iexist) hfact = hfact_default
  nstates = max_states
  if (.not.mhd) nstates = max_states - 3
@@ -148,10 +149,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! if file does not exist, then ask for user input
  !
  shkfile = trim(fileprefix)//'.setup'
- call read_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg,ierr)
+ inquire(file=shkfile,exist=iexist)
+ if (iexist) then
+    call read_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg,ierr)
+ else
+    if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
+ endif
  if (ierr /= 0 .and. id==master) then
-    call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
-    call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg)       ! write shock file with defaults
+    call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg) ! write shock file with defaults
+    print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
+    stop
  endif
 
  rholeft  = get_conserved_density(leftstate)
@@ -201,7 +208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  iverbose = 1
  call set_shock(latticetype,id,master,igas,rholeft,rhoright,xleft,xright,ymin,ymax,zmin,zmax,&
-                xshock,dxleft,hfact,npart,xyzh,massoftype,iverbose,ierr)
+                xshock,dxleft,hfact,smooth_fac,npart,xyzh,massoftype,iverbose,ierr)
  if (ierr /= 0) call fatal('setup','errors in shock setup')
 
  ! define rhozero as density in left half; required for certain simulations (e.g. non-ideal MHD with constant resistivity)
@@ -699,6 +706,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
 
  write(lu,"(/,a)") '# resolution'
  call write_inopt(nx,'nx','resolution (number of particles in x) for -xleft < x < xshock',lu,ierr1)
+ call write_inopt(smooth_fac,'smooth_fac','smooth shock front over lengthscale smooth_fac*dxleft',lu,ierr1)
  if (ierr1 /= 0) write(*,*) 'ERROR writing nx'
 
  write(lu,"(/,a)") '# Equation-of-state properties'
@@ -754,6 +762,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(xleft,'xleft',db,errcount=nerr)
  call read_inopt(xright,'xright',db,min=xleft,errcount=nerr)
  call read_inopt(nx,'nx',db,min=1,errcount=nerr)
+ call read_inopt(smooth_fac,'smooth_fac',db,min=0.,errcount=nerr)
 
  call read_inopt(gamma,'gamma',db,min=1.,errcount=nerr)
  if (maxvxyzu==3) call read_inopt(polyk,'polyk',db,min=0.,errcount=nerr)

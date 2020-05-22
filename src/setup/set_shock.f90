@@ -1,12 +1,11 @@
 module setshock
  implicit none
 
+ public :: set_shock, adjust_shock_boundaries, fsmooth
+
+ private
+
 contains
-
-subroutine set_shock_and_boundaries
-
-end subroutine set_shock_and_boundaries
-
 !-----------------------------------------------------------------------
 !+
 !  utility routine to set up a 3D particle distribution to represent
@@ -17,11 +16,12 @@ end subroutine set_shock_and_boundaries
 !+
 !-----------------------------------------------------------------------
 subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     xshock,dxleft,hfact,npart,xyzh,massoftype,iverbose,ierr)
+                     xshock,dxleft,hfact,smooth_fac,npart,xyzh,massoftype,iverbose,ierr)
  use unifdis, only:set_unifdis,get_ny_nz_closepacked,is_closepacked
  character(len=*), intent(in) :: latticetype
  integer, intent(in) :: id,master,itype,iverbose
- real,    intent(in) :: rholeft,rhoright,xshock,xmin,xmax,ymin,ymax,zmin,zmax,dxleft,hfact
+ real,    intent(in) :: rholeft,rhoright,xshock,xmin,xmax,ymin,ymax,zmin,zmax
+ real,    intent(in) :: dxleft,hfact,smooth_fac
  integer, intent(inout) :: npart
  real,    intent(out)   :: xyzh(:,:),massoftype(:)
  integer, intent(out)   :: ierr
@@ -50,10 +50,11 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     xmaxleft(1)  = xshock
     xminright(1) = xshock
     if (id==master) write(*,'(1x,3(a,es16.8))') 'shock: left half  ',xminleft(1), ' to ',xmaxleft(1), ' with dx_left  = ',dxleft
+    dxright = dxleft*(rholeft/rhoright)**(1./3.) ! NB: dxright is corrected for closepacked
 
-    ! set up a uniform lattice
+    ! set up a uniform lattice for left half
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
-                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh)  ! set left half
+                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,rhofunc=rhosmooth)
 
     ! set particle mass
     volume            = product(xmaxleft-xminleft)
@@ -61,12 +62,10 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     massoftype(itype) = totmass/real(npart-npartold)
     if (id==master) write(*,'(1x,a,es16.8)') 'shock: particle mass = ',massoftype(itype)
 
-    dxright = dxleft*(rholeft/rhoright)**(1./3.) ! NB: dxright is corrected for closepacked
     if (is_closepacked(latticetype)) then
        ! now adjust spacing on right hand side to get correct density given the particle mass
        volume  = product(xmaxright - xminright)
        totmass = volume*rhoright
-       !print*,' HERE ',dxright,xminright(2),xmaxright(2),xminright(3),xmaxright(3)
        call get_ny_nz_closepacked(dxright,xminright(2),xmaxright(2),xminright(3),xmaxright(3),ny,nz)
        dxright = (xmaxright(1) - xminright(1))/((totmass/massoftype(itype))/(ny*nz))
     endif
@@ -75,7 +74,8 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     if (id==master) write(*,'(1x,3(a,es16.8))') 'shock: right half ',xminright(1),' to ',xmaxright(1),' with dx_right = ',dxright
 
     call set_unifdis(latticetype,id,master,xminright(1),xmaxright(1), &
-         xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,npart,xyzh,npy=ny,npz=nz) ! set right half
+         xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,&
+         npart,xyzh,npy=ny,npz=nz,rhofunc=rhosmooth) ! set right half
 
  else  ! set all of volume if densities are equal
     write(*,'(3(a,es16.8))') 'shock: uniform density  ',xminleft(1), ' to ',xmaxright(1), ' with dx  = ',dxleft
@@ -87,7 +87,47 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     massoftype(itype) = totmass/real(npart-npartold)
  endif
 
+contains
+!----------------------------------------------
+!+
+!  Callback function to setup smooth density
+!+
+!----------------------------------------------
+ real function rhosmooth(x)
+  real, intent(in) :: x
+
+  rhosmooth = fsmooth(x,xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
+
+ end function rhosmooth
+
 end subroutine set_shock
+
+!------------------------------------------------------------------------
+!+
+!  Function specifying smoothing of various quantities across the shock
+!+
+!------------------------------------------------------------------------
+real function fsmooth(x,x0,psep,fac,fl,fr)
+ real, intent(in) :: x,x0,psep,fac,fl,fr
+ real :: delta,exx
+ real, parameter :: dsmooth = 20.
+
+ if (fac > 0.)  then
+    delta = (x - x0)/(fac*psep)
+ else
+    delta = 2.*sign(x-x0,1.0)*dsmooth
+ endif
+
+ if (delta > dsmooth) then
+    fsmooth = fr
+ elseif (delta < -dsmooth) then
+    fsmooth = fl
+ else
+    exx = exp(delta)
+    fsmooth = (fl + fr*exx)/(1. + exx)
+ endif
+
+end function fsmooth
 
 !-----------------------------------------------------------------------
 !+
