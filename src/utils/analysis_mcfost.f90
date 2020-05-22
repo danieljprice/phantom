@@ -38,7 +38,7 @@ contains
     use mcfost2phantom, only:init_mcfost_phantom,&
                              run_mcfost_phantom,&
                              diffusion_opacity,&
-                             deinit_mcfost_phantom
+                             reset_mcfost_phantom
     use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
                              get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
