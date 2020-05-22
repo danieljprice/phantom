@@ -133,7 +133,7 @@ module forces
        idBevolyi   = 10, &
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
-       ihdivBBmax  = 13, &  !JHW
+       ihdivBBmax  = 13, &
        !--dust array indexing
        iddustevoli    = 14, &
        iddustevoliend = 14 +   (maxdustsmall-1), &
