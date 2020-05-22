@@ -24,72 +24,68 @@
 !+
 !--------------------------------------------------------------------------
 module analysis
- use omp_lib
+  use omp_lib
 
- implicit none
- character(len=20), parameter, public :: analysistype = 'mcfost'
- public :: do_analysis
+  implicit none
+  character(len=20), parameter, public :: analysistype = 'mcfost'
+  public :: do_analysis
 
- private
+  private
 
 contains
 
-subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use mcfost2phantom, only:init_mcfost_phantom,&
-                          run_mcfost_phantom,&
-                          diffusion_opacity,&
-                          deinit_mcfost_phantom
- use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
-                          get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
-                          massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
-                          grainsize,graindens,ndusttypes,rad,radprop,&
-                          rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl
- use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
- use io,             only:fatal,iprint
- use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
- use eos,            only:temperature_coef,gmw,gamma
- use timestep,       only:dtmax
- use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                          use_mcfost_stellar_parameters
- use physcon,        only:cm,gram,c,steboltz
+  subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
+    use mcfost2phantom, only:init_mcfost_phantom,&
+                             run_mcfost_phantom,&
+                             diffusion_opacity,&
+                             deinit_mcfost_phantom
+    use part,           only:massoftype,iphase,dustfrac,hfact,npartoftype,&
+                             get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
+                             massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
+                             grainsize,graindens,ndusttypes,rad,radprop,&
+                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl
+    use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
+    use io,             only:fatal,iprint
+    use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
+    use eos,            only:temperature_coef,gmw,gamma
+    use timestep,       only:dtmax
+    use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+                             use_mcfost_stellar_parameters
+    use physcon,        only:cm,gram,c,steboltz
 
- character(len=*), intent(in)    :: dumpfile
- integer,          intent(in)    :: num,npart,iunit
- real,             intent(in)    :: xyzh(:,:)
- real,             intent(in)    :: particlemass,time
- real,             intent(inout) :: vxyzu(:,:)
+    character(len=*), intent(in)    :: dumpfile
+    integer,          intent(in)    :: num,npart,iunit
+    real,             intent(in)    :: xyzh(:,:)
+    real,             intent(in)    :: particlemass,time
+    real,             intent(inout) :: vxyzu(:,:)
 
- logical, save   :: init_mcfost = .false., isinitial = .true.
- real            :: mu_gas,factor,T_to_u
- real(kind=4)    :: Tdust(npart),n_packets(npart)
- integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
- integer(kind=1) :: itype(maxp)
- logical         :: compute_Frad
- real(kind=8), dimension(6), save            :: SPH_limits
- real,         dimension(:),     allocatable :: dudt
- real,    parameter :: Tdefault = 1.
- logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
- integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
- character(len=len(dumpfile) + 20) :: mcfost_para_filename
- real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
- integer :: omp_threads
+    logical, save   :: init_mcfost = .false., isinitial = .true.
+    real            :: mu_gas,factor,T_to_u
+    real(kind=4)    :: Tdust(npart),n_packets(npart)
+    integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
+    integer(kind=1) :: itype(maxp)
+    logical         :: compute_Frad
+    real(kind=8), dimension(6), save            :: SPH_limits
+    real,         dimension(:),     allocatable :: dudt
+    real,    parameter :: Tdefault = 1.
+    logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
+    integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
+    character(len=len(dumpfile) + 20) :: mcfost_para_filename
+    real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
 
- omp_threads = omp_get_max_threads()
- ! call omp_set_dynamic(.false.)
-! call omp_set_num_threads(1)
 
- if (use_mcfost .and. use_dustgrowth) then
-    write(*,*) "Converting to fake multi large grains"
-    call growth_to_fake_multi(npart)
- endif
+    if (.not. use_mcfost) return
 
- if (use_mcfost) then
+    if (use_dustgrowth) then
+       write(*,*) "Converting to fake multi large grains"
+       call growth_to_fake_multi(npart)
+    endif
+
     if (.not.init_mcfost) then
        ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
        mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
        call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
-          Voronoi_limits_file,SPH_limits,ierr, &
-          fix_star = use_mcfost_stellar_parameters)
+            Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters)
        if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
        init_mcfost = .true.
     endif
@@ -100,9 +96,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     else
        itype(:) = 1
     endif
-    if (.not. use_dust) then
-       ndusttypes = 0
-    endif
+    if (.not. use_dust) ndusttypes = 0
     if (use_dustfrac) then
        dustfluidtype = 1
     else
@@ -126,7 +120,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
-    !print*,' mu_gas = ',mu_gas
 
     Tmin = minval(Tdust, mask=(Tdust > 0.))
     Tmax = maxval(Tdust)
@@ -141,21 +134,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        call back_to_growth(npart)
     endif
 
-
-
-    c_code        = get_c_code()
-    steboltz_code = get_steboltz_code()
-    a_code        = 4.*steboltz_code/c_code
-    pmassi        = massoftype(igas)
-    ! set thermal energy
-
     if (do_radiation) then
+       c_code        = get_c_code()
+       steboltz_code = get_steboltz_code()
+       a_code        = 4.*steboltz_code/c_code
+       pmassi        = massoftype(igas)
+
        radprop(inumph,:) = 0.
        if (isinitial) then
           default_kappa = 0.5
        else
-          default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))&
-           *(udist**2/umass)
+          default_kappa = 0.5*(maxval(radprop(ikappa,:))+minval(radprop(ikappa,:)))*(udist**2/umass)
        endif
        write(iprint,"(/,a,f4.2,' cm^2/g')") &
          ' -}+{- RADIATION: cutoff particles kappa = ',&
@@ -205,7 +194,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              radprop(ikappa,i) = default_kappa*(cm**2/gram)/(udist**2/umass)
           endif
        enddo
-    else
+
+       write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ', 100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
+       isinitial = .false.
+    else ! No diffusion approximation
        do i=1,npart
           if (Tdust(i) > 1.) then
              vxyzu(4,i) = Tdust(i) * factor
@@ -216,76 +208,68 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        enddo
     endif
 
+    call reset_mcfost_phantom()
     if (allocated(dudt)) deallocate(dudt)
-
-    call omp_set_num_threads(omp_threads)
-    ! call omp_set_dynamic(.true.)
-    call deinit_mcfost_phantom()
-    isinitial = .false.
-
-    write(iprint,"(/,a,f6.2,'%')") &
-          ' -}+{- RADIATION particles done by SPH = ',&
-          100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
-
     write(*,*) "End of analysis mcfost"
- endif ! use_mcfost
 
- return
+    return
 
-end subroutine do_analysis
+  end subroutine do_analysis
 
-subroutine growth_to_fake_multi(npart)
+  subroutine growth_to_fake_multi(npart)
 
- use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
- use deriv,  only:get_derivs_global
+    use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
+    use deriv,  only:get_derivs_global
 
- integer, intent(in)  :: npart
+    integer, intent(in)  :: npart
 
- !- bin sizes
- call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
+    !- bin sizes
+    call bin_to_multi(b_per_dex,f_smax,size_max,verbose=.false.)
 
- !-- recompute density
- call get_derivs_global()
+    !-- recompute density
+    call get_derivs_global()
 
- return
+    return
 
-end subroutine growth_to_fake_multi
+  end subroutine growth_to_fake_multi
 
-subroutine back_to_growth(npart)
- use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
-                           npartoftype,iamtype,iphase,idust,&
-                           set_particle_type
- use initial_params, only:mdust_in
- integer, intent(in)    :: npart
- integer                :: i,j,ndustold,itype
+  subroutine back_to_growth(npart)
+    use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
+                              npartoftype,iamtype,iphase,idust,&
+                              set_particle_type
+    use initial_params, only:mdust_in
+    integer, intent(in)    :: npart
+    integer                :: i,j,ndustold,itype
 
 
- ndustold = sum(npartoftype(idust:))
- do i=1,npart
-    itype = iamtype(iphase(i))
-    if (itype > idust) then
-       npartoftype(idust) = npartoftype(idust) + 1
-       npartoftype(itype) = npartoftype(itype) - 1
-       call set_particle_type(i,idust)
+    ndustold = sum(npartoftype(idust:))
+    do i=1,npart
+       itype = iamtype(iphase(i))
+       if (itype > idust) then
+          npartoftype(idust) = npartoftype(idust) + 1
+          npartoftype(itype) = npartoftype(itype) - 1
+          call set_particle_type(i,idust)
+       endif
+    enddo
+
+    do j=2,ndusttypes
+       if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
+       massoftype(idust+j-1)      = 0.
+       mdust_in(idust+j-1)        = 0.
+    enddo
+
+    ndusttypes                    = 1
+    ndustlarge                    = 1
+    mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
+
+    !- sanity checks for npartoftype
+    if (npartoftype(idust) /= ndustold) then
+       write(*,*) 'ERROR! npartoftype not conserved'
+       write(*,*) npartoftype(idust), " <-- new vs. old --> ",ndustold
     endif
- enddo
 
- do j=2,ndusttypes
-    if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
-    massoftype(idust+j-1)      = 0.
-    mdust_in(idust+j-1)        = 0.
- enddo
+    return
 
- ndusttypes                    = 1
- ndustlarge                    = 1
- mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
+  end subroutine back_to_growth
 
- !- sanity checks for npartoftype
- if (npartoftype(idust) /= ndustold) then
-    write(*,*) 'ERROR! npartoftype not conserved'
-    write(*,*) npartoftype(idust), " <-- new vs. old --> ",ndustold
- endif
-
-end subroutine back_to_growth
-
-end module
+end module analysis
