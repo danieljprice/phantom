@@ -562,10 +562,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        enddo
     endif
 #ifdef LIVE_ANALYSIS
-    if (do_radiation) then
-       call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                        massoftype(igas),npart,time,ianalysis)
-    endif
+    call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                     massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
                 ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
