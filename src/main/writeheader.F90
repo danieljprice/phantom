@@ -58,6 +58,14 @@ subroutine write_codeinfo(iunit)
 !
 !--write info on latest git commit
 !
+#ifdef MCFOST
+ write(*,*) ""
+ write(*,*) "--------------------------"
+ write(*,*) "| This is Phantom+mcfost |"
+ write(*,*) "--------------------------"
+ write(*,*) ""
+#endif
+
  call get_and_print_gitinfo(iunit)
 
 end subroutine write_codeinfo

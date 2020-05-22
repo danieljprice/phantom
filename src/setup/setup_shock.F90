@@ -20,6 +20,7 @@
 !    dtg         -- Dust to gas ratio
 !    dust_method -- 1=one fluid, 2=two fluid
 !    gamma       -- Adiabatic index
+!    kappa       -- opacity in cm^2/g
 !    nx          -- resolution (number of particles in x) for -xleft < x < xshock
 !    polyk       -- square of the isothermal sound speed
 !    xleft       -- x min boundary
@@ -27,7 +28,7 @@
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
 !    mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
-!    set_dust, setup_params, timestep, unifdis, units
+!    set_dust, setshock, setup_params, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
