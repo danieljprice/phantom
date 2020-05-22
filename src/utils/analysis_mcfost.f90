@@ -121,7 +121,7 @@ contains
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
          n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
 
-    Tmin = minval(Tdust, mask=(Tdust > 0.))
+    Tmin = minval(Tdust, mask=(Tdust > 1.))
     Tmax = maxval(Tdust)
 
     write(*,*) ''
