@@ -23,6 +23,7 @@
 !    kappa       -- opacity in cm^2/g
 !    nx          -- resolution (number of particles in x) for -xleft < x < xshock
 !    polyk       -- square of the isothermal sound speed
+!    smooth_fac  -- smooth shock front over lengthscale smooth_fac*dxleft
 !    xleft       -- x min boundary
 !    xright      -- x max boundary
 !

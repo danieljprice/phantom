@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: 
+!  DEPENDENCIES: boundary, dim, kdtree, kernel, linklist, part
 !+
 !--------------------------------------------------------------------------
 module getneigbours

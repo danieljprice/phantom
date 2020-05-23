@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, io, kernel, linklist, part, physcon, prompting,
+!  DEPENDENCIES: dim, eos, getneigbours, io, part, physcon, prompting,
 !    sortutils
 !+
 !--------------------------------------------------------------------------

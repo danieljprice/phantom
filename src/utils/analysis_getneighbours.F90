@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, kernel, linklist, part
+!  DEPENDENCIES: getneigbours
 !+
 !--------------------------------------------------------------------------
 module analysis

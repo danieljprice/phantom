@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, io, kernel, linklist, part, physcon, prompting,
-!    units
+!  DEPENDENCIES: dim, eos, getneigbours, io, kernel, part, physcon,
+!    prompting, units
 !+
 !--------------------------------------------------------------------------
 module analysis
