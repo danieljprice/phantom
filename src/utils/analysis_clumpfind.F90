@@ -460,7 +460,7 @@ end subroutine amend_options_file
 !-----------------------------------------------------------------------
 !+
 ! Add contribution to potential from sinks
-! This currently ignores periodicity	
+! This currently ignores periodicity        
 !+
 !-----------------------------------------------------------------------
 subroutine add_sink_potential(npart)
