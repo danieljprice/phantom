@@ -67,7 +67,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten
  use readwrite_dumps, only:opened_full_dump
  use sortutils,       only:indexx
- 
+
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -461,7 +461,7 @@ end subroutine amend_options_file
 !-----------------------------------------------------------------------
 !+
 ! Add contribution to potential from sinks
-! This currently ignores periodicity        
+! This currently ignores periodicity
 !+
 !-----------------------------------------------------------------------
 subroutine add_sink_potential(npart)
@@ -717,7 +717,7 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
        call update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
        call calc_clump_boundness(iclump)
     endif
-    
+
     ! Ignore clumps that are bound
     if (clump(iclump)%bound < 1) cycle over_clumps
     if (clump(iclump)%num == 1 .and. clump(iclump)%pointmass /= 0 ) cycle over_clumps
@@ -831,7 +831,7 @@ end subroutine calc_clump_boundness
 !-----------------------------------------------------------------------
 !+
 ! Recalculate a clump's gravitational potential if it crosses the boundary
-! This may not be the most accurate, but for speed and simplicity, 
+! This may not be the most accurate, but for speed and simplicity,
 ! re-calculate poten(i) via brute force using only the clump members
 !+
 !-----------------------------------------------------------------------
@@ -842,7 +842,7 @@ subroutine update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
  integer, intent(in) :: iclump,npart
  real,    intent(in) :: pmass,xyzh(:,:),xyzmh_ptmass(:,:)
  integer             :: i,j,ii,jj,jpt,cID,nmember,imember(maxp)
- real                :: sep,dx,dy,dz,clumppoten,dpotenj_thread(maxp) 
+ real                :: sep,dx,dy,dz,clumppoten,dpotenj_thread(maxp)
 
  cID        = clump(iclump)%ID
  jpt        = clump(iclump)%pointmass

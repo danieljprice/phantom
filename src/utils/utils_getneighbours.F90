@@ -156,7 +156,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
     enddo over_parts         ! End loop over particles in the cell
  enddo over_cells            ! End loop over cells in the kd-tree
  !$omp enddo
- !$omp end parallel 
+ !$omp end parallel
 
  ! Do some simple stats on neighbour numbers
  meanneigh = 0.0
