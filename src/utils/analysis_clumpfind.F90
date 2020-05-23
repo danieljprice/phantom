@@ -330,7 +330,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     runningclumpmax = k                 ! Update current maximum clump count and save it
     call amend_options_file(dumpfile)
  else
-   ! Match clump IDs across dump files
+    ! Match clump IDs across dump files
     call merger_tree(npart,dumpfile)
  endif
 
@@ -445,7 +445,7 @@ end subroutine read_analysis_options
 !+
 !-----------------------------------------------------------------------
 subroutine amend_options_file(dumpfile)
-  character(len=*),intent(in) :: dumpfile
+ character(len=*),intent(in) :: dumpfile
 
  ! Open the options file, and wind forward to the line of interest
  open(10,file='clumpfind.options', form='formatted')
@@ -797,7 +797,7 @@ subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
 #endif
           sep = sqrt( dx*dx + dy*dy + dz*dz )
           clump(iclump)%size = max(clump(iclump)%size,sep)
-    enddo separations_again
+       enddo separations_again
 
     endif
 
@@ -895,9 +895,9 @@ subroutine update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
  enddo
 !$omp enddo
 !$omp critical(collatedata)
-  do ii = 1,nmember
-     i = imember(ii)
-     dpoten(i) = dpoten(i) + dpotenj_thread(i)
+ do ii = 1,nmember
+    i = imember(ii)
+    dpoten(i) = dpoten(i) + dpotenj_thread(i)
  enddo
 !$omp end critical(collatedata)
 !$omp end parallel
@@ -907,9 +907,9 @@ subroutine update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
 !$omp private(i,ii) &
 !$omp reduction(+:clumppoten)
 !$omp do schedule(runtime)
-  do ii = 1,nmember
-     i = imember(ii)
-     clumppoten = clumppoten + dpoten(i)
+ do ii = 1,nmember
+    i = imember(ii)
+    clumppoten = clumppoten + dpoten(i)
  enddo!$omp enddo
 !$omp end parallel
  clump(iclump)%potential = clumppoten

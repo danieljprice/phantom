@@ -44,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ! Assign neighbour lists to particles by searching shared list of host cell
  !***************************************
 
-  call generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,.true.)
+ call generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,.true.)
 
  !**************************************
  ! Output neighbour lists to file

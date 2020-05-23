@@ -115,12 +115,12 @@ contains
 !  Callback function to setup smooth density
 !+
 !----------------------------------------------
- real function rhosmooth(x)
-  real, intent(in) :: x
+real function rhosmooth(x)
+ real, intent(in) :: x
 
-  rhosmooth = fsmooth(x,xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
+ rhosmooth = fsmooth(x,xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
 
- end function rhosmooth
+end function rhosmooth
 
 end subroutine set_shock
 
