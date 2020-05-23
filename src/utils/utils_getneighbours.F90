@@ -92,8 +92,10 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
 
  !$omp parallel default(none) &
  !$omp shared(ncells,ifirstincell,npart,maxphase,maxp,inodeparts,inoderange) &
- !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb,dxbound,dybound,dzbound) &
- !$omp private(icell,i,j,k,ip)&
+ !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
+#ifdef PERIODIC
+ !$omp shared(dxbound,dybound,dzbound) &
+#endif !$omp private(icell,i,j,k,ip)&
  !$omp private(nneigh) &
  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
  !$omp private(dx,dy,dz)
