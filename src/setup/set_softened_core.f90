@@ -30,8 +30,8 @@ module setsoftenedcore
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
                             get_idealplusrad_enfromtemp
  implicit none
- real(kind=8)  :: hsoft,msoft,mcore
- integer       :: hidx
+ real    :: hsoft,msoft,mcore
+ integer :: hidx
 
  ! hsoft: Radius below which we replace the original profile with a
  !        softened profile. Note: This is called 'hdens' in
@@ -149,7 +149,7 @@ subroutine find_mcore_given_hsoft(hsoft,r,rho0,m0,mcore,ierr)
     mc = mc + 0.01*m0(hidx) ! Increase mcore/m(h) by 1 percent
     counter = counter+1
  enddo
- ! Write out mcore in solar masses
+ ! Output mcore in solar masses
  mcore = mc / solarm
 end subroutine find_mcore_given_hsoft
 
@@ -357,74 +357,5 @@ subroutine diff(array, darray)
     darray(i) = array(i+1) - array(i)
  enddo
 end subroutine diff
-
-!----------------------------------------------------------------
-!+
-!  Write stellar profile in a Phantom-readable format
-!+
-!----------------------------------------------------------------
-subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
- real, allocatable               :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- character(len=120), intent(in)  :: outputpath
- integer                         :: i
- open(1, file = outputpath, status = 'new')
- write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
- write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
-42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
- close(1, status = 'keep')
-end subroutine write_softened_profile
-
-
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp)
- integer                                           :: lines,rows=0,i
- character(len=120), intent(in)                    :: filepath
- character(len=10000)                              :: dumc
- character(len=24),allocatable                     :: header(:),dum(:)
- real(kind=8),allocatable,dimension(:,:)           :: dat
- real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp
-
- ! reading data from datafile ! -----------------------------------------------
- open(unit=40,file=filepath,status='old')
- read(40,'()')
- read(40,'()')
- read(40,*) lines, lines
- read(40,'()')
- read(40,'()')
- read(40,'(a)') dumc! counting rows
- allocate(dum(500)) ; dum = 'aaa'
- read(dumc,*,end=101) dum
-101 do i = 1, 500
-    if (dum(i)=='aaa') then
-       rows = i-1
-       exit
-    endif
- enddo
-
- allocate(header(1:rows),dat(1:lines,1:rows))
- header(1:rows) = dum(1:rows)
- deallocate(dum)
-
- do i = 1, lines
-    read(40,*) dat(lines-i+1,1:rows)
- enddo
-
- allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
-          temp(1:lines))
-
- do i = 1, rows
-!   if (trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
-!   if (trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
-!   if (trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
-!   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
-!   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
-!   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
- enddo
-end subroutine read_mesa
 
 end module setsoftenedcore

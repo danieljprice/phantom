@@ -116,14 +116,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,           only: set_units,select_unit,utime,unit_density
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-                            rho_evrard,read_mesa_file,read_kepler_file
+                            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+                            write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only: init_eos,finish_eos,equationofstate,gmw
  use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
-                           check_hsoft_and_mcore,read_mesa,write_softened_profile,interpolator
+                           check_hsoft_and_mcore,interpolator
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
  integer,           intent(in)    :: id
