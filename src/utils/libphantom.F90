@@ -1248,6 +1248,12 @@ subroutine amuse_initialize_code()
     use physcon, only:solarm,pc
     use timestep, only:dtmax
     use initial, only:initialise
+#ifdef IND_TIMESTEPS
+    use timestep_ind,     only:istepfrac,ibinnow
+    use part,             only:ibin,ibin_old,ibin_wake
+#else
+    use timestep,         only:dtcourant,dtforce
+#endif
     implicit none
     call allocate_memory(maxp_hard)
     call set_defaults()
@@ -1260,6 +1266,18 @@ subroutine amuse_initialize_code()
     call initialise()
     call set_units(dist=0.1*pc,mass=1.0*solarm,G=1.) ! from setup_cluster
     dtmax = 0.01 * utime
+
+#ifdef IND_TIMESTEPS
+    ibin(:)       = 0
+    ibin_old(:)   = 0
+    ibin_wake(:)  = 0
+    istepfrac     = 0
+    ibinnow       = 0
+#else
+    dtcourant = huge(dtcourant)
+    dtforce   = huge(dtforce)
+#endif
+
 end subroutine
 
 subroutine amuse_commit_particles()
@@ -1316,6 +1334,8 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
     use part, only:twas,ibin
     use timestep_ind, only:istepfrac,get_dt,nbinmax,change_nbinmax,get_newbin
     use timestep, only:dt,time,dtmax
+    use timestep, only:C_cour,rhomaxnow
+    use eos, only:gamma
 #endif
     implicit none
     integer :: n, i, itype
@@ -1347,8 +1367,12 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
     abundance(iHI,i) = 1.  ! assume all gas is atomic hydrogen initially
 
 #ifdef IND_TIMESTEPS
+    dtinject = C_cour * h / (gamma*(gamma-1)*u)**0.5
     nbinmaxprev = nbinmax
     call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+    ! not doing clever stuff: all particles go in the shortest possible bin.
+    ! FIXME rethink this later...
+    nbinmax = 30
     if (nbinmax > nbinmaxprev) then ! update number of bins if needed
        call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
        print*, "nbinmax (prev), time: ", nbinmax, nbinmaxprev, time
