@@ -26,7 +26,7 @@
 !+
 !--------------------------------------------------------------------------
 module setsoftenedcore
- use physcon,          only:pi,gg,solarm,solarr
+ use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
                             get_idealplusrad_enfromtemp
  implicit none
@@ -51,13 +51,16 @@ contains
 !  core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
- real, intent(inout) :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
- real, allocatable   :: phi(:)
- real, intent(in)    :: mu,mcore,hsoft,hphi
- real                :: mc,h,hphi_cm,tempi,eni
- logical             :: isort_decreasing,iexclude_core_mass
- integer             :: i
+subroutine set_softened_core(ieos,gamma,mu,mcore,hsoft,hphi, &
+                             rho,r,pres,m,ene,temp,ierr,Xfrac,Yfrac)
+ real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
+ real, allocatable          :: phi(:)
+ real, intent(in), optional :: Xfrac(:),Yfrac(:)
+ real, intent(in)           :: mu,mcore,hsoft,hphi,gamma
+ integer, intent(in)        :: ieos
+ integer, intent(out)       :: ierr
+ real                       :: mc,h,hphi_cm
+ logical                    :: isort_decreasing,iexclude_core_mass
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
@@ -71,40 +74,21 @@ subroutine set_softened_core(mu,mcore,hsoft,hphi,rho,r,pres,m,ene,temp)
  call interpolator(r,h,hidx)   ! Find index in r closest to h
  msoft = m(hidx) - mc
 
- call calc_rho_and_m(rho, m, r, mc, h)    ! Calculate density and mass profile
- call calc_phi(r, mc, m-mc, hphi_cm, phi) ! Calculate gravitational potential
- call calc_pres(r, rho, phi, pres)        ! Calculate pressure
- !
- ! Calculate temperature profile from pressure and density
- ! (only implemented for ideal gas plus radiation pressure
- ! EoS for now)
- !
- temp(size(r)) = 0.
- do i = 1,size(r)-1
-    tempi = temp(i)
-    call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
-    temp(i) = tempi
- enddo
- !
- ! Calculate internal energy per unit mass
- ! (only implemented for ideal gas plus radiation pressure
- ! EoS for now)
- !
- do i = 1,size(r)
-    call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,eni)
-    ene(i) = eni
- enddo
+ call calc_rho_and_m(rho, m, r, mc, h)
+ call calc_phi(r, mc, m-mc, hphi_cm, phi)
+ call calc_pres(r, rho, phi, pres)
+ call calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
-    call flip_array(m)
-    call flip_array(pres)
-    call flip_array(temp)
-    call flip_array(r)
-    call flip_array(rho)
-    call flip_array(ene)
-    call flip_array(phi)
- endif
+   call flip_array(m)
+   call flip_array(pres)
+   call flip_array(temp)
+   call flip_array(r)
+   call flip_array(rho)
+   call flip_array(ene)
+   call flip_array(phi)
+endif
 
  if (iexclude_core_mass) then
     m = m - mc
@@ -309,6 +293,91 @@ subroutine calc_pres(r, rho, phi, pres)
     pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  enddo
 end subroutine calc_pres
+
+
+subroutine calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+ real, intent(in)           :: rho(:),pres(:)
+ real, intent(in), optional :: Xfrac(:),Yfrac(:)
+ real, intent(in)           :: mu,gamma
+ real, intent(inout)        :: ene(:),temp(:)
+ integer, intent(in)        :: ieos,hidx
+ integer, intent(out)       :: ierr
+ real                       :: e_rec,tempi,muprofile(size(rho))
+ integer                    :: i
+
+ ! Calculate temperature and internal energy profile depending on EoS
+ ierr = 0
+ if (ieos == 2) then ! Adiabatic/polytropic EoS
+    temp = pres / (rho * kb_on_mh) * mu
+    ene = pres / ( (gamma-1.) * rho)
+
+ elseif (ieos == 10) then ! MESA EoS (note: only an approximation)
+    if (.not. ( present(Xfrac) .and. present(Yfrac) )) then
+       ierr = 1
+       return
+    endif
+    ! Calculate mu from X, Y instead of using the guessed mu
+    muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
+
+    ! Approximate T(r<h) as that of ideal gas plus radiation
+    do i = 1,hidx
+       tempi = temp(i)
+       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),muprofile(i),tempi)
+       temp(i) = tempi
+    enddo
+
+    ! Calculate internal energy
+    do i = 1,hidx
+       ! Contribution from pressure and gas
+       call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
+       ! Add ionisation energy
+       call calc_rec_ene(Xfrac(i),Yfrac(i),e_rec)
+       ene(i) = ene(i) + e_rec
+    enddo
+
+ elseif (ieos == 12) then ! Ideal gas plus radiation pressure EoS
+    temp(size(rho)) = 0. ! Zero surface temperature
+    do i = 1,size(rho)-1
+       tempi = temp(i)
+       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
+       temp(i) = tempi
+    enddo
+
+    do i = 1,size(rho)
+       call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,ene(i))
+    enddo
+
+ else
+    ierr = 2 ! Return error: Selected EoS not supported in setsoftenedcore
+ endif
+
+end subroutine calc_temp_and_ene
+
+!----------------------------------------------------------------
+!+
+!  Get recombination energy (per unit mass) complete ionisation
+!+
+!----------------------------------------------------------------
+subroutine calc_rec_ene(XX,YY,e_rec)
+ real, intent(in)  :: XX, YY
+ real, intent(out) :: e_rec
+ real              :: e_H2,e_HI,e_HeI,e_HeII
+ real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
+                      e_ion_HI   = 4.36d12, &
+                      e_ion_HeI  = 2.3723d13, &
+                      e_ion_HeII = 5.2505d13
+
+ ! XX     : Hydrogen mass fraction
+ ! YY     : Helium mass fraction
+ ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
+ 
+ e_H2   = 0.5 * XX * e_ion_H2
+ e_HI   = XX * e_ion_HI
+ e_HeI  = 0.25 * YY * e_ion_HeI
+ e_HeII = 0.25 * YY * e_ion_HeII
+ e_rec  = e_H2 + e_HI + e_HeI + e_HeII
+
+end subroutine calc_rec_ene
 
 !----------------------------------------------------------------
 !+

@@ -446,13 +446,14 @@ end subroutine read_mesa_file
 !  read profile to be softened using the setsoftenedcore module
 !+
 !-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp)
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
    integer                                           :: lines,rows=0,i
    character(len=120), intent(in)                    :: filepath
    character(len=10000)                              :: dumc
    character(len=24),allocatable                     :: header(:),dum(:)
    real(kind=8),allocatable,dimension(:,:)           :: dat
-   real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp
+   real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp, &
+                                                        Xfrac,Yfrac
   
    ! reading data from datafile ! -----------------------------------------------
    open(unit=40,file=filepath,status='old')
@@ -464,7 +465,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp)
    read(40,'(a)') dumc! counting rows
    allocate(dum(500)) ; dum = 'aaa'
    read(dumc,*,end=101) dum
-  101 do i = 1, 500
+  101 do i = 1,500
       if (dum(i)=='aaa') then
          rows = i-1
          exit
@@ -475,26 +476,22 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp)
    header(1:rows) = dum(1:rows)
    deallocate(dum)
   
-   do i = 1, lines
+   do i = 1,lines
       read(40,*) dat(lines-i+1,1:rows)
    enddo
   
    allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
-            temp(1:lines))
+            temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
   
    do i = 1, rows
-  !   if (trim(header(i))=='[    Mass   ]') m(1:lines) = dat(1:lines,i)
-  !   if (trim(header(i))=='[  Density  ]') rho(1:lines) = dat(1:lines,i)
-  !   if (trim(header(i))=='[   E_int   ]') ene(1:lines) = dat(1:lines,i)
-  !   if (trim(header(i))=='[   Radius  ]') r(1:lines) = dat(1:lines,i)
-  !   if (trim(header(i))=='[  Pressure ]') pres(1:lines) = dat(1:lines,i)
-  !   if (trim(header(i))=='[Temperature]') temp(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+      if (trim(header(i))=='x_mass_fraction_H') Xfrac(1:lines) = dat(1:lines,i)
+      if (trim(header(i))=='y_mass_fraction_He') Yfrac(1:lines) = dat(1:lines,i)
    enddo
   end subroutine read_mesa
 
