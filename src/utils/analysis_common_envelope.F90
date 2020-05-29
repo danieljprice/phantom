@@ -198,7 +198,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     unitnum = unitnum + 1
 
  case(15) !Gravitational drag on sinks
-    ieos = 2 ! Mike: Hard coding this for now
     call gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
 
  case(16)
@@ -1382,8 +1381,8 @@ end subroutine bound_unbound_thermo
 subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
  implicit none
  integer, intent(in)                   :: npart,num
- real, intent(in)                      :: time,particlemass
- real, intent(inout)                   :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)                   :: time,particlemass
+ real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable        :: columns(:)
  character(len=17)                     :: filename
  integer                               :: nvc,i,j,k,iorder(npart),ncols,npart_insphere
@@ -1396,11 +1395,14 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
  real                                  :: rhopart,cs,racc,fonrmax,fxi,fyi,fzi,phii
  real, dimension(4,maxptmass)          :: fxyz_ptmass
 
- ncols = 11
+ ! OPTIONS
+ ieos = 2 ! Do not hard-code in the future
+
+ ncols = 10
  allocate(columns(ncols))
  columns = (/'   par. num.', & ! Parallel component of gravitational drag from direct summation
              '  perp. num.', & ! Perpendicular component of gravitational drag from direct summation
-             '    from dJz', & ! Parallel component of gravitational drag from direct summation
+!             '    from dJz', & ! Parallel component of gravitational drag from direct summation
              '  analytical', & ! Gravitational drag from Bondi-Hoyle theory
              'vel contrast', &
              'par. v. con.', & ! Parallel velocity contrast
@@ -1410,96 +1412,109 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
              '        racc', & ! Bondi-Hoyle radius
              'com-sink sep'/)
 
- ! Initialise
- drag_force   = 0.
- fxyz_ptmass  = 0.
- avg_vel      = 0.
- avg_vel_par  = 0.
- avg_vel_perp = 0.
- vel_contrast = 0.
- nvc          = 0
- racc         = 0.
- cs           = 0.
- rhopart      = 0.
- call unit_vector(vxyz_ptmass(1:3,2), unit_vel(1:3))
- 
- ! Calculate (z-)angular momentum of point masses in first dump analysed
- if (dump_number == 0) then
-    allocate(ang_mom_old(nptmass))
-    do i = 1,nptmass
-       call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
-       ang_mom_old(i) = ang_mom(3)
-    enddo
-    time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
-                    ! This should actually be -dtmax in the infile
- endif
+ drag_force = 0.
+ do i = 1,2
+    ! Note: The analysis below is performed for both the companion (i=2) and the donor core (i=1). We
+    !       comment for the case of the companion only for clarity.
+    fxyz_ptmass  = 0.
+    avg_vel      = 0.
+    avg_vel_par  = 0.
+    avg_vel_perp = 0.
+    vel_contrast = 0.
+    nvc          = 0
+    racc         = 0.
+    cs           = 0.
+    rhopart      = 0.
+    call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
+   
+   !TO BE DEPRECATED-------------------------------------------------------------------------------------
+   ! Calculate (z-)angular momentum of point masses about the system CoM in first dump that is analysed
+   !  if (dump_number == 0) then
+   !     allocate(ang_mom_old(nptmass))
+   !     do i = 1,nptmass
+   !        call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), ang_mom)
+   !        ang_mom_old(i) = ang_mom(3)
+   !     enddo
+   !     time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
+   !                     ! This should actually be -dtmax in the infile
+   !  endif
+   !
+   ! Calculate CoM of the stellar cores plus with the inclusion
+   ! of a small number of particles around the primary. 
+   ! call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+   !------------------------------------------------------------------------------------------------------
 
- ! Calculate CoM of the stellar cores plus with the inclusion
- ! of a small number of particles around the primary. 
- call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+   ! Get order of particles from closest to farthest from companion
+   call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
+   call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
- ! Get order of particles from closest to farthest from companion
- call set_r2func_origin(xyzmh_ptmass(1,2),xyzmh_ptmass(2,2),xyzmh_ptmass(3,2))
- call indexxfunc(npart,r2func_origin,xyzh,iorder)
+   ! Sum velocities, cs, and densities of all particles within radius 'sep' from
+   ! the companion, where 'sep' is the distance between the companion and the 
+   ! orbit CoM
+   do j = 1,npart
+      ! Only use particles within sphere centred on the companion with radius
+      ! equal to the distance from the CoM to the companion 
+      k = iorder(j)
+      if (.not. isdead_or_accreted(xyzh(4,k))) then
+         sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+         if (sep > separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))) exit
+         ! if (sep > separation(xyzmh_ptmass(1:3,2-i),xyzmh_ptmass(1:3,i))) exit ! TO REPLACE
+         avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
+         cs           = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
+         rhopart      = rhopart + rhoh(xyzh(4,k), particlemass)
+      endif
+   enddo
 
- ! Sum velocities, cs, and densities of all particles within radius
- ! centre_sep from the companion
- do j = 1,npart
-    ! Only use particles within sphere centred on the companion with radius
-    ! equal to the distance from the CoM to the companion 
-    k = iorder(j)
-    if (.not. isdead_or_accreted(xyzh(4,k))) then
-       sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,2))
-       if (sep > separation(com_xyz(1:3),xyzmh_ptmass(1:3,2))) exit
-      
-       avg_vel(1:3) = avg_vel(1:3) + vxyzu(1:3,k)
-       cs           = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
-       rhopart      = rhopart + rhoh(xyzh(4,k), particlemass)
-      
-       ! Sum acceleration (fxyz_ptmass) on companion due to gravity of gas particles
-       call get_accel_sink_gas(nptmass,xyzh(1,k),xyzh(2,k),xyzh(3,k),xyzh(4,k),xyzmh_ptmass,&
+   npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
+
+   ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
+   do j = 1,npart
+      if (.not. isdead_or_accreted(xyzh(4,j))) then
+          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
                               fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
-    endif
+      endif
+   enddo
+
+   ! Average within sphere
+   if (npart_insphere > 0) then
+      avg_vel(1:3)      = avg_vel(1:3) / float(npart_insphere)
+      avg_vel_par(1:3)  = dot_product(avg_vel, unit_vel) * unit_vel
+      avg_vel_perp(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
+      vel_contrast      = separation(vxyz_ptmass(1:3,i),avg_vel_par(1:3))
+      cs                = cs      / float(npart_insphere)
+      rhopart           = rhopart / float(npart_insphere)
+      racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Hoyle-Lyttleton radius
+   endif
+
+   call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
+
+   !TO BE DEPRECATED-------------------------------------------------------------------------------------
+   ! ! Calculate angular momentum of companion wrt orbit CoM
+   ! call cross(xyzmh_ptmass(1:3,2) - com_xyz(1:3), xyzmh_ptmass(4,2)*vxyz_ptmass(1:3,2), ang_mom)
+   ! Jdot             = (ang_mom(3) - ang_mom_old(2)) / (time - time_old) ! Average change in angular momentum
+   ! R2               = distance(xyzmh_ptmass(1:3,2) - com_xyz(1:3))
+   ! ang_mom_old(2)   = ang_mom(3) ! Set ang_mom_old for next dump
+   !------------------------------------------------------------------------------------------------------
+   
+   drag_force(1,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel)       * xyzmh_ptmass(4,i)
+   drag_force(2,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel_perp)  * xyzmh_ptmass(4,i)
+   !drag_force(3,i)  = Jdot / R2
+   drag_force(3,i)  = - rhopart * (vel_contrast * abs(vel_contrast)) * pi * racc**2.
+   drag_force(4,i)  = vel_contrast
+   drag_force(5,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
+   drag_force(6,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
+   drag_force(7,i)  = cs 
+   drag_force(8,i)  = rhopart
+   drag_force(9,i) = racc
+   drag_force(10,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+
+   ! Write to output
+   write (filename, "(A16,I0)") "sink_drag_", i
+   call write_time_file(trim(adjustl(filename)), columns, time, drag_force(:,i), ncols, dump_number)
+   time_old = time
+   deallocate(columns)
+
  enddo
-
- npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
-
- ! Average within sphere
- if (npart_insphere > 0) then
-    avg_vel(1:3)      = avg_vel(1:3) / float(npart_insphere)
-    avg_vel_par(1:3)  = dot_product(avg_vel, unit_vel) * unit_vel
-    avg_vel_perp(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
-    vel_contrast      = separation(vxyz_ptmass(1:3,2),avg_vel_par(1:3))
-    cs                = cs      / float(npart_insphere)
-    rhopart           = rhopart / float(npart_insphere)
-    racc              = 2. * xyzmh_ptmass(4,2) / (vel_contrast**2 + cs**2) ! Bondi-Hoyle radius
- endif
-
- call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
-
- ! Calculate angular momentum of companion wrt orbit CoM
- call cross(xyzmh_ptmass(1:3,2) - com_xyz(1:3), xyzmh_ptmass(4,2)*vxyz_ptmass(1:3,2), ang_mom)
- Jdot             = (ang_mom(3) - ang_mom_old(2)) / (time - time_old) ! Average change in angular momentum
- R2               = distance(xyzmh_ptmass(1:3,2) - com_xyz(1:3))
- ang_mom_old(2)   = ang_mom(3) ! Set ang_mom_old for next dump
- 
- drag_force(1,2)  = dot_product(fxyz_ptmass(1:3,2),unit_vel)       * xyzmh_ptmass(4,2)
- drag_force(2,2)  = dot_product(fxyz_ptmass(1:3,2),unit_vel_perp)  * xyzmh_ptmass(4,2)
- drag_force(3,2)  = Jdot / R2
- drag_force(4,2)  = - rhopart * (vel_contrast * abs(vel_contrast)) * pi * racc**2.
- drag_force(5,2)  = vel_contrast
- drag_force(6,2)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
- drag_force(7,2)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
- drag_force(8,2)  = cs 
- drag_force(9,2)  = rhopart
- drag_force(10,2) = racc
- drag_force(11,2) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,2))
-
- ! Write to output
- write (filename, "(A16,I0)") "sink_drag_", 2
- call write_time_file(trim(adjustl(filename)), columns, time, drag_force(:,2), ncols, dump_number)
- time_old = time
- deallocate(columns)
 end subroutine gravitational_drag
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1682,8 +1697,9 @@ end subroutine stellar_profile
 
 !----------------------------------------------------------------
 !+
-!  Get centre of mass position and velocity of point masses and
-!  a selection of gas particles nearest the donor core.
+!  Get CoM position and velocity of the two point masses plus
+!  gas particles radius = 2*sep from the donor, where sep is the
+!  distance between the donor and the CoM of just the point masses.
 !+
 !----------------------------------------------------------------
 subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
@@ -1704,10 +1720,10 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
  call set_r2func_origin(com_xyz(1),com_xyz(2),com_xyz(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
- ! Displacement of donor core from orbit CoM
+ ! Displacement of donor core from the CoM of point masses
  sep = separation(xyzmh_ptmass(1:3,1),com_xyz(1:3))
 
- ! Calculate CoM of point masses, including only gas particles within radius = 2*sep from donor core
+ ! Calculate CoM of orbit, including only gas particles within radius = 2*sep from donor core
  ! The point is that by including some gas particles around the donor core, we get a more accurate
  ! position of the CoM about which the stellar cores orbit
  do i=1,npart
