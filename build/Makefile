@@ -895,9 +895,9 @@ ifeq ($(SETUP), sgdisc)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
-#   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
-    ANALYSIS = analysis_disc_stresses.f90
-#    ANALYSIS = ${LINKLIST} analysis_getneighbours.f90
+#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
+    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
+#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
     KNOWN_SETUP=yes
 endif
 
@@ -1835,7 +1835,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 \
           geometry.f90 relax_star.f90 set_stellar_core.f90 set_softened_core.f90 stretchmap.f90 density_profiles.f90 \
-          set_unifdis.f90 set_slab.f90 set_sphere.f90 set_disc.F90 \
+          set_unifdis.f90 set_slab.f90 set_shock.f90 set_sphere.f90 set_disc.F90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
@@ -1991,13 +1991,13 @@ libphantom.a: checksystem checkparams phantom ${OBJLIB}
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
-libphantom: libphantom.a libphantom.so
+libphantom: libphantom.a #libphantom.so
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
 
 .PHONY: pyanalysis
-pyanalysis: libphantom
+pyanalysis: libphantom.so
 
 #------------------------------------------------------
 # Various utilities for computing structure functions
