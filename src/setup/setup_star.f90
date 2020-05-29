@@ -116,14 +116,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,           only: set_units,select_unit,utime,unit_density
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-                            rho_evrard,read_mesa_file,read_kepler_file
+                            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+                            write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only: init_eos,finish_eos,equationofstate,gmw
  use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
-                           check_hsoft_and_mcore,read_mesa,write_softened_profile,interpolator
+                           check_hsoft_and_mcore,interpolator
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
  integer,           intent(in)    :: id
@@ -141,7 +142,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
                                      enitab(ng_max)
- real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:)
+ real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
+                                     Xfrac(:),Yfrac(:)
  real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi
  logical                          :: calc_polyk,write_setup
  character(len=120)               :: setupfile,inname
@@ -247,7 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        ! Read the MESA profile to be softened
        !
-       call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0)
+       call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0,Xfrac,Yfrac)
        rmin  = r0(1)
        Rstar = r0(size(r0))
        !
@@ -274,7 +276,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
 
-       call set_softened_core(gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0)
+       call set_softened_core(ieos,gamma,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr,Xfrac,Yfrac)
+       if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
+       if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
@@ -766,6 +770,8 @@ subroutine write_setupfile(filename,gamma,polyk)
  write(iunit,"(/,a)") '# core softening and sink stellar core options'
  call write_inopt(isoftcore,'isoftcore','Soften the core of an input MESA profile',iunit)
  if (isoftcore) then
+    call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
+    if (ieos==2) call write_inopt(gamma,'gamma','adiabatic index',iunit)
     call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
     call write_inopt(unsoftened_profile,'unsoftened_profile','Path to MESA profile for softening',iunit)
     call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
@@ -850,6 +856,8 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
     call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
     call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
+    call read_inopt(ieos,'ieos',db,errcount=nerr)
+    if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
     if (isofteningopt==1) call read_inopt(hdens,'hdens',db,errcount=nerr)
     if (isofteningopt==2) call read_inopt(mcore,'mcore',db,errcount=nerr)
     if (isofteningopt==3) then
