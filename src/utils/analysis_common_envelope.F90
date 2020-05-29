@@ -1514,35 +1514,7 @@ subroutine gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
    time_old = time
    deallocate(columns)
 
-<<<<<<< HEAD
  enddo
-=======
- call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
-
- ! Calculate angular momentum of companion wrt orbit CoM
- call cross(xyzmh_ptmass(1:3,2) - com_xyz(1:3), xyzmh_ptmass(4,2)*vxyz_ptmass(1:3,2), ang_mom)
- Jdot             = (ang_mom(3) - ang_mom_old(2)) / (time - time_old) ! Average change in angular momentum
- R2               = distance(xyzmh_ptmass(1:3,2) - com_xyz(1:3))
- ang_mom_old(2)   = ang_mom(3) ! Set ang_mom_old for next dump
-
- drag_force(1,2)  = dot_product(fxyz_ptmass(1:3,2),unit_vel)       * xyzmh_ptmass(4,2)
- drag_force(2,2)  = dot_product(fxyz_ptmass(1:3,2),unit_vel_perp)  * xyzmh_ptmass(4,2)
- drag_force(3,2)  = Jdot / R2
- drag_force(4,2)  = - rhopart * (vel_contrast * abs(vel_contrast)) * pi * racc**2.
- drag_force(5,2)  = vel_contrast
- drag_force(6,2)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
- drag_force(7,2)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
- drag_force(8,2)  = cs
- drag_force(9,2)  = rhopart
- drag_force(10,2) = racc
- drag_force(11,2) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,2))
-
- ! Write to output
- write (filename, "(A16,I0)") "sink_drag_", 2
- call write_time_file(trim(adjustl(filename)), columns, time, drag_force(:,2), ncols, dump_number)
- time_old = time
- deallocate(columns)
->>>>>>> 666da9e892cb3f2d9f89e132504e185fe2f22f31
 end subroutine gravitational_drag
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
