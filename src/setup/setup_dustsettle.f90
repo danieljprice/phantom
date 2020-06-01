@@ -209,7 +209,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--one fluid dust: set dust fraction on gas particles
     if (use_dustfrac) then
-       call set_dustfrac(dtg,dustfrac(:,i))
+       if (ndusttypes > 1) then
+          dustfrac(1:ndusttypes,i) = dustbinfrac(1:ndusttypes)*dtg
+       else
+          call set_dustfrac(dtg,dustfrac(:,i))
+       endif
     else
        dustfrac(:,i) = 0.
     endif
