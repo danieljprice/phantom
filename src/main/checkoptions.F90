@@ -42,7 +42,6 @@ subroutine check_compile_time_settings(ierr)
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
  use dim,          only:maxsts
-
 #endif
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
