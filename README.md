@@ -25,6 +25,7 @@ Code structure
 
 The Phantom source code is structured as follows:
 
+|                  |                                                       |
 | ---------------- | ----------------------------------------------------- |
 | `build/Makefile` | main Makefile for compiling Phantom and all utilities |
 | `src/main`       | source for main code                                  |
@@ -40,16 +41,24 @@ If you need help, please try the following, in order:
 1. Check the [documentation](https://phantomsph.readthedocs.org/).
 2. File an issue, as a [bug report](https://github.com/danieljprice/phantom/issues/new) or [feature request](https://github.com/danieljprice/phantom/issues/new), using the issue tracker.
 
+Contributing
+------------
+We welcome contributions, including (but not limited to):
+
+1. Code, via [pull request](https://github.com/danieljprice/phantom/pulls). Please read developer section of user guide for guidelines.
+2. Documentation, also by [pull request](https://github.com/danieljprice/phantom/pulls). Docs can be edited in the docs/ directory of the main code.
+3. Suggestions for features or bug reports, via the [issue tracker](https://github.com/danieljprice/phantom/issues/new). Please file bugs via github rather than by email.
+
 Slack
 -----
 
-We welcome general discussion about Phantom, smoothed particle hydrodynamics,
+We welcome general discussion about Phantom, Smoothed Particle Hydrodynamics,
 and astrophysics at the [Phantom Slack](https://phantomsph.slack.com/).
 
 Citation
 --------
 
-Please cite [Price et al. 2018](http://adsabs.harvard.edu/abs/2018PASA...35...31P) when using phantom. Wherever possible, please try to also cite original references for the algorithms you are using. A partial list can be found in `docs/phantom.bib` file, or by reading the relevant sections of the phantom paper.
+Please cite [Price et al. (2018)](http://adsabs.harvard.edu/abs/2018PASA...35...31P) when using Phantom. Wherever possible, please try to also cite original references for the algorithms you are using. A partial list can be found in `docs/phantom.bib` file, or by reading the relevant sections of the paper.
 
 Licence
 -------
