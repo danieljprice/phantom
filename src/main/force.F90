@@ -956,7 +956,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iamtypei
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
- real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2),metricj(0:3,0:3,2)
+ real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
@@ -967,7 +967,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: densj
  real    :: lorentzi,lorentzj
  real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: veli(3),velj(3),vij
+ real    :: veli(3),velj(3),vij,metricj(0:3,0:3,2)
  real    :: enthdensav
 #endif
 
