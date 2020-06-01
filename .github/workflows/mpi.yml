@@ -21,6 +21,7 @@ jobs:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
 
+    steps:
     - name: Install openMPI
       run: sudo apt-get install openmpi-bin openmpi-common libopenmpi-dev
 
