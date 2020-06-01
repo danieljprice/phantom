@@ -16,6 +16,9 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    env:
+      SYSTEM: gfortran
+      OMP_STACKSIZE: 512M
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -26,7 +29,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: compile SETUP=testkd (no MPI)
-      run: make SETUP=testkd SYSTEM=gfortran
+      run: make SETUP=testkd
         
     - name: run testsuite with SETUP=testkd
       run: ./bin/phantom test
@@ -36,10 +39,10 @@ jobs:
 
     - name: compile and test SETUP=testkd with MPI
       run: |
-        make SETUP=testkd SYSTEM=gfortran MPI=yes OPENMP=no
+        make SETUP=testkd MPI=yes OPENMP=no
         mpirun --allow-run-as-root --mca btl self,sm -np 4 ./bin/phantom test
         
     - name: compile and test GR code
       run: |
-        make SETUP=testgr SYSTEM=gfortran
+        make SETUP=testgr
         ./bin/phantom test gr
