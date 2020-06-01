@@ -16,15 +16,15 @@ Links
 -----
 
 - Project homepage: http://phantomsph.bitbucket.io/
-- Code repository: https://bitbucket.org/danielprice/phantom/
+- Code repository: https://github.com/danieljprice/phantom/
 - Documentation: https://phantomsph.readthedocs.org/
+- Code paper: http://adsabs.harvard.edu/abs/2018PASA...35...31P
 
 Code structure
 --------------
 
 The Phantom source code is structured as follows:
 
-|                  |                                                       |
 | ---------------- | ----------------------------------------------------- |
 | `build/Makefile` | main Makefile for compiling Phantom and all utilities |
 | `src/main`       | source for main code                                  |
@@ -38,7 +38,7 @@ Getting help
 If you need help, please try the following, in order:
 
 1. Check the [documentation](https://phantomsph.readthedocs.org/).
-2. File an issue, as a [bug report](https://bitbucket.org/danielprice/phantom/issues/new) or [feature request](https://bitbucket.org/danielprice/phantom/issues/new), using the issue tracker.
+2. File an issue, as a [bug report](https://github.com/danieljprice/phantom/issues/new) or [feature request](https://github.com/danieljprice/phantom/issues/new), using the issue tracker.
 
 Slack
 -----
@@ -49,14 +49,14 @@ and astrophysics at the [Phantom Slack](https://phantomsph.slack.com/).
 Citation
 --------
 
-See `docs/phantom.bib` file for relevant papers to cite when using Phantom.
+Please cite [Price et al. 2018](http://adsabs.harvard.edu/abs/2018PASA...35...31P) when using phantom. Wherever possible, please try to also cite original references for the algorithms you are using. A partial list can be found in `docs/phantom.bib` file, or by reading the relevant sections of the phantom paper.
 
 Licence
 -------
 
 See LICENCE file for usage and distribution conditions.
 
-Copyright (c) 2007-2019 Daniel Price and contributors (see AUTHORS file).
+Copyright (c) 2007-2020 Daniel Price and contributors (see AUTHORS file).
 
 Release notes
 -------------
