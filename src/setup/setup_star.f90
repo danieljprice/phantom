@@ -113,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,       only: set_sphere
  use centreofmass,    only: reset_centreofmass
  use table_utils,     only: yinterp
- use units,           only: set_units,select_unit,utime,unit_density
+ use units,           only: set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
                             rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
@@ -370,9 +370,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(4,i) = eni
           if (store_temperature) temperature(i) = initialtemp
        case(12) ! Ideal gas plus radiation EoS
-          call get_idealgasplusrad_tempfrompres(presi,densi,gmw,tempi)
-          call get_idealplusrad_enfromtemp(densi,tempi,gmw,eni)
-          vxyzu(4,i) = eni
+          call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
+          call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
+          vxyzu(4,i) = eni / unit_ergg
           if (store_temperature) temperature(i) = tempi
        case(10) ! MESA EoS
           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)

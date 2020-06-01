@@ -9,7 +9,8 @@
 !
 !  DESCRIPTION: Ideal gas equation of state plus radiation pressure
 !
-!  REFERENCES:
+!  REFERENCES: Stellar Structure and Evolution (2nd Edition) (Kippenhahn, 
+!              Weigert, Weiss)
 !
 !  OWNER: Mike Lau
 !
@@ -25,7 +26,7 @@ module eos_idealplusrad
  implicit none
  real, parameter :: tolerance = 1d-15
 
- public :: get_idealplusrad_temp,get_idealplusrad_ponrhoi,get_idealplusrad_spsoundi,&
+ public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
 
  private
@@ -54,25 +55,28 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi)
     correction = numerator/denominator
     tempi = tempi - correction
  enddo
+
 end subroutine get_idealplusrad_temp
 
 
-subroutine get_idealplusrad_ponrhoi(rhoi,tempi,mu,ponrhoi)
+subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
  real, intent(in)    :: rhoi,mu
  real, intent(inout) :: tempi
- real, intent(out)   :: ponrhoi
+ real, intent(out)   :: presi
 
- ponrhoi = kb_on_mh*tempi/mu + 1./3.*radconst*tempi**4/rhoi
-end subroutine get_idealplusrad_ponrhoi
+ presi = kb_on_mh*rhoi*tempi/mu + 1./3.*radconst*tempi**4 ! Eq 13.2 (Kippenhahn et al.)
+
+end subroutine get_idealplusrad_pres
 
 
-subroutine get_idealplusrad_spsoundi(ponrhoi,eni,spsoundi)
- real, intent(in)  :: ponrhoi,eni
+subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi)
+ real, intent(in)  :: rhoi,presi,eni
  real, intent(out) :: spsoundi
  real              :: gamma
 
- gamma = 1. + ponrhoi/eni
- spsoundi = sqrt(gamma*ponrhoi)
+ gamma = 1. + presi/(eni*rhoi)
+ spsoundi = sqrt(gamma*presi/rhoi)
+
 end subroutine get_idealplusrad_spsoundi
 
 !----------------------------------------------------------------
@@ -92,6 +96,7 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
     correction  = numerator/denominator
     tempi = tempi - correction
  enddo
+
 end subroutine get_idealgasplusrad_tempfrompres
 
 
@@ -106,6 +111,7 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(out) :: eni
 
  eni = 1.5*kb_on_mh*tempi/mu + radconst*tempi**4/densi
+
 end subroutine get_idealplusrad_enfromtemp
 
 end module eos_idealplusrad
