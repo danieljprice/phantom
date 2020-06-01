@@ -88,21 +88,22 @@ module forces
        ijcbyi      = 38, &
        ijcbzi      = 39, &
        iponrhoi    = 40, &
-       icurlBxi    = 41, &
-       icurlByi    = 42, &
-       icurlBzi    = 43, &
-       igrainsizei = 44, &
-       igraindensi = 45, &
-       idvxdxi     = 46, &
-       idvzdzi     = 54, &
+       idivBi      = 41, &
+       icurlBxi    = 42, &
+       icurlByi    = 43, &
+       icurlBzi    = 44, &
+       igrainsizei = 45, &
+       igraindensi = 46, &
+       idvxdxi     = 47, &
+       idvzdzi     = 55, &
        !--dust arrays initial index
-       idustfraci    = 55, &
+       idustfraci    = 56, &
        !--dust arrays final index
-       idustfraciend = 55 + (maxdusttypes - 1), &
-       itstop        = 56 + (maxdusttypes - 1), &
-       itstopend     = 56 + 2*(maxdusttypes - 1), &
+       idustfraciend = 56 + (maxdusttypes - 1), &
+       itstop        = 57 + (maxdusttypes - 1), &
+       itstopend     = 57 + 2*(maxdusttypes - 1), &
        !--final dust index
-       lastxpvdust   = 56 + 2*(maxdusttypes - 1), &
+       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
        iradxii        = lastxpvdust + 1, &
        iradfxi        = lastxpvdust + 2, &
        iradfyi        = lastxpvdust + 3, &
@@ -132,23 +133,24 @@ module forces
        idBevolyi   = 10, &
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
+       ihdivBBmax  = 13, &
        !--dust array indexing
-       iddustevoli    = 13, &
-       iddustevoliend = 13 +   (maxdustsmall-1), &
-       idudtdusti     = 14 +   (maxdustsmall-1), &
-       idudtdustiend  = 14 + 2*(maxdustsmall-1), &
-       ideltavxi      = 15 + 2*(maxdustsmall-1), &
-       ideltavxiend   = 15 + 3*(maxdustsmall-1), &
-       ideltavyi      = 16 + 3*(maxdustsmall-1), &
-       ideltavyiend   = 16 + 4*(maxdustsmall-1), &
-       ideltavzi      = 17 + 4*(maxdustsmall-1), &
-       ideltavziend   = 17 + 5*(maxdustsmall-1), &
-       idvix          = 18 + 5*(maxdustsmall-1), &
-       idviy          = 19 + 5*(maxdustsmall-1), &
-       idviz          = 20 + 5*(maxdustsmall-1), &
-       idensgasi      = 21 + 5*(maxdustsmall-1), &
-       icsi           = 22 + 5*(maxdustsmall-1), &
-       idradi         = 22 + 5*(maxdustsmall-1) + 1
+       iddustevoli    = 14, &
+       iddustevoliend = 14 +   (maxdustsmall-1), &
+       idudtdusti     = 15 +   (maxdustsmall-1), &
+       idudtdustiend  = 15 + 2*(maxdustsmall-1), &
+       ideltavxi      = 16 + 2*(maxdustsmall-1), &
+       ideltavxiend   = 16 + 3*(maxdustsmall-1), &
+       ideltavyi      = 17 + 3*(maxdustsmall-1), &
+       ideltavyiend   = 17 + 4*(maxdustsmall-1), &
+       ideltavzi      = 18 + 4*(maxdustsmall-1), &
+       ideltavziend   = 18 + 5*(maxdustsmall-1), &
+       idvix          = 19 + 5*(maxdustsmall-1), &
+       idviy          = 20 + 5*(maxdustsmall-1), &
+       idviz          = 21 + 5*(maxdustsmall-1), &
+       idensgasi      = 22 + 5*(maxdustsmall-1), &
+       icsi           = 23 + 5*(maxdustsmall-1), &
+       idradi         = 23 + 5*(maxdustsmall-1) + 1
 
  private
 
@@ -938,7 +940,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
  real    :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
  real    :: auterm,avBterm,mrhoi5,vsigB
- real    :: jcbcbj(3),jcbj(3),dBnonideal(3),dBnonidealj(3),curlBi(3),curlBj(3)
+ real    :: jcbcbj(3),jcbj(3),dBnonideal(3),dBnonidealj(3),divBi,curlBi(3),curlBj(3)
  real    :: vsigavi,vsigavj
  real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
  real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
@@ -994,6 +996,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  jcbi(2)       = xpartveci(ijcbyi)
  jcbi(3)       = xpartveci(ijcbzi)
  alphai        = xpartveci(ialphai)
+ divBi         = xpartveci(idivBi)
  curlBi(1)     = xpartveci(icurlBxi)
  curlBi(2)     = xpartveci(icurlByi)
  curlBi(3)     = xpartveci(icurlBzi)
@@ -1560,18 +1563,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ! cleaning evolving d/dt (psi/c_h) as in Tricco, Price & Bate (2016)
              !
              dpsiterm = overcleanfac*(pmjrho21grkerni*psii*vwavei + pmjrho21grkernj*psij*vwavej)
+             ! coefficient for associated cleaning timestep
+             Bj = sqrt(Bxj**2 + Byj**2 + Bzj**2)
+             if (Bj > 0.0) then
+                Bj1 = 1.0/Bj
+             else
+                Bj1 = 0.0
+             endif
+             fsum(ihdivBBmax) = max( hj*abs(divcurlB(1,j))*Bj1, fsum(ihdivBBmax))
              !
              ! non-ideal MHD terms
              !
              if (mhd_nonideal) then
                 call nimhd_get_dBdt(dBnonideal,etaohmi,etahalli,etaambii,curlBi,jcbi,jcbcbi,runix,runiy,runiz)
                 dBnonideal = dBnonideal*pmjrho21grkerni
-                Bj  = sqrt(Bxj**2 + Byj**2 + Bzj**2)
-                if (Bj > 0.0) then
-                   Bj1 = 1.0/Bj
-                else
-                   Bj1 = 0.0
-                endif
                 curlBj = divcurlB(2:4,j)
                 call nimhd_get_jcbcb(jcbcbj,jcbj,curlBj,Bxj,Byj,Bzj,Bj1)
                 call nimhd_get_dBdt(dBnonidealj,eta_nimhd(iohm,j),eta_nimhd(ihall,j),eta_nimhd(iambi,j) &
@@ -2252,6 +2257,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iBevolzi,cell%npcell)      = Bevol(3,i)
           cell%xpartvec(ipsi,cell%npcell)          = Bevol(4,i)
 
+          cell%xpartvec(idivBi,  cell%npcell)      = divcurlB(1,i)
           cell%xpartvec(icurlBxi,cell%npcell)      = divcurlB(2,i)
           cell%xpartvec(icurlByi,cell%npcell)      = divcurlB(3,i)
           cell%xpartvec(icurlBzi,cell%npcell)      = divcurlB(4,i)
@@ -2479,7 +2485,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr
  use eos,            only:use_entropy,gamma,ieos
- use options,        only:alpha,icooling,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,use_dustfrac,damp
+ use options,        only:alpha,icooling,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,abundance,igas,maxphase,maxvxyzu,nabundances, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick
 #ifdef IND_TIMESTEPS
@@ -2552,9 +2558,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
  real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
- real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,vcleani
+ real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
- real    :: psii,dtau
+ real    :: psii,dtau,hdivbbmax
  real    :: eni,dudtnonideal
  real    :: dustfraci(maxdusttypes),dustfracisum
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
@@ -2677,6 +2683,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           Bxyzi(2) = xpartveci(iBevolyi) * rhoi
           Bxyzi(3) = xpartveci(iBevolzi) * rhoi
           B2i      = Bxyzi(1)**2 + Bxyzi(2)**2 + Bxyzi(3)**2
+          divBi    = xpartveci(idivBi)
        endif
 
        if (mhd_nonideal) then
@@ -2835,14 +2842,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
              if (icooling > 0) then
                 if (h2chemistry) then
-                   idudtcool = 1
-                   ichem = 0
+                   idudtcool = 1 ! update the cooling contribution to the change in energy, fxyzu
+                   ichem     = 0 ! abundances are updated in step_leapfrog, not here
                    call energ_h2cooling(vxyzu(4,i),fxyz4,rhoi,&
                         abundance(:,i),nabundances,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),&
                         divcurlv(1,i),idudtcool,ichem)
                 else
                    !call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i),dt)
+                   call energ_cooling(icooling,vxyzu(4,i),fxyz4,xyzh(1,i),xyzh(2,i),xyzh(3,i),rhoi,vxyzu(:,i),dt) ! dt passed, but not used
                 endif
              endif
              ! extra terms in du/dt from one fluid dust
@@ -2875,9 +2882,17 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              ! new cleaning evolving d/dt (psi/c_h)
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
 
-             ! timestep from cleaning (should only matter if overcleaning applied)
+             ! timestep from cleaning
+             ! the factor of 10 is empirical, from checking how much spurious B-fields are decreases
              ! the factor of 0.5 is empirical, from checking when overcleaning with ind. timesteps is stable
-             dtclean = 0.5*C_cour*hi/(vcleani + epsilon(0.))
+             if (B2i > 0.) then
+                hdivbbmax = hi*abs(divBi)/sqrt(B2i)
+             else
+                hdivbbmax = 0.0
+             endif
+             hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
+             hdivbbmax = min( hdivbbmax, hdivbbmax_max )
+             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))
           endif
        endif
 
