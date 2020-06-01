@@ -97,7 +97,7 @@ module setup
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
-
+ use memory,           only:allocate_memory
  implicit none
 
  public  :: setpart
@@ -205,14 +205,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out), allocatable :: xyzh(:,:)
  real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out), allocatable :: vxyzu(:,:)
  real,              intent(out)   :: polyk
  real,              intent(out)   :: gamma
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer :: nalloc
 
  write(*,10)
 10 format(/, &
@@ -230,6 +231,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ !--allocate memory
+ nalloc = np
+ if (use_dust) nalloc = nalloc + sum(np_dust)
+ call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -451,11 +457,8 @@ subroutine get_setup_parameters(id,fileprefix)
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-
     !--read from setup file
-    print*,"read setup file?"
     call read_setupfile(filename,ierr)
-    print*,"after read setup file?"
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
