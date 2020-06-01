@@ -21,11 +21,11 @@ jobs:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
-
     - name: Install openMPI
       run: sudo apt-get install openmpi-bin openmpi-common libopenmpi-dev
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
 
     - name: compile with MPI
       run: make SETUP=testkd MPI=yes OPENMP=no
