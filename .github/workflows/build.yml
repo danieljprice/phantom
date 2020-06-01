@@ -29,21 +29,8 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: compile SETUP=testkd (no MPI)
+    - name: compile SETUP=testkd
       run: make SETUP=testkd
         
     - name: run testsuite with SETUP=testkd
       run: ./bin/phantom test
-
-    - name: Install openMPI
-      run: sudo apt-get install openmpi-bin openmpi-common libopenmpi-dev
-
-    - name: compile and test SETUP=testkd with MPI
-      run: |
-        make SETUP=testkd MPI=yes OPENMP=no
-        mpirun --allow-run-as-root --mca btl self,sm -np 4 ./bin/phantom test
-        
-    - name: compile and test GR code
-      run: |
-        make SETUP=testgr
-        ./bin/phantom test gr
