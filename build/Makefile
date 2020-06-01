@@ -895,9 +895,9 @@ ifeq ($(SETUP), sgdisc)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
-#   ANALYSIS = ${LINKLIST} utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
-    ANALYSIS = analysis_disc_stresses.f90
-#    ANALYSIS = ${LINKLIST} analysis_getneighbours.f90
+#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
+    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
+#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
     KNOWN_SETUP=yes
 endif
 

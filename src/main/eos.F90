@@ -118,7 +118,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  use units,   only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use eos_mesa, only:get_eos_pressure_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
- use eos_shen, only: eos_shen_NL3
+ use eos_shen, only:eos_shen_NL3
  use eos_idealplusrad
 
  integer, intent(in)  :: eos_type
@@ -128,7 +128,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
  real,    intent(inout), optional :: tempi
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai,temperaturei
- real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
+ real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
 #ifdef GR
@@ -283,10 +283,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1,ierr)
-    pgas = cgspgas / unit_pressure
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspresi,gam1,ierr)
+    presi = cgspresi / unit_pressure
 
-    ponrhoi  = pgas / rhoi
+    ponrhoi  = presi / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
@@ -304,12 +304,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     if (present(tempi)) then
        temperaturei = tempi
     else
-       temperaturei = -1.
+       temperaturei = -1. ! Use gas temperature as initial guess
     endif
-    call get_idealplusrad_temp(rhoi,eni,gmw,temperaturei)
-    call get_idealplusrad_ponrhoi(rhoi,temperaturei,gmw,ponrhoi)
-    call get_idealplusrad_spsoundi(ponrhoi,eni,spsoundi)
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei)
+    call get_idealplusrad_pres(cgsrhoi,temperaturei,gmw,cgspresi)
+    call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
+    spsoundi = spsoundi / unit_velocity
+    presi = cgspresi / unit_pressure
+    ponrhoi = presi / rhoi
     if (present(tempi)) tempi = temperaturei
+
 
  case(14)
 !
@@ -341,10 +347,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !    if (present(enei)) then
     cgsrhoi = rhoi * unit_density
     !note eni is actually tempi
-    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
+    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspresi,cgsspsoundi)
     spsoundi=cgsspsoundi / unit_velocity
-    pgas = cgspgas / unit_pressure
-    ponrhoi = pgas / rhoi
+    presi = cgspresi / unit_pressure
+    ponrhoi = presi / rhoi
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
