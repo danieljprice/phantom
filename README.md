@@ -8,6 +8,10 @@ About
 
 Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code for astrophysics. It was written and developed by Daniel Price with contributions from many others (see AUTHORS). It is designed to be a fast 3D SPH code with a low memory footprint, for production runs. It is not a code for testing algorithms (use NDSPMHD instead).
 
+Status
+------
+![testkd](https://github.com/danieljprice/phantom/workflows/testkd/badge.svg)
+
 Links
 -----
 
