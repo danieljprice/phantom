@@ -10,7 +10,7 @@ Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code fo
 
 Status
 ------
-![testkd](https://github.com/danieljprice/phantom/workflows/testkd/badge.svg)
+![testkd](https://github.com/danieljprice/phantom/workflows/testkd/badge.svg) ![GR](https://github.com/danieljprice/phantom/workflows/GR/badge.svg)
 
 Links
 -----
