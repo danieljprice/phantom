@@ -77,7 +77,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi
- use part,           only:pxyzu,metrics,metricderivs,fxyzu,fext
+ use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
@@ -90,6 +90,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef GR
+ use part,           only:metrics,metricderivs
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
