@@ -34,7 +34,8 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'clumpfind'
 
  real,    parameter :: sinkclumprad = 1.0    ! particles within sinkclumprad*hacc are automatically part of the clump
- integer, parameter :: nclumpmax    = 1000
+ real,    parameter :: rhomin_cgs   = 0.0    ! particles with rho < rhomin will not be considered for the lead particle in a clumps
+ integer, parameter :: nclumpmax    = 1000   ! maximum number of clumps that can be analysed
 
  integer            :: runningclumpmax
  logical            :: checkbound, sinkpotential,skipsmalldumps, firstdump
@@ -64,8 +65,9 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten
+ use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten,rhoh
  use readwrite_dumps, only:opened_full_dump
+ use units,           only:unit_density
  use sortutils,       only:indexx
 
  character(len=*), intent(in) :: dumpfile
@@ -76,13 +78,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, dimension(1)             :: maxclump
  integer, allocatable,dimension(:) :: neighclump, ipotensort
  integer            :: k,l,iclump,ipart,jpart,iamtypei,deletedclumps
- real               :: percent,percentcount
+ real               :: percent,percentcount,rhomin
  logical            :: existneigh,iactivei,iamdusti,iamgasi
  logical            :: write_raw_data,write_neighbour_list,fexists
  character(len=100) :: neighbourfile
  character(len=100) :: fmt
 
-! Read in input parameters from file (if it exists)
+! Initialise variables
+ rhomin         = rhomin_cgs/unit_density
  rawtag         = 'raw'
  proctag        = 'proc'
  checkbound     = .false.
@@ -91,6 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  firstdump      = .false.
  write_raw_data = .false.
  write_neighbour_list = .false.
+! Read in input parameters from file (if it exists)
  call read_analysis_options(dumpfile)
 
 ! Skip small dumps (as they do not include velocity data)
@@ -213,11 +217,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ENDif
 
     ! Pick next particle in order of descending potential
-
     ipart = ipotensort(npart-l+1)
 
-    ! Only calculate for gas particles
+    ! skip particle if not dense enough
+    if (rhoh(xyzh(4,ipart),particlemass) < rhomin) cycle over_parts
 
+    ! Only calculate for gas particles
     if (maxphase==maxp) then
        call get_partinfo(iphase(ipart),iactivei,iamgasi,iamdusti,iamtypei)
        ! If particle isn't a gas particle, skip it
@@ -405,6 +410,8 @@ subroutine read_analysis_options(dumpfile)
     write(10,*) trim(dumpfile), "    First SPH dump to be analysed"
     write(10,*) trim(dumpfile), "    Previous SPH dump analysed"
     close(10)
+    previousdumpfile = ""
+    runningclumpmax  = ""
  endif
 
  if (checkbound) then
