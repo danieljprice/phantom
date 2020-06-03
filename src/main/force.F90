@@ -2881,8 +2881,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
 
              ! timestep from cleaning
-             ! the factor of 10 is empirical, from checking how much spurious B-fields are decreases
-             ! the factor of 0.5 is empirical, from checking when overcleaning with ind. timesteps is stable
+             !   the factor of 10 in hdivbbmax is empirical from checking how much spurious B-fields are decreased in colliding flows
+             !   if overcleaning is on (i.e. hdivbbmax > 1.0), then factor of 2 is from empirical tests to ensure that overcleaning with ind. timesteps is stable
              if (B2i > 0.) then
                 hdivbbmax = hi*abs(divBi)/sqrt(B2i)
              else
@@ -2890,7 +2890,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))
+             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax
+             dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))
           endif
        endif
 
