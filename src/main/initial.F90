@@ -134,10 +134,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
- use part,             only:pxyzu,dens,metrics,metricderivs,rad,radprop,drad,ithick
+ use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
+ use part,             only:metricderivs
  use cons2prim,        only:prim2consall
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce_all
