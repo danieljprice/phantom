@@ -169,9 +169,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,ll,iactive,gradh,&
-                        hrho,iphase,maxphase,igas,maxgradh,dvdx, &
-                        eta_nimhd,deltav,poten,iamtype,is_accretable
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,iactive,gradh,&
+                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -183,8 +182,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use viscosity,    only:irealvisc,shearfunc,dt_viscosity
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:nbinmax,ibinnow,get_newbin
- use timestep_sts, only:nbinmaxsts,ibin_sts
- use part,         only:ibin
+ use timestep_sts, only:nbinmaxsts
  use timestep,     only:nsteps,time
 #else
  use timestep,     only:C_cour,C_force
@@ -197,7 +195,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2
  use units,        only:unit_density
 #endif
@@ -266,7 +264,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtfrcfacmax  ,dtfrcngfacmax ,dtdragfacmax ,dtdragdfacmax ,dtcoolfacmax ,dtcleanfacmax
  real    :: dtviscfacmean,dtohmfacmean  ,dthallfacmean,dtambifacmean,dtdustfacmean ,dtradfacmean
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
- logical :: allow_decrease,dtcheck
 #endif
  integer(kind=1)           :: ibinnow_m1
 
@@ -370,8 +367,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
 
 !$omp parallel default(none) &
-!$omp shared(maxp,maxphase) &
-!$omp shared(ncells,ll,ifirstincell) &
+!$omp shared(maxp) &
+!$omp shared(ncells,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
 !$omp shared(dustgasprop) &
@@ -400,7 +397,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dens) &
 !$omp shared(metrics) &
 #ifdef GRAVITY
-!$omp shared(massoftype,npart) &
+!$omp shared(massoftype,npart,maxphase) &
 !$omp private(hi,pmassi,rhoi) &
 !$omp private(iactivei,iamdusti,iamtypei) &
 !$omp private(dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
@@ -416,8 +413,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(xsendbuf,xrecvbuf) &
 #endif
 #ifdef IND_TIMESTEPS
-!$omp shared(ibin,ibin_sts,nbinmax,nbinmaxsts) &
-!$omp private(allow_decrease,dtitmp,dtcheck,dtrat) &
+!$omp shared(nbinmax,nbinmaxsts) &
+!$omp private(dtitmp,dtrat) &
 !$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc,ndtrad,ndtclean) &
 !$omp reduction(+:ndtohm,ndthall,ndtambi,ndtdust,dtohmfacmean,dthallfacmean,dtambifacmean,dtdustfacmean) &
 !$omp reduction(+:dtfrcfacmean,dtfrcngfacmean,dtdragfacmean,dtdragdfacmean,dtcoolfacmean,dtviscfacmean) &
@@ -710,6 +707,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndtdragd   = int(reduce_mpi('+',ndtdragd))
  ndtdust    = int(reduce_mpi('+',ndtdust))
  ndtrad     = int(reduce_mpi('+',ndtrad))
+ ndtclean   = int(reduce_mpi('+',ndtclean))
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
