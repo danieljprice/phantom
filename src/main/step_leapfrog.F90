@@ -1060,7 +1060,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  real            :: dudtcool,fextv(3),fac,poti
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
- real            :: dptmass(ndptmass,nptmass)
+ real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
  real            :: damp_fac
  real, save      :: dmdt = 0.
  logical         :: accreted,extf_is_velocity_dependent
@@ -1087,6 +1087,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
+ ! allocate memory for dptmass array (avoids ifort bug)
+ allocate(dptmass(ndptmass,nptmass))
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
@@ -1271,7 +1273,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
     nfail        = 0
     naccreted    = 0
     ibin_wakei   = 0
-    dptmass(:,1:nptmass) = 0.
+    dptmass(:,:) = 0.
 
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
@@ -1384,6 +1386,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
        endif
     endif
  enddo substeps
+
+ deallocate(dptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
