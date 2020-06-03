@@ -24,5 +24,7 @@ jobs:
 
     - name: Run the bots
       run: |
+        git config --global user.email "daniel.price@monash.edu"
+        git config --global user.name "Daniel Price"
         cd scripts
         ./bots.sh --commit
