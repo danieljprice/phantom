@@ -413,7 +413,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(xsendbuf,xrecvbuf) &
 #endif
 #ifdef IND_TIMESTEPS
-!$omp shared(ibin,ibin_sts,nbinmax,nbinmaxsts) &
+!$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
 !$omp reduction(+:ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ncheckbin,ndtvisc,ndtrad,ndtclean) &
 !$omp reduction(+:ndtohm,ndthall,ndtambi,ndtdust,dtohmfacmean,dthallfacmean,dtambifacmean,dtdustfacmean) &
