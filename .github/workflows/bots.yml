@@ -26,6 +26,7 @@ jobs:
       run: |
         git config --global user.email "daniel.price@monash.edu"
         git config --global user.name "Daniel Price"
+        git fetch
         git checkout master
         cd scripts
         ./bots.sh --commit
