@@ -153,7 +153,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use nicil_sup,        only:use_consistent_gmw
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
-                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs
+                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
@@ -508,7 +508,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
- if (nptmass > 0) then
+ if (icreate_sinks > 0) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
