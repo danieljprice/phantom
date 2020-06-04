@@ -23,7 +23,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, getneigbours, part, prompting, ptmass,
-!    readwrite_dumps, sortutils
+!    readwrite_dumps, sortutils, units
 !+
 !--------------------------------------------------------------------------
 module analysis
