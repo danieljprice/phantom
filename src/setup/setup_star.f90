@@ -119,7 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                             rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
                             write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,             only: init_eos,finish_eos,equationofstate,gmw
+ use eos,             only: init_eos,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
@@ -253,11 +253,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rmin  = r0(1)
        Rstar = r0(size(r0))
        !
-       ! Get mean molecular weight (temporary: Find gmw at R/2)
+       ! Get mean molecular weight (Taken to be gmw at R/2.)
        !
        call interpolator(r0, 0.5*Rstar, i)
        pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
        gmw = (rho0(i)*kb_on_mh*temp0(i)) / pgas
+       !
+       ! Get X and Z mass fractions for MESA EoS (Taken to be at R/2)
+       !
+       if (ieos == 10) then
+          X_in = Xfrac(i)
+          Z_in = 1 - X_in - Yfrac(i)
+       endif
        !
        ! Get values of hsoft and mcore
        !
@@ -275,7 +282,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
-
+   
        call set_softened_core(ieos,gamma,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr,Xfrac,Yfrac)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
        if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')

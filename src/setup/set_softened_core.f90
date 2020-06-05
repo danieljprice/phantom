@@ -336,15 +336,19 @@ subroutine calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfr
     enddo
 
  elseif (ieos == 12) then ! Ideal gas plus radiation pressure EoS
+    if (.not. ( present(Xfrac) .and. present(Yfrac) )) then
+       ierr = 1
+       return
+    endif
     temp(size(rho)) = 0. ! Zero surface temperature
     do i = 1,size(rho)-1
        tempi = temp(i)
-       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
+       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),muprofile(i),tempi)
        temp(i) = tempi
     enddo
 
     do i = 1,size(rho)
-       call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,ene(i))
+       call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
     enddo
 
  else
