@@ -205,9 +205,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
- real,              intent(out), allocatable :: xyzh(:,:)
+ real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: massoftype(:)
- real,              intent(out), allocatable :: vxyzu(:,:)
+ real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk
  real,              intent(out)   :: gamma
  real,              intent(out)   :: hfact
@@ -233,9 +233,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call get_setup_parameters(id,fileprefix)
 
  !--allocate memory
- nalloc = np
- if (use_dust) nalloc = nalloc + sum(np_dust)
- call allocate_memory(nalloc, part_only=.true.)
+ !nalloc = np
+ !if (use_dust) nalloc = nalloc + sum(np_dust)
+ !call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
