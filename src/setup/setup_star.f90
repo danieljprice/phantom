@@ -383,6 +383,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (store_temperature) temperature(i) = tempi
        case(10) ! MESA EoS
           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+          if (store_temperature) temperature(i) = yinterp(temp(1:npts),r(1:npts),ri)
        case default
           if (gamma < 1.00001) then
              vxyzu(4,i) = polyk
