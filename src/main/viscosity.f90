@@ -119,16 +119,16 @@ end function shearfunc
 !+
 !----------------------------------------------------------------
 real function dt_viscosity(xi,yi,zi,hi,spsoundi)
- use timestep,only:C_force
+ use timestep,only: C_force,bignumber
  real, intent(in) :: xi,yi,zi,hi,spsoundi
- real :: viscnu
+ real             :: viscnu
 
  viscnu = shearfunc(xi,yi,zi,spsoundi)
 
  if (viscnu > tiny(viscnu)) then
     dt_viscosity = 0.4*C_force*hi*hi/viscnu
  else
-    dt_viscosity = huge(dt_viscosity)
+    dt_viscosity = bignumber
  endif
 
 end function dt_viscosity
