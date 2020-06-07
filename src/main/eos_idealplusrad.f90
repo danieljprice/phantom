@@ -9,7 +9,7 @@
 !
 !  DESCRIPTION: Ideal gas equation of state plus radiation pressure
 !
-!  REFERENCES: Stellar Structure and Evolution (2nd Edition) (Kippenhahn, 
+!  REFERENCES: Stellar Structure and Evolution (2nd Edition) (Kippenhahn,
 !              Weigert, Weiss)
 !
 !  OWNER: Mike Lau

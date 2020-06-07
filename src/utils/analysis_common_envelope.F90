@@ -1433,12 +1433,12 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     racc         = 0.
     cs           = 0.
     call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
-   
+
 
     ! Calculate z-angular momentum of the sink about the orbital CoM in first dump that is analysed
-   
+
     ! Calculate orbit CoM by calculating the CoM of the stellar cores plus with the inclusion
-    ! of a number of particles around the primary. 
+    ! of a number of particles around the primary.
     call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
     if (dump_number == 0) then
@@ -1450,19 +1450,19 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
                        ! This should actually be -dtmax in the infile
     endif
-   
-   
+
+
     ! Get order of particles from closest to farthest from companion
     call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
     ! Sum velocities, cs, and densities of all particles within radius 'sep' from
-    ! the companion, where 'sep' is the distance between the companion and the 
+    ! the companion, where 'sep' is the distance between the companion and the
     ! orbit CoM
     Rsphere = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
     do j = 1,npart
        ! Only use particles within sphere centred on the companion with radius
-       ! equal to the distance from the CoM to the companion 
+       ! equal to the distance from the CoM to the companion
        k = iorder(j)
        if (.not. isdead_or_accreted(xyzh(4,k))) then
           sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
@@ -1508,7 +1508,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     Jdot = (ang_mom(3) - ang_mom_old(i)) / (time - time_old) ! Average change in angular momentum
     R2 = distance(xyzmh_ptmass(1:3,i) - com_xyz(1:3))
     ang_mom_old(i)   = ang_mom(3) ! Set ang_mom_old for next dump
-   
+
     drag_force(1,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel)       * xyzmh_ptmass(4,i)
     drag_force(2,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel_perp)  * xyzmh_ptmass(4,i)
     drag_force(3,i)  = dot_product(force_cut(1:3),unit_vel)           * xyzmh_ptmass(4,i)
@@ -1518,7 +1518,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(7,i)  = vel_contrast
     drag_force(8,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
     drag_force(9,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
-    drag_force(10,i) = cs 
+    drag_force(10,i) = cs
     drag_force(11,i) = rho_avg
     drag_force(12,i) = racc
     drag_force(13,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
