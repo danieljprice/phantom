@@ -370,7 +370,7 @@ subroutine calc_rec_ene(XX,YY,e_rec)
  ! XX     : Hydrogen mass fraction
  ! YY     : Helium mass fraction
  ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
- 
+
  e_H2   = 0.5 * XX * e_ion_H2
  e_HI   = XX * e_ion_HI
  e_HeI  = 0.25 * YY * e_ion_HeI
