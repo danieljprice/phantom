@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,         only:prompt
  use options,           only:iexternalforce
  use externalforces,    only:omega_corotate,iext_corotate
- use extern_corotate,   only:companion_xpos,companion_mass,add_companion_grav
+ use extern_corotate,   only:companion_xpos,companion_mass,add_companion_grav,hsoft
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use rho_profile,       only:read_mesa_file
  use dim,               only:maxptmass
@@ -448,8 +448,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        add_companion_grav = .true.
        companion_xpos = separation - newCoM
        omega_corotate = sqrt((mass_donor + companion_mass)/separation**3)
+       !calculate softening length, hsoft, of companion gravity. Take hsoft to be 0.45*
+       !the companion Roche radius, evaluated with Eggleton (1983)
+       mass_ratio = companion_mass / mass_donor
+       hsoft = 0.45 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + & 
+               log( 1 + mass_ratio**(1./3.) ) ) * separation
        print*,'Angular velocity of the corotating frame is ',omega_corotate
        print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
+       print*,'Softening radius of companion gravity is ',hsoft/solarr,' Rsun'
 
     end select
  endif
