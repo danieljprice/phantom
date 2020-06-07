@@ -32,9 +32,10 @@
 !    Rstar_1            -- radius of star
 !    densityfile        -- File containing data for stellar profile
 !    dist_unit          -- distance unit (e.g. au)
-!    gamma              -- Adiabatic index
+!    gamma              -- adiabatic index
 !    hdens              -- Radius of core softening
 !    hsoft              -- Softening length of sink particle stellar core
+!    ieos               -- 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
 !    initialtemp        -- initial temperature of the star
 !    isinkcore          -- Add a sink particle stellar core
 !    isoftcore          -- Soften the core of an input MESA profile
