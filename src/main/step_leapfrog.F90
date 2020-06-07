@@ -107,7 +107,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
-                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,metricderivs
+                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -123,6 +123,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef GR
+ use part,           only:metricderivs
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
@@ -1023,7 +1024,7 @@ end subroutine step_extern_sph
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu
- use io,             only:iverbose,id,master,iprint,warning
+ use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
@@ -1059,7 +1060,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  real            :: dudtcool,fextv(3),fac,poti
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
- real            :: dptmass(ndptmass,nptmass)
+ real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
  real            :: damp_fac
  real, save      :: dmdt = 0.
  logical         :: accreted,extf_is_velocity_dependent
@@ -1086,10 +1087,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
+ ! allocate memory for dptmass array (avoids ifort bug)
+ allocate(dptmass(ndptmass,nptmass))
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
+    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
     dtsinkgas     = bignumber
@@ -1269,7 +1273,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
     nfail        = 0
     naccreted    = 0
     ibin_wakei   = 0
-    dptmass(:,1:nptmass) = 0.
+    dptmass(:,:) = 0.
 
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
@@ -1382,6 +1386,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,time,nptmas
        endif
     endif
  enddo substeps
+
+ deallocate(dptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
