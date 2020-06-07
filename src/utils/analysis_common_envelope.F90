@@ -1448,7 +1448,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        call cross(pos_wrt_CM, xyzmh_ptmass(4,i) * vel_wrt_CM, ang_mom)
        ang_mom_old(i) = ang_mom(3)
        time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
-                       ! This should actually be -dtmax in the infile
+       ! This should actually be -dtmax in the infile
     endif
 
 
