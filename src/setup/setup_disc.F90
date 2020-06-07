@@ -65,9 +65,9 @@
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
-!    radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!    setflyby, spherical, timestep, units, vectorutils
+!    growth, infile_utils, io, kernel, memory, options, part, physcon,
+!    prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!    setdisc, setflyby, spherical, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -97,7 +97,7 @@ module setup
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
-
+ use memory,           only:allocate_memory
  implicit none
 
  public  :: setpart
@@ -213,6 +213,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer :: nalloc
 
  write(*,10)
 10 format(/, &
@@ -230,6 +231,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ !--allocate memory
+ !nalloc = np
+ !if (use_dust) nalloc = nalloc + sum(np_dust)
+ !call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -451,11 +457,8 @@ subroutine get_setup_parameters(id,fileprefix)
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-
     !--read from setup file
-    print*,"read setup file?"
     call read_setupfile(filename,ierr)
-    print*,"after read setup file?"
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
