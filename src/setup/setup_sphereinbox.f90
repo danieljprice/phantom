@@ -51,7 +51,7 @@ module setup
  real :: xmini(3), xmaxi(3)
  real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
  real :: angvel,Bzero_G,masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
- real :: rho_pert_amp,xi
+ real :: rho_pert_amp,xi,rho_cen_cgs
  real(kind=8)                 :: udist,umass
  integer                      :: np
  logical                      :: BEsphere,binary,mu_not_B,cs_in_code
@@ -96,17 +96,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: iBE = 1000000
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
- real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
+ real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit,r_sphere_in
  real               :: rxy2,rxyz2,phi,dphi,lbox,central_density,edge_density
  real               :: rtab(iBE),rhotab(iBE)
- logical            :: iexist,is_box
+ logical            :: iexist,is_box,write_options
  logical            :: make_sinks = .true.
  character(len=100) :: filename
  character(len=40)  :: fmt
  character(len=10)  :: string,h_acc_char
 
- npmax = size(xyzh(1,:))
- filename=trim(fileprefix)//'.setup'
+ npmax    = size(xyzh(1,:))
+ filename = trim(fileprefix)//'.setup'
+ write_options = .false.
+ rho_cen_cgs   = 0. ! need to define here since this may or may not be read in
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
  inquire(file=filename,exist=iexist)
@@ -117,6 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call write_setupfile(filename)
        stop
     endif
+    lbox = -2.0*xmini(1)/r_sphere
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     dist_unit = '1.0d16cm'
@@ -171,7 +174,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     BEsphere = .false.
     xi       = 7.45
     call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
-    if (BEsphere) call prompt('Enter the concentration parameter (6.45 is critical): ',xi,0.)
+    if (BEsphere) then
+       call prompt('Enter the concentration parameter (6.45 is critical): ',xi,0.)
+       call prompt('Enter the central density (or <= to use the above radius): ',rho_cen_cgs,0.)
+    endif
 
     binary = .false.
     call prompt('Do you intend to form a binary system?',binary)
@@ -228,7 +234,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
        call select_unit(h_acc_char,h_acc_in,ierr)
        h_acc = h_acc_in
-       print*, h_acc_in,h_acc, h_acc_char
        if (ierr==0 ) h_acc = h_acc/udist
        r_crit        = 5.0*h_acc
        icreate_sinks = 1
@@ -236,28 +241,48 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        icreate_sinks = 0
     endif
-    !
-    ! write default input file
-    !
-    call write_setupfile(filename)
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
- else
-    stop
+    write_options = .true.
  endif
  !
  ! units
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
  !
+ ! convert units of sound speed
+ !
+ if (cs_in_code) then
+    cs_sphere_cgs = cs_sphere*unit_velocity
+ else
+    cs_sphere     = cs_sphere_cgs/unit_velocity
+ endif
+ !
+ ! Bonnor-Ebert profile (if requested)
+ !
+ if (BEsphere) then
+    central_density = rho_cen_cgs/unit_density
+    r_sphere_in = r_sphere
+    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,rtab,rhotab,central_density,edge_density,ierr)
+    if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
+    if (rho_cen_cgs > 0.) then
+       print*, "Radius has been overwritten to ",r_sphere," code units"
+       do i = 1,3
+          xmini(i) = -0.5*(lbox*r_sphere)
+          xmaxi(i) = -xmini(i)
+       enddo
+    endif
+    if (abs(r_sphere_in - r_sphere) > epsilon(r_sphere)) write_options = .true.
+ endif
+ !
  ! boundaries
  !
  call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
  !
- ! Bonnor Ebert profile (if requested)
+ ! write default input file
+ ! (needs to be here since radius and box sizes may be modified by BEsphere)
  !
- if (BEsphere) then
-    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,rtab,rhotab,central_density,edge_density,ierr)
-    if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
+ if (write_options .and. id == master) then
+    call write_setupfile(filename)
+    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
  endif
  !
  ! general parameters
@@ -268,11 +293,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma    = 5./3.
  else
     gamma    = 1.
- endif
- if (cs_in_code) then
-    cs_sphere_cgs = cs_sphere*unit_velocity
- else
-    cs_sphere     = cs_sphere_cgs/unit_velocity
  endif
  rmax        = r_sphere
  angvel_code = angvel*utime
@@ -515,6 +535,7 @@ subroutine write_setupfile(filename)
  call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
  call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
+ if (rho_cen_cgs > 0.) call write_inopt(rho_cen_cgs,'rho_cen_cgs','central density of the BE sphere (will override radius)',iunit)
  call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
  call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  if (mhd) then
@@ -551,7 +572,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr
+ integer                       :: i,nerr,jerr,kerr,perr
  type(inopts), allocatable     :: db(:)
 
  !--Read values
@@ -569,6 +590,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(r_sphere,'r_sphere',db,ierr)
  call read_inopt(density_contrast,'density_contrast',db,ierr)
  call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
+ call read_inopt(rho_cen_cgs,'rho_cen_cgs',db,perr) ! completely optional
  call read_inopt(cs_sphere,'cs_sphere',db,jerr)
  call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
  cs_in_code = .false.  ! for backwards compatibility

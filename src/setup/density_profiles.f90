@@ -641,15 +641,15 @@ end subroutine read_kepler_file
 !-----------------------------------------------------------------------
 subroutine rho_bonnorebert(ximax,rBE,mBE,npts,iBElast,rtab,rhotab,central_density,edge_density,ierr)
  use physcon, only: pi
- integer, intent(in)  :: npts
- integer, intent(out) :: iBElast,ierr
- real,    intent(in)  :: ximax,rBE,mBE
- real,    intent(out) :: central_density,edge_density
- real,    intent(out) :: rtab(:),rhotab(:)
- integer              :: i,j
- real                 :: xi,phi,func,containedmass,dmass,conmassnext,dxi,dfunc,rho,dphi
- real                 :: mtab(npts)
- logical              :: write_BE_profile = .true.
+ integer, intent(in)    :: npts
+ integer, intent(out)   :: iBElast,ierr
+ real,    intent(in)    :: ximax,mBE
+ real,    intent(inout) :: rBE,central_density
+ real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
+ integer                :: i,j
+ real                   :: xi,phi,func,containedmass,dmass,conmassnext,dxi,dfunc,rho,dphi
+ real                   :: mtab(npts)
+ logical                :: write_BE_profile = .true.
 
  !--Initialise variables
  xi             = 0.0
@@ -695,14 +695,17 @@ subroutine rho_bonnorebert(ximax,rBE,mBE,npts,iBElast,rtab,rhotab,central_densit
  iBElast = j - 1
 
  !--Scale the masses and radii
- central_density = -ximax/(4.0*pi*func*rBE**3)
+ if (central_density > 0.) then
+    rBE = (-ximax*mBE/(4.0*pi*func*central_density))**(1./3.)
+ else
+    central_density = -ximax*mBE/(4.0*pi*func*rBE**3)
+ endif
  edge_density    = central_density*rho
  do j = 1, iBElast
     rtab(j)   = rBE          * rtab(j)   / rtab(iBElast)
     mtab(j)   = mBE          * mtab(j)   / mtab(iBElast)
     rhotab(j) = edge_density * rhotab(j) / rhotab(iBElast)
  enddo
- print*,central_density,edge_density
 
  if (write_BE_profile) then
     open(unit = 26393,file='BonnorEbert.txt')
