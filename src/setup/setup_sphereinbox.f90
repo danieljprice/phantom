@@ -49,12 +49,12 @@ module setup
  private
  !--private module variables
  real :: xmini(3), xmaxi(3)
- real :: density_contrast,totmass_sphere,r_sphere,cs_sphere
+ real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
  real :: angvel,Bzero_G,masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
  real :: rho_pert_amp,xi
  real(kind=8)                 :: udist,umass
  integer                      :: np
- logical                      :: BEsphere,binary,mu_not_B
+ logical                      :: BEsphere,binary,mu_not_B,cs_in_code
  character(len=20)            :: dist_unit,mass_unit
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
 
@@ -74,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use rho_profile,  only:rho_bonnorebert
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
+ use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
  use eos,          only:polyk2,ieos
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
@@ -177,12 +177,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Do you intend to form a binary system?',binary)
 
     if (binary) then
-       cs_sphere = 0.1623
+       cs_sphere_cgs = 0.1623*unit_velocity
     else
-       cs_sphere = 0.19
+       cs_sphere_cgs = 0.1900*unit_velocity
     endif
     write(string,"(es10.3)") udist/utime
-    call prompt('Enter sound speed in sphere in units of '//trim(adjustl(string))//' cm/s',cs_sphere,0.)
+    call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
 
     if (binary) then
        angvel = 1.006d-12
@@ -268,6 +268,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma    = 5./3.
  else
     gamma    = 1.
+ endif
+ if (cs_in_code) then
+    cs_sphere_cgs = cs_sphere*unit_velocity
+ else
+    cs_sphere     = cs_sphere_cgs/unit_velocity
  endif
  rmax        = r_sphere
  angvel_code = angvel*utime
@@ -458,8 +463,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
     print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
  endif
- print fmt,' cs in sphere     : ',cs_sphere,cs_sphere*udist/utime,' cm/s'
- print fmt,' cs in medium     : ',cs_medium,cs_medium*udist/utime,' cm/s'
+ print fmt,' cs in sphere     : ',cs_sphere,cs_sphere_cgs,' cm/s'
+ print fmt,' cs in medium     : ',cs_medium,cs_medium*unit_velocity,' cm/s'
  print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
  print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
  print fmt,' Omega*t_ff       : ',angvel_code*t_ff
@@ -510,7 +515,7 @@ subroutine write_setupfile(filename)
  call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
  call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
- call write_inopt(cs_sphere,'cs_sphere','sound speed in sphere in code units',iunit)
+ call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
  call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  if (mhd) then
     if (mu_not_B) then
@@ -564,12 +569,29 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(r_sphere,'r_sphere',db,ierr)
  call read_inopt(density_contrast,'density_contrast',db,ierr)
  call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
- call read_inopt(cs_sphere,'cs_sphere',db,ierr)
+ call read_inopt(cs_sphere,'cs_sphere',db,jerr)
+ call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
+ cs_in_code = .false.  ! for backwards compatibility
+ if (jerr /= 0 .and. kerr == 0) then
+    cs_in_code = .false.
+ elseif (jerr == 0 .and. kerr /= 0) then
+    cs_in_code = .true.
+ else
+    ierr = ierr + 1
+ endif
  call read_inopt(angvel,'angvel',db,ierr)
+ mu_not_B = .true.
  if (mhd) then
     call read_inopt(masstoflux,'masstoflux',db,jerr)
     call read_inopt(Bzero_G,   'Bzero',     db,kerr)
     call read_inopt(ang_Bomega,'ang_Bomega',db,ierr)
+    if (jerr /= 0 .and. kerr == 0) then
+       mu_not_B = .false.
+    elseif (jerr == 0 .and. kerr /= 0) then
+       mu_not_B = .true.
+    else
+       ierr = ierr + 1
+    endif
  endif
  if (use_dust) then
     call read_inopt(dusttogas,'dusttogas',db,ierr)
@@ -595,17 +617,7 @@ subroutine read_setupfile(filename,ierr)
     ierr = ierr + 1
  endif
 
- !--Update errors
- mu_not_B = .true.
- if (mhd) then
-    if (jerr /= 0 .and. kerr == 0) then
-       mu_not_B = .false.
-    elseif (jerr == 0 .and. kerr /= 0) then
-       mu_not_B = .true.
-    else
-       ierr = ierr + 1
-    endif
- endif
+ !--Check for errors
  if (ierr > 0) then
     print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
