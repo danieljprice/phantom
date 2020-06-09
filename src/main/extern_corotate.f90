@@ -25,6 +25,7 @@
 !    add_companion_grav -- add gravity due to companion
 !    companion_mass     -- mass of companion
 !    companion_xpos     -- x-position of companion
+!    hsoft              -- softening radius of companion gravity
 !    omega_corotate     -- angular speed of corotating frame
 !
 !  DEPENDENCIES: infile_utils, io, physcon, vectorutils
