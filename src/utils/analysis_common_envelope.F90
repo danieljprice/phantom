@@ -1492,7 +1492,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     do j = 1,npart
        if (.not. isdead_or_accreted(xyzh(4,j))) then
           call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass(:,i),&
-                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass(:,i),fonrmax)
+                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
           if (separation(xyzh(1:3,j),xyzmh_ptmass(1:3,i)) < summation_cut) then
              force_cut(1:3) = force_cut(1:3) + fxyz_ptmass(1:3,i)
           endif
