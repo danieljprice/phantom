@@ -212,11 +212,11 @@ subroutine get_companion_force(r,h,fextxi,fextyi,fextzi,phi)
  if (sep >= 2*h) then
     fmag = - companion_mass / sep**2
     phigrav = - companion_mass / sep
- ! h <= r < 2h
+    ! h <= r < 2h
  elseif (sep >= h) then
     fmag = -(8./3.*q - 3.*q**2 + 1.2*q**3 - 1./.6 * q**4 - 1./(15.*q**2)) / h**2
     phigrav = companion_mass / h * (4./3.*q**2 - q**3 + 0.3*q**4 - 1./30.*q**5 - 1.6 + 1./(15.*q))
- ! 0 <= r < h
+    ! 0 <= r < h
  else
     fmag = -(4./3.*q - 1.2*q**3 + 0.5*q**4) / h**2
     phigrav = companion_mass / h * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 - 1.4)
@@ -279,8 +279,8 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) add_companion_grav
     ngot = ngot + 1
  case('hsoft')
-      read(valstring,*,iostat=ierr) hsoft
-      ngot = ngot + 1
+    read(valstring,*,iostat=ierr) hsoft
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
