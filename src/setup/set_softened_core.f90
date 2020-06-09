@@ -81,7 +81,12 @@ subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
  call calc_rho_and_m(rho, m, r, mc, h)
  call calc_phi(r, mc, m-mc, hphi_cm, phi)
  call calc_pres(r, rho, phi, pres)
- call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+
+ if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden (until MESA EoS with variable composition is implemented)
+    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+ else
+    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr)
+ endif
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
@@ -346,10 +351,11 @@ subroutine calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,
        call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
        if (ieos == 10) then
           ! Contribution from ionisation energy for MESA EoS
-          call calc_rec_ene(Xfrac(i),Yfrac(i),e_rec)
+          call calc_rec_ene(Xprofile(i),Yprofile(i),e_rec)
           ene(i) = ene(i) + e_rec
        endif
     enddo
+
  else
     ierr = 1
  endif

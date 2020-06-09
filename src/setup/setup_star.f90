@@ -285,7 +285,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
    
-       call set_softened_core(ieos,gamma,gmw,X_in,Y_in,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr,Xfrac,Yfrac)
+       call set_softened_core(ieos,gamma,gmw,X_in,Y_in,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
        !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
