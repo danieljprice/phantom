@@ -451,7 +451,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        !calculate softening length, hsoft, of companion gravity. Take hsoft to be 0.45*
        !the companion Roche radius, evaluated with Eggleton (1983)
        mass_ratio = companion_mass / mass_donor
-       hsoft = 0.45 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + & 
+       hsoft = 0.45 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
                log( 1 + mass_ratio**(1./3.) ) ) * separation
        print*,'Angular velocity of the corotating frame is ',omega_corotate
        print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
