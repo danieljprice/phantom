@@ -1418,6 +1418,14 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
              '        racc', & ! Hoyle-Lyttleton radius
              'com-sink sep'/)
 
+ ! Sum acceleration (fxyz_ptmass) on ALL sink particles due to gravity of ALL gas particles
+ do j=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,j))) then
+        call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+                            fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
+    endif
+ enddo
+
  drag_force = 0.
  do i = 1,2
     ! Note: The analysis below is performed for both the companion (i=2) and the donor core (i=1). We
@@ -1486,13 +1494,11 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Hoyle-Lyttleton radius
     endif
 
-    ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
+    ! find force on the sink from particles inside the cropped region 
     force_cut = 0.
     summation_cut = separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
     do j = 1,npart
        if (.not. isdead_or_accreted(xyzh(4,j))) then
-          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass(:,i),&
-                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
           if (separation(xyzh(1:3,j),xyzmh_ptmass(1:3,i)) < summation_cut) then
              force_cut(1:3) = force_cut(1:3) + fxyz_ptmass(1:3,i)
           endif
