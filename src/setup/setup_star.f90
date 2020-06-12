@@ -120,7 +120,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                             rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
                             write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,             only: init_eos,finish_eos,equationofstate,gmw
+ use eos,             only: init_eos,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
@@ -285,7 +285,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
    
-       call set_softened_core(ieos,gamma,gmw,X_in,Y_in,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+       call set_softened_core(ieos,gamma,X_in,Y_in,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
        !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
@@ -385,6 +385,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (store_temperature) temperature(i) = tempi
        case(10) ! MESA EoS
           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+          if (store_temperature) temperature(i) = yinterp(temp(1:npts),r(1:npts),ri)
        case default
           if (gamma < 1.00001) then
              vxyzu(4,i) = polyk

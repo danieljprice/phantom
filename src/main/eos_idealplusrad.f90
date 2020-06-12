@@ -7,7 +7,8 @@
 !+
 !  MODULE: eos_idealplusrad
 !
-!  DESCRIPTION: Ideal gas equation of state plus radiation pressure
+!  DESCRIPTION: Ideal gas equation of state plus radiation pressure, assumes
+!               inputs are in cgs units
 !
 !  REFERENCES: Stellar Structure and Evolution (2nd Edition) (Kippenhahn,
 !              Weigert, Weiss)
