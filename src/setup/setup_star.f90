@@ -32,9 +32,10 @@
 !    Rstar_1            -- radius of star
 !    densityfile        -- File containing data for stellar profile
 !    dist_unit          -- distance unit (e.g. au)
-!    gamma              -- Adiabatic index
+!    gamma              -- adiabatic index
 !    hdens              -- Radius of core softening
 !    hsoft              -- Softening length of sink particle stellar core
+!    ieos               -- 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
 !    initialtemp        -- initial temperature of the star
 !    isinkcore          -- Add a sink particle stellar core
 !    isoftcore          -- Soften the core of an input MESA profile
@@ -119,7 +120,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                             rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
                             write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,             only: init_eos,finish_eos,equationofstate,gmw
+ use eos,             only: init_eos,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
@@ -144,7 +145,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                      enitab(ng_max)
  real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
                                      Xfrac(:),Yfrac(:)
- real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi
+ real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in
  logical                          :: calc_polyk,write_setup
  character(len=120)               :: setupfile,inname
  !
@@ -256,8 +257,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! Get mean molecular weight (temporary: Find gmw at R/2)
        !
        call interpolator(r0, 0.5*Rstar, i)
-       pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming ideal gas plus rad. EoS here
-       gmw = (rho0(i)*kb_on_mh*temp0(i)) / pgas
+       pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming pressure due to ideal gas + radiation
+       gmw = (rho0(i) * kb_on_mh * temp0(i)) / pgas
+       !
+       ! Get representative, fixed X and Z mass fractions (Taken to be at R/2)
+       !
+       if ((ieos == 10) .or. (ieos == 12)) then
+          X_in = Xfrac(i)
+          Y_in = Yfrac(i)
+          Z_in = 1 - X_in - Y_in
+       endif
        !
        ! Get values of hsoft and mcore
        !
@@ -275,10 +284,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
-
-       call set_softened_core(ieos,gamma,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr,Xfrac,Yfrac)
+   
+       call set_softened_core(ieos,gamma,X_in,Y_in,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
-       if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
+       !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
@@ -376,6 +385,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (store_temperature) temperature(i) = tempi
        case(10) ! MESA EoS
           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+          if (store_temperature) temperature(i) = yinterp(temp(1:npts),r(1:npts),ri)
        case default
           if (gamma < 1.00001) then
              vxyzu(4,i) = polyk

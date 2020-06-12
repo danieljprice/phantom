@@ -454,7 +454,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
    real(kind=8),allocatable,dimension(:,:)           :: dat
    real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp, &
                                                         Xfrac,Yfrac
-  
+
    ! reading data from datafile ! -----------------------------------------------
    open(unit=40,file=filepath,status='old')
    read(40,'()')
@@ -471,18 +471,18 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
          exit
       endif
    enddo
-  
+
    allocate(header(1:rows),dat(1:lines,1:rows))
    header(1:rows) = dum(1:rows)
    deallocate(dum)
-  
+
    do i = 1,lines
       read(40,*) dat(lines-i+1,1:rows)
    enddo
-  
+
    allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
             temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
-  
+
    do i = 1, rows
       if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
       if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
