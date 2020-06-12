@@ -124,7 +124,7 @@ subroutine find_mcore_given_hsoft(hsoft,r,rho0,m0,mcore,ierr)
  h = hsoft * solarr ! Convert to cm
  call interpolator(r, h, hidx) ! Find index in r closest to h
  mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
- tolerance = 1. ! How much we allow the softened density to exceed the original profile by
+ tolerance = 1.3 ! How much we allow the softened density to exceed the original profile by
  ierr = 0
 
  allocate(rho( size(rho0) ))
@@ -163,7 +163,7 @@ subroutine find_hsoft_given_mcore(mcore,r,rho0,m0,hsoft,ierr)
 
  mc = mcore * solarm ! Convert to g
  mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
- tolerance = 1. ! How much we allow the softened density to exceed the original profile by
+ tolerance = 1.3 ! How much we allow the softened density to exceed the original profile by
  ierr = 0
  allocate(rho( size(rho0) ))
  allocate(m( size(m0) ))
