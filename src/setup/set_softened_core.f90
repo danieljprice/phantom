@@ -10,11 +10,10 @@
 !  DESCRIPTION:
 !   This module softens the core of a MESA stellar profile with a cubic
 !   density profile, given a softening length and core mass, in preparation
-!   for adding a sink particle core. CAUTION: This module does not output
-!   self-consistent internal energy and temperature profiles, and just
-!   returns the input MESA data.
+!   for adding a sink particle core.
 !
-!  REFERENCES: For point mass potential, see Price & Monaghan (2007)
+!  REFERENCES: For cubic spline softening of sink gravity, see Price & 
+!              Monaghan (2007)
 !
 !  OWNER: Mike Lau
 !
@@ -29,6 +28,7 @@ module setsoftenedcore
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
                             get_idealplusrad_enfromtemp
+
  implicit none
  real    :: hsoft,msoft,mcore
  integer :: hidx
@@ -51,16 +51,21 @@ contains
 !  core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(ieos,gamma,mu,mcore,hsoft,hphi, &
+subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
                              rho,r,pres,m,ene,temp,ierr,Xfrac,Yfrac)
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
  real, allocatable          :: phi(:)
  real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,mcore,hsoft,hphi,gamma
+ real, intent(in)           :: mu,mcore,hsoft,hphi,gamma,constX,constY
  integer, intent(in)        :: ieos
  integer, intent(out)       :: ierr
  real                       :: mc,h,hphi_cm
  logical                    :: isort_decreasing,iexclude_core_mass
+
+ ! Xfrac, Yfrac:    H and He mass fractions from the MESA profile
+ ! constX, constY:  H and He mass fractions at r = R/2
+ ! mu:              Mean molecular weight at r = R/2
+ ! gamma:           Adiabatic exponent for adiabatic EoS
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
@@ -77,7 +82,12 @@ subroutine set_softened_core(ieos,gamma,mu,mcore,hsoft,hphi, &
  call calc_rho_and_m(rho, m, r, mc, h)
  call calc_phi(r, mc, m-mc, hphi_cm, phi)
  call calc_pres(r, rho, phi, pres)
- call calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+
+ if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden (until MESA EoS with variable composition is implemented)
+    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+ else
+    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr)
+ endif
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
@@ -114,7 +124,7 @@ subroutine find_mcore_given_hsoft(hsoft,r,rho0,m0,mcore,ierr)
  h = hsoft * solarr ! Convert to cm
  call interpolator(r, h, hidx) ! Find index in r closest to h
  mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
- tolerance = 1.5 ! How much we allow the softened density to exceed the original profile by
+ tolerance = 1.3 ! How much we allow the softened density to exceed the original profile by
  ierr = 0
 
  allocate(rho( size(rho0) ))
@@ -153,7 +163,7 @@ subroutine find_hsoft_given_mcore(mcore,r,rho0,m0,hsoft,ierr)
 
  mc = mcore * solarm ! Convert to g
  mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
- tolerance = 1.5 ! How much we allow the softened density to exceed the original profile by
+ tolerance = 1.3 ! How much we allow the softened density to exceed the original profile by
  ierr = 0
  allocate(rho( size(rho0) ))
  allocate(m( size(m0) ))
@@ -295,15 +305,15 @@ subroutine calc_pres(r, rho, phi, pres)
 end subroutine calc_pres
 
 
-subroutine calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+subroutine calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
  real, intent(in)           :: rho(:),pres(:)
  real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,gamma
+ real, intent(in)           :: mu,gamma,constX,constY
  real, intent(inout)        :: ene(:),temp(:)
  integer, intent(in)        :: ieos,hidx
  integer, intent(out)       :: ierr
- real                       :: e_rec,tempi,muprofile(size(rho))
- integer                    :: i
+ real                       :: e_rec,tempi,muprofile(size(rho)),Xprofile(size(rho)),Yprofile(size(rho))
+ integer                    :: i,endidx
 
  ! Calculate temperature and internal energy profile depending on EoS
  ierr = 0
@@ -311,44 +321,44 @@ subroutine calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfr
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
 
- elseif (ieos == 10) then ! MESA EoS (note: only an approximation)
-    if (.not. ( present(Xfrac) .and. present(Yfrac) )) then
-       ierr = 1
-       return
+ elseif ( (ieos == 10) .or. (ieos == 12) ) then ! MESA or ideal gas plus rad. EoS
+    if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden (until MESA EoS with variable composition is implemented)
+       ! Calculate mean molecular weight profile from X, Y
+       muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
+       Xprofile  = Xfrac
+       Yprofile  = Yfrac
+       endidx    = hidx ! For r > h, we just use the original MESA profile
+    else
+       ! Use the fixed mu, X, and Y calculated at r = R/2 for entire profile
+       do i = 1,size(muprofile)
+          muprofile(i) = mu
+          Xprofile(i)  = constX
+          Yprofile(i)  = constY
+       enddo
+       endidx = size(rho) ! For consistency, T and eint have to be recalculated for the entire star
     endif
-    ! Calculate mu from X, Y instead of using the guessed mu
-    muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
 
-    ! Approximate T(r<h) as that of ideal gas plus radiation
-    do i = 1,hidx
+    ! Calculate temperature using ideal gas plus radiation EoS
+    if (ieos == 12) temp(size(rho)) = 0. ! Zero surface temperature
+    do i = 1,endidx
        tempi = temp(i)
        call get_idealgasplusrad_tempfrompres(pres(i),rho(i),muprofile(i),tempi)
        temp(i) = tempi
     enddo
 
     ! Calculate internal energy
-    do i = 1,hidx
+    do i = 1,endidx
        ! Contribution from pressure and gas
        call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
-       ! Add ionisation energy
-       call calc_rec_ene(Xfrac(i),Yfrac(i),e_rec)
-       ene(i) = ene(i) + e_rec
-    enddo
-
- elseif (ieos == 12) then ! Ideal gas plus radiation pressure EoS
-    temp(size(rho)) = 0. ! Zero surface temperature
-    do i = 1,size(rho)-1
-       tempi = temp(i)
-       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
-       temp(i) = tempi
-    enddo
-
-    do i = 1,size(rho)
-       call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,ene(i))
+       if (ieos == 10) then
+          ! Contribution from ionisation energy for MESA EoS
+          call calc_rec_ene(Xprofile(i),Yprofile(i),e_rec)
+          ene(i) = ene(i) + e_rec
+       endif
     enddo
 
  else
-    ierr = 2 ! Return error: Selected EoS not supported in setsoftenedcore
+    ierr = 1
  endif
 
 end subroutine calc_temp_and_ene
@@ -370,7 +380,7 @@ subroutine calc_rec_ene(XX,YY,e_rec)
  ! XX     : Hydrogen mass fraction
  ! YY     : Helium mass fraction
  ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
- 
+
  e_H2   = 0.5 * XX * e_ion_H2
  e_HI   = XX * e_ion_HI
  e_HeI  = 0.25 * YY * e_ion_HeI
