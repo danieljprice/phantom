@@ -1124,12 +1124,13 @@ ifeq ($(MCFOST), yes)
     ISOTHERMAL=no
     MCFOST=yes
 
-    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(SYSTEM)
+    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
     FPPFLAGS+= -DMCFOST
-    LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(SYSTEM) \
-	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
+    LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
+	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
+	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 #-lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
 
 
