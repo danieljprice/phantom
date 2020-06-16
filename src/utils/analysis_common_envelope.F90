@@ -1394,7 +1394,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere
  real                                  :: vel_contrast,sep,Jdot,R2,Rsphere,cs_in_sphere, &
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi, &
-                                          fzi,phii
+                                          fzi,phii,phitot,dtsinksink
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
 
@@ -1427,6 +1427,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
              '  perp cut 5' /) 
 
  drag_force = 0.
+
  do i = 1,2
     ! Note: The analysis below is performed for both the companion (i=2) and the donor core (i=1). We
     !       comment for the case of the companion only for clarity.
@@ -1501,18 +1502,26 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
     force_cut_vec = 0.
+    fxyz_ptmass = 0.
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
+
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
     call write_array_grid(0.2,2.6,Rcut)
+
+    do k = 1,sizeRcut
+       if (Rcut(k) > 1.) force_cut_vec(:,:,k) = fxyz_ptmass(:,:) ! Include force due to other sink if R > separation
+    enddo
+
     Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
     do j = 1,npart
        if (.not. isdead_or_accreted(xyzh(4,j))) then
-          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass(:,i),&
-                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass(:,i),fonrmax)
+          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
           do k = 1,sizeRcut
              if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
-                call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass(:,i),&
-                fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,1,k),fonrmax)
+                call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+                fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
              endif
           enddo
        endif
@@ -1539,16 +1548,16 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(9,i)  = rho_avg
     drag_force(10,i) = racc
     drag_force(11,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-    drag_force(12,i) = dot_product(force_cut_vec(1:3,1,1),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(13,i) = dot_product(force_cut_vec(1:3,1,1),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(14,i) = dot_product(force_cut_vec(1:3,1,2),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(15,i) = dot_product(force_cut_vec(1:3,1,2),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(16,i) = dot_product(force_cut_vec(1:3,1,3),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(17,i) = dot_product(force_cut_vec(1:3,1,3),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(18,i) = dot_product(force_cut_vec(1:3,1,4),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(19,i) = dot_product(force_cut_vec(1:3,1,4),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(20,i) = dot_product(force_cut_vec(1:3,1,5),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(21,i) = dot_product(force_cut_vec(1:3,1,5),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(12,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(13,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(14,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(15,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(16,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(17,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(18,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(19,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(20,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(21,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel_perp) * xyzmh_ptmass(4,i)
 
     ! Write to output
     write (filename, "(A16,I0)") "sink_drag_", i
