@@ -26,7 +26,18 @@ Mine has::
    export PATH=$PATH:/scratch/fu7/splash/bin
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
    export MAXP=2000000
+   ulimit -s unlimited
    source ~/.modules
+  
+If you are using phantom+mcfost, you will need the following lines::
+   
+   export MCFOST_DIR=/scratch/fu7/mcfost-src/
+   export MCFOST_AUTO_UPDATE=0
+   export MCFOST_INSTALL=/scratch/fu7/mcfost/
+   export MCFOST_GIT=1
+   export MCFOST_NO_XGBOOST=1
+   export MCFOST_LIBS=/scratch/fu7/mcfost
+   export MCFOST_UTILS=/scratch/fu7/mcfost/utils
 
 Then relevant modules in your .modules file::
 
@@ -36,12 +47,11 @@ Mine contains::
 
    module load intel-compiler
    module load intel-mpi
+   module load git
 
-Initialise git-lfs as follows::
+where the last line is needed for git's large file storage (LFS) to work.
 
-   $ git lfs install
-
-Make a shortcut to the /scratch filesystem::
+Finally, make a shortcut to the /scratch filesystem::
 
    cd /scratch/fu7
    mkdir $USER
@@ -53,9 +63,12 @@ Make a shortcut to the /scratch filesystem::
 Get phantom
 -----------
 
-Clone a copy of phantom into your home directory::
+Clone a copy of phantom into your home directory and install git-lfs::
 
-   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+   $ cd $HOME
+   $ git clone https://github.com/danieljprice/phantom.git
+   $ cd phantom
+   $ git lfs install
 
 Run a calculation
 ------------------
