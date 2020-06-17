@@ -12,7 +12,7 @@
 !   density profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES: For cubic spline softening of sink gravity, see Price & 
+!  REFERENCES: For cubic spline softening of sink gravity, see Price &
 !              Monaghan (2007)
 !
 !  OWNER: Mike Lau
