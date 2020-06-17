@@ -195,7 +195,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo
 
-    write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ', 100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
+    write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ',&
+         100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
     isinitial = .false.
  else ! No diffusion approximation
     do i=1,npart
