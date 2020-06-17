@@ -62,7 +62,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor,T_to_u
  real(kind=4)    :: Tdust(npart),n_packets(npart)
- integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
+ integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
  real(kind=8), dimension(6), save            :: SPH_limits
@@ -111,6 +111,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
  endif
 
+ if (gamma <= 1.) then
+    write(*,*) 'WARNING: gamma = 1 but should be > 1 for phantom+mcfost'
+    write(*,*) 'RESETTING GAMMA = 5/3'
+    gamma = 5./3.
+ endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
  T_to_u = factor * massoftype(igas) /dtmax
@@ -197,7 +202,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ', 100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
     isinitial = .false.
+    nerr = 0
  else ! No diffusion approximation
+    nerr = 0
     do i=1,npart
        if (Tdust(i) > 1.) then
           vxyzu(4,i) = Tdust(i) * factor
@@ -205,8 +212,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           ! if mcfost doesn't return a temperature set it to Tdefault
           vxyzu(4,i) = Tdefault * factor
        endif
+       if (vxyzu(4,i) <= 0. .or. vxyzu(4,i) > huge(0.)) then
+          nerr = nerr + 1
+          if (nerr < 10) write(*,*) 'ERROR: part ',i,' u = ',vxyzu(4,i),' Tdust was ',Tdust(i)
+       endif
     enddo
  endif
+ if (nerr > 0) write(*,*) 'ERROR: ** GOT ',nerr,' particles with invalid u (0 or Infinity), code will crash **'
 
  call reset_mcfost_phantom()
  if (allocated(dudt)) deallocate(dudt)
