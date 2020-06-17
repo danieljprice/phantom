@@ -38,7 +38,7 @@ contains
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,periodic,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom)
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  !use domain,     only:i_belong
@@ -68,8 +68,6 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  procedure(mask_prototype), pointer  :: i_belong
 
  integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
-
- integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
  integer(kind=8)    :: iparttot
  real               :: delx,dely
@@ -581,7 +579,6 @@ pure logical function in_range(x,xmin,xmax)
 
 end function in_range
 
-<<<<<<< HEAD
 pure logical function mask_true(ip)
  integer(kind=8), intent(in) :: ip
 
@@ -589,8 +586,6 @@ pure logical function mask_true(ip)
 
 end function mask_true
 
-subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
-=======
 !-------------------------------------------------------------
 !+
 !  helper routine to figure out exact spacing in y and z
@@ -598,7 +593,6 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 !+
 !-------------------------------------------------------------
 pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
->>>>>>> master
  real,     intent(in) :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
