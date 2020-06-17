@@ -19,8 +19,8 @@ This is just a shortcut for the following sequence of commands:
 
 ::
 
-   make SETUP=test
-   ./bin/phantom test
+   make SETUP=test phantomtest
+   ./bin/phantomtest
 
 The test suite is also run nightly to check for regressions. You can run
 the complete nightly test yourself using the testbot wrapper script:
@@ -38,7 +38,7 @@ as follows:
 
 ::
 
-   make SETUP=test && ./bin/phantom test derivs
+   make SETUP=test phantomtest && ./bin/phantomtest derivs
 
 A non-exhaustive list of possible arguments are as follows:
 
