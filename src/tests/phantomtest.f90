@@ -15,7 +15,7 @@
 !
 !  $Id$
 !
-!  USAGE: phantom
+!  USAGE: phantomtest [no arguments]
 !
 !  DEPENDENCIES: initial, io, memory, mpiutils, test
 !+

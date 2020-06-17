@@ -24,8 +24,7 @@
 !
 !  USAGE: phantom infilename
 !
-!  DEPENDENCIES: dim, evolve, initial, io, memory, mpiderivs, mpiutils,
-!    stack, test
+!  DEPENDENCIES: dim, evolve, initial, io, mpiutils
 !+
 !--------------------------------------------------------------------------
 program phantom
