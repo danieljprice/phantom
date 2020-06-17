@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -59,20 +59,28 @@ contains
 
 subroutine allocate_linklist
  use allocutils, only:allocate_array
+ use kdtree,     only:allocate_kdtree
 
  call allocate_array('cellatid', cellatid, ncellsmax+1)
  call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
  call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
  call allocate_array('node', node, ncellsmax+1)
  call allocate_array('nodemap', nodemap, ncellsmax+1)
+ call allocate_kdtree()
+
 end subroutine allocate_linklist
 
 subroutine deallocate_linklist
- deallocate(cellatid)
- deallocate(ifirstincell)
- deallocate(nodeglobal)
- deallocate(node)
- deallocate(nodemap)
+ use kdtree,   only:deallocate_kdtree
+
+ if (allocated(cellatid)) deallocate(cellatid)
+ if (allocated(ifirstincell)) deallocate(ifirstincell)
+ if (allocated(nodeglobal)) deallocate(nodeglobal)
+ if (allocated(node)) deallocate(node)
+ if (allocated(nodemap)) deallocate(nodemap)
+
+ call deallocate_kdtree()
+
 end subroutine deallocate_linklist
 
 subroutine get_hmaxcell(inode,hmaxcell)

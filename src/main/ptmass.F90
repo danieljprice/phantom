@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@
 !    r_crit          -- critical radius for point mass creation (no new sinks < r_crit from existing sink)
 !    rho_crit_cgs    -- density above which sink particles are created (g/cm^3)
 !
-!  DEPENDENCIES: boundary, dim, eos, externalforces, fastmath,
+!  DEPENDENCIES: boundary, dim, domain, eos, externalforces, fastmath,
 !    infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
 !    options, part, units
 !+
@@ -54,6 +54,9 @@ module ptmass
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+#ifdef PERIODIC
+ public :: ptmass_boundary_crossing
+#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -233,11 +236,10 @@ end subroutine get_accel_sink_gas
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti)
 #ifdef FINVSQRT
- use fastmath, only:finvsqrt
+ use fastmath,       only:finvsqrt
 #endif
  use externalforces, only:externalforce
- use kernel,   only:kernel_softening,radkern
- !$ use omputils, only:ipart_omp_lock
+ use kernel,         only:kernel_softening,radkern
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(out) :: fxyz_ptmass(4,maxptmass)
@@ -245,7 +247,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: ti
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
- real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2,term
+ real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2
  real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
  real    :: fterm, pterm
@@ -258,11 +260,11 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,ipart_omp_lock) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
- !$omp private(fxi,fyi,fzi,phii,term) &
+ !$omp private(fxi,fyi,fzi,phii) &
  !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm) &
@@ -278,7 +280,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fyi    = 0.
     fzi    = 0.
     phii   = 0.
-    do j=i+1,nptmass
+    do j=1,nptmass
+       if (i==j) cycle
        dx     = xi - xyzmh_ptmass(1,j)
        dy     = yi - xyzmh_ptmass(2,j)
        dz     = zi - xyzmh_ptmass(3,j)
@@ -312,10 +315,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           fzi   = fzi - dz*f1
           pterm = psoft*hsoft1
           phii  = phii + pmassj*pterm ! potential (spline-softened)
-
-          ! acceleration of sink2 from sink1
-          f2    = pmassi*fterm
-          term  = pmassi*pmassj*psoft*hsoft1
        else
           ! no softening on the sink-sink interaction
           dr3   = ddr*ddr*ddr
@@ -327,28 +326,16 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           fzi   = fzi - dz*f1
           pterm = -ddr
           phii  = phii + pmassj*pterm    ! potential (GM/r)
-
-          ! acceleration of sink2 from sink1
-          f2   = pmassi*dr3
-          term = -pmassi*pmassj*ddr
        endif
 
-       phitot = phitot + term  ! potential (G M_1 M_2/r)
-
-       !$ call omp_set_lock(ipart_omp_lock(j))
-       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
-       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
-       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
-       fxyz_ptmass(4,j) = fxyz_ptmass(4,j) + pmassi*pterm
-       !$ call omp_unset_lock(ipart_omp_lock(j))
-
+       phitot = phitot + 0.5*pmassi*pmassj*pterm  ! total potential (G M_1 M_2/r)
     enddo
 
     !
     !--apply external forces
     !
     if (iexternalforce > 0) then
-       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext)
+       call externalforce(iexternalforce,xi,yi,zi,0.,ti,fextx,fexty,fextz,phiext,ii=-i)
        fxi = fxi + fextx
        fyi = fyi + fexty
        fzi = fzi + fextz
@@ -359,12 +346,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    !$ call omp_set_lock(ipart_omp_lock(i))
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
     fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-    !$ call omp_unset_lock(ipart_omp_lock(i))
 
  enddo
  !$omp end parallel do
@@ -391,7 +376,26 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  enddo
 
 end subroutine get_accel_sink_sink
+!----------------------------------------------------------------
+!+
+!  Update position of sink particles if they cross the periodic boundary
+!+
+!----------------------------------------------------------------
+#ifdef PERIODIC
+subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
+ integer, intent(in)    :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ integer                :: i,ncross
 
+ ncross = 0
+ do i = 1,nptmass
+    call cross_boundary(isperiodic,xyzmh_ptmass(:,i),ncross)
+ enddo
+
+end subroutine ptmass_boundary_crossing
+#endif
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses
@@ -855,7 +859,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real(4) :: divvi,potenj_min,poteni
  integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
- logical :: accreted,iactivej,isdustj,iactivek,isdustk,calc_exact_epot
+ logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot
 
  ifail       = 0
  ifail_array = 0
@@ -928,10 +932,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
  if (iverbose >= 1 .and. id==id_rhomax) &
     write(iprint,"(a,i10,a,i2,a)",advance='no') &
-     ' ptmass_create: Testing ',itest,' on thread ',id,' for ptmass creation...'
+     ' ptmass_create: Testing particle i=',itest,' on thread ',id,' for ptmass creation...'
 
  ! CHECK 0: make sure particle is a gas particle (sanity check, should be unnecessary)
- if (itype /= igas) then
+ if (.not. is_accretable(itype)) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because not a gas particle'
     call summary_ptmass_fail(inosink_notgas)
     if (.not. record_created) return
@@ -948,7 +952,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 2: 2h < h_acc
  if (hi > 0.5*h_acc) then
-    if (iverbose >= 1) write(iprint,"(/,1x,a,es10.3,a,es10.3,a)") 'ptmass_create: FAILED because 2h > h_acc (',h_acc,')'
+    if (iverbose >= 1) write(iprint,"(/,1x,2(a,es10.3),a)") 'ptmass_create: FAILED because 2h > h_acc (',2*hi,' > ',h_acc,')'
     call summary_ptmass_fail(inosink_h)
     if (.not. record_created) return
     ifail_array(inosink_h) = 1
@@ -983,7 +987,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp shared(ibin_wake,ibin_itest) &
 #endif
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
-!$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isdustj,iactivek,isdustk) &
+!$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,ponrhoj,spsoundj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
 !$omp firstprivate(pmassj,pmassk,itypej,iactivej,itypek) &
 !$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
@@ -994,7 +998,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     !
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
-       call get_partinfo(iphase(j),iactivej,isdustj,itypej)
+       call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej)
        pmassj = massoftype(itypej)
        if (.not. is_accretable(itypej) ) cycle over_neigh ! Verify particle is 'accretable'
     endif
@@ -1076,6 +1080,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              ! Calculate potential energy exactly
              !
              ! add contribution of i-j (since, e.g., rij2 is already calculated)
+             !
              q2i    = rij2*hi21
              qi     = sqrt(q2i)
              call kernel_softening(q2i,qi,psofti,fsoft)
@@ -1085,15 +1090,16 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
              epot   = epot + 0.5*pmassi*pmassj*(psofti*hi1 + psoftj*hj1)
              !
              ! add contribution of k-j for all k >= j (to avoid double counting, but include self-contribution)
+             !
              over_neigh_k: do nk=n,nneigh
                 k = listneigh(nk)
                 if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
-                   call get_partinfo(iphase(k),iactivek,isdustk,itypek)
+                   itypek = iamtype(iphase(k))
                    pmassk = massoftype(itypek)
                    if (.not. is_accretable(itypek) ) cycle over_neigh_k
                 endif
-                !
+
                 if (nk <= maxcache) then
                    xk = xyzcache(nk,1)
                    yk = xyzcache(nk,2)

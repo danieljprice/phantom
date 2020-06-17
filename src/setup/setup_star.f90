@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,29 +26,39 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    EOSopt      -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar_1     -- mass of star
-!    Nstar_1     -- particle number in the star
-!    Rstar_1     -- radius of star
-!    densityfile -- File containing data for stellar profile
-!    dist_unit   -- distance unit (e.g. au)
-!    gamma       -- Adiabatic index
-!    initialtemp -- initial temperature of the star
-!    mass_unit   -- mass unit (e.g. solarm)
-!    np          -- approx number of particles (in box of size 2R)
-!    polyk       -- sound speed .or. constant in EOS
-!    ui_coef     -- specific internal energy (units of GM/R)
+!    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
+!    Mstar_1            -- mass of star
+!    Nstar_1            -- particle number in the star
+!    Rstar_1            -- radius of star
+!    densityfile        -- File containing data for stellar profile
+!    dist_unit          -- distance unit (e.g. au)
+!    gamma              -- adiabatic index
+!    hdens              -- Radius of core softening
+!    hsoft              -- Softening length of sink particle stellar core
+!    ieos               -- 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
+!    initialtemp        -- initial temperature of the star
+!    isinkcore          -- Add a sink particle stellar core
+!    isoftcore          -- Soften the core of an input MESA profile
+!    isofteningopt      -- 1=supply hsoft, 2=supply mcore, 3=supply both
+!    mass_unit          -- mass unit (e.g. solarm)
+!    mcore              -- Mass of sink particle stellar core
+!    np                 -- approx number of particles (in box of size 2R)
+!    outputfilename     -- Output path for softened MESA profile
+!    polyk              -- sound speed .or. constant in EOS
+!    relax_star         -- relax star automatically during setup
+!    ui_coef            -- specific internal energy (units of GM/R)
+!    unsoftened_profile -- Path to MESA profile for softening
 !
-!  DEPENDENCIES: centreofmass, dim, eos, extern_neutronstar,
-!    externalforces, infile_utils, io, kernel, options, part, physcon,
-!    prompting, rho_profile, setup_params, spherical, table_utils,
-!    timestep, units
+!  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
+!    extern_neutronstar, externalforces, infile_utils, io, kernel, options,
+!    part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
+!    setstellarcore, setup_params, spherical, table_utils, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
- use io,             only: fatal
+ use io,             only: fatal,error,master
  use part,           only: gravity
- use physcon,        only: solarm,solarr,km,pi,c
+ use physcon,        only: solarm,solarr,km,pi,c,kb_on_mh,radconst
  use options,        only: nfulldump,iexternalforce,calc_erot
  use timestep,       only: tmax,dtmax
  use eos,            only: ieos, p1pwpcgs,gamma1pwp,gamma2pwp,gamma3pwp
@@ -60,15 +70,16 @@ module setup
  !
  integer, parameter :: numEOS       =  4 ! maximum number of piecewise polytrope defaults
  integer, parameter :: numparam     =  4 ! number of parameters governing the piecewise polytrope
- integer            :: isphere,np,EOSopt
+ integer            :: isphere,np,EOSopt,isofteningopt
  integer            :: nstar
  integer            :: need_iso, need_grav, need_temp
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp
- logical            :: iexist,input_polyk
- logical            :: use_exactN,use_prompt
- character(len=120) :: densityfile
+ real               :: mcore,hdens,hsoft
+ logical            :: iexist,input_polyk,isinkcore,isoftcore
+ logical            :: use_exactN,use_prompt,relax_star_in_setup
+ character(len=120) :: unsoftened_profile,densityfile,outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
  character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
  !
@@ -98,19 +109,25 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,npart_total
- use io,             only: master
- use part,           only: igas
- use spherical,      only: set_sphere
- use centreofmass,   only: reset_centreofmass
- use table_utils,    only: yinterp
- use units,          only: set_units,select_unit,utime,unit_density
- use kernel,         only: hfact_default
- use rho_profile,    only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-                           rho_evrard,read_mesa_file,read_kepler_file
+ use setup_params,    only:rhozero,npart_total
+ use part,            only: igas,isetphase,iphase,ihsoft
+ use spherical,       only: set_sphere
+ use centreofmass,    only: reset_centreofmass
+ use table_utils,     only: yinterp
+ use units,           only: set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
+ use kernel,          only: hfact_default
+ use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
+                            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+                            write_softened_profile
  use extern_neutronstar, only: write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,            only: init_eos, finish_eos, equationofstate
- use part,           only: rhoh, temperature, store_temperature
+ use eos,             only: init_eos,finish_eos,equationofstate,gmw,X_in,Z_in
+ use eos_idealplusrad,only: get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
+ use part,            only: temperature,store_temperature
+ use setstellarcore,  only:set_stellar_core
+ use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
+                           check_hsoft_and_mcore,interpolator
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use relaxstar,       only:relax_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -122,13 +139,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = 20000
  integer, parameter               :: ng     = 12000
- integer                          :: i,nx,npts,npmax,ierr
+ integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,polyk_in,presi
- real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
- real                             :: xi, yi, zi, rhoi, spsoundi, p_on_rhogas, eni, tempi
+ real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
+                                     enitab(ng_max)
+ real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
+                                     Xfrac(:),Yfrac(:)
+ real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in
  logical                          :: calc_polyk,write_setup
  character(len=120)               :: setupfile,inname
- !
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -139,6 +158,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  maxvxyzu     = size(vxyzu(:,1))
  write_setup  = .false.
  use_exactN   = .true.
+ relax_star_in_setup = .false.
  !
  ! General defaults
  !
@@ -179,7 +199,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write_setup = .true.
  else
     ! Set default values that are not in the .setup file
-    np       = nstar
+    np = nstar
     if (input_polyk) polyk = polyk_in
  endif
  !
@@ -196,10 +216,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
  !
- ! set equation of state
- !
- if (isphere==ibpwpoly .and. .not. iexist) call init_ieos9
- !
  ! setup particles
  !
  npartoftype(:) = 0
@@ -207,8 +223,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart          = 0
  npart_total    = 0
  vxyzu          = 0.0
- if (isphere==ievrard) polyk = ui_coef*Mstar/Rstar
-
  !
  ! setup tabulated density profile
  !
@@ -216,24 +230,75 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(isphere)
  case(ipoly,ihelmholtz)
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
+    pres = polyk*den**gamma
  case(insfile)
     call read_rhotab_wrapper(trim(densityfile),ng_max,r,den,npts,&
                              polyk,gamma,rhocentre,Mstar,iexist,ierr)
     if (.not.iexist) call fatal('setup','density file does not exist')
     if (ierr > 0)    call fatal('setup','error in reading density file')
+    pres = polyk*den**gamma
  case(ibpwpoly)
+    if (.not. iexist) call init_ieos9
     call rho_piecewise_polytrope(r,den,rhocentre,Mstar,npts,ierr)
     if (ierr == 1) call fatal('setup','ng_max is too small')
     if (ierr == 2) call fatal('setup','failed to converge to a self-consistent density profile')
     rmin  = r(1)
     Rstar = r(npts)
+    pres = polyk*den**gamma
  case(imesa)
+    if (isoftcore) then
+       !
+       ! Read the MESA profile to be softened
+       !
+       call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0,Xfrac,Yfrac)
+       rmin  = r0(1)
+       Rstar = r0(size(r0))
+       !
+       ! Get mean molecular weight (temporary: Find gmw at R/2)
+       !
+       call interpolator(r0, 0.5*Rstar, i)
+       pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming pressure due to ideal gas + radiation
+       gmw = (rho0(i) * kb_on_mh * temp0(i)) / pgas
+       !
+       ! Get representative, fixed X and Z mass fractions (Taken to be at R/2)
+       !
+       if ((ieos == 10) .or. (ieos == 12)) then
+          X_in = Xfrac(i)
+          Y_in = Yfrac(i)
+          Z_in = 1 - X_in - Y_in
+       endif
+       !
+       ! Get values of hsoft and mcore
+       !
+       if (isofteningopt == 1) then ! Default
+          call find_mcore_given_hsoft(hdens,r0,rho0,m0,mcore,ierr)
+          if (ierr==1) call fatal('setup','Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)')
+       elseif (isofteningopt == 2) then
+          call find_hsoft_given_mcore(mcore,r0,rho0,m0,hdens,ierr)
+          if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
+       else ! Both hdens and mcore are specified, check if values are sensible
+          call check_hsoft_and_mcore(hdens,mcore,r0,rho0,m0,ierr)
+          if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
+          if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
+          if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
+       endif
+       hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
+       ! are same as the original profile for r > hsoft
+
+       call set_softened_core(ieos,gamma,X_in,Y_in,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+       if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
+       !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
+       call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
+       call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
+       densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
+    endif
+
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
+    rmin  = r(1)
+    Rstar = r(npts)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
     if (ierr==2) call fatal('setup','insufficient data points read from file')
     if (ierr==3) call fatal('setup','too many data points; increase ng')
-    rmin  = r(1)
-    Rstar = r(npts)
  case(ikepler)
     call read_kepler_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
@@ -244,9 +309,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(ievrard)
     call rho_evrard(ng,Mstar,Rstar,r,den)
     npts = ng
+    polyk = ui_coef*Mstar/Rstar
+    pres = polyk*den**gamma
  case default  ! set up uniform sphere by default
     call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
     npts = ng
+    pres = polyk*den**gamma
  end select
  !
  ! place particles in sphere
@@ -258,55 +326,76 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=np)
  !
- ! reset centre of mass
+ ! add sink particle stellar core
  !
+ if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
+
  nstar = int(npart_total,kind=(kind(nstar)))
  massoftype(igas) = Mstar/nstar
+ !
+ ! set total particle number (on this MPI thread)
+ !
+ npart             = nstar
+ npartoftype(igas) = npart
+ iphase(1:npart)   = isetphase(igas,iactive=.true.)
+
+ !
+ ! relax the density profile to achieve nice hydrostatic equilibrium
+ !
+ if (relax_star_in_setup .and. maxvxyzu >= 4) then
+    if (nstar==npart) then
+       call relax_star(npts,den,pres,r,npart,xyzh)
+    else
+       call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
+    endif
+ endif
+ !
+ ! reset centre of mass
+ !
  call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar))
- !
- ! add energies
- !
+
  call init_eos(ieos,ierr)
- if (ierr /= 0) call fatal('setup_spheres','error initialising equation of state')
+ if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
-       if (gamma < 1.00001 .or. isphere==ievrard) then
-          vxyzu(4,i) = polyk
-       else
-          !
-          !  Note: Running the polytrope with u stored is not quite
-          !  the same as using P = K rho^gamma because we really
-          !  should use the actual rho, not rhozero.
-          !
-          ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-          densi      = yinterp(den(1:npts),r(1:npts),ri)
-          vxyzu(4,i) = polyk*densi**(gamma-1.)/(gamma-1.)
-          if ((isphere==imesa .or. isphere==ikepler) .and. (ieos==10)) then
-             vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-             presi = yinterp(pres(1:npts),r(1:npts),ri)
-          elseif ((isphere==imesa .or. isphere==ikepler) .and. (ieos/=10)) then
-             presi = yinterp(pres(1:npts),r(1:npts),ri)
+       !
+       !  Interpolate pressure from table
+       !
+       ri         = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       densi      = yinterp(den(1:npts),r(1:npts),ri)
+       presi      = yinterp(pres(1:npts),r(1:npts),ri)
+       !
+       ! Set internal energy of particles given pressure and density depending on EoS
+       !
+       select case(ieos)
+       case(16) ! Shen EoS
+          vxyzu(4,i) = 1.e3
+       case(15) ! Helmholtz EoS
+          xi    = xyzh(1,i)
+          yi    = xyzh(2,i)
+          zi    = xyzh(3,i)
+          tempi = initialtemp
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          vxyzu(4,i) = eni
+          if (store_temperature) temperature(i) = initialtemp
+       case(12) ! Ideal gas plus radiation EoS
+          call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
+          call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
+          vxyzu(4,i) = eni / unit_ergg
+          if (store_temperature) temperature(i) = tempi
+       case(10) ! MESA EoS
+          vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+          if (store_temperature) temperature(i) = yinterp(temp(1:npts),r(1:npts),ri)
+       case default
+          if (gamma < 1.00001) then
+             vxyzu(4,i) = polyk
+          else
              vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-          elseif (isphere==ihelmholtz .and. ieos==15) then
-             ! set internal energy according to Helmholtz eos
-             xi    = xyzh(1,i)
-             yi    = xyzh(2,i)
-             zi    = xyzh(3,i)
-             rhoi  = rhoh(xyzh(4,i),massoftype(igas))
-             tempi = initialtemp
-             call equationofstate(ieos,p_on_rhogas,spsoundi,rhoi,xi,yi,zi,eni,tempi)
-             vxyzu(4,i) = eni
-             temperature(i) = initialtemp
           endif
-       endif
+       end select
     endif
  enddo
  call finish_eos(ieos,ierr)
- !
- ! set total particle number
- !
- npart          = nstar
- npartoftype(1) = npart
  !
  ! Reset centre of mass (again)
  !
@@ -432,6 +521,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     call prompt('Enter the desired EoS for setup', ieos)
  endif
 
+ if ((isphere==imesa .or. isphere==ikepler) .and. (ieos==2)) then
+    call prompt('Enter the desired gamma for the EoS', gamma)
+ endif
+
+
  if (isphere==ibinpoly) call fatal('setup','Binary polytrope option has been removed.')
  !
  ! Using prompts, determine the parameters the users wishes
@@ -453,6 +547,37 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
     call prompt('Enter file name containing density profile ', densityfile)
  endif
+ if (isphere==imesa) then
+    call prompt('Soften the core density profile and add a sink particle core?',isoftcore)
+ endif
+ if (.not. isoftcore) then
+    call prompt('Add a sink particle stellar core?',isinkcore)
+ else
+    isinkcore = .true. ! Create sink particle core automatically
+    unsoftened_profile = densityfile
+    print*,'Options for core softening:'
+    print "(5(/,a))",'1. Specify radius of density softening', &
+                     '2. Specify mass of sink particle core (not recommended)', &
+                     '3. Specify both radius of density softening length and mass', &
+                     '   of sink particle core (if you do not know what you are', &
+                     '   doing, you will obtain a poorly softened profile)'
+    call prompt('Select option above : ',isofteningopt,1,3)
+    select case(isofteningopt)
+    case(1)
+       call prompt('Enter radius of density softening',hdens,0.)
+    case(2)
+       call prompt('Enter mass of the created sink particle core',mcore,0.)
+    case(3)
+       call prompt('Enter mass of the created sink particle core',mcore,0.)
+       call prompt('Enter radius of density softening',hdens,0.)
+    end select
+    outputfilename = 'mysoftenedstar.dat'
+    call prompt('Enter output file name of cored stellar profile:',outputfilename)
+ endif
+ if (isinkcore .and. (.not. isoftcore)) then
+    call prompt('Enter mass of the created sink particle core',mcore,0.)
+    call prompt('Enter softening length of the sink particle core',hsoft,0.)
+ endif
  if ( use_prompt ) then
     if (isphere==ibpwpoly) then
        write(*,'(a)') 'EOS options: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)'
@@ -473,6 +598,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter temperature',initialtemp,1.0e4,1.0e11)
     endif
  endif
+ call prompt('Relax star automatically during setup?',relax_star_in_setup)
 
 end subroutine setup_interactive
 
@@ -551,7 +677,12 @@ subroutine set_default_options(polyk,istar,iexist)
     input_polyk = .true.
     need_grav   = 0 ! to prevent setupfail
  end select
-
+ isinkcore     = .false.
+ mcore         = 0.
+ hsoft         = 0.
+ isoftcore     = .false.
+ hdens         = 0.
+ isofteningopt = 1 ! By default, specify hdens
 end subroutine set_default_options
 
 !-----------------------------------------------------------------------
@@ -592,8 +723,9 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils, only: write_inopt,get_optstring
- use dim,          only: tagline
+ use infile_utils, only:write_inopt,get_optstring
+ use dim,          only:tagline
+ use relaxstar,    only:write_options_relax
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -645,6 +777,28 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  endif
 
+ write(iunit,"(/,a)") '# core softening and sink stellar core options'
+ call write_inopt(isoftcore,'isoftcore','Soften the core of an input MESA profile',iunit)
+ if (isoftcore) then
+    call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
+    if (ieos==2) call write_inopt(gamma,'gamma','adiabatic index',iunit)
+    call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
+    call write_inopt(unsoftened_profile,'unsoftened_profile','Path to MESA profile for softening',iunit)
+    call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
+    call write_inopt(hdens,'hdens','Radius of core softening',iunit)
+    call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
+    call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
+ endif
+ call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
+ if (isinkcore .and. (.not. isoftcore)) then
+    call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
+    call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
+ endif
+
+ write(iunit,"(/,a)") '# relaxation options'
+ call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
+ if (relax_star_in_setup) call write_options_relax(iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -654,9 +808,10 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,polyk,ierr)
- use infile_utils, only: open_db_from_file,inopts,close_db,read_inopt
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
+ use io,           only:error
+ use units,        only:select_unit
+ use relaxstar,    only:read_options_relax
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
@@ -705,6 +860,31 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(initialtemp,'initialtemp',db,errcount=nerr)
     endif
  endif
+
+ call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+ if (isoftcore) then
+    call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
+    call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
+    call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
+    call read_inopt(ieos,'ieos',db,errcount=nerr)
+    if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
+    if (isofteningopt==1) call read_inopt(hdens,'hdens',db,errcount=nerr)
+    if (isofteningopt==2) call read_inopt(mcore,'mcore',db,errcount=nerr)
+    if (isofteningopt==3) then
+       call read_inopt(mcore,'mcore',db,errcount=nerr)
+       call read_inopt(hdens,'hdens',db,errcount=nerr)
+    endif
+ endif
+
+ call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
+ if (isinkcore .and. (.not. isoftcore)) then
+    call read_inopt(mcore,'mcore',db,errcount=nerr)
+    call read_inopt(hsoft,'hsoft',db,errcount=nerr)
+ endif
+
+ call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
+ if (relax_star_in_setup) call read_options_relax(db,nerr)
+ if (nerr /= 0) ierr = ierr + 1
  !
  ! parse units
  !

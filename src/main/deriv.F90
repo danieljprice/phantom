@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: densityforce, dim, externalforces, forces, forcing,
-!    growth, io, linklist, mpiutils, part, photoevap, ptmass, timestep,
-!    timing
+!  DEPENDENCIES: cons2prim, densityforce, derivutils, dim, externalforces,
+!    forces, forcing, growth, io, linklist, part, photoevap, ptmass,
+!    timestep, timestep_ind, timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -28,7 +28,7 @@ module deriv
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- public :: derivs
+ public :: derivs, get_derivs_global
  real, private :: stressmax
 
  private
@@ -41,15 +41,22 @@ contains
 !  (wrapper for call to density and rates, calls neighbours etc first)
 !+
 !-------------------------------------------------------------
-subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                  dustfrac,ddustevol,temperature,time,dt,dtnew)
+subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                  Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
+                  dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use timestep,       only:dtcourant,dtforce,dtmax
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
+ use part,           only:dustgasprop
+#ifdef IND_TIMESTEPS
+ use timestep_ind,   only:nbinmax
+#else
+ use timestep,       only:dtcourant,dtforce,dtrad
+#endif
+ use timestep,       only:dtmax
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -59,11 +66,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
- use part,           only:St,csound
+ use part,           only:VrelVf
 #endif
- use part,         only:mhd,gradh,alphaind,igas
- use timing,       only:get_timings
- use forces,       only:force
+#ifdef PERIODIC
+ use ptmass,         only:ptmass_boundary_crossing
+ use part,           only:nptmass,xyzmh_ptmass
+#endif
+ use part,           only:mhd,gradh,alphaind,igas
+ use timing,         only:get_timings
+ use forces,         only:force
+ use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use derivutils,     only:do_timing
+#ifdef GR
+ use cons2prim,      only:cons2primall
+#endif
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -75,18 +91,23 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
+ real,         intent(in)    :: rad(:,:)
+ real,         intent(out)   :: drad(:,:)
+ real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
  real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
- real(kind=4)       :: t1,tcpu1,tlast,tcpulast
+ real,         intent(inout) :: pxyzu(:,:), dens(:)
+ real,         intent(in)    :: metrics(:,:,:,:)
+ real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
- t1 = 0.
+ t1    = 0.
  tcpu1 = 0.
  call get_timings(t1,tcpu1)
- tlast = t1
+ tlast    = t1
  tcpulast = tcpu1
 !
 !--check for errors in input options
@@ -103,7 +124,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 !
 ! call link list to find neighbours
 !
- if (icall==1 .or. icall==0) call set_linklist(npart,nactive,xyzh,vxyzu)
+ if (icall==1 .or. icall==0) then
+    call set_linklist(npart,nactive,xyzh,vxyzu)
+#ifdef PERIODIC
+    if (nptmass > 0) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
+#endif
+ endif
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
@@ -122,9 +148,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 !
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop)
     call do_timing('dens',tlast,tcpulast)
  endif
+
+#ifdef GR
+ call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+#endif
+
 !
 ! compute forces
 !
@@ -135,67 +166,65 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Be
 #endif
 
  stressmax = 0.
- call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-            dustfrac,ddustevol,ipart_rhomax,dt,stressmax,temperature)
+ call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
+            rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
+            ipart_rhomax,dt,stressmax,temperature,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 #ifdef DUSTGROWTH
  !
- ! compute growth rate of dust particles with respect to their positions
+ ! compute growth rate of dust particles
  !
- call get_growth_rate(npart,xyzh,vxyzu,csound,St,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 !
 ! set new timestep from Courant/forces condition
 !
- dtnew = min(dtforce,dtcourant,dtmax)
+#ifdef IND_TIMESTEPS
+ dtnew = dtmax/2**nbinmax  ! minimum timestep over all particles
+#else
+ dtnew = min(dtforce,dtcourant,dtrad,dtmax)
+#endif
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 
  return
 
-contains
-
-!-------------------------------------------------------------
-!+
-!  interface to timing routines
-!+
-!-------------------------------------------------------------
-subroutine do_timing(label,tlast,tcpulast,start,lunit)
- use io,       only:iverbose,id,master
- use mpiutils, only:reduce_mpi
- use timing,   only:timer,increment_timer,log_timing,timer_dens,timer_force,timer_link
- character(len=*), intent(in)    :: label
- real(kind=4),     intent(inout) :: tlast,tcpulast
- logical,          intent(in), optional :: start
- integer,          intent(in), optional :: lunit
- real(kind=4) :: t2,tcpu2,tcpu,twall
-
- call get_timings(t2,tcpu2)
- twall = reduce_mpi('+',t2-tlast)
- tcpu  = reduce_mpi('+',tcpu2-tcpulast)
-
- if (label=='dens') then
-    call increment_timer(timer_dens,t2-tlast,tcpu2-tcpulast)
- elseif (label=='force') then
-    call increment_timer(timer_force,t2-tlast,tcpu2-tcpulast)
- elseif (label=='link') then
-    call increment_timer(timer_link,t2-tlast,tcpu2-tcpulast)
- endif
-
- if (iverbose >= 2 .and. id==master) then
-    if (present(start)) then
-       call log_timing(label,t2-tlast,tcpu,start=.true.)
-    elseif (present(lunit)) then
-       call log_timing(label,t2-tlast,tcpu,iunit=lunit)
-    else
-       call log_timing(label,t2-tlast,tcpu)
-    endif
- endif
- tlast = t2
- tcpulast = tcpu2
-
-end subroutine do_timing
-
 end subroutine derivs
+
+!--------------------------------------
+!+
+!  wrapper for the call to derivs
+!  so only one line needs changing
+!  if interface changes
+!
+!  this should NOT be called during timestepping, it is useful
+!  for when one requires just a single call to evaluate derivatives
+!  and store them in the global shared arrays
+!+
+!--------------------------------------
+subroutine get_derivs_global(tused,dt_new)
+ use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
+                dustfrac,ddustevol,temperature,pxyzu,dens,metrics
+ use timing, only:printused,getused
+ use io,     only:id,master
+ real(kind=4), intent(out), optional :: tused
+ real,         intent(out), optional :: dt_new
+ real(kind=4) :: t1,t2
+ real :: dtnew
+ real :: time,dt
+
+ time = 0.
+ dt = 0.
+ call getused(t1)
+ call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+             rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,temperature,&
+             time,dt,dtnew,pxyzu,dens,metrics)
+ call getused(t2)
+ if (id==master .and. present(tused)) call printused(t1)
+ if (present(tused)) tused = t2 - t1
+ if (present(dt_new)) dt_new = dtnew
+
+end subroutine get_derivs_global
 
 end module deriv

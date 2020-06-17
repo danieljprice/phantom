@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -404,7 +404,7 @@ subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
 
     if (maxphase==maxp .and. any(noftypeinbin(:,2:) > 0)) then
        !--multiphase printout
-       write(fmtstring2,"(a,i2,a)") '(',17 + 32 + 11*ntypesprint,'(''-''))'
+       write(fmtstring2,"(a,i3,a)") '(',17 + 32 + 11*ntypesprint,'(''-''))'
        write(iprint,fmtstring2)
        write(iprint,"(a)",ADVANCE='no') '| bin |    dt    '   ! 17 chars
        write(fmtstring,"(a,i2,a)") '(',ntypesprint,'(a11))'
@@ -499,5 +499,74 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
 !5   format('> step ',i6,' /',i6,2x,'t = ',es14.7,1x,'dt = ',es10.3,' moved ',i10,' in ',f8.2,' cpu-s <')
 
 end subroutine print_dtlog_ind
+
+!-----------------------------------------------------------------
+!+
+!  compute and print individual timestep "efficiency"
+!  efficiency is 100% if evolving 1% of the particles takes
+!  1% of the time
+!+
+!-----------------------------------------------------------------
+subroutine print_dtind_efficiency(iverbose,nalive,nmoved,tall,tlast,icall)
+ integer,      intent(in)    :: iverbose,icall
+ integer(kind=8), intent(in) :: nalive,nmoved
+ real(kind=4), intent(in)    :: tlast
+ real(kind=4), intent(inout) :: tall
+ real :: fracactive,speedup,efficiency
+ character(len=12) :: string
+
+ if (iverbose >= 0 .and. nalive > 0) then
+    if (nmoved==nalive .and. icall==1) then
+       tall = tlast
+    elseif (tall > 0.) then
+       fracactive = nmoved/real(nalive)
+       speedup = tlast/tall
+       if (speedup > 0.) then
+          efficiency = 100.*fracactive/speedup
+       else
+          efficiency = 0.
+       endif
+       if (icall == 2) then
+          write(string,"(f12.2)") 1e-6*real(nmoved)/tlast
+          write(*,"(1x,a,a,f6.2,'%',/)") trim(adjustl(string))//'M particles per second',&
+               ', IND TIMESTEPS efficiency:',efficiency
+          if (iverbose >= 1) then
+             write(*,"(a,1pf12.1,'s')") '  particles per second (last full step) : ',real(nalive)/tall
+             write(*,"(a,1pf12.1,'s')") '  particles per second (ave. all steps) : ',real(nmoved)/tlast
+          endif
+       elseif (iverbose >= 2) then
+          write(*,"(1x,'(',3(a,f6.2,'%'),')')") &
+               'moved ',100.*fracactive,' of particles in ',100.*speedup, &
+               ' of time, efficiency = ',efficiency
+       endif
+    endif
+ endif
+
+end subroutine print_dtind_efficiency
+
+!----------------------------------------------------------------
+!+
+!  Checks which timestep is the limiting dt.  Book keeping is done here
+!+
+!----------------------------------------------------------------
+subroutine check_dtmin(dtcheck,dti,dtopt,dtrat,ndtopt,dtoptfacmean,dtoptfacmax,dtchar_out,dtchar_in)
+ integer, intent(inout) :: ndtopt
+ real,    intent(in)    :: dti,dtopt,dtrat
+ real,    intent(inout) :: dtoptfacmean,dtoptfacmax
+ logical, intent(inout) :: dtcheck
+ character(len=*), intent(out)   :: dtchar_out
+ character(len=*), intent(in)    :: dtchar_in
+
+ if (.not. dtcheck) return
+
+ if ( abs(dti-dtopt) < tiny(dti)) then
+    dtcheck      = .false.
+    ndtopt       = ndtopt + 1
+    dtoptfacmean = dtoptfacmean + dtrat
+    dtoptfacmax  = max(dtoptfacmax, dtrat)
+    dtchar_out   = dtchar_in
+ endif
+
+end subroutine check_dtmin
 
 end module timestep_ind

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,11 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    omega_corotate -- angular speed of corotating frame
+!    add_companion_grav -- add gravity due to companion
+!    companion_mass     -- mass of companion
+!    companion_xpos     -- x-position of companion
+!    hsoft              -- softening radius of companion gravity
+!    omega_corotate     -- angular speed of corotating frame
 !
 !  DEPENDENCIES: infile_utils, io, physcon, vectorutils
 !+
@@ -33,11 +37,13 @@ module extern_corotate
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
- real, public :: omega_corotate = 1.
+ real, public    :: omega_corotate = 1.,hsoft = 1.
+ real, public    :: companion_xpos = 1.,companion_mass = 1.
+ logical, public :: add_companion_grav = .false.
 
- public :: update_coriolis_leapfrog
- public :: get_coriolis_force,get_centrifugal_force
- public :: write_options_corotate, read_options_corotate
+ public          :: update_coriolis_leapfrog
+ public          :: get_coriolis_force,get_centrifugal_force,get_companion_force
+ public          :: write_options_corotate, read_options_corotate
  private
 
 contains
@@ -188,6 +194,43 @@ end subroutine update_coriolis_leapfrog
 
 !-----------------------------------------------------------------------
 !+
+!  Calculate softened gravitational force due to a companion (Price &
+!  Monaghan, 2007), given its x-position and mass.
+!+
+!-----------------------------------------------------------------------
+subroutine get_companion_force(r,h,fextxi,fextyi,fextzi,phi)
+ real, intent(in)    :: r(3),h
+ real, intent(inout) :: fextxi,fextyi,fextzi,phi
+ real                :: disp(3),sep,fmag,fmag_on_sep,phigrav,q
+ ! h : Softening radius of companion gravity. Newtonian gravity recovered
+ !     for r > 2*h
+ disp = r - (/companion_xpos,0.,0./)
+ sep = sqrt(dot_product(disp,disp))
+ q = sep / h
+
+ ! r >= 2h
+ if (sep >= 2*h) then
+    fmag = - companion_mass / sep**2
+    phigrav = - companion_mass / sep
+    ! h <= r < 2h
+ elseif (sep >= h) then
+    fmag = -(8./3.*q - 3.*q**2 + 1.2*q**3 - 1./.6 * q**4 - 1./(15.*q**2)) / h**2
+    phigrav = companion_mass / h * (4./3.*q**2 - q**3 + 0.3*q**4 - 1./30.*q**5 - 1.6 + 1./(15.*q))
+    ! 0 <= r < h
+ else
+    fmag = -(4./3.*q - 1.2*q**3 + 0.5*q**4) / h**2
+    phigrav = companion_mass / h * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 - 1.4)
+ endif
+
+ fmag_on_sep = fmag / sep
+ fextxi = fextxi + disp(1) * fmag_on_sep
+ fextxi = fextxi + disp(2) * fmag_on_sep
+ fextxi = fextxi + disp(3) * fmag_on_sep
+ phi = phi + phigrav
+
+end subroutine get_companion_force
+!-----------------------------------------------------------------------
+!+
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
@@ -197,7 +240,13 @@ subroutine write_options_corotate(iunit)
 
  write(iunit,"(/,a)") '# options relating to corotating frame'
  call write_inopt(omega_corotate,'omega_corotate','angular speed of corotating frame',iunit)
+ call write_inopt(add_companion_grav,'add_companion_grav','add gravity due to companion',iunit)
 
+ if (add_companion_grav) then
+    call write_inopt(companion_mass,'companion_mass','mass of companion',iunit)
+    call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
+    call write_inopt(hsoft,'hsoft','softening radius of companion gravity',iunit)
+ endif
 end subroutine write_options_corotate
 
 !-----------------------------------------------------------------------
@@ -220,11 +269,23 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
  case('omega_corotate')
     read(valstring,*,iostat=ierr) omega_corotate
     ngot = ngot + 1
+ case('companion_mass')
+    read(valstring,*,iostat=ierr) companion_mass
+    ngot = ngot + 1
+ case('companion_xpos')
+    read(valstring,*,iostat=ierr) companion_xpos
+    ngot = ngot + 1
+ case('add_companion_grav')
+    read(valstring,*,iostat=ierr) add_companion_grav
+    ngot = ngot + 1
+ case('hsoft')
+    read(valstring,*,iostat=ierr) hsoft
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
 
- igotall = (ngot >= 1)
+ igotall = (ngot >= 2)
 
 end subroutine read_options_corotate
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -33,9 +33,11 @@ module units
  real(kind=8), public :: udist = 1.d0, umass = 1.d0, utime = 1.d0
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
- real(kind=8), public :: unit_ergg, unit_energ
+ real(kind=8), public :: unit_ergg, unit_energ, unit_opacity
 
  public :: set_units, set_units_extra, print_units
+ public :: get_G_code, get_c_code, get_steboltz_code
+ public :: c_is_unity, G_is_unity, in_geometric_units
 
 contains
 
@@ -142,8 +144,8 @@ subroutine set_units_extra()
  unit_pressure = umass/(udist*utime**2)
  unit_ergg     = unit_velocity**2
  unit_energ    = umass*unit_ergg
+ unit_opacity  = udist**2/umass
 
- return
 end subroutine set_units_extra
 
 !------------------------------------------------------------------------------------
@@ -162,6 +164,7 @@ subroutine print_units(unit)
     lu = 6
  endif
 
+ write(lu,"(a)") ' --- code units --- '
  write(lu,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm    Time: ',utime,'s'
  write(lu,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg   En/m: ',unit_ergg,'erg/g'
  write(lu,"(2(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G'
@@ -272,5 +275,73 @@ pure logical function is_digit(ch)
  is_digit = (iachar(ch) >= iachar('0') .and. iachar(ch) <= iachar('9'))
 
 end function is_digit
+
+!---------------------------------------------------------------------------
+!+
+!  Gravitational constant in code units
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function get_G_code() result(G_code)
+ use physcon, only:gg
+
+ G_code = gg*umass*utime**2/udist**3
+
+end function get_G_code
+
+!---------------------------------------------------------------------------
+!+
+!  speed of light in code units
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function get_c_code() result(c_code)
+ use physcon, only:c
+
+ c_code = c*utime/udist
+
+end function get_c_code
+
+!---------------------------------------------------------------------------
+!+
+!  Stefan-Boltzmann constant in code units
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function get_steboltz_code() result(steboltz_code)
+ use physcon, only:steboltz
+
+ steboltz_code = steboltz/(unit_energ/(udist**2*utime))
+
+end function get_steboltz_code
+
+!---------------------------------------------------------------------------
+!+
+!  whether or not the Gravitational constant is unity in code units
+!+
+!---------------------------------------------------------------------------
+logical function G_is_unity()
+
+ G_is_unity = abs(get_G_code() - 1.d0) < 1.d-12
+
+end function G_is_unity
+
+!---------------------------------------------------------------------------
+!+
+!  whether or not the speed of light is unity in code units
+!+
+!---------------------------------------------------------------------------
+logical function c_is_unity()
+
+ c_is_unity = abs(get_c_code() - 1.d0) < 1.d-12
+
+end function c_is_unity
+!---------------------------------------------------------------------------
+!+
+!  logical to check we are in geometric units (i.e. c = G = 1)
+!+
+!---------------------------------------------------------------------------
+logical function in_geometric_units()
+
+ in_geometric_units = c_is_unity() .and. G_is_unity()
+
+end function in_geometric_units
 
 end module units

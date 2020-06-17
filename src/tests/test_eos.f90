@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_helmholtz, io, physcon, testutils, units
+!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testeos
@@ -28,10 +29,9 @@ module testeos
  private
 
 contains
-
 !----------------------------------------------------------
 !+
-!  run all unit tests of equation of state module
+!  unit tests of equation of state module
 !+
 !----------------------------------------------------------
 subroutine test_eos(ntests,npass)
@@ -47,6 +47,7 @@ subroutine test_eos(ntests,npass)
  call test_init(ntests, npass)
  call test_barotropic(ntests, npass)
  !call test_helmholtz(ntests, npass)
+ call test_idealplusrad(ntests, npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -87,12 +88,24 @@ subroutine test_init(ntests, npass)
     call init_eos(ieos,ierr)
     if (ieos==10 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. .not. got_phantom_dir) cycle ! skip helmholtz
+    if (ieos==16 .and. .not. got_phantom_dir) cycle ! skip Shen
     call checkval(ierr,0,0,nfailed(ieos),'eos initialisation')
  enddo
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_init
 
+!----------------------------------------------------------------------------
+!+
+!  test ideal gas plus radiation eos
+!+
+!----------------------------------------------------------------------------
+subroutine test_idealplusrad(ntests, npass)
+ integer, intent(inout) :: ntests,npass
+
+ print*,'Hello World!'
+
+end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,14 +26,12 @@
 !+
 !--------------------------------------------------------------------------
 program combinedustdumps
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,tagline
  use initial,         only:initialise
  use io,              only:set_io_unit_numbers,iprint,idisk1,fatal
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,massoftype,&
-                           igas,idust,ndusttypes,ndustsmall,ndustlarge,fxyzu,fext,&
-                           divcurlv,divcurlB,Bevol,dBevol,dustfrac,ddustevol,&
-                           temperature,dustprop,ddustprop,set_particle_type,&
+                           igas,idust,ndusttypes,ndustsmall,ndustlarge,set_particle_type,&
                            grainsize,graindens,iamtype,isdead_or_accreted
  use readwrite_dumps, only:read_dump,write_fulldump
  use units,           only:set_units,select_unit,umass,udist,utime
@@ -47,7 +45,7 @@ program combinedustdumps
  integer, allocatable :: npartofdust_tmp(:)
  integer :: i,j,counter,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
  integer :: nwarn,nerror
- real    :: time,dtdum
+ real    :: time
  real(kind=8) :: utime_tmp,udist_tmp,umass_tmp
 
  call set_io_unit_numbers
@@ -204,8 +202,7 @@ program combinedustdumps
  !
  call initialise()
  call set_units(udist_tmp,umass_tmp,utime_tmp)
- call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtdum)
+ call get_derivs_global()
 
  !
  !--write multigrain dump

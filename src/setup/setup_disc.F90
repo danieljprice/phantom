@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,48 +26,48 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    Ratm_in          -- inner atmosphere radius (planet radii)
-!    Ratm_out         -- outer atmosphere radius (planet radii)
-!    accr1            -- central star accretion radius
-!    accr2            -- perturber accretion radius
-!    alphaSS          -- desired alphaSS
-!    atm_type         -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin           -- black hole spin
-!    bhspinangle      -- black hole spin angle (deg)
-!    binary_O         -- Omega, PA of ascending node (deg)
-!    binary_a         -- binary semi-major axis
-!    binary_e         -- binary eccentricity
-!    binary_f         -- f, initial true anomaly (deg,180=apastron)
-!    binary_i         -- i, inclination (deg)
-!    binary_w         -- w, argument of periapsis (deg)
-!    deltat           -- output interval as fraction of orbital period
-!    dist_unit        -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec       -- include Einstein precession
-!    flyby_O          -- position angle of ascending node (deg)
-!    flyby_a          -- distance of minimum approach
-!    flyby_d          -- initial distance (units of dist. min. approach)
-!    flyby_i          -- inclination (deg)
-!    ibinary          -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential       -- potential (1=central point mass,
-!    m1               -- central star mass
-!    m2               -- perturber mass
-!    mass_unit        -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits          -- maximum number of orbits at outer disc
-!    np               -- number of gas particles
-!    nplanets         -- number of planets
-!    nsinks           -- number of sinks
-!    ramp             -- Do you want to ramp up the planet mass slowly?
-!    rho_core         -- planet core density (cgs units)
-!    setplanets       -- add planets? (0=no,1=yes)
-!    surface_force    -- model m1 as planet with surface
-!    use_mcfost       -- use the mcfost library
-!    use_mcfost_stars -- Fix the stellar parameters to mcfost values or update using sink mass
+!    Ratm_in       -- inner atmosphere radius (planet radii)
+!    Ratm_out      -- outer atmosphere radius (planet radii)
+!    accr1         -- central star accretion radius
+!    accr2         -- perturber accretion radius
+!    alphaSS       -- desired alphaSS
+!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
+!    bhspin        -- black hole spin
+!    bhspinangle   -- black hole spin angle (deg)
+!    binary_O      -- Omega, PA of ascending node (deg)
+!    binary_a      -- binary semi-major axis
+!    binary_e      -- binary eccentricity
+!    binary_f      -- f, initial true anomaly (deg,180=apastron)
+!    binary_i      -- i, inclination (deg)
+!    binary_w      -- w, argument of periapsis (deg)
+!    deltat        -- output interval as fraction of orbital period
+!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
+!    einst_prec    -- include Einstein precession
+!    flyby_O       -- position angle of ascending node (deg)
+!    flyby_a       -- distance of minimum approach
+!    flyby_d       -- initial distance (units of dist. min. approach)
+!    flyby_i       -- inclination (deg)
+!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
+!    ipotential    -- potential (1=central point mass,
+!    m1            -- central star mass
+!    m2            -- perturber mass
+!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
+!    norbits       -- maximum number of orbits at outer disc
+!    np            -- number of gas particles
+!    nplanets      -- number of planets
+!    nsinks        -- number of sinks
+!    radkappa      -- constant radiation opacity kappa
+!    ramp          -- Do you want to ramp up the planet mass slowly?
+!    rho_core      -- planet core density (cgs units)
+!    setplanets    -- add planets? (0=no,1=yes)
+!    surface_force -- model m1 as planet with surface
+!    use_mcfost    -- use the mcfost library
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
 !    growth, infile_utils, io, kernel, memory, options, part, physcon,
-!    prompting, set_dust, set_dust_options, setbinary, setdisc, setflyby,
-!    spherical, timestep, units, vectorutils
+!    prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!    setdisc, setflyby, spherical, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -81,19 +81,23 @@ module setup
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
- use options,          only:use_dustfrac,iexternalforce
+ use options,          only:use_dustfrac,iexternalforce,use_hybrid
 #ifdef MCFOST
  use options,          only:use_mcfost,use_mcfost_stellar_parameters
 #endif
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
-                            ndustlarge,grainsize,graindens,nptmass,iamtype
+                            ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
+                            VrelVf,rad,radprop,ikappa
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,isetdust,dustbinfrac,check_dust_method
+                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
+                            dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
-
+ use dim,              only:do_radiation
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
+ use memory,           only:allocate_memory
  implicit none
 
  public  :: setpart
@@ -189,7 +193,7 @@ module setup
 
  !--other
  logical :: ichange_method
-
+ real    :: iradkappa = -1.
 contains
 
 !--------------------------------------------------------------------------
@@ -209,6 +213,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer :: nalloc
 
  write(*,10)
 10 format(/, &
@@ -226,6 +231,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ !--allocate memory
+ !nalloc = np
+ !if (use_dust) nalloc = nalloc + sum(np_dust)
+ !call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -274,6 +284,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--set tmax and dtmax
  call set_tmax_dtmax()
+
+ if (do_radiation) then
+    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    radprop(ikappa,1:npart) = iradkappa
+ endif
 
  !--remind user to check for warnings and errors
  write(*,20)
@@ -395,11 +410,11 @@ subroutine set_default_options()
  ifrag = 1
  isnow = 0
  rsnow = 100.
- Tsnow = 20.
+ Tsnow = 150.
  vfragSI = 15.
  vfraginSI = 5.
  vfragoutSI = 15.
- gsizemincgs = 1.e-3
+ gsizemincgs = 5.e-3
 
  !--resolution
  np = 1000000
@@ -442,7 +457,6 @@ subroutine get_setup_parameters(id,fileprefix)
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-
     !--read from setup file
     call read_setupfile(filename,ierr)
     if (id==master) call write_setupfile(filename)
@@ -1042,7 +1056,61 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           call set_dustfrac(i,npart+1,npart+1+npingasdisc,xyzh,xorigini)
 
           npart = npart + npingasdisc
+          npartoftype(igas) = npartoftype(igas) + npingasdisc
 
+          if (use_hybrid) then
+             if (ndustlarge > 1) then
+                dustprefix = trim(prefix)//'-'
+                call make_tags_unique(ndustlarge,dustprefix)
+             else
+                dustprefix = trim(prefix)
+             endif
+
+             !--dust disc(s)
+             do j=1,ndustlarge
+
+                npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
+                itype = idust + j - 1
+
+                !--taper dust disc
+                iprofiledust = 0
+                if (itaperdust(i,j)) iprofiledust = 1
+
+                call set_disc(id,master      = master,             &
+                              npart          = npindustdisc,       &
+                              npart_start    = npart + 1,          &
+                              particle_type  = itype,              &
+                              rref           = R_ref(i),           &
+                              rmin           = R_indust(i,j),      &
+                              rmax           = R_outdust(i,j),     &
+                              indexprofile   = iprofiledust,       &
+                              rc             = R_c_dust(i,j),      &
+                              p_index        = pindex_dust(i,j),   &
+                              q_index        = qindex_dust(i,j),   &
+                              HoverR         = H_R_dust(i,j),      &
+                              disc_mass      = disc_mdust(i,j),    &
+                              star_mass      = star_m(i),          &
+                              gamma          = gamma,              &
+                              particle_mass  = massoftype(itype),  &
+                              xyz_origin     = xorigini,           &
+                              vxyz_origin    = vorigini,           &
+                              hfact          = hfact,              &
+                              xyzh           = xyzh,               &
+                              vxyzu          = vxyzu,              &
+                              polyk          = polyk_dust,         &
+                              ismooth        = ismoothdust(i,j),   &
+                              position_angle = posangl(i),         &
+                              inclination    = incl(i),            &
+                              rwarp          = R_warp(i),          &
+                              warp_smoothl   = H_warp(i),          &
+                              bh_spin        = bhspin,             &
+                              prefix         = dustprefix(j))
+
+                npart = npart + npindustdisc
+                npartoftype(itype) = npartoftype(itype) + npindustdisc
+
+             enddo
+          endif
        else
 
           !--gas disc
@@ -1299,18 +1367,19 @@ end subroutine set_planet_atm
 subroutine initialise_dustprop(npart)
  integer, intent(in) :: npart
 
- integer :: i
+ integer :: i,iam
 
  if (use_dustgrowth) then
     do i=1,npart
-       if (iamtype(iphase(i))==idust) then
+       iam = iamtype(iphase(i))
+       if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
           dustprop(1,i) = grainsize(1)
           dustprop(2,i) = graindens(1)
-          dustprop(3,i) = 0.
-          dustprop(4,i) = 0.
        else
           dustprop(:,i) = 0.
        endif
+       dustgasprop(:,i) = 0.
+       VrelVf(i)        = 0.
     enddo
  endif
 
@@ -1834,21 +1903,6 @@ subroutine setup_interactive()
        print "(a)",  '+++  GROWTH & FRAGMENTATION  +++'
        print "(a)",  '================================'
        call prompt('Enter fragmentation model (0=off,1=on,2=Kobayashi)',ifrag,-1,2)
-       select case(ifrag)
-       case(0)
-          print "(a)",'-----------'
-          print "(a)",'Pure growth'
-          print "(a)",'-----------'
-       case(1)
-          print "(a)",'----------------------'
-          print "(a)",'Growth + fragmentation'
-          print "(a)",'----------------------'
-       case(2)
-          print "(a)",'----------------------------------------'
-          print "(a)",'Growth + Kobayashi`s fragmentation model'
-          print "(a)",'----------------------------------------'
-       case default
-       end select
        if (ifrag > 0) then
           call prompt('Enter minimum allowed grain size in cm',gsizemincgs)
           call prompt('Do you want a snow line ? (0=no,1=position based,2=temperature based)',isnow,0,2)
@@ -1861,14 +1915,14 @@ subroutine setup_interactive()
              call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
-    elseif (use_dustgrowth .and. dust_method == 1) then
-       print "(a)",'growth and fragmentation not available for one fluid method'
     endif
  endif
 
  !--resolution
  if (use_dust .and. .not.use_dustfrac) then
     np_dust = np/ndusttypesinp/5
+    !elseif (use_dust .and. use_hybrid) then
+    !np_dust = np/ndustlargeinp/5
  else
     np_dust = 0
  endif
@@ -1936,11 +1990,11 @@ subroutine write_setupfile(filename)
  !--resolution
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','number of gas particles',iunit)
- if (use_dust .and. .not.use_dustfrac) then
+ if (use_dust .and. (.not.use_dustfrac .or. use_hybrid)) then
     duststring = 'np_dust'
-    call make_tags_unique(ndusttypesinp,duststring)
-    do i=1,ndusttypesinp
-       call write_inopt(np_dust(i),trim(duststring(i)),'number of dust particles',iunit)
+    call make_tags_unique(ndustlargeinp,duststring)
+    do i=1,ndustlargeinp
+       call write_inopt(np_dust(i),trim(duststring(i)),'number of large dust particles',iunit)
     enddo
  endif
  !--units
@@ -2175,8 +2229,11 @@ subroutine write_setupfile(filename)
  !--mcfost
  write(iunit,"(/,a)") '# mcfost'
  call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars','Fix the stellar parameters to mcfost values or update using sink mass',iunit)
+ call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+      'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
+
+ if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
 
  close(iunit)
 
@@ -2303,16 +2360,22 @@ subroutine read_setupfile(filename,ierr)
     case(2)
        use_dustfrac = .false.
        ndustlarge = ndusttypesinp
+    case(3)
+       use_dustfrac   = .true.
+       use_hybrid     = .true.
+       ndustlarge     = ndustlargeinp
+       ndustsmall     = ndustsmallinp
+       ilimitdustflux = ilimitdustfluxinp
     end select
     ndusttypes = ndusttypesinp
  endif
 
  !--resolution
  call read_inopt(np,'np',db,min=0,errcount=nerr)
- if (use_dust .and. .not.use_dustfrac) then
+ if (use_dust .and. (.not.use_dustfrac .or. use_hybrid)) then
     duststring = 'np_dust'
-    call make_tags_unique(ndusttypesinp,duststring)
-    do i=1,ndustlarge
+    call make_tags_unique(ndustlargeinp,duststring)
+    do i=1,ndustlargeinp
        call read_inopt(np_dust(i),duststring(i),db,min=0,errcount=nerr)
     enddo
  endif
@@ -2444,6 +2507,8 @@ subroutine read_setupfile(filename,ierr)
  if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
 
+ if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
+
  call close_db(db)
  ierr = nerr
  if (nerr > 0) then
@@ -2501,7 +2566,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
           dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
     enddo
-    dustfrac(:,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(:)
+    dustfrac(1:ndustsmall,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(1:ndustsmall)
 
  enddo
 
