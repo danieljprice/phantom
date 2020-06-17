@@ -46,6 +46,7 @@ subroutine test_sedov(ntests,npass)
  use physcon,  only:pi,au,solarm
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
+ use units,    only:set_units
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce,dtrad
 #endif
@@ -74,6 +75,7 @@ subroutine test_sedov(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
  return
 #endif
+ if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
 
  testsedv: if (maxvxyzu >= 4) then
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
