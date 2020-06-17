@@ -1452,17 +1452,17 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
     if (dump_number == 0) then
-      if (i == 1) then
-         ! The if statements ensure these are only allocated once throughout the analysis
-         allocate(ang_mom_old(nptmass))
-         allocate(time_old(nptmass))
-      endif
+       if (i == 1) then
+          ! The if statements ensure these are only allocated once throughout the analysis
+          allocate(ang_mom_old(nptmass))
+          allocate(time_old(nptmass))
+       endif
        pos_wrt_CM = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
        vel_wrt_CM = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
        call cross(pos_wrt_CM, xyzmh_ptmass(4,i) * vel_wrt_CM, ang_mom)
        ang_mom_old(i) = ang_mom(3)
        time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
-                       ! This should actually be -dtmax in the infile
+       ! This should actually be -dtmax in the infile
     endif
 
     ! Get order of particles from closest to farthest from companion
@@ -2086,33 +2086,33 @@ subroutine minv (M, M_inv)
 end subroutine minv
 
 subroutine write_array_grid(minval,maxval,array)
-   real, intent(in)  :: minval,maxval
-   real, intent(out) :: array(:)
-   real              :: width
-   integer           :: i
+ real, intent(in)  :: minval,maxval
+ real, intent(out) :: array(:)
+ real              :: width
+ integer           :: i
 
-   width = (maxval - minval) / size(array)
-   array(1) = minval
+ width = (maxval - minval) / size(array)
+ array(1) = minval
 
-   do i = 2,size(array)
-      array(i) = array(i-1) + width
-   enddo
+ do i = 2,size(array)
+    array(i) = array(i-1) + width
+ enddo
 
-  end subroutine write_array_grid
+end subroutine write_array_grid
 
-  !----------------------------------------------------------------
-  !+
-  !  Finds index of the array value closest to a given value for an
-  !  ordered array
-  !+
-  !----------------------------------------------------------------
-  subroutine interpolator(array, value, valueidx)
-   real, intent(in)     :: array(:)
-   real, intent(in)     :: value
-   integer, intent(out) :: valueidx
+ !----------------------------------------------------------------
+ !+
+ !  Finds index of the array value closest to a given value for an
+ !  ordered array
+ !+
+ !----------------------------------------------------------------
+subroutine interpolator(array, value, valueidx)
+ real, intent(in)     :: array(:)
+ real, intent(in)     :: value
+ integer, intent(out) :: valueidx
 
-   valueidx = minloc(abs(array - value), dim = 1)
+ valueidx = minloc(abs(array - value), dim = 1)
 
-  end subroutine interpolator
+end subroutine interpolator
 
 end module
