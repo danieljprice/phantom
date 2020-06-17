@@ -75,7 +75,7 @@ subroutine test_exchange_terms(ntests,npass)
  use radiation_utils, only:update_radenergy
  use units,      only:set_units,unit_ergg,unit_density,unit_opacity,utime
  use physcon,    only:au,solarm,seconds
- use dim,        only:maxp
+ use dim,        only:maxp,periodic
  use options,    only:exchange_radiation_energy
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
@@ -102,7 +102,7 @@ subroutine test_exchange_terms(ntests,npass)
  hfact = hfact_default
  npart = 0
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,periodic)
  rhozero = 1.e-7/unit_density  ! 1e-7 g/cm^3
  totmass = rhozero*(dxbound*dybound*dzbound)
  nptot = reduceall_mpi('+',npart)
@@ -182,7 +182,7 @@ end subroutine test_exchange_terms
 subroutine test_uniform_derivs(ntests,npass)
  use dim,             only:maxp
  use io,              only:id,master
- use part,            only:npart,xyzh,vxyzu,massoftype,igas,&
+ use part,            only:npart,xyzh,vxyzu,massoftype,igas,periodic,&
                            iphase,maxphase,isetphase,rhoh,npartoftype,&
                            rad,radprop,drad,ifluxx,maxvxyzu,init_part,fxyzu
  use kernel,          only:hfact_default
@@ -213,7 +213,7 @@ subroutine test_uniform_derivs(ntests,npass)
  npart = 0
  call init_part()
  call set_boundary(-0.5,0.5,-0.1,0.1,-0.1,0.1)
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,periodic)
  nptot = reduceall_mpi('+',npart)
  massoftype(igas) = 1./nptot*1e-25
  pmassi = massoftype(igas)

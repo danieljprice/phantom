@@ -50,6 +50,7 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
  integer :: npartold,ny,nz
  real :: totmass,volume,dxright
  real :: xminleft(3),xmaxleft(3),xminright(3),xmaxright(3)
+ logical, parameter :: periodic=.true.
  !
  ! sanity check some of the input to avoid seg faults
  !
@@ -76,7 +77,8 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
 
     ! set up a uniform lattice for left half
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
-                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,rhofunc=rhosmooth)
+                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,&
+                     periodic,rhofunc=rhosmooth)
 
     ! set particle mass
     volume            = product(xmaxleft-xminleft)
@@ -97,12 +99,12 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
 
     call set_unifdis(latticetype,id,master,xminright(1),xmaxright(1), &
          xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,&
-         npart,xyzh,npy=ny,npz=nz,rhofunc=rhosmooth) ! set right half
+         npart,xyzh,periodic,npy=ny,npz=nz,rhofunc=rhosmooth) ! set right half
 
  else  ! set all of volume if densities are equal
     write(*,'(3(a,es16.8))') 'shock: uniform density  ',xminleft(1), ' to ',xmaxright(1), ' with dx  = ',dxleft
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
-                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh)
+                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,periodic)
     volume           = product(xmaxleft-xminleft)
     dxright          = dxleft
     totmass          = rholeft*volume

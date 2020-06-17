@@ -1769,7 +1769,7 @@ OBJECTS = $(OBJECTS1:.F90=.o)
 
 .PHONY: phantom
 phantom: checksystem checkparams $(OBJECTS) phantom.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS) -L$(BINDIR) -lphantomsetup
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif

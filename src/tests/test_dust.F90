@@ -508,18 +508,10 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
-<<<<<<< HEAD
- use dim,         only:maxp,periodic,maxtypes,mhd,maxvxyzu,maxdustlarge,maxalpha,use_dustgrowth
- use part,        only:hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,&
-                       xyzh,vxyzu,Bevol,dBevol,divcurlv,divcurlB,fext,fxyzu,&
-                       set_particle_type,rhoh,temperature,dustprop,ddustprop,&
-                       idust,iphase,iamtype,ndusttypes,grainsize,graindens,alphaind,periodic
-=======
  use dim,         only:periodic,maxtypes,maxvxyzu,maxdustlarge,use_dustgrowth
  use part,        only:init_part,hfact,npart,npartoftype,massoftype,igas,&
                        xyzh,vxyzu,fext,fxyzu,set_particle_type,rhoh,dustprop,&
                        idust,iphase,iamtype,ndusttypes,grainsize,graindens
->>>>>>> master
  use options,     only:use_dustfrac
  use eos,         only:polyk,ieos
  use kernel,      only:hfact_default
