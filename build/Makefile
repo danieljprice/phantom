@@ -1704,13 +1704,15 @@ ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
 
-SRCTESTS=${TEST_FASTMATH} test_kernel.f90 test_dust.F90 test_growth.F90 test_smol.F90 \
+SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
+         test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
-         test_sedov.F90 test_radiation.F90
+         test_sedov.F90 test_radiation.F90 \
+         testsuite.F90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}
@@ -1759,9 +1761,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
          geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
-         set_sphere.f90 set_vfield.f90 checksetup.F90 utils_testsuite.f90 \
-         ${SRCTEST} \
-         testsuite.F90 initial.F90 leastsquares.f90 solvelinearsystem.f90
+         set_sphere.f90 set_vfield.f90 checksetup.F90 initial.F90 leastsquares.f90 solvelinearsystem.f90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1855,6 +1855,26 @@ setup: checksystem checkparams libphantom.a $(OBJSETUP)
 cleansetup:
 	rm -f $(BINDIR)/phantomsetup
 
+#----------------------------------------------------
+# phantom test suite
+#
+OBJTEST1= $(SRCTEST:.f90=.o)
+OBJTEST= $(OBJTEST1:.F90=.o)
+
+.PHONY: phantomtest
+
+phantomtest: checksystem checkparams libphantom.a $(OBJTEST)
+	@echo ""
+	@echo "Phantomtest: Getting you your life back one test at a time"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
+
+cleantest:
+	rm -f $(BINDIR)/phantomtest
+
+#----------------------------------------------------
+# update phantom version number
+#
 config.o: phantom-version.h
 
 phantom-version.h:
@@ -2682,31 +2702,31 @@ test1: checksystem checkparams $(OBJDUMP) test_blocklimits.o
 #
 .PHONY: test test2 testcyl testgrav testall
 test:
-	${MAKE} SETUP=test && $(RUNMPI) $(BINDIR)/phantom test
+	${MAKE} SETUP=test phantomtest && $(RUNMPI) $(BINDIR)/phantomtest
 
 test2:
-	${MAKE} SETUP=test2 && $(RUNMPI) $(BINDIR)/phantom test
+	${MAKE} SETUP=test2 phantomtest && $(RUNMPI) $(BINDIR)/phantomtest
 
 testkd:
-	${MAKE} SETUP=testkd && $(RUNMPI) $(BINDIR)/phantom test
+	${MAKE} SETUP=testkd phantomtest && $(RUNMPI) $(BINDIR)/phantomtest
 
 testcyl:
-	${MAKE} SETUP=testcyl && $(RUNMPI) $(BINDIR)/phantom test
+	${MAKE} SETUP=testcyl phantomtest && $(RUNMPI) $(BINDIR)/phantomtest
 
 testgrav:
-	${MAKE} SETUP=testgrav && $(RUNMPI) $(BINDIR)/phantom test gravity
+	${MAKE} SETUP=testgrav phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gravity
 
 testdust:
-	${MAKE} SETUP=testdust && $(RUNMPI) $(BINDIR)/phantom test dust
+	${MAKE} SETUP=testdust phantomtest && $(RUNMPI) $(BINDIR)/phantomtest dust
 
 testgr:
-	${MAKE} SETUP=testgr && $(MPIEXEC) $(BINDIR)/phantom test gr
+	${MAKE} SETUP=testgr phantomtest && $(RUNMPI) $(BINDIR)/phantomtest gr
 
 testgrowth:
-	${MAKE} SETUP=testgrowth && $(RUNMPI) $(BINDIR)/phantom test growth
+	${MAKE} SETUP=testgrowth phantomtest && $(RUNMPI) $(BINDIR)/phantomtest growth
 
 testnimhd:
-	${MAKE} SETUP=testnimhd && $(RUNMPI) $(BINDIR)/phantom test nimhd
+	${MAKE} SETUP=testnimhd phantomtest && $(RUNMPI) $(BINDIR)/phantomtest nimhd
 
 testall: test test2 testcyl testgrav
 

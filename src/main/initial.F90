@@ -33,7 +33,7 @@ module initial
  use mpi
 #endif
  implicit none
- public :: initialise,startrun,endrun
+ public :: initialise,finalise,startrun,endrun
  real(kind=4), private :: twall_start, tcpu_start
 
  private
@@ -61,7 +61,10 @@ subroutine initialise()
  use domain,           only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
-
+#ifdef MPI
+ use mpiderivs,        only:init_tree_comms
+ use stack,            only:init_mpi_memory
+#endif
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -106,6 +109,10 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+#ifdef MPI
+ call init_tree_comms()
+ call init_mpi_memory()
+#endif
 
  return
 end subroutine initialise
@@ -734,6 +741,21 @@ end subroutine startrun
 
 !----------------------------------------------------------------
 !+
+!  Reset or deallocate things that were allocated in initialise
+!+
+!----------------------------------------------------------------
+subroutine finalise()
+#ifdef MPI
+ use mpiderivs,       only:finish_tree_comms
+ use stack,           only:finish_mpi_memory
+
+ call finish_tree_comms()
+ call finish_mpi_memory()
+#endif
+end subroutine finalise
+
+!----------------------------------------------------------------
+!+
 !  This module ends the run (prints footer and closes log).
 !  Only called by master thread.
 !+
@@ -748,7 +770,7 @@ subroutine endrun
  integer           :: ierr
  character(len=10) :: finishdate, finishtime
 
-
+ call finalise()
  call finish_eos(ieos,ierr)
 
  write (iprint,"(/,'>',74('_'),'<')")
