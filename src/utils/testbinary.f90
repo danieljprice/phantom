@@ -29,10 +29,10 @@ program testbin
  real :: a,e,inc,o,w,f,m1,m2
  character(len=120) :: filename
 
- m1 = 1.8
- m2 = 0.4
- call prompt('enter primary mass',m1)
- call prompt('enter secondary mass',m2)
+! m1 = 1.8
+! m2 = 0.4
+! call prompt('enter primary mass',m1)
+! call prompt('enter secondary mass',m2)
  itex = 0
 
  filename = find_phantom_datafile('orbits.txt','orbits')
@@ -44,7 +44,7 @@ program testbin
  j = 0
  do while(ierr==0)
     j = j + 1
-    read(2,*,iostat=ierr) a,e,inc,o,w,f
+    read(2,*,iostat=ierr) a,e,inc,o,w,f,m1,m2
     if (ierr==0) call test_binary(m1,m2,a,e,inc,o,w,f,j,itex)
  enddo
  close(2)
