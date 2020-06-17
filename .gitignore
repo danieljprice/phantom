@@ -11,3 +11,10 @@ build/phantom-version.h
 */*/*~
 *.bindata
 *.pyc
+*.optrpt
+*.js
+*.gz
+*.tar.gz
+*.tar
+.DS_Store
+_build

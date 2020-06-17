@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,11 @@ module testkernel
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of kernel functions
+!+
+!-----------------------------------------------------------------------
 subroutine test_kernel(ntests,npass)
  use io,        only:id,master
  use kernel,    only:kernelname,get_kernel,wkern,grkern,wab0,gradh0,radkern,radkern2,cnormk, &

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -41,7 +41,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1000000
+ integer, parameter :: maxp_hard = 1200000
 #endif
 
  ! maximum number of point masses
@@ -114,20 +114,41 @@ module dim
  ! kdtree
  integer, parameter :: minpart = 10
 
+ integer :: maxprad = 0
+
+ integer, parameter :: &
+ radensumforce      = 1,&
+ radenxpartvecforce = 7,&
+ radensumden        = 3,&
+ radenxpartvetden   = 1
+#ifdef RADIATION
+ logical, parameter :: do_radiation = .true.
+#else
+ logical, parameter :: do_radiation = .false.
+#endif
+
  ! rhosum
- integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
+ integer, parameter :: maxrhosum = 39 + &
+                                   maxdustlarge - 1 + &
+                                   radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
- integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
+ integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
+ integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
+                                  fsumarrs*(maxdusttypes-1) + &
+                                  radensumforce
 
- ! xpartveci
- integer, parameter :: maxxpartvecidens = 14
+! xpartveci
+ integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
- integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) ! Total number of values
+ integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
+                                           maxxpartvecarrs*(maxdusttypes-1) + &
+                                           radenxpartvecforce + &
+                                           maxxpartvecGR
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -159,6 +180,8 @@ module dim
 #else
  integer, parameter :: ndivcurlv = 1
 #endif
+ ! storage of velocity derivatives
+ integer :: maxdvdx = 0  ! set to maxp when memory allocated
 
  ! periodic boundaries
 #ifdef PERIODIC
@@ -169,7 +192,7 @@ module dim
 
  ! Maximum number of particle types
  !
- integer, parameter :: maxtypes = 7 + maxdustlarge - 1
+ integer, parameter :: maxtypes = 7 + 2*maxdustlarge - 1
 
  !
  ! Number of dimensions, where it is needed
@@ -190,7 +213,7 @@ module dim
 #else
  logical, parameter :: mhd = .false.
 #endif
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
@@ -204,16 +227,6 @@ module dim
 #else
  logical, parameter :: mhd_nonideal = .false.
 #endif
-
-!--------------------
-! Velocity gradients
-!--------------------
-!
-! storage of velocity derivatives, necessary if
-! physical viscosity is done with two
-! first derivatives or if dust is used
-!
- integer, parameter :: maxdvdx = maxp_hard ! TO FIX
 
 !--------------------
 ! H2 Chemistry
@@ -236,6 +249,25 @@ module dim
 #else
  logical, parameter :: gravity = .false.
  integer, parameter :: ngradh = 1
+#endif
+
+!--------------------
+! General relativity
+!--------------------
+ integer :: maxgr = 0
+#ifdef GR
+ logical, parameter :: gr = .true.
+#else
+ logical, parameter :: gr = .false.
+#endif
+
+!--------------------
+! Gravitational wave strain
+!--------------------
+#ifdef GWS
+ logical, parameter :: gws = .true.
+#else
+ logical, parameter :: gws = .false.
 #endif
 
 !--------------------
@@ -270,6 +302,7 @@ module dim
  integer :: maxan = 0
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
+ integer :: maxgran = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -278,6 +311,7 @@ module dim
  integer :: maxgradh = 0
 
 contains
+
 subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
@@ -329,6 +363,10 @@ subroutine update_max_sizes(n)
  maxgrav = maxp
 #endif
 
+#ifdef GR
+ maxgr = maxp
+#endif
+
 #ifdef STS_TIMESTEPS
 #ifdef IND_TIMESTEPS
  maxsts = maxp
@@ -351,11 +389,16 @@ subroutine update_max_sizes(n)
  maxan = maxp
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
+ maxgran = maxgr
 #endif
 
+#ifdef RADIATION
+ maxprad = maxp
+#endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan
+ maxdvdx = maxan
 
 end subroutine update_max_sizes
 

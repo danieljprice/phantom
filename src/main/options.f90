@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -34,14 +34,14 @@ module options
 !
  real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
- real, public :: tolh,damp
+ real, public :: tolh,damp,rkill
  real(kind=4), public :: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac
+ real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
 ! additional .ev data
@@ -50,12 +50,14 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_moddump = .false.
- logical, public :: use_dustfrac
+ logical, public :: use_dustfrac, use_hybrid
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
  character(len=80), public :: Voronoi_limits_file
+
+ ! radiation
+ logical,public :: exchange_radiation_energy, limit_radiation_flux
 
  public :: set_default_options
  public :: ieos
@@ -68,7 +70,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha
+ use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
 
@@ -84,6 +86,7 @@ subroutine set_default_options
  tolh      = 1.e-4           ! tolerance on h iterations
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
+ if (gr) iexternalforce = 1
 
  ! To allow rotational energies to be printed to .ev
  calc_erot = .false.
@@ -116,14 +119,19 @@ subroutine set_default_options
 
  ! artificial thermal conductivity
  alphau = 1.
+ if (gr) alphau = 0.1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
+ hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
+ !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
+ if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
-
+ ! radius outside which we kill particles
+ rkill             = -1.
  call set_defaults_viscosity
 
  ! dust method
@@ -132,6 +140,14 @@ subroutine set_default_options
  ! mcfost
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
+
+ if (do_radiation) then
+    exchange_radiation_energy = .true.
+    limit_radiation_flux = .true.
+ else
+    exchange_radiation_energy = .false.
+    limit_radiation_flux = .false.
+ endif
 
 end subroutine set_default_options
 

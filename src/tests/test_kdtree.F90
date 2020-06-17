@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,11 @@ module testkdtree
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of tree code
+!+
+!-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
  use dim,       only:maxp,periodic
  use io,        only:id,master,iverbose

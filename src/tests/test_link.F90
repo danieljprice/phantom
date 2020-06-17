@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,11 @@ module testlink
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of neighbour finding routines
+!+
+!-----------------------------------------------------------------------
 subroutine test_link(ntests,npass)
  use dim,      only:maxp,maxneigh,periodic
  use io,       only:id,master,nprocs!,iverbose

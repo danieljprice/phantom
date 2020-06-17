@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,11 +19,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, io_summary, mpiutils, options, testcooling,
+!  DEPENDENCIES: dim, io, io_summary, mpiutils, options, testcooling,
 !    testcorotate, testderivs, testdust, testeos, testexternf,
-!    testgeometry, testgnewton, testgravity, testgrowth, testindtstep,
-!    testkdtree, testkernel, testlink, testmath, testnimhd, testptmass,
-!    testrwdump, testsedov, testsetdisc, teststep, timing
+!    testgeometry, testgnewton, testgr, testgravity, testgrowth,
+!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
+!    testptmass, testradiation, testrwdump, testsedov, testsetdisc,
+!    testsmol, teststep, timing
 !+
 !--------------------------------------------------------------------------
 module test
@@ -45,14 +46,19 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgravity,  only:test_gravity
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
+ use testsmol,     only:test_smol
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
  use testkernel,   only:test_kernel
  use testptmass,   only:test_ptmass
+#ifdef GR
+ use testgr,       only:test_gr
+#else
  use testgnewton,  only:test_gnewton
  use testcorotate, only:test_corotate
+#endif
  use testexternf,  only:test_externf
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
@@ -62,12 +68,16 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testgeometry, only:test_geometry
  use options,      only:set_default_options
  use timing,       only:get_timings,print_time
+ use mpiutils,      only:barrier_mpi
+ use testradiation, only:test_radiation
+ use dim,           only:do_radiation
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
- logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump
+ logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
+ logical :: dogr,doradiation
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -82,6 +92,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(/,a,/)") '--> RUNNING PHANTOM TEST SUITE'
        write(*,"(2x,a)") '"Nobody cares how fast you can calculate the wrong answer."'
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
+       write(*,"(2x,a)") '"Trace, test and treat"'
+       write(*,"(14x,a,/)") '-- South Korea'
     endif
     ntests = 0
     npass  = 0
@@ -109,6 +121,10 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  donimhd    = .false.
  docooling  = .false.
  dogeom     = .false.
+ dogr       = .false.
+ dosmol     = .false.
+ doradiation = .false.
+
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
@@ -120,7 +136,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'sink')      /= 0) doptmass  = .true.
  if (index(string,'cool')      /= 0) docooling = .true.
  if (index(string,'geom')      /= 0) dogeom    = .true.
- doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,doptmass,docooling,dogeom/))
+ if (index(string,'gr')        /= 0) dogr      = .true.
+ if (index(string,'smol')      /= 0) dosmol    = .true.
+ if (index(string,'rad')       /= 0) doradiation = .true.
+
+ doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
+               doptmass,docooling,dogeom,dogr,dosmol,doradiation/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -153,6 +174,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doeos = .true.
  case('dust')
     dodust = .true.
+ case('gr')
+    dogr = .true.
  case('growth')
     dogrowth = .true.
  case('nimhd')
@@ -160,6 +183,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  case default
     if (.not.doany) testall = .true.
  end select
+
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
 #endif
@@ -226,10 +250,17 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options ! restore defaults
  endif
 !
+!--test of smoluchowsky growth solver
+!
+ if (dosmol.or.testall) then
+    call test_smol(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+!
 !--test of non-ideal MHD
 !
  if (donimhd.or.testall) then
-    call test_nonidealmhd(ntests,npass)
+    call test_nonidealmhd(ntests,npass,string)
     call set_default_options ! restore defaults
  endif
 !
@@ -267,6 +298,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_ptmass(ntests,npass)
     call set_default_options ! restore defaults
  endif
+
+#ifdef GR
+ if (dogr.or.testall) then
+    call test_gr(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+#else
 !
 !--test of gnewton module
 !
@@ -281,6 +319,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_corotate(ntests,npass)
     call set_default_options ! restore defaults
  endif
+#endif
 !
 !--test of set_disc module
 !
@@ -293,6 +332,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dogeom.or.testall) then
     call test_geometry(ntests,npass)
+    call set_default_options ! restore defaults
+ endif
+
+ if (doradiation.or.testall) then
+    call test_radiation(ntests,npass)
     call set_default_options ! restore defaults
  endif
 !

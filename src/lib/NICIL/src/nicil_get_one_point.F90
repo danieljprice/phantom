@@ -3,7 +3,7 @@
 !           Non-Ideal mhd Coefficient and Ionisation Library           !
 !   Interactive programme to calculate the results at one data point   !
 !                                                                      !
-!                 Copyright (c) 2015-2017 James Wurster                !
+!                 Copyright (c) 2015-2019 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+
@@ -14,7 +14,7 @@
 !----------------------------------------------------------------------!
 program nicil_get_one_point
  use nicil, only:nicil_initialise,nicil_get_ion_n,nicil_get_eta,nicil_translate_error
- use nicil, only:nelements,n_data_out
+ use nicil, only:n_data_out
  implicit none
  !--Physical Constants
  real,    parameter  :: fourpi          =  12.566370614d0 ! 4pi

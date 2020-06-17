@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -51,7 +51,7 @@ program phantomevcompare
  evinfile    = ''
  if (nargs > 0) then
     call get_command_argument(1,evinfile)
-    idot = index(evinfile,'.evin')  ! strip .evin if present
+    idot = index(evinfile,'.')  ! strip .evin if present
     if ( idot > 0 ) evinfile = evinfile(1:idot-1)
     evinfile = trim(evinfile)//'.evin'
     inquire(file=trim(evinfile),exist=iexist)
@@ -287,7 +287,7 @@ program phantomevcompare
  !--Write and store labels in proper format for .ev files
  !
  do i = 1,numcol0
-    write(columnsEV(i),"(1x,'[',i2.2,a12,']',2x)")i,columns0(i)
+    write(columnsEV(i),"(1x,'[',i2.2,1x,a11,']',2x)")i,columns0(i)
  enddo
  !
  !--Rewrite all the .ev files using the new columns ordering

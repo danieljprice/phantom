@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -97,8 +97,9 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
                              hfact,np,np_requested,xyzh,rmax,vol_sphere,nptot)
  else
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                     zmin,zmax,delta,hfact,np,xyzh,.false.,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.)
+                     zmin,zmax,delta,hfact,np,xyzh,.false.,rmin=rmin,rmax=rmax,nptot=nptot,verbose=.false.,centre=.true.)
  endif
+
  !
  ! allow stretch mapping to give arbitrary density profiles
  ! in any of the coordinate directions as specified by
@@ -239,7 +240,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  enddo
  if (iter >= 100) call fatal("set_sphere","Failed to converge to the correct number of particles in the sphere")
  write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart0,' particles in sphere'
- !
+
 end subroutine set_unifdis_sphereN
-!--------------------------------------------------------------------------
+
 end module spherical

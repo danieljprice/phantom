@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,8 +28,15 @@ module setup
  public :: setpart
 
  private
- real, parameter :: rho1 = 1., rho2 = 2.
-
+ !--Hard-coded input parameters
+ real, parameter :: rho1   =  1.   ! density  of medium 1
+ real, parameter :: rho2   =  2.   ! density  of medium 2
+ real            :: v1     = -0.5  ! velocity of medium 1
+ real            :: v2     =  0.5  ! velocity of medium 2
+ real            :: przero =  2.5  ! initial constant pressure
+ real            :: xsize  =  1.0  ! size of the box in the x-direction
+ real            :: ysize  =  1.0  ! size of the box in the y-direction
+ real            :: dy2    =  0.5  ! Width of medium 2 (i.e. central medium)
 contains
 
 !----------------------------------------------------------------
@@ -42,7 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use options,      only:nfulldump
  use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dzbound
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:igas
  use prompting,    only:prompt
@@ -60,11 +67,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=26)                :: filename
  logical :: iexist
  integer :: i,maxp,maxvxyzu,npartx
- real :: totmass,deltax,przero,v1,v2
+ real    :: totmass,deltax
 !
 !--general parameters
 !
- time = 0.
+ time  = 0.
  gamma = 5./3
  filename= trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
@@ -87,7 +94,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--boundary
 !
- call set_boundary(0.,1.,0.,1.,-2.*sqrt(6.)/npartx,2.*sqrt(6.)/npartx)
+ call set_boundary(0.,xsize,0.,ysize,-2.*sqrt(6.)/npartx,2.*sqrt(6.)/npartx)
 
  npart = 0
  npart_total = 0
@@ -98,13 +105,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(1) = npart
  print*,' npart = ',npart,npart_total
 
- totmass = 0.5*dxbound*dzbound*rho2 + 0.5*dxbound*dzbound*rho1
+ totmass = dy2*dxbound*dzbound*rho2 + (dybound-dy2)*dxbound*dzbound*rho1
  massoftype(igas) = totmass/npart_total
  print*,' particle mass = ',massoftype(1)
 
- v1 = -0.5
- v2 = 0.5
- przero = 2.5
  do i=1,npart
     vxyzu(1,i) = v1 + Rfunc(xyzh(2,i))*(v2 - v1)
     vxyzu(2,i) = 0.1*sin(2.*pi*xyzh(1,i))
@@ -118,7 +122,6 @@ end subroutine setpart
 
 real function rhofunc(y)
  real, intent(in) :: y
- real, parameter :: rho1 = 1., rho2 = 2.
 
  rhofunc = rho1 + Rfunc(y)*(rho2 - rho1)
 
@@ -127,10 +130,12 @@ end function rhofunc
 real function Rfunc(y)
  real, parameter  :: delta = 0.05
  real, intent(in) :: y
- real :: fac1,fac2
+ real :: fac1,fac2,yedgel,yedger
 
- fac1 = (1. - 1./(1. + exp(2.*(y-0.25)/delta)))
- fac2 = (1. - 1./(1. + exp(2.*(0.75-y)/delta)))
+ yedgel = 0.5*ysize - 0.5*dy2
+ yedger = 0.5*ysize + 0.5*dy2
+ fac1 = (1. - 1./(1. + exp(2.*(y-yedgel)/delta)))
+ fac2 = (1. - 1./(1. + exp(2.*(yedger-y)/delta)))
  Rfunc = fac1*fac2
 
 end function Rfunc

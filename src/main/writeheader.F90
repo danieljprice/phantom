@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,8 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
-!    options, part, physcon, readwrite_infile, units, viscosity
+!    metric_tools, options, part, physcon, readwrite_infile, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module writeheader
@@ -29,6 +30,11 @@ module writeheader
 
 contains
 
+!-----------------------------------------------------------------
+!+
+!  pretty print code header
+!+
+!-----------------------------------------------------------------
 subroutine write_codeinfo(iunit)
  use dim,     only:phantom_version_string
  use gitinfo, only:get_and_print_gitinfo
@@ -52,14 +58,20 @@ subroutine write_codeinfo(iunit)
 !
 !--write info on latest git commit
 !
+#ifdef MCFOST
+ write(*,*) ""
+ write(*,*) "--------------------------"
+ write(*,*) "| This is Phantom+mcfost |"
+ write(*,*) "--------------------------"
+ write(*,*) ""
+#endif
+
  call get_and_print_gitinfo(iunit)
 
 end subroutine write_codeinfo
 
 !-----------------------------------------------------------------
 !+
-subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
-!
 !  This subroutine writes header to logfile / screen
 !  with the main parameters used for the run
 !
@@ -67,31 +79,30 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !  icall = 2 (after particle setup)
 !+
 !-----------------------------------------------------------------
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dustgrowth
+subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
- use part,             only:hfact,massoftype,mhd,maxBevol,&
+ use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
-                            igas,idust,iboundary,istar,idarkmatter,ibulge
+                            labeltype,maxtypes
  use eos,              only:eosinfo
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
  use units,            only:print_units
-#ifdef DUST
  use dust,             only:print_dustinfo
-#ifdef DUSTGROWTH
- use growth,                   only:print_growthinfo
-#endif
+ use growth,           only:print_growthinfo
+#ifdef GR
+ use metric_tools,     only:print_metricinfo
 #endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
  integer(kind=8),  intent(in), optional :: ntot
  character(len=10) :: startdate, starttime
- character(len=11) :: parttype
 
 !-----------------------------------------------------------------------
 ! 1st header after options have been read, but before particle setup
@@ -125,23 +136,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !
     if (present(ntot)) then
        write(iprint,"(/,' Number of particles = ',i12)") ntot
-       do i = 1,6
+       do i = 1,maxtypes
           if (npartoftype(i) > 0) then
-             if (i==igas) then
-                parttype = "gas"
-             elseif (i==idust) then
-                parttype = "dust"
-             elseif (i==iboundary) then
-                parttype = "boundary"
-             elseif (i==istar) then
-                parttype = "star"
-             elseif (i==idarkmatter) then
-                parttype = "dark matter"
-             elseif (i==ibulge) then
-                parttype = "bulge star"
-             endif
              write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",parttype," particles: ", npartoftype(i),", ",massoftype(i)
+                "Number & mass of ",labeltype(i)," particles: ", npartoftype(i),", ",massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
@@ -155,9 +153,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
           write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
        else
-          write(iprint,"(2x,2(a,f10.6))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,f10.6))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,f10.6))")  'zmin = ',zmin,' zmax = ',zmax
+          write(iprint,"(2x,2(a,f10.5))")  'xmin = ',xmin,' xmax = ',xmax
+          write(iprint,"(2x,2(a,f10.5))")  'ymin = ',ymin,' ymax = ',ymax
+          write(iprint,"(2x,2(a,f10.5))")  'zmin = ',zmin,' zmax = ',zmax
        endif
     else
        write(iprint,"(a)") ' No boundaries set '
@@ -167,19 +165,13 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh
-50  format(/,' Variable smoothing length: ',/, &
-      6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
-      6x,' Number of neighbours = ',i4)
-
+50  format(6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
+           6x,' Number of neighbours = ',i4)
 !
 !--MHD compile time options
 !
     if (mhd) then
-       if (maxBevol==4) then
-          write(iprint,60) 'B/rho with cleaning'
-       else
-          write(iprint,60) 'B/rho'
-       endif
+       write(iprint,60) 'B/rho with cleaning'
 60     format(/,' Magnetic fields are ON, evolving ',a)
     endif
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
@@ -202,12 +194,15 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(a,f10.6)") ' Artificial resistivity, vsig=|vab x rab|   : alphaB = ',alphaB
     endif
     if (maxvxyzu >= 4) then
-       if (gravity) then
+       if (gr) then
+          write(iprint,"(a,f10.6)") ' Art. conductivity                          : alphau = ',alphau
+       elseif (gravity .and. .not. gr) then
           write(iprint,"(a,f10.6)") ' Art. conductivity w/divv switch (gravity)  : alphau = ',alphau
        else
           write(iprint,"(a,f10.6)") ' Art. conductivity w/Price 2008 switch      : alphau = ',alphau
        endif
     endif
+    if (gr) write(iprint,"(a)") '    GR --- See Liptai & Price (2018) for implementaion of shock dissipation terms'
     write(iprint,*)
 
 !
@@ -215,11 +210,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !
     call viscinfo(irealvisc,iprint)
 
-#ifdef DUST
-    call print_dustinfo(iprint)
-#ifdef DUSTGROWTH
-    call print_growthinfo(iprint)
-#endif
+    if (use_dust) call print_dustinfo(iprint)
+    if (use_dustgrowth) call print_growthinfo(iprint)
+
+#ifdef GR
+    call print_metricinfo(iprint)
 #endif
 !
 !  print units information
@@ -228,7 +223,6 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
  endif
 
- return
 end subroutine write_header
 
 end module writeheader
