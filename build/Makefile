@@ -1731,7 +1731,7 @@ endif
    SRCPOT=extern_gr.F90 externalforces_gr.F90
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
    SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=) test_gr.f90
+   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
