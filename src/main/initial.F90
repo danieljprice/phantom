@@ -54,7 +54,6 @@ subroutine initialise()
 #endif
  use omputils,         only:init_omp,info_omp
  use options,          only:set_default_options
- use units,            only:set_units
  use io_summary,       only:summary_initialise
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
@@ -85,9 +84,8 @@ subroutine initialise()
 #endif
 
 !
-!--set units and default options
+!--set default options (incl. units)
 !
- call set_units
  call set_default_options
  call set_boundary
  call init_evfile(ievfile,'testlog',.false.)
