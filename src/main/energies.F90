@@ -172,28 +172,22 @@ subroutine compute_energies(t)
  endif
  np_rho      = 0
  call initialise_ev_data(ev_data)
-!
+
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
-!$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
-!$omp shared(pxyzu) &
+!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
+!$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
 !$omp shared(temperature,grainsize,graindens,ndustsmall) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
-#ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
-!$omp shared(metrics) &
-#endif
-!$omp private(ethermi) &
-!$omp private(ponrhoi,spsoundi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,tempi,etaart,etaart1,etaohm,etahall,etaambi) &
@@ -201,6 +195,10 @@ subroutine compute_energies(t)
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
+#ifdef GR
+!$omp shared(metrics) &
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+#endif
 #ifdef DUST
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
@@ -210,10 +208,8 @@ subroutine compute_energies(t)
 #endif
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
-!$omp shared(rad,iev_erad) &
-!$omp reduction(+:erad) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
-!$omp reduction(+:ekin,etherm,emag,epot,vrms,rmsmach)
+!$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -553,7 +549,6 @@ subroutine compute_energies(t)
 !
 !--add contribution from sink particles
 !
-
  if (id==master) then
     !$omp do
     do i=1,nptmass
@@ -793,7 +788,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
  if (radyz2 > 0.) erotxi = pmassi*rcrossvx*rcrossvx/radyz2
  if (radxz2 > 0.) erotyi = pmassi*rcrossvy*rcrossvy/radxz2
  if (radxy2 > 0.) erotzi = pmassi*rcrossvz*rcrossvz/radxy2
- !
+
 end subroutine get_erot
 !----------------------------------------------------------------
 !+
@@ -802,11 +797,11 @@ end subroutine get_erot
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
  real,    intent(inout) :: evdata(4,0:inumev)
- !
+
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
  evdata(iev_min,:) =  huge(evdata(iev_min,:))
- !
+
 end subroutine initialise_ev_data
 !----------------------------------------------------------------
 !+
@@ -859,6 +854,5 @@ subroutine finalise_ev_data(evdata,dnptot)
  enddo
 
 end subroutine finalise_ev_data
-
 !----------------------------------------------------------------
 end module energies
