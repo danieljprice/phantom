@@ -210,7 +210,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
-       mass_ratio = companion_mass_1 / primary_mass
 
        !sets the binary
        !corotating frame
@@ -218,7 +217,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           !turns on corotation
           iexternalforce = iext_corotate
 
-          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate)
+          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
 
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 
@@ -231,7 +230,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
           !non corotating frame
        else
-          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
        endif
 
        !"set_binary" newly created sinks shifted to the first and second element of the xyzmh_ptmass array (original sink overwritten)
@@ -473,7 +472,6 @@ end subroutine cross
 subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
                       accretion_radius1,accretion_radius2,accretion_radius3,&
                       xyzmh_ptmass,vxyz_ptmass,nptmass)
- use part,    only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,msecondary,mtertiary
  real,    intent(in)    :: semimajoraxis12,semimajoraxis13
  real,    intent(in)    :: accretion_radius1,accretion_radius2,accretion_radius3
@@ -530,12 +528,12 @@ subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajorax
  xyzmh_ptmass(4,i1) = m1
  xyzmh_ptmass(4,i2) = m2
  xyzmh_ptmass(4,i3) = m3
- xyzmh_ptmass(ihacc,i1) = accretion_radius1
- xyzmh_ptmass(ihacc,i2) = accretion_radius2
- xyzmh_ptmass(ihacc,i3) = accretion_radius3
- xyzmh_ptmass(ihsoft,i1) = 0.0
- xyzmh_ptmass(ihsoft,i2) = 0.0
- xyzmh_ptmass(ihsoft,i3) = 0.0
+ xyzmh_ptmass(5,i1) = accretion_radius1
+ xyzmh_ptmass(5,i2) = accretion_radius2
+ xyzmh_ptmass(5,i3) = accretion_radius3
+ xyzmh_ptmass(6,i1) = 0.0
+ xyzmh_ptmass(6,i2) = 0.0
+ xyzmh_ptmass(6,i3) = 0.0
 !
 !--velocities
 !

@@ -22,7 +22,7 @@
 !    hacc1        -- primary accretion radius
 !    hacc2        -- secondary accretion radius
 !    m1           -- mass of primary
-!    massr        -- mass ratio
+!    m2           -- mass of secondary
 !
 !  DEPENDENCIES: externalforces, infile_utils, io, options, part, physcon,
 !    setbinary, units
@@ -32,7 +32,7 @@ module setup
  implicit none
  public :: setpart
 
- real :: massr,m1,a,hacc1,hacc2,ecc
+ real :: m2,m1,a,hacc1,hacc2,ecc
 
  private
 
@@ -86,7 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  m1    = 1.
- massr = 1.
+ m2    = 1.
  a     = 1. !-2.*pi ! 70 AU
  ecc   = 0.7
  hacc1  = 2. !17 ! 1.7 AU
@@ -103,12 +103,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
- if (a < 0.) a = get_a_from_period(m1,massr*m1,abs(a))
+ if (a < 0.) a = get_a_from_period(m1,m2,abs(a))
 
  if (iexternalforce==iext_corotate) then
-    call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate)
+    call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
  else
-    call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+    call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  endif
 
 end subroutine setpart
@@ -122,7 +122,7 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
  call write_inopt(m1,'m1','mass of primary',iunit)
- call write_inopt(massr,'massr','mass ratio',iunit)
+ call write_inopt(m2,'m2','mass of secondary',iunit)
  call write_inopt(a,'a','semi-major axis (+ve) or period (-ve)',iunit)
  call write_inopt(ecc,'ecc','eccentricity',iunit)
  call write_inopt(hacc1,'hacc1','primary accretion radius',iunit)
@@ -145,7 +145,7 @@ subroutine read_setupfile(filename,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
- call read_inopt(massr,'massr',db,min=0.,errcount=nerr)
+ call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
  call read_inopt(a,'a',db,errcount=nerr)
  call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
  call read_inopt(hacc1,'hacc1',db,min=0.,errcount=nerr)
