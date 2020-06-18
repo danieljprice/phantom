@@ -26,6 +26,16 @@ module unifdis
  public :: set_unifdis, get_ny_nz_closepacked
  public :: is_valid_lattice, is_closepacked
 
+ ! following lines of code allow an optional mask= argument
+ ! to setup only certain subsets of the particle domain (used for MPI)
+ abstract interface
+  logical function mask_prototype(ip)
+   integer(kind=8), intent(in) :: ip
+  end function mask_prototype
+ end interface
+
+ public :: mask_prototype, mask_true
+
  private
 
 contains
@@ -57,13 +67,6 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre
  integer,          intent(out),   optional :: err
- ! following lines of code allow an optional mask= argument
- ! to setup only certain subsets of the particle domain (used for MPI)
- abstract interface
-  logical function mask_prototype(ip)
-   integer(kind=8), intent(in) :: ip
-  end function mask_prototype
- end interface
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: i_belong
 

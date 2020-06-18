@@ -1705,20 +1705,6 @@ ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
 
-SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.F90 test_growth.F90 test_smol.F90 \
-         test_nonidealmhd.F90 test_gravity.F90 \
-         test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 test_setdisc.F90 \
-         test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
-         test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
-         test_sedov.F90 test_radiation.F90 \
-         testsuite.F90 phantomtest.f90
-
-ifeq (X$(SRCTEST), X)
-SRCTEST=${SRCTESTS}
-endif
-
 ifeq ($(GR),yes)
 ifndef SRCMETRIC
 ifdef METRIC
@@ -1729,9 +1715,6 @@ endif
 endif
    SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90 cons2prim.f90
    SRCPOT=extern_gr.F90 externalforces_gr.F90
-   SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-   SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 
 SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
@@ -1753,16 +1736,15 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
-         set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
-         set_disc.F90 partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
-         directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
+         viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
+         partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
+         ${SRCDUST} \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 radiation_utils.f90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
-         geometry.f90 stretchmap.f90 density_profiles.f90 set_unifdis.f90 set_slab.f90 \
-         set_sphere.f90 set_vfield.f90 checksetup.F90 initial.F90 leastsquares.f90 solvelinearsystem.f90
+         checksetup.F90 initial.F90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
@@ -1826,17 +1808,34 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # to ensure that this is always up to date before compiling anything else.
 physcon.o: .make_mathflags
 
+#-------------------------------------------------------
+# these are the sources for phantom libsetup
+# must NOT contain .F90 files or pre-processing options
+#
+LIBSETUP=$(BINDIR)/libphantomsetup.a
+SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 stretchmap.f90 \
+            set_binary.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
+            libsetup.f90
+OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
+
+libphantomsetup.a: $(OBJLIBSETUP)
+	@echo ""
+	@echo "Phantom libsetup built"
+	@echo ""
+	ar rcs $(LIBSETUP) $^
+
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #
-SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
-          utils_gravwave.f90 \
-          random.f90 mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_binary.f90 set_flyby.f90 \
+.PHONY: phantomsetup
+phantomsetup: setup
+
+SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
+          mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_binary.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 \
-          set_slab.f90 set_shock.f90 set_sphere.f90 set_disc.F90 \
-          relax_star.f90 set_stellar_core.f90 set_softened_core.f90 \
+          set_slab.f90 set_disc.F90 relax_star.f90 set_stellar_core.f90 set_softened_core.f90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
@@ -1844,18 +1843,8 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 \
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
-.PHONY: phantomsetup
-phantomsetup: libsetup setup
-
-LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 stretchmap.f90 set_unifdis.f90 libsetup.f90
-OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
-
-$(LIBSETUP): $(OBJLIBSETUP)
-	ar rcs $@ $^
-
-setup: checksystem checkparams libphantom.a $(LIBSETUP) $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) ../bin/libphantomsetup.a ../bin/libphantom.a
+setup: checksystem checkparams libphantomsetup.a libphantom.a $(OBJSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -1866,16 +1855,35 @@ cleansetup:
 #----------------------------------------------------
 # phantom test suite
 #
+SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
+         test_dust.F90 test_growth.F90 test_smol.F90 \
+         test_nonidealmhd.F90 test_gravity.F90 \
+         test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
+         test_step.F90 test_indtstep.F90 test_setdisc.F90 \
+         test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
+         test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
+         test_sedov.F90 test_radiation.F90 \
+         testsuite.F90 phantomtest.f90
+
+ifeq (X$(SRCTEST), X)
+SRCTEST=${SRCTESTS}
+endif
+# replace a few test routines for the GR code
+ifeq ($(GR),yes)
+   SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
+   SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
+   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
+endif
 OBJTEST1= $(SRCTEST:.f90=.o)
 OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams libphantom.a $(OBJTEST)
+phantomtest: checksystem checkparams libphantom.a libphantomsetup.a $(OBJTEST)
 	@echo ""
-	@echo "Phantomtest: Getting you your life back one test at a time"
+	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
 
 cleantest:
 	rm -f $(BINDIR)/phantomtest
@@ -2013,16 +2021,18 @@ SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
-libphantom.a: checksystem checkparams phantom ${OBJLIB}
-	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS}
+LIBPHANTOM=$(BINDIR)/libphantom.a
+
+libphantom.a: checksystem checkparams ${OBJECTS} ${OBJLIB}
+	ar rc $(LIBPHANTOM) ${OBJLIB} ${OBJECTS}
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
-libphantom: libphantom.a #libphantom.so
+libphantom: $(LIBPHANTOM)
 
 cleanlibphantom:
-	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
+	rm -f $(BINDIR)/libphantom.so $(LIBPHANTOM)
 
 .PHONY: pyanalysis
 pyanalysis: libphantom.so
