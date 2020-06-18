@@ -1813,9 +1813,9 @@ physcon.o: .make_mathflags
 # must NOT contain .F90 files or pre-processing options
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 stretchmap.f90 \
-            set_binary.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
-            libsetup.f90
+SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
+            set_binary.f90 set_flyby.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
+            set_stellar_core.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
 libphantomsetup.a: $(OBJLIBSETUP)
@@ -1831,11 +1831,11 @@ libphantomsetup.a: $(OBJLIBSETUP)
 phantomsetup: setup
 
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
-          mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_binary.f90 set_flyby.f90 \
+          mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_flyby.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 \
-          set_slab.f90 set_disc.F90 relax_star.f90 set_stellar_core.f90 set_softened_core.f90 \
+          set_slab.f90 set_disc.F90 relax_star.f90 set_softened_core.f90 \
           set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90
@@ -1859,7 +1859,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 test_setdisc.F90 \
+         test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
          test_sedov.F90 test_radiation.F90 \
