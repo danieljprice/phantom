@@ -1167,6 +1167,29 @@ ifeq ($(MPI),daint)
 endif
 endif
 
+ifeq ($(SYSTEM),xc40)
+#massively copied from the Daint system
+    FC=ftn
+    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug all
+    KNOWN_SYSTEM=yes
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    CC = cc
+    CCFLAGS = -O3 -mcmodel=medium
+    LIBCXX = -cxxlib
+    QSYS = slurm
+OPENMP= no
+ifeq ($(OPENMP=),yes)
+    OMPFLAGS = -openmp
+endif
+ifeq ($(MPI),xc40)
+    USEMPI=yes
+    FPPFLAGS += -DMPI
+endif
+endif
+
 ifeq ($(SYSTEM), msg)
     include Makefile_defaults_ifort
     QSYS = sge
@@ -1263,13 +1286,6 @@ ifeq ($(SYSTEM), nci)
     MPIEXEC='mpiexec -npernode 1'
     QNODES='ncpus='$(NPAR)
     QEXTRA='-l other=hyperthread'
-endif
-
-ifeq ($(SYSTEM), xc40_mpi)
-#   YITP Cray machine, using Cray Compiler, with MPI
-    OPENMP=yes
-    MPI=cray
-    KNOWN_SYSTEM=yes
 endif
 
 ifeq ($(SYSTEM), gfortran)
