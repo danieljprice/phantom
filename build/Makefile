@@ -796,7 +796,7 @@ endif
 ifeq ($(SETUP), binary)
 #   binary setup
     FPPFLAGS= -DCONST_AV
-    SRCINJECT= inject_rochelobe.f90
+    SRCINJECT= set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
@@ -1857,7 +1857,7 @@ cleansetup:
 #
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
-         test_nonidealmhd.F90 test_gravity.F90 \
+         test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
@@ -2845,7 +2845,7 @@ checksetup:
 	@echo ""
         ifneq ($(SETUP),$(LASTSETUP))
 	    @echo setup changed from ${LASTSETUP} to ${SETUP}
-	    @${MAKE} clean
+	    @${MAKE} clean-preprocessing
         endif
 	@echo $(SETUP) > .make_lastsetup
    else
@@ -2970,6 +2970,10 @@ err:
 
 clean:
 	rm -f *.o phantom-version.h
+
+# target to clean files when preprocessing options have been changed
+clean-preprocessing:
+	rm -f $(OBJECTS) $(OBJTEST) $(OBJSETUP) $(OBJA) $(OBJDA)
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup

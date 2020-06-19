@@ -151,7 +151,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
        if (present(xtab)) then
           if (size(xtab) < nt) then
              if (isverbose) write(*,*) 'ERROR: coordinate table different size to density table'
-             if (present(err)) ierr = ierr_table_size_differs
+             if (present(err)) err = ierr_table_size_differs
              return
           endif
           xtable(1:nt) = xtab(1:nt)

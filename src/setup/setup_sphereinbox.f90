@@ -40,8 +40,8 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use part,    only:mhd
- use dim,     only:use_dust,maxvxyzu
+ use part,    only:mhd,periodic
+ use dim,     only:use_dust,maxvxyzu,periodic
  use options, only:calc_erot
  implicit none
  public :: setpart
@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis
- use spherical,    only:set_unifdis_sphereN
+ use spherical,    only:set_sphere
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
@@ -81,6 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -203,6 +204,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     !
     ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+    !
     call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
     if (make_sinks) then
        if (binary) then
@@ -309,8 +311,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !
- call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
+ call set_sphere('closepacked',id,master,0.,r_sphere,psep,&
+                  hfact,npart,xyzh,nptot=npart_total,exactN=.true.,mask=i_belong)
  print "(a,es10.3)",' Particle separation in sphere = ',psep
  npartsphere = npart
  if (np_in/=npartsphere) np = npartsphere
@@ -319,7 +321,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  psep_box = psep*(density_contrast)**(1./3.)  ! calculate psep in box
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
-                   hfact,npart,xyzh,rmin=r_sphere,nptot=npart_total)
+                   hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
  print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
  print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
  print*, ""
@@ -338,19 +340,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu)
  !
  ! Set dust
+ !
  if (use_dust) then
     ! particle separation in dust sphere & sdjust for close-packed lattice
     psep = (vol_sphere/pmass_dusttogas)**(1./3.)/real(nx)
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
+                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
     npartoftype(idust) = npart_total - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
-    !
+
     do i = npartoftype(igas)+1,npart
        call set_particle_type(i,idust)
     enddo
-    !
+
     print "(a,4(i10,1x))", ' particle numbers: (gas_total, gas_sphere, dust, total): ' &
                         , npartoftype(igas),npartsphere,npartoftype(idust),npart
     print "(a,2es10.3)"  , ' particle masses: (gas,dust): ',massoftype(igas),massoftype(idust)
@@ -518,6 +521,7 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
  !
  ! parse units
+ !
  call select_unit(mass_unit,umass,nerr)
  if (nerr /= 0) then
     call error('setup_sphereinbox','mass unit not recognised')
@@ -528,12 +532,11 @@ subroutine read_setupfile(filename,ierr)
     call error('setup_sphereinbox','length unit not recognised')
     ierr = ierr + 1
  endif
- !
+
  if (ierr > 0) then
     print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
-end module setup
 
+end module setup

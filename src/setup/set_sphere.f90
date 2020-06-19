@@ -23,10 +23,10 @@
 !+
 !--------------------------------------------------------------------------
 module spherical
- use unifdis,    only:set_unifdis
+ use unifdis, only:set_unifdis,mask_prototype,mask_true
  implicit none
 
- public  :: set_sphere,set_unifdis_sphereN
+ public  :: set_sphere
 
  real, parameter :: pi = 4.*atan(1.)
 
@@ -58,7 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
-                      rhofunc,rhotab,rtab,xyz_origin,nptot,dir,exactN,np_requested)
+                      rhofunc,rhotab,rtab,xyz_origin,nptot,dir,exactN,np_requested,mask)
  use stretchmap, only:set_density_profile
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
@@ -73,6 +73,8 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
  integer(kind=8),  intent(inout), optional :: nptot
  real,             intent(in),    optional :: xyz_origin(3)
  logical,          intent(in),    optional :: exactN
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: my_mask
  integer,          parameter     :: maxits = 20
  real,             parameter     :: tol    = 1.e-9
  integer                         :: i,npin,icoord,ierr
@@ -90,13 +92,18 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
  if (present(exactN) .and. present(np_requested)) then
     if ( exactN ) use_sphereN = .true.
  endif
+ if (present(mask)) then
+    my_mask => mask
+ else
+    my_mask => mask_true
+ endif
  !
  !--Create a sphere of uniform density
  !
  if ( use_sphereN ) then
     vol_sphere = 4.0/3.0*pi*rmax**3
     call set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,delta,&
-                             hfact,np,np_requested,xyzh,rmax,vol_sphere,nptot,ierr)
+                             hfact,np,np_requested,xyzh,rmax,vol_sphere,nptot,my_mask,ierr)
  else
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                      zmin,zmax,delta,hfact,np,xyzh,.false.,&
@@ -140,7 +147,7 @@ end subroutine set_sphere
 !+
 !-----------------------------------------------------------------------
 subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,nps_requested,xyzh,r_sphere,v_sphere,npart_total,ierr)
+                    hfact,npart,nps_requested,xyzh,r_sphere,v_sphere,npart_total,mask,ierr)
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: npart,nps_requested
@@ -148,6 +155,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  real,             intent(out)   :: psep,xyzh(:,:)
  integer(kind=8),  intent(inout) :: npart_total
  integer,          intent(out)   :: ierr
+ procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
  integer                         :: nps_lo,nps_hi,npr_lo,npr_hi,test_region,iter
  integer                         :: npin,npmax,npart0,nx,np,dn
@@ -181,7 +189,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     npart       = npin
     npart_total = npart_local
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.)
+                    hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.,mask=mask)
     npart0 = npart - npin
     if (npart0==nps_requested) then
        iterate_to_get_nps = .false.
