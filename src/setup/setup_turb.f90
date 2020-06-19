@@ -43,7 +43,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,maxdustsmall,maxp_hard,maxvxyzu
+ use dim,          only:use_dust,maxdustsmall,maxvxyzu,periodic
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
@@ -99,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  if (id==master) then
     npartx = 64
-    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_hard)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16)
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
