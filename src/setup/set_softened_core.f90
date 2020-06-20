@@ -12,7 +12,7 @@
 !   density profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES: For cubic spline softening of sink gravity, see Price & 
+!  REFERENCES: For cubic spline softening of sink gravity, see Price &
 !              Monaghan (2007)
 !
 !  OWNER: Mike Lau
@@ -91,14 +91,14 @@ subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
-   call flip_array(m)
-   call flip_array(pres)
-   call flip_array(temp)
-   call flip_array(r)
-   call flip_array(rho)
-   call flip_array(ene)
-   call flip_array(phi)
-endif
+    call flip_array(m)
+    call flip_array(pres)
+    call flip_array(temp)
+    call flip_array(r)
+    call flip_array(rho)
+    call flip_array(ene)
+    call flip_array(phi)
+ endif
 
  if (iexclude_core_mass) then
     m = m - mc
