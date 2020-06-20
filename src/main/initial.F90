@@ -23,9 +23,10 @@
 !    dim, domain, dust, energies, eos, evwrite, extern_gr, externalforces,
 !    fastmath, fileutils, forcing, growth, h2cooling, initial_params,
 !    inject, io, io_summary, linklist, metric_tools, mf_write, mpi,
-!    mpiutils, nicil, nicil_sup, omputils, options, part, photoevap,
-!    ptmass, readwrite_dumps, readwrite_infile, sort_particles, timestep,
-!    timestep_ind, timestep_sts, timing, units, writeheader
+!    mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
+!    photoevap, ptmass, readwrite_dumps, readwrite_infile, sort_particles,
+!    stack, timestep, timestep_ind, timestep_sts, timing, units,
+!    writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -33,7 +34,7 @@ module initial
  use mpi
 #endif
  implicit none
- public :: initialise,startrun,endrun
+ public :: initialise,finalise,startrun,endrun
  real(kind=4), private :: twall_start, tcpu_start
 
  private
@@ -61,7 +62,10 @@ subroutine initialise()
  use domain,           only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
-
+#ifdef MPI
+ use mpiderivs,        only:init_tree_comms
+ use stack,            only:init_mpi_memory
+#endif
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -106,6 +110,10 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+#ifdef MPI
+ call init_tree_comms()
+ call init_mpi_memory()
+#endif
 
  return
 end subroutine initialise
@@ -117,7 +125,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -152,7 +160,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use nicil_sup,        only:use_consistent_gmw
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
-                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs
+                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef SORT
@@ -507,7 +515,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     dtextforce = min(dtextforce,dtsinkgas)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
- if (nptmass > 0) then
+ if (gravity .and. icreate_sinks > 0) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
@@ -734,6 +742,21 @@ end subroutine startrun
 
 !----------------------------------------------------------------
 !+
+!  Reset or deallocate things that were allocated in initialise
+!+
+!----------------------------------------------------------------
+subroutine finalise()
+#ifdef MPI
+ use mpiderivs,       only:finish_tree_comms
+ use stack,           only:finish_mpi_memory
+
+ call finish_tree_comms()
+ call finish_mpi_memory()
+#endif
+end subroutine finalise
+
+!----------------------------------------------------------------
+!+
 !  This module ends the run (prints footer and closes log).
 !  Only called by master thread.
 !+
@@ -748,7 +771,7 @@ subroutine endrun
  integer           :: ierr
  character(len=10) :: finishdate, finishtime
 
-
+ call finalise()
  call finish_eos(ieos,ierr)
 
  write (iprint,"(/,'>',74('_'),'<')")

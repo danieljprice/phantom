@@ -1417,14 +1417,14 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
              'com-sink sep', &
              '   par cut 1', & ! Same as 'par. num.', but limited to particles within some radius from the sink
              '  perp cut 1', & ! Same as 'perp. num.', but limited to particles within some radius from the sink
-             '   par cut 2', & 
-             '  perp cut 2', & 
-             '   par cut 3', & 
-             '  perp cut 3', & 
-             '   par cut 4', & 
-             '  perp cut 4', & 
-             '   par cut 5', & 
-             '  perp cut 5' /) 
+             '   par cut 2', &
+             '  perp cut 2', &
+             '   par cut 3', &
+             '  perp cut 3', &
+             '   par cut 4', &
+             '  perp cut 4', &
+             '   par cut 5', &
+             '  perp cut 5' /)
 
  drag_force = 0.
 
@@ -1452,17 +1452,17 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
     if (dump_number == 0) then
-      if (i == 1) then
-         ! The if statements ensure these are only allocated once throughout the analysis
-         allocate(ang_mom_old(nptmass))
-         allocate(time_old(nptmass))
-      endif
+       if (i == 1) then
+          ! The if statements ensure these are only allocated once throughout the analysis
+          allocate(ang_mom_old(nptmass))
+          allocate(time_old(nptmass))
+       endif
        pos_wrt_CM = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
        vel_wrt_CM = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
        call cross(pos_wrt_CM, xyzmh_ptmass(4,i) * vel_wrt_CM, ang_mom)
        ang_mom_old(i) = ang_mom(3)
        time_old = -50. ! Denotes time difference between (full) dumps, s.t. time - time_old is time in current dump
-                       ! This should actually be -dtmax in the infile
+       ! This should actually be -dtmax in the infile
     endif
 
     ! Get order of particles from closest to farthest from companion
@@ -1544,7 +1544,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(5,i)  = vel_contrast
     drag_force(6,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
     drag_force(7,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
-    drag_force(8,i)  = cs 
+    drag_force(8,i)  = cs
     drag_force(9,i)  = rho_avg
     drag_force(10,i) = racc
     drag_force(11,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
@@ -2086,33 +2086,33 @@ subroutine minv (M, M_inv)
 end subroutine minv
 
 subroutine write_array_grid(minval,maxval,array)
-   real, intent(in)  :: minval,maxval
-   real, intent(out) :: array(:)
-   real              :: width
-   integer           :: i
-  
-   width = (maxval - minval) / size(array)
-   array(1) = minval
-  
-   do i = 2,size(array)
-      array(i) = array(i-1) + width
-   enddo
-  
-  end subroutine write_array_grid
-  
-  !----------------------------------------------------------------
-  !+
-  !  Finds index of the array value closest to a given value for an
-  !  ordered array
-  !+
-  !----------------------------------------------------------------
-  subroutine interpolator(array, value, valueidx)
-   real, intent(in)     :: array(:)
-   real, intent(in)     :: value
-   integer, intent(out) :: valueidx
-    
-   valueidx = minloc(abs(array - value), dim = 1)
-  
-  end subroutine interpolator
+ real, intent(in)  :: minval,maxval
+ real, intent(out) :: array(:)
+ real              :: width
+ integer           :: i
+
+ width = (maxval - minval) / size(array)
+ array(1) = minval
+
+ do i = 2,size(array)
+    array(i) = array(i-1) + width
+ enddo
+
+end subroutine write_array_grid
+
+ !----------------------------------------------------------------
+ !+
+ !  Finds index of the array value closest to a given value for an
+ !  ordered array
+ !+
+ !----------------------------------------------------------------
+subroutine interpolator(array, value, valueidx)
+ real, intent(in)     :: array(:)
+ real, intent(in)     :: value
+ integer, intent(out) :: valueidx
+
+ valueidx = minloc(abs(array - value), dim = 1)
+
+end subroutine interpolator
 
 end module
