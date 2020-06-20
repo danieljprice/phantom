@@ -560,64 +560,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,' Orbital period = ',period
        tmax = 30.*period
        dtmax = 0.1*period
-
-       !call set_binary(m1,m2/m1,a,e,hacc1,0.,xyzmh_ptmass,vxyz_ptmass,nptmass)
-
-       ! Completely replace sink 2 with sink 3
-      !  print*,xyzmh_ptmass(:,3)
-      !  xyzmh_ptmass(1:3,2) = (/ companion_xpos*solarr/udist,0.,0. /)
-      !  xyzmh_ptmass(ihacc,2) = hacc2
-      !  xyzmh_ptmass(ihsoft,2) = hsoft2
-      !  vxyz_ptmass(:,2) = vxyz_ptmass(:,3)
-     
-       !nptmass = nptmass - 1  ! Then "remove" point mass 3
-       ! Now, there are only two sinks: sink1 = primary, sink 2 = companion
-     
-       !call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
-       
-       ! Right now, sink 1 is the primary core, sink 3 is the secondary, and the
-       ! set_binary routines created a sink 2 with mass equal to the primary core
-       ! plus gas. We replace sink 2 with sink 1
-
-       ! Move sink 1 to sink 2
-       !xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
-       !vxyz_ptmass(:,1) = vxyz_ptmass(:,2)
-
-       ! Centre gas particles on sink 1 instead of sink 2
-       !do i=1,npart
-       !   xyzh(1:3,i) = xyzh(1:3,i) - xyzmh_ptmass(1:3,2) + xyzmh_ptmass(1:3,1)
-       !   vxyzu(1:3,i) = vxyzu(1:3,i) - vxyz_ptmass(1:3,2) + vxyz_ptmass(1:3,1)
-       !enddo
-       
-       ! Completely replace sink 2 with sink 3
-       !xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3) 
-       !vxyz_ptmass(:,2) = vxyz_ptmass(:,3)
-       !xyzmh_ptmass(ihacc,2) = hacc2
-       !xyzmh_ptmass(ihsoft,2) = hsoft2
-     
-       !nptmass = nptmass - 1  ! Then "remove" point mass 3
-       ! Now, there are only two sinks: sink1 = primary, sink 2 = companion
-     
-       !call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
-
-     
-       !Uncomment to check:
-        print*,' nptmass = ',nptmass
-        print*,' m1 = ',xyzmh_ptmass(4,1)*umass/solarm,' Msun'
-        print*,' m2 = ',xyzmh_ptmass(4,2)*umass/solarm,' Msun'
-        print*,' m3 = ',xyzmh_ptmass(4,3)*umass/solarm,' Msun'
-        print*,' hacc1 = ',xyzmh_ptmass(ihacc,1)*udist/solarr,' Msun'
-        print*,' hacc2 = ',xyzmh_ptmass(ihacc,2)*udist/solarr,' Msun'
-        print*,' hacc3 = ',xyzmh_ptmass(ihacc,3)*udist/solarr,' Msun'
-        print*,' hsoft1 = ',xyzmh_ptmass(ihsoft,1)*udist/solarr,' Rsun'
-        print*,' hsoft2 = ',xyzmh_ptmass(ihsoft,2)*udist/solarr,' Rsun'
-        print*,' hsoft3 = ',xyzmh_ptmass(ihsoft,3)*udist/solarr,' Rsun'
-        print*,' x1 = ',xyzmh_ptmass(1,1)*udist/solarr,' Rsun'
-        print*,' x2 = ',xyzmh_ptmass(1,2)*udist/solarr,' Rsun'
-        print*,' x3 = ',xyzmh_ptmass(1,3)*udist/solarr,' Rsun'
-        !stop
     end select
  endif
 
