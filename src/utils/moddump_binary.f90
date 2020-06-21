@@ -505,7 +505,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        m1 = npartoftype(igas)*massoftype(igas) + primarycore_mass
        m2 = companion_mass
-       a = companion_xpos*solarr/udist + abs(xyzmh_ptmass(1,1))
+       a = abs(companion_xpos) + abs(primarycore_xpos)
        print*,' Primary mass from existing file = ',m1,' Msun'
        print*,' Secondary mass from existing file = ',companion_mass,' Msun'
        print*,' Mass of primary core = ',primarycore_mass,' Msun'
@@ -518,8 +518,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        hsoft2 = 0.
        call prompt('Enter accretion radius of secondary in Rsun: ',hacc2,0.)
        call prompt('Enter softening length of secondary in Rsun: ',hsoft2,0.)
-       hacc2 = hacc2
-       hsoft2 = hsoft2
 
        ! Add companion particle
        nptmass = nptmass + 1
@@ -541,7 +539,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        ! Transform from corotating to inertial frame
        iexternalforce = 0
        omega_vec = (/ 0.,0.,omega_corotate /)
-       do i=1,npart
+       do i = 1,npart
           call cross(omega_vec,xyzh(:3,i),omegacrossr)
           vxyzu(1,i) = vxyzu(1,i) + omegacrossr(1)
           vxyzu(2,i) = vxyzu(2,i) + omegacrossr(2)
