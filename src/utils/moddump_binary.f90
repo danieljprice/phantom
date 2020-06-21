@@ -512,7 +512,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,' Orbital separation = ',a,' Rsun'
        e = 0.
        call prompt('Enter eccentricity ',e,0.)
-       hacc1 = xyzmh_ptmass(ihacc,1)
+       if (icompanion_grav == 1) hacc1 = xyzmh_ptmass(ihacc,1)
        hacc2 = 0.
        hsoft2 = 0.
        call prompt('Enter accretion radius of secondary in Rsun: ',hacc2,0.)
