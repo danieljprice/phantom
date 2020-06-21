@@ -53,7 +53,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                   :: i,ierr,setup_case,two_sink_case = 1,three_sink_case = 1,npts,irhomax,n
  integer                   :: iremove = 2
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
- real                      :: mass_donor,separation,newCoM,period,m2
+ real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
  real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
  real                      :: hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
