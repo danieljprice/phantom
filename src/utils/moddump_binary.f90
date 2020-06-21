@@ -459,8 +459,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        newCoM = companion_mass / (mass_donor + companion_mass) * separation
        companion_xpos = separation - newCoM
        if (icompanion_grav == 1) xyzmh_ptmass(1,1) = xyzmh_ptmass(1,1) - newCoM
-       if (icompanion_grav == 2) primarycore_xpos = -newCoM
-
+       if (icompanion_grav == 2) then
+          primarycore_xpos_old = primarycore_xpos
+          primarycore_xpos = -newCoM
+       endif
        do i = 1,npart
           ! Zero all particle velocities in the corotating frame, implying that the star is
           ! instantaneously spun up to the orbital frequency.
@@ -469,7 +471,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           vxyzu(3,i) = 0.
 
           ! Move star to new primary position
-          xyzh(1,i) = xyzh(1,i) - newCoM
+          xyzh(1,i) = xyzh(1,i) - primarycore_xpos_old +  newCoM
        enddo
        if (icompanion_grav == 1) vxyz_ptmass(1:3,1) = 0.
 
@@ -512,7 +514,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,' Orbital separation = ',a,' Rsun'
        e = 0.
        call prompt('Enter eccentricity ',e,0.)
-       if (icompanion_grav == 1) hacc1 = xyzmh_ptmass(ihacc,1)
+       if (icompanion_grav == 2) hacc1 = xyzmh_ptmass(ihacc,1)
        hacc2 = 0.
        hsoft2 = 0.
        call prompt('Enter accretion radius of secondary in Rsun: ',hacc2,0.)
