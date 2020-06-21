@@ -454,7 +454,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        ! Centre to new CoM with the companion
-       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
        mass_donor = npartoftype(igas)*massoftype(igas) + primarycore_mass
        omega_corotate = sqrt((mass_donor + companion_mass)/separation**3)
        newCoM = companion_mass / (mass_donor + companion_mass) * separation
