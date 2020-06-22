@@ -38,19 +38,18 @@ subroutine test_sedov(ntests,npass)
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
- use part,     only:init_part,mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi,au,solarm
  use deriv,    only:get_derivs_global
- use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
+ use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
  use units,    only:set_units
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce,dtrad
 #endif
- use timestep, only:bignumber
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
