@@ -2899,8 +2899,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !   stability has something to do with the extra factor of two, since
              !   in hydro, dtclean = 0.5*dtcourant
              dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
-            ! if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax               ! line 2a
-            ! dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))     ! line 2b
+             ! if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax               ! line 2a
+             ! dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))     ! line 2b
           endif
        endif
 
