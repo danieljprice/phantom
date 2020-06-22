@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, kernel, part, timestep, viscosity
+!  DEPENDENCIES: dim, eos, kernel, part, timestep, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module options
