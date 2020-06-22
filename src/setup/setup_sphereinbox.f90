@@ -19,9 +19,11 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    BE_concentration -- concentration parameter of the BE sphere (critical is 6.45)
+!    Bzero            -- Magnetic field strength in Gauss
 !    ang_Bomega       -- Angle (degrees) between B and rotation axis
 !    angvel           -- angular velocity in rad/s
-!    cs_sphere        -- sound speed in sphere in code units
+!    cs_sphere_cgs    -- sound speed in sphere in cm/s
 !    density_contrast -- density contrast in code units
 !    dist_unit        -- distance unit (e.g. au)
 !    dusttogas        -- dust-to-gas ratio
@@ -31,12 +33,14 @@
 !    np               -- actual number of particles in sphere
 !    pmass_dusttogas  -- dust-to-gas particle mass ratio
 !    r_sphere         -- radius of sphere in code units
+!    rho_cen_cgs      -- central density of the BE sphere (will override radius)
 !    rho_pert_amp     -- amplitude of density perturbation
 !    totmass_sphere   -- mass of sphere in code units
+!    use_BE_sphere    -- centrally condense as a BE sphere
 !
 !  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
-!    kernel, options, part, physcon, prompting, ptmass, setup_params,
-!    spherical, timestep, unifdis, units
+!    kernel, options, part, physcon, prompting, ptmass, rho_profile,
+!    setup_params, spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
