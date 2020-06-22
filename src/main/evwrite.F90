@@ -47,7 +47,6 @@
 !--------------------------------------------------------------------------
 module evwrite
  use io,             only: fatal
- use part,           only: npart
  use options,        only: iexternalforce
  use timestep,       only: dtmax_dratio
  use externalforces, only: iext_binary,was_accreted
@@ -413,22 +412,27 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
-                         use_dust,maxdusttypes,do_radiation
+                         use_dust,maxdusttypes,do_radiation,particles_are_injected
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
- use part,          only:ndusttypes
+ use part,          only:npart,nptmass,ndusttypes
  use viscosity,     only:irealvisc,shearparam
  use boundary,      only:dxbound,dybound,dzbound
  use units,         only:unit_density
  use options,       only:use_dustfrac
  use fileutils,     only:make_tags_unique
+ use ptmass,        only:icreate_sinks
  integer, intent(in) :: iprint
  character(len=120)  :: string,Mdust_label(maxdusttypes)
- integer :: i
+ integer             :: i
 
- if (ndead > 0) then
-    write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
- endif
+!***Uncomment this once debugging is complete
+! if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected) then
+!    write(iprint,"(1x,4(a,I10))") 'npart=',npart,', n_alive=',npart-ndead,', n_dead_or_accreted=',ndead,', nptmass=',nptmass
+! endif
+!***Remove the following once debugging is complete
+ write(iprint,"(1x,4(a,I10))") 'npart=',npart,', n_alive=',npart-ndead,', n_dead_or_accreted=',ndead,', nptmass=',nptmass
+
  write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
       'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
 
