@@ -205,15 +205,19 @@ end subroutine update_coriolis_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine get_companion_force(r,fextxi,fextyi,fextzi,phi)
+ use kernel, only:kernel_softening
  real, intent(in)    :: r(3)
  real, intent(inout) :: fextxi,fextyi,fextzi,phi
  real                :: disp_from_companion(3),sep_from_companion,&
                         disp_from_primary(3),sep_from_primary,fmag,&
-                        fmag_on_sep,phigrav
+                        fmag_on_sep,phigrav,q
 
  disp_from_companion = (/companion_xpos,0.,0./) - r
  sep_from_companion = sqrt(dot_product(disp_from_companion,disp_from_companion))
- call get_softened_force(companion_mass,sep_from_companion,hsoft,fmag,phigrav)
+ q = sep_from_companion / hsoft
+ call kernel_softening(q**2,q,phigrav,fmag)
+ fmag = fmag * companion_mass / hsoft**2
+ phigrav = phigrav * companion_mass / hsoft
  fmag_on_sep = fmag / sep_from_companion
  fextxi = fextxi + disp_from_companion(1) * fmag_on_sep
  fextyi = fextyi + disp_from_companion(2) * fmag_on_sep
@@ -223,7 +227,10 @@ subroutine get_companion_force(r,fextxi,fextyi,fextzi,phi)
  if (icompanion_grav == 2) then ! Get gravity from primary core
     disp_from_primary = (/primarycore_xpos,0.,0./) - r
     sep_from_primary = sqrt(dot_product(disp_from_primary,disp_from_primary))
-    call get_softened_force(primarycore_mass,sep_from_primary,primarycore_hsoft,fmag,phigrav)
+    q = sep_from_primary / primarycore_hsoft
+    call kernel_softening(q**2,q,phigrav,fmag)
+    fmag = fmag * primarycore_mass / primarycore_hsoft**2
+    phigrav = phigrav * primarycore_mass / primarycore_hsoft
     fmag_on_sep = fmag / sep_from_primary
     fextxi = fextxi + disp_from_primary(1) * fmag_on_sep
     fextyi = fextyi + disp_from_primary(2) * fmag_on_sep
@@ -232,33 +239,7 @@ subroutine get_companion_force(r,fextxi,fextyi,fextzi,phi)
  endif
 
 end subroutine get_companion_force
-!-----------------------------------------------------------------------
-!+
-!  Calculates cubic spline softened gravitational acceleration given
-!  source mass, softening radius, and separation. Ref: Price &
-!  Monaghan (2007)
-!+
-!-----------------------------------------------------------------------
-subroutine get_softened_force(m,r,h,fmag,phi)
- real, intent(in)  :: m,r,h
- real, intent(out) :: fmag,phi
- real              :: q
- ! h : Softening radius of companion gravity. Newtonian gravity recovered
- !     for r > 2*h
- if (r >= 2.*h) then
-   fmag = m / r**2
-   phi = - m / r
- elseif (r >= h) then
-   q = r/h
-   fmag = m / h**2 * (8./3.*q - 3.*q**2 + 1.2*q**3 - 1./6.*q**4 - 1./(15.*q**2))
-   phi = m / h * (4./3.*q**2 - q**3 + 0.3*q**4 - 1./30.*q**5 - 1.6 + 1./(15.*q))
- else
-   q = r/h
-   fmag = m / h**2 * (4./3.*q - 1.2*q**3 + 0.5*q**4)
-   phi = m / h * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 - 1.4)
- endif
 
-end subroutine get_softened_force
 !-----------------------------------------------------------------------
 !+
 !  writes input options to the input file
