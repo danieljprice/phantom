@@ -54,7 +54,6 @@ subroutine initialise()
 #endif
  use omputils,         only:init_omp,info_omp
  use options,          only:set_default_options
- use units,            only:set_units
  use io_summary,       only:summary_initialise
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
@@ -85,9 +84,8 @@ subroutine initialise()
 #endif
 
 !
-!--set units and default options
+!--set default options (incl. units)
 !
- call set_units
  call set_default_options
  call set_boundary
  call init_evfile(ievfile,'testlog',.false.)
@@ -142,10 +140,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             n_R,n_electronT,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
- use part,             only:pxyzu,dens,metrics,metricderivs,rad,radprop,drad,ithick
+ use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
+ use part,             only:metricderivs
  use cons2prim,        only:prim2consall
  use eos,              only:equationofstate,ieos
  use extern_gr,        only:get_grforce_all
