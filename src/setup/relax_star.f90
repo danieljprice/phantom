@@ -101,10 +101,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     return
  endif
  use_step = .false.
- if (nptmass > 0 .or. iexternalforce > 0) then
-    call warning('relax_star','asynchronous shifting not implemented with sink particles: evolving in time instead')
-    use_step = .true.
- endif
+ !if (nptmass > 0 .or. iexternalforce > 0) then
+ !   call warning('relax_star','asynchronous shifting not implemented with sink particles: evolving in time instead')
+ !   use_step = .true.
+ !endif
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
@@ -145,7 +145,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
  endif
  converged = .false.
- dt = 0.
+ dt = epsilon(0.) ! To avoid error in sink-gas substepping
+ dtext = huge(dtext)
  if (use_step) then
     dtmax = tdyn
     call init_step(npart,t,dtmax)
@@ -171,7 +172,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     ! compute energies and check for convergence
     !
     call compute_energies(t)
-    converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. rmserr < 0.01*tol_dens) .or. nits <= 0)
+    converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. &
+                 rmserr < 0.01*tol_dens .and. nits < maxits-1) .or. nits <= 0)
     !
     ! print information to screen
     !
@@ -221,12 +223,13 @@ end subroutine relax_star
 !----------------------------------------------------------------
 subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  use deriv, only:get_derivs_global
- use part,  only:fxyzu,fext
+ use part,  only:fxyzu,fext,xyzmh_ptmass,nptmass
+ use ptmass,only:get_accel_sink_gas
  use eos,   only:gamma
  integer, intent(in) :: npart
  real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real, intent(out)   :: dtmin
- real :: dx(3),dti
+ real :: dx(3),dti,phi
  integer :: i
 !
 ! get forces on particles
@@ -237,10 +240,15 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
 !
  dtmin = huge(dtmin)
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,gamma) &
- !$omp private(i,dx,dti) &
+ !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,gamma,xyzmh_ptmass,nptmass) &
+ !$omp private(i,dx,dti,phi) &
  !$omp reduction(min:dtmin)
  do i=1,npart
+    fext(1:3,i) = 0.
+    if (nptmass > 0) then
+       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                               xyzmh_ptmass,fext(1,i),fext(2,i),fext(3,i),phi)
+    endif
     dti = 0.3*xyzh(4,i)/sqrt(gamma*(gamma-1.)*vxyzu(4,i))   ! h/cs
     dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
     xyzh(1:3,i) = xyzh(1:3,i) + dx(:)
