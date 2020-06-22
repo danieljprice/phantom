@@ -685,8 +685,8 @@ subroutine rho_bonnorebert(ximax,rBE,mBE,npts,iBElast,rtab,rhotab,central_densit
        rhotab(j)   = rho
        conmassnext = conmassnext + dmass
        j = j + 1
-   endif
-   i = i + 1
+    endif
+    i = i + 1
  enddo
  if (j > npts) then
     write(*,*) 'ERROR: xi is too large for loop.  Increase size of rhotab).'
