@@ -81,7 +81,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  real    :: entrop(nt),utherm(nt),rmax,dtext,dtnew
  logical :: converged,use_step
  logical, parameter :: fix_entrop = .false. ! fix entropy instead of thermal energy
- logical, parameter :: write_files = .false.
+ logical, parameter :: write_files = .true.
  character(len=20) :: filename
  !
  ! save settings and set a bunch of options
