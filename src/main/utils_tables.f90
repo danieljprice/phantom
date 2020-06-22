@@ -24,7 +24,7 @@
 module table_utils
  implicit none
 
- public :: yinterp, linspace, logspace
+ public :: yinterp, linspace, logspace, diff, flip_array, interpolator
 
  private
 
@@ -109,5 +109,57 @@ pure subroutine logspace(x,xmin,xmax)
  x = 10.**x
 
 end subroutine logspace
+
+!----------------------------------------------------------------
+!+
+!  Finds index of the array value closest to a given value for an
+!  ordered array
+!+
+!----------------------------------------------------------------
+subroutine interpolator(array, value, valueidx)
+ real, intent(in)     :: array(:)
+ real, intent(in)     :: value
+ integer, intent(out) :: valueidx
+
+ valueidx = minloc(abs(array - value), dim = 1)
+
+end subroutine interpolator
+
+!----------------------------------------------------------------
+!+
+!  Reverses the elements of a 1-d array
+!+
+!----------------------------------------------------------------
+subroutine flip_array(array)
+ real, intent(inout) :: array(:)
+ real, allocatable   :: flipped_array(:)
+ integer             :: i
+ 
+ allocate(flipped_array(size(array)))
+ do i = 1, size(array)
+    flipped_array(i) = array(size(array) - i + 1)
+ enddo
+ array = flipped_array
+
+end subroutine flip_array
+
+!----------------------------------------------------------------
+!+
+!  Takes a n-dim array and produces a (n-1)-dim array with the
+!  ith element being the (i+1)th element minus the ith element of
+!  the original array
+!+
+!----------------------------------------------------------------
+subroutine diff(array, darray)
+ real, intent(in)               :: array(:)
+ real, allocatable, intent(out) :: darray(:)
+ integer                        :: i
+
+ allocate(darray(size(array)-1))
+ do i = 1, size(array)-1
+    darray(i) = array(i+1) - array(i)
+ enddo
+
+end subroutine diff
 
 end module table_utils
