@@ -22,10 +22,15 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    add_companion_grav -- add gravity due to companion
+!    icompanion_grav    -- options for adding companion gravity: 0=do not
+!                          add companion gravity, 1=add companion gravity,
+!                          2=add gravity from companion and stellar core
 !    companion_mass     -- mass of companion
 !    companion_xpos     -- x-position of companion
 !    hsoft              -- softening radius of companion gravity
+!    primarycore_mass   -- mass of primary core
+!    primarycore_xpos   -- x-position of primary core
+!    primarycore_hsoft  -- softening radius of primary core gravity
 !    omega_corotate     -- angular speed of corotating frame
 !
 !  DEPENDENCIES: infile_utils, io, physcon, vectorutils
@@ -37,9 +42,10 @@ module extern_corotate
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
- real, public    :: omega_corotate = 1.,hsoft = 1.
+ real, public    :: omega_corotate = 1.,hsoft = 1.,primarycore_hsoft = 1.
  real, public    :: companion_xpos = 1.,companion_mass = 1.
- logical, public :: add_companion_grav = .false.
+ real, public    :: primarycore_xpos = 1., primarycore_mass = 1.
+ integer, public :: icompanion_grav = 0
 
  public          :: update_coriolis_leapfrog
  public          :: get_coriolis_force,get_centrifugal_force,get_companion_force
@@ -194,41 +200,46 @@ end subroutine update_coriolis_leapfrog
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate softened gravitational force due to a companion (Price &
-!  Monaghan, 2007), given its x-position and mass.
+!  Calculate softened gravitational force due to a companion and/or
+!  primary core
 !+
 !-----------------------------------------------------------------------
-subroutine get_companion_force(r,h,fextxi,fextyi,fextzi,phi)
- real, intent(in)    :: r(3),h
+subroutine get_companion_force(r,fextxi,fextyi,fextzi,phi)
+ use kernel, only:kernel_softening
+ real, intent(in)    :: r(3)
  real, intent(inout) :: fextxi,fextyi,fextzi,phi
- real                :: disp(3),sep,fmag,fmag_on_sep,phigrav,q
- ! h : Softening radius of companion gravity. Newtonian gravity recovered
- !     for r > 2*h
- disp = r - (/companion_xpos,0.,0./)
- sep = sqrt(dot_product(disp,disp))
- q = sep / h
+ real                :: disp_from_companion(3),sep_from_companion,&
+                        disp_from_primary(3),sep_from_primary,fmag,&
+                        fmag_on_sep,phigrav,q
 
- ! r >= 2h
- if (sep >= 2*h) then
-    fmag = - companion_mass / sep**2
-    phigrav = - companion_mass / sep
-    ! h <= r < 2h
- elseif (sep >= h) then
-    fmag = -(8./3.*q - 3.*q**2 + 1.2*q**3 - 1./.6 * q**4 - 1./(15.*q**2)) / h**2
-    phigrav = companion_mass / h * (4./3.*q**2 - q**3 + 0.3*q**4 - 1./30.*q**5 - 1.6 + 1./(15.*q))
-    ! 0 <= r < h
- else
-    fmag = -(4./3.*q - 1.2*q**3 + 0.5*q**4) / h**2
-    phigrav = companion_mass / h * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 - 1.4)
- endif
-
- fmag_on_sep = fmag / sep
- fextxi = fextxi + disp(1) * fmag_on_sep
- fextxi = fextxi + disp(2) * fmag_on_sep
- fextxi = fextxi + disp(3) * fmag_on_sep
+ disp_from_companion = (/companion_xpos,0.,0./) - r
+ sep_from_companion = sqrt(dot_product(disp_from_companion,disp_from_companion))
+ q = sep_from_companion / hsoft
+ call kernel_softening(q**2,q,phigrav,fmag)
+ fmag = fmag * companion_mass / hsoft**2
+ phigrav = phigrav * companion_mass / hsoft
+ fmag_on_sep = fmag / sep_from_companion
+ fextxi = fextxi + disp_from_companion(1) * fmag_on_sep
+ fextyi = fextyi + disp_from_companion(2) * fmag_on_sep
+ fextzi = fextzi + disp_from_companion(3) * fmag_on_sep
  phi = phi + phigrav
 
+ if (icompanion_grav == 2) then ! Get gravity from primary core
+    disp_from_primary = (/primarycore_xpos,0.,0./) - r
+    sep_from_primary = sqrt(dot_product(disp_from_primary,disp_from_primary))
+    q = sep_from_primary / primarycore_hsoft
+    call kernel_softening(q**2,q,phigrav,fmag)
+    fmag = fmag * primarycore_mass / primarycore_hsoft**2
+    phigrav = phigrav * primarycore_mass / primarycore_hsoft
+    fmag_on_sep = fmag / sep_from_primary
+    fextxi = fextxi + disp_from_primary(1) * fmag_on_sep
+    fextyi = fextyi + disp_from_primary(2) * fmag_on_sep
+    fextzi = fextzi + disp_from_primary(3) * fmag_on_sep
+    phi = phi + phigrav
+ endif
+
 end subroutine get_companion_force
+
 !-----------------------------------------------------------------------
 !+
 !  writes input options to the input file
@@ -240,12 +251,17 @@ subroutine write_options_corotate(iunit)
 
  write(iunit,"(/,a)") '# options relating to corotating frame'
  call write_inopt(omega_corotate,'omega_corotate','angular speed of corotating frame',iunit)
- call write_inopt(add_companion_grav,'add_companion_grav','add gravity due to companion',iunit)
+ call write_inopt(icompanion_grav,'icompanion_grav','1=add companion potential, 2=add companion and primary core potential',iunit)
 
- if (add_companion_grav) then
+ if ( (icompanion_grav == 1) .or. (icompanion_grav == 2) ) then
     call write_inopt(companion_mass,'companion_mass','mass of companion',iunit)
     call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
     call write_inopt(hsoft,'hsoft','softening radius of companion gravity',iunit)
+    if (icompanion_grav == 2) then
+        call write_inopt(primarycore_mass,'primarycore_mass','mass of primary',iunit)
+        call write_inopt(primarycore_xpos,'primarycore_xpos','x-position of primary',iunit)
+        call write_inopt(primarycore_hsoft,'primarycore_hsoft','softening radius of primary core',iunit)
+    endif
  endif
 end subroutine write_options_corotate
 
@@ -275,11 +291,20 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
  case('companion_xpos')
     read(valstring,*,iostat=ierr) companion_xpos
     ngot = ngot + 1
- case('add_companion_grav')
-    read(valstring,*,iostat=ierr) add_companion_grav
+ case('primarycore_mass')
+    read(valstring,*,iostat=ierr) primarycore_mass
+    ngot = ngot + 1
+ case('primarycore_xpos')
+    read(valstring,*,iostat=ierr) primarycore_xpos
+    ngot = ngot + 1
+ case('icompanion_grav')
+    read(valstring,*,iostat=ierr) icompanion_grav
     ngot = ngot + 1
  case('hsoft')
     read(valstring,*,iostat=ierr) hsoft
+    ngot = ngot + 1
+case('primarycore_hsoft')
+    read(valstring,*,iostat=ierr) primarycore_hsoft
     ngot = ngot + 1
  case default
     imatch = .false.
