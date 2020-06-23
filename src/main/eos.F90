@@ -68,7 +68,7 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho
- public  :: gamma_pwp
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene
  public  :: init_eos, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -1050,5 +1050,69 @@ real function en_from_utherm(utherm,rho)
 
  return
 end function en_from_utherm
+
+!----------------------------------------------------------------
+!+
+!  Get recombination energy (per unit mass) assumming complete
+!  ionisation
+!+
+!----------------------------------------------------------------
+subroutine calc_rec_ene(XX,YY,e_rec)
+ real, intent(in)  :: XX, YY
+ real, intent(out) :: e_rec
+ real              :: e_H2,e_HI,e_HeI,e_HeII
+ real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
+                      e_ion_HI   = 4.36d12, &
+                      e_ion_HeI  = 2.3723d13, &
+                      e_ion_HeII = 5.2505d13
+
+ ! XX     : Hydrogen mass fraction
+ ! YY     : Helium mass fraction
+ ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
+
+ e_H2   = 0.5 * XX * e_ion_H2
+ e_HI   = XX * e_ion_HI
+ e_HeI  = 0.25 * YY * e_ion_HeI
+ e_HeII = 0.25 * YY * e_ion_HeII
+ e_rec  = e_H2 + e_HI + e_HeI + e_HeII
+   
+end subroutine calc_rec_ene
+
+!----------------------------------------------------------------
+!+
+!  Calculate temperature and specific internal energy from 
+!  pressure and density
+!+
+!----------------------------------------------------------------
+subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
+ use physcon,          only:kb_on_mh
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ real, intent(in)      :: rho,pres,mu,gamma,XX,YY
+ real, intent(inout)   :: ene,temp
+ integer, intent(in)   :: ieos
+ integer, intent(out)  :: ierr
+ real                  :: e_rec
+
+ ierr = 0
+ select case(ieos)
+ case(2) ! Adiabatic/polytropic EoS
+    temp = pres / (rho * kb_on_mh) * mu
+    ene = pres / ( (gamma-1.) * rho)
+ case(12) ! Ideal plus rad. EoS
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
+ case(10) ! MESA-like EoS
+    ! Approximate the temperature as that from ideal gas plus radiation
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    
+    ! Calculate internal energy from gas and radiation, then add recombination energy
+    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
+    call calc_rec_ene(XX,YY,e_rec)
+    ene = ene + e_rec
+ case default
+    ierr = 1
+ end select
+  
+end subroutine calc_temp_and_ene
 
 end module eos
