@@ -28,6 +28,7 @@ module setsoftenedcore
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
                             get_idealplusrad_enfromtemp
+ use table_utils,      only:interpolator,diff,flip_array
 
  implicit none
  real    :: hsoft,msoft,mcore
@@ -83,10 +84,10 @@ subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
  call calc_phi(r, mc, m-mc, hphi_cm, phi)
  call calc_pres(r, rho, phi, pres)
 
- if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden (until MESA EoS with variable composition is implemented)
-    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+ if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden until variable composition is implemented in Phantom
+    call calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
  else
-    call calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr)
+    call calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr)
  endif
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
@@ -304,137 +305,46 @@ subroutine calc_pres(r, rho, phi, pres)
  enddo
 end subroutine calc_pres
 
-
-subroutine calc_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
- real, intent(in)           :: rho(:),pres(:)
+!----------------------------------------------------------------
+!+
+!  Calculates temperature and specific internal energy for the
+!  softened star from pressure and density
+!+
+!----------------------------------------------------------------
+subroutine calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
+ use eos,                only:calc_temp_and_ene
+ real, intent(in)           :: rho(:),pres(:),mu,gamma,constX,constY
  real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,gamma,constX,constY
  real, intent(inout)        :: ene(:),temp(:)
  integer, intent(in)        :: ieos,hidx
  integer, intent(out)       :: ierr
- real                       :: e_rec,tempi,muprofile(size(rho)),Xprofile(size(rho)),Yprofile(size(rho))
- integer                    :: i,endidx
+ real                       :: muprofile(size(rho))
+ integer                    :: endidx,i
 
- ! Calculate temperature and internal energy profile depending on EoS
  ierr = 0
- if (ieos == 2) then ! Adiabatic/polytropic EoS
-    temp = pres / (rho * kb_on_mh) * mu
-    ene = pres / ( (gamma-1.) * rho)
+ if (ieos == 10) then
+    endidx = hidx ! For r > h, we just use the original MESA profile
+ else
+    endidx = size(rho) ! Recalculate u and T for r > h too
+ endif
 
- elseif ( (ieos == 10) .or. (ieos == 12) ) then ! MESA or ideal gas plus rad. EoS
-    if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden (until MESA EoS with variable composition is implemented)
-       ! Calculate mean molecular weight profile from X, Y
-       muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
-       Xprofile  = Xfrac
-       Yprofile  = Yfrac
-       endidx    = hidx ! For r > h, we just use the original MESA profile
-    else
-       ! Use the fixed mu, X, and Y calculated at r = R/2 for entire profile
-       do i = 1,size(muprofile)
-          muprofile(i) = mu
-          Xprofile(i)  = constX
-          Yprofile(i)  = constY
-       enddo
-       endidx = size(rho) ! For consistency, T and eint have to be recalculated for the entire star
-    endif
+ if (ieos == 12) temp(size(rho)) = 0. ! Zero surface temperature
 
-    ! Calculate temperature using ideal gas plus radiation EoS
-    if (ieos == 12) temp(size(rho)) = 0. ! Zero surface temperature
+ if ( (.not. present(Xfrac)) .and. (.not. present(Yfrac)) ) then
+    ! Calculate T and u for the entire star using fixed mu, X, Y
     do i = 1,endidx
-       tempi = temp(i)
-       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),muprofile(i),tempi)
-       temp(i) = tempi
+       call calc_temp_and_ene(ieos,mu,constX,constY,gamma,rho(i),pres(i),ene(i),temp(i),ierr)
     enddo
-
-    ! Calculate internal energy
-    do i = 1,endidx
-       ! Contribution from pressure and gas
-       call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
-       if (ieos == 10) then
-          ! Contribution from ionisation energy for MESA EoS
-          call calc_rec_ene(Xprofile(i),Yprofile(i),e_rec)
-          ene(i) = ene(i) + e_rec
-       endif
-    enddo
-
+ elseif (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden until particles with variable composition is implemented in Phantom
+    ! Calculate mean molecular weight profile from X, Y profiles
+     muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
+     do i = 1,endidx ! For r > h, we just use the original MESA profile
+        call calc_temp_and_ene(ieos,muprofile(i),Xfrac(i),Yfrac(i),gamma,rho(i),pres(i),ene(i),temp(i),ierr)
+     enddo 
  else
     ierr = 1
  endif
-
-end subroutine calc_temp_and_ene
-
-!----------------------------------------------------------------
-!+
-!  Get recombination energy (per unit mass) complete ionisation
-!+
-!----------------------------------------------------------------
-subroutine calc_rec_ene(XX,YY,e_rec)
- real, intent(in)  :: XX, YY
- real, intent(out) :: e_rec
- real              :: e_H2,e_HI,e_HeI,e_HeII
- real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
-                      e_ion_HI   = 4.36d12, &
-                      e_ion_HeI  = 2.3723d13, &
-                      e_ion_HeII = 5.2505d13
-
- ! XX     : Hydrogen mass fraction
- ! YY     : Helium mass fraction
- ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
-
- e_H2   = 0.5 * XX * e_ion_H2
- e_HI   = XX * e_ion_HI
- e_HeI  = 0.25 * YY * e_ion_HeI
- e_HeII = 0.25 * YY * e_ion_HeII
- e_rec  = e_H2 + e_HI + e_HeI + e_HeII
-
-end subroutine calc_rec_ene
-
-!----------------------------------------------------------------
-!+
-!  Finds index of the array value closest to a given value for an
-!  ordered array
-!+
-!----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
- real, intent(in)     :: array(:)
- real, intent(in)     :: value
- integer, intent(out) :: valueidx
-
- valueidx = minloc(abs(array - value), dim = 1)
-end subroutine interpolator
-
-!----------------------------------------------------------------
-!+
-!  Reverses the elements of a 1-d array
-!+
-!----------------------------------------------------------------
-subroutine flip_array(array)
- real, intent(inout) :: array(:)
- real, allocatable   :: flipped_array(:)
- integer             :: i
- allocate(flipped_array(size(array)))
- do i = 1, size(array)
-    flipped_array(i) = array(size(array) - i + 1)
- enddo
- array = flipped_array
-end subroutine flip_array
-
-!----------------------------------------------------------------
-!+
-!  Takes a n-dim array and produces a (n-1)-dim array with the
-!  ith element being the (i+1)th element minus the ith element of
-!  the original array
-!+
-!----------------------------------------------------------------
-subroutine diff(array, darray)
- real, intent(in)               :: array(:)
- real, allocatable, intent(out) :: darray(:)
- integer                        :: i
-
- allocate(darray(size(array)-1))
- do i = 1, size(array)-1
-    darray(i) = array(i+1) - array(i)
- enddo
-end subroutine diff
+     
+end subroutine calc_softened_temp_and_ene
 
 end module setsoftenedcore
