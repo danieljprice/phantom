@@ -2833,7 +2833,7 @@ checksetup:
 	@echo ""
         ifneq ($(SETUP),$(LASTSETUP))
 	    @echo setup changed from ${LASTSETUP} to ${SETUP}
-	    @${MAKE} clean-preprocessing
+	    @${MAKE} clean
         endif
 	@echo $(SETUP) > .make_lastsetup
    else
