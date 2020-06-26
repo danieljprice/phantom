@@ -1496,15 +1496,15 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
  integer, intent(inout) :: npart,npartoftype(:)
 
  integer :: i,itype
- real :: x,y,z,rcil
+ real :: x,y,z,r
 
  do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
-    rcil=sqrt((x-center(1))**2+(y-center(2))**2)
+    r=sqrt((x-center(1))**2+(y-center(2))**2+(z-center(3))**2)
 
-    if (rcil<radius) then
+    if (r<radius) then
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
        else

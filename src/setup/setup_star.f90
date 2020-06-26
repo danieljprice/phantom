@@ -146,7 +146,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
                                      Xfrac(:),Yfrac(:)
  real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in
- logical                          :: calc_polyk,write_setup
+ logical                          :: calc_polyk,write_setup,setexists
  character(len=120)               :: setupfile,inname
  !
  ! Initialise parameters, including those that will not be included in *.setup
@@ -189,19 +189,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! determine if an .setup file exists
  !
  setupfile = trim(fileprefix)//'.setup'
- call read_setupfile(setupfile,gamma,polyk_in,ierr)
- if (ierr /= 0 .and. id==master) then
-    !
-    ! use interactive setup if .setup file
-    ! does not exist or is incomplete
-    !
+ inquire(file=setupfile,exist=setexists)
+ if (setexists) then
+    call read_setupfile(setupfile,gamma,polyk_in,ierr)
+    if (ierr /= 0) then
+       if (id==master) call write_setupfile(setupfile,gamma,polyk)
+       stop 'please rerun phantomsetup with revised .setup file'
+    endif
+    !--Prompt to get inputs and write to file
+ elseif (id==master) then
+    print "(a,/)",trim(setupfile)//' not found: using interactive setup'
     call setup_interactive(polyk,gamma,iexist,id,master,ierr)
-    write_setup = .true.
- else
-    ! Set default values that are not in the .setup file
-    np = nstar
-    if (input_polyk) polyk = polyk_in
+    call write_setupfile(setupfile,gamma,polyk)
+    stop 'please check and edit .setup file and rerun phantomsetup'
  endif
+
  !
  ! Verify correct pre-processor commands
  !
@@ -400,11 +402,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Reset centre of mass (again)
  !
  call reset_centreofmass(npart,xyzh,vxyzu)
- !
- ! Write the .setup file if necessary; performed here to allow for exact writing of Mstar(2)
- ! (Also rewrite if nstar has changed; may occur if user manually modifies the .setup file)
- !
- if (write_setup) call write_setupfile(setupfile,gamma,polyk)
+
  !
  ! Write the neutronstar profile to file (if isphere==insfile)
  !
@@ -752,7 +750,6 @@ subroutine write_setupfile(filename,gamma,polyk)
  if ( .not. use_exactN ) then
     call write_inopt(np,'np','approx number of particles (in box of size 2R)',iunit)
  endif
- call write_inopt(nstar,'Nstar_1','particle number in the star',iunit)
 
  write(iunit,"(/,a)") '# star properties'
  if (isphere==insfile .or. isphere==imesa .or. isphere==ikepler) then
@@ -837,10 +834,9 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(EOSopt,'EOSopt',db,errcount=nerr)
     endif
  endif
- if ( .not. use_exactN ) then
-    call read_inopt(np,'np',db,errcount=nerr)
- endif
- call read_inopt(nstar,'Nstar_1',db,errcount=nerr)
+ call read_inopt(np,'np',db,errcount=nerr)
+ nstar = np
+
  if (use_prompt) then
     if (isphere/=ibpwpoly) then
        call read_inopt(Rstar,'Rstar_1',db,errcount=nerr)

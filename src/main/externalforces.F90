@@ -106,7 +106,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 #ifdef FINVSQRT
  use fastmath,         only:finvsqrt
 #endif
- use extern_corotate,  only:get_centrifugal_force,get_companion_force,add_companion_grav,hsoft
+ use extern_corotate,  only:get_centrifugal_force,get_companion_force,icompanion_grav
  use extern_binary,    only:binary_force
  use extern_prdrag,    only:get_prdrag_spatial_force
  use extern_gnewton,   only:get_gnewton_spatial_force
@@ -170,7 +170,9 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 !
     pos = (/xi,yi,zi/)
     call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
-    if (add_companion_grav) call get_companion_force(pos,hsoft,fextxi,fextyi,fextzi,phi)
+    if ( (icompanion_grav == 1) .or. (icompanion_grav == 2) ) then
+       call get_companion_force(pos,fextxi,fextyi,fextzi,phi)
+    endif
 
  case(iext_binary)
 !

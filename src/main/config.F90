@@ -296,6 +296,15 @@ module dim
  logical, parameter :: use_CMacIonize = .false.
 #endif
 
+!--------------------
+! logical for bookkeeping
+!--------------------
+#ifdef INJECT_PARTICLES
+ logical, parameter :: particles_are_injected = .true.
+#else
+ logical, parameter :: particles_are_injected = .false.
+#endif
+
  !--------------------
  ! Analysis array sizes
  !--------------------

@@ -1149,21 +1149,26 @@ endif
 endif
 
 ifeq ($(SYSTEM),daint)
+    include Makefile_defaults_ifort
     FC=ftn
-    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
-    LIBCXX = -cxxlib
+    FFLAGS+= -heap-arrays
     QSYS = slurm
 ifeq ($(MPI),daint)
     USEMPI=yes
-    FPPFLAGS += -DMPI
+endif
+endif
+
+ifeq ($(SYSTEM),xc40)
+#massively copied from the Daint system
+    include Makefile_defaults_ifort
+    FC=ftn
+    FFLAGS+= -heap-arrays
+    KNOWN_SYSTEM=yes
+    CC = cc
+    QSYS = slurm
+    OMPFLAGS = -openmp
+ifeq ($(MPI),xc40)
+    USEMPI=yes
 endif
 endif
 
@@ -1263,13 +1268,6 @@ ifeq ($(SYSTEM), nci)
     MPIEXEC='mpiexec -npernode 1'
     QNODES='ncpus='$(NPAR)
     QEXTRA='-l other=hyperthread'
-endif
-
-ifeq ($(SYSTEM), xc40_mpi)
-#   YITP Cray machine, using Cray Compiler, with MPI
-    OPENMP=yes
-    MPI=cray
-    KNOWN_SYSTEM=yes
 endif
 
 ifeq ($(SYSTEM), gfortran)
@@ -1580,52 +1578,46 @@ ifeq ($(MPI), yes)
     FC= mpif90 `mpif90 --showme:compile`
     CC= mpicc `mpicc --showme:compile`
     LDFLAGS+= `mpif90 --showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), openmpi)
     FC= openmpif90 `openmpif90 --showme:compile`
     LDFLAGS+= `openmpif90 --showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), zen)
     FC= mpif90
     LDFLAGS+= -lwmpi -lmpiif
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), psxe)
     FC= mpiifort
     LDFLAGS+= `mpiifort--showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), mpifort)
     FC= mpifort
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), intel)
     FC= mpif90
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), cray)
     FC= ftn
     CC= cc
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(USEMPI), yes)
     RUNMPI=$(MPIEXEC)
+    FPPFLAGS += -DMPI
 else
     RUNMPI=
 endif
@@ -1804,10 +1796,6 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
-# make first file required for compiling utilities depend on math flags
-# to ensure that this is always up to date before compiling anything else.
-physcon.o: .make_mathflags
-
 #-------------------------------------------------------
 # these are the sources for phantom libsetup
 # must NOT contain .F90 files or pre-processing options
@@ -1879,7 +1867,7 @@ OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams libphantom.a libphantomsetup.a $(OBJTEST)
+phantomtest: checksystem checkparams $(BINDIR)/libphantom.a libphantomsetup.a $(OBJTEST)
 	@echo ""
 	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
@@ -2023,8 +2011,8 @@ OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-libphantom.a: checksystem checkparams ${OBJECTS} ${OBJLIB}
-	ar rc $(LIBPHANTOM) ${OBJLIB} ${OBJECTS}
+libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
@@ -2968,12 +2956,8 @@ getdims:
 err:
 	$(error aborting);
 
-clean:
-	rm -f *.o phantom-version.h
-
-# target to clean files when preprocessing options have been changed
-clean-preprocessing:
-	rm -f $(OBJECTS) $(OBJTEST) $(OBJSETUP) $(OBJA) $(OBJDA)
+clean: cleanlibphantom
+	rm -f *.o *.mod phantom-version.h
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup
