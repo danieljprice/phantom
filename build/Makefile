@@ -1835,8 +1835,8 @@ OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 .PHONY: phantomsetup
 phantomsetup: setup
 
-setup: checksystem checkparams libphantom.a $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
+setup: checksystem checkparams $(BINDIR)/libphantom.a $(OBJSETUP)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(BINDIR)/libphantom.a
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -2000,7 +2000,7 @@ $(BINDIR)/libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
-libphantom: libphantom.a #libphantom.so
+libphantom: $(BINDIR)/libphantom.a #libphantom.so
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(BINDIR)/libphantom.a
