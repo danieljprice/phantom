@@ -52,7 +52,6 @@ end subroutine set_dustfrac
 !+
 !--------------------------------------------------------------------------
 subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
- use io, only:warning
  use table_utils, only:logspace
  real, intent(in)  :: smin
  real, intent(in)  :: smax
@@ -98,7 +97,7 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
     exact = 1./power*(grid(nbins+1)**power - grid(1)**power)
  endif
  if (abs(sum(rhodust)-exact)/exact > tol) then
-    call warning('set_dust','Piecewise integration of MRN distribution not matching the exact solution!')
+    print*,' WARNING: Piecewise integration of MRN distribution not matching the exact solution!'
  endif
 
 end subroutine set_dustbinfrac

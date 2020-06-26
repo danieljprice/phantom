@@ -48,7 +48,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- real :: massr,m1,a,hacc1,hacc2,ecc
+ real :: m1,m2,a,hacc1,hacc2,ecc
+ integer :: ierr
 
  call set_units(dist=au,mass=solarm,G=1.)
 !
@@ -70,13 +71,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  m1    = 6./5.*solarm/umass
- massr = 1./5.
+ m2    = 1./5.*m1
  a     = 180*solarr/udist
  !a     = 2.9 ! 70 AU
  ecc   = 0.
  hacc1  = 0.017 ! 1.7 AU
  hacc2  = 0.017
- call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
 
 end subroutine setpart
 

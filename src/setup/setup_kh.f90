@@ -51,10 +51,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:igas
+ use part,         only:igas,periodic
  use prompting,    only:prompt
  use physcon,      only:pi
  use timestep,     only:dtmax,tmax
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -99,7 +100,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc,dir=2)
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,&
+                  rhofunc=rhofunc,dir=2,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -141,4 +143,3 @@ real function Rfunc(y)
 end function Rfunc
 
 end module setup
-

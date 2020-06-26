@@ -43,7 +43,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:use_dust,maxdustsmall,maxp_hard,maxvxyzu
+ use dim,          only:use_dust,maxdustsmall,maxvxyzu,periodic
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
@@ -58,7 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
-
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -99,7 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  if (id==master) then
     npartx = 64
-    call prompt('Enter number of particles in x ',npartx,16,nint((maxp_hard)**(1/3.)))
+    call prompt('Enter number of particles in x ',npartx,16)
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
@@ -193,13 +193,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 
  select case(ilattice)
- case(1)
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
  case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,&
+                     xyzh,periodic,nptot=npart_total,mask=i_belong)
  case default
-    print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    if (ilattice==1) print*,' error: chosen lattice not available, using cubic'
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,&
+                     xyzh,periodic,nptot=npart_total,mask=i_belong)
  end select
 
  npartoftype(:) = 0
