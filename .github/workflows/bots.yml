@@ -25,7 +25,7 @@ jobs:
     - name: Run the bots
       run: |
         git fetch
-        git checkout $GITHUB_REF
+        git checkout master
         cd scripts
         ./bots.sh --apply
 
