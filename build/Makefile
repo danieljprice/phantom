@@ -1831,7 +1831,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
-setup: checksystem checkparams libphantomsetup.a libphantom.a $(OBJSETUP)
+setup: checksystem checkparams libphantomsetup.a $(BINDIR)/libphantom.a $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
 	@echo ""
 	@echo "Phantom setup built"
@@ -2011,7 +2011,7 @@ OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+$(BINDIR)/libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
 	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
