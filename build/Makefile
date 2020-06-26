@@ -1806,7 +1806,7 @@ SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f
             set_stellar_core.f90 set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
-$(LIBSETUP): $(OBJLIBSETUP)
+libsetup: $(OBJLIBSETUP)
 	@echo ""
 	@echo "Phantom libsetup built"
 	@echo ""
@@ -1831,7 +1831,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
-setup: checksystem checkparams $(LIBSETUP) $(LIBPHANTOM)
+setup: checksystem checkparams libsetup libphantom
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
 	@echo ""
 	@echo "Phantom setup built"
@@ -1867,7 +1867,7 @@ OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams $(LIBPHANTOM) $(LIBSETUP) $(OBJTEST)
+phantomtest: checksystem checkparams libphantom libsetup $(OBJTEST)
 	@echo ""
 	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
@@ -2012,13 +2012,13 @@ OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-$(LIBPHANTOM): checksystem checkparams $(OBJECTS) $(OBJLIB)
+libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
 	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
-libphantom: $(LIBPHANTOM)
+libphantom: libphantom.a
 
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(LIBPHANTOM)
