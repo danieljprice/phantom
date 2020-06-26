@@ -337,10 +337,10 @@ subroutine calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,
     enddo
  elseif (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden until particles with variable composition is implemented in Phantom
     ! Calculate mean molecular weight profile from X, Y profiles
-     muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
-     do i = 1,endidx ! For r > h, we just use the original MESA profile
-        call calc_temp_and_ene(ieos,muprofile(i),Xfrac(i),Yfrac(i),gamma,rho(i),pres(i),ene(i),temp(i),ierr)
-     enddo
+    muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
+    do i = 1,endidx ! For r > h, we just use the original MESA profile
+       call calc_temp_and_ene(ieos,muprofile(i),Xfrac(i),Yfrac(i),gamma,rho(i),pres(i),ene(i),temp(i),ierr)
+    enddo
  else
     ierr = 1
  endif
