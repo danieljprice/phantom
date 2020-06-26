@@ -1832,7 +1832,7 @@ OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
 setup: checksystem checkparams libphantomsetup.a $(BINDIR)/libphantom.a $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(BINDIR)/libphantom.a
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""

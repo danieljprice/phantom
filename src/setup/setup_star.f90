@@ -28,7 +28,6 @@
 !  RUNTIME PARAMETERS:
 !    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
 !    Mstar_1            -- mass of star
-!    Nstar_1            -- particle number in the star
 !    Rstar_1            -- radius of star
 !    densityfile        -- File containing data for stellar profile
 !    dist_unit          -- distance unit (e.g. au)
