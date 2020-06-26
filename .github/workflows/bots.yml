@@ -24,9 +24,17 @@ jobs:
 
     - name: Run the bots
       run: |
-        git config --global user.email "daniel.price@monash.edu"
-        git config --global user.name "Daniel Price"
         git fetch
         git checkout master
         cd scripts
-        ./bots.sh --commit
+        ./bots.sh --apply
+
+    - name: Commit changes
+      uses: EndBug/add-and-commit@v4
+      with:
+        author_name: Daniel Price
+        author_email: daniel.price@monash.edu
+        message: "[bots] indent,whitespace,header,shout"
+        add: "."
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
