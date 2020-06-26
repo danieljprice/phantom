@@ -485,7 +485,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,'Softening radius of companion gravity is ',hsoft,' Rsun'
 
     case(7)
-       ! Read information about companion gravity from infile 
+       ! Read information about companion gravity from infile
        call prompt('Please write the name of the input file : ',filename)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(icompanion_grav,'icompanion_grav',db)

@@ -340,11 +340,11 @@ subroutine calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,
      muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
      do i = 1,endidx ! For r > h, we just use the original MESA profile
         call calc_temp_and_ene(ieos,muprofile(i),Xfrac(i),Yfrac(i),gamma,rho(i),pres(i),ene(i),temp(i),ierr)
-     enddo 
+     enddo
  else
     ierr = 1
  endif
-     
+
 end subroutine calc_softened_temp_and_ene
 
 end module setsoftenedcore
