@@ -1955,7 +1955,7 @@ MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_sort.f90 checksetup.f90 set_Bfield.f90 \
-          partinject.F90 random.f90 set_disc.F90 set_dust.F90 \
+          partinject.F90 random.f90 set_disc.F90 set_dust.f90 \
 		    icosahedron.f90 utils_inject.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
