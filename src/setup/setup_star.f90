@@ -113,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only: igas,isetphase,iphase,ihsoft
  use spherical,       only: set_sphere
  use centreofmass,    only: reset_centreofmass
- use table_utils,     only: yinterp
+ use table_utils,     only: yinterp,interpolator
  use units,           only: set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
@@ -125,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
-                           check_hsoft_and_mcore,interpolator
+                           check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
  integer,           intent(in)    :: id
