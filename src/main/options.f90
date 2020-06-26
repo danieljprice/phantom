@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, kernel, part, timestep, viscosity
+!  DEPENDENCIES: dim, eos, kernel, part, timestep, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module options
@@ -73,9 +73,15 @@ subroutine set_default_options
  use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
+ use units,     only:set_units
 
+ ! Default timsteps
  call set_defaults_timestep
 
+ ! Reset units
+ call set_units()
+
+ ! Miscellaneous parameters
  nmaxdumps = -1
  twallmax  = 0.0             ! maximum wall time for run, in seconds
  nfulldump = 10              ! frequency of writing full dumps
@@ -87,11 +93,8 @@ subroutine set_default_options
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
-
- ! To allow rotational energies to be printed to .ev
- calc_erot = .false.
- ! Final maximum density
- rhofinal_cgs = 0.
+ calc_erot = .false.         ! To allow rotational energies to be printed to .ev
+ rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
  if (maxvxyzu==4) then
@@ -116,6 +119,7 @@ subroutine set_default_options
     alpha = 1.
  endif
  alphamax = 1.0
+ call set_defaults_viscosity
 
  ! artificial thermal conductivity
  alphau = 1.
@@ -130,9 +134,9 @@ subroutine set_default_options
  beta              = 2.0     ! beta viscosity term
  if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
+
  ! radius outside which we kill particles
  rkill             = -1.
- call set_defaults_viscosity
 
  ! dust method
  use_dustfrac = .false.
@@ -141,6 +145,7 @@ subroutine set_default_options
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
 
+ ! radiation
  if (do_radiation) then
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
