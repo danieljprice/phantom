@@ -176,6 +176,7 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
  real :: xminl(ndimtree),xmaxl(ndimtree),xminr(ndimtree),xmaxr(ndimtree)
  logical :: wassplit
  integer, parameter :: istacksize = 512
+ integer, allocatable, save :: istack_local(:)
  type(kdbuildstack), save :: stack(istacksize)
  type(kdbuildstack), save :: stack_global(istacksize)
  !$omp threadprivate(stack)
@@ -194,8 +195,10 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
     !$omp parallel default(none) shared(numthreads)
     !$ numthreads = omp_get_num_threads()
     !$omp end parallel
+    allocate(istack_local(numthreads))
     done_init_kdtree = .true.
  endif
+ print*,' numthreads = ',numthreads
 
  ! build using a stack which builds depth first
  ! each thread grabs a node from the queue and builds its own subtree
@@ -210,74 +213,74 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
 
  !$omp parallel default(none) &
  !$omp shared(ifirstincell,inoderange,iorder,iorder_was) &
- !$omp shared(xyzh,stack_global,istack_global) &
+ !$omp shared(xyzh,stack_global,istack_global,istack_local) &
  !$omp shared(np) &
  !$omp shared(node, ncells) &
  !$omp shared(numthreads,iverbose,nfinished,min_per_thread) &
- !$omp private(istack) &
+ !$omp private(i) &
  !$omp private(nnode, mymum, level, xmini, xmaxi) &
  !$omp private(il,ir,i1,i2,i1l,i2l,i1r,i2r) &
  !$omp private(xminr, xmaxr, xminl, xmaxl) &
  !$omp private(wassplit,ndone,npdone) &
  !$omp reduction(max:maxlevel)
- !$omp do schedule(static)
- do i = 1, numthreads
 
-    istack = 0
-    ndone = 0
-    npdone = 0
-    mymum = 0
+ i = 1
+ !$ i=omp_get_thread_num() + 1
 
-    over_stack: do while(istack > 0 .or. istack_global > 0 .or. (ndone < min_per_thread .and. nfinished==0))
+ istack_local(i) = 0
 
-       ! pop off stack
-       if (istack > 0) then ! pop off local stack
-          call pop_off_stack(stack(istack),istack,nnode,mymum,level,i1,i2,xmini,xmaxi)
-       else ! pop off global stack
-          mymum = 0; nnode = 0; level = 0; i1=0; i2=0 ! to avoid compiler warnings
+ ndone = 0
+ npdone = 0
+ mymum = 0
+
+ over_stack: do while(any(istack_local > 0) .or. istack_global > 0 .or. ndone < min_per_thread)
+
+    ! pop off stack
+    if (istack_local(i) > 0) then ! pop off local stack
+       call pop_off_stack(stack(istack_local(i)),istack_local(i),nnode,mymum,level,i1,i2,xmini,xmaxi)
+    else ! pop off global stacki
+       mymum = 0; nnode = 0; level = 0; i1=0; i2=0 ! to avoid compiler warnings
+       !$omp critical(globalstack)
+       if (istack_global > 0) then
+          call pop_off_stack(stack_global(istack_global),istack_global,nnode,mymum,level,i1,i2,xmini,xmaxi)
+       endif
+       !$omp end critical(globalstack)
+       if (nnode==0) cycle over_stack ! occurs if istack_global decreased before we had time to pop
+    endif
+    ndone = ndone + 1
+    npdone = npdone + i2-i1+1
+
+    ! construct node
+    call build_node(node(nnode),nnode,mymum,i1,i2,&
+          level, xmini, xmaxi,il,ir,i1l,i2l,i1r,i2r,xminl, xmaxl, xminr, xmaxr, &
+          ncells,ifirstincell(nnode),inoderange(:,nnode),xyzh,iorder,iorder_was,wassplit)
+
+    if (wassplit) then
+       if (istack_local(i)+2 > istacksize) call fatal('maketree',&
+                               'local stack size exceeded in tree build, increase istacksize and recompile')
+       if (level < 6 .and. istack_global + 2 < istacksize) then
           !$omp critical(globalstack)
-          if (istack_global > 0) then
-             call pop_off_stack(stack_global(istack_global),istack_global,nnode,mymum,level,i1,i2,xmini,xmaxi)
+          if (istack_global + 2 < istacksize) then
+             istack_global = istack_global + 1
+             call push_onto_stack(stack_global(istack_global),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
+          else
+             istack_local(i) = istack_local(i) + 1
+             call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
           endif
           !$omp end critical(globalstack)
-          if (nnode==0) cycle over_stack ! occurs if istack_global decreased before we had time to pop
+       else
+          istack_local(i) = istack_local(i) + 1
+          call push_onto_stack(stack(istack_local(i)),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
        endif
-       ndone = ndone + 1
-       npdone = npdone + i2-i1+1
-
-       ! construct node
-       call build_node(node(nnode),nnode,mymum,i1,i2,&
-             level, xmini, xmaxi,il,ir,i1l,i2l,i1r,i2r,xminl, xmaxl, xminr, xmaxr, &
-             ncells,ifirstincell(nnode),inoderange(:,nnode),xyzh,iorder,iorder_was,wassplit)
-
-       if (wassplit) then
-          if (istack+2 > istacksize) call fatal('maketree',&
-                                  'local stack size exceeded in tree build, increase istacksize and recompile')
-          if (level < 6 .and. istack_global + 2 < istacksize) then
-             !$omp critical(globalstack)
-             if (istack_global + 2 < istacksize) then
-                istack_global = istack_global + 1
-                call push_onto_stack(stack_global(istack_global),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
-             else
-                istack = istack + 1
-                call push_onto_stack(stack(istack),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
-             endif
-             !$omp end critical(globalstack)
-          else
-             istack = istack + 1
-             call push_onto_stack(stack(istack),il,nnode,level+1,i1l,i2l,xminl,xmaxl)
-          endif
-          istack = istack + 1
-          call push_onto_stack(stack(istack),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
-       endif
-    enddo over_stack
-    !$omp critical(threadfinished)
-    nfinished = nfinished + 1
-    !$omp end critical(threadfinished)
-    if (iverbose >= 0) print*,' thread ',i,' done ',ndone,' npdone = ',npdone
- enddo
-!$omp enddo
-!$omp end parallel
+       istack_local(i) = istack_local(i) + 1
+       call push_onto_stack(stack(istack_local(i)),ir,nnode,level+1,i1r,i2r,xminr,xmaxr)
+    endif
+ enddo over_stack
+ !$omp critical(threadfinished)
+ nfinished = nfinished + 1
+ !$omp end critical(threadfinished)
+ if (iverbose >= 0) print*,' tthread ',i,' done ',ndone,' npdone = ',npdone
+ !$omp end parallel
 
 end subroutine build_tree_index1
 
