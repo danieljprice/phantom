@@ -1149,44 +1149,26 @@ endif
 endif
 
 ifeq ($(SYSTEM),daint)
+    include Makefile_defaults_ifort
     FC=ftn
-    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all
-    KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
-    OMPFLAGS = -openmp
-    CC = icc
-    CCFLAGS = -O3 -mcmodel=medium
-    LIBCXX = -cxxlib
+    FFLAGS+= -heap-arrays
     QSYS = slurm
 ifeq ($(MPI),daint)
     USEMPI=yes
-    FPPFLAGS += -DMPI
 endif
 endif
 
 ifeq ($(SYSTEM),xc40)
 #massively copied from the Daint system
+    include Makefile_defaults_ifort
     FC=ftn
-    FFLAGS= -O3 -inline-factor=500 -dynamic -mcmodel=medium -heap-arrays -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug all
+    FFLAGS+= -heap-arrays
     KNOWN_SYSTEM=yes
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
     CC = cc
-    CCFLAGS = -O3 -mcmodel=medium
-    LIBCXX = -cxxlib
     QSYS = slurm
-OPENMP= no
-ifeq ($(OPENMP=),yes)
     OMPFLAGS = -openmp
-endif
 ifeq ($(MPI),xc40)
     USEMPI=yes
-    FPPFLAGS += -DMPI
 endif
 endif
 
@@ -1596,52 +1578,46 @@ ifeq ($(MPI), yes)
     FC= mpif90 `mpif90 --showme:compile`
     CC= mpicc `mpicc --showme:compile`
     LDFLAGS+= `mpif90 --showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), openmpi)
     FC= openmpif90 `openmpif90 --showme:compile`
     LDFLAGS+= `openmpif90 --showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), zen)
     FC= mpif90
     LDFLAGS+= -lwmpi -lmpiif
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), psxe)
     FC= mpiifort
     LDFLAGS+= `mpiifort--showme:link`
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), mpifort)
     FC= mpifort
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), intel)
     FC= mpif90
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(MPI), cray)
     FC= ftn
     CC= cc
-    FPPFLAGS += -DMPI
     USEMPI=yes
 endif
 
 ifeq ($(USEMPI), yes)
     RUNMPI=$(MPIEXEC)
+    FPPFLAGS += -DMPI
 else
     RUNMPI=
 endif
