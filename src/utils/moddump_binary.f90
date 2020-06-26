@@ -20,7 +20,7 @@
 !
 !  DEPENDENCIES: centreofmass, dim, extern_corotate, externalforces,
 !    infile_utils, io, options, part, physcon, prompting, rho_profile,
-!    setbinary, units, timestep
+!    setbinary, timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump
@@ -160,7 +160,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     end select
  else
 
- !choose what to do with the star: set a binary or setup a magnetic field
+    !choose what to do with the star: set a binary or setup a magnetic field
     print "(7(/,a))",'1) Set up a binary system', &
                      '2) Set up a magnetic field in the star', &
                      '3) Manually cut profile to create sink in core', &
@@ -484,7 +484,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,'Softening radius of companion gravity is ',hsoft,' Rsun'
 
     case(7)
-       ! Read information about companion gravity from infile 
+       ! Read information about companion gravity from infile
        call prompt('Please write the name of the input file : ',filename)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(icompanion_grav,'icompanion_grav',db)
