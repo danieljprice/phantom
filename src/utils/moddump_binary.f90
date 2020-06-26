@@ -20,7 +20,7 @@
 !
 !  DEPENDENCIES: centreofmass, dim, extern_corotate, externalforces,
 !    infile_utils, io, options, part, physcon, prompting, rho_profile,
-!    setbinary, units, timestep
+!    setbinary, timestep, units
 !+
 !--------------------------------------------------------------------------
 module moddump

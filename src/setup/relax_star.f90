@@ -23,7 +23,7 @@
 !    tol_ekin -- tolerance on ekin/epot to stop relaxation
 !
 !  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
-!    infile_utils, initial, io, memory, options, part, physcon,
+!    infile_utils, initial, io, memory, options, part, physcon, ptmass,
 !    readwrite_dumps, step_lf_global, table_utils, units
 !+
 !--------------------------------------------------------------------------
