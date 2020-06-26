@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -43,7 +43,7 @@ module mpiforce
     real             :: xpos(3)
     real             :: xsizei
     real             :: rcuti
-    real             :: dtdrag(minpart)
+    real             :: tsmin(minpart)
     real             :: vsigmax(minpart)
     integer          :: icell
     integer          :: npcell                                 ! number of particles in here
@@ -125,9 +125,9 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%dtdrag)
+ blens(nblock) = size(cell%tsmin)
  mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(cell%dtdrag,addr,mpierr)
+ call MPI_GET_ADDRESS(cell%tsmin,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1

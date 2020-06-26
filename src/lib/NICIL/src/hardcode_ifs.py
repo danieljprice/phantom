@@ -4,7 +4,7 @@
 #            A script to generate new source code with most            !
 #                     logical if-statements removed                    !
 #                                                                      !
-#                 Copyright (c) 2015-2017 James Wurster                !
+#                 Copyright (c) 2015-2019 James Wurster                !
 #        See LICENCE file for usage and distribution conditions        !
 #----------------------------------------------------------------------!
 # The primary function of this script is to make a new copy of

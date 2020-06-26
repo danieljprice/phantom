@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -22,18 +22,16 @@
 !--------------------------------------------------------------------------
 program phantom2divv
  use dim,             only:ndivcurlv,maxp,tagline
- use part,            only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                           hfact,rhoh,dhdrho,igas,isetphase,iphase,maxphase,&
-                           dustfrac,ddustevol,temperature,dustprop,ddustprop
+ use part,            only:npart,divcurlv,hfact,igas,isetphase,iphase,maxphase
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
  use readwrite_dumps, only:read_dump,write_fulldump
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  use kernel,          only:hfact_default
  implicit none
  integer :: nargs
  character(len=120) :: dumpfile
- real :: time,dtdum
+ real :: time
  integer :: ierr,iarg,i
 
  call set_io_unit_numbers
@@ -67,9 +65,7 @@ program phantom2divv
 !--calculate derivatives including the divergence of v
 !
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
-                temperature,0.,0.,dtdum)
+    call get_derivs_global()
 !
 !--dump to .divv file
 !

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,12 +30,21 @@
 !+
 !--------------------------------------------------------------------------
 module setbinary
- use physcon, only:pi
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
- public :: get_mean_angmom_vector
+ public :: get_mean_angmom_vector,get_eccentricity_vector
 
  private
+ interface get_eccentricity_vector
+  module procedure get_eccentricity_vector,get_eccentricity_vector_sinks
+ end interface get_eccentricity_vector
+
+ real, parameter :: pi = 4.*atan(1.)
+ integer, parameter :: &
+   ierr_m1   = 1, &
+   ierr_m2   = 2, &
+   ierr_ecc  = 3, &
+   ierr_semi = 4
 
 contains
 
@@ -44,26 +53,26 @@ contains
 !  setup for a binary
 !+
 !----------------------------------------------------------------
-subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
+subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
-                      xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
+                      xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
- use io,   only:warning,fatal
- use part, only:ihacc,ihsoft
- real,    intent(in)    :: mprimary,massratio
+ real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
+ integer, intent(out)   :: ierr
  real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
+ real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
 
+ ierr = 0
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
 
@@ -72,8 +81,6 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  nptmass = nptmass + 2
 
  ! masses
- m1 = mprimary
- m2 = mprimary*massratio
  mtot = m1 + m2
 
  Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
@@ -85,9 +92,9 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  if (do_verbose) then
     print "(/,2x,a)",'---------- binary parameters ----------- '
     print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
-        'primary mass     :',mprimary, &
-        'secondary mass   :',massratio*mprimary, &
-        'mass ratio       :',massratio, &
+        'primary mass     :',m1, &
+        'secondary mass   :',m2, &
+        'mass ratio m2/m1 :',m2/m1, &
         'reduced mass     :',reducedmass, &
         'semi-major axis  :',semimajoraxis, &
         'period           :',period, &
@@ -97,19 +104,32 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  endif
 
  if (accretion_radius1 > Rochelobe1) then
-    call warning('set_binary','accretion radius of primary > Roche lobe')
+    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
  endif
  if (accretion_radius2 > Rochelobe2) then
-    call warning('set_binary','accretion radius of secondary > Roche lobe')
+    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe'
  endif
 !
 !--check for stupid parameter choices
 !
- if (mprimary <= 0.) call fatal('set_binary','primary mass <= 0')
- if (massratio < 0.) call fatal('set_binary','mass ratio < 0')
- if (semimajoraxis <= 0.) call fatal('set_binary','semi-major axis <= 0')
- if (eccentricity > 1. .or. eccentricity < 0.) &
-    call fatal('set_binary','eccentricity must be between 0 and 1')
+ if (m1 <= 0.) then
+    print "(1x,a)",'ERROR: set_binary: primary mass <= 0'
+    ierr = ierr_m1
+ endif
+ if (m2 < 0.) then
+    print "(1x,a)",'ERROR: set_binary: secondary mass <= 0'
+    ierr = ierr_m2
+ endif
+ if (semimajoraxis <= 0.) then
+    print "(1x,a)",'ERROR: set_binary: semi-major axis <= 0'
+    ierr = ierr_semi
+ endif
+ if (eccentricity > 1. .or. eccentricity < 0.) then
+    print "(1x,a)",'ERROR: set_binary: eccentricity must be between 0 and 1'
+    ierr = ierr_ecc
+ endif
+ ! exit routine if cannot continue
+ if (ierr /= 0) return
 
  dx = 0.
  dv = 0.
@@ -215,10 +235,10 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  xyzmh_ptmass(1:3,i2) = x2
  xyzmh_ptmass(4,i1) = m1
  xyzmh_ptmass(4,i2) = m2
- xyzmh_ptmass(ihacc,i1) = accretion_radius1
- xyzmh_ptmass(ihacc,i2) = accretion_radius2
- xyzmh_ptmass(ihsoft,i1) = 0.0
- xyzmh_ptmass(ihsoft,i2) = 0.0
+ xyzmh_ptmass(5,i1) = accretion_radius1
+ xyzmh_ptmass(5,i2) = accretion_radius2
+ xyzmh_ptmass(6,i1) = 0.0
+ xyzmh_ptmass(6,i2) = 0.0
 !
 !--velocities
 !
@@ -349,9 +369,9 @@ function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
  x0 = (m1*x1 + m2*x2)/(m1 + m2)
  v0 = (m1*v1 + m2*v2)/(m1 + m2)
 
- ! position and velocity vectors relative to centre of mass
- r = x2 - x0
- v = v2 - v0
+ ! position and velocity vectors relative to each other
+ r = x2 - x1
+ v = v2 - v1
 
  ! intermediate quantities
  dr = 1./sqrt(dot_product(r,r))
@@ -361,6 +381,25 @@ function get_eccentricity_vector(m1,m2,x1,x2,v1,v2)
  get_eccentricity_vector = (dot_product(v,v)/mu - dr)*r - dot_product(r,v)/mu*v
 
 end function get_eccentricity_vector
+
+!----------------------------------------------------
+! interface to above assuming two sink particles
+!----------------------------------------------------
+function get_eccentricity_vector_sinks(xyzmh_ptmass,vxyz_ptmass,i1,i2)
+ real,    intent(in) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in) :: i1, i2
+ real :: get_eccentricity_vector_sinks(3)
+
+ if (i1 > 0 .and. i2 > 0) then
+    get_eccentricity_vector_sinks = get_eccentricity_vector(&
+        xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2),&
+        xyzmh_ptmass(1:3,i1),xyzmh_ptmass(1:3,i2),&
+        vxyz_ptmass(1:3,i1),vxyz_ptmass(1:3,i2))
+ else
+    get_eccentricity_vector_sinks = 0.
+ endif
+
+end function get_eccentricity_vector_sinks
 
 !-------------------------------------------------------------
 ! Function to find mean angular momentum vector from a list

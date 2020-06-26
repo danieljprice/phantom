@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -116,12 +116,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (icompanion_star > 0) then
     call set_binary(central_star_mass, &
-                    companion_star_mass/central_star_mass, &
+                    companion_star_mass, &
                     semi_major_axis, &
                     eccentricity, &
                     accretion_radius, &
                     companion_star_r, &
-                    xyzmh_ptmass, vxyz_ptmass, nptmass)
+                    xyzmh_ptmass, vxyz_ptmass, nptmass, ierr)
  else
     nptmass = 1
     xyzmh_ptmass(4,1) = central_star_mass

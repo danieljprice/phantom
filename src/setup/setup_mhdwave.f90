@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -46,7 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd
+ use part,         only:Bxyz,mhd,periodic
  use io,           only:master,fatal
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump
@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi,reduceall_mpi
  use kernel,       only:hfact_default
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -126,7 +127,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  bzero  = sqrt(2.0*przero/plasmabzero)
 
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -194,4 +196,3 @@ end subroutine read_setupfile
 !----------------------------------------------------------------
 
 end module setup
-

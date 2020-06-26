@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
- use linklist,only:iorder,inoderange
+ use kdtree,  only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -54,7 +54,8 @@ module densityforce
        ipsi = 11, &
        ifxi = 12, &
        ifyi = 13, &
-       ifzi = 14
+       ifzi = 14, &
+       iradxii = 15
 
  !--indexing for rhosum array
  integer, parameter :: &
@@ -97,7 +98,11 @@ module densityforce
        idBzdyi          = 37, &
        idBzdzi          = 38, &
        irhodusti        = 39, &
-       irhodustiend     = 39 + (maxdustlarge - 1)
+       irhodustiend     = 39 + (maxdustlarge - 1), &
+       iradfxi          = irhodustiend + 1, &
+       iradfyi          = irhodustiend + 2, &
+       iradfzi          = irhodustiend + 3
+
 
  !--kernel related parameters
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
@@ -121,17 +126,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh)
+                          fxyzu,fext,alphaind,gradh,rad,radprop)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:get_neighbour_list,get_hmaxcell,get_cell_list,&
+ use linklist,  only:ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_list,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi,update_hmax_remote,node_is_active
- use part,      only:mhd,maxBevol,rhoh,dhdrho,rhoanddhdrho,&
-                     get_partinfo,iactive,&
-                     hrho,iphase,igas,idust,iboundary,iamgas,periodic,&
-                     all_active,dustfrac,Bxyz
- use linklist, only:ifirstincell
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
+                     ll,get_partinfo,iactive,&
+                     hrho,iphase,igas,idust,iamgas,periodic,&
+                     all_active,dustfrac,Bxyz,set_boundaries_to_active
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -158,6 +162,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real(kind=4), intent(out)   :: alphaind(:,:)
  real(kind=4), intent(out)   :: gradh(:,:)
  real,         intent(out)   :: stressmax
+ real,         intent(in)    :: rad(:,:)
+ real,         intent(inout) :: radprop(:,:)
 
  integer, save :: listneigh(maxneigh)
  real,   save :: xyzcache(3,isizecellcache)
@@ -255,6 +261,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(realviscosity) &
 !$omp shared(iverbose) &
 !$omp shared(iprint) &
+!$omp shared(rad,radprop)&
 #ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
@@ -319,7 +326,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
 
-    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
@@ -340,7 +347,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 #endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
 #ifdef MPI
     if (do_export) then
@@ -373,7 +380,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 #endif
                 nrelink = nrelink + 1
              endif
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 #ifdef MPI
              if (do_export) then
                 stack_waiting%cells(cell%waiting_index) = cell
@@ -386,7 +393,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (.not. do_export) then
 #endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                             dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                             dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,&
+                             radprop)
 #ifdef MPI
           nlocal = nlocal + 1
        endif
@@ -431,7 +439,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
+                            rad)
 
           cell%remote_export(id+1) = .false.
 
@@ -493,12 +502,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              ! direction export (0)
              call send_cell(cell,0,irequestsend,xsendbuf)
 !$omp end critical
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,&
+             rad)
 
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv,divcurlB,alphaind, &
-                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc)
+                                dvdx,vxyzu,Bxyz,dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,&
+                                radprop)
+
           endif
 
        enddo over_waiting
@@ -536,14 +548,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  call sync_hmax_mpi
 #endif
 
- ! reduce max stress across MPI procs
+ !--reduce values
  if (realviscosity .and. maxdvdx==maxp) then
     stressmax = reduceall_mpi('max',stressmax)
  endif
-
- ! reduce rhomax
- rhomax = reduceall_mpi('max',rhomax)
+ rhomax    = reduceall_mpi('max',rhomax)
  rhomaxnow = rhomax
+
+ !--boundary particles are no longer treated as active
+ set_boundaries_to_active = .false.
 
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
@@ -574,7 +587,8 @@ end subroutine densityiterate
 subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
-                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
+                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,&
+                                 rad)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -582,8 +596,8 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,iboundary,igas,idust,rhoh,massoftype
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
+ use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -601,6 +615,7 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,         intent(in)    :: Bevol(:,:)
  logical,      intent(in)    :: ignoreself
+ real,         intent(in)    :: rad(:,:)
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
  integer                     :: j,n,iloc
@@ -611,6 +626,7 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
  real                        :: rhoi, rhoj
  logical                     :: same_type,gas_gas,iamdustj
+ real                        :: dradenij
 
  rhosum(:) = 0.
  if (ignoreself) then
@@ -712,7 +728,7 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
           iphasej   = iphase(j)
           iamtypej  = iamtype(iphasej)
           iamdustj  = iamdust(iphasej)
-          same_type = ((iamtypei == iamtypej) .or. (iamtypej==iboundary))
+          same_type = ((iamtypei == iamtypej) .or. (ibasetype(iamtypej)==iamtypei))
           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
        endif
 
@@ -726,8 +742,7 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
           ! calculate things needed for viscosity switches
           ! and real viscosity
           !
-          if (getdv .or. getdB) then
-
+          if (getdv .or. getdB .or. do_radiation) then
              rij1 = 1./(rij + epsilon(rij))
              if (ifilledneighcache .and. n <= isizeneighcache) then
                 !--dx,dy,dz are either in neighbour cache or have been calculated
@@ -811,6 +826,15 @@ subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                 rhosum(idBzdxi) = rhosum(idBzdxi) + dBz*runix
                 rhosum(idBzdyi) = rhosum(idBzdyi) + dBz*runiy
                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
+             endif
+
+             if (do_radiation .and. gas_gas) then
+                rhoi = rhoh(real(hi), massoftype(igas))
+                rhoj = rhoh(xyzh(4,j), massoftype(igas))
+                dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
+                rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
+                rhosum(iradfyi) = rhosum(iradfyi) + dradenij*runiy
+                rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
              endif
 
           endif
@@ -1046,12 +1070,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx)
  endif
 
  dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
-! strain(1) = (dvxdxi + dvxdxi)
-! strain(2) = (dvxdyi + dvydxi)
-! strain(3) = (dvxdzi + dvzdxi)
-! strain(4) = (dvydyi + dvydyi)
-! strain(5) = (dvydzi + dvzdyi)
-! strain(6) = (dvzdzi + dvzdzi)
 
 end subroutine calculate_strain_from_sums
 
@@ -1235,10 +1253,10 @@ end subroutine reduce_and_print_neighbour_stats
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache)
+pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
+                             xyzcache,rad)
  use dim,         only:maxvxyzu
- use part,        only:get_partinfo,iamgas,iboundary,mhd,igas,maxphase,set_boundaries_to_active
+ use part,        only:get_partinfo,iamgas,mhd,igas,maxphase
  use viscosity,   only:irealvisc
 #ifdef MPI
  use io,          only:id
@@ -1253,6 +1271,7 @@ subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(3,isizecellcache)
+ real,            intent(in)     :: rad(:,:)
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1276,22 +1295,11 @@ subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu
     lli = iorder(cell%arr_index(i))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.
-    endif
-
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
     endif
 
     hi    = cell%h(i)
@@ -1313,7 +1321,7 @@ subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
-                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself)
+                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
@@ -1342,10 +1350,11 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu
- use part,        only:maxphase,get_partinfo,iboundary,maxBevol,mhd,igas,iamgas,set_boundaries_to_active
+ use dim,         only:maxp,maxvxyzu,do_radiation
+ use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
+                       iamboundary,ibasetype,iradxi
 
  type(celldens),     intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -1354,6 +1363,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
  real,               intent(in)    :: fxyzu(:,:)
  real,               intent(in)    :: fext(:,:)
  real,               intent(in)    :: Bevol(:,:)
+ real,               intent(in)    :: rad(:,:)
 
  integer :: i,ip
  integer :: iamtypei
@@ -1369,25 +1379,15 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
     endif
 
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = (iamtypei==igas)
+       call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamdusti = .false.
        iamgasi  = .true.
     endif
-    if (.not.iactivei) then ! handles case where first particle in cell is inactive
+    if (.not.iactivei) then ! skip boundary particles + inactive particles
        cycle over_parts
-    endif
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
     endif
 
     cell%npcell = cell%npcell + 1
@@ -1420,15 +1420,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol)
           cell%xpartvec(iBevolxi,cell%npcell) = Bevol(1,i)
           cell%xpartvec(iBevolyi,cell%npcell) = Bevol(2,i)
           cell%xpartvec(iBevolzi,cell%npcell) = Bevol(3,i)
-
-          if (maxBevol >= 4) then
-             cell%xpartvec(ipsi,cell%npcell)  = Bevol(4,i)
-          endif
-          if (maxBevol < 3 .or. maxBevol > 4) call fatal('densityiterate','error in maxBevol setting')
+          cell%xpartvec(ipsi,cell%npcell)     = Bevol(4,i)
        else
           cell%xpartvec(iBevolxi:ipsi,cell%npcell)   = 0. ! to avoid compiler warning
        endif
     endif
+
+    if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
  enddo over_parts
 
@@ -1438,7 +1436,7 @@ end subroutine start_cell
 !--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,set_boundaries_to_active,iboundary,maxphase,massoftype,igas,hrho
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1462,23 +1460,13 @@ subroutine finish_cell(cell,cell_converged)
     rhosum = cell%rhosums(:,i)
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.
     endif
-
-    if (iamtypei==iboundary) then
-       if (set_boundaries_to_active) then
-          iactivei = .true.
-          iamtypei = igas
-          iamgasi  = .true.
-       else
-          cycle over_parts
-       endif
-    endif
+    !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
     pmassi = massoftype(iamtypei)
 
@@ -1573,14 +1561,16 @@ end subroutine finish_rhosum
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
-                         maxneighact,np,ncalc)
- use part,        only:hrho,get_partinfo,iamgas,set_boundaries_to_active,&
-                       iboundary,maxphase,massoftype,igas,n_R,n_electronT,&
+                         maxneighact,np,ncalc,radprop)
+ use part,        only:hrho,get_partinfo,iamgas,&
+                       maxphase,massoftype,igas,n_R,n_electronT,&
                        eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
-                       store_temperature,temperature,maxgradh,idust
+                       store_temperature,temperature,maxgradh,idust,&
+                       ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,&
+                       do_radiation
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
@@ -1611,6 +1601,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  integer,         intent(inout) :: maxneighact
  integer,         intent(inout) :: np
  integer(kind=8), intent(inout) :: ncalc
+ real,            intent(inout) :: radprop(:,:)
 
  real         :: rhosum(maxrhosum)
 
@@ -1642,15 +1633,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     hi41  = hi21*hi21
 
     if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamdusti,iamtypei)
-       iamgasi = iamgas(cell%iphase(i))
+       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
     else
-       iactivei = .true.
-       iamtypei = igas
-       iamgasi  = .true.
-    endif
-
-    if (iamtypei==iboundary .and. set_boundaries_to_active) then
        iactivei = .true.
        iamtypei = igas
        iamgasi  = .true.
@@ -1732,7 +1716,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        Bxi = cell%xpartvec(iBevolxi,i) * rhoi
        Byi = cell%xpartvec(iBevolyi,i) * rhoi
        Bzi = cell%xpartvec(iBevolzi,i) * rhoi
-       if (maxBevol >= 4) psii = cell%xpartvec(ipsi,i)
+       psii = cell%xpartvec(ipsi,i)
 
        ! store primitive variables (if icall < 2)
        if (icall==0 .or. icall==1) then
@@ -1784,6 +1768,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        ! store strain tensor
        dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
     endif
+
+    if (do_radiation.and.iamgasi) radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
 
     ! stats
     nneightry = nneightry + cell%nneightry

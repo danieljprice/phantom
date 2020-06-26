@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: deriv, dim, energies, eos, io, options, part, setdisc,
-!    testutils, timestep_ind, timing, viscosity
+!    testutils, timing, viscosity
 !+
 !--------------------------------------------------------------------------
 module testlum
@@ -29,20 +29,23 @@ module testlum
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of fake lightcurve output
+!+
+!-----------------------------------------------------------------------
 subroutine test_lum(ntests,npass)
  use dim,      only:periodic,lightcurve
  use io,       only:id,master
 #ifdef LIGHTCURVE
  use io,       only:iverbose
- use part,     only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,&
-                    igas,divcurlv,iphase,isetphase,maxphase,mhd,dustprop,ddustprop,&
-                    Bevol,dBevol,dustfrac,ddustevol,temperature,divcurlB
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
+                    igas,iphase,isetphase
  use eos,             only:gamma,polyk
  use testutils,       only:checkval,checkvalf,update_test_scores
  use energies,        only:compute_energies,ekin,etherm,totlum !etot,eacc,accretedmass
  use setdisc,         only:set_disc
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  use timing,          only:getused
 #ifndef DISC_VISCOSITY
  use dim,             only:maxp
@@ -52,18 +55,16 @@ subroutine test_lum(ntests,npass)
 #endif
  use options,         only:ieos,alpha,iexternalforce,ipdv_heating,ishock_heating
  !use part,            only:luminosity
-#ifdef IND_TIMESTEPS
- use timestep_ind,    only:nactive
-#endif
 #endif
  integer, intent(inout) :: ntests,npass
 #ifdef LIGHTCURVE
  integer                :: i,itest
- real                   :: totlum_saved(2),dtext_dum,etot_saved(2),diff,alpha_in
+ real                   :: totlum_saved(2),etot_saved(2),diff,alpha_in
  real                   :: time
  real(kind=4) :: t1,t2
  integer                :: nfail(1),ii
 #endif
+ integer :: nactive
 
 !#ifdef DISC_VISCOSITY
 !    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (cannot have -DDISC_VISCOSITY)'
@@ -83,6 +84,7 @@ subroutine test_lum(ntests,npass)
 #endif
  endif
 
+ call init_part()
  npart = min(size(xyzh(1,:)),100000)
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -122,8 +124,6 @@ subroutine test_lum(ntests,npass)
                    hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,polyk=polyk,&
                    alpha=alpha,ismooth=.true.,writefile=.false.)
 
- if (mhd) Bevol(:,:) = 0.
-
  do ii=1,4
     if (ii == 1) then
        ipdv_heating = 0
@@ -160,9 +160,7 @@ subroutine test_lum(ntests,npass)
        !
        !print*,nactive,' particles active'
        call getused(t1)
-       fext = 0.
-       call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
+       call get_derivs_global()
        call getused(t2)
 
        !print*,maxalpha,maxp,alphaind(1)
@@ -191,8 +189,7 @@ subroutine test_lum(ntests,npass)
 
 !-- Check with regular viscosity
  call getused(t1)
- call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-             Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum)
+ call get_derivs_global()
  call getused(t2)
  totlum_saved(2) = totlum
  diff = (totlum_saved(1) - totlum_saved(2))/totlum_saved(1)

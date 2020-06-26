@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,31 +21,36 @@
 !+
 !--------------------------------------------------------------------------
 module allocutils
- use io,           only:fatal,error,iprint,nprocs
+ use io,           only:fatal,error,iprint,id,master,iverbose
  use dtypekdtree,  only:kdnode,kdnode_bytes
 
  implicit none
 
  public :: allocate_array
-
- real :: nbytes_allocated = 0.0
+ real, public :: nbytes_allocated = 0.0
+ public :: bytes2human
 
  interface allocate_array
   module procedure &
       allocate_array_real8_1d, &
       allocate_array_real8_2d, &
       allocate_array_real8_3d, &
+      allocate_array_real8_4d, &
       allocate_array_real4_1d, &
       allocate_array_real4_2d, &
       allocate_array_real4_3d, &
+      allocate_array_real4_4d, &
       allocate_array_integer4_1d, &
       allocate_array_integer4_2d, &
       allocate_array_integer4_3d, &
       allocate_array_integer1_1d, &
       allocate_array_integer1_2d, &
       allocate_array_integer1_3d, &
-      allocate_array_kdnode_1d
+      allocate_array_kdnode_1d, &
+      allocate_array_logical
  end interface
+
+ private
 
 contains
 
@@ -85,6 +90,18 @@ subroutine allocate_array_real8_3d(name, x, n1, n2, n3)
 
 end subroutine allocate_array_real8_3d
 
+subroutine allocate_array_real8_4d(name, x, n1, n2, n3, n4)
+ character(len=*),            intent(in)     :: name
+ real(kind=8), allocatable,   intent(inout)  :: x(:,:,:,:)
+ integer,                     intent(in)     :: n1, n2, n3, n4
+ integer                                     :: allocstat
+
+ allocate(x(n1, n2, n3, n4), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(8)')
+
+end subroutine allocate_array_real8_4d
+
 subroutine allocate_array_real4_1d(name, x, n1)
  character(len=*),            intent(in)     :: name
  real(kind=4), allocatable,   intent(inout)  :: x(:)
@@ -120,6 +137,18 @@ subroutine allocate_array_real4_3d(name, x, n1, n2, n3)
  call print_allocation_stats(name, (/n1, n2, n3/), 'real(4)')
 
 end subroutine allocate_array_real4_3d
+
+subroutine allocate_array_real4_4d(name, x, n1, n2, n3, n4)
+ character(len=*),            intent(in)     :: name
+ real(kind=4), allocatable,   intent(inout)  :: x(:,:,:,:)
+ integer,                     intent(in)     :: n1, n2, n3, n4
+ integer                                     :: allocstat
+
+ allocate(x(n1, n2, n3, n4), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(4)')
+
+end subroutine allocate_array_real4_4d
 
 subroutine allocate_array_integer4_1d(name, x, n1)
  character(len=*),               intent(in)     :: name
@@ -205,6 +234,18 @@ subroutine allocate_array_kdnode_1d(name, x, n1)
 
 end subroutine allocate_array_kdnode_1d
 
+subroutine allocate_array_logical(name, x, n1)
+ character(len=*),          intent(in)     :: name
+ logical, allocatable,      intent(inout)  :: x(:)
+ integer,                   intent(in)     :: n1
+ integer                                   :: allocstat
+
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1/), 'integer(4)')
+
+end subroutine allocate_array_logical
+
 subroutine check_allocate(name, allocstat)
  character(len=*),   intent(in) :: name
  integer,            intent(in) :: allocstat
@@ -257,9 +298,10 @@ subroutine print_allocation_stats(name, xdim, type)
 
  nbytes_allocated = nbytes_allocated + nbytes
 
- call bytes2human(nbytes, sizestring)
-
- if (nprocs == 1) write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
+ if (id==master .and. nbytes > 0 .and. iverbose >= 2) then
+    call bytes2human(nbytes, sizestring)
+    write(iprint, '(a10, a22, a14, a11)') type, name, dimstring, sizestring
+ endif
 
 end subroutine print_allocation_stats
 

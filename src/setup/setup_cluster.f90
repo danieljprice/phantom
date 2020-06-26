@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -50,8 +50,8 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,  only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au
- use velfield, only:set_velfield_from_cubes
+ use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au
+ use velfield,     only:set_velfield_from_cubes
  use setup_params, only:rmax,rhozero
  use random,       only:ran2
  use part,         only:igas,set_particle_type

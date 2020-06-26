@@ -412,6 +412,8 @@ sub write_module_header {
             print "!\n$gen";
          }
       } else {
+         my $thisyear = 1900 + (localtime)[5];;
+         $_ =~ s/THISYEAR/$thisyear/;
          print $_;
       }
    }

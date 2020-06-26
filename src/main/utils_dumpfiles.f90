@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -35,6 +35,7 @@ module dump_utils
  public :: read_array_from_file
  public :: write_block_header, write_array
  public :: read_block_header, read_array
+ public :: print_arrays_in_file
  integer, parameter, public :: lentag = 16    ! tag length
  integer, parameter, public :: lenid  = 100
  integer, parameter, public :: maxphead = 256
@@ -58,6 +59,15 @@ module dump_utils
                                i_real  = 6, &
                                i_real4 = 7, &
                                i_real8 = 8
+ character(len=*), parameter  :: datatype_label(ndatatypes) = &
+     (/'integer', &
+       'int*1  ', &
+       'int*2  ', &
+       'int*4  ', &
+       'int*8  ', &
+       'real   ', &
+       'real*4 ', &
+       'double '/)
 
  ! error codes
  integer, parameter, public :: ierr_fileopen  = 1,&
@@ -143,6 +153,11 @@ module dump_utils
    read_array_real4, read_array_real4arr, &
    read_array_real8, read_array_real8arr
  end interface read_array
+
+ ! generic interface for reading arrays from dumpfile
+ interface read_array_from_file
+  module procedure read_array_from_file_r8, read_array_from_file_r4
+ end interface read_array_from_file
 
  private
 
@@ -1779,6 +1794,7 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
        do j=istart,iend
           write(iunit, iostat=ierr) tag(my_tag(j))
           if (imatch==i_real4 .or. use_singleprec) then
+             !print*, "done ", my_tag(j), " | ", tag(my_tag(j))
              write(iunit, iostat=ierr) (real(arr(j,i),kind=4),i=1,len2)
           else
              write(iunit, iostat=ierr) (arr(j,i),i=1,len2)
@@ -1820,6 +1836,8 @@ subroutine read_block_header(nblocks,number,nums,iunit,ierr)
  integer,         intent(out) :: ierr
  integer :: iblock
 
+ number(:) = 0
+ nums(:,:) = 0
  do iblock=1,nblocks
     read(iunit, iostat=ierr) number(iblock), nums(1:ndatatypes,iblock)
  enddo
@@ -2030,40 +2048,36 @@ end subroutine read_array_real8arr
 
 !-----------------------------------------------------
 !+
-!  The following routine can be used to read a single
-!  array matching a particular tag from the main blocks
-!  in the file
+!  Internal utility to open file and
+!  extract minimum necessary
+!  information from the file header in order to
+!  read arrays from the main file blocks
+!  Use instead of open_dumpfile_r
 !+
 !-----------------------------------------------------
-subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
- integer,               intent(in) :: iunit
- character(len=*),      intent(in) :: filename
- character(len=*),      intent(in) :: tag
- real,    intent(out) :: array(:)
- integer, intent(out) :: ierr
- integer, intent(in), optional :: use_block
- integer, parameter :: maxarraylengths = 12
- integer(kind=8) :: number8(maxarraylengths)
- integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
- integer :: nblocks,narraylengths,nblockarrays,number,my_block
- integer :: intarr(maxphead)
- character(len=lentag) :: tagarr(maxphead)
+subroutine open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec,id)
+ integer,          intent(in)  :: iunit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: nblocks,narraylengths,ierr
+ character(len=lenid), intent(out), optional :: id
+ logical,          intent(in),      optional :: singleprec
  character(len=lenid)  :: fileid
+ character(len=lentag) :: tagarr(maxphead)
+ integer :: intarr(maxphead)
+ integer :: number,i
 
- if (present(use_block)) then
-    my_block = use_block
+ if (present(singleprec)) then
+    call open_dumpfile_r(iunit,filename,fileid,ierr,singleprec=singleprec,requiretags=.true.)
  else
-    my_block = 1 ! match from block 1 by default
+    call open_dumpfile_r(iunit,filename,fileid,ierr,requiretags=.true.)
  endif
- array = 0.
-
- ! open file for read
- call open_dumpfile_r(iunit,filename,fileid,ierr,requiretags=.true.)
+ if (present(id)) id = fileid
  if (ierr /= 0) return
 
  ! read nblocks from int header
  read(iunit,iostat=ierr) number
  nblocks = 1
+ narraylengths = 1
  if (number >= 5) then
     if (number > maxphead) number = maxphead
     read(iunit,iostat=ierr) tagarr(1:number)
@@ -2086,10 +2100,41 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
  read (iunit, iostat=ierr) number
  if (ierr /= 0) return
  narraylengths = number/nblocks
-! print*,' got nblocks = ',nblocks,' narraylengths = ',narraylengths
 
- ! skip each block that is too small
- nblockarrays = narraylengths*nblocks
+end subroutine open_dumpfile_rh
+
+!-----------------------------------------------------
+!+
+!  The following routine can be used to read a single
+!  array matching a particular tag from the main blocks
+!  in the file
+!+
+!-----------------------------------------------------
+subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
+ integer,               intent(in) :: iunit
+ character(len=*),      intent(in) :: filename
+ character(len=*),      intent(in) :: tag
+ real(kind=8),          intent(out) :: array(:)
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: use_block
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ integer :: nblocks,narraylengths,my_block
+
+ character(len=lentag) :: mytag
+
+ if (present(use_block)) then
+    my_block = use_block
+ else
+    my_block = 1 ! match from block 1 by default
+ endif
+ array = 0.
+
+ ! open file for read and get minimal information from header
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ if (ierr /= 0) return
+
  do iblock = 1,nblocks
     call read_block_header(narraylengths,number8,nums,iunit,ierr)
     do j=1,narraylengths
@@ -2098,17 +2143,16 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
              !print*,' data type ',i,' arrays = ',nums(i,j)
              do k=1,nums(i,j)
                 if (i==i_real) then
-                   read(iunit, iostat=ierr) tagarr(1)
-                   if (trim(tagarr(1))==trim(tag)) then
+                   read(iunit, iostat=ierr) mytag
+                   if (trim(mytag)==trim(tag)) then
                       read(iunit, iostat=ierr) array(1:min(int(number8(j)),size(array)))
-                      print*,'->',tagarr(1)
+                      print*,'->',mytag
                    else
-                      print*,'  ',tagarr(1)
+                      print*,'  ',mytag
                       read(iunit, iostat=ierr)
                    endif
                 else
-                   read(iunit, iostat=ierr) tagarr(1) ! tag
-                   !print*,tagarr(1)
+                   read(iunit, iostat=ierr) mytag ! tag
                    read(iunit, iostat=ierr) ! array
                 endif
              enddo
@@ -2119,6 +2163,129 @@ subroutine read_array_from_file(iunit,filename,tag,array,ierr,use_block)
 
  close(iunit)
 
-end subroutine read_array_from_file
+end subroutine read_array_from_file_r8
+
+!-----------------------------------------------------
+!+
+!  The following routine can be used to read a single
+!  array matching a particular tag from the main blocks
+!  in the file
+!+
+!-----------------------------------------------------
+subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block)
+ integer,               intent(in) :: iunit
+ character(len=*),      intent(in) :: filename
+ character(len=*),      intent(in) :: tag
+ real(kind=4), intent(out) :: array(:)
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: use_block
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
+ integer :: nblocks,narraylengths,my_block
+ character(len=lentag) :: mytag
+
+ if (present(use_block)) then
+    my_block = use_block
+ else
+    my_block = 1 ! match from block 1 by default
+ endif
+ array = 0.
+
+ ! open file for read
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr)
+ if (ierr /= 0) return
+
+ do iblock = 1,nblocks
+    call read_block_header(narraylengths,number8,nums,iunit,ierr)
+    do j=1,narraylengths
+       if (j==my_block) then
+          do i=1,ndatatypes
+             !print*,' data type ',i,' arrays = ',nums(i,j)
+             do k=1,nums(i,j)
+                if (i==i_real4) then
+                   read(iunit, iostat=ierr) mytag
+                   if (trim(mytag)==trim(tag)) then
+                      read(iunit, iostat=ierr) array(1:min(int(number8(j)),size(array)))
+                      print*,'->',mytag
+                   else
+                      print*,'  ',mytag
+                      read(iunit, iostat=ierr)
+                   endif
+                else
+                   read(iunit, iostat=ierr) mytag ! tag
+                   read(iunit, iostat=ierr) ! array
+                endif
+             enddo
+          enddo
+       endif
+    enddo
+ enddo
+
+ close(iunit)
+
+end subroutine read_array_from_file_r4
+
+!-------------------------------------------------------
+!+
+!  print array tags structure
+!+
+!-------------------------------------------------------
+subroutine print_arrays_in_file(iunit,filename)
+ integer,          intent(in) :: iunit
+ character(len=*), intent(in) :: filename
+ integer :: ierr,nblocks,narraylengths
+ integer, parameter :: maxarraylengths = 12
+ integer(kind=8) :: number8(maxarraylengths)
+ integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths),nread
+ character(len=lentag) :: mytag
+ character(len=lenid)  :: fileid
+ character(len=4) :: str
+ integer, parameter :: ndisplay = 5
+ real            :: x(ndisplay)
+ real(kind=4)    :: x4(ndisplay)
+ integer(kind=1) :: i1(ndisplay)
+
+ ! open file for read
+ call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)
+ if (ierr == ierr_realsize) then
+    close(iunit)
+    call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec=.true.,id=fileid)
+ endif
+ if (ierr /= 0) return
+
+ print "(a)",trim(fileid)
+ print "(a,i3,a,i2)",':: nblocks = ',nblocks,' array lengths per block = ',narraylengths
+ do iblock = 1,nblocks
+    call read_block_header(narraylengths,number8,nums,iunit,ierr)
+    do j=1,narraylengths
+       print "(a,i3,a,i3,a,i10)",'Block ',iblock,' array block ',j,': size ',number8(j)
+       nread= min(ndisplay,int(number8(j)))
+       str = ' ...'
+       if (nread >= int(number8(j))) str = ']'
+       do i=1,ndatatypes
+          do k=1,nums(i,j)
+             read(iunit, iostat=ierr) mytag
+             select case(i)
+             case(i_int1)
+                read(iunit, iostat=ierr) i1(1:nread)
+                print*,mytag,datatype_label(i),' [',i1(1:nread),str
+             case(i_real)
+                read(iunit, iostat=ierr) x(1:nread)
+                print*,mytag,datatype_label(i),' [',x(1:nread),str
+             case(i_real4)
+                read(iunit, iostat=ierr) x4(1:nread)
+                print*,mytag,datatype_label(i),' [',x4(1:nread),str
+             case default
+                print*,mytag,datatype_label(i)
+                read(iunit, iostat=ierr) ! skip actual array
+             end select
+          enddo
+       enddo
+    enddo
+ enddo
+ close(iunit)
+
+end subroutine print_arrays_in_file
 
 end module dump_utils
