@@ -1838,10 +1838,6 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
-# make first file required for compiling utilities depend on math flags
-# to ensure that this is always up to date before compiling anything else.
-physcon.o: .make_mathflags
-
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #
@@ -1880,11 +1876,11 @@ OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams libphantom.a $(OBJTEST)
+phantomtest: checksystem checkparams $(BINDIR)/libphantom.a $(OBJTEST)
 	@echo ""
 	@echo "Phantomtest: Getting you your life back one test at a time"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) ../bin/libphantom.a
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomtest $(OBJTEST) $(LDFLAGS) $(LIBS) $(BINDIR)/libphantom.a
 
 cleantest:
 	rm -f $(BINDIR)/phantomtest
@@ -2022,8 +2018,8 @@ SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
-libphantom.a: checksystem checkparams phantom ${OBJLIB}
-	ar rc $(BINDIR)/libphantom.a ${OBJLIB} ${OBJECTS}
+$(BINDIR)/libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+	ar rc $(BINDIR)/libphantom.a $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
@@ -2967,7 +2963,7 @@ getdims:
 err:
 	$(error aborting);
 
-clean:
+clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
 
 cleanall: clean cleanmathflags
