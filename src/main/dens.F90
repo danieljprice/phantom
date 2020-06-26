@@ -28,7 +28,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:maxBevol,mhd,dvdx
- use kdtree,  only:inodeparts,inoderange
+ use kdtree,  only:iorder,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -584,7 +584,7 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
                                  realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,&

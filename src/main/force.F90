@@ -35,7 +35,6 @@ module forces
                maxdusttypes,maxdustsmall,do_radiation
  use mpiforce, only:cellforce,stackforce
  use linklist, only:iorder,inoderange
- use kdtree,   only:inodeparts,inoderange
  use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa
 
  implicit none
@@ -369,7 +368,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call get_cell_list(istart,iend)
 
 !$omp parallel default(none) &
-!$omp shared(maxp,maxphase) &
+!$omp shared(maxp) &
 !$omp shared(ifirstincell,istart,iend) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &

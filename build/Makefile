@@ -1727,19 +1727,11 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          commons.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
-<<<<<<< HEAD
-         gitinfo.f90 ${SRCFASTMATH} random.f90 checkoptions.F90 ${SRCEOS} \
-         set_binary.f90 set_flyby.f90 viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
-         set_disc.F90 partinject.F90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
-         directsum.f90 prompting.f90 ${SRCDUST} set_dust.F90 set_dust_options.f90 \
-         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree2.F90 linklist_kdtree.F90 ${SRCTURB} \
-=======
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          ${SRCDUST} \
-         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
->>>>>>> master
+         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree2.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 radiation_utils.f90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
