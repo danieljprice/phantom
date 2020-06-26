@@ -86,6 +86,7 @@ subroutine test_exchange_terms(ntests,npass)
  use eos,        only:gmw,gamma,polyk
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use mpiutils,   only:reduceall_mpi
+ use domain,     only:i_belong
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -102,7 +103,8 @@ subroutine test_exchange_terms(ntests,npass)
  hfact = hfact_default
  npart = 0
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,periodic)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                  psep,hfact,npart,xyzh,periodic,mask=i_belong)
  rhozero = 1.e-7/unit_density  ! 1e-7 g/cm^3
  totmass = rhozero*(dxbound*dybound*dzbound)
  nptot = reduceall_mpi('+',npart)
@@ -196,6 +198,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
  use mpiutils,        only:reduceall_mpi
+ use domain,          only:i_belong
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
  real :: dtext,pmassi, dt,t,kappa_code
@@ -213,7 +216,8 @@ subroutine test_uniform_derivs(ntests,npass)
  npart = 0
  call init_part()
  call set_boundary(-0.5,0.5,-0.1,0.1,-0.1,0.1)
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,periodic)
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
  nptot = reduceall_mpi('+',npart)
  massoftype(igas) = 1./nptot*1e-25
  pmassi = massoftype(igas)

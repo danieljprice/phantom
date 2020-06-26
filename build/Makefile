@@ -1801,12 +1801,12 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # must NOT contain .F90 files or pre-processing options
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
+SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             set_binary.f90 set_flyby.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
-            set_stellar_core.f90 libsetup.f90
+            set_stellar_core.f90 set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
-libphantomsetup.a: $(OBJLIBSETUP)
+$(LIBSETUP): $(OBJLIBSETUP)
 	@echo ""
 	@echo "Phantom libsetup built"
 	@echo ""
@@ -1819,7 +1819,7 @@ libphantomsetup.a: $(OBJLIBSETUP)
 phantomsetup: setup
 
 SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
-          mpi_balance.F90 set_dust.F90 set_dust_options.f90 set_flyby.f90 \
+          mpi_balance.F90 set_dust_options.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 \
@@ -1831,8 +1831,8 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
-setup: checksystem checkparams libphantomsetup.a $(BINDIR)/libphantom.a $(OBJSETUP)
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(OBJSETUP) $(LDFLAGS) $(LIBS) $(BINDIR)/libphantom.a
+setup: checksystem checkparams $(LIBSETUP) $(LIBPHANTOM)
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
@@ -1867,7 +1867,7 @@ OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams $(BINDIR)/libphantom.a libphantomsetup.a $(OBJTEST)
+phantomtest: checksystem checkparams $(LIBPHANTOM) $(LIBSETUP) $(OBJTEST)
 	@echo ""
 	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
@@ -1955,7 +1955,7 @@ MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_sort.f90 checksetup.f90 set_Bfield.f90 \
-          partinject.F90 random.f90 set_disc.F90 set_dust.F90 \
+          partinject.F90 random.f90 set_disc.F90 set_dust.f90 \
 		    icosahedron.f90 utils_inject.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
@@ -2005,13 +2005,14 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
+# extra files used in libphantom that are not in OBJECTS
 SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-$(BINDIR)/libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+$(LIBPHANTOM): checksystem checkparams $(OBJECTS) $(OBJLIB)
 	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
