@@ -256,9 +256,9 @@ subroutine write_options_corotate(iunit)
     call write_inopt(companion_xpos,'companion_xpos','x-position of companion',iunit)
     call write_inopt(hsoft,'hsoft','softening radius of companion gravity',iunit)
     if (icompanion_grav == 2) then
-        call write_inopt(primarycore_mass,'primarycore_mass','mass of primary',iunit)
-        call write_inopt(primarycore_xpos,'primarycore_xpos','x-position of primary',iunit)
-        call write_inopt(primarycore_hsoft,'primarycore_hsoft','softening radius of primary core',iunit)
+       call write_inopt(primarycore_mass,'primarycore_mass','mass of primary',iunit)
+       call write_inopt(primarycore_xpos,'primarycore_xpos','x-position of primary',iunit)
+       call write_inopt(primarycore_hsoft,'primarycore_hsoft','softening radius of primary core',iunit)
     endif
  endif
 end subroutine write_options_corotate
@@ -301,7 +301,7 @@ subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
  case('hsoft')
     read(valstring,*,iostat=ierr) hsoft
     ngot = ngot + 1
-case('primarycore_hsoft')
+ case('primarycore_hsoft')
     read(valstring,*,iostat=ierr) primarycore_hsoft
     ngot = ngot + 1
  case default

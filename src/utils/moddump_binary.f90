@@ -160,7 +160,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     end select
  else
 
- !choose what to do with the star: set a binary or setup a magnetic field
+    !choose what to do with the star: set a binary or setup a magnetic field
     print "(7(/,a))",'1) Set up a binary system', &
                      '2) Set up a magnetic field in the star', &
                      '3) Manually cut profile to create sink in core', &
