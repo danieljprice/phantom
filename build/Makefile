@@ -1801,12 +1801,12 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # must NOT contain .F90 files or pre-processing options
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
+SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             set_binary.f90 set_flyby.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
             set_stellar_core.f90 set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
-libphantomsetup.a: $(OBJLIBSETUP)
+$(LIBSETUP): $(OBJLIBSETUP)
 	@echo ""
 	@echo "Phantom libsetup built"
 	@echo ""
@@ -1867,7 +1867,7 @@ OBJTEST= $(OBJTEST1:.F90=.o)
 
 .PHONY: phantomtest
 
-phantomtest: checksystem checkparams $(BINDIR)/libphantom.a libphantomsetup.a $(OBJTEST)
+phantomtest: checksystem checkparams $(LIBPHANTOM) $(LIBSETUP) $(OBJTEST)
 	@echo ""
 	@echo "Phantomtest: Getting your life back one test at a time"
 	@echo ""
@@ -2005,13 +2005,14 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
+# extra files used in libphantom that are not in OBJECTS
 SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-$(BINDIR)/libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+$(LIBPHANTOM): checksystem checkparams $(OBJECTS) $(OBJLIB)
 	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
