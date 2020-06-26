@@ -22,18 +22,16 @@
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
-!    icompanion_grav    -- options for adding companion gravity: 0=do not
-!                          add companion gravity, 1=add companion gravity,
-!                          2=add gravity from companion and stellar core
-!    companion_mass     -- mass of companion
-!    companion_xpos     -- x-position of companion
-!    hsoft              -- softening radius of companion gravity
-!    primarycore_mass   -- mass of primary core
-!    primarycore_xpos   -- x-position of primary core
-!    primarycore_hsoft  -- softening radius of primary core gravity
-!    omega_corotate     -- angular speed of corotating frame
+!    companion_mass    -- mass of companion
+!    companion_xpos    -- x-position of companion
+!    hsoft             -- softening radius of companion gravity
+!    icompanion_grav   -- 1=add companion potential, 2=add companion and primary core potential
+!    omega_corotate    -- angular speed of corotating frame
+!    primarycore_hsoft -- softening radius of primary core
+!    primarycore_mass  -- mass of primary
+!    primarycore_xpos  -- x-position of primary
 !
-!  DEPENDENCIES: infile_utils, io, physcon, vectorutils
+!  DEPENDENCIES: infile_utils, io, kernel, physcon, vectorutils
 !+
 !--------------------------------------------------------------------------
 module extern_corotate
