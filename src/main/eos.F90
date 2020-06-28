@@ -1075,12 +1075,12 @@ subroutine calc_rec_ene(XX,YY,e_rec)
  e_HeI  = 0.25 * YY * e_ion_HeI
  e_HeII = 0.25 * YY * e_ion_HeII
  e_rec  = e_H2 + e_HI + e_HeI + e_HeII
-   
+
 end subroutine calc_rec_ene
 
 !----------------------------------------------------------------
 !+
-!  Calculate temperature and specific internal energy from 
+!  Calculate temperature and specific internal energy from
 !  pressure and density
 !+
 !----------------------------------------------------------------
@@ -1104,7 +1104,7 @@ subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
  case(10) ! MESA-like EoS
     ! Approximate the temperature as that from ideal gas plus radiation
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
-    
+
     ! Calculate internal energy from gas and radiation, then add recombination energy
     call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
     call calc_rec_ene(XX,YY,e_rec)
@@ -1112,7 +1112,7 @@ subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
  case default
     ierr = 1
  end select
-  
+
 end subroutine calc_temp_and_ene
 
 end module eos

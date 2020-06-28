@@ -63,11 +63,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
  use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_steboltz_code
- use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa
+ use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa,periodic
  use eos,           only:gmw
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
  use options,       only:nfulldump
+ use domain,        only:i_belong
 
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -121,12 +122,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  select case(ilattice)
  case(1)
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  case default
     print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  end select
 
  npartoftype(:) = 0

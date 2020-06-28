@@ -112,7 +112,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test
+                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use energies,       only:compute_energies
@@ -129,6 +129,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use physcon,        only:au,solarm,Ro,pi
  use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
+ use domain,         only:i_belong
 
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: frag,onefluid
@@ -244,7 +245,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  itype = igas
  npart_previous = npart
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,verbose=.false.)
+                  deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  do i=npart_previous+1,npart
     vxyzu(:,i)       = 0.
     fext(:,i)        = 0.
@@ -275,7 +276,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     itype = idust
     npart_previous = npart
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     deltax,hfact,npart,xyzh,verbose=.false.)
+                     deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     do i=npart_previous+1,npart
        vxyzu(:,i)       = 0.
        fext(:,i)        = 0.

@@ -143,7 +143,7 @@ subroutine test_dustybox(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
-                          fxyzu,iphase,iamdust,maxtypes,ndusttypes
+                          fxyzu,iphase,iamdust,maxtypes,ndusttypes,periodic
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use energies,       only:compute_energies,ekin
@@ -157,6 +157,7 @@ subroutine test_dustybox(ntests,npass)
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use kernel,         only:kernelname
+ use domain,         only:i_belong
 #ifdef DUSTGROWTH
  use part,           only:dustgasprop,dustprop
  use growth,         only:ifrag
@@ -209,7 +210,7 @@ subroutine test_dustybox(ntests,npass)
  itype = igas
  npart_previous = npart
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,verbose=.false.)
+                  deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  do i=npart_previous+1,npart
     call set_particle_type(i,itype)
     vxyzu(:,i) = 0.
@@ -226,7 +227,7 @@ subroutine test_dustybox(ntests,npass)
     itype = idust + j - 1
     npart_previous = npart
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     deltax,hfact,npart,xyzh,verbose=.false.)
+                     deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
        vxyzu(:,i) = 0.
@@ -331,6 +332,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use deriv,     only:get_derivs_global
  use testutils, only:checkvalbuf,checkvalbuf_end
  use mpiutils,  only:reduceall_mpi
+ use domain,    only:i_belong
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,j,i,n,nsteps
@@ -365,7 +367,7 @@ subroutine test_dustydiffuse(ntests,npass)
  ndusttypes = ndustsmall
  iverbose = 2
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,verbose=.false.)
+                  deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas)  = totmass/npartoftypetot(igas)
@@ -522,6 +524,7 @@ subroutine test_drag(ntests,npass)
  use random,      only:ran2
  use vectorutils, only:cross_product3D
  use units,       only:udist,unit_density
+ use domain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu
@@ -552,7 +555,7 @@ subroutine test_drag(ntests,npass)
  iu = 4
 
  call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      psep,hfact,npart,xyzh,verbose=.false.)
+                      psep,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  npartoftype(igas) = npart
  npartoftypetot(igas) = reduceall_mpi('+',npartoftype(igas))
  massoftype(igas) = totmass/npartoftypetot(igas)
@@ -569,7 +572,7 @@ subroutine test_drag(ntests,npass)
     graindens(j) = 1./unit_density
     npart_previous = npart
     call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                         3.*psep,hfact,npart,xyzh,verbose=.false.)
+                         3.*psep,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
 
     itype = idust + j - 1
     do i=npart_previous+1,npart

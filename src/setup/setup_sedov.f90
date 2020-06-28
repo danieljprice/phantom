@@ -47,8 +47,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:alphau
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:igas
+ use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -105,7 +106,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma   = 5./3.
  gam1    = gamma - 1.
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+                  npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(igas) = npart
@@ -184,4 +186,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-

@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,hacc2,massr,temperature_coef,dtinj
+ real    :: period,hacc2,temperature_coef,dtinj
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
 
@@ -123,7 +123,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- massr  = m2/m1
  period = sqrt(4.*pi**2*semia**3/(m1+m2))
  hacc2  = 0.                                 ! Asteroid should not accrete
  tmax   = norbits*period
@@ -132,7 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Set a binary orbit given the desired orbital parameters
 !
- call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
 
  xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
 
