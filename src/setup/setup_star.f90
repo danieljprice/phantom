@@ -354,7 +354,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! reset centre of mass
  !
- call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar))
+ call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar),nptmass,xyzmh_ptmass,vxyz_ptmass)
  if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
  do i=1,nstar
     if (maxvxyzu==4) then
@@ -399,7 +399,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Reset centre of mass (again)
  !
- call reset_centreofmass(npart,xyzh,vxyzu)
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  !
  ! Write the neutronstar profile to file (if isphere==insfile)
