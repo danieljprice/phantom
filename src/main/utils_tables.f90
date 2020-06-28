@@ -134,7 +134,7 @@ subroutine flip_array(array)
  real, intent(inout) :: array(:)
  real, allocatable   :: flipped_array(:)
  integer             :: i
- 
+
  allocate(flipped_array(size(array)))
  do i = 1, size(array)
     flipped_array(i) = array(size(array) - i + 1)

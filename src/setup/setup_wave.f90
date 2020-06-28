@@ -41,7 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,idust,dustfrac
+ use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
@@ -49,6 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -164,7 +165,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     if (itype == igas) then
        call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=rhofunc,mask=i_belong)
        xmin_dust = xmin + dust_shift*deltax
        xmax_dust = xmax + dust_shift*deltax
        ymin_dust = ymin + dust_shift*deltax
@@ -174,7 +175,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        call set_unifdis('closepacked',id,master,xmin_dust,xmax_dust,ymin_dust, &
                          ymax_dust,zmin_dust,zmax_dust,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=rhofunc,mask=i_belong)
     endif
 
     !--set which type of particle it is
