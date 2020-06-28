@@ -519,7 +519,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
  open(1, file = outputpath, status = 'new')
  write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
  write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
-42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
+ 42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
  close(1, status = 'keep')
 end subroutine write_softened_profile
 
