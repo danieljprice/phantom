@@ -1831,8 +1831,8 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
-setup: checksystem checkparams libsetup libphantom
-	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup $(LDFLAGS) $(LIBS) $(LIBSETUP) $(LIBPHANTOM)
+setup: checksystem checkparams $(OBJSETUP) libsetup libphantom
+	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup  $(OBJSETUP) $(LIBSETUP) $(LIBPHANTOM) $(LDFLAGS) $(LIBS)
 	@echo ""
 	@echo "Phantom setup built"
 	@echo ""
