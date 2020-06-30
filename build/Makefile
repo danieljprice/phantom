@@ -814,7 +814,7 @@ ifeq ($(SETUP), star)
 #   use option 5 of setup_star
     FPPFLAGS=
     SETUPFILE= setup_star.f90
-    MODFILE= moddump_binary.f90
+    MODFILE= set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
