@@ -112,7 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only: igas,isetphase,iphase,ihsoft
  use spherical,       only: set_sphere
  use centreofmass,    only: reset_centreofmass
- use table_utils,     only: yinterp
+ use table_utils,     only: yinterp,interpolator
  use units,           only: set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only: hfact_default
  use rho_profile,     only: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
@@ -124,7 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only: temperature,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
-                           check_hsoft_and_mcore,interpolator
+                           check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
  integer,           intent(in)    :: id
@@ -343,6 +343,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
+ call init_eos(ieos,ierr)
  if (relax_star_in_setup .and. maxvxyzu >= 4) then
     if (nstar==npart) then
        call relax_star(npts,den,pres,r,npart,xyzh)
@@ -350,13 +351,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
  endif
- !
- ! reset centre of mass
- !
- call reset_centreofmass(nstar,xyzh(:,1:nstar),vxyzu(:,1:nstar))
-
- call init_eos(ieos,ierr)
- if (ierr /= 0) call fatal('setup_star','error initialising equation of state')
+ 
  do i=1,nstar
     if (maxvxyzu==4) then
        !
@@ -400,7 +395,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Reset centre of mass (again)
  !
- call reset_centreofmass(npart,xyzh,vxyzu)
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  !
  ! Write the neutronstar profile to file (if isphere==insfile)
