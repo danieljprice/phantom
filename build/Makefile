@@ -1688,7 +1688,7 @@ SRCPOTS= extern_corotate.f90 \
          extern_gnewton.F90 \
          lumin_nsdisc.F90 extern_prdrag.F90 \
          extern_Bfield.f90 \
-         extern_neutronstar.f90 \
+         extern_densprofile.f90 \
          extern_staticsine.f90 \
          extern_gwinspiral.f90 \
          externalforces.F90
