@@ -43,7 +43,7 @@ subroutine test_externf(ntests,npass)
                           accradius1,update_externalforce,is_velocity_dependent,&
                           externalforce_vdependent,update_vdependent_extforce_leapfrog,&
                           iext_lensethirring,iext_prdrag,iext_einsteinprec,iext_spiral,&
-                          iext_neutronstar,iext_staticsine,iext_gwinspiral
+                          iext_densprofile,iext_staticsine,iext_gwinspiral
  use extern_corotate, only:omega_corotate
  use unifdis,  only:set_unifdis
  use units,    only:set_units
@@ -102,7 +102,7 @@ subroutine test_externf(ntests,npass)
           call initialise_externalforces(iextf,ierr)
 
           select case(iextf)
-          case(iext_neutronstar,iext_gwinspiral)
+          case(iext_densprofile,iext_gwinspiral)
              !--OK to fail initialisation due to not finding file
              call checkval(ierr,ierr,0,nfailed(1),trim(externalforcetype(iextf))//' external force initialisation')
           case default
