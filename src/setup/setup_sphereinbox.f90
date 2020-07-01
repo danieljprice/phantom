@@ -98,12 +98,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real(kind=8)       :: h_acc_in
  integer            :: i,nx,np_in,npartsphere,npmax,iBElast,ierr
- integer, parameter :: iBE = 1000000
+ integer            :: iBE
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit,r_sphere_in
  real               :: rxy2,rxyz2,phi,dphi,lbox,central_density,edge_density
- real               :: rtab(iBE),rhotab(iBE)
+ real, allocatable  :: rtab(:),rhotab(:)
  logical            :: iexist,is_box,write_options
  logical            :: make_sinks = .true.
  character(len=100) :: filename
@@ -247,7 +247,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        icreate_sinks = 0
     endif
-    write_options = .true.
+    if (id==master) call write_setupfile(filename)
+    stop 'please edit .setup file and rerun phantomsetup'
+ else
+    stop ! MPI, stop on other threads, interactive on master
  endif
  !
  ! units
@@ -265,9 +268,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Bonnor-Ebert profile (if requested)
  !
  if (BEsphere) then
+    iBe = 1024
+    allocate(rtab(iBe),rhotab(iBe))
     central_density = rho_cen_cgs/unit_density
     r_sphere_in = r_sphere
-    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,rtab,rhotab,central_density,edge_density,ierr)
+    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,&
+                         rtab,rhotab,central_density,edge_density,ierr)
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
     if (rho_cen_cgs > 0.) then
        print*, "Radius has been overwritten to ",r_sphere," code units"
@@ -289,6 +295,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (write_options .and. id == master) then
     call write_setupfile(filename)
     print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
+    stop
  endif
  !
  ! general parameters
@@ -344,15 +351,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (BEsphere) then
     call set_sphere('closepacked',id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
-                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,exactN=.true.,np_requested=np)
+                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
+    deallocate(rtab,rhotab)
  else
     call set_sphere('closepacked',id,master,0.,r_sphere,psep,&
-                  hfact,npart,xyzh,nptot=npart_total,exactN=.true.,mask=i_belong)
+                    hfact,npart,xyzh,nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
     print "(a,es10.3)",' Particle separation in sphere = ',psep
  endif
 
  npartsphere = npart
- if (np_in/=npartsphere) np = npartsphere
+ if (np_in /= npartsphere) np = npartsphere
  !
  ! setup surrounding low density medium
  !
@@ -528,7 +538,7 @@ subroutine write_setupfile(filename)
  call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
  call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
  write(iunit,"(/,a)") '# resolution'
- call write_inopt(np,'np','actual number of particles in sphere',iunit)
+ call write_inopt(np,'np','requested number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# options for box'
  do i=1,3
     call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
