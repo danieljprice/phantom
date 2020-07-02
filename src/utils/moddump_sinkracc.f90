@@ -50,10 +50,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Accretion radius changed to ',racc
  xyzmh_ptmass(ihacc,isinkpart) = racc
 
- hsoft = xyzmh_ptmass(5,isinkpart)
+ hsoft = xyzmh_ptmass(ihsoft,isinkpart)
  call prompt('Enter new softening length for the sink:',hsoft,0.)
  print*,'Softening length changed to ',hsoft
- xyzmh_ptmass(5,isinkpart) = hsoft
+ xyzmh_ptmass(ihsoft,isinkpart) = hsoft
  return
 end subroutine modify_dump
 

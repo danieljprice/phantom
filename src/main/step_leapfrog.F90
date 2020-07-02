@@ -395,7 +395,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
- iterations: do while (its < maxits .and. .not.converged)
+ iterations: do while (its < maxits .and. .not.converged .and. npart > 0)
     its     = its + 1
     errmax  = 0.
     v2mean  = 0.

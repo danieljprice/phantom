@@ -19,7 +19,7 @@
 !
 !  DEPENDENCIES: boundary, deriv, dim, energies, eos, evolve, evwrite,
 !    initial_params, io, io_summary, mpiutils, options, part, physcon,
-!    radiation_utils, testutils, timestep, unifdis, viscosity
+!    radiation_utils, testutils, timestep, unifdis, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module testsedov
@@ -34,22 +34,22 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,do_radiation
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
- use part,     only:init_part,mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
  use physcon,  only:pi,au,solarm
  use deriv,    only:get_derivs_global
- use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
+ use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
+ use units,    only:set_units
 #ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce,dtrad
 #endif
- use timestep, only:bignumber
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
@@ -58,6 +58,7 @@ subroutine test_sedov(ntests,npass)
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
+ use domain,    only:i_belong
  use radiation_utils, only:set_radiation_and_gas_temperature_equal
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
@@ -74,6 +75,7 @@ subroutine test_sedov(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
  return
 #endif
+ if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
 
  testsedv: if (maxvxyzu >= 4) then
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
@@ -108,7 +110,8 @@ subroutine test_sedov(ntests,npass)
     prblast  = gam1*enblast/(4./3.*pi*rblast**3)
     npart    = 0
 
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
+                     npart,xyzh,periodic,mask=i_belong)
 
     npartoftype(:) = 0
     npartoftype(1) = npart

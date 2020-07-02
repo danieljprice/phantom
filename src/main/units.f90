@@ -63,7 +63,6 @@ contains
 !------------------------------------------------------------------------------------
 subroutine set_units(dist,mass,time,G,c)
  use physcon, only:gg,clight=>c
- use io,      only:warning
  real(kind=8), intent(in), optional :: dist,mass,time,G,c
 
  if (present(dist)) then
@@ -86,11 +85,11 @@ subroutine set_units(dist,mass,time,G,c)
     if (present(mass)) then
        udist = gg*umass/clight**2
        utime = udist/clight
-       if (present(dist)) call warning('set_units','over-riding distance unit with c=1 assumption')
+       if (present(dist)) print "(a)",' WARNING: over-riding length unit with c=1 assumption'
     elseif (present(dist)) then
        utime = udist/clight
        umass = clight*clight*udist/gg
-       if (present(time)) call warning('set_units','over-riding time unit with c=1 assumption')
+       if (present(time)) print "(a)",' WARNING: over-riding time unit with c=1 assumption'
     elseif (present(time)) then
        udist = utime*clight
        umass = clight*clight*udist/gg
@@ -101,13 +100,13 @@ subroutine set_units(dist,mass,time,G,c)
  elseif (present(G)) then
     if (present(mass) .and. present(dist)) then
        utime = sqrt(udist**3/(gg*umass))
-       if (present(time)) call warning('set_units','over-riding time unit with G=1 assumption')
+       if (present(time)) print "(a)",' WARNING: over-riding time unit with G=1 assumption'
     elseif (present(dist) .and. present(time)) then
        umass = udist**2/(gg*utime**2)
-       if (present(mass)) call warning('set_units','over-riding mass unit with G=1 assumption')
+       if (present(mass)) print "(a)",' WARNING: over-riding mass unit with G=1 assumption'
     elseif (present(mass) .and. present(time)) then
        udist = (utime**2*(gg*umass))**(1.d0/3.d0)
-       if (present(dist)) call warning('set_units','over-riding length unit with G=1 assumption')
+       if (present(dist)) print "(a)",' WARNING: over-riding length unit with G=1 assumption'
     elseif (present(time)) then
        umass = udist**2/(gg*utime**2)     ! udist is 1
     else
