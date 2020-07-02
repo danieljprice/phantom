@@ -109,7 +109,7 @@ end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/temperature as
+!  subroutine returns pressure and temperature as
 !  a function of density/internal energy
 !+
 !----------------------------------------------------------------
@@ -121,6 +121,31 @@ subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
  call getvalue_mesa(den,eint,4,temp)
 
 end subroutine get_eos_pressure_temp_mesa
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy and temperature from
+!  density and internal energy
+!+
+!----------------------------------------------------------------
+subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+ real, intent(in)  :: rho,pres
+ real, intent(out) :: eint,temp
+ real              :: presguess,dlnP_by_dlne,corr,numerator,denominator
+ real, parameter   :: tolerance = 1e-15
+ 
+ eint = 1.5*pres/rho ! Guess eint
+ corr=huge(1.)
+ do while(abs(corr) > tolerance*eint)
+    call getvalue_mesa(rho,eint,2,presguess) ! Guess pressure from eint guess
+    call getvalue_mesa(rho,eint,6,dlnP_by_dlne)
+    numerator = pres - presguess
+    denominator = - dlnP_by_dlne * presguess / eint ! Just - dP/de
+    corr = numerator / denominator
+    eint = eint - corr
+ end do
+ call getvalue_mesa(rho,eint,4,temp)
+end subroutine get_eos_eT_from_rhop_mesa 
 
 !----------------------------------------------------------------
 !+

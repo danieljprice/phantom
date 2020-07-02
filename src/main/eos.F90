@@ -1119,6 +1119,7 @@ end subroutine calc_rec_ene
 subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  real, intent(in)      :: rho,pres,mu,gamma,XX,YY
  real, intent(inout)   :: ene,temp
  integer, intent(in)   :: ieos
@@ -1135,12 +1136,13 @@ subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
     call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
  case(10) ! MESA-like EoS
     ! Approximate the temperature as that from ideal gas plus radiation
-    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    !call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
 
     ! Calculate internal energy from gas and radiation, then add recombination energy
-    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
-    call calc_rec_ene(XX,YY,e_rec)
-    ene = ene + e_rec
+    !call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
+    !call calc_rec_ene(XX,YY,e_rec)
+    !ene = ene + e_rec
+    call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp)
  case default
     ierr = 1
  end select
