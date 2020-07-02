@@ -1180,8 +1180,9 @@ ifeq ($(SYSTEM),xc40)
     CCFLAGS = -O3 -mcmodel=medium
     LIBCXX = -cxxlib
     QSYS = slurm
-OPENMP= no
-ifeq ($(OPENMP=),yes)
+OPENMP = no
+ifeq ($(OMP),xc40)
+    OPENMP = yes
     OMPFLAGS = -openmp
 endif
 ifeq ($(MPI),xc40)
