@@ -20,9 +20,9 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, options,
-!    part, physcon, radiation_utils, readwrite_dumps, step_lf_global,
-!    testutils, timestep, unifdis, units
+!  DEPENDENCIES: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!    options, part, physcon, radiation_utils, readwrite_dumps,
+!    step_lf_global, testutils, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testradiation

@@ -12,13 +12,13 @@
 !
 !  REFERENCES:
 !
-!  OWNER: Daniel Mentiplay
+!  OWNER: Daniel Price
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, table_utils
+!  DEPENDENCIES: table_utils
 !+
 !--------------------------------------------------------------------------
 

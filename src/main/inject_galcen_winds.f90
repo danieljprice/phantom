@@ -22,7 +22,7 @@
 !    outer_boundary -- kill gas particles outside this radius
 !
 !  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    random, setbinary, units
+!    random, units
 !+
 !--------------------------------------------------------------------------
 module inject

@@ -24,8 +24,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, nicil,
-!    options, part, physcon, step_lf_global, testutils, timestep,
+!  DEPENDENCIES: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!    nicil, options, part, physcon, step_lf_global, testutils, timestep,
 !    timestep_sts, unifdis, units
 !+
 !--------------------------------------------------------------------------
