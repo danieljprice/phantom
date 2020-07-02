@@ -23,7 +23,7 @@
 !    tol_ekin -- tolerance on ekin/epot to stop relaxation
 !
 !  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
-!    infile_utils, initial, io, memory, options, part, physcon,
+!    infile_utils, initial, io, memory, options, part, physcon, ptmass,
 !    readwrite_dumps, step_lf_global, table_utils, units
 !+
 !--------------------------------------------------------------------------
@@ -60,7 +60,7 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use table_utils, only:yinterp
  use deriv,       only:get_derivs_global
- use part,        only:vxyzu,nptmass
+ use part,        only:vxyzu
  use step_lf_global, only:init_step,step
  use initial,       only:initialise
  use memory,      only:allocate_memory
@@ -80,8 +80,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),rmax,dtext,dtnew
  logical :: converged,use_step
- logical, parameter :: fix_entrop = .false. ! fix entropy instead of thermal energy
- logical, parameter :: write_files = .false.
+ logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
+ logical, parameter :: write_files = .true.
  character(len=20) :: filename
  !
  ! save settings and set a bunch of options
@@ -101,8 +101,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     return
  endif
  use_step = .false.
- if (nptmass > 0 .or. iexternalforce > 0) then
-    call warning('relax_star','asynchronous shifting not implemented with sink particles: evolving in time instead')
+ if (iexternalforce > 0) then
+    call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
     use_step = .true.
  endif
  !
@@ -145,14 +145,15 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
  endif
  converged = .false.
- dt = 0.
+ dt = epsilon(0.) ! To avoid error in sink-gas substepping
+ dtext = huge(dtext)
  if (use_step) then
     dtmax = tdyn
     call init_step(npart,t,dtmax)
  endif
- nits = maxits
+ nits = 0
  do while (.not. converged)
-    nits = nits - 1
+    nits = nits + 1
     !
     ! reset thermal energy and calculate information
     !
@@ -171,7 +172,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     ! compute energies and check for convergence
     !
     call compute_energies(t)
-    converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. rmserr < 0.01*tol_dens) .or. nits <= 0)
+    converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. &
+                 rmserr < 0.01*tol_dens) .or. nits >= maxits)
     !
     ! print information to screen
     !
@@ -179,8 +181,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
        print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     else
-       print "(a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,', dens error:',rmserr,'%, R*:',rmax, &
-        ' Ekin/Epot:',ekin/abs(epot)
+       print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,'/',maxits, &
+             ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
     endif
     !
     ! additional diagnostic output, mainly for debugging/checking
@@ -221,12 +223,14 @@ end subroutine relax_star
 !----------------------------------------------------------------
 subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  use deriv, only:get_derivs_global
- use part,  only:fxyzu,fext
- use eos,   only:gamma
+ use part,  only:fxyzu,fext,xyzmh_ptmass,nptmass,rhoh,massoftype,igas
+ use ptmass,only:get_accel_sink_gas
+ use eos,   only:get_spsound
+ use options, only:ieos
  integer, intent(in) :: npart
  real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real, intent(out)   :: dtmin
- real :: dx(3),dti
+ real :: dx(3),dti,phi,rhoi,cs
  integer :: i
 !
 ! get forces on particles
@@ -237,11 +241,18 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
 !
  dtmin = huge(dtmin)
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,gamma) &
- !$omp private(i,dx,dti) &
+ !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,massoftype,ieos) &
+ !$omp private(i,dx,dti,phi,cs,rhoi) &
  !$omp reduction(min:dtmin)
  do i=1,npart
-    dti = 0.3*xyzh(4,i)/sqrt(gamma*(gamma-1.)*vxyzu(4,i))   ! h/cs
+    fext(1:3,i) = 0.
+    if (nptmass > 0) then
+       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                               xyzmh_ptmass,fext(1,i),fext(2,i),fext(3,i),phi)
+    endif
+    rhoi = rhoh(xyzh(4,i),massoftype(igas))
+    cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+    dti = 0.3*xyzh(4,i)/cs   ! h/cs
     dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
     xyzh(1:3,i) = xyzh(1:3,i) + dx(:)
     vxyzu(1:3,i) = dx(:)/dti ! fake velocities, so we can measure kinetic energy
@@ -260,7 +271,7 @@ end subroutine shift_particles
 !----------------------------------------------------------------
 subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
- use part,        only:rhoh,massoftype,igas
+ use part,        only:rhoh,massoftype,igas,maxvxyzu
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
  real, intent(in)    :: xyzh(:,:),r(nt),rho(nt),utherm(nt),entrop(nt)
@@ -277,10 +288,12 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_en
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     rhor = yinterp(rho,r,ri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
-    if (fix_entrop) then
-       vxyzu(4,i) = (yinterp(entrop,r,ri)*rhor**(gamma-1.))/(gamma-1.)
-    else
-       vxyzu(4,i) = yinterp(utherm,r,ri)
+    if (maxvxyzu >= 4) then
+       if (fix_entrop) then
+          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhor**(gamma-1.))/(gamma-1.)
+       else
+          vxyzu(4,i) = yinterp(utherm,r,ri)
+       endif
     endif
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
@@ -296,7 +309,7 @@ end subroutine reset_u_and_get_errors
 !----------------------------------------------------------------
 subroutine set_options_for_relaxation(tdyn)
  use eos,  only:ieos,gamma
- use part, only:hfact
+ use part, only:hfact,maxvxyzu
  use damping, only:damp,tdyn_s
  use options, only:idamp
  use units,   only:utime
@@ -310,7 +323,7 @@ subroutine set_options_for_relaxation(tdyn)
  !
  !gamma = 2.
  !hfact = 0.8 !0.7
- ieos = 2
+ if (maxvxyzu >= 4) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime

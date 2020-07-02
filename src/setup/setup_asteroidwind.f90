@@ -66,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,hacc2,massr,temperature_coef,dtinj
+ real    :: period,hacc2,temperature_coef,dtinj
 
 !
 !--Default runtime parameters
@@ -136,7 +136,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- massr  = m2/m1
  period = sqrt(4.*pi**2*semia**3/(m1+m2))
  hacc2  = 0.                                 ! Asteroid should not accrete
  tmax   = norbits*period

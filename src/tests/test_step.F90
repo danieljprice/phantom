@@ -39,7 +39,7 @@ subroutine test_step(ntests,npass)
  use io,       only:id,master
 #ifdef PERIODIC
  use io,       only:iverbose
- use dim,      only:maxp,maxvxyzu,maxalpha
+ use dim,      only:maxp,maxvxyzu,maxalpha,periodic
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,      only:polyk,gamma,use_entropy
  use mpiutils, only:reduceall_mpi
@@ -55,6 +55,7 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
+ use domain,          only:i_belong
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
  use timestep_ind,    only:nbinmax
@@ -72,7 +73,8 @@ subroutine test_step(ntests,npass)
  call init_part()
  npart = 0
  psep = dxbound/50.
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                 psep,hfact,npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart

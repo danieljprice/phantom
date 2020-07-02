@@ -2881,8 +2881,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
 
              ! timestep from cleaning
-             ! the factor of 10 is empirical, from checking how much spurious B-fields are decreases
-             ! the factor of 0.5 is empirical, from checking when overcleaning with ind. timesteps is stable
+             !   1. the factor of 10 in hdivbbmax is empirical from checking how much
+             !      spurious B-fields are decreased in colliding flows
+             !   2. if overcleaning is on (i.e. hdivbbmax > 1.0), then factor of 2 is
+             !      from empirical tests to ensure that overcleaning with individual
+             !      timesteps is stable
              if (B2i > 0.) then
                 hdivbbmax = hi*abs(divBi)/sqrt(B2i)
              else
@@ -2890,7 +2893,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))
+             !***MPI BUG!!
+             !   We would prefer to use lines 2, however, the MPI testsuite fails when
+             !   they are used.  Commits from other users pass, which suggests the
+             !   stability has something to do with the extra factor of two, since
+             !   in hydro, dtclean = 0.5*dtcourant
+             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
+             ! if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax               ! line 2a
+             ! dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))     ! line 2b
           endif
        endif
 

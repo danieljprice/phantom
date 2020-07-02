@@ -37,7 +37,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
- use dim,       only:maxp
+ use dim,       only:maxp,periodic
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
  use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
@@ -46,6 +46,7 @@ subroutine test_kdtree(ntests,npass)
  use unifdis,   only:set_unifdis
  use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
  use timing,    only:print_time,getused
+ use domain,    only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12)
@@ -67,7 +68,8 @@ subroutine test_kdtree(ntests,npass)
     psep = 1./64.
     hfact = hfact_default
     npart = 0
-    call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,psep,hfact,npart,xyzh)
+    call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
+                     psep,hfact,npart,xyzh,periodic,mask=i_belong)
     massoftype(igas) = 1000./npart
     if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
 
