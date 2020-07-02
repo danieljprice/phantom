@@ -63,26 +63,36 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use physcon,   only:pi,twopi,gg,kboltz,mass_proton_cgs
  use random,    only:ran2
  use units,     only:udist, umass, utime
+ use options,   only:iexternalforce
+ use externalforces,only:mass1
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat
- integer :: i,ipart,npinject,seed
+ integer :: i,ipart,npinject,seed,pt
  real    :: dmdt,dndt,rasteroid,h,u,speed
- real    :: m1,m2,mu,period,r,q
- real    :: phi,theta
+ real    :: m1,m2,mu,period,r,q,semia,spec_energy
+ real    :: phi,theta,func,rp,ra,ecc
 
- if (nptmass < 2) call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
+ if (nptmass < 2 .and. iexternalforce == 0) call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
  if (nptmass > 2) call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
 
- r1        = xyzmh_ptmass(1:3,1)
- r2        = xyzmh_ptmass(1:3,2)
- rasteroid = xyzmh_ptmass(ihsoft,2)
- m1        = xyzmh_ptmass(4,1)
- m2        = xyzmh_ptmass(4,2)
- v2        = vxyz_ptmass(1:3,2)
+ if (nptmass == 2) then
+    pt = 2
+    r1 = xyzmh_ptmass(1:3,1)
+    m1 = xyzmh_ptmass(4,1)
+ else
+    pt = 1
+    r1 = 0.
+    m1 = mass1
+ endif
+
+ r2        = xyzmh_ptmass(1:3,pt)
+ rasteroid = xyzmh_ptmass(ihsoft,pt)
+ m2        = xyzmh_ptmass(4,pt)
+ v2        = vxyz_ptmass(1:3,pt)
 
  speed     = sqrt(dot_product(v2,v2))
  vhat      = v2/speed
@@ -90,7 +100,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  r         = sqrt(dot_product(r1-r2,r1-r2))
  q         = m2/m1
  mu        = 1./(1 + q)
- period    = twopi*sqrt((r*udist)**3/(gg*(m1+m2)*umass))       ! period of orbit in code units
+ spec_energy = 0.5*speed**2 - (1.0*m1/r)
+ if (iexternalforce == 11) spec_energy = spec_energy - (3.*m1/(r**2))
+ semia     = -m1/(2.0*spec_energy)
+
+ rp = 0.42
+ ra = 0.98
+ ecc = 0.4
+
+ func = 5.353*(ra*rp/(r**2) - ((1.-ecc)/(1.+ecc)))             ! function to scale dn/dt with r^2
+							       ! rp*ra instead of semia**2 is more accurate
+							       ! but not by much
+
+ period    = twopi*sqrt((semia*udist)**3/(gg*(m1+m2)*umass))   ! period of orbit in code units
 
  dmdt      = mdot/(umass/utime)                                ! convert grams/sec to code units
  dndt      = npartperorbit*utime/period                        ! convert particles per orbit into code units
@@ -107,7 +129,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (npartoftype(igas)<8) then
     npinject = 8-npartoftype(igas)
  else
-    npinject = max(0, int(0.5 + (time*dmdt/massoftype(igas)) - npartoftype(igas) ))
+    npinject = max(0, int(0.5 + (time*dndt*func) - npartoftype(igas) ))
  endif
 
 !
@@ -123,6 +145,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
+
+ if (npinject > 0) print*,time,r,func,npinject
+
  !
  !-- no constraint on timestep
  !

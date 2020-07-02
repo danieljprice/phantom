@@ -35,22 +35,25 @@ module setup
  public :: setpart
 
  real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp
- integer :: dumpsperorbit
+ integer :: dumpsperorbit,ipot
 
  private
 
 contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,ihsoft
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
+ use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
+                            mass1,accradius1
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
  use inject,    only:inject_particles
  use eos,       only:gmw
+ use options,   only:iexternalforce
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -65,11 +68,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: period,hacc2,massr,temperature_coef,dtinj
 
- call set_units(mass=solarm,dist=solarr,G=1.d0)
-
 !
 !--Default runtime parameters
 !
+ ipot          = 1         ! (using iexternalforce=11)
  m1            = 0.7       ! (solar masses)
  m2            = 0.1       ! (ceres masses)
  ecc           = 0.4       ! (eccentricity)
@@ -95,10 +97,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
 
- !
- !--Convert to code units
- !
- m1    = m1*solarm/umass
+!
+!-- Set units
+!
+ m1 = m1*solarm
+ if (ipot == 0) then
+    call set_units(mass=solarm,dist=solarr,G=1.d0)
+ else
+    call set_units(c=1.0,G=1.0,mass=m1)
+    print*,'Code units changed to c=G=m1=1.0 for LT'
+ endif
+
+!
+!--Convert to code units
+!
+ m1    = m1/umass
  m2    = m2*ceresm/umass
 
  semia = semia*solarr/udist
@@ -129,12 +142,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
-!
-!--Set a binary orbit given the desired orbital parameters
-!
- call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+! If using sink particle for central mass, use binary to setup orbits
+! and have two point masses. Otherwise use iexternalforce and only one
+! point mass for the asteroid
 
- xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
+ if (ipot == 0) then
+   !
+   !--Set a binary orbit given the desired orbital parameters
+   !
+   call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+   xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
+
+ else
+
+   !
+   !--Set the asteroid on orbit around the fixed potential
+   !
+   mass1                = m1
+   accradius1           = hacc1
+   iexternalforce       = 11
+   call update_externalforce(iexternalforce,time,0.)
+
+   ! Orbit and position
+   nptmass = 1
+   xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
+   vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
+
+   xyzmh_ptmass(4,1)      = m2
+   xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
+   xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
+ endif   
 
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
 
@@ -156,6 +193,7 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
+ call write_inopt(ipot,         'ipot',         'wd modelled by sink (0) or externalforce(1)',      iunit)
  call write_inopt(m1,           'm1',           'mass of white dwarf (solar mass)',                 iunit)
  call write_inopt(m2,           'm2',           'mass of asteroid (ceres mass)',                    iunit)
  call write_inopt(ecc,          'ecc',          'eccentricity',                                     iunit)
@@ -182,6 +220,7 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(ipot,         'ipot',         db,min=0 ,errcount=nerr)
  call read_inopt(m1,           'm1',           db,min=0.,errcount=nerr)
  call read_inopt(m2,           'm2',           db,min=0.,errcount=nerr)
  call read_inopt(ecc,          'ecc',          db,min=0.,errcount=nerr)

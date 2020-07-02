@@ -27,7 +27,7 @@ module analysis
  character(len=20), parameter, public :: analysistype = 'disc'
  public :: do_analysis
 
- integer, parameter :: nr = 300
+ integer, parameter :: nr = 200
  real,dimension(nr) :: twist,twistprev
 
  private
