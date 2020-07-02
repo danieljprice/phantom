@@ -42,7 +42,7 @@ module setup
 contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
  use units,     only:set_units,umass,udist,unit_velocity
@@ -58,8 +58,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact
+ real,              intent(inout)   :: massoftype(:)
+ real,              intent(inout)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
@@ -149,7 +149,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    !
    !--Set a binary orbit given the desired orbital parameters
    !
-   call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+   call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
    xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
 
  else
@@ -172,6 +172,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
  endif   
 
+ ! both	of these are reset in the first	call to	inject_particles
+ massoftype(igas) = 1.0
+ hfact = 1.2
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
 
  if (nptmass == 0) call fatal('setup','no sink particles setup')
