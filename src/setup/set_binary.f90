@@ -26,7 +26,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, physcon
+!  DEPENDENCIES: None
 !+
 !--------------------------------------------------------------------------
 module setbinary

@@ -22,8 +22,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, growth, io,
-!    kernel, mpiutils, options, part, physcon, random, set_dust,
+!  DEPENDENCIES: boundary, deriv, dim, domain, dust, energies, eos, growth,
+!    io, kernel, mpiutils, options, part, physcon, random, set_dust,
 !    step_lf_global, table_utils, testutils, timestep, unifdis, units,
 !    vectorutils
 !+
