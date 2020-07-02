@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
-                          ndusttypes,ndustsmall,grainsize,graindens
+                          ndusttypes,ndustsmall,grainsize,graindens,periodic
  use physcon,        only:pi,au,solarm
  use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
+ use domain,         only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -190,7 +191,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_previous = npart
 
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
-                   hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc,dir=2)
+                   hfact,npart,xyzh,periodic,nptot=npart_total,&
+                   rhofunc=rhofunc,dir=2,mask=i_belong)
 
  !--set which type of particle it is
  do i=npart_previous+1,npart

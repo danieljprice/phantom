@@ -68,13 +68,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:set_particle_type,igas,Bxyz
+ use part,         only:set_particle_type,igas,Bxyz,periodic
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump,alpha,alphamax,alphaB
  use physcon,      only:pi,fourpi,solarm,c,qe
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -297,10 +298,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  if ( geo_cp ) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                     hfact,npart,xyzh,nptot=npart_total)
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  else
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                     hfact,npart,xyzh,nptot=npart_total)
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  endif
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound

@@ -44,8 +44,8 @@
 !+
 !--------------------------------------------------------------------------
 module setup
- use part,    only:mhd
- use dim,     only:use_dust,maxvxyzu
+ use part,    only:mhd,periodic
+ use dim,     only:use_dust,maxvxyzu,periodic
  use options, only:calc_erot
  implicit none
  public :: setpart
@@ -74,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
  use io,           only:master,fatal
  use unifdis,      only:set_unifdis
- use spherical,    only:set_unifdis_sphereN,set_sphere
+ use spherical,    only:set_sphere
  use rho_profile,  only:rho_bonnorebert
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
@@ -86,6 +86,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -97,12 +98,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real(kind=8)       :: h_acc_in
  integer            :: i,nx,np_in,npartsphere,npmax,iBElast,ierr
- integer, parameter :: iBE = 1000000
+ integer            :: iBE
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit,r_sphere_in
  real               :: rxy2,rxyz2,phi,dphi,lbox,central_density,edge_density
- real               :: rtab(iBE),rhotab(iBE)
+ real, allocatable  :: rtab(:),rhotab(:)
  logical            :: iexist,is_box,write_options
  logical            :: make_sinks = .true.
  character(len=100) :: filename
@@ -228,6 +229,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
 
     ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+    !
     call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
     if (make_sinks) then
        if (binary) then
@@ -245,7 +247,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        icreate_sinks = 0
     endif
-    write_options = .true.
+    if (id==master) call write_setupfile(filename)
+    stop 'please edit .setup file and rerun phantomsetup'
+ else
+    stop ! MPI, stop on other threads, interactive on master
  endif
  !
  ! units
@@ -263,9 +268,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Bonnor-Ebert profile (if requested)
  !
  if (BEsphere) then
+    iBe = 1024
+    allocate(rtab(iBe),rhotab(iBe))
     central_density = rho_cen_cgs/unit_density
     r_sphere_in = r_sphere
-    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,rtab,rhotab,central_density,edge_density,ierr)
+    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,&
+                         rtab,rhotab,central_density,edge_density,ierr)
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
     if (rho_cen_cgs > 0.) then
        print*, "Radius has been overwritten to ",r_sphere," code units"
@@ -287,6 +295,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (write_options .and. id == master) then
     call write_setupfile(filename)
     print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
+    stop
  endif
  !
  ! general parameters
@@ -342,15 +351,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (BEsphere) then
     call set_sphere('closepacked',id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
-                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,exactN=.true.,np_requested=np)
+                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
+    deallocate(rtab,rhotab)
  else
-    call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
+    call set_sphere('closepacked',id,master,0.,r_sphere,psep,&
+                    hfact,npart,xyzh,nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
     print "(a,es10.3)",' Particle separation in sphere = ',psep
  endif
 
  npartsphere = npart
- if (np_in/=npartsphere) np = npartsphere
+ if (np_in /= npartsphere) np = npartsphere
  !
  ! setup surrounding low density medium
  !
@@ -361,7 +373,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep_box = psep*(density_contrast)**(1./3.)  ! calculate psep in box
  endif
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
-                   hfact,npart,xyzh,rmin=r_sphere,nptot=npart_total)
+                   hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
  print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
  print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
  print*, ""
@@ -386,14 +398,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep = (vol_sphere/pmass_dusttogas)**(1./3.)/real(nx)
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
+                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
     npartoftype(idust) = npart_total - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
-    !
+
     do i = npartoftype(igas)+1,npart
        call set_particle_type(i,idust)
     enddo
-    !
+
     print "(a,4(i10,1x))", ' particle numbers: (gas_total, gas_sphere, dust, total): ' &
                         , npartoftype(igas),npartsphere,npartoftype(idust),npart
     print "(a,2es10.3)"  , ' particle masses: (gas,dust): ',massoftype(igas),massoftype(idust)
@@ -526,7 +538,7 @@ subroutine write_setupfile(filename)
  call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
  call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
  write(iunit,"(/,a)") '# resolution'
- call write_inopt(np,'np','actual number of particles in sphere',iunit)
+ call write_inopt(np,'np','requested number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# options for box'
  do i=1,3
     call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
@@ -630,8 +642,9 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
  endif
  call close_db(db)
-
- !--parse units
+ !
+ ! parse units
+ !
  call select_unit(mass_unit,umass,nerr)
  if (nerr /= 0) then
     call error('setup_sphereinbox','mass unit not recognised')
@@ -643,11 +656,10 @@ subroutine read_setupfile(filename,ierr)
     ierr = ierr + 1
  endif
 
- !--Check for errors
  if (ierr > 0) then
     print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module setup

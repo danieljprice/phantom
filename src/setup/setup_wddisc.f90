@@ -66,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,i
  logical :: iexist
- real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc,massr
+ real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
 
@@ -124,7 +124,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- massr  = m2/m1
  ecc    = 1.-rp/semia
  period = sqrt(4.*pi**2*semia**3/(m1+m2))
  hacc2  = hacc1/1.e10
@@ -134,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Set a binary orbit given the desired orbital parameters
 !
- call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  vbody    = vxyz_ptmass(1:3,2)
  xyzbody  = xyzmh_ptmass(1:3,2)
  massbody = xyzmh_ptmass(4,2)
