@@ -120,9 +120,9 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
 ! Move everything so that the centre of mass is at the origin
 ! and run everything in CoM frame
 ! NB: this is not suitable for discs/flybys
- if (nptmass > 0) then
-    call reset_centreofmass(npart,xyzh,vxyz,nptmass,xyzmh_ptmass,vxyz_ptmass)
- endif
+! if (nptmass > 0) then
+!    call reset_centreofmass(npart,xyzh,vxyz,nptmass,xyzmh_ptmass,vxyz_ptmass)
+! endif
 
 ! Loop over particles putting properties into the correct bin
  do i = 1,npart
@@ -229,13 +229,13 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
  enddo
 
 ! Calculate H from the particle positions
- if (iallocerr==0) then
+! if (iallocerr==0) then
     call calculate_H_fast(nbin,H,zsetgas,ninbin)
     deallocate(zsetgas) ! clean up
- else
-    call calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
-    deallocate(myz) ! clean up
- endif
+! else
+!    call calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
+!    deallocate(myz) ! clean up
+! endif
 
 ! Print angular momentum of accreted particles
  angtot = sqrt(angx*angx + angy*angy + angz*angz)

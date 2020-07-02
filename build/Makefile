@@ -1129,7 +1129,7 @@ ifeq ($(MCFOST), yes)
 
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(SYSTEM) \
-	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
+	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz -ldl
 endif
 
 
