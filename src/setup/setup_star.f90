@@ -472,9 +472,8 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
  ierr = 0
  ! Select sphere & set default values
- write(*,*)
  do i = 1, nprofile_opts
-    write(*,"(a5,i2,1x,a48)") 'Case ', i, profile_opt(i)
+    write(*,"(i2,')',1x,a)") i, profile_opt(i)
  enddo
 
  call prompt('Enter which density profile to use',iprofile,1,nprofile_opts)
