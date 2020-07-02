@@ -693,7 +693,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(EOSopt,'EOSopt','EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)',iunit)
  case(2)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if (maxvxyzu < 4 .and. input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
+    if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  end select
