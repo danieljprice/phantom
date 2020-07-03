@@ -23,8 +23,8 @@
 !    mass1           -- mass of central object in code units
 !
 !  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!    extern_gnewton, extern_gwinspiral, extern_lensethirring,
-!    extern_densityprofile, extern_prdrag, extern_spiral, extern_staticsine,
+!    extern_densprofile, extern_gnewton, extern_gwinspiral,
+!    extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
 !    fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
 !+
 !--------------------------------------------------------------------------

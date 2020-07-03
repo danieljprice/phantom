@@ -23,7 +23,7 @@
 !    npartx    -- number of particles in x-direction
 !    smoothfac -- IC smoothing factor (in terms of particle spacing)
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, prompting, setup_params, timestep, unifdis,
 !    units
 !+

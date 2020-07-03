@@ -31,8 +31,9 @@
 !    zmax        -- zmax boundary
 !    zmin        -- zmin boundary
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
-!    physcon, prompting, set_dust, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, mpiutils,
+!    options, part, physcon, prompting, set_dust, setup_params, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
