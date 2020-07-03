@@ -2,5 +2,5 @@
 set_disc
 =========================
 
-.. f:autosrcfile:: ../../src/setup/set_disc.F90
+.. f:autosrcfile:: ../../src/setup/set_disc.f90
 
