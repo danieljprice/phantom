@@ -49,43 +49,41 @@ module stretchmap
 
 contains
 
+subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord,verbose,err)
 !--------------------------------------------------------------------------
-!+
+!
 !  Subroutine to implement the stretch mapping procedure
 !
-!  IN/OUT:
 !    xyzh : particle coordinates and smoothing length
-!
-!  IN:
 !    np : number of particles
-!    cmin, cmax         : range in the coordinate to apply transformation
-!    start (optional)   : only consider particles between start and np
-!    geom  (optional)   : geometry in which stretch mapping is to be performed
+!    cmin, cmax  : range in the coordinate to apply transformation
+!    start       : only consider particles between start and np (optional)
+!    geom        : geometry in which stretch mapping is to be performed (optional)
 !                          1 - cartesian
 !                          2 - cylindrical
 !                          3 - spherical
 !                          4 - toroidal
 !                         (if not specified, assumed to be cartesian)
-!    coord (optional)   : coordinate direction in which stretch mapping is to be performed
-!                         (if not specified, assumed to be the first coordinate)
-!    rhofunc (optional) : function containing the desired density function rho(r) or rho(x)
-!    rhotab  (optional) : array of tabulated density profile
-!    ctab    (optional) : array of tabulated coordinate positions for density bins in table
+!    coord       : coordinate direction in which stretch mapping is to be performed (optional)
+!                  (if not specified, assumed to be the first coordinate)
+!    rhofunc     : function containing the desired density function rho(r) or rho(x)
+!                  (optional)
+!    rhotab      : tabulated density profile (optional)
+!    ctab        : tabulated coordinate positions for density bins in table (optional)
 !
-!  The function rhofunc is assumed to be a real function with a single argument:
+!  The function rhofunc is assumed to be a real function with a single argument::
 !
-!  real function rhofunc(r)
-!   real, intent(in) :: r
+!     real function rhofunc(r)
+!        real, intent(in) :: r
 !
-!   rhofunc = 1./r**2
+!        rhofunc = 1./r**2
 !
-!  end function rhofunc
+!     end function rhofunc
 !
 !  If the ctab array is not present, the table rhotab(:) is assumed to
 !  contain density values on equally spaced bins between cmin and cmax
-!+
+!
 !----------------------------------------------------------------
-subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord,verbose,err)
  use geometry,    only:coord_transform,maxcoordsys,labelcoord,igeom_cartesian!,labelcoordsys
  use table_utils, only:yinterp,linspace
  integer, intent(in)    :: np
