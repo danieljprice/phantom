@@ -4,7 +4,6 @@
 subdir='setup'
 mydir=$PWD;
 cd ../../src/$subdir;
-echo $PWD;
 files=`ls *.*90 | grep -v 'setup_' | grep -v 'libsetup'`
 for x in $files; do
     y=${x/.f90/}
@@ -13,7 +12,7 @@ for x in $files; do
     echo > $outfile
     echo "$z" >> $outfile
     echo "=========================" >> $outfile
-    echo -e "\n.. f:autosrcfile:: ../../src/$subdir/$x\n" >> $outfile
+    echo -e "\n.. f:autosrcfile:: ../../src/$subdir/$z.f90\n" >> $outfile
 done;
 cd $mydir
 index="index.rst"

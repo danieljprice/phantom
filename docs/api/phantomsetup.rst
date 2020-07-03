@@ -2,5 +2,5 @@
 phantomsetup
 =========================
 
-.. f:autosrcfile:: ../../src/setup/phantomsetup.F90
+.. f:autosrcfile:: ../../src/setup/phantomsetup.f90
 

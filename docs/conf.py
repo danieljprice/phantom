@@ -185,8 +185,9 @@ fortran_ext = [ 'f90','F90' ]
 fortran_src = [
  '../src/setup/density_profiles.f90',
  '../src/setup/relax_star.f90',
- '../src/setup/set_Bfield.f90',
+ '../src/setup/set_bfield.f90',
  '../src/setup/set_binary.f90',
+ '../src/setup/set_disc.f90',
  '../src/setup/set_dust.f90',
  '../src/setup/set_dust_options.f90',
  '../src/setup/set_flyby.f90',
@@ -199,7 +200,7 @@ fortran_src = [
  '../src/setup/set_vfield.f90',
  '../src/setup/stretchmap.f90',
  '../src/setup/velfield_fromcubes.f90',
- '../src/setup/phantomsetup.F90'
+ '../src/setup/phantomsetup.f90'
 ]
 
 sys.setrecursionlimit(10000)

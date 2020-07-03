@@ -1,6 +1,6 @@
 
-set_Bfield
+set_bfield
 =========================
 
-.. f:autosrcfile:: ../../src/setup/set_Bfield.f90
+.. f:autosrcfile:: ../../src/setup/set_bfield.f90
 
