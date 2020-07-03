@@ -27,7 +27,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: geometry, io, physcon, table_utils
+!  DEPENDENCIES: geometry, table_utils
 !+
 !--------------------------------------------------------------------------
 module stretchmap

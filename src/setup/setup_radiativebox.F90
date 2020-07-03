@@ -30,7 +30,7 @@
 !    zmax      -- zmax boundary
 !    zmin      -- zmin boundary
 !
-!  DEPENDENCIES: boundary, eos, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, domain, eos, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, set_dust, setup_params, timestep, unifdis,
 !    units
 !+
