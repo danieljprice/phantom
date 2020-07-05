@@ -307,9 +307,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
 
-       call set_softened_core(ieos,gamma,X_in,Y_in,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+       call init_eos(ieos,ierr)
+       call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
-       !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
@@ -369,7 +369,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
- call init_eos(ieos,ierr)
  if (relax_star_in_setup) then
     if (nstar==npart) then
        call relax_star(npts,den,pres,r,npart,xyzh)
