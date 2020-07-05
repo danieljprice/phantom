@@ -26,9 +26,7 @@
 !--------------------------------------------------------------------------
 module setsoftenedcore
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
- use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
-                            get_idealplusrad_enfromtemp
- use table_utils,      only:interpolator,diff,flip_array
+ use table_utils,      only:interpolator,diff
 
  implicit none
  real    :: hsoft,msoft,mcore
@@ -48,25 +46,19 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  Main subroutine that calls the subroutines to calculate the cubic
-!  core profile
+!  Main subroutine that calculates the cubic core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
-                             rho,r,pres,m,ene,temp,ierr,Xfrac,Yfrac)
+subroutine set_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
+ use eos,         only:calc_temp_and_ene
+ use table_utils, only:flip_array
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
  real, allocatable          :: phi(:)
- real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,mcore,hsoft,hphi,gamma,constX,constY
- integer, intent(in)        :: ieos
+ real, intent(in)           :: mcore,hsoft,hphi
  integer, intent(out)       :: ierr
- real                       :: mc,h,hphi_cm
+ real                       :: mc,h,hphi_cm,eneguess
  logical                    :: isort_decreasing,iexclude_core_mass
-
- ! Xfrac, Yfrac:    H and He mass fractions from the MESA profile
- ! constX, constY:  H and He mass fractions at r = R/2
- ! mu:              Mean molecular weight at r = R/2
- ! gamma:           Adiabatic exponent for adiabatic EoS
+ integer                    :: i
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
@@ -84,11 +76,13 @@ subroutine set_softened_core(ieos,gamma,constX,constY,mu,mcore,hsoft,hphi,&
  call calc_phi(r, mc, m-mc, hphi_cm, phi)
  call calc_pres(r, rho, phi, pres)
 
- if (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden until variable composition is implemented in Phantom
-    call calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
- else
-    call calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr)
- endif
+ call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
+ do i = 2,size(rho)-1
+    eneguess = ene(i-1)
+    call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
+ enddo
+ ene(size(rho))  = 0. ! Zero surface internal energy
+ temp(size(rho)) = 0. ! Zero surface temperature
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
@@ -304,47 +298,5 @@ subroutine calc_pres(r, rho, phi, pres)
     pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  enddo
 end subroutine calc_pres
-
-!----------------------------------------------------------------
-!+
-!  Calculates temperature and specific internal energy for the
-!  softened star from pressure and density
-!+
-!----------------------------------------------------------------
-subroutine calc_softened_temp_and_ene(ieos,hidx,mu,constX,constY,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
- use eos,                only:calc_temp_and_ene
- real, intent(in)           :: rho(:),pres(:),mu,gamma,constX,constY
- real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(inout)        :: ene(:),temp(:)
- integer, intent(in)        :: ieos,hidx
- integer, intent(out)       :: ierr
- real                       :: muprofile(size(rho))
- integer                    :: endidx,i
-
- ierr = 0
- if (ieos == 10) then
-    endidx = hidx ! For r > h, we just use the original MESA profile
- else
-    endidx = size(rho) ! Recalculate u and T for r > h too
- endif
-
- if (ieos == 12) temp(size(rho)) = 0. ! Zero surface temperature
-
- if ( (.not. present(Xfrac)) .and. (.not. present(Yfrac)) ) then
-    ! Calculate T and u for the entire star using fixed mu, X, Y
-    do i = 1,endidx
-       call calc_temp_and_ene(ieos,mu,constX,constY,gamma,rho(i),pres(i),ene(i),temp(i),ierr)
-    enddo
- elseif (present(Xfrac) .and. present(Yfrac)) then ! This case is temporarily forbidden until particles with variable composition is implemented in Phantom
-    ! Calculate mean molecular weight profile from X, Y profiles
-    muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
-    do i = 1,endidx ! For r > h, we just use the original MESA profile
-       call calc_temp_and_ene(ieos,muprofile(i),Xfrac(i),Yfrac(i),gamma,rho(i),pres(i),ene(i),temp(i),ierr)
-    enddo
- else
-    ierr = 1
- endif
-
-end subroutine calc_softened_temp_and_ene
 
 end module setsoftenedcore

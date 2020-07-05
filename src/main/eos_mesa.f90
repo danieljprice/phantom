@@ -88,7 +88,6 @@ subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1,ierr)
  integer, intent(out) :: ierr
 
  call getvalue_mesa(den,eint,2,pres,ierr)
- !call getvalue_mesa(den,eint,3,pres,ierr)
  call getvalue_mesa(den,eint,11,gam1)
 
 end subroutine get_eos_pressure_gamma1_mesa
@@ -125,26 +124,69 @@ end subroutine get_eos_pressure_temp_mesa
 !----------------------------------------------------------------
 !+
 !  subroutine returns internal energy and temperature from
-!  density and internal energy
+!  density and internal energy using bisection method
 !+
 !----------------------------------------------------------------
-subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
- real, intent(in)  :: rho,pres
- real, intent(out) :: eint,temp
- real              :: presguess,dlnP_by_dlne,corr,numerator,denominator
- real, parameter   :: tolerance = 1e-15
+subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
+ real, intent(in)           :: rho,pres
+ real, intent(out)          :: eint,temp
+ real, intent(in), optional :: guesseint
+ real                       :: err,eintguess,eint1,eint2,&
+                               eint3,pres1,pres2,pres3,left,right,mid
+ real, parameter            :: tolerance = 1d-15
+ integer                    :: ierr
+
+ if (present(guesseint)) then
+    eintguess = guesseint
+    eint1 = 1.005 * eintguess  ! Tight lower bound
+    eint2 = 0.995 * eintguess  ! Tight upper bound
+ else
+    eintguess = 1.5*pres/rho
+    eint1 = 10. * eintguess  ! Guess lower bound
+    eint2 = 0.1 * eintguess  ! Guess upper bound
+ endif
  
- eint = 1.5*pres/rho ! Guess eint
- corr=huge(1.)
- do while(abs(corr) > tolerance*eint)
-    call getvalue_mesa(rho,eint,2,presguess) ! Guess pressure from eint guess
-    call getvalue_mesa(rho,eint,6,dlnP_by_dlne)
-    numerator = pres - presguess
-    denominator = - dlnP_by_dlne * presguess / eint ! Just - dP/de
-    corr = numerator / denominator
-    eint = eint - corr
- end do
- call getvalue_mesa(rho,eint,4,temp)
+ call getvalue_mesa(rho,eint1,2,pres1,ierr)
+ call getvalue_mesa(rho,eint2,2,pres2,ierr)
+ left  = pres - pres1
+ right = pres - pres2
+
+ ! If lower and upper bounds do not contain roots, extend them until they do
+ do while (left*right > 0.)
+    eint1 = 0.99 * eint1
+    eint2 = 1.01 * eint2
+    call getvalue_mesa(rho,eint1,2,pres1,ierr)
+    call getvalue_mesa(rho,eint2,2,pres2,ierr)
+    left  = pres - pres1
+    right = pres - pres2
+ enddo
+
+ ! Start bisecting
+ err = huge(1.)
+ do while (abs(err) > tolerance)
+    call getvalue_mesa(rho,eint1,2,pres1,ierr)
+    call getvalue_mesa(rho,eint2,2,pres2,ierr)
+    left  = pres - pres1
+    right = pres - pres2
+    eint3 = 0.5*(eint2+eint1)
+    call getvalue_mesa(rho,eint3,2,pres3,ierr)
+    mid = pres - pres3
+
+    if (left*mid < 0.) then
+       eint2 = eint3
+    elseif (right*mid < 0.) then
+       eint1 = eint3
+    elseif (mid == 0.) then
+       eint = eint3
+       exit 
+    endif
+
+    eint = eint3
+    err = (eint2 - eint1)/eint1
+ enddo
+
+ call getvalue_mesa(rho,eint,4,temp,ierr)
+
 end subroutine get_eos_eT_from_rhop_mesa 
 
 !----------------------------------------------------------------
