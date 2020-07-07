@@ -108,14 +108,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  ra = 0.98
  ecc = 0.4
 
- func = 5.353*(ra*rp/(r**2) - ((1.-ecc)/(1.+ecc)))             ! function to scale dn/dt with r^2
+ func = (ra*rp/(r**2)) ! - ((1.-ecc)/(1.+ecc)))              ! function to scale dn/dt with r^2
 							       ! rp*ra instead of semia**2 is more accurate
 							       ! but not by much
 
- period    = twopi*sqrt((semia*udist)**3/(gg*(m1+m2)*umass))   ! period of orbit in code units
+ period    = twopi*sqrt((semia*udist)**3/(gg*(m1+m2)*umass))   ! period of orbit
+ period    = period/utime                                      ! in code units
 
  dmdt      = mdot/(umass/utime)                                ! convert grams/sec to code units
- dndt      = npartperorbit*utime/period                        ! convert particles per orbit into code units
+ dndt      = npartperorbit/period                        ! convert particles per orbit into code units
 
 !
 !-- Mass of gas particles is set by mass accretion rate and particle injection rate
@@ -129,7 +130,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (npartoftype(igas)<8) then
     npinject = 8-npartoftype(igas)
  else
-    npinject = max(0, int(0.5 + (time*dndt*func) - npartoftype(igas) ))
+!    npinject = max(0, int(0.5 + (time*dndt*func) - npartoftype(igas) ))
+   npinject = max(0, int(0.5 + (mod(time,period)/period*dndt*func) ))
+   print*,time,npinject
  endif
 
 !
@@ -146,7 +149,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
 
- if (npinject > 0) print*,time,r,func,npinject
+! if (npinject > 0) print*,time,r,func,(mod(time,period)/period)
 
  !
  !-- no constraint on timestep
