@@ -1981,7 +1981,7 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
-SRCLIB= # libphantom.F90
+SRCLIB= libphantom-evolve.F90  libphantom-splash.f90  libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
