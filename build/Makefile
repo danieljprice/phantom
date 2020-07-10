@@ -252,7 +252,7 @@ endif
 
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
-    DISC_VISCOSITY=no
+    DISC_VISCOSITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
