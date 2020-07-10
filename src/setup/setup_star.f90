@@ -48,7 +48,7 @@
 !    ui_coef            -- specific internal energy (units of GM/R)
 !    unsoftened_profile -- Path to MESA profile for softening
 !    use_exactN         -- find closest particle number to np
-!    write_rho_to_file  -- write density profile to 
+!    write_rho_to_file  -- write density profile to
 !
 !  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
 !    extern_densprofile, externalforces, infile_utils, io, kernel, options,
