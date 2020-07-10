@@ -143,8 +143,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  nptmass = 1
  psep  = rasteroid/nr
-
- print*,id,master
  call set_sphere('cubic',id,master,0.,rasteroid,psep,hfact,npart,xyzh,xyz_origin=xyzbody)
  if (id==master) print "(1(/,a,i10,a,/))",' Replaced second sink with ',npart,' dust particles'
  npartoftype(idust) = npart

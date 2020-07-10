@@ -3,7 +3,7 @@
 FC= gfortran
 FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
         -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-        -std=f2008
+        -std=f2008 -fall-intrinsics
 DBLFLAG= -fdefault-real-8 -fdefault-double-8
 DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid,zero,overflow -finit-real=nan -finit-integer=nan -fbacktrace
 KNOWN_SYSTEM=yes
