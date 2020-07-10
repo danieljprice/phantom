@@ -67,7 +67,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr
  logical :: iexist
  real    :: period,hacc2,temperature_coef,dtinj
-
+ real    :: rp
 !
 !--Default runtime parameters
 !
@@ -177,6 +177,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
 
+!
+!-- check for silly parameter choices
+!
+ rp = semia*(1. - ecc)
+ if (rp < hacc1) call fatal('setup','periapsis is within racc of central sink')
  if (nptmass == 0) call fatal('setup','no sink particles setup')
  if (npart == 0)   call fatal('setup','no hydro particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
