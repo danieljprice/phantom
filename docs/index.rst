@@ -28,6 +28,8 @@ Contents
    faq
    releasenotes
 
+   api/index
+
 Licence
 -------
 

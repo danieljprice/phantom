@@ -21,7 +21,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, physcon
+!  DEPENDENCIES: physcon
 !+
 !--------------------------------------------------------------------------
 module units

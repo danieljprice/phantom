@@ -25,8 +25,8 @@
 !    nx      -- resolution (number of particles in x) for -xleft < x < xshock
 !    rotated --  rotate wave vector?
 !
-!  DEPENDENCIES: boundary, dim, geometry, infile_utils, io, mpiutils, part,
-!    physcon, prompting, setup_params, timestep, unifdis
+!  DEPENDENCIES: boundary, dim, domain, geometry, infile_utils, io,
+!    mpiutils, part, physcon, prompting, setup_params, timestep, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
