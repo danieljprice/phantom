@@ -732,7 +732,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
  if (relax_star_in_setup) call write_options_relax(iunit)
 
- call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to '// &
+ call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to'//' '// &
                   trim(dens_profile),iunit)
 
  close(iunit)
