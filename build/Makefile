@@ -1163,7 +1163,7 @@ ifeq ($(SYSTEM),xc40)
 #massively copied from the Daint system
     include Makefile_defaults_ifort
     FC=ftn
-    FFLAGS+= -heap-arrays
+    FFLAGS+= -heap-arrays -dynamic
     KNOWN_SYSTEM=yes
     CC = cc
     QSYS = slurm
