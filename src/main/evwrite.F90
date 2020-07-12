@@ -47,12 +47,12 @@
 !+
 !--------------------------------------------------------------------------
 module evwrite
- use io,             only: fatal
+ use io,             only: fatal,iverbose
  use options,        only: iexternalforce
  use timestep,       only: dtmax_dratio
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
- use energies,       only: ndead
+ use energies,       only: ndead,npartall
  use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
@@ -427,15 +427,12 @@ subroutine write_evlog(iprint)
  character(len=120)  :: string,Mdust_label(maxdusttypes)
  integer             :: i
 
-!***Uncomment this once debugging is complete
-! if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected) then
-!    write(iprint,"(1x,4(a,I10))") 'npart=',npart,', n_alive=',npart-ndead,', n_dead_or_accreted=',ndead,', nptmass=',nptmass
-! endif
-!***Remove the following once debugging is complete
- write(iprint,"(1x,4(a,I10))") 'npart=',npart,', n_alive=',npart-ndead,', n_dead_or_accreted=',ndead,', nptmass=',nptmass
+ if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected .or. iverbose > 0) then
+    write(iprint,"(1x,4(a,I10))") 'npart=',npartall,', n_alive=',npartall-ndead, &
+                                  ', n_dead_or_accreted=',ndead,', nptmass=',nptmass
+ endif
 
- write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
-      'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
+ write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") 'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
 
  if (mhd)          write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (do_radiation) write(iprint,"(1x,('E',a,'=',es10.3))") 'rad',erad
