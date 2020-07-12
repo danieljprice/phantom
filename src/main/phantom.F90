@@ -34,13 +34,10 @@ program phantom
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use evolve,          only:evol
  implicit none
- integer :: nargs,i,ntests,npass,nfail
+ integer            :: nargs
  character(len=120) :: infile,logfile,evfile,dumpfile
 
  id = 0
- ntests = 0
- npass  = 0
- nfail  = 0
 
  call init_mpi(id,nprocs)
  call set_io_unit_numbers
