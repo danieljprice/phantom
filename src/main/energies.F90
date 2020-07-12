@@ -38,7 +38,7 @@ module energies
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
+ integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
@@ -605,9 +605,10 @@ subroutine compute_energies(t)
 !$omp end parallel
 
  !--Determing the number of active gas particles
- nptot = reduce_fn('+',np)
- npgas = reduce_fn('+',npgas)
- ndead = npart - nptot
+ nptot    = reduce_fn('+',np)
+ npgas    = reduce_fn('+',npgas)
+ npartall = reduce_fn('+',npart)
+ ndead    = npartall - nptot
  if (nptot > 0) then
     dnptot = 1./real(nptot)
  else
