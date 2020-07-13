@@ -11,17 +11,18 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: David Liptai
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    dndt_type     -- injection rate (0=const, 1=cos(t), 2=r^(-2))
 !    mdot          -- mass injection rate in grams/second
 !    npartperorbit -- particle injection rate in particles/binary orbit
 !    vlag          -- percentage lag in velocity of wind
-!    dndt_type     -- injection rate (0=const, 1=cos(t), 2=r^(-2))
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
+!  DEPENDENCIES: externalforces, infile_utils, io, options, part,
+!    partinject, physcon, random, units
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -221,7 +222,7 @@ function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
  end select
 
  dndt = dndt*scaling
- 
+
 end function dndt_func
 
 !-----------------------------------------------------------------------
@@ -362,13 +363,13 @@ real function get_E(period,ecc,deltat)
  M_guess = M_ref - 2.*tol
 
  do while (abs(M_ref - M_guess) > tol)
-   M_guess = E_guess - ecc*sin(E_guess)
-   if (M_guess > M_ref) then
-      E_right = E_guess
-   else
-      E_left = E_guess
-   endif
-   E_guess = 0.5*(E_left + E_right)
+    M_guess = E_guess - ecc*sin(E_guess)
+    if (M_guess > M_ref) then
+       E_right = E_guess
+    else
+       E_left = E_guess
+    endif
+    E_guess = 0.5*(E_left + E_right)
  enddo
 
  get_E = E_guess
