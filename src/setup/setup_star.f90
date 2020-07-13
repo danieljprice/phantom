@@ -83,7 +83,7 @@ module setup
  character(len=120) :: unsoftened_profile,densityfile,dens_profile
  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'random'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
