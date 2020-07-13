@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use inject,    only:inject_particles
  use eos,       only:gmw
  use options,   only:iexternalforce
+ use extern_lensethirring, only:blackhole_spin
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -160,6 +161,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    mass1                = m1
    accradius1           = hacc1
    iexternalforce       = 11
+   blackhole_spin       = 0.
    call update_externalforce(iexternalforce,time,0.)
 
    ! Orbit and position
