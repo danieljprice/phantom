@@ -135,6 +135,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
+ use domain,          only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -350,7 +351,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  psep        = vol_sphere**(1./3.)/real(nx)
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
-                 exactN=use_exactN,np_requested=np)
+                 exactN=use_exactN,np_requested=np,mask=i_belong)
  !
  ! add sink particle stellar core
  !
