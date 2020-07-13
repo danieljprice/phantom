@@ -33,7 +33,7 @@ module relaxstar
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
  real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
- integer, private :: maxits = 500
+ integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev
  integer, private :: ieos_prev
@@ -290,7 +290,7 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_en
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhor**(gamma-1.))/(gamma-1.)
+          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
        else
           vxyzu(4,i) = yinterp(utherm,r,ri)
        endif
