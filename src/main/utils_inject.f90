@@ -219,4 +219,43 @@ subroutine get_E(period,ecc,deltat,E)
 
 end subroutine get_E
 
+!-----------------------------------------------------------------------
+!+
+!  Calculate semi-major axis, ecc, ra and rp from radius(3), velocity(3)
+!  mass of central object and iexternalforce (for LT corrections)
+!+
+!-----------------------------------------------------------------------
+
+subroutine get_orbit_bits(vel,rad,m1,iexternalforce,semia,ecc,ra,rp)
+ real, intent(in)    :: m1, vel(3), rad(3)
+ integer, intent(in) :: iexternalforce
+ real, intent(out)   :: semia, ecc, ra, rp
+ real                :: speed, r, L_mag
+ real                :: spec_energy,L(3),term
+
+ L(1) = rad(2)*vel(3) - rad(3)*vel(2)
+ L(2) = rad(3)*vel(1) - rad(1)*vel(3)
+ L(3) = rad(1)*vel(2) - rad(2)*vel(1)
+ L_mag = sqrt(dot_product(L,L))
+
+ speed = sqrt(dot_product(vel,vel))
+ r = sqrt(dot_product(rad,rad))
+
+ spec_energy = 0.5*speed**2 - (1.0*m1/r)
+ term = 2.*spec_energy*L_mag**2/(m1**2)
+
+ if (iexternalforce == 11) then
+    spec_energy = spec_energy - (3.*m1/(r**2))
+    term = 2.*spec_energy*(L_mag**2 - 6.*m1**2)/(m1**2)
+ endif
+
+ semia     = -m1/(2.0*spec_energy)
+ ecc = sqrt(1.0 + term)
+
+ ra = semia*(1. + ecc)
+ rp = semia*(1. - ecc)
+
+end subroutine get_orbit_bits
+
+
 end module injectutils
