@@ -147,30 +147,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! point mass for the asteroid
 
  if (ipot == 0) then
-   !
-   !--Set a binary orbit given the desired orbital parameters
-   !
-   call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
-   xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
+    !
+    !--Set a binary orbit given the desired orbital parameters
+    !
+    call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+    xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
 
  else
 
-   !
-   !--Set the asteroid on orbit around the fixed potential
-   !
-   mass1                = m1
-   accradius1           = hacc1
-   iexternalforce       = 11
-   call update_externalforce(iexternalforce,time,0.)
+    !
+    !--Set the asteroid on orbit around the fixed potential
+    !
+    mass1                = m1
+    accradius1           = hacc1
+    iexternalforce       = 11
+    call update_externalforce(iexternalforce,time,0.)
 
-   ! Orbit and position
-   nptmass = 1
-   xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
-   vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
+    ! Orbit and position
+    nptmass = 1
+    xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
+    vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
 
-   xyzmh_ptmass(4,1)      = m2
-   xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
-   xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
+    xyzmh_ptmass(4,1)      = m2
+    xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
+    xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
  endif
 
  ! both        of these are reset in the first        call to        inject_particles
