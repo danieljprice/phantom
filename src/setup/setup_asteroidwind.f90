@@ -20,14 +20,15 @@
 !    eccentricity  -- eccentricity
 !    gastemp       -- gas temperature in K
 !    hacc1         -- white dwarf (sink) accretion radius (solar radii)
+!    ipot          -- wd modelled by sink (0) or externalforce(1)
 !    m1            -- mass of white dwarf (solar mass)
 !    m2            -- mass of asteroid (ceres mass)
 !    norbits       -- number of orbits
 !    rasteroid     -- radius of asteroid (km)
 !    semia         -- semi-major axis (solar radii)
 !
-!  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, setbinary,
-!    spherical, timestep, units
+!  DEPENDENCIES: eos, externalforces, infile_utils, inject, io, options,
+!    part, physcon, setbinary, spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -146,33 +147,33 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! point mass for the asteroid
 
  if (ipot == 0) then
-   !
-   !--Set a binary orbit given the desired orbital parameters
-   !
-   call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
-   xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
+    !
+    !--Set a binary orbit given the desired orbital parameters
+    !
+    call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+    xyzmh_ptmass(ihsoft,2) = rasteroid ! Asteroid radius softening
 
  else
 
-   !
-   !--Set the asteroid on orbit around the fixed potential
-   !
-   mass1                = m1
-   accradius1           = hacc1
-   iexternalforce       = 11
-   call update_externalforce(iexternalforce,time,0.)
+    !
+    !--Set the asteroid on orbit around the fixed potential
+    !
+    mass1                = m1
+    accradius1           = hacc1
+    iexternalforce       = 11
+    call update_externalforce(iexternalforce,time,0.)
 
-   ! Orbit and position
-   nptmass = 1
-   xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
-   vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
+    ! Orbit and position
+    nptmass = 1
+    xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
+    vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
 
-   xyzmh_ptmass(4,1)      = m2
-   xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
-   xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
- endif   
+    xyzmh_ptmass(4,1)      = m2
+    xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
+    xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
+ endif
 
- ! both	of these are reset in the first	call to	inject_particles
+ ! both        of these are reset in the first        call to        inject_particles
  massoftype(igas) = 1.0
  hfact = 1.2
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
