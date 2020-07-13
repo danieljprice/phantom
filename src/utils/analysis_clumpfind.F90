@@ -411,7 +411,7 @@ subroutine read_analysis_options(dumpfile)
     write(10,*) trim(dumpfile), "    Previous SPH dump analysed"
     close(10)
     previousdumpfile = ""
-    runningclumpmax  = ""
+    runningclumpmax  = 0
  endif
 
  if (checkbound) then
