@@ -470,14 +470,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           vxyzu(3,i) = 0.
 
           ! Move star to new primary position
-          xyzh(1,i) = xyzh(1,i) - primarycore_xpos_old +  newCoM
+          xyzh(1,i) = xyzh(1,i) - newCoM!primarycore_xpos_old - newCoM
        enddo
        if (icompanion_grav == 1) vxyz_ptmass(1:3,1) = 0.
 
-       ! Calculate softening length, hsoft, of companion gravity. Take hsoft to be 0.45*
+       ! Calculate softening length, hsoft, of companion gravity. Take hsoft to be 10% of
        ! the companion Roche radius, evaluated with Eggleton (1983)
        mass_ratio = companion_mass / mass_donor
-       hsoft = 0.45 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+       hsoft = 0.1 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
                log( 1 + mass_ratio**(1./3.) ) ) * separation
        print*,'Angular velocity of the corotating frame in code units is ',omega_corotate
        print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
