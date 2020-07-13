@@ -1116,31 +1116,25 @@ end subroutine calc_rec_ene
 !  pressure and density
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(ieos,mu,XX,YY,gamma,rho,pres,ene,temp,ierr)
+subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
- real, intent(in)      :: rho,pres,mu,gamma,XX,YY
- real, intent(inout)   :: ene,temp
- integer, intent(in)   :: ieos
- integer, intent(out)  :: ierr
- real                  :: e_rec
-
+ use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ real, intent(in)           :: rho,pres
+ real, intent(inout)        :: ene,temp
+ real, intent(in), optional :: guesseint
+ integer, intent(out)       :: ierr
+ 
  ierr = 0
  select case(ieos)
  case(2) ! Adiabatic/polytropic EoS
-    temp = pres / (rho * kb_on_mh) * mu
+    temp = pres / (rho * kb_on_mh) * gmw
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal plus rad. EoS
-    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
+    call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp)
+    call get_idealplusrad_enfromtemp(rho,temp,gmw,ene)
  case(10) ! MESA-like EoS
-    ! Approximate the temperature as that from ideal gas plus radiation
-    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
-
-    ! Calculate internal energy from gas and radiation, then add recombination energy
-    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
-    call calc_rec_ene(XX,YY,e_rec)
-    ene = ene + e_rec
+    call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case default
     ierr = 1
  end select

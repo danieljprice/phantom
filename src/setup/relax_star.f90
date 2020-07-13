@@ -33,7 +33,7 @@ module relaxstar
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
  real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
- integer, private :: maxits = 500
+ integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev
  integer, private :: ieos_prev
@@ -230,8 +230,8 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  integer, intent(in) :: npart
  real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real, intent(out)   :: dtmin
- real :: dx(3),dti,phi,rhoi,cs
- integer :: i
+ real :: dx(3),dti,phi,rhoi,cs,hi
+ integer :: i,nlargeshift
 !
 ! get forces on particles
 !
@@ -240,25 +240,33 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
 ! shift particles asynchronously
 !
  dtmin = huge(dtmin)
+ nlargeshift = 0
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,massoftype,ieos) &
- !$omp private(i,dx,dti,phi,cs,rhoi) &
- !$omp reduction(min:dtmin)
+ !$omp private(i,dx,dti,phi,cs,rhoi,hi) &
+ !$omp reduction(min:dtmin) &
+ !$omp reduction(+:nlargeshift)
  do i=1,npart
     fext(1:3,i) = 0.
     if (nptmass > 0) then
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fext(1,i),fext(2,i),fext(3,i),phi)
     endif
-    rhoi = rhoh(xyzh(4,i),massoftype(igas))
+    hi = xyzh(4,i)
+    rhoi = rhoh(hi,massoftype(igas))
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
-    dti = 0.3*xyzh(4,i)/cs   ! h/cs
+    dti = 0.3*hi/cs   ! h/cs
     dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
+    if (dot_product(dx,dx) > hi**2) then
+       dx = dx / sqrt(dot_product(dx,dx)) * hi  ! Avoid large shift in particle position
+       nlargeshift = nlargeshift + 1
+    endif
     xyzh(1:3,i) = xyzh(1:3,i) + dx(:)
     vxyzu(1:3,i) = dx(:)/dti ! fake velocities, so we can measure kinetic energy
     dtmin = min(dtmin,dti)   ! used to print a "time" in the output (but it is fake)
  enddo
  !$omp end parallel do
+ if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
 
 end subroutine shift_particles
 
@@ -290,7 +298,7 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_en
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhor**(gamma-1.))/(gamma-1.)
+          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
        else
           vxyzu(4,i) = yinterp(utherm,r,ri)
        endif

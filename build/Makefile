@@ -864,10 +864,11 @@ endif
 
 ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
-    FPPFLAGS= -DPERIODIC -DGRAVITY
     SETUPFILE= setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
     ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
+    PERIODIC=yes
+    GRAVITY=yes
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
@@ -963,7 +964,7 @@ endif
 
 ifeq ($(SETUP), testgrav)
 #   self-gravity unit tests
-    FPPFLAGS= -DGRAVITY
+    GRAVITY=yes
     KNOWN_SETUP=yes
     CONST_ARTRES=yes
     CURLV=yes
@@ -1162,7 +1163,7 @@ ifeq ($(SYSTEM),xc40)
 #massively copied from the Daint system
     include Makefile_defaults_ifort
     FC=ftn
-    FFLAGS+= -heap-arrays
+    FFLAGS+= -heap-arrays -dynamic
     KNOWN_SYSTEM=yes
     CC = cc
     QSYS = slurm

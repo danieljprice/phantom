@@ -48,7 +48,7 @@
 !    ui_coef            -- specific internal energy (units of GM/R)
 !    unsoftened_profile -- Path to MESA profile for softening
 !    use_exactN         -- find closest particle number to np
-!    write_rho_to_file  -- write density profile to
+!    write_rho_to_file  -- write density profile to file
 !
 !  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
 !    extern_densprofile, externalforces, infile_utils, io, kernel, options,
@@ -135,6 +135,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use relaxstar,       only:relax_star
+ use domain,          only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -309,9 +310,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
 
-       call set_softened_core(ieos,gamma,X_in,Y_in,gmw,mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+       call init_eos(ieos,ierr)
+       call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
        if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
-       !if (ierr==2) call fatal('setup','Xfrac and Yfrac not provided to set_softened_core for ieos=10 (MESA EoS)')
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
@@ -350,7 +351,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  psep        = vol_sphere**(1./3.)/real(nx)
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
-                 exactN=use_exactN,np_requested=np)
+                 exactN=use_exactN,np_requested=np,mask=i_belong)
  !
  ! add sink particle stellar core
  !
@@ -371,7 +372,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
- call init_eos(ieos,ierr)
  if (relax_star_in_setup) then
     if (nstar==npart) then
        call relax_star(npts,den,pres,r,npart,xyzh)
@@ -732,8 +732,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
  if (relax_star_in_setup) call write_options_relax(iunit)
 
- call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to '// &
-                  trim(dens_profile),iunit)
+ call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to file',iunit)
 
  close(iunit)
 
