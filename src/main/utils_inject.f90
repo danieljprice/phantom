@@ -183,4 +183,40 @@ subroutine make_rotation_matrix(rotation_angles, rot_m)
 
 end subroutine make_rotation_matrix
 
+!---------------------------------------------------------------
+!+
+! Get eccentric anomaly (this function uses bisection,
+! as opposed to the one in set_binary, to guarantee convergence)
+!+
+!---------------------------------------------------------------
+subroutine get_E(period,ecc,deltat,E)
+ real, intent(in)  :: period,ecc,deltat
+ real, intent(out) :: E
+ real :: mu,M_ref,M_guess
+ real :: E_left,E_right,E_guess
+ real, parameter :: tol = 1.e-10
+
+ mu = 2.*pi/period
+ M_ref = mu*deltat ! mean anomaly
+
+ ! first guess
+ E_left = 0.
+ E_right = 2.*pi
+ E_guess = pi
+ M_guess = M_ref - 2.*tol
+
+ do while (abs(M_ref - M_guess) > tol)
+   M_guess = E_guess - ecc*sin(E_guess)
+   if (M_guess > M_ref) then
+      E_right = E_guess
+   else
+      E_left = E_guess
+   endif
+   E_guess = 0.5*(E_left + E_right)
+ enddo
+
+ E = E_guess
+
+end subroutine get_E
+
 end module injectutils
