@@ -20,14 +20,15 @@
 !    eccentricity  -- eccentricity
 !    gastemp       -- gas temperature in K
 !    hacc1         -- white dwarf (sink) accretion radius (solar radii)
+!    ipot          -- wd modelled by sink (0) or externalforce(1)
 !    m1            -- mass of white dwarf (solar mass)
 !    m2            -- mass of asteroid (ceres mass)
 !    norbits       -- number of orbits
 !    rasteroid     -- radius of asteroid (km)
 !    semia         -- semi-major axis (solar radii)
 !
-!  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, setbinary,
-!    spherical, timestep, units
+!  DEPENDENCIES: eos, externalforces, infile_utils, inject, io, options,
+!    part, physcon, setbinary, spherical, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
