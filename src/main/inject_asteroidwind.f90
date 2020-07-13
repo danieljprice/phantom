@@ -11,17 +11,18 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: David Liptai
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
 !  RUNTIME PARAMETERS:
+!    dndt_type     -- injection rate (0=const, 1=cos(t), 2=r^(-2))
 !    mdot          -- mass injection rate in grams/second
 !    npartperorbit -- particle injection rate in particles/binary orbit
 !    vlag          -- percentage lag in velocity of wind
-!    dndt_type     -- injection rate (0=const, 1=cos(t), 2=r^(-2))
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
+!  DEPENDENCIES: externalforces, infile_utils, io, options, part,
+!    partinject, physcon, random, units
 !+
 !--------------------------------------------------------------------------
 module inject
