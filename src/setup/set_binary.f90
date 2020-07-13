@@ -57,6 +57,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
+ use injectutils, only:get_E
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -152,7 +153,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
        tperi = 0.5*period ! time since periastron: half period = apastron
 
        ! Solve Kepler equation for eccentric anomaly
-       E = get_E(period,eccentricity,tperi)
+       call get_E(period,eccentricity,tperi,E)
     endif
 
     ! Positions in plane (Thiele-Innes elements)
@@ -272,36 +273,6 @@ pure subroutine rotate(xyz,cosi,sini)
  xyz(3) = -xi*sini + zi*cosi
 
 end subroutine rotate
-
-!--------------------------------
-! Solve Kepler's equation for the
-! Eccentric anomaly by iteration
-!--------------------------------
-real function get_E(period,ecc,deltat)
- real, intent(in) :: period,ecc,deltat
- real :: mu,M,E0,M0,E
- real, parameter :: tol = 1.e-10
-
- mu = 2.*pi/period
- M = mu*deltat ! mean anomaly
- ! first guess
- if (M > tiny(M)) then
-    E = M + ecc*sin(M) + ecc**2/M*sin(2.*M)
- else
-    E = M
- endif
- E0 = E + 2.*tol
-
- do while (abs(E - E0) > tol)
-    E0 = E
-    M0 = M
-    M = E - ecc*sin(E)
-    E = E + (M - M0)/(1. - ecc*cos(E))
- enddo
-
- get_E = E
-
-end function get_E
 
 !------------------------------------
 ! Compute estimate of the Roche Lobe

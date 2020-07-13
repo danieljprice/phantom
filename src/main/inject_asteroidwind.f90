@@ -34,11 +34,11 @@ module inject
 
  private
 
- real       :: mdot          = 5.e8       ! mass injection rate in grams/second
- real       :: npartperorbit = 100.       ! particle injection rate in particles per orbit
- real       :: vlag          = 0.1        ! percentage lag in velocity of wind
- integer    :: dndt_type     = 0          ! injection rate (0=const, 1=cos(t), 2=r^(-2))
- real,save  :: dndt_scaling               ! scaling to get ninject correct
+ real         :: mdot          = 5.e8     ! mass injection rate in grams/second
+ real         :: npartperorbit = 100.     ! particle injection rate in particles per orbit
+ real         :: vlag          = 0.1      ! percentage lag in velocity of wind
+ integer      :: dndt_type     = 0        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
+ real,save    :: dndt_scaling             ! scaling to get ninject correct
  logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
@@ -63,13 +63,13 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
- use io,        only:fatal
- use part,      only:nptmass,massoftype,igas,hfact,ihsoft
- use partinject,only:add_or_update_particle
- use physcon,   only:twopi,gg,kboltz,mass_proton_cgs
- use random,    only:ran2
- use units,     only:udist, umass, utime
- use options,   only:iexternalforce
+ use io,            only:fatal
+ use part,          only:nptmass,massoftype,igas,hfact,ihsoft
+ use partinject,    only:add_or_update_particle
+ use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
+ use random,        only:ran2
+ use units,         only:udist, umass, utime
+ use options,       only:iexternalforce
  use externalforces,only:mass1
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -264,6 +264,7 @@ end subroutine integrate_it
 !-----------------------------------------------------------------------
 
 subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
+ use injectutils, only:get_E
  real, intent(in)    :: t_start, t_end,ra,rp,ecc,semia
  integer, intent(out)   :: integral
  integer :: ii, nint
@@ -276,14 +277,14 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
  t_int = t_start
 
  ! set up for first step
- E = get_E(1.0,ecc,0.0)
+ call get_E(1.0,ecc,0.0,E)
  theta = atan2(sqrt(1.-ecc**2)*sin(E),(cos(E) - ecc))
  r_new = semia*(1. - ecc**2)/(1. + ecc*cos(theta))
  ya = dndt_func(0.,r_new,ra,rp,ecc,dndt_scaling)
 
  do ii = 1,nint
 
-    E = get_E(1.0,ecc,t_int)
+    call get_E(1.0,ecc,t_int,E)
 
     numer = sqrt(1. - ecc**2)*sin(E)
     denom = cos(E) - ecc
@@ -339,41 +340,6 @@ subroutine get_orbit_bits(vel,rad,m1,iexternalforce,semia,ecc,ra,rp)
  rp = semia*(1. - ecc)
 
 end subroutine get_orbit_bits
-
-!--------------------------------
-!+
-! Get eccentric anomaly (this function uses bisection,
-! as opposed to the one in set_binary, to guarantee convergence)
-!+
-!--------------------------------
-real function get_E(period,ecc,deltat)
- real, intent(in) :: period,ecc,deltat
- real :: mu,M_ref,M_guess
- real :: E_left,E_right,E_guess
- real, parameter :: tol = 1.e-10
-
- mu = 2.*pi/period
- M_ref = mu*deltat ! mean anomaly
-
- ! first guess
- E_left = 0.
- E_right = 2.*pi
- E_guess = pi
- M_guess = M_ref - 2.*tol
-
- do while (abs(M_ref - M_guess) > tol)
-   M_guess = E_guess - ecc*sin(E_guess)
-   if (M_guess > M_ref) then
-      E_right = E_guess
-   else
-      E_left = E_guess
-   endif
-   E_guess = 0.5*(E_left + E_right)
- enddo
-
- get_E = E_guess
-
-end function get_E
 
 !-----------------------------------------------------------------------
 !+
