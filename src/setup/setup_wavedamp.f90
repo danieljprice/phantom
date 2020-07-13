@@ -35,8 +35,9 @@
 !    viscoff   -- Using no viscosity (F: using viscosity
 !    vx_vz     -- Using velocity in x (F: initialise in z)
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, nicil, options,
-!    part, physcon, prompting, setup_params, timestep, unifdis, units
+!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, mpiutils, nicil,
+!    options, part, physcon, prompting, setup_params, timestep, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup

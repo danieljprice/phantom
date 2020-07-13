@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: extern_corotate, externalforces, io, part, physcon,
-!    testutils, unifdis, units
+!  DEPENDENCIES: domain, extern_corotate, externalforces, io, part,
+!    physcon, testutils, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module testexternf

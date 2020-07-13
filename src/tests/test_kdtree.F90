@@ -20,8 +20,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, io, kdtree, kernel, linklist, part, testutils,
-!    timing, unifdis
+!  DEPENDENCIES: dim, domain, io, kdtree, kernel, linklist, part,
+!    testutils, timing, unifdis
 !+
 !--------------------------------------------------------------------------
 module testkdtree

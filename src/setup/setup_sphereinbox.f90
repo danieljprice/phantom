@@ -30,7 +30,7 @@
 !    form_binary      -- the intent is to form a central binary
 !    mass_unit        -- mass unit (e.g. solarm)
 !    masstoflux       -- mass-to-magnetic flux ratio in units of critical value
-!    np               -- actual number of particles in sphere
+!    np               -- requested number of particles in sphere
 !    pmass_dusttogas  -- dust-to-gas particle mass ratio
 !    r_sphere         -- radius of sphere in code units
 !    rho_cen_cgs      -- central density of the BE sphere (will override radius)
@@ -38,8 +38,8 @@
 !    totmass_sphere   -- mass of sphere in code units
 !    use_BE_sphere    -- centrally condense as a BE sphere
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
-!    kernel, options, part, physcon, prompting, ptmass, rho_profile,
+!  DEPENDENCIES: boundary, centreofmass, dim, domain, eos, infile_utils,
+!    io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
 !    setup_params, spherical, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------

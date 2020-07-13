@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: extern_neutronstar
+!  MODULE: extern_densprofile
 !
 !  DESCRIPTION:
 !    This module contains routines relating to the computation

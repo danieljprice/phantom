@@ -45,8 +45,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real :: vx2,vy2,vz2,rhoi,rmsv
  real :: rhomean, rho(maxp), hi, pmassi
 
- rhomin = huge(rhomin)
- rhomax = 0.
+ rho     = 0.
+ rhomin  = huge(rhomin)
+ rhomax  = 0.
  rhomean = 0.
  totmass = 0.
  print*,'hfact = ',hfact
