@@ -71,6 +71,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,         only:udist, umass, utime
  use options,       only:iexternalforce
  use externalforces,only:mass1
+ use injectutils,   only:get_orbit_bits
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
@@ -145,7 +146,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     t_old = mod(time*0.99,period)/period
     have_injected = npartoftype(igas)
     if (time < tiny(time)) have_injected = 0.
-    func_old = dndt_func(t_old,r,ra,rp,ecc,dndt_scaling)
+    func_old = dndt_func(t_old,r,ra,rp,ecc)
 
     ! Save these values for future
     scaling_set = .true.
@@ -163,7 +164,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (dt < 0.) dt = dt + 1.0 !if it's just ticked over to the next orbit
 
     ! Just trapezoidal rule between the previous step and this one
-    func_now = dndt_func(mod_time,r,ra,rp,ecc,dndt_scaling)
+    func_now = dndt_func(mod_time,r,ra,rp,ecc)
     inject_this_step = 0.5*dt*(func_old + func_now)
 
     npinject = max(0, int(0.5 + have_injected + inject_this_step - npartoftype(igas) ))
@@ -203,8 +204,8 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 
-function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
- real, intent(in)    :: t,scaling,ra,rp,ecc,r
+function dndt_func(t,r,ra,rp,ecc) result(dndt)
+ real, intent(in) :: t,ra,rp,ecc,r
 
  real :: dndt
 
@@ -220,7 +221,7 @@ function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
     dndt = 0.
  end select
 
- dndt = dndt*scaling
+ dndt = dndt*dndt_scaling
  
 end function dndt_func
 
@@ -243,8 +244,8 @@ subroutine integrate_it(t_start,t_end,ra,rp,ecc,integral)
  t_int = t_start
 
  do ii = 1,nint
-    ya = dndt_func(t_int,1.,ra,rp,ecc,dndt_scaling)
-    yb = dndt_func(t_int+dt,1.,ra,rp,ecc,dndt_scaling)
+    ya = dndt_func(t_int,1.,ra,rp,ecc)
+    yb = dndt_func(t_int+dt,1.,ra,rp,ecc)
 
     re_integral = re_integral + dt*0.5*(ya + yb)
 
@@ -280,7 +281,7 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
  call get_E(1.0,ecc,0.0,E)
  theta = atan2(sqrt(1.-ecc**2)*sin(E),(cos(E) - ecc))
  r_new = semia*(1. - ecc**2)/(1. + ecc*cos(theta))
- ya = dndt_func(0.,r_new,ra,rp,ecc,dndt_scaling)
+ ya = dndt_func(0.,r_new,ra,rp,ecc)
 
  do ii = 1,nint
 
@@ -292,7 +293,7 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
 
     r_new = semia*(1. - ecc**2)/(1. + ecc*cos(theta))
 
-    yb = dndt_func(t_int+dt,r_new,ra,rp,ecc,dndt_scaling)
+    yb = dndt_func(t_int+dt,r_new,ra,rp,ecc)
 
     re_integral = re_integral + dt*0.5*(ya + yb)
 
@@ -303,43 +304,6 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
  integral = int(0.5 + re_integral)
 
 end subroutine integrate_it_with_r
-
-!-----------------------------------------------------------------------
-!+
-!  Calculate the orbital parameters from available info
-!+
-!-----------------------------------------------------------------------
-
-subroutine get_orbit_bits(vel,rad,m1,iexternalforce,semia,ecc,ra,rp)
- real, intent(in)    :: m1, vel(3), rad(3)
- integer, intent(in) :: iexternalforce
- real, intent(out)   :: semia, ecc, ra, rp
- real                :: speed, r, L_mag
- real                :: spec_energy,L(3),term
-
- L(1) = rad(2)*vel(3) - rad(3)*vel(2)
- L(2) = rad(3)*vel(1) - rad(1)*vel(3)
- L(3) = rad(1)*vel(2) - rad(2)*vel(1)
- L_mag = sqrt(dot_product(L,L))
-
- speed = sqrt(dot_product(vel,vel))
- r = sqrt(dot_product(rad,rad))
-
- spec_energy = 0.5*speed**2 - (1.0*m1/r)
- term = 2.*spec_energy*L_mag**2/(m1**2)
-
- if (iexternalforce == 11) then
-    spec_energy = spec_energy - (3.*m1/(r**2))
-    term = 2.*spec_energy*(L_mag**2 - 6.*m1**2)/(m1**2)
- endif
-
- semia     = -m1/(2.0*spec_energy)
- ecc = sqrt(1.0 + term)
-
- ra = semia*(1. + ecc)
- rp = semia*(1. - ecc)
-
-end subroutine get_orbit_bits
 
 !-----------------------------------------------------------------------
 !+
