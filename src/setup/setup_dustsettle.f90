@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, externalforces, io, mpiutils,
+!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, io, mpiutils,
 !    options, part, physcon, prompting, set_dust, setup_params,
 !    table_utils, timestep, unifdis, units
 !+

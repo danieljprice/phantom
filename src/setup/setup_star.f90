@@ -27,11 +27,11 @@
 !
 !  RUNTIME PARAMETERS:
 !    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar_1            -- mass of star
-!    Rstar_1            -- radius of star
+!    Mstar              -- mass of star
+!    Rstar              -- radius of star
 !    densityfile        -- File containing data for stellar profile
 !    dist_unit          -- distance unit (e.g. au)
-!    gamma              -- adiabatic index
+!    gamma              -- Adiabatic index
 !    hdens              -- Radius of core softening
 !    hsoft              -- Softening length of sink particle stellar core
 !    ieos               -- 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
@@ -43,10 +43,12 @@
 !    mcore              -- Mass of sink particle stellar core
 !    np                 -- approx number of particles (in box of size 2R)
 !    outputfilename     -- Output path for softened MESA profile
-!    polyk              -- sound speed .or. constant in EOS
+!    polyk              -- polytropic constant (cs^2 if isothermal)
 !    relax_star         -- relax star automatically during setup
 !    ui_coef            -- specific internal energy (units of GM/R)
 !    unsoftened_profile -- Path to MESA profile for softening
+!    use_exactN         -- find closest particle number to np
+!    write_rho_to_file  -- write density profile to
 !
 !  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
 !    extern_densprofile, externalforces, infile_utils, io, kernel, options,
@@ -471,9 +473,8 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
  ierr = 0
  ! Select sphere & set default values
- write(*,*)
  do i = 1, nprofile_opts
-    write(*,"(a5,i2,1x,a48)") 'Case ', i, profile_opt(i)
+    write(*,"(i2,')',1x,a)") i, profile_opt(i)
  enddo
 
  call prompt('Enter which density profile to use',iprofile,1,nprofile_opts)
@@ -692,7 +693,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(EOSopt,'EOSopt','EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)',iunit)
  case(2)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if (maxvxyzu < 4 .and. input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
+    if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  end select
@@ -730,8 +731,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  call write_inopt(relax_star_in_setup,'relax_star','relax star automatically during setup',iunit)
  if (relax_star_in_setup) call write_options_relax(iunit)
 
- call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to '// &
-                  trim(dens_profile),iunit)
+ call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile to file',iunit)
 
  close(iunit)
 

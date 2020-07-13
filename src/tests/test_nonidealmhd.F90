@@ -24,8 +24,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, nicil,
-!    options, part, physcon, step_lf_global, testutils, timestep,
+!  DEPENDENCIES: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!    nicil, options, part, physcon, step_lf_global, testutils, timestep,
 !    timestep_sts, unifdis, units
 !+
 !--------------------------------------------------------------------------
@@ -402,7 +402,7 @@ subroutine test_standingshock(ntests,npass)
  gamma    =  1.0
  dt       =  2.0d-3
  nsteps   =  500
- t        =  0
+ t        =  0.
  iverbose =  0
  tmax     = nsteps*dt
  eta_const_type           = icnstsemi
@@ -610,10 +610,10 @@ subroutine test_etaval(ntests,npass)
  ion_rays     = .true.
  ion_thermal  = .true.
  use_sts      = .false.
- itmp  = 1 ! avoids compiler warning
+ itmp         = 1 ! avoids compiler warning
 
  ! initialise eos, & the Nicil library
- call init_eos(8,ierr)
+ call init_eos(ieos,ierr)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  !--Loop over both sets of calculations
@@ -649,8 +649,8 @@ subroutine test_etaval(ntests,npass)
     tempi = get_temperature(ieos,xyzh(1:3,itmp),rhoi,vxyzu(:,itmp))
 
     print*, ' '
-    write(*,'(1x,a,3Es18.11)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
-    write(*,'(1x,a,3Es18.11)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
+    write(*,'(1x,a,3Es18.10)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
+    write(*,'(1x,a,3Es18.10)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
     call checkval(eta_nimhd(iohm, itmp)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
     call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')

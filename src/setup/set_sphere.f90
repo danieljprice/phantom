@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, physcon, prompting, stretchmap, unifdis
+!  DEPENDENCIES: stretchmap, unifdis
 !+
 !--------------------------------------------------------------------------
 module spherical
