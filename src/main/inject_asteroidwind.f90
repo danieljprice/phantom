@@ -222,7 +222,7 @@ function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
  end select
 
  dndt = dndt*scaling
- 
+
 end function dndt_func
 
 !-----------------------------------------------------------------------
