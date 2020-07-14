@@ -1418,7 +1418,7 @@ endif
  ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
- ! Note: All forces adhere to the convention of being positive when directed along the component direction 
+ ! Note: All forces adhere to the convention of being positive when directed along the component direction
  columns = (/'   par. drag', & ! Total parallel gravitational force acting on sink from direct summation
              '  perp. drag', & ! Total perpendicular gravitational force acting on sink from direct summation
              '    from dJz', & ! torque / r of sink
