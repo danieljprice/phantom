@@ -416,7 +416,7 @@ subroutine write_evlog(iprint)
                          use_dust,maxdusttypes,do_radiation,particles_are_injected
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
- use part,          only:npart,nptmass,ndusttypes
+ use part,          only:nptmass,ndusttypes
  use viscosity,     only:irealvisc,shearparam
  use boundary,      only:dxbound,dybound,dzbound
  use units,         only:unit_density
