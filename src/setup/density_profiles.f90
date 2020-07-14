@@ -512,15 +512,36 @@ end subroutine read_mesa
 !  used in star setup to write softened stellar profile.
 !+
 !----------------------------------------------------------------
-subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
- real,             intent(in) :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- character(len=*), intent(in) :: outputpath
- integer                      :: i,iu
+subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)
+ real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
+ real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
+ character(len=120), intent(in)  :: outputpath
+ integer                         :: i
 
- open(newunit=iu, file = outputpath, status = 'new')
- write(iu,"(a)") '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
- write(iu,"(6(es13.7,2x))") (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
- close(iu)
+ open(1, file = outputpath, status = 'new')
+
+ if (present(Xfrac) .and. present(Yfrac)) then
+    if (present(csound)) then
+       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+                      &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
+       write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
+       101 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
+       2x,es13.7,2x,es13.7)
+    else
+       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+                      &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
+       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
+       102 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
+       2x,es13.7)
+    endif
+ else
+    write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+                   &[  Density  ]  [   E_int   ]'
+    write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
+    103 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7)
+ endif
+
+ close(1, status = 'keep')
 
 end subroutine write_softened_profile
 
