@@ -24,9 +24,10 @@
 !--------------------------------------------------------------------------
 
 module analysis
-
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
- use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,unit_pressure,unit_velocity,unit_Bfield,unit_energ
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
+                        rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
+ use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,&
+                        unit_pressure,unit_velocity,unit_Bfield,unit_energ
  use physcon,      only:gg,pi,c,kb_on_mh
  use prompting,    only:prompt
  use centreofmass, only:get_centreofmass, reset_centreofmass
@@ -34,9 +35,11 @@ module analysis
  use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
  use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,get_spsound
- use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa, get_eos_various_mesa,get_eos_pressure_gamma1_mesa
+ use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
+                        get_eos_various_mesa,get_eos_pressure_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
  use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
+ use table_utils,  only:logspace
  implicit none
  character(len=20), parameter, public :: analysistype = 'common_envelope'
  integer                              :: analysis_to_perform
@@ -1392,31 +1395,44 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp, &
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp, &
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere
- real                                  :: vel_contrast,sep,Jdot,R2,Rsphere,cs_in_sphere, &
+ real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere, &
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi, &
                                           fzi,phii,phitot,dtsinksink
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
+ logical                               :: iacc
 
  ! OPTIONS
  ieos = 2 ! Do not hard-code in the future
 
- ncols = 21
+ write(*,"(a,i2)") 'Assumming ieos = ',ieos
+ if ( xyzmh_ptmass(ihacc,2) > 0 ) then
+   write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
+   write(*,"(a)") 'Will analyse accretion'
+   iacc = .true.
+ else
+   write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
+   iacc = .false.
+endif
+
+ ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
- columns = (/'   par. num.', & ! Parallel component of gravitational drag from direct summation
-             '  perp. num.', & ! Perpendicular component of gravitational drag from direct summation
-             '    from dJz', & ! torque / r of sink (note: this is not the same as the parallel force on the sink)
-             '  analytical', & ! Gravitational drag from Bondi-Hoyle theory
+ ! Note: All forces adhere to the convention of being positive when directed along the component direction 
+ columns = (/'   par. drag', & ! Total parallel gravitational force acting on sink from direct summation
+             '  perp. drag', & ! Total perpendicular gravitational force acting on sink from direct summation
+             '    from dJz', & ! torque / r of sink
+             '    BHL drag', & ! Gravitational drag calculated as Mdot * velocity contrast (see Bondi Mdot)
+             '  Bondi Mdot', & ! Mass accretion rate from Bondi (1952) with Shima et al. (1985) factor of 2
              'vel contrast', & ! Positive (negative) when sink speed is larger (smaller) than average gas parallel velocity
              'par. v. con.', & ! Parallel velocity contrast
              'per. v. con.', & ! Perpendicular velocity contrast
              ' sound speed', &
              ' rho at sink', &
-             '        racc', & ! Hoyle-Lyttleton radius
+             '        racc', & ! Bondi-Hoyle-Lyttleton radius??
              'com-sink sep', &
-             '   par cut 1', & ! Same as 'par. num.', but limited to particles within some radius from the sink
-             '  perp cut 1', & ! Same as 'perp. num.', but limited to particles within some radius from the sink
+             '   par cut 1', & ! Same as 'par. drag', but limited to particles within some radius from the sink
+             '  perp cut 1', & ! Same as 'perp. drag', but limited to particles within some radius from the sink
              '   par cut 2', &
              '  perp cut 2', &
              '   par cut 3', &
@@ -1444,19 +1460,15 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
     call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
 
-    ! Calculate z-angular momentum of the sink about the orbital CoM in first dump that is analysed
-
     ! Calculate orbit CoM by calculating the CoM of the stellar cores plus with the inclusion
     ! of a number of particles around the primary.
-
     call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
-
+    ! Calculate z-angular momentum of the sink about the orbital CoM in first dump that is analysed
     if (dump_number == 0) then
-       if (i == 1) then
-          ! The if statements ensure these are only allocated once throughout the analysis
-          allocate(ang_mom_old(nptmass))
-          allocate(time_old(nptmass))
-       endif
+      if (i == 1) then ! Ensures only allocated once throughout the analysis
+         allocate(ang_mom_old(nptmass))
+         allocate(time_old(nptmass))
+      endif
        pos_wrt_CM = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
        vel_wrt_CM = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
        call cross(pos_wrt_CM, xyzmh_ptmass(4,i) * vel_wrt_CM, ang_mom)
@@ -1497,7 +1509,8 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
                                 separation( vxyz_ptmass(1:3,i), avg_vel_par(1:3) ) )
        cs                = cs_in_sphere / float(npart_insphere)
        rho_avg           = mass_in_sphere / (4./3. * dacos(-1.) * Rsphere**3)
-       racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Hoyle-Lyttleton radius
+       racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Hoyle-Lyttleton radius???
+       mdot              = 4*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! Bondi mass accretion rate
     endif
 
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
@@ -1507,24 +1520,25 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
-    call write_array_grid(0.2,2.6,Rcut)
+    call logspace(Rcut,0.2,2.6)
 
     do k = 1,sizeRcut
        if (Rcut(k) > 1.) force_cut_vec(:,:,k) = fxyz_ptmass(:,:) ! Include force due to other sink if R > separation
     enddo
 
+    !Rcut = Rcut * racc
     Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
     do j = 1,npart
-       if (.not. isdead_or_accreted(xyzh(4,j))) then
-          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
-          do k = 1,sizeRcut
-             if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
-                call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
-             endif
-          enddo
-       endif
+        if (.not. isdead_or_accreted(xyzh(4,j))) then
+            call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+                                    fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
+            do k = 1,sizeRcut
+                if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
+                    call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+                                            fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
+                endif
+            enddo
+        endif
     enddo
     call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
 
@@ -1540,24 +1554,26 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(1,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel)       * xyzmh_ptmass(4,i)
     drag_force(2,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel_perp)  * xyzmh_ptmass(4,i)
     drag_force(3,i)  = Jdot / R2
-    drag_force(4,i)  = - rho_avg * (vel_contrast * abs(vel_contrast)) * pi * racc**2
-    drag_force(5,i)  = vel_contrast
-    drag_force(6,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
-    drag_force(7,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
-    drag_force(8,i)  = cs
-    drag_force(9,i)  = rho_avg
-    drag_force(10,i) = racc
-    drag_force(11,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-    drag_force(12,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(13,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(14,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(15,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(16,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(17,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(18,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(19,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(20,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(21,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(4,i)  = mdot * vel_contrast
+    !drag_force(4,i)  = - rho_avg * (vel_contrast * abs(vel_contrast)) * pi * racc**2
+    drag_force(5,i)  = mdot
+    drag_force(6,i)  = vel_contrast
+    drag_force(7,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
+    drag_force(8,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
+    drag_force(9,i)  = cs
+    drag_force(10,i)  = rho_avg
+    drag_force(11,i) = racc
+    drag_force(12,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+    drag_force(13,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(14,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(15,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(16,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(17,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(18,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(19,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(20,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(21,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel)      * xyzmh_ptmass(4,i)
+    drag_force(22,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel_perp) * xyzmh_ptmass(4,i)
 
     ! Write to output
     write (filename, "(A16,I0)") "sink_drag_", i
@@ -1768,7 +1784,6 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
  com_xyz(3) = sum(xyzmh_ptmass(3,:))/nptmass
  call set_r2func_origin(com_xyz(1),com_xyz(2),com_xyz(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
  ! Displacement of donor core from the CoM of point masses
  sep = separation(xyzmh_ptmass(1:3,1),com_xyz(1:3))
 
@@ -2084,35 +2099,5 @@ subroutine minv (M, M_inv)
  return
 
 end subroutine minv
-
-subroutine write_array_grid(minval,maxval,array)
- real, intent(in)  :: minval,maxval
- real, intent(out) :: array(:)
- real              :: width
- integer           :: i
-
- width = (maxval - minval) / size(array)
- array(1) = minval
-
- do i = 2,size(array)
-    array(i) = array(i-1) + width
- enddo
-
-end subroutine write_array_grid
-
- !----------------------------------------------------------------
- !+
- !  Finds index of the array value closest to a given value for an
- !  ordered array
- !+
- !----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
- real, intent(in)     :: array(:)
- real, intent(in)     :: value
- integer, intent(out) :: valueidx
-
- valueidx = minloc(abs(array - value), dim = 1)
-
-end subroutine interpolator
 
 end module
