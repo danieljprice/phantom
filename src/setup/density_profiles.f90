@@ -513,14 +513,15 @@ end subroutine read_mesa
 !+
 !----------------------------------------------------------------
 subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene)
- real, allocatable               :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- character(len=120), intent(in)  :: outputpath
- integer                         :: i
- open(1, file = outputpath, status = 'new')
- write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
- write(1,42) (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
-42 format (es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7, 2x, es13.7)
- close(1, status = 'keep')
+ real,             intent(in) :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
+ character(len=*), intent(in) :: outputpath
+ integer                      :: i,iu
+
+ open(newunit=iu, file = outputpath, status = 'new')
+ write(iu,"(a)") '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
+ write(iu,"(6(es13.7,2x))") (m(i), pres(i), temp(i), r(i), rho(i), ene(i), i = 1, size(r))
+ close(iu)
+
 end subroutine write_softened_profile
 
 !-----------------------------------------------------------------------
