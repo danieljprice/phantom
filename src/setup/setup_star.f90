@@ -50,7 +50,7 @@
 !    use_exactN         -- find closest particle number to np
 !    write_rho_to_file  -- write density profile to file
 !
-!  DEPENDENCIES: centreofmass, dim, eos, eos_idealplusrad,
+!  DEPENDENCIES: centreofmass, dim, domain, eos, eos_idealplusrad,
 !    extern_densprofile, externalforces, infile_utils, io, kernel, options,
 !    part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
 !    setstellarcore, setup_params, spherical, table_utils, timestep, units
