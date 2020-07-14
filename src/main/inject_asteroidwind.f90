@@ -22,7 +22,7 @@
 !    vlag          -- percentage lag in velocity of wind
 !
 !  DEPENDENCIES: externalforces, infile_utils, io, options, part,
-!    partinject, physcon, random, units
+!    partinject, physcon, random, units, binaryutils
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -72,7 +72,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use units,         only:udist, umass, utime
  use options,       only:iexternalforce
  use externalforces,only:mass1
- use injectutils,   only:get_orbit_bits
+ use binaryutils,   only:get_orbit_bits
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
@@ -266,7 +266,7 @@ end subroutine integrate_it
 !-----------------------------------------------------------------------
 
 subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
- use injectutils, only:get_E
+ use binaryutils, only:get_E
  real, intent(in)    :: t_start, t_end,ra,rp,ecc,semia
  integer, intent(out)   :: integral
  integer :: ii, nint
@@ -318,7 +318,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot         ,'mdot'         ,'mass injection rate in grams/second'              ,iunit)
  call write_inopt(npartperorbit,'npartperorbit','particle injection rate in particles/binary orbit',iunit)
  call write_inopt(vlag         ,'vlag'         ,'percentage lag in velocity of wind'               ,iunit)
- call write_inopt(dndt_type    ,'dndt_type'    ,'injection rate (0=const, 1=cos(t), 2=r^(-2))'    ,iunit)
+ call write_inopt(dndt_type    ,'dndt_type'    ,'injection rate (0=const, 1=cos(t), 2=r^(-2))'     ,iunit)
 
 end subroutine write_options_inject
 
