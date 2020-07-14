@@ -21,7 +21,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, eos_idealplusrad, physcon, table_utils
+!  DEPENDENCIES: eos, physcon, table_utils
 !+
 !--------------------------------------------------------------------------
 module setsoftenedcore

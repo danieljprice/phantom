@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: centreofmass, energies, eos, eos_mesa, kernel, part,
-!    physcon, prompting, ptmass, setbinary, sortutils, units
+!    physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
 !+
 !--------------------------------------------------------------------------
 
