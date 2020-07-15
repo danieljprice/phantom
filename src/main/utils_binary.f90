@@ -51,13 +51,13 @@ subroutine get_E(period,ecc,deltat,E)
  M_guess = M_ref - 2.*tol
 
  do while (abs(M_ref - M_guess) > tol)
-   M_guess = E_guess - ecc*sin(E_guess)
-   if (M_guess > M_ref) then
-      E_right = E_guess
-   else
-      E_left = E_guess
-   endif
-   E_guess = 0.5*(E_left + E_right)
+    M_guess = E_guess - ecc*sin(E_guess)
+    if (M_guess > M_ref) then
+       E_right = E_guess
+    else
+       E_left = E_guess
+    endif
+    E_guess = 0.5*(E_left + E_right)
  enddo
 
  E = E_guess

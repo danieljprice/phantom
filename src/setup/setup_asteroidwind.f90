@@ -157,23 +157,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  else
 
-   !
-   !--Set the asteroid on orbit around the fixed potential
-   !
-   mass1                = m1
-   accradius1           = hacc1
-   iexternalforce       = 11
-   blackhole_spin       = 0.
-   call update_externalforce(iexternalforce,time,0.)
+    !
+    !--Set the asteroid on orbit around the fixed potential
+    !
+    mass1                = m1
+    accradius1           = hacc1
+    iexternalforce       = 11
+    blackhole_spin       = 0.
+    call update_externalforce(iexternalforce,time,0.)
 
-   ! Orbit and position
-   nptmass = 1
-   xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
-   vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
+    ! Orbit and position
+    nptmass = 1
+    xyzmh_ptmass(1:3,1) = (/semia*(1. + ecc),0.,0./)
+    vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
 
-   xyzmh_ptmass(4,1)      = m2
-   xyzmh_ptmass(ihacc,1)  = hacc2        ! asteroid should not accrete
-   xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
+    xyzmh_ptmass(4,1)      = m2
+    xyzmh_ptmass(ihacc,1)  = hacc2        ! asteroid should not accrete
+    xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
  endif
 
  ! both        of these are reset in the first        call to        inject_particles
