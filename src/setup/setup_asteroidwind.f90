@@ -174,7 +174,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    xyzmh_ptmass(4,1)      = m2
    xyzmh_ptmass(ihacc,1)  = hacc2        ! asteroid should not accrete
    xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
- endif   
+ endif
 
  ! both        of these are reset in the first        call to        inject_particles
  massoftype(igas) = 1.0
