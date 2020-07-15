@@ -83,7 +83,7 @@ module setup
  character(len=120) :: unsoftened_profile,densityfile,dens_profile
  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'closepacked'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice = 'random'  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -146,7 +146,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
- integer, parameter               :: ng     = 1001
+ integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
