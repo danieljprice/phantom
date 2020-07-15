@@ -145,7 +145,7 @@ subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
     eint1 = 10. * eintguess  ! Guess lower bound
     eint2 = 0.1 * eintguess  ! Guess upper bound
  endif
- 
+
  call getvalue_mesa(rho,eint1,2,pres1,ierr)
  call getvalue_mesa(rho,eint2,2,pres2,ierr)
  left  = pres - pres1
@@ -178,7 +178,7 @@ subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
        eint1 = eint3
     elseif (mid == 0.) then
        eint = eint3
-       exit 
+       exit
     endif
 
     eint = eint3
@@ -187,7 +187,7 @@ subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
 
  call getvalue_mesa(rho,eint,4,temp,ierr)
 
-end subroutine get_eos_eT_from_rhop_mesa 
+end subroutine get_eos_eT_from_rhop_mesa
 
 !----------------------------------------------------------------
 !+

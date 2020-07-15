@@ -1124,7 +1124,7 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
  real, intent(inout)        :: ene,temp
  real, intent(in), optional :: guesseint
  integer, intent(out)       :: ierr
- 
+
  ierr = 0
  select case(ieos)
  case(2) ! Adiabatic/polytropic EoS

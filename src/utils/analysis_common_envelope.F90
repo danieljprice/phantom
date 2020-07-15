@@ -19,7 +19,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: centreofmass, energies, eos, eos_mesa, kernel, part,
-!    physcon, prompting, ptmass, setbinary, sortutils, units
+!    physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
 !+
 !--------------------------------------------------------------------------
 
@@ -1407,18 +1407,18 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
  write(*,"(a,i2)") 'Assumming ieos = ',ieos
  if ( xyzmh_ptmass(ihacc,2) > 0 ) then
-   write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
-   write(*,"(a)") 'Will analyse accretion'
-   iacc = .true.
+    write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
+    write(*,"(a)") 'Will analyse accretion'
+    iacc = .true.
  else
-   write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
-   iacc = .false.
-endif
+    write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
+    iacc = .false.
+ endif
 
  ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
- ! Note: All forces adhere to the convention of being positive when directed along the component direction 
+ ! Note: All forces adhere to the convention of being positive when directed along the component direction
  columns = (/'   par. drag', & ! Total parallel gravitational force acting on sink from direct summation
              '  perp. drag', & ! Total perpendicular gravitational force acting on sink from direct summation
              '    from dJz', & ! torque / r of sink
@@ -1465,10 +1465,10 @@ endif
     call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
     ! Calculate z-angular momentum of the sink about the orbital CoM in first dump that is analysed
     if (dump_number == 0) then
-      if (i == 1) then ! Ensures only allocated once throughout the analysis
-         allocate(ang_mom_old(nptmass))
-         allocate(time_old(nptmass))
-      endif
+       if (i == 1) then ! Ensures only allocated once throughout the analysis
+          allocate(ang_mom_old(nptmass))
+          allocate(time_old(nptmass))
+       endif
        pos_wrt_CM = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
        vel_wrt_CM = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
        call cross(pos_wrt_CM, xyzmh_ptmass(4,i) * vel_wrt_CM, ang_mom)
@@ -1529,16 +1529,16 @@ endif
     !Rcut = Rcut * racc
     Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
     do j = 1,npart
-        if (.not. isdead_or_accreted(xyzh(4,j))) then
-            call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+       if (.not. isdead_or_accreted(xyzh(4,j))) then
+          call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
                                     fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
-            do k = 1,sizeRcut
-                if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
-                    call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
+          do k = 1,sizeRcut
+             if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
+                call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
                                             fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
-                endif
-            enddo
-        endif
+             endif
+          enddo
+       endif
     enddo
     call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
 
