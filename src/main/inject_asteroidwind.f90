@@ -22,7 +22,7 @@
 !    vlag          -- percentage lag in velocity of wind
 !
 !  DEPENDENCIES: externalforces, infile_utils, io, options, part,
-!    partinject, physcon, random, units
+!    partinject, physcon, random, units, binaryutils
 !+
 !--------------------------------------------------------------------------
 module inject
@@ -35,11 +35,11 @@ module inject
 
  private
 
- real       :: mdot          = 5.e8       ! mass injection rate in grams/second
- real       :: npartperorbit = 100.       ! particle injection rate in particles per orbit
- real       :: vlag          = 0.1        ! percentage lag in velocity of wind
- integer    :: dndt_type     = 0          ! injection rate (0=const, 1=cos(t), 2=r^(-2))
- real,save  :: dndt_scaling               ! scaling to get ninject correct
+ real         :: mdot          = 5.e8     ! mass injection rate in grams/second
+ real         :: npartperorbit = 100.     ! particle injection rate in particles per orbit
+ real         :: vlag          = 0.1      ! percentage lag in velocity of wind
+ integer      :: dndt_type     = 0        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
+ real,save    :: dndt_scaling             ! scaling to get ninject correct
  logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
@@ -64,14 +64,15 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
- use io,        only:fatal
- use part,      only:nptmass,massoftype,igas,hfact,ihsoft
- use partinject,only:add_or_update_particle
- use physcon,   only:twopi,gg,kboltz,mass_proton_cgs
- use random,    only:ran2
- use units,     only:udist, umass, utime
- use options,   only:iexternalforce
+ use io,            only:fatal
+ use part,          only:nptmass,massoftype,igas,hfact,ihsoft
+ use partinject,    only:add_or_update_particle
+ use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
+ use random,        only:ran2
+ use units,         only:udist, umass, utime
+ use options,       only:iexternalforce
  use externalforces,only:mass1
+ use binaryutils,   only:get_orbit_bits
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
@@ -146,7 +147,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     t_old = mod(time*0.99,period)/period
     have_injected = npartoftype(igas)
     if (time < tiny(time)) have_injected = 0.
-    func_old = dndt_func(t_old,r,ra,rp,ecc,dndt_scaling)
+    func_old = dndt_func(t_old,r,ra,rp,ecc)
 
     ! Save these values for future
     scaling_set = .true.
@@ -164,7 +165,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (dt < 0.) dt = dt + 1.0 !if it's just ticked over to the next orbit
 
     ! Just trapezoidal rule between the previous step and this one
-    func_now = dndt_func(mod_time,r,ra,rp,ecc,dndt_scaling)
+    func_now = dndt_func(mod_time,r,ra,rp,ecc)
     inject_this_step = 0.5*dt*(func_old + func_now)
 
     npinject = max(0, int(0.5 + have_injected + inject_this_step - npartoftype(igas) ))
@@ -204,8 +205,8 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 
-function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
- real, intent(in)    :: t,scaling,ra,rp,ecc,r
+function dndt_func(t,r,ra,rp,ecc) result(dndt)
+ real, intent(in) :: t,ra,rp,ecc,r
 
  real :: dndt
 
@@ -221,8 +222,8 @@ function dndt_func(t,r,ra,rp,ecc,scaling) result(dndt)
     dndt = 0.
  end select
 
- dndt = dndt*scaling
-
+ dndt = dndt*dndt_scaling
+ 
 end function dndt_func
 
 !-----------------------------------------------------------------------
@@ -244,8 +245,8 @@ subroutine integrate_it(t_start,t_end,ra,rp,ecc,integral)
  t_int = t_start
 
  do ii = 1,nint
-    ya = dndt_func(t_int,1.,ra,rp,ecc,dndt_scaling)
-    yb = dndt_func(t_int+dt,1.,ra,rp,ecc,dndt_scaling)
+    ya = dndt_func(t_int,1.,ra,rp,ecc)
+    yb = dndt_func(t_int+dt,1.,ra,rp,ecc)
 
     re_integral = re_integral + dt*0.5*(ya + yb)
 
@@ -265,6 +266,7 @@ end subroutine integrate_it
 !-----------------------------------------------------------------------
 
 subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
+ use binaryutils, only:get_E
  real, intent(in)    :: t_start, t_end,ra,rp,ecc,semia
  integer, intent(out)   :: integral
  integer :: ii, nint
@@ -277,14 +279,14 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
  t_int = t_start
 
  ! set up for first step
- E = get_E(1.0,ecc,0.0)
+ call get_E(1.0,ecc,0.0,E)
  theta = atan2(sqrt(1.-ecc**2)*sin(E),(cos(E) - ecc))
  r_new = semia*(1. - ecc**2)/(1. + ecc*cos(theta))
- ya = dndt_func(0.,r_new,ra,rp,ecc,dndt_scaling)
+ ya = dndt_func(0.,r_new,ra,rp,ecc)
 
  do ii = 1,nint
 
-    E = get_E(1.0,ecc,t_int)
+    call get_E(1.0,ecc,t_int,E)
 
     numer = sqrt(1. - ecc**2)*sin(E)
     denom = cos(E) - ecc
@@ -292,7 +294,7 @@ subroutine integrate_it_with_r(t_start,t_end,ra,rp,ecc,semia,integral)
 
     r_new = semia*(1. - ecc**2)/(1. + ecc*cos(theta))
 
-    yb = dndt_func(t_int+dt,r_new,ra,rp,ecc,dndt_scaling)
+    yb = dndt_func(t_int+dt,r_new,ra,rp,ecc)
 
     re_integral = re_integral + dt*0.5*(ya + yb)
 
@@ -306,78 +308,6 @@ end subroutine integrate_it_with_r
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate the orbital parameters from available info
-!+
-!-----------------------------------------------------------------------
-
-subroutine get_orbit_bits(vel,rad,m1,iexternalforce,semia,ecc,ra,rp)
- real, intent(in)    :: m1, vel(3), rad(3)
- integer, intent(in) :: iexternalforce
- real, intent(out)   :: semia, ecc, ra, rp
- real                :: speed, r, L_mag
- real                :: spec_energy,L(3),term
-
- L(1) = rad(2)*vel(3) - rad(3)*vel(2)
- L(2) = rad(3)*vel(1) - rad(1)*vel(3)
- L(3) = rad(1)*vel(2) - rad(2)*vel(1)
- L_mag = sqrt(dot_product(L,L))
-
- speed = sqrt(dot_product(vel,vel))
- r = sqrt(dot_product(rad,rad))
-
- spec_energy = 0.5*speed**2 - (1.0*m1/r)
- term = 2.*spec_energy*L_mag**2/(m1**2)
-
- if (iexternalforce == 11) then
-    spec_energy = spec_energy - (3.*m1/(r**2))
-    term = 2.*spec_energy*(L_mag**2 - 6.*m1**2)/(m1**2)
- endif
-
- semia     = -m1/(2.0*spec_energy)
- ecc = sqrt(1.0 + term)
-
- ra = semia*(1. + ecc)
- rp = semia*(1. - ecc)
-
-end subroutine get_orbit_bits
-
-!--------------------------------
-!+
-! Get eccentric anomaly (this function uses bisection,
-! as opposed to the one in set_binary, to guarantee convergence)
-!+
-!--------------------------------
-real function get_E(period,ecc,deltat)
- real, intent(in) :: period,ecc,deltat
- real :: mu,M_ref,M_guess
- real :: E_left,E_right,E_guess
- real, parameter :: tol = 1.e-10
-
- mu = 2.*pi/period
- M_ref = mu*deltat ! mean anomaly
-
- ! first guess
- E_left = 0.
- E_right = 2.*pi
- E_guess = pi
- M_guess = M_ref - 2.*tol
-
- do while (abs(M_ref - M_guess) > tol)
-    M_guess = E_guess - ecc*sin(E_guess)
-    if (M_guess > M_ref) then
-       E_right = E_guess
-    else
-       E_left = E_guess
-    endif
-    E_guess = 0.5*(E_left + E_right)
- enddo
-
- get_E = E_guess
-
-end function get_E
-
-!-----------------------------------------------------------------------
-!+
 !  Writes input options to the input file.
 !+
 !-----------------------------------------------------------------------
@@ -388,7 +318,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot         ,'mdot'         ,'mass injection rate in grams/second'              ,iunit)
  call write_inopt(npartperorbit,'npartperorbit','particle injection rate in particles/binary orbit',iunit)
  call write_inopt(vlag         ,'vlag'         ,'percentage lag in velocity of wind'               ,iunit)
- call write_inopt(dndt_type    ,'dndt_type'    ,'injection rate (0=const, 1=cos(t), 2=r^(-2))'    ,iunit)
+ call write_inopt(dndt_type    ,'dndt_type'    ,'injection rate (0=const, 1=cos(t), 2=r^(-2))'     ,iunit)
 
 end subroutine write_options_inject
 
