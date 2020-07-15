@@ -385,11 +385,11 @@ subroutine write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
     endif
  enddo over_part
 
- ninbin(:) = reduce_mpi('+',ninbin(:))
+ ninbin(:) = int(reduce_mpi('+',ninbin(:)),kind=kind(ninbin))
  ntypesprint = 0
  itypelist(:) = 0
  do itype=1,maxtypes
-    noftypeinbin(:,itype) = reduce_mpi('+',noftypeinbin(:,itype))
+    noftypeinbin(:,itype) = int(reduce_mpi('+',noftypeinbin(:,itype)),kind=kind(noftypeinbin))
     if (any(noftypeinbin(:,itype) > 0)) then
        ntypesprint = ntypesprint + 1
        itypelist(ntypesprint) = itype

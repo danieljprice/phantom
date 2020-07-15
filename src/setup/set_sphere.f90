@@ -19,7 +19,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: stretchmap, unifdis
+!  DEPENDENCIES: random, stretchmap, unifdis
 !+
 !--------------------------------------------------------------------------
 module spherical

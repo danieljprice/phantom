@@ -20,15 +20,16 @@
 !    eccentricity  -- eccentricity
 !    gastemp       -- gas temperature in K
 !    hacc1         -- white dwarf (sink) accretion radius (solar radii)
-!    ipot          -- wd modelled by sink (0) or externalforce(1)
+!    ipot          -- wd modelled by 0=sink or 1=externalforce
 !    m1            -- mass of white dwarf (solar mass)
 !    m2            -- mass of asteroid (ceres mass)
 !    norbits       -- number of orbits
 !    rasteroid     -- radius of asteroid (km)
 !    semia         -- semi-major axis (solar radii)
 !
-!  DEPENDENCIES: eos, externalforces, infile_utils, inject, io, options,
-!    part, physcon, setbinary, spherical, timestep, units
+!  DEPENDENCIES: eos, extern_lensethirring, externalforces, infile_utils,
+!    inject, io, options, part, physcon, setbinary, spherical, timestep,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -55,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use inject,    only:inject_particles
  use eos,       only:gmw
  use options,   only:iexternalforce
+ use extern_lensethirring, only:blackhole_spin
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -72,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Default runtime parameters
 !
- ipot          = 1         ! (using iexternalforce=11)
+ ipot          = 1         ! (0=sink or 1=externalforce)
  m1            = 0.7       ! (solar masses)
  m2            = 0.1       ! (ceres masses)
  ecc           = 0.4       ! (eccentricity)
@@ -138,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  period = sqrt(4.*pi**2*semia**3/(m1+m2))
- hacc2  = 0.                                 ! Asteroid should not accrete
+ hacc2  = 0.                                 ! asteroid should not accrete
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
@@ -161,6 +163,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     mass1                = m1
     accradius1           = hacc1
     iexternalforce       = 11
+    blackhole_spin       = 0.
     call update_externalforce(iexternalforce,time,0.)
 
     ! Orbit and position
@@ -169,8 +172,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyz_ptmass(1:3,1)  = (/0.,sqrt(semia*(1.-ecc**2)*(m1+m2))/xyzmh_ptmass(1,1),0./)
 
     xyzmh_ptmass(4,1)      = m2
-    xyzmh_ptmass(ihacc,1)  = hacc2        ! Asteroid should not accrete
-    xyzmh_ptmass(ihsoft,1) = rasteroid ! Asteroid radius softening
+    xyzmh_ptmass(ihacc,1)  = hacc2        ! asteroid should not accrete
+    xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
  endif
 
  ! both        of these are reset in the first        call to        inject_particles
@@ -182,7 +185,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- check for silly parameter choices
 !
  rp = semia*(1. - ecc)
- if (rp < hacc1) call fatal('setup','periapsis is within racc of central sink')
+ if (rp < hacc1)   call fatal('setup','periapsis is within racc of central sink')
+ if (ipot > 1)     call fatal('setup','choice of potential not recognised, try 1')
  if (nptmass == 0) call fatal('setup','no sink particles setup')
  if (npart == 0)   call fatal('setup','no hydro particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
@@ -201,7 +205,7 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
- call write_inopt(ipot,         'ipot',         'wd modelled by sink (0) or externalforce(1)',      iunit)
+ call write_inopt(ipot,         'ipot',         'wd modelled by 0=sink or 1=externalforce',         iunit)
  call write_inopt(m1,           'm1',           'mass of white dwarf (solar mass)',                 iunit)
  call write_inopt(m2,           'm2',           'mass of asteroid (ceres mass)',                    iunit)
  call write_inopt(ecc,          'ecc',          'eccentricity',                                     iunit)
