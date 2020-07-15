@@ -21,8 +21,8 @@
 !    npartperorbit -- particle injection rate in particles/binary orbit
 !    vlag          -- percentage lag in velocity of wind
 !
-!  DEPENDENCIES: externalforces, infile_utils, io, options, part,
-!    partinject, physcon, random, units, binaryutils
+!  DEPENDENCIES: binaryutils, externalforces, infile_utils, io, options,
+!    part, partinject, physcon, random, units
 !+
 !--------------------------------------------------------------------------
 module inject
