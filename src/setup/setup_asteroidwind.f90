@@ -175,7 +175,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
  endif   
 
- ! both	of these are reset in the first	call to	inject_particles
+ ! both        of these are reset in the first        call to        inject_particles
  massoftype(igas) = 1.0
  hfact = 1.2
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
