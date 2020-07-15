@@ -12,7 +12,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Rebecca Nealon
+!  OWNER: Bec Nealon
 !
 !  $Id$
 !
