@@ -70,7 +70,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
+ use dim,       only:maxp,maxvxyzu,nalpha,gr,use_krome,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
  use units,     only:set_units
@@ -97,7 +97,9 @@ subroutine set_default_options
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
- if (maxvxyzu==4) then
+ if (use_krome) then
+    ieos = 19
+ elseif (maxvxyzu==4) then
     ieos = 2
  else
     ieos = 1

@@ -91,10 +91,12 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
+#ifndef KROME
  if (gamma <= 0.) then
     print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
+#endif
  if (hfact < 1. .or. hfact /= hfact) then
     print*,'Error in setup: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -102,10 +104,18 @@ subroutine check_setup(nerror,nwarn,restart)
  if (polyk < 0. .or. polyk /= polyk) then
     print*,'Error in setup: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
- elseif (polyk < tiny(0.) .and. ieos /= 2) then
+ endif
+#ifdef KROME
+ if (ieos /= 19) then
+    print*, 'KROME setup. Only eos=19 makes sense.'
+    nerror = nerror + 1
+ endif
+#else
+ if (polyk < tiny(0.) .and. ieos /= 2) then
     print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
     nwarn = nwarn + 1
  endif
+#endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -456,7 +466,7 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
@@ -529,6 +539,15 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,'         (this makes the code run pointlessly slow)'
     endif
  enddo
+ !
+ !  check that radiation properties are sensible
+ !
+ if (sinks_have_luminosity(nptmass,xyzmh_ptmass)) then
+    if (any(xyzmh_ptmass(iTeff,1:nptmass) < 100.)) then
+       print*,'WARNING: sink particle temperature less than 100K'
+       nwarn = nwarn + 1
+    endif
+ endif
 
 end subroutine check_setup_ptmass
 

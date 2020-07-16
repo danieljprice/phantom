@@ -229,7 +229,7 @@ subroutine get_bracket_grid_points( array, ix, nx, maxx, x1, x2 )
  x1 = minimum  + (boundary-minimum)/2.
  x2 = boundary + (maximum-boundary)/2.
 
-end subroutine
+end subroutine get_bracket_grid_points
 
 !----------------------------------------------------------------
 !+

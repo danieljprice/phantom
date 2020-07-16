@@ -647,4 +647,4 @@ subroutine summary_printout(iprint,nptmass)
  !
 end subroutine summary_printout
 !----------------------------------------------------------------
-end module
+end module io_summary

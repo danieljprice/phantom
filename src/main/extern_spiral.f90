@@ -1083,7 +1083,7 @@ function betafn(om2,z2)
  betafn(2)=asin(betafn(1))  !beta
 
  return
-end function
+end function betafn
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~BARS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1457,7 +1457,7 @@ function softpot(pspeed,softfac,ti)
  endif
 
  return
-end function
+end function softpot
 
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

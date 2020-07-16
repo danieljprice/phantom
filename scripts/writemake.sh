@@ -3,7 +3,7 @@
 # @(#) writes a quick makefile for remaking the executable in the current
 # @(#) directory and recompiling the plotting program
 #
-phantomdir=~/phantom
+myphantomdir=${0/scripts\/writemake.sh/}
 splashdir=~/splash
 echo '#'
 echo '#--Makefile to remake the executable and copy to this directory'
@@ -16,7 +16,7 @@ if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
    echo 'endif';
-   makeflags='SETUP=${SETUP} RUNDIR=${PWD}';
+   makeflags='SETUP=${SETUP} RUNDIR=${PWD} KROME='$2;
 else
    makeflags='RUNDIR=${PWD}';
 fi
@@ -37,7 +37,11 @@ echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-echo '	cd ${PHANTOMDIR}; make clean'
+if [ $# -ge 1 ]; then
+    echo '	cd ${PHANTOMDIR}; make clean KROME=krome'
+else
+    echo '	cd ${PHANTOMDIR}; make clean'
+fi
 echo 'setup:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/phantomsetup .'
 echo 'moddump:'
@@ -69,3 +73,6 @@ echo 'plot:'
 echo '	cd ${SPLASH_DIR}; make sphNG'
 echo 'plotc:'
 echo '	cd ${SPLASH_DIR}; make clean'
+if [ $# -ge 1 ]; then
+    cp ${myphantomdir}/build/optionsKrome.opt krome.setup
+fi

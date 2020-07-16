@@ -656,7 +656,7 @@ subroutine set_corotate_velocity(angvel)
  iexternalforce = iext_corotate
  omega_corotate = angvel
 
-end subroutine
+end subroutine set_corotate_velocity
 
 
 !
@@ -765,7 +765,7 @@ subroutine add_vrotational(npart,xyzh,vxyzu,omega_inner,omega_outer)
     vxyzu(2,i) =  xyzh(1,i) * (domega*rad*rstar1 + omega_inner)
  enddo
 
-end subroutine
+end subroutine add_vrotational
 !
 !  Save nstar so it can be properly written to the header
 !

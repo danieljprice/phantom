@@ -251,7 +251,7 @@ subroutine openw_sf (file,origin,n_lag,lag,n_order,n_rho_power)
  open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
  write (power_unit,structurefn)                                                ! dimensions info
  write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
-end subroutine
+end subroutine openw_sf
 
 subroutine write_sf (n_lag, n_order, f, orders, rho_power)
  integer,      intent(in) :: n_lag, n_order
@@ -268,7 +268,7 @@ subroutine write_sf (n_lag, n_order, f, orders, rho_power)
        write (power_unit,'(8g15.7)') f(i_sf,i_order,:)  !f(:,i_order,i_sf)         ! f(lag;order;direction)
     enddo
  enddo
-end subroutine
+end subroutine write_sf
 !----------------------------------------------------------------
 !+
 !  routines to read structure functions in Aake format

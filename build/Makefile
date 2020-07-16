@@ -41,6 +41,7 @@ ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
 LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
+DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
@@ -825,30 +826,27 @@ ifeq ($(SETUP), star)
 endif
 
 ifeq ($(SETUP), isowind)
-#   wind setup (isothermal spherical wind from a sink particle)
-    FPPFLAGS=
+#   isothermal spherical wind
+    FPPFLAGS= -DWIND -DSINK_RADIATION
     ISOTHERMAL=yes
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+    WIND=yes
 endif
-
 ifeq ($(SETUP), wind)
-#   wind setup (adiabatic supersonic spherical wind from a sink particle)
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
+#   wind setup without nucleation
+    FPPFLAGS= -DWIND -DSINK_RADIATION
+    WIND=yes
+endif
+ifeq ($(SETUP), dustywind)
+#   wind setup with dust nucleation
+    FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
+    ANALYSIS= analysis_dustywind.F90 dust_formation.F90
+    WIND=yes
 endif
 
-ifeq ($(SETUP), bowen)
-# bowen wind setup (pulsating dusty wind)
-    FPPFLAGS= -DBOWEN
-    SETUPFILE= setup_wind.f90
-    SRCINJECT= bowen_dust.F90 inject_wind.f90
+ifeq ($(WIND), yes)
+#   wind particle injection setup
+    SETUPFILE= setup_wind.F90
+    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1524,6 +1522,15 @@ ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
 
+ifeq ($(KROME), krome)
+    FPPFLAGS += -DKROME
+ifeq ($(SYSTEM), ifort)
+    LDFLAGS  += -mkl
+else
+    LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
+endif
+endif
+
 #
 # kernel choice
 #
@@ -1710,7 +1717,7 @@ endif
    SRCPOT=extern_gr.F90 externalforces_gr.F90
 endif
 
-SRCCHEM= coolfunc.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
+SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.F90
 
 SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
@@ -1719,6 +1726,12 @@ ifeq ($(HDF5), yes)
    SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_hdf5.F90
 else
    SRCREADWRITE_DUMPS= readwrite_dumps.F90
+endif
+
+ifeq ($(KROME), krome)
+  SRCKROME=krome.f90
+else
+  SRCKROME=
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
@@ -1731,9 +1744,9 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
-         ${SRCDUST} \
+         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         ${SRCNIMHD} ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 radiation_utils.f90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
@@ -1742,13 +1755,32 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 
-.PHONY: phantom
+ifeq ($(KROME), krome)
+    .PHONY: all
+
+    all: checksystem krome_setup krome phantom
+    include MakeKrome
+else
+    .PHONY: phantom
+endif
+
 phantom: checksystem checkparams $(OBJECTS) phantom.o
 	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJECTS) phantom.o $(LDFLAGS)
 ifeq ($(UNAME), Darwin)
 	dsymutil $(BINDIR)/$@
 endif
 
+
+	@echo ""
+	@echo "=============== CHEMISTRY ==============="
+	@echo ""
+ifeq ($(KROME), krome)
+	@echo "krome coupling status = enabled"
+else
+	@echo "krome coupling status = disabled"
+endif
+	@echo ""
+	@echo "========================================="
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
@@ -1825,11 +1857,14 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 \
           set_slab.f90 set_disc.F90 relax_star.f90 set_softened_core.f90 \
-          set_vfield.f90 sort_particles.F90 ${SRCINJECT} \
+          set_vfield.f90 sort_particles.F90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
-          set_Bfield.f90 damping.f90 readwrite_infile.f90
+          set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
+ifeq ($(KROME), krome)
+       OBJSETUP1 += $(KROME_OBJS)
+endif
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
 setup: checksystem checkparams libsetup libphantom $(OBJSETUP)
@@ -2960,6 +2995,9 @@ err:
 
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
+ifeq ($(KROME),krome)
+	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
+endif
 
 cleanall: clean cleanmathflags
 	cd $(BINDIR); rm -f phantom phantomsetup

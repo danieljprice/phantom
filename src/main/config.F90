@@ -50,7 +50,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 100
 #endif
- integer, parameter :: nsinkproperties = 11
+ integer, parameter :: nsinkproperties = 15
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -65,6 +65,15 @@ module dim
  logical, parameter :: store_temperature = .true.
 #else
  logical, parameter :: store_temperature = .false.
+#endif
+
+ integer :: maxTdust = 0
+#ifdef SINK_RADIATION
+ logical, parameter :: sink_radiation = .true.
+ logical, parameter :: store_dust_temperature = .true.
+#else
+ logical, parameter :: sink_radiation = .false.
+ logical, parameter :: store_dust_temperature = .false.
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
@@ -204,6 +213,17 @@ module dim
  !
  integer, parameter :: ndim = 3
 
+
+!-----------------
+! KROME chemistry
+!-----------------
+ integer :: maxp_krome = 0
+#ifdef KROME
+ logical, parameter :: use_krome = .true.
+#else
+ logical, parameter :: use_krome = .false.
+#endif
+
 !-----------------
 ! Magnetic fields
 !-----------------
@@ -276,6 +296,24 @@ module dim
  integer :: maxsts = 1
 
 !--------------------
+! Wind cooling
+!--------------------
+#if defined(WIND) || !defined (ISOTHERMAL)
+ logical :: windcooling = .true.
+#else
+ logical :: windcooling = .false.
+#endif
+
+!--------------------
+! Dust formation
+!--------------------
+#ifdef NUCLEATION
+ integer :: maxsp = maxp_hard
+#else
+ integer :: maxsp = 0
+#endif
+
+!--------------------
 ! Light curve stuff
 !--------------------
  integer :: maxlum = 0
@@ -325,6 +363,14 @@ subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
  maxp = n
+
+#ifdef KROME
+ maxp_krome = maxp
+#endif
+
+#ifdef SINK_RADIATION
+ maxTdust = maxp
+#endif
 
 #ifdef STORE_TEMPERATURE
  maxtemp = maxp

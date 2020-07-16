@@ -22,11 +22,11 @@
 !    checksetup, chem, cons2prim, cooling, cpuinfo, densityforce, deriv,
 !    dim, domain, dust, energies, eos, evwrite, extern_gr, externalforces,
 !    fastmath, fileutils, forcing, growth, h2cooling, initial_params,
-!    inject, io, io_summary, linklist, metric_tools, mf_write, mpi,
-!    mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
-!    photoevap, ptmass, readwrite_dumps, readwrite_infile, sort_particles,
-!    stack, timestep, timestep_ind, timestep_sts, timing, units,
-!    writeheader
+!    inject, io, io_summary, krome_interface, linklist, metric_tools,
+!    mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup, omputils,
+!    options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
+!    sort_particles, stack, timestep, timestep_ind, timestep_sts, timing,
+!    units, writeheader
 !+
 !--------------------------------------------------------------------------
 module initial
@@ -130,7 +130,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,damp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
@@ -205,6 +205,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
+#endif
+#ifdef KROME
+ use krome_interface,  only:initialise_krome
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -341,7 +344,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
 
- if (damp > 0. .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
+ if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
@@ -537,6 +540,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
  endif
 #endif
+#endif
+!
+!--set initial chemical abundance values
+!
+#ifdef KROME
+ call initialise_krome()
 #endif
 !
 !--calculate (all) derivatives the first time around

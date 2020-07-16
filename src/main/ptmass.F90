@@ -557,7 +557,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
- !$ use omputils, only:ipart_omp_lock
+!$ use omputils, only:ipart_omp_lock
  use part,       only: ihacc
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
@@ -677,7 +677,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 ! if accreted==true, then checks all passed => accrete particle
 !
     if ( accreted ) then
-       !$ call omp_set_lock(ipart_omp_lock(i))
+!$     call omp_set_lock(ipart_omp_lock(i))
 
 ! Set new position for the sink particles
        dptmass(idxmsi,i) = dptmass(idxmsi,i) + xi*pmassi
@@ -713,7 +713,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
           if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
        endif
 
-       !$ call omp_unset_lock(ipart_omp_lock(i))
+!$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
 
        if (record_accreted) then

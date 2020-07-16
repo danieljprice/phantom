@@ -128,7 +128,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  dtinject = time_between_walls
 
-end subroutine
+end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -145,7 +145,7 @@ subroutine write_options_inject(iunit)
       'wind density (g/cm³) -- DO NOT CHANGE AFTER RUNNING SETUP --',iunit)
  call write_inopt(wind_temperature,'wind_temperature','temperature of the wind (Kelvin)',iunit)
  call write_inopt(wind_resolution,'wind_resolution','resolution of the wind -- DO NOT CHANGE AFTER RUNNING SETUP --',iunit)
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -184,6 +184,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
 
  igotall = (ngot >= 4)
-end subroutine
+end subroutine read_options_inject
 
 end module inject

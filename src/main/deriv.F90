@@ -20,7 +20,7 @@
 !
 !  DEPENDENCIES: cons2prim, densityforce, derivutils, dim, externalforces,
 !    forces, forcing, growth, io, linklist, part, photoevap, ptmass,
-!    timestep, timestep_ind, timing
+!    ptmass_radiation, timestep, timestep_ind, timing
 !+
 !--------------------------------------------------------------------------
 module deriv
@@ -67,6 +67,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
  use part,           only:VrelVf
+#endif
+#ifdef SINK_RADIATION
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass
+ use part,             only:dust_temp,nptmass,xyzmh_ptmass
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
@@ -164,17 +168,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call forceit(time,npart,xyzh,vxyzu,fxyzu)
  call do_timing('driving',tlast,tcpulast)
 #endif
-
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,temperature,dens,metrics)
  call do_timing('force',tlast,tcpulast)
+
 #ifdef DUSTGROWTH
- !
  ! compute growth rate of dust particles
- !
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+#endif
+
+#ifdef SINK_RADIATION
+ !compute dust temperature
+ if (maxvxyzu >= 4) call get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
 #endif
 !
 ! set new timestep from Courant/forces condition
@@ -184,6 +191,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #else
  dtnew = min(dtforce,dtcourant,dtrad,dtmax)
 #endif
+
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 
