@@ -432,7 +432,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     enddo
 
     write (*,'("Sonic point properties  cs (km/s) =",f9.3,", Rs/r0 = ",f7.3,&
-         &", v0/cs = ",f9.6,", ts =",f8.1)') &
+    &", v0/cs = ",f9.6,", ts =",f8.1)') &
          state%v/1e5,state%r/r0,v0/state%v,state%time/utime
 
  else
@@ -491,10 +491,10 @@ subroutine get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
     if (state%error) then
        ! something wrong happened!
        r0 = r0 / step_factor
-    !elseif (r0 < initial_guess/10.) then
-    !   r0min = r0
-    !   print *,'radius getting too small!',r0,step_factor
-    !   exit
+       !elseif (r0 < initial_guess/10.) then
+       !   r0min = r0
+       !   print *,'radius getting too small!',r0,step_factor
+       !   exit
     elseif (state%tau_lucy < 0.) then
        r0min = r0
        exit
@@ -603,7 +603,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
  enddo
  if (state%time/time_end < .3) then
     write(*,'("[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5,&
-         &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
+    &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
          state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
  endif
  print *,'saveprofile : vinf = ',state%v,state%r/au
