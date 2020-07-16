@@ -60,9 +60,10 @@
 !    use_mcfost         -- use the mcfost library
 !    xtol               -- tolerance on xyz iterations
 !
-!  DEPENDENCIES: cooling, damping, dim, dust, eos, externalforces, forcing,
-!    growth, infile_utils, inject, io, linklist, metric, nicil_sup,
-!    options, part, photoevap, ptmass, timestep, viscosity
+!  DEPENDENCIES: cooling, damping, dim, dust, dust_formation, eos,
+!    externalforces, forcing, growth, infile_utils, inject, io, linklist,
+!    metric, nicil_sup, options, part, photoevap, ptmass, ptmass_radiation,
+!    timestep, viscosity
 !+
 !--------------------------------------------------------------------------
 module readwrite_infile

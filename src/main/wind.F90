@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: cooling, dust_formation, eos, io, options, part, physcon,
-!    ptmass_radiation, units, wind_equations
+!    ptmass_radiation, timestep, units, wind_equations
 !+
 !--------------------------------------------------------------------------
 
