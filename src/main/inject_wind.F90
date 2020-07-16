@@ -161,7 +161,7 @@ subroutine init_inject(ierr)
        !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
     endif
     if (initial_Rinject < xyzmh_ptmass(5,wind_emitting_sink)) then
-       print *,'STOP wind_inject_radius < Racc (au)',wind_injection_radius_au,xyzmh_ptmass(5,wind_emitting_sink)
+       print *,'stop wind_inject_radius < Racc (au)',wind_injection_radius_au,xyzmh_ptmass(5,wind_emitting_sink)
        call fatal(label,'invalid setting wind_inject_radius < accretion radius')
     endif
     call init_wind_equations (xyzmh_ptmass(4,wind_emitting_sink), &
