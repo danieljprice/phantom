@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -283,7 +283,7 @@ subroutine setup_interactive()
     end select
     semi_major_axis_au = semi_major_axis * udist / au
  endif
- end subroutine setup_interactive
+end subroutine setup_interactive
 
 !----------------------------------------------------------------
 !+
