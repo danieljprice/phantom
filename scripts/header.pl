@@ -126,9 +126,9 @@ sub get_descript {
       #
       if ( m/\!\+\s+$/ ) {
          $inheader = !$inheader;
-         if ($inheader) { 
+         if ($inheader) {
             $newstyle = 0;
-            $n++; 
+            $n++;
          }
       }
       #
@@ -136,7 +136,7 @@ sub get_descript {
       # is encountered
       #
       if ( !m/\!.*/ ) { $inheader = 0 };
-      
+
       if ($inheader && !m/\!\+/ && !m/\!-+/ && ($n == 1) ) {
          $descript = "$descript$_";
       }
@@ -146,9 +146,9 @@ sub get_descript {
    return $descript;
 }
 #
-# get description from old-style program files
+# get description from free-form program file headers
 #
-sub get_program_descript_old {
+sub get_program_descript_free {
    my $file = shift;
    my $indescript=0;
    my $descript='';
@@ -172,16 +172,16 @@ sub get_program_descript_old {
       }
    }
    # add DESCRIPTION keyword
-   $descript =~ s/!\s*$text/!  DESCRIPTION: $text/;
+   $descript =~ s/!\s*$text/!  $text/;
    # remove last empty line
    $descript =~ s/\n\!\s*$/\n/;
    #print "GOT DESCRIPTION=$descript";
    return $descript;
 }
 #
-# get description from old-style program files
+# get description from free-form program files
 #
-sub get_descript_old {
+sub get_descript_free {
    my $file = shift;
    my $indescript=0;
    my $descript='';
@@ -189,11 +189,11 @@ sub get_descript_old {
    while ( <$fh> ) {
       while ( m/^\!.*/ ) {;
          $line = $_;
-         if ( $line =~ m/!-+\s$/ ) {
+         if ( $line =~ m/!-+\s$/ or m/!\s*$/ ) {
             $indescript = 1;
             $_=<$fh>;
          }
-         if ( m/^\!-+\s*$/ or m/^\!\+.*/ or (not m/^!/) ) {
+         if ( m/^\!-+\s*$/ or m/^\!\+.*/ or m/^\!\s*\:.*/ or (not m/^!/) ) {
             $indescript = 0;
          }
          if ($indescript==1) {
@@ -209,13 +209,20 @@ sub get_descript_old {
 }
 
 #
-# get description from old-style program files
+# get description from free-form module descriptions
 #
-sub get_module_descript_old {
+sub get_module_descript_free {
    my $header = shift;
    my $descript = '';
-   if ($header =~ m/\!\+\s*\n(.*?\n)\!\+/ ) {
+   # match everything between !+ and !+
+   if ($header =~ m/\!\+\s*\n(.*?\n)\!\+\s*/ ) {
       $descript=$1;
+   # match everything starting with a blank comment line
+   # and ending with another tag e.g. REFERENCES:
+   } elsif ($header =~ m/^!\s*\n(.*?\n)^!(\s*?\n)!\s*[A-Z|a-z|\:]+\:/sm ) {
+      $descript=$1;
+      $descript =~ s/!\s+(\w)/\! $1/;  # single indentation in description text
+      #print "GOT DESCRIPT=$descript\n";
    }
    return $descript;
 }
@@ -230,11 +237,14 @@ sub get_header {
    my $header = '';
    open my $fh, '<', $file or die "Can't open $file\n";
    while ( <$fh> ) {
-      if ( !m/!.*/ ) { $inheader = 0; }
+      # header is defined as lines that are comments or blank
+      # and include the top-level module or program definition statement
+      if ( !m/!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
       if ($inheader==1) {
          $header = "$header$_";
       }
    }
+   #print "GOT HEADER =$header\nDONE\n";
    return $header;
 
 }
@@ -246,11 +256,32 @@ sub get_field {
    my $fieldname = shift;
    my $header = shift;
    my $field='';
-   if ($header =~ m/(\!\s*$fieldname:.*?\n)\!\s*\n\!\s*[A-Z]+\:/s ) {
+   $fieldname = ucfirst($fieldname);
+   #print "finding $fieldname in $header";
+   # following two match case where fieldname is NOT preceded by colon
+   if ($header =~ m/(\!\s*$fieldname:.*?\n)\!\s*\n\!\s*[\:|A-Z|a-z]+\:/si ) {
       $field=$1;
-   } elsif ($header =~ m/(\!\s*$fieldname:.*?\n)\!\+/s ) {
+      $field =~ s/$fieldname/\:$fieldname/i;  # add preceding colon
+   } elsif ($header =~ m/(\!\s*$fieldname:.*?\n)\!\+/si ) {
+      $field=$1;
+      $field =~ s/$fieldname/\:$fieldname/i;  # add preceding colon
+   # following two match case where fieldname is preceded by colon
+   } elsif ($header =~ m/(\!\s*\:$fieldname:.*?\n)\!\s*\n\!\s*[\:|A-Z|a-z]+\:/si ) {
+      $field=$1;
+   } elsif ($header =~ m/(\!\s*\:$fieldname:.*?\n)\!\+/si ) {
       $field=$1;
    }
+   # correct capitalisation
+   $field =~ s/$fieldname/$fieldname/i;
+   # correct indentation
+   $field =~ s/!\s*\:/! \:/;
+
+   if ($field =~ m/DESCRIPTION/i ) {
+      $field =~ s/^! \:$fieldname\:\s*\n//i;  # do not add the word "DESCRIPTION"
+      $field =~ s/\:$fieldname\://i;  # do not add the word "DESCRIPTION"
+      $field =~ s/^!\s+(\w)/\! $1/;  # single indentation in description text
+   }
+   #print "GOT $fieldname=$field\nDONE\n";
    return $field;
 }
 
@@ -363,51 +394,51 @@ sub write_module_header {
    my $usage = shift;
    open my $fh, '<', $file or die "Can't open $file\nSpecify location as follows:\n\n$0 --headerfile=../../scripts/$file\n\n";
    while ( <$fh> ) {
-      if ( m/OWNER:/ ) {
-         print "!  OWNER: $author\n";
-      } elsif ( m/DESCRIPTION:/ ) {
+      if ( m/OWNER:/i ) {
+         print "! :Owner: $author\n";
+      } elsif ( m/DESCRIPTION:/i ) {
          print "$descript";
-      } elsif ( m/MODULE:/ ) {
-         print "!  MODULE: $modulename\n";
-      } elsif ( m/PROGRAM:/ ) {
-         print "!  PROGRAM: $modulename\n";
-      } elsif ( m/REFERENCES:/ ) {
+      } elsif ( m/MODULE:/i ) {
+         print "module $modulename\n";
+      } elsif ( m/PROGRAM:/i ) {
+         print "program $modulename\n";
+      } elsif ( m/REFERENCES:/i ) {
          print "$refs";
-      } elsif ( m/USAGE:/ ) {
-         print "!  USAGE:$usage\n";
-      } elsif ( m/\$Id/ ) {
-         print "!  $id\n";
-      } elsif ( m/RUNTIME PARAMETERS:/ ) {
+      } elsif ( m/USAGE:/i ) {
+         print "! :Usage:$usage\n";
+#      } elsif ( m/\$Id/ ) {
+#         print "!  $id\n";
+      } elsif ( m/RUNTIME PARAMETERS:/i ) {
          if ( (keys %vars) > 0 ) {
-            print "!  RUNTIME PARAMETERS:\n";
+            print "! :Runtime parameters:\n";
             my $len = max_key_len(%vars);
             for my $key ( sort keys %vars ) {
 #              print "!  $key -- $vars{$key}\n";
-              printf("!    %-*s -- %s\n",$len,$key,$vars{$key});
+              printf("!   - %-*s : \*%s\*\n",$len,$key,$vars{$key});
             }
          } else {
-            print "!  RUNTIME PARAMETERS: None\n";
+            print "! :Runtime parameters: None\n";
          }
-      } elsif ( m/DEPENDENCIES:/ ) {
+      } elsif ( m/DEPENDENCIES:/i ) {
          if ( (keys %deps) > 0 ) {
             my $n = 0;
-            my $string = 'DEPENDENCIES: ';
+            my $string = ':Dependencies: ';
             for my $key ( sort keys(%deps) ) {
 #            for my $key ( sort { $deps{$b} <=> $deps{$a} } keys(%deps) ) {
               if ($n == 0) {
                  $string = sprintf("%s%s",$string,$key);
               } else {
-                 $string = sprintf("%s, %s",$string,$key);              
+                 $string = sprintf("%s, %s",$string,$key);
               }
               $n++;
             }
             $string = "$string\n";
             my @tmp = split(/ /,$string);
-            print wrap("!  ",'!    ',@tmp);
+            print wrap("! ",'!   ',@tmp);
          } else {
-            print "!  DEPENDENCIES: None\n";
+            print "! :Dependencies: None\n";
          }
-      } elsif ( m/GENERATED:/ ) {
+      } elsif ( m/GENERATED:/i ) {
          if (length($gen) > 0) {
             print "!\n$gen";
          }
@@ -426,11 +457,11 @@ sub parsefile {
    my $author = getauthor($file);
    my ($filetype,$modulename) = get_module_name($file);
    my $header = get_header($file);
-   my $descript = get_field('DESCRIPTION',$header);
-   my $refs = get_field('REFERENCES',$header);
-   my $gen = get_field('GENERATED',$header);
+   my $descript = get_field('Description',$header);
+   my $refs = get_field('References',$header);
+   my $gen = get_field('Generated',$header);
    if (length($refs)==0) {
-      $refs = "!  REFERENCES: None\n";
+      $refs = "! :References: None\n";
    }
    my $id = get_id($header);
    my $inheader = 0;
@@ -439,14 +470,14 @@ sub parsefile {
          my $usage = '';
          my %vars = get_module_vars($file);
          my %deps = get_dependencies($file);
-         
+
          # find old-style description if current description is empty
          if (length($descript)==0) {
-            $descript=get_module_descript_old($header);
+            $descript=get_module_descript_free($header);
             if (length($descript)==0) {
-               $descript="!  DESCRIPTION: None\n";
+               $descript="!  $modulename\n";
             } else {
-               $descript="!  DESCRIPTION:\n$descript";
+               $descript="$descript";
             }
          }
          write_module_header( $headerfile, $author, $descript, $modulename,
@@ -456,17 +487,17 @@ sub parsefile {
    } elsif ( $filetype =~ m/program/ ) {
       if (length($modulename) > 0) {
          if (length($descript)==0) {
-            $descript=get_program_descript_old($file);
+            $descript=get_module_descript_free($header);
          }
          if (length($descript)==0) {
             $descript = get_descript($file);
             if (length($descript)==0) {
-               $descript = get_descript_old($file);
+               $descript = get_descript_free($file);
             }
             if (length($descript)==0) {
-               $descript="!  DESCRIPTION: None\n";
+               $descript="! $modulename\n";
             } else {
-               $descript="!  DESCRIPTION:\n$descript";
+               $descript="! $descript";
             }
          }
          my $usage = get_usage($file);
@@ -483,7 +514,9 @@ sub parsefile {
    if ($replace) {
       open my $fh, '<', $file or die "Can't open $file\n";
       while ( <$fh> ) {
-         if ( !m/!.*/ ) { $inheader = 0; }
+         # end of header is when no longer a comment
+         # but includes the "module blah" or "program blah" statement
+         if ( !m/!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
          if ($inheader==0) {
             print $_;
          }
