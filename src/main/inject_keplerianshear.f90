@@ -189,7 +189,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  dtinject = huge(dtinject)
 
-end subroutine
+end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -278,7 +278,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  injp%R_mid = injp%width/2.0 + injp%Rsect_in
 
 
-end subroutine
+end subroutine read_options_inject
 
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)

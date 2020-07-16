@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: chem, coolfunc, cooling, h2cooling, io, part, physcon,
-!    testutils, units
+!  DEPENDENCIES: chem, cooling, h2cooling, io, part, physcon, testutils,
+!    units
 !+
 !--------------------------------------------------------------------------
 module testcooling
@@ -61,20 +61,21 @@ end subroutine test_cooling
 !+
 !--------------------------------------------
 subroutine test_cooling_rate(ntests,npass)
- use cooling,   only:cooling_rate_sd93
- use h2cooling, only:nabn,nrates,cool_func,dlq,init_h2cooling
- use chem,      only:update_abundances,init_chem
+ use h2cooling, only:nrates,dphot0,init_h2cooling,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
+ use chem,      only:update_abundances,init_chem,get_dphot
  use part,      only:nabundances,iHI
  use physcon,   only:Rg,mass_proton_cgs
- use units,     only:unit_ergg,unit_density
- real :: abund(nabn),abundance(nabundances)
+ use units,     only:unit_ergg,unit_density,udist,utime
+ real :: abundance(nabundances)
  real :: ratesq(nrates)
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 400
  real :: logtmin,logtmax,logt,dlogt,t,crate
  real :: tempiso,ndens,xi,yi,zi,gmwvar,rhoi,ui,dt
- real :: divv_cgs,h2ratio
+ real :: h2ratio,dudti,dphot
+ real(kind=4) :: divv_cgs
  integer :: i,ichem,iunit
+ real    :: abundi(nabn)
 
  if (id==master) write(*,"(/,a)") '--> testing h2cooling rate'
 
@@ -100,18 +101,21 @@ subroutine test_cooling_rate(ntests,npass)
  dlogt = (logtmax - logtmin)/real(nt)
  divv_cgs = 0.
  do i=1,nt
+    dudti = 0.
     logt = logtmin + (i-1)*dlogt
     t = 10**logt
     ui = 1.5*t*(Rg/gmwvar)/unit_ergg
-    call update_abundances(ui,rhoi,abundance,nabundances,abund,tempiso,ndens,dt,xi,yi,zi,ichem)
-    call cool_func(tempiso,ndens,dlq,divv_cgs,abund,crate,ratesq)
+    dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
+    call update_abundances(ui,rhoi,abundance,nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
+    call energ_h2cooling(ui,rhoi,divv_cgs,gmwvar,abundi,dudti)
+!call cool_func(tempiso,ndens,dlq,divv_cgs,abund,crate,ratesq)
+    ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
+    crate = dudti*udist**2/utime**3*(rhoi*unit_density)
     if (abs(logt-7.) < dlogt) then
-       !lprint "(a,9(es10.3,1x))",' abundances= ',abundance(:)
-       print "(a,12(es10.3,1x))",' abund= ',abund(:)
+       print "(a,9(es10.3,1x))",' abundances= ',abundance(:)
        print*,'T = ',t,' Tiso = ',tempiso,' n = ',ndens,' cm^-3',&
        ' Lam = ',crate/ndens**2
     endif
-    !crate = cooling_rate_sd93(t)
     write(iunit,*) t,crate/ndens**2,crate
  enddo
  close(iunit)
@@ -124,7 +128,7 @@ end subroutine test_cooling_rate
 !+
 !--------------------------------------------
 subroutine test_coolfunc(ntests,npass)
- use coolfunc,  only:init_coolfunc,find_in_table
+ use cooling,  only:find_in_table
  use testutils, only:checkvalbuf,checkvalbuf_start
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 100

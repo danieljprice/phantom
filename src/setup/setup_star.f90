@@ -8,7 +8,7 @@
 !  MODULE: setup
 !
 !  DESCRIPTION:
-!    This module sets up sphere(s).  There are multiple options, incuding
+!    This module sets up sphere(s).  There are multiple options, including
 !    1) uniform unit sphere
 !    2) single polytrope
 !    3) binary polytrope (decommissioned)

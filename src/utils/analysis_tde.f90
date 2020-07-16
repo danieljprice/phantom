@@ -436,4 +436,4 @@ subroutine read_tdeparams(filename,ierr)
 
 end subroutine read_tdeparams
 
-end module
+end module analysis

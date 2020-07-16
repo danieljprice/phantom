@@ -1970,7 +1970,7 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
 
  close(unit=unitnum)
 
-end subroutine
+end subroutine write_time_file
 
 subroutine cross(a,b,c)
  ! Return the vector cross product of two 3d vectors
@@ -2100,4 +2100,4 @@ subroutine minv (M, M_inv)
 
 end subroutine minv
 
-end module
+end module analysis

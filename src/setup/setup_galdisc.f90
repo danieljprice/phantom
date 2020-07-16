@@ -632,7 +632,7 @@ subroutine readinr(file_in,filelen,cdf_ar,r_ar,ierr)
  close(lu)
 
  return
-end subroutine
+end subroutine readinr
 
 
 !/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\

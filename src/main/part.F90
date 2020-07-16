@@ -26,18 +26,23 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, mpiutils
+!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !+
 !--------------------------------------------------------------------------
 module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxp_h2,nabundances,maxtemp,periodic,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
+               maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad, &
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
+               maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran
  use dtypekdtree, only:kdnode
+#ifdef KROME
+ use krome_user, only: krome_nmols
+#endif
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -100,7 +105,7 @@ module part
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
 !
-!--H2 chemistry
+!--H2 and KROME chemistry
 !
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
@@ -108,8 +113,12 @@ module part
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
  real, allocatable :: abundance(:,:)
+#ifdef KROME
+ character(len=16)  :: abundance_label(krome_nmols)
+#else
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+#endif
 !
 !--storage of temperature
 !
@@ -136,21 +145,26 @@ module part
 !
 !--sink particles
 !
- integer, parameter :: ihacc  = 5 ! accretion radius
- integer, parameter :: ihsoft = 6 ! softening radius
- integer, parameter :: imacc  = 7 ! accreted mass
+ integer, parameter :: ihacc  = 5  ! accretion radius
+ integer, parameter :: ihsoft = 6  ! softening radius
+ integer, parameter :: imacc  = 7  ! accreted mass
  integer, parameter :: ispinx = 8  ! spin angular momentum x
  integer, parameter :: ispiny = 9  ! spin angular momentum y
  integer, parameter :: ispinz = 10 ! spin angular momentum z
  integer, parameter :: i_tlast = 11 ! time of last injection
+ integer, parameter :: ilum   = 12 ! luminosity
+ integer, parameter :: iTeff  = 13 ! effective temperature
+ integer, parameter :: iReff  = 14 ! effective radius
+ integer, parameter :: imloss = 15 ! mass loss rate
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
- character(len=*), parameter :: xyzmh_ptmass_label(11) = &
+ character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
-    'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ','tlast    '/)
+    'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
+    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -169,6 +183,22 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
+!
+!--Dust formation - theory of moments
+!
+ real, allocatable :: dust_temp(:)
+ integer, parameter :: n_nucleation = 8
+#ifdef NUCLEATION
+ real, allocatable :: nucleation(:,:)
+ character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
+#endif
+!
+!--KROME variables
+!
+ real, allocatable :: gamma_chem(:)
+ real, allocatable :: mu_chem(:)
+ real, allocatable :: T_chem(:)
+ real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
 !
@@ -263,20 +293,20 @@ module part
    +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
-   +ngradh                              &  ! gradh
+ +ngradh                              &  ! gradh
 #endif
 #ifdef MHD
-   +maxBevol                            &  ! Bevol
+ +maxBevol                            &  ! Bevol
    +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
    +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
-   +1                                   &  ! iphase
+ +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +maxdusttypes                        &  ! dustfrac
+ +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -285,22 +315,37 @@ module part
 #endif
 #endif
 #ifdef H2CHEM
-   +nabundances                         &  ! abundance
+ +nabundances                         &  ! abundance
+#endif
+#ifdef NUCLEATION
+ +1                                   &  ! nucleation rate
+   +4                                   &  ! moments
+   +1                                   &  ! mean molecular weight
+#endif
+#ifdef KROME
+ +krome_nmols                         &  ! abundance
+   +1                                   &  ! variable gamma
+   +1                                   &  ! variable mu
+   +1                                   &  ! temperature
+   +1                                   &  ! cooling rate
 #endif
 #ifdef GRAVITY
-   +1                                   &  ! poten
+ +1                                   &  ! poten
 #endif
 #ifdef STORE_TEMPERATURE
-   +1                                   &  ! temperature
+ +1                                   &  ! temperature
+#endif
+#ifdef SINK_RADIATION
+ +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
-   +1                                   &  ! ibin
+ +1                                   &  ! ibin
    +1                                   &  ! ibin_old
    +1                                   &  ! ibin_wake
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
-   +0
+ +0
 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
@@ -361,7 +406,6 @@ subroutine allocate_part
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
- call allocate_array('abundance', abundance, nabundances, maxp_h2)
  call allocate_array('temperature', temperature, maxtemp)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -390,6 +434,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
+ call allocate_array('dust_temp',dust_temp,maxTdust)
  call allocate_array('rad', rad, maxirad, maxprad)
  call allocate_array('radpred', radpred, maxirad, maxprad)
  call allocate_array('drad', drad, maxirad, maxprad)
@@ -409,6 +454,19 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
+#ifdef NUCLEATION
+ call allocate_array('nucleation', nucleation, n_nucleation, maxsp)
+#endif
+#ifdef KROME
+ call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
+#else
+ call allocate_array('abundance', abundance, nabundances, maxp_h2)
+#endif
+ call allocate_array('gamma_chem', gamma_chem, maxp_krome)
+ call allocate_array('mu_chem', mu_chem, maxp_krome)
+ call allocate_array('T_chem', T_chem, maxp_krome)
+ call allocate_array('dudt_chem', dudt_chem, maxp_krome)
+
 
 end subroutine allocate_part
 
@@ -462,6 +520,14 @@ subroutine deallocate_part
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
 #endif
+#ifdef NUCLEATION
+ if (allocated(nucleation))   deallocate(nucleation)
+#endif
+ if (allocated(gamma_chem))   deallocate(gamma_chem)
+ if (allocated(mu_chem))      deallocate(mu_chem)
+ if (allocated(T_chem))       deallocate(T_chem)
+ if (allocated(dudt_chem))    deallocate(dudt_chem)
+ if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
  if (allocated(iphase_soa))   deallocate(iphase_soa)
@@ -525,6 +591,7 @@ subroutine init_part
     abundance(:,:)   = 0.
     abundance(iHI,:) = 1.  ! assume all atomic hydrogen initially
  endif
+ if (store_dust_temperature) dust_temp = -1.
  !-- Initialise dust properties to zero
 #ifdef DUSTGROWTH
  dustprop(:,:)    = 0.
@@ -645,6 +712,20 @@ real(kind=8) function hrhomixed_pmass(rhoi,pmassi)
 
 end function hrhomixed_pmass
 
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have a non-zero luminosity
+!+
+!------------------------------------------------------------------------
+logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
+ integer, intent(in) :: nptmass
+ real, intent(in) :: xyzmh_ptmass(:,:)
+
+ sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
+                              xyzmh_ptmass(iLum,1:nptmass) > 0.)
+
+end function sinks_have_luminosity
+
 !----------------------------------------------------------------
 !+
 !  query function returning whether or not a particle is dead
@@ -697,20 +778,26 @@ subroutine kill_particle(i,npoftype)
  integer, intent(inout), optional :: npoftype(:)
  integer :: itype
 
- xyzh(4,i) = 0.
- if (present(npoftype)) then
-    ! get the type so we know how to decrement npartoftype
-    if (maxphase==maxp) then
-       itype = iamtype(iphase(i))
-    else
-       itype = igas
+ !
+ ! WARNING : this routine is *NOT THREAD SAFE *
+ !
+ ! do not kill particles that are already dead
+ ! because this causes endless loop in shuffle_part
+ if (abs(xyzh(4,i)) > 0.) then
+    xyzh(4,i) = 0.
+    if (present(npoftype)) then
+       ! get the type so we know how to decrement npartoftype
+       if (maxphase==maxp) then
+          itype = iamtype(iphase(i))
+       else
+          itype = igas
+       endif
+       npoftype(itype) = npoftype(itype) - 1
     endif
-    npoftype(itype) = npoftype(itype) - 1
+    ll(i) = ideadhead
+    ideadhead = i
  endif
-!$omp critical
- ll(i) = ideadhead
- ideadhead = i
-!$omp end critical
+
 
 end subroutine kill_particle
 
@@ -953,8 +1040,9 @@ subroutine copy_particle(src, dst)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
- if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
  return
 end subroutine copy_particle
@@ -1035,8 +1123,18 @@ subroutine copy_particle_all(src,dst)
        dustproppred(:,dst) = dustproppred(:,src)
     endif
  endif
- if (maxp_h2==maxp) abundance(:,dst) = abundance(:,src)
+ if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  if (store_temperature) temperature(dst) = temperature(src)
+ if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
+#ifdef NUCLEATION
+ nucleation(:,dst) = nucleation(:,src)
+#endif
+ if (use_krome) then
+    gamma_chem(dst)       = gamma_chem(src)
+    mu_chem(dst)          = mu_chem(src)
+    T_chem(dst)           = T_chem(src)
+    dudt_chem(dst)        = dudt_chem(src)
+ endif
  ibelong(dst) = ibelong(src)
  if (maxsts==maxp) then
     istsactive(dst) = istsactive(src)
@@ -1051,6 +1149,7 @@ end subroutine copy_particle_all
 ! routine which reorders the particles according to an input list
 ! (prior to a derivs evaluation - so no derivs required)
 ! (allocates temporary arrays for each variable, so use with caution)
+! THIS ROUTINE IS OBSOLETE AND IS SCHEDULED FOR DELETION
 !+
 !------------------------------------------------------------------
 subroutine reorder_particles(iorder,np)
@@ -1099,7 +1198,9 @@ subroutine shuffle_part(np)
           ! move particle to new position
           call copy_particle_all(np,newpart)
           ! move ibelong to new position
+#ifdef MPI
           ibelong(newpart) = ibelong(np)
+#endif
           ! update deadhead
           ideadhead = ll(newpart)
        endif
@@ -1237,11 +1338,14 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
     endif
-    if (maxp_h2==maxp) then
+    if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     if (store_temperature) then
        call fill_buffer(xtemp, temperature(i),nbuf)
+    endif
+    if (store_dust_temperature) then
+       call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
@@ -1304,11 +1408,14 @@ subroutine unfill_buffer(ipart,xbuf)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
  endif
- if (maxp_h2==maxp) then
+ if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  if (store_temperature) then
     temperature(ipart)  = unfill_buf(xbuf,j)
+ endif
+ if (store_dust_temperature) then
+    dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
@@ -1427,41 +1534,29 @@ subroutine delete_particles_outside_box(xmin, xmax, ymin, ymax, zmin, zmax)
        xyzh(4,i) = -abs(h)
     endif
  enddo
-end subroutine
+end subroutine delete_particles_outside_box
 
 !----------------------------------------------------------------
 !+
 !  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center, radius, revert)
- real, intent(in) :: center(3), radius
- logical, intent(in), optional :: revert
-
+subroutine delete_particles_outside_sphere(center,radius,np)
+ use io, only:fatal
+ real,    intent(in)    :: center(3), radius
+ integer, intent(inout) :: np
  integer :: i
- logical :: use_revert
  real :: r(3), radius_squared
 
- if (present(revert)) then
-    use_revert = revert
- else
-    use_revert = .false.
- endif
-
  radius_squared = radius**2
- do i=1,npart
+ do i=1,np
     r = xyzh(1:3,i) - center
-    if (use_revert) then
-       if (dot_product(r,r)  <  radius_squared) then
-          call kill_particle(i)
-       endif
-    else
-       if (dot_product(r,r)  >  radius_squared) then
-          call kill_particle(i)
-       endif
-    endif
+    if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
  enddo
-end subroutine
+ call shuffle_part(np)
+ if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
+
+end subroutine delete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+
@@ -1484,7 +1579,33 @@ subroutine delete_particles_outside_cylinder(center, radius, zmax)
        call kill_particle(i)
     endif
  enddo
-end subroutine
+end subroutine delete_particles_outside_cylinder
+
+!----------------------------------------------------------------
+!+
+!  Delete particles within radius
+!+
+!----------------------------------------------------------------
+subroutine delete_dead_particles_inside_radius(center,radius,np)
+ use io, only:fatal
+ real, intent(in) :: center(3), radius
+ integer, intent(inout) :: np
+ integer :: i
+ real :: r(3), radius_squared
+
+
+ radius_squared = radius**2
+ do i=1,npart
+    if (isdead_or_accreted(xyzh(4,i))) then
+       r = xyzh(1:3,i) - center
+       if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+    endif
+ enddo
+ call shuffle_part(np)
+ if (np /= sum(npartoftype)) call fatal('del_dead_part_outside_sphere','particles not conserved')
+
+ return
+end subroutine delete_dead_particles_inside_radius
 
 !----------------------------------------------------------------
 !+
@@ -1517,7 +1638,7 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
  call shuffle_part(npart)
 
  return
-end subroutine
+end subroutine delete_particles_inside_radius
 
 !----------------------------------------------------------------
  !+
