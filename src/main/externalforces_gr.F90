@@ -19,8 +19,7 @@
 !    accradius1      -- soft accretion radius of black hole
 !    accradius1_hard -- hard accretion radius of black hole
 !
-!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, physcon,
-!    units
+!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, units
 !+
 !--------------------------------------------------------------------------
 module externalforces
@@ -66,69 +65,18 @@ contains
 !-----------------------------------------------------------------------
 !+
 !  Computes external (body) forces on a particle given its co-ordinates
+!  This doesn't doesn't actually get used in gr...
 !+
 !-----------------------------------------------------------------------
-! This doesn't doesn't actually get used in gr...
 subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
-! #ifdef FINVSQRT
-!  use fastmath,         only:finvsqrt
-! #endif
-!  use io,                 only:fatal
- !use part,               only:rhoh,massoftype,igas
- ! use force_gr,           only:get_forcegr
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
  integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
- ! real :: f2i, dtf1, dtf2
-!
-! !-----------------------------------------------------------------------
-! !
-! !--set external force to zero
-! !
-!  fextxi = 0.
-!  fextyi = 0.
-!  fextzi = 0.
-!  phi    = 0.
-!
-!  ! call get_forcegr(x,v,dens,u,p,fterm)
-!
-! !
-! !--return a timestep based only on the external force
-! !  so that we can do substeps with only the external force call
-! !
-!  if (present(dtf)) then
-!     f2i = fextxi*fextxi + fextyi*fextyi + fextzi*fextzi
-!     if (abs(f2i) > epsilon(f2i)) then
-!        !
-!        !--external force timestep based on sqrt(h/accel)
-!        !
-!        if (hi > epsilon(hi)) then
-! #ifdef FINVSQSRT
-!           dtf1 = sqrt(hi*finvsqrt(f2i))
-! #else
-!           dtf1 = sqrt(hi/sqrt(f2i))
-! #endif
-!        else
-!           dtf1 = huge(dtf1)
-!        endif
-!        !
-!        !--external force timestep based on sqrt(phi)/accel
-!        !
-!        if (abs(phi) > epsilon(phi)) then
-!           dtf2 = sqrt(abs(phi)/f2i)
-!        else
-!           dtf2 = huge(dtf2)
-!        endif
-!        dtf  = min(dtf1,dtf2)
-!        !if (dtf2 < dtf1) print*,' phi timestep = ',dtf2,' h/a = ',dtf1, ' ratio = ',dtf2/dtf1
-!     else
-!        dtf = huge(dtf)
-!     endif
-!  endif
-!
-!  return
+ !
+ !  This doesn't doesn't actually get used in gr...
+ !
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -152,27 +100,21 @@ end function is_velocity_dependent
 !  Returns the part of the external force that is velocity dependent
 !  (these are treated implicitly in the leapfrog integrator)
 !  This routine returns an explicit evaluation
+!
+! This doesn't doesn't actually get used in gr...
+!
 !+
 !-----------------------------------------------------------------------
-! This doesn't doesn't actually get used in gr...
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
- ! use extern_gr, only:get_grforce
- ! use eos,       only:equationofstate,ieos
- ! use io,        only:fatal
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xyzi(3),veli(3)
  real,    intent(out) :: fexti(3)
  real,    intent(inout) :: poti
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui
- ! real :: pi,pondensi,spsoundi,dtf
  !
- ! if (.not. present(densi) .or. .not. present(ui)) call fatal('externalforce_vdependent','densi and ui not present')
- ! call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
- ! pi = pondensi*densi
+ ! This doesn't doesn't actually get used in gr...
  !
- ! call get_grforce(xyzi,veli,densi,ui,pi,fexti,dtf)
-
 end subroutine externalforce_vdependent
 
 !-----------------------------------------------------------------------
@@ -182,12 +124,8 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-! This doesn't doesn't actually get used in gr...
 subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
- ! use extern_gr, only:update_grforce_leapfrog
- ! use eos,       only:equationofstate,ieos
- ! use io,        only:fatal
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
@@ -195,14 +133,9 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  real,    intent(out)   :: fexti(3)
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui
- ! real :: pi,pondensi,spsoundi
  !
- ! if (.not. present(densi) .or. .not. present(ui)) call fatal('update_vdependent_extforce_leapfrog','densi and ui not present')
- ! call equationofstate(ieos,pondensi,spsoundi,densi,xi,yi,zi,ui)
- ! pi = pondensi*densi
+ ! This doesn't doesn't actually get used in gr...
  !
- ! call update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui,pi)
-
 end subroutine update_vdependent_extforce_leapfrog
 
 !-----------------------------------------------------------------------
@@ -303,13 +236,11 @@ end subroutine write_options_externalforces
 !+
 !-----------------------------------------------------------------------
 subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
- use dump_utils,        only:dump_h,add_to_rheader
+ use dump_utils, only:dump_h
  integer,      intent(in)    :: iexternalforce
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
-
- ! call write_headeropts_gwinspiral(hdr,ierr)
 
 end subroutine write_headeropts_extern
 
@@ -319,13 +250,12 @@ end subroutine write_headeropts_extern
 !+
 !-----------------------------------------------------------------------
 subroutine read_headeropts_extern(iexternalforce,hdr,nptmass,ierr)
- use dump_utils,        only:dump_h,extract
+ use dump_utils, only:dump_h
  integer,      intent(in)  :: iexternalforce,nptmass
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
  ierr = 0
- !call read_headeropts_gwinspiral(hdr,ierr)
 
 end subroutine read_headeropts_extern
 
@@ -384,32 +314,28 @@ end subroutine read_options_externalforces
 !+
 !-----------------------------------------------------------------------
 subroutine initialise_externalforces(iexternalforce,ierr)
- use io,                   only:error
- use units,                only:umass,utime,udist
- use physcon,              only:gg,c
+ use io,    only:error
+ use units, only:G_is_unity,c_is_unity,get_G_code,get_c_code
  integer, intent(in)  :: iexternalforce
  integer, intent(out) :: ierr
- real(kind=8) :: gcode, ccode
 
  ierr = 0
 
  !
  !--check that G=1 in code units
  !
- gcode = gg*umass*utime**2/udist**3
- if (abs(gcode-1.) > 1.e-10) then
+ if (.not.G_is_unity()) then
     call error('units',trim(externalforcetype(iexternalforce))//&
-               ' external force assumes G=1 in code units but we have',var='G',val=real(gcode))
+               ' external force assumes G=1 in code units but we have',var='G',val=real(get_G_code()))
     ierr = ierr + 1
  endif
 
  !
  !--check that c=1 in code units
  !
- ccode = c*utime/udist
- if (abs(ccode-1.) > 1.e-10) then
+ if (.not.c_is_unity()) then
     call error('units',trim(externalforcetype(iexternalforce))//&
-                  ' external force assumes c=1 in code units but we have',var='c',val=real(ccode))
+                  ' external force assumes c=1 in code units but we have',var='c',val=real(get_c_code()))
     ierr = ierr + 1
  endif
 

@@ -12,8 +12,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
 
@@ -39,6 +39,9 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.autodoc',
+    'sphinxfortran.fortran_domain',
+    'sphinxfortran.fortran_autodoc',
     'sphinx.ext.mathjax',
 ]
 
@@ -175,3 +178,29 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+
+# -- options for sphinx-fortran
+fortran_ext = [ 'f90','F90' ]
+
+fortran_src = [
+ '../src/setup/density_profiles.f90',
+ '../src/setup/relax_star.f90',
+ '../src/setup/set_bfield.f90',
+ '../src/setup/set_binary.f90',
+ '../src/setup/set_disc.f90',
+ '../src/setup/set_dust.f90',
+ '../src/setup/set_dust_options.f90',
+ '../src/setup/set_flyby.f90',
+ '../src/setup/set_planets.f90',
+ '../src/setup/set_shock.f90',
+ '../src/setup/set_slab.f90',
+ '../src/setup/set_softened_core.f90',
+ '../src/setup/set_sphere.f90',
+ '../src/setup/set_stellar_core.f90',
+ '../src/setup/set_vfield.f90',
+ '../src/setup/stretchmap.f90',
+ '../src/setup/velfield_fromcubes.f90',
+ '../src/setup/phantomsetup.f90'
+]
+
+sys.setrecursionlimit(10000)

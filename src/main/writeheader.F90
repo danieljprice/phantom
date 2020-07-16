@@ -58,6 +58,14 @@ subroutine write_codeinfo(iunit)
 !
 !--write info on latest git commit
 !
+#ifdef MCFOST
+ write(*,*) ""
+ write(*,*) "--------------------------"
+ write(*,*) "| This is Phantom+mcfost |"
+ write(*,*) "--------------------------"
+ write(*,*) ""
+#endif
+
  call get_and_print_gitinfo(iunit)
 
 end subroutine write_codeinfo
@@ -76,7 +84,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
- use part,             only:hfact,massoftype,mhd,maxBevol,&
+ use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             labeltype,maxtypes
  use eos,              only:eosinfo
@@ -163,11 +171,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 !--MHD compile time options
 !
     if (mhd) then
-       if (maxBevol==4) then
-          write(iprint,60) 'B/rho with cleaning'
-       else
-          write(iprint,60) 'B/rho'
-       endif
+       write(iprint,60) 'B/rho with cleaning'
 60     format(/,' Magnetic fields are ON, evolving ',a)
     endif
     if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'

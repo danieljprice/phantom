@@ -29,10 +29,9 @@ module testeos
  private
 
 contains
-
 !----------------------------------------------------------
 !+
-!  run all unit tests of equation of state module
+!  unit tests of equation of state module
 !+
 !----------------------------------------------------------
 subroutine test_eos(ntests,npass)
@@ -48,6 +47,7 @@ subroutine test_eos(ntests,npass)
  call test_init(ntests, npass)
  call test_barotropic(ntests, npass)
  !call test_helmholtz(ntests, npass)
+ call test_idealplusrad(ntests, npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -95,6 +95,17 @@ subroutine test_init(ntests, npass)
 
 end subroutine test_init
 
+!----------------------------------------------------------------------------
+!+
+!  test ideal gas plus radiation eos
+!+
+!----------------------------------------------------------------------------
+subroutine test_idealplusrad(ntests, npass)
+ integer, intent(inout) :: ntests,npass
+
+ print*,'Hello World!'
+
+end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+

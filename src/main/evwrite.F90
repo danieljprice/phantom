@@ -42,17 +42,17 @@
 !  RUNTIME PARAMETERS: None
 !
 !  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    fileutils, io, nicil, options, part, timestep, units, viscosity
+!    fileutils, io, nicil, options, part, ptmass, timestep, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module evwrite
- use io,             only: fatal
- use part,           only: npart
+ use io,             only: fatal,iverbose
  use options,        only: iexternalforce
  use timestep,       only: dtmax_dratio
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
- use energies,       only: ndead
+ use energies,       only: ndead,npartall
  use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
@@ -60,7 +60,7 @@ module evwrite
                            iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_gws
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_erad,iev_gws
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -112,6 +112,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_emag,   'emag',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_epot,   'epot',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_etot,   'etot',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_erad,   'erad',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_totmom, 'totmom',   '0', i,j)
  call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0', i,j)
  call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa',i,j)
@@ -411,25 +412,31 @@ end subroutine write_evfile
 !+
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
- use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,use_dust,maxdusttypes
+ use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
+                         use_dust,maxdusttypes,do_radiation,particles_are_injected
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
- use part,          only:ndusttypes
+ use energies,      only:erad
+ use part,          only:nptmass,ndusttypes
  use viscosity,     only:irealvisc,shearparam
  use boundary,      only:dxbound,dybound,dzbound
  use units,         only:unit_density
  use options,       only:use_dustfrac
  use fileutils,     only:make_tags_unique
+ use ptmass,        only:icreate_sinks
  integer, intent(in) :: iprint
  character(len=120)  :: string,Mdust_label(maxdusttypes)
- integer :: i
+ integer             :: i
 
- if (ndead > 0) then
-    write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
+ if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected .or. iverbose > 0) then
+    write(iprint,"(1x,4(a,I10))") 'npart=',npartall,', n_alive=',npartall-ndead, &
+                                  ', n_dead_or_accreted=',ndead,', nptmass=',nptmass
  endif
- write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
-      'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
- if (mhd)        write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
- if (track_mass) write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
+
+ write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") 'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
+
+ if (mhd)          write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
+ if (do_radiation) write(iprint,"(1x,('E',a,'=',es10.3))") 'rad',erad
+ if (track_mass)   write(iprint,"(1x,('E',a,'=',es10.3))") 'acc',ev_data(iev_sum,iev_eacc)
  write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
       'Linm',ev_data(iev_sum,iev_totmom),'Angm',ev_data(iev_sum,iev_angmom)
  if (iexternalforce > 0) then
@@ -484,6 +491,8 @@ subroutine write_evlog(iprint)
       'div B ',ev_data(iev_max,iev_divB),'div B ',ev_data(iev_ave,iev_divB)
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),(a,'(mean)=',es10.3))") &
       'h|div B|/B ',ev_data(iev_max,iev_hdivB),'h|div B|/B ',ev_data(iev_ave,iev_hdivB)
+    if (ev_data(iev_max,iev_hdivB) > 10.) &
+      write(iprint,'(a)') 'WARNING! h|div B|/B is growing!  Recommend increasing hdivbbmax_max for better stability'
  endif
  write(iprint,"(/)")
 

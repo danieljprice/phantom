@@ -8,9 +8,11 @@
 !  MODULE: testgnewton
 !
 !  DESCRIPTION:
-!  unit tests of the gnewton external force module
+!   unit tests of the gnewton external force module
 !
-!  REFERENCES: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
+!  REFERENCES:
+!   Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
+!   Bonnerot et al., 2016, MNRAS, 455, 2253
 !
 !  OWNER: Daniel Price
 !
@@ -29,7 +31,11 @@ module testgnewton
  private
 
 contains
-
+!----------------------------------------------------------
+!+
+!  unit tests of generalised Newtonian potential
+!+
+!----------------------------------------------------------
 subroutine test_gnewton(ntests,npass)
  use io,              only:id,master
  use part,            only:xyzh,vxyzu

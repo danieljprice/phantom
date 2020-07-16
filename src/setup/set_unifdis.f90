@@ -18,12 +18,23 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: domain, part, random, stretchmap
+!  DEPENDENCIES: random, stretchmap
 !+
 !--------------------------------------------------------------------------
 module unifdis
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked
+ public :: is_valid_lattice, is_closepacked
+
+ ! following lines of code allow an optional mask= argument
+ ! to setup only certain subsets of the particle domain (used for MPI)
+ abstract interface
+  logical function mask_prototype(ip)
+   integer(kind=8), intent(in) :: ip
+  end function mask_prototype
+ end interface
+
+ public :: mask_prototype, mask_true
 
  private
 
@@ -36,36 +47,40 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                       zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,dir,geom)
+                       zmin,zmax,delta,hfact,np,xyzh,periodic,rmin,rmax,rcylmin,rcylmax,&
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
- use part,       only:periodic
  use stretchmap, only:set_density_profile
- use domain,     only:i_belong
+ !use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
  real,             intent(out)   :: xyzh(:,:)
+ logical,          intent(in)    :: periodic ! true or false
+
  real,             intent(in),    optional :: rmin,rmax
  real,             intent(in),    optional :: rcylmin,rcylmax
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose
+ logical,          intent(in),    optional :: verbose,centre
+ integer,          intent(out),   optional :: err
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: i_belong
 
- integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
+ integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
  integer(kind=8)    :: iparttot
  real               :: delx,dely
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
- !real               :: xcentre,ycentre,zcentre
+ real               :: xcentre,ycentre,zcentre
  real               :: rmin2,rmax2,rcylmin2,rcylmax2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
- logical            :: is_verbose
+ logical            :: is_verbose,centre_lattice
  character(len=*), parameter :: fmt1 = "(/,1x,16('-'),' particles set on ',i3,2(' x ',i3),"// &
                                        "' uniform ',a,' lattice ',14('-'))"
  character(len=*), parameter :: fmt2 = "(/,1x,13('-'),' particles set on',i6,2(' x',i6),"// &
@@ -116,10 +131,19 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  endif
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
-
  is_verbose = .true.
- if (present(verbose)) then
-    is_verbose = verbose
+ if (present(verbose)) is_verbose = verbose
+
+ ! check against mask
+ if (present(mask)) then
+    i_belong => mask
+ else
+    i_belong => mask_true
+ endif
+
+ centre_lattice = .false.
+ if (present(centre)) then
+    centre_lattice = centre
  endif
 
  select case(trim(lattice))
@@ -141,18 +165,18 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     endif
     npnew=nx*ny*nz
 
-    xstart = 0.
-    ystart = 0.
-    zstart = 0.
+    xstart = xmin
+    ystart = ymin
+    zstart = zmin
 
     ipart = np
     do k=1,nz
-       zi = zmin + (k-0.5)*deltaz + zstart
+       zi = zstart + (k-0.5)*deltaz
        !print*,' z = ',zi
        do j=1,ny
-          yi = ymin + (j-0.5)*deltay + ystart
+          yi = ystart + (j-0.5)*deltay
           do i=1,nx
-             xi = xmin + (i-0.5)*deltax + xstart
+             xi = xstart + (i-0.5)*deltax
 
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
@@ -297,9 +321,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 !
 !--set uniform particle distribution, centred at the origin
 !
-    !xcentre = 0.5*(xmin + xmax)
-    !ycentre = 0.5*(ymin + ymax)
-    !zcentre = 0.5*(zmin + zmax)
+    xcentre = 0.5*(xmin + xmax)
+    ycentre = 0.5*(ymin + ymax)
+    zcentre = 0.5*(zmin + zmax)
     ! xmin = -rmax
     ! ymin = -rmax
     ! zmin = -rmax
@@ -387,17 +411,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           endif
        endif
 
-       !xstart = xcentre - 0.5*nx*deltax
-       !ystart = ycentre - 0.5*ny*deltay
-       !zstart = zcentre - 0.5*nz*deltaz
-
-       !   xstart = xmin
-       !   ystart = ymin + 0.5*dely
-       !   zstart = zmin + 0.5*deltaz
-
-       xstart = xmin + 0.5*delx
-       ystart = ymin + 0.5*dely
-       zstart = zmin + 0.5*deltaz
+       if (centre_lattice) then
+          xstart = xcentre - 0.5*nx*deltax
+          ystart = ycentre - 0.5*ny*deltay
+          zstart = zcentre - 0.5*nz*deltaz
+       else
+          xstart = xmin + 0.5*delx
+          ystart = ymin + 0.5*dely
+          zstart = zmin + 0.5*deltaz
+       endif
 
        jy = mod(l, 2)
        jz = mod(m, 3)
@@ -417,9 +439,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xstart = xstart + delx
        endif
 
-       xi = xstart + float(k - 1)*deltax
-       yi = ystart + float(l - 1)*deltay
-       zi = zstart + float(m - 1)*deltaz
+       xi = xstart + real(k - 1)*deltax
+       yi = ystart + real(l - 1)*deltay
+       zi = zstart + real(m - 1)*deltaz
 
        xpartmin = min(xpartmin,xi)
        ypartmin = min(ypartmin,yi)
@@ -538,15 +560,19 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xmaxs = ymax
        endif
     endif
-    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,start=npin,geom=igeom,coord=icoord)
+    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+    if (ierr > 0) then
+       if (present(err)) err = ierr
+       return
+    endif
  endif
 
- return
 end subroutine set_unifdis
-!
+
 !-------------------------------------------------------------
 !+
-!  Supplementary function & subroutine
+!  check if value of x is between xmin and xmax
 !+
 !-------------------------------------------------------------
 pure logical function in_range(x,xmin,xmax)
@@ -556,7 +582,20 @@ pure logical function in_range(x,xmin,xmax)
 
 end function in_range
 
-subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
+pure logical function mask_true(ip)
+ integer(kind=8), intent(in) :: ip
+
+ mask_true = .true.
+
+end function mask_true
+
+!-------------------------------------------------------------
+!+
+!  helper routine to figure out exact spacing in y and z
+!  directions for close sphere packing
+!+
+!-------------------------------------------------------------
+pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  real,     intent(in) :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
@@ -572,5 +611,37 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
-!-------------------------------------------------------------
+!---------------------------------------------------------------
+!+
+!  helper routine to sanity check that the latticetype is valid
+!+
+!---------------------------------------------------------------
+pure logical function is_valid_lattice(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ select case(trim(latticetype))
+ case ('random','cubic','closepacked','hcp')
+    is_valid_lattice = .true.
+ case default
+    is_valid_lattice = .false.
+ end select
+
+end function is_valid_lattice
+
+!---------------------------------------------------------------
+!+
+!  check that the latticetype is closepacked
+!+
+!---------------------------------------------------------------
+pure logical function is_closepacked(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ if (trim(latticetype)=='closepacked') then
+    is_closepacked = .true.
+ else
+    is_closepacked = .false.
+ endif
+
+end function is_closepacked
+
 end module unifdis

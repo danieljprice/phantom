@@ -104,7 +104,8 @@ subroutine read_opacity_mesa(x,z)
 
 
  !Find the opacity table
- filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
+ filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
+! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
  opacs_file = find_phantom_datafile(filename,'eos/mesa')
  open(unit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
@@ -428,6 +429,7 @@ end subroutine read_eos_mesa
 ! 1. logRho        2. logP          3. logPgas       4. logT
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
+! Note: ivout=1,2,3,4 returns the unlogged quantity
 subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real, intent(in) :: rho, eint
  real, intent(out) :: vout

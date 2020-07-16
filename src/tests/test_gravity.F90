@@ -29,21 +29,22 @@ module testgravity
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests for Newtonian gravity (i.e. Poisson solver)
+!+
+!-----------------------------------------------------------------------
 subroutine test_gravity(ntests,npass,string)
  use io,        only:id,master
 #ifdef GRAVITY
  use dim,       only:maxp
- use part,      only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
-                     alphaind,maxalpha,dustprop,ddustprop, &
-                     divcurlv,divcurlB,dBevol,gradh,poten,&
-                     iphase,isetphase,maxphase,dustfrac,ddustevol,temperature,labeltype, &
-                     pxyzu,dens,metrics
+ use part,      only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
+                     gradh,poten,iphase,isetphase,maxphase,labeltype
  use eos,       only:polyk,gamma
  use options,   only:ieos,alpha,alphau,alphaB,tolh
  use testutils, only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use spherical, only:set_sphere
- use deriv,     only:derivs
+ use deriv,     only:get_derivs_global
  use physcon,   only:pi
  use timing,    only:getused,printused
  use directsum, only:directsum_grav
@@ -56,7 +57,7 @@ subroutine test_gravity(ntests,npass,string)
  logical                :: testdirectsum,testpolytrope,testtaylorseries,testall
  integer :: maxvxyzu,nx,np,i,npnode,k
  real :: psep,totvol,totmass,rhozero
- real :: time,rmin,rmax,dtext_dum,phitot
+ real :: time,rmin,rmax,phitot
  real(kind=4) :: t1,t2
  real :: xposi(3),xposj(3),x0(3),dx(3),fexact(3),f0(3)
  real :: xposjd(3,3),dfdx_approx(3,3),d2f(3,3),dpot(3)
@@ -245,6 +246,7 @@ subroutine test_gravity(ntests,npass,string)
 !
 !--setup particles
 !
+          call init_part()
           np       = 1000
           maxvxyzu = size(vxyzu(:,1))
           totvol   = 4./3.*pi*rmax**3
@@ -276,7 +278,6 @@ subroutine test_gravity(ntests,npass,string)
 !
           polyk      = 0.
           vxyzu(:,:) = 0.
-          if (mhd) Bevol(:,:) = 0.
 !
 !--make sure AV is off
 !
@@ -284,13 +285,11 @@ subroutine test_gravity(ntests,npass,string)
           alphau = 0.
           alphaB = 0.
           tolh = 1.e-5
-          if (maxalpha==maxp)  alphaind(:,:) = 0.
 !
 !--calculate derivatives
 !
           call getused(t1)
-          call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                      Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+          call get_derivs_global()
           call getused(t2)
           if (id==master) call printused(t1)
 !

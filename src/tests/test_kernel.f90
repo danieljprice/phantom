@@ -28,7 +28,11 @@ module testkernel
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of kernel functions
+!+
+!-----------------------------------------------------------------------
 subroutine test_kernel(ntests,npass)
  use io,        only:id,master
  use kernel,    only:kernelname,get_kernel,wkern,grkern,wab0,gradh0,radkern,radkern2,cnormk, &

@@ -26,11 +26,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, physcon
+!  DEPENDENCIES: binaryutils
 !+
 !--------------------------------------------------------------------------
 module setbinary
- use physcon, only:pi
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
  public :: get_mean_angmom_vector,get_eccentricity_vector
@@ -40,6 +39,13 @@ module setbinary
   module procedure get_eccentricity_vector,get_eccentricity_vector_sinks
  end interface get_eccentricity_vector
 
+ real, parameter :: pi = 4.*atan(1.)
+ integer, parameter :: &
+   ierr_m1   = 1, &
+   ierr_m2   = 2, &
+   ierr_ecc  = 3, &
+   ierr_semi = 4
+
 contains
 
 !----------------------------------------------------------------
@@ -47,26 +53,27 @@ contains
 !  setup for a binary
 !+
 !----------------------------------------------------------------
-subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
+subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
-                      xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate,&
+                      xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
- use io,   only:warning,fatal
- use part, only:ihacc,ihsoft
- real,    intent(in)    :: mprimary,massratio
+ use binaryutils, only:get_E
+ real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
+ integer, intent(out)   :: ierr
  real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: m1,m2,mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
+ real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
 
+ ierr = 0
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
 
@@ -75,8 +82,6 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  nptmass = nptmass + 2
 
  ! masses
- m1 = mprimary
- m2 = mprimary*massratio
  mtot = m1 + m2
 
  Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
@@ -88,9 +93,9 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  if (do_verbose) then
     print "(/,2x,a)",'---------- binary parameters ----------- '
     print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
-        'primary mass     :',mprimary, &
-        'secondary mass   :',massratio*mprimary, &
-        'mass ratio       :',massratio, &
+        'primary mass     :',m1, &
+        'secondary mass   :',m2, &
+        'mass ratio m2/m1 :',m2/m1, &
         'reduced mass     :',reducedmass, &
         'semi-major axis  :',semimajoraxis, &
         'period           :',period, &
@@ -100,19 +105,32 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  endif
 
  if (accretion_radius1 > Rochelobe1) then
-    call warning('set_binary','accretion radius of primary > Roche lobe')
+    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
  endif
  if (accretion_radius2 > Rochelobe2) then
-    call warning('set_binary','accretion radius of secondary > Roche lobe')
+    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe'
  endif
 !
 !--check for stupid parameter choices
 !
- if (mprimary <= 0.) call fatal('set_binary','primary mass <= 0')
- if (massratio < 0.) call fatal('set_binary','mass ratio < 0')
- if (semimajoraxis <= 0.) call fatal('set_binary','semi-major axis <= 0')
- if (eccentricity > 1. .or. eccentricity < 0.) &
-    call fatal('set_binary','eccentricity must be between 0 and 1')
+ if (m1 <= 0.) then
+    print "(1x,a)",'ERROR: set_binary: primary mass <= 0'
+    ierr = ierr_m1
+ endif
+ if (m2 < 0.) then
+    print "(1x,a)",'ERROR: set_binary: secondary mass <= 0'
+    ierr = ierr_m2
+ endif
+ if (semimajoraxis <= 0.) then
+    print "(1x,a)",'ERROR: set_binary: semi-major axis <= 0'
+    ierr = ierr_semi
+ endif
+ if (eccentricity > 1. .or. eccentricity < 0.) then
+    print "(1x,a)",'ERROR: set_binary: eccentricity must be between 0 and 1'
+    ierr = ierr_ecc
+ endif
+ ! exit routine if cannot continue
+ if (ierr /= 0) return
 
  dx = 0.
  dv = 0.
@@ -135,7 +153,7 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
        tperi = 0.5*period ! time since periastron: half period = apastron
 
        ! Solve Kepler equation for eccentric anomaly
-       E = get_E(period,eccentricity,tperi)
+       call get_E(period,eccentricity,tperi,E)
     endif
 
     ! Positions in plane (Thiele-Innes elements)
@@ -218,10 +236,10 @@ subroutine set_binary(mprimary,massratio,semimajoraxis,eccentricity, &
  xyzmh_ptmass(1:3,i2) = x2
  xyzmh_ptmass(4,i1) = m1
  xyzmh_ptmass(4,i2) = m2
- xyzmh_ptmass(ihacc,i1) = accretion_radius1
- xyzmh_ptmass(ihacc,i2) = accretion_radius2
- xyzmh_ptmass(ihsoft,i1) = 0.0
- xyzmh_ptmass(ihsoft,i2) = 0.0
+ xyzmh_ptmass(5,i1) = accretion_radius1
+ xyzmh_ptmass(5,i2) = accretion_radius2
+ xyzmh_ptmass(6,i1) = 0.0
+ xyzmh_ptmass(6,i2) = 0.0
 !
 !--velocities
 !
@@ -255,36 +273,6 @@ pure subroutine rotate(xyz,cosi,sini)
  xyz(3) = -xi*sini + zi*cosi
 
 end subroutine rotate
-
-!--------------------------------
-! Solve Kepler's equation for the
-! Eccentric anomaly by iteration
-!--------------------------------
-real function get_E(period,ecc,deltat)
- real, intent(in) :: period,ecc,deltat
- real :: mu,M,E0,M0,E
- real, parameter :: tol = 1.e-10
-
- mu = 2.*pi/period
- M = mu*deltat ! mean anomaly
- ! first guess
- if (M > tiny(M)) then
-    E = M + ecc*sin(M) + ecc**2/M*sin(2.*M)
- else
-    E = M
- endif
- E0 = E + 2.*tol
-
- do while (abs(E - E0) > tol)
-    E0 = E
-    M0 = M
-    M = E - ecc*sin(E)
-    E = E + (M - M0)/(1. - ecc*cos(E))
- enddo
-
- get_E = E
-
-end function get_E
 
 !------------------------------------
 ! Compute estimate of the Roche Lobe

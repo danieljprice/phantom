@@ -30,10 +30,9 @@ module testgeometry
  private
 
 contains
-
 !--------------------------------------------
 !+
-!  Various tests of the cooling module
+!  Unit tests of the geometry module
 !+
 !--------------------------------------------
 subroutine test_geometry(ntests,npass)

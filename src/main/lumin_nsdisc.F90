@@ -408,7 +408,7 @@ subroutine make_beta_grids(xyzh,particlemass,npart)
        w92sumbeta(rbin) = 0.0
        w92npart(rbin) = 0
     enddo
-    do ipart=0, npart
+    do ipart=1, npart
        x = xyzh(1, ipart)
        y = xyzh(2, ipart)
        z = xyzh(3, ipart)

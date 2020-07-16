@@ -21,18 +21,17 @@
 !+
 !--------------------------------------------------------------------------
 program phantom2divb
- use dim,             only:ndivcurlB,maxp,tagline
- use part,            only:npart,xyzh,vxyzu,fxyzu,Bxyz,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                           hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase,&
-                           dustfrac,ddustevol,mhd,temperature,dustprop,ddustprop
- use io,              only:set_io_unit_numbers,iprint,idisk1,idump,pxyzu,dens,metrics
+ use dim,             only:ndivcurlB,maxp,mhd,tagline
+ use part,            only:npart,xyzh,Bxyz,divcurlB,Bevol, &
+                           hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase
+ use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
  use readwrite_dumps, only:read_dump,write_fulldump
- use deriv,           only:derivs
+ use deriv,           only:get_derivs_global
  implicit none
  integer :: nargs
  character(len=120) :: dumpfile
- real :: time,dtdum
+ real :: time
  integer :: ierr,iarg,i
 
  call set_io_unit_numbers
@@ -71,9 +70,7 @@ program phantom2divb
        enddo
     endif
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,&
-                temperature,0.,0.,dtdum,pxyzu,dens,metrics)
+    call get_derivs_global()
 !
 !--dump to .divv file
 !

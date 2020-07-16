@@ -38,13 +38,15 @@ module energies
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
  integer,         public    :: iquantities
- integer(kind=8), public    :: ndead,np_cs_eq_0,np_e_eq_0
+ integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
+ integer,         public    :: iev_erad
+ real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
@@ -66,7 +68,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,use_CMacIonize,store_temperature,&
-                          maxdusttypes,gws
+                          maxdusttypes,gws,do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -74,9 +76,8 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,temperature,&
                           n_R,n_electronT,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes
- use part,           only:pxyzu,metrics,metricderivs
- use part,           only:fxyzu,fext
+                          iamdust,ndusttypes,rad,iradxi
+ use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use eos,            only:polyk,utherm,gamma,equationofstate,&
                           get_temperature_from_ponrho,gamma_pwp
@@ -89,6 +90,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_get_eta,nicil_get_halldrift,nicil_get_vion, &
                      use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_data_out
 #ifdef GR
+ use part,           only:metrics,metricderivs
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
@@ -138,6 +140,7 @@ subroutine compute_energies(t)
  epot = 0.
  emag = 0.
  etot = 0.
+ erad = 0.
  xcom = 0.
  ycom = 0.
  zcom = 0.
@@ -172,17 +175,16 @@ subroutine compute_energies(t)
  endif
  np_rho      = 0
  call initialise_ev_data(ev_data)
-!
+
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
-!$omp shared(xyzh,vxyzu,iexternalforce,npart,t,id,npartoftype) &
-!$omp shared(pxyzu) &
+!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,npartoftype) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,ion_rays,ion_thermal,n_R,n_electronT,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
+!$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
@@ -191,12 +193,7 @@ subroutine compute_energies(t)
 !$omp shared(gamma_chem) &
 #endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
-#ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
-!$omp shared(metrics) &
-#endif
-!$omp private(ethermi) &
-!$omp private(ponrhoi,spsoundi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(ierr,tempi,etaart,etaart1,etaohm,etahall,etaambi) &
@@ -204,6 +201,10 @@ subroutine compute_energies(t)
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
+#ifdef GR
+!$omp shared(metrics) &
+!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
+#endif
 #ifdef DUST
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
@@ -214,7 +215,7 @@ subroutine compute_energies(t)
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
-!$omp reduction(+:ekin,etherm,emag,epot,vrms,rmsmach)
+!$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -349,6 +350,7 @@ subroutine compute_energies(t)
           mdust(idusttype) = mdust(idusttype) + pmassi
        endif
 #endif
+       if (do_radiation) erad = erad + pmassi*rad(iradxi,i)
        !
        ! the following apply ONLY to gas particles
        !
@@ -563,7 +565,6 @@ subroutine compute_energies(t)
 !
 !--add contribution from sink particles
 !
-
  if (id==master) then
     !$omp do
     do i=1,nptmass
@@ -620,9 +621,10 @@ subroutine compute_energies(t)
 !$omp end parallel
 
  !--Determing the number of active gas particles
- nptot = reduce_fn('+',np)
- npgas = reduce_fn('+',npgas)
- ndead = npart - nptot
+ nptot    = reduce_fn('+',np)
+ npgas    = reduce_fn('+',npgas)
+ npartall = reduce_fn('+',npart)
+ ndead    = npartall - nptot
  if (nptot > 0) then
     dnptot = 1./real(nptot)
  else
@@ -647,9 +649,10 @@ subroutine compute_energies(t)
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
  emag = reduce_fn('+',emag)
  epot = reduce_fn('+',epot)
+ erad = reduce_fn('+',erad)
  if (nptmass > 1) epot = epot + epot_sinksink
 
- etot = ekin + etherm + emag + epot
+ etot = ekin + etherm + emag + epot + erad
 
  xcom = reduce_fn('+',xcom)
  ycom = reduce_fn('+',ycom)
@@ -682,6 +685,7 @@ subroutine compute_energies(t)
  ev_data(iev_sum,iev_emag  ) = emag
  ev_data(iev_sum,iev_epot  ) = epot
  ev_data(iev_sum,iev_etot  ) = etot
+ ev_data(iev_sum,iev_erad  ) = erad
  ev_data(iev_sum,iev_totmom) = totmom
  ev_data(iev_sum,iev_angmom) = angtot
  ev_data(iev_sum,iev_com(1)) = xcom
@@ -801,7 +805,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
  if (radyz2 > 0.) erotxi = pmassi*rcrossvx*rcrossvx/radyz2
  if (radxz2 > 0.) erotyi = pmassi*rcrossvy*rcrossvy/radxz2
  if (radxy2 > 0.) erotzi = pmassi*rcrossvz*rcrossvz/radxy2
- !
+
 end subroutine get_erot
 !----------------------------------------------------------------
 !+
@@ -810,11 +814,11 @@ end subroutine get_erot
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
  real,    intent(inout) :: evdata(4,0:inumev)
- !
+
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
  evdata(iev_min,:) =  huge(evdata(iev_min,:))
- !
+
 end subroutine initialise_ev_data
 !----------------------------------------------------------------
 !+
@@ -867,6 +871,5 @@ subroutine finalise_ev_data(evdata,dnptot)
  enddo
 
 end subroutine finalise_ev_data
-
 !----------------------------------------------------------------
 end module energies

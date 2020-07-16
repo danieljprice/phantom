@@ -33,8 +33,9 @@
 !+
 !--------------------------------------------------------------------------
 module step_lf_global
- use dim,  only:maxp,maxvxyzu,maxBevol
+ use dim,  only:maxp,maxvxyzu,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
+ use part, only:radpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -50,13 +51,28 @@ contains
 !------------------------------------------------------------
 subroutine init_step(npart,time,dtmax)
 #ifdef IND_TIMESTEPS
- use timestep_ind, only:get_dt
- use part,         only:ibin,twas
+ use timestep_ind, only:get_dt,nbinmax
+ use part,         only:ibin,twas,maxphase,maxp,iphase,iamboundary,iamtype
 #endif
  integer, intent(in) :: npart
  real,    intent(in) :: time,dtmax
 #ifdef IND_TIMESTEPS
  integer             :: i
+ !
+ ! first time through, move all particles on shortest timestep
+ ! then allow them to gradually adjust levels.
+ ! Keep boundary particles on level 0 since forces are never calculated
+ ! and to prevent boundaries from limiting the timestep
+ !
+ if (time < tiny(time)) then
+    !$omp parallel do schedule(static) private(i)
+    do i=1,npart
+       ibin(i) = nbinmax
+       if (maxphase==maxp) then
+          if (iamboundary(iamtype(iphase(i)))) ibin(i) = 0
+       endif
+    enddo
+ endif
 !
 ! twas is set so that at start of step we predict
 ! forwards to half of current timestep
@@ -88,11 +104,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:idamp,iexternalforce,icooling,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                          isdead_or_accreted,rhoh,dhdrho,&
-                          iphase,iamtype,massoftype,maxphase,igas,idust,mhd,maxBevol,&
+                          rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
+                          iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
-                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,metricderivs
+                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -110,6 +126,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
 #ifdef GR
+ use part,           only:metricderivs
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
@@ -169,7 +186,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(pxyzu) &
+ !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred) &
 #ifdef IND_TIMESTEPS
@@ -203,7 +220,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
        if (itype==igas) then
-          if (mhd)          Bevol(:,i)    = Bevol(:,i)        + hdti*dBevol(:,i)
+          if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
+          if (do_radiation) rad(:,i)   = rad(:,i) + hdti*drad(:,i)
           if (use_dustfrac) then
              dustevol(:,i) = abs(dustevol(:,i) + hdti*ddustevol(:,i))
              if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
@@ -258,6 +276,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
+!$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci,divvdti) &
 !$omp firstprivate(pmassi,itype,avdecayconst,alpha)
@@ -274,7 +293,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
              if (mhd)          Bpred(:,i)  = Bevol (:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
-             if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
+             if (use_dustfrac)   dustpred(:,i) = dustevol(:,i)
+             if (do_radiation)   radpred(:,i) = rad(:,i)
              cycle predict_sph
           endif
        endif
@@ -310,18 +330,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             dustfrac(1:ndustsmall,i) = min(dustpred(:,i)**2/rhoi,1.) ! dustevol = sqrt(rho*eps)
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             if ((.not. this_is_a_test) .and. use_dustgrowth) dustfrac(1:ndustsmall,i) = &
-                                                            dustpred(:,i)**2/(1.+dustpred(:,i)**2)
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             dustfrac(1:ndustsmall,i) = sin(dustpred(:,i))**2
-!------------------------------------------------
+             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             if (.not.(use_dustgrowth .and. this_is_a_test)) &
+                dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
           endif
+          if (do_radiation) radpred(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
        !
        ! viscosity switch ONLY (conductivity and resistivity do not use MM97-style switches)
@@ -369,7 +382,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
-                divcurlB,Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
+                divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
+                dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
  endif
@@ -391,7 +405,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
- iterations: do while (its < maxits .and. .not.converged)
+ iterations: do while (its < maxits .and. .not.converged .and. npart > 0)
     its     = its + 1
     errmax  = 0.
     v2mean  = 0.
@@ -415,6 +429,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
 #endif
+!$omp shared(rad,radpred,drad)&
 !$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
@@ -452,7 +467,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
              if (itype==igas) then
-                if (mhd)          Bevol(:,i)    = Bevol(:,i)    + dti*dBevol(:,i)
+                if (mhd)          Bevol(:,i) = Bevol(:,i) + dti*dBevol(:,i)
+                if (do_radiation) rad(:,i)   = rad(:,i)   + dti*drad(:,i)
                 if (use_dustfrac) then
                    dustevol(:,i) = dustevol(:,i) + dti*ddustevol(:,i)
                    if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
@@ -472,7 +488,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdti*dBevol(:,i)
+             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
+             if (do_radiation) rad(:,i)   = rad(:,i)   + hdti*drad(:,i)
              if (use_dustfrac) then
                 dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
@@ -538,7 +555,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              !
              ! corrector step for magnetic field and dust
              !
-             if (mhd)          Bevol(:,i)  = Bevol(:,i)  + hdtsph*dBevol(:,i)
+             if (mhd)          Bevol(:,i) = Bevol(:,i)  + hdtsph*dBevol(:,i)
+             if (do_radiation) rad(:,i)   = rad(:,i) + hdtsph*drad(:,i)
              if (use_dustfrac) then
                 dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
@@ -558,9 +576,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
 
     if (.not.converged .and. npart > 0) then
-       !$omp parallel do private(i) schedule(static)
-       do i=1,npart
+!$omp parallel do default(none)&
+!$omp private(i) &
+!$omp shared(npart,hdtsph)&
+!$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
+!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
+!$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
+!$omp shared(rad,drad,radpred) &
+!$omp firstprivate(itype) &
+!$omp schedule(static)
+       until_converged: do i=1,npart
           if (store_itype) itype = iamtype(iphase(i))
+          if (iamboundary(itype)) cycle until_converged
+
 #ifdef IND_TIMESTEPS
           if (iactive(iphase(i))) then
 
@@ -572,6 +600,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
+             if (do_radiation) radpred(:,i) = rad(:,i)
           endif
 #else
           if (gr) then
@@ -582,9 +611,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
           if (mhd)          Bpred(:,i)  = Bevol(:,i)
           if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-!
-! shift v back to the half step
-!
+          if (do_radiation) radpred(:,i) = rad(:,i)
+          !
+          ! shift v back to the half step
+          !
           if (gr) then
              pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
           else
@@ -597,20 +627,21 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
                 if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              endif
+             if (do_radiation) rad(:,i) = rad(:,i) - hdtsph*drad(:,i)
           endif
-#endif
-       enddo
-       !$omp end parallel do
 
-       call check_dustprop(npart,dustprop(1,:))
+#endif
+       enddo until_converged
+!$omp end parallel do
+
+       if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
-
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,dustproppred,ddustprop,dustfrac,ddustevol,&
+                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustfrac,ddustevol,&
                      temperature,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
@@ -1000,7 +1031,7 @@ end subroutine step_extern_sph
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
- use io,             only:iverbose,id,master,iprint,warning
+ use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
@@ -1045,7 +1076,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real            :: dudtcool,fextv(3),poti,fextrad(3),ui
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
- real            :: dptmass(ndptmass,maxptmass)
+ real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
  real            :: damp_fac,dphot
  real, save      :: dmdt = 0.
  real            :: abundi(nabn),gmwvar
@@ -1073,10 +1104,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
+ ! allocate memory for dptmass array (avoids ifort bug)
+ allocate(dptmass(ndptmass,nptmass))
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
+    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
     dtsinkgas     = bignumber
@@ -1311,7 +1345,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     nfail        = 0
     naccreted    = 0
     ibin_wakei   = 0
-    dptmass(:,1:nptmass) = 0.
+    dptmass(:,:) = 0.
 
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
@@ -1424,6 +1458,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        endif
     endif
  enddo substeps
+
+ deallocate(dptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then

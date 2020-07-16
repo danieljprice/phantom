@@ -34,7 +34,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2019 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -123,21 +123,41 @@ module dim
  ! kdtree
  integer, parameter :: minpart = 10
 
+ integer :: maxprad = 0
+
+ integer, parameter :: &
+ radensumforce      = 1,&
+ radenxpartvecforce = 7,&
+ radensumden        = 3,&
+ radenxpartvetden   = 1
+#ifdef RADIATION
+ logical, parameter :: do_radiation = .true.
+#else
+ logical, parameter :: do_radiation = .false.
+#endif
+
  ! rhosum
- integer, parameter :: maxrhosum = 39 + maxdustlarge - 1
+ integer, parameter :: maxrhosum = 39 + &
+                                   maxdustlarge - 1 + &
+                                   radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 19 ! Number of scalars in fsum
- integer, parameter :: fsumarrs = 5  ! Number of arrays in fsum
- integer, parameter :: maxfsum  = fsumvars + fsumarrs*(maxdusttypes-1) ! Total number of values
+ integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
+ integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
+                                  fsumarrs*(maxdusttypes-1) + &
+                                  radensumforce
 
- ! xpartveci
- integer, parameter :: maxxpartvecidens = 14
+! xpartveci
+ integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 56 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
- integer, parameter :: maxxpartveciforce = maxxpartvecvars + maxxpartvecarrs*(maxdusttypes-1) + maxxpartvecGR ! Total number of values
+ integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
+                                           maxxpartvecarrs*(maxdusttypes-1) + &
+                                           radenxpartvecforce + &
+                                           maxxpartvecGR
 
  ! cell storage
  integer, parameter :: maxprocs = 32
@@ -213,7 +233,7 @@ module dim
 #else
  logical, parameter :: mhd = .false.
 #endif
- integer, parameter :: maxBevol = 4 ! irrelevant, but prevents compiler warnings
+ integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
 ! non-ideal MHD
@@ -314,6 +334,15 @@ module dim
  logical, parameter :: use_CMacIonize = .false.
 #endif
 
+!--------------------
+! logical for bookkeeping
+!--------------------
+#ifdef INJECT_PARTICLES
+ logical, parameter :: particles_are_injected = .true.
+#else
+ logical, parameter :: particles_are_injected = .false.
+#endif
+
  !--------------------
  ! Analysis array sizes
  !--------------------
@@ -329,6 +358,7 @@ module dim
  integer :: maxgradh = 0
 
 contains
+
 subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
@@ -417,6 +447,9 @@ subroutine update_max_sizes(n)
  maxgran = maxgr
 #endif
 
+#ifdef RADIATION
+ maxprad = maxp
+#endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan
  maxgradh = maxan

@@ -17,9 +17,10 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, deriv, dim, energies, eos, evolve, evwrite,
-!    initial_params, io, io_summary, mpiutils, options, part, physcon,
-!    testutils, timestep, unifdis, viscosity
+!  DEPENDENCIES: boundary, deriv, dim, domain, energies, eos, evolve,
+!    evwrite, initial_params, io, io_summary, mpiutils, options, part,
+!    physcon, radiation_utils, testutils, timestep, unifdis, units,
+!    viscosity
 !+
 !--------------------------------------------------------------------------
 module testsedov
@@ -28,23 +29,27 @@ module testsedov
  public :: test_sedov
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit test of the "complete" code, performing sedov test
+!+
+!-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
- use part,     only:mhd,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,fxyzu,fext,ntot, &
-                    divcurlv,divcurlB,Bevol,dBevol,Bextx,Bexty,Bextz,alphaind,&
-                    dustfrac,ddustevol,dustevol,dustprop,ddustprop,temperature,pxyzu,dens,metrics
+ use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
+                    alphaind,rad,radprop,ikappa
  use part,     only:iphase,maxphase,igas,isetphase
  use eos,      only:gamma,polyk
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
- use physcon,  only:pi
- use deriv,    only:derivs
- use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv
+ use physcon,  only:pi,au,solarm
+ use deriv,    only:get_derivs_global
+ use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
+ use units,    only:set_units
 #ifndef IND_TIMESTEPS
- use timestep, only:dtcourant,dtforce
+ use timestep, only:dtcourant,dtforce,dtrad
 #endif
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
@@ -54,10 +59,12 @@ subroutine test_sedov(ntests,npass)
  use io_summary,only:summary_reset
  use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
+ use domain,    only:i_belong
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
- real    :: psep,denszero,enblast,rblast,prblast,gam1,dtext_dum
+ real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotin,momtotin,etotend,momtotend
  character(len=20) :: logfile,evfile,dumpfile
 
@@ -69,6 +76,7 @@ subroutine test_sedov(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
  return
 #endif
+ if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
 
  testsedv: if (maxvxyzu >= 4) then
     if (id==master) write(*,"(/,a)") '--> testing Sedov blast wave'
@@ -90,6 +98,7 @@ subroutine test_sedov(ntests,npass)
 !
 !--setup particles
 !
+    call init_part()
     npart = 16
     psep  = dxbound/npart
 
@@ -102,7 +111,8 @@ subroutine test_sedov(ntests,npass)
     prblast  = gam1*enblast/(4./3.*pi*rblast**3)
     npart    = 0
 
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
+                     npart,xyzh,periodic,mask=i_belong)
 
     npartoftype(:) = 0
     npartoftype(1) = npart
@@ -116,38 +126,30 @@ subroutine test_sedov(ntests,npass)
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
-       if (use_dust) then
-          dustfrac(:,i) = 0.
-          dustevol(:,i) = 0.
-       endif
-
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
           vxyzu(iu,i) = prblast/(gam1*denszero)
        else
           vxyzu(iu,i) = 0.
        endif
-       if (mhd) then
-          Bevol(:,i) = 0.
-          Bextx = 0.
-          Bexty = 0.
-          Bextz = 0.
-       endif
     enddo
+    if (do_radiation) then
+       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+       radprop(ikappa,1:npart) = bignumber
+    endif
     tmax = 0.1
     dtmax = tmax
+    C_cour = 0.15
+    C_force = 0.25
 !
 !--call derivs the first time around
 !
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+    call get_derivs_global()
 !
 !--now call evolve
 !
 #ifndef IND_TIMESTEPS
-    dt = min(C_cour*dtcourant,C_force*dtforce)
+    dt = min(dtcourant,dtforce,dtrad)
 #endif
-    C_cour = 0.15
-    C_force = 0.25
     iprint = 6
     logfile  = 'test01.log'
     evfile   = 'test01.ev'

@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: dim, eos, kernel, part, timestep, viscosity
+!  DEPENDENCIES: dim, eos, kernel, part, timestep, units, viscosity
 !+
 !--------------------------------------------------------------------------
 module options
@@ -41,7 +41,7 @@ module options
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac
+ real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
 ! additional .ev data
@@ -56,6 +56,9 @@ module options
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
  character(len=80), public :: Voronoi_limits_file
 
+ ! radiation
+ logical,public :: exchange_radiation_energy, limit_radiation_flux
+
  public :: set_default_options
  public :: ieos
 
@@ -67,12 +70,18 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,gr,use_krome
+ use dim,       only:maxp,maxvxyzu,nalpha,gr,use_krome,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
+ use units,     only:set_units
 
+ ! Default timsteps
  call set_defaults_timestep
 
+ ! Reset units
+ call set_units()
+
+ ! Miscellaneous parameters
  nmaxdumps = -1
  twallmax  = 0.0             ! maximum wall time for run, in seconds
  nfulldump = 10              ! frequency of writing full dumps
@@ -84,11 +93,8 @@ subroutine set_default_options
  idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
-
- ! To allow rotational energies to be printed to .ev
- calc_erot = .false.
- ! Final maximum density
- rhofinal_cgs = 0.
+ calc_erot = .false.         ! To allow rotational energies to be printed to .ev
+ rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
  if (use_krome) then
@@ -115,6 +121,7 @@ subroutine set_default_options
     alpha = 1.
  endif
  alphamax = 1.0
+ call set_defaults_viscosity
 
  ! artificial thermal conductivity
  alphau = 1.
@@ -124,12 +131,14 @@ subroutine set_default_options
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
+ hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
+ !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
  if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
+
  ! radius outside which we kill particles
  rkill             = -1.
- call set_defaults_viscosity
 
  ! dust method
  use_dustfrac = .false.
@@ -137,6 +146,15 @@ subroutine set_default_options
  ! mcfost
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
+
+ ! radiation
+ if (do_radiation) then
+    exchange_radiation_energy = .true.
+    limit_radiation_flux = .true.
+ else
+    exchange_radiation_energy = .false.
+    limit_radiation_flux = .false.
+ endif
 
 end subroutine set_default_options
 
