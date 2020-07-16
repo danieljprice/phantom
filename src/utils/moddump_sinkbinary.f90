@@ -40,7 +40,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real :: m1,m2,a,e,racc,period
- integer :: i
+ integer :: i,ierr
 
  ! find current mass from existing particles
  m2 = npart*massoftype(igas)
@@ -67,7 +67,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! add sink particle binary
  !
  nptmass = 0
- call set_binary(m2,m1/m2,a,e,racc,racc,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m2,m1,a,e,racc,racc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  !
  ! delete one of the sink particles and replace it with our polytrope
  !
@@ -87,4 +87,3 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 end module moddump
-

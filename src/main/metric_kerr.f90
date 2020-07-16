@@ -7,9 +7,12 @@
 !+
 !  MODULE: metric
 !
-!  DESCRIPTION: None
+!  DESCRIPTION: Kerr metric in Boyer-Lindquist coordinates
 !
-!  REFERENCES: None
+!  REFERENCES:
+!    Liptai & Price (2019), MNRAS 485, 819-842
+!    Tejeda, Gafton & Rosswog (2017), MNRAS 468, 4483-4503
+!    https://en.wikipedia.org/wiki/Kerr_metric#Boyer–Lindquist_coordinates
 !
 !  OWNER: David Liptai
 !
@@ -23,9 +26,6 @@
 !+
 !--------------------------------------------------------------------------
 module metric
-
-!------ The Kerr metric in Boyer-Lindquist coordinates
-
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
  integer,          parameter :: imetric     = 3
@@ -37,11 +37,9 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  Metric tensors
+!  The metric tensor in 'CARTESIAN-like form'
 !+
 !----------------------------------------------------------------
-
-!--- The metric tensor in 'CARTESIAN-like form'
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
@@ -52,7 +50,9 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real :: rho2,delta,sintheta2
  real :: gphiphi,gtphi,gtt
  real :: rs
- real :: a2pr2,term1,dx2py2,drho2delta,dr2,drho2,dr2mz2,term2,term3,term4
+ real :: a2pr2,drho2delta,dr2,drho2
+ real :: gtphi_on_x2py2
+ real :: omega,domegaterm
  rs = 2.*mass1
 
  if (present(sqrtg)) sqrtg = 1.
@@ -79,38 +79,36 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gtt       = -1. + (r*rs)*drho2
  gphiphi   = sintheta2*(a2pr2 + (a2*r*rs*sintheta2)*drho2)
  gtphi     = -((a*r*rs*sintheta2)*drho2)
+ omega     = a*r*rs/(rho2*a2pr2 + rs*r*a2*sintheta2) ! angular speed, equal to -gtphi/gphiphi
 
- term1     = 1. - (a2pr2*z2)*dr2*drho2
- dx2py2    = 1./(x2 + y2)
  drho2delta = drho2/delta
- dr2mz2    = 1./(r2 - z2)
- term2     = gtphi*dx2py2
- term3     = gphiphi*dx2py2**2
- term4     = drho2*dr2mz2
+ gtphi_on_x2py2   = -rs*r*a/(rho2*a2pr2) ! this is gtphi/(x^2 + y^2), regular at x=y=0 and z=r
 
- gcov(0,0) = -1. + (r*rs)*drho2
- gcov(1,0) = -y*term2
- gcov(2,0) =  x*term2
+ gcov(0,0) = gtt
+ gcov(1,0) = -y*gtphi_on_x2py2
+ gcov(2,0) =  x*gtphi_on_x2py2
  gcov(3,0) = 0.
  gcov(0,1) = gcov(1,0)
- gcov(1,1) = (r2*x2)*drho2delta + term3*y2 + (x2*z2)*term4
- gcov(2,1) = (r2*x*y)*drho2delta - term3*x*y + (x*y*z2)*term4
- gcov(3,1) = (a2pr2*x*z)*drho2delta - (x*z*term1)*dr2mz2
+ gcov(1,1) = 1. + (r**3*(a2pr2)*rs*x2 + a2*delta*r*rs*y2)/(delta*(a2pr2)**2*rho2)
+ gcov(2,1) = (r*(r**4 + a2*(-delta + r2))*rs*x*y)/(delta*(a2pr2)**2*rho2)
+ gcov(3,1) = (r*rs*x*z)/(delta*rho2)
  gcov(0,2) = gcov(2,0)
  gcov(1,2) = gcov(2,1)
- gcov(2,2) = (r2*y2)*drho2delta + term3*x2 + (y2*z2)*term4
- gcov(3,2) = (a2pr2*y*z)*drho2delta - (y*z*term1)*dr2mz2
+ gcov(2,2) = 1. + (a2*delta*r*rs*x2 + r**3*(a2pr2)*rs*y2)/(delta*(a2pr2)**2*rho2)
+ gcov(3,2) = (r*rs*y*z)/(delta*rho2)
  gcov(0,3) = gcov(3,0)
  gcov(1,3) = gcov(3,1)
  gcov(2,3) = gcov(3,2)
- gcov(3,3) = (a2pr2**2*z2)*dr2*drho2delta + (rho2*term1**2)*dr2mz2
+ gcov(3,3) = 1. + ((a2 + r2)*rs*z2)/(delta*r*rho2)
 
  if (present(gcon)) then
-    gcon(0,0) = gphiphi/(-gtphi**2 + gphiphi*gtt)
-    gcon(1,0) = -((gtphi*y)/(gtphi**2 - gphiphi*gtt))
-    gcon(2,0) = (gtphi*x)/(gtphi**2 - gphiphi*gtt)
+    domegaterm = 1./(omega*gtphi + gtt)
+    gcon(0,0) = domegaterm
+    gcon(1,0) = -y*omega*domegaterm
+    gcon(2,0) =  x*omega*domegaterm
     gcon(3,0) = 0.
     gcon(0,1) = gcon(1,0)
+    ! NOTE: the expressions below are NOT regular at x=y=0 and z=r. Needs fixing! Or use inv4x4 instead...
     gcon(1,1) = (delta*r2*x2)/(a2pr2**2*rho2) + (gtt*y2)/(-gtphi**2 + gphiphi*gtt) + (x2*z2)/(rho2*(r2 - z2))
     gcon(2,1) = -((gtt*x*y)/(-gtphi**2 + gphiphi*gtt)) + (delta*r2*x*y)/(a2pr2**2*rho2) + (x*y*z2)/(rho2*(r2 - z2))
     gcon(3,1) = -((x*z)*drho2) + (delta*x*z)/(a2pr2*rho2)
@@ -126,7 +124,11 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
 
 end subroutine get_metric_cartesian
 
-!--- The metric tensor in SPHERICAL-like form
+!----------------------------------------------------------------
+!+
+!  The metric tensor in SPHERICAL-like form
+!+
+!----------------------------------------------------------------
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
@@ -195,12 +197,10 @@ end subroutine get_metric_spherical
 
 !----------------------------------------------------------------
 !+
-!  Metric tensors derivatives
+!  Derivatives of the covariant 'CARTESIAN' metric
 !+
 !----------------------------------------------------------------
-
-!--- Derivatives of the covariant 'CARTEISAN' metric
-subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
+pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
  real :: rs,x,y,z,x2,y2,z2,a2,r2spherical,r2,r,rho2
@@ -357,7 +357,11 @@ subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  ! stop 'No analytic metric derivatives implemented'
 end subroutine metric_cartesian_derivatives
 
-!--- Derivatives of the covariant 'SPHERICAL' metric
+!----------------------------------------------------------------
+!+
+!  Derivatives of the covariant 'SPHERICAL' metric
+!+
+!----------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
@@ -396,11 +400,10 @@ end subroutine metric_spherical_derivatives
 
 !----------------------------------------------------------------
 !+
-!  Coordinate transformations
+!  (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical'
+!  with respect to 'Cartesian' coordinates
 !+
 !----------------------------------------------------------------
-
-!--- (Jacobian tensor) Derivatives of Boyer-Lindquist 'Spherical' with respect to 'Cartesian' coordinates
 pure subroutine get_jacobian(position,dxdx)
  real, intent(in), dimension(3) :: position
  real, intent(out), dimension(0:3,0:3) :: dxdx
@@ -453,7 +456,11 @@ pure subroutine get_jacobian(position,dxdx)
 
 end subroutine get_jacobian
 
-!--- Boyer-Lindquist coordinate transformations from CARTEISAN to SPHERICAL
+!-----------------------------------------------------------------------
+!+
+!  Boyer-Lindquist coordinate transformations from CARTESIAN to SPHERICAL
+!+
+!-----------------------------------------------------------------------
 pure subroutine cartesian2spherical(xcart,xspher)
  real, intent(in) :: xcart(3)
  real, intent(out) ::xspher(3)
@@ -476,7 +483,11 @@ pure subroutine cartesian2spherical(xcart,xspher)
 
 end subroutine cartesian2spherical
 
-!--- Boyer-Lindquist coordinate transformations from SPHERICAL to CARTEISAN
+!-----------------------------------------------------------------------
+!+
+!  Boyer-Lindquist coordinate transformations from SPHERICAL to CARTESIAN
+!+
+!-----------------------------------------------------------------------
 pure subroutine spherical2cartesian(xspher,xcart)
  real, intent(in) :: xspher(3)
  real, intent(out) :: xcart(3)

@@ -21,7 +21,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: io, part, timestep_ind
+!  DEPENDENCIES: cons2prim, extern_gr, io, metric_tools, options, part,
+!    timestep_ind
 !+
 !--------------------------------------------------------------------------
 module partinject
@@ -30,7 +31,9 @@ module partinject
     modid="$Id$"
 
  public :: add_or_update_particle, add_or_update_sink
+ public :: update_injected_particles
  private
+
 contains
 
 !-----------------------------------------------------------------------
@@ -139,5 +142,64 @@ subroutine add_or_update_sink(position,velocity,radius,mass,sink_number)
  vxyz_ptmass(2,sink_number) = velocity(2)
  vxyz_ptmass(3,sink_number) = velocity(3)
 end subroutine add_or_update_sink
+
+!-----------------------------------------------------------------------
+!+
+!  Update additional quantities needed on injected particles
+!  In GR code this is a prim2cons solve
+!  otherwise we set the twas variable correctly for individual timesteps
+!+
+!-----------------------------------------------------------------------
+subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+#ifdef IND_TIMESTEPS
+ use timestep_ind, only:get_newbin,change_nbinmax,get_dt
+ use part,         only:twas,ibin
+#endif
+#ifdef GR
+ use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
+ use cons2prim,    only:prim2consall
+ use metric_tools, only:init_metric,imet_minkowski,imetric
+ use extern_gr,    only:get_grforce_all
+ use options,      only:iexternalforce
+#endif
+ integer,         intent(in)    :: npartold,npart
+ integer,         intent(inout) :: istepfrac
+ integer(kind=1), intent(inout) :: nbinmax
+ real,            intent(inout) :: dt
+ real,            intent(in)    :: time,dtmax,dtinject
+#ifdef IND_TIMESTEPS
+ integer(kind=1) :: nbinmaxprev
+ integer :: i
+#endif
+#ifdef GR
+ real :: dtext_dum
+#endif
+
+ if (npartold==npart) return
+#ifdef GR
+ !
+ ! after injecting particles, reinitialise metrics on all particles
+ !
+ call init_metric(npart,xyzh,metrics,metricderivs)
+ call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
+    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
+ endif
+#endif
+#ifdef IND_TIMESTEPS
+ ! find timestep bin associated with dtinject
+ nbinmaxprev = nbinmax
+ call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+ if (nbinmax > nbinmaxprev) then ! update number of bins if needed
+    call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+ endif
+ ! put all injected particles on shortest bin
+ do i=npartold+1,npart
+    ibin(i) = nbinmax
+    twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+ enddo
+#endif
+
+end subroutine update_injected_particles
 
 end module partinject

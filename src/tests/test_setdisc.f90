@@ -29,18 +29,20 @@ module testsetdisc
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of the set_disc routine
+!+
+!-----------------------------------------------------------------------
 subroutine test_setdisc(ntests,npass)
  use dim,        only:maxp
  use io,         only:id,master
- use part,       only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
-                      alphaind,maxalpha, &
-                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustevol,dustprop,ddustprop,temperature,&
-                      pxyzu,dens,metrics
+ use part,       only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
+                      alphaind,maxalpha,periodic,maxvxyzu
  use eos,        only:polyk,gamma
  use options,    only:ieos,alpha,alphau,alphaB
  use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
- use deriv,      only:derivs
+ use deriv,      only:get_derivs_global
  use timing,     only:getused,printused
  use setdisc,    only:set_disc
  use checksetup, only:check_setup
@@ -49,7 +51,7 @@ subroutine test_setdisc(ntests,npass)
  integer :: nparttot
  integer :: nfailed(3),ncheck
  integer :: i,nerr,nwarn
- real :: time,dtext_dum
+ real :: time
  real(kind=4) :: t1,t2
  logical :: testall
  real :: runit(3),xi(3)
@@ -64,6 +66,7 @@ subroutine test_setdisc(ntests,npass)
 
  testall  = .true.
  call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+ call init_part()
 !
 !--test that centrifugal acceleration balances radial forces
 !
@@ -96,7 +99,6 @@ subroutine test_setdisc(ntests,npass)
                    ismooth=.true.,writefile=.false.)
     npartoftype(:) = 0
     npartoftype(1) = npart
-    if (mhd) Bevol(:,:) = 0.
 !
 !--make sure AV is off
 !
@@ -117,8 +119,7 @@ subroutine test_setdisc(ntests,npass)
 !--calculate derivatives
 !
     call getused(t1)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+    call get_derivs_global()
     call getused(t2)
     if (id==master) call printused(t1)
 !

@@ -28,7 +28,11 @@ module testindtstep
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests for individual timestep utilities
+!+
+!-----------------------------------------------------------------------
 subroutine test_indtstep(ntests,npass)
  use io,              only:id,master
 #ifdef IND_TIMESTEPS

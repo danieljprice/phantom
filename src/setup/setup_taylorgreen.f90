@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, io, mpiutils, physcon, prompting, setup_params,
-!    unifdis
+!  DEPENDENCIES: boundary, domain, io, mpiutils, part, physcon, prompting,
+!    setup_params, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -44,6 +44,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use prompting,    only:prompt
+ use domain,       only:i_belong
+ use part,         only:periodic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -54,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax,vzero,dz
- integer :: ipart,i,maxp,maxvxyzu,nx,ilattice
+ integer :: ipart,i,maxp,maxvxyzu,nx
 !
 !--general parameters
 !
@@ -74,17 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call bcast_mpi(nx)
  deltax = dxbound/nx
 
- if (id==master) then
-    ilattice = 2
-    call prompt('Select lattice type (1=cubic, 2=closepacked)',ilattice,1,2)
- endif
- call bcast_mpi(ilattice)
-
- if (ilattice == 2) then
-    dz = 2.*sqrt(6.)/nx
- else
-    dz = 6.*deltax
- endif
+ dz = 2.*sqrt(6.)/nx
  call set_boundary(0.,1.,0.,1.,-dz,dz)
 
  rhozero = 1.
@@ -98,15 +90,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
- select case(ilattice)
- case(1)
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
- case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
- case default
-    print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
- end select
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart

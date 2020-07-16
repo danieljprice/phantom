@@ -31,8 +31,9 @@
 !    zmax        -- zmax boundary
 !    zmin        -- zmin boundary
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, options, part,
-!    physcon, prompting, set_dust, setup_params, unifdis, units
+!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, mpiutils,
+!    options, part, physcon, prompting, set_dust, setup_params, unifdis,
+!    units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -48,6 +49,7 @@ module setup
  real(kind=8) :: udist,umass
  !--dust
  real    :: dust_to_gas
+
  private
 
 contains
@@ -58,15 +60,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry
+ use dim,          only:maxvxyzu,h2chemistry,gr
  use setup_params, only:npart_total
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:abundance,iHI,dustfrac
- use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm
+ use part,         only:periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
- use units,        only:set_units
+ use units,        only:set_units,udist,unit_density
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -106,10 +109,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npartx = 64
  ilattice = 1
- cs0 = 1.
+ rhozero = 1.
+ if (gr) then
+    cs0 = 1.e-4
+ else
+    cs0 = 1.
+ endif
  if (use_dust) then
     use_dustfrac = .true.
     dust_to_gas = 0.01
+    ndustsmall = 1
+    ndusttypes = 1
+    grainsize(1) = 1.*micron/udist
+    graindens(1) = 3./unit_density
  endif
  !
  ! get disc setup parameters from file or interactive setup
@@ -133,8 +145,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set units and boundaries
  !
- call set_units(dist=udist,mass=umass,G=1.d0)
- call set_boundary(xmini,xmaxi,xmini,xmaxi,xmini,xmaxi)
+ if (gr) then
+    call set_units(mass=umass,c=1.d0,G=1.d0)
+ else
+    call set_units(dist=udist,mass=umass,G=1.d0)
+ endif
+ call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
  !
@@ -143,13 +159,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
 
  select case(ilattice)
- case(1)
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
  case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  case default
-    print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,nptot=npart_total)
+    if (ilattice /= 1) print*,' error: chosen lattice not available, using cubic'
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,&
+                     periodic,nptot=npart_total,mask=i_belong)
  end select
 
  npartoftype(:) = 0
@@ -183,7 +199,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
     enddo
  endif
-
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -225,7 +240,6 @@ subroutine setup_interactive(id,polyk)
  !
  ! number of particles
  !
- npartx = 64
  if (id==master) then
     print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
     call prompt('enter number of particles in x direction ',npartx,1)
@@ -234,14 +248,12 @@ subroutine setup_interactive(id,polyk)
  !
  ! mean density
  !
- rhozero = 1.
  if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
  call bcast_mpi(rhozero)
  !
  ! sound speed in code units
  !
  if (id==master) then
-    cs0 = 1.
     call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  endif
  call bcast_mpi(cs0)
@@ -256,11 +268,9 @@ subroutine setup_interactive(id,polyk)
  ! type of lattice
  !
  if (id==master) then
-    ilattice = 1
     call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
  endif
  call bcast_mpi(ilattice)
-
 end subroutine setup_interactive
 
 !------------------------------------------------------------------------

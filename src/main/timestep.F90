@@ -24,12 +24,12 @@
 module timestep
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
 
- real    :: dt, dtcourant, dtforce, dtextforce, dterr, dtdiff, time
+ real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor
@@ -44,9 +44,10 @@ contains
 !-----------------------------------------------------------------
 subroutine set_defaults_timestep
 
- C_cour  =  0.3
- C_force =  0.25
- C_cool  =  0.05
+ C_cour  = 0.3
+ C_force = 0.25
+ C_cool  = 0.05
+ C_rad   = 0.8  ! see Biriukov & Price (2019)
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2
@@ -69,9 +70,10 @@ end subroutine set_defaults_timestep
 !  routine to print out the timestep information to the log file
 !+
 !-----------------------------------------------------------------
-subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinj,np)
+subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
+                       dtrad,dtprint,dtinj,np)
  integer, intent(in) :: iprint
- real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax
+ real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
  real,    intent(in), optional :: dtprint,dtinj
  integer, intent(in) :: np
  character(len=20) :: str
@@ -96,6 +98,8 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtin
     write(iprint,10) time,dt,'(dtprint)'//trim(str)
  elseif (present(dtinj) .and. abs(dt-dtinj) < tiny(dt)) then
     write(iprint,10) time,dt,'(dtinject)'//trim(str)
+ elseif (abs(dt-dtrad) < tiny(dt)) then
+    write(iprint,10) time,dt,'(radiation)'//trim(str)
  else
     !print*,dt,dtforce,dtcourant,dterr,dtmax
     write(iprint,10) time,dt,'(unknown)'//trim(str)

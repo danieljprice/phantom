@@ -56,6 +56,7 @@
 !    np            -- number of gas particles
 !    nplanets      -- number of planets
 !    nsinks        -- number of sinks
+!    radkappa      -- constant radiation opacity kappa
 !    ramp          -- Do you want to ramp up the planet mass slowly?
 !    rho_core      -- planet core density (cgs units)
 !    setplanets    -- add planets? (0=no,1=yes)
@@ -64,9 +65,9 @@
 !
 !  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
 !    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
-!    set_dust, set_dust_options, setbinary, setdisc, setflyby, spherical,
-!    timestep, units, vectorutils
+!    growth, infile_utils, io, kernel, memory, options, part, physcon,
+!    prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!    setdisc, setflyby, spherical, timestep, units, vectorutils
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -87,14 +88,16 @@ module setup
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf
+                            VrelVf,rad,radprop,ikappa
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
                             dustbinfrac,check_dust_method
  use units,            only:umass,udist,utime
-
+ use dim,              only:do_radiation
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
+ use memory,           only:allocate_memory
  implicit none
 
  public  :: setpart
@@ -190,7 +193,7 @@ module setup
 
  !--other
  logical :: ichange_method
-
+ real    :: iradkappa = -1.
 contains
 
 !--------------------------------------------------------------------------
@@ -210,6 +213,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer :: nalloc
 
  write(*,10)
 10 format(/, &
@@ -227,6 +231,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ !--allocate memory
+ !nalloc = np
+ !if (use_dust) nalloc = nalloc + sum(np_dust)
+ !call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -275,6 +284,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--set tmax and dtmax
  call set_tmax_dtmax()
+
+ if (do_radiation) then
+    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    radprop(ikappa,1:npart) = iradkappa
+ endif
 
  !--remind user to check for warnings and errors
  write(*,20)
@@ -443,11 +457,8 @@ subroutine get_setup_parameters(id,fileprefix)
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-
     !--read from setup file
-    print*,"read setup file?"
     call read_setupfile(filename,ierr)
-    print*,"after read setup file?"
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
@@ -696,7 +707,7 @@ subroutine setup_central_objects()
  use setbinary,            only:set_binary
  use setflyby,             only:set_flyby
 
- integer :: i
+ integer :: i,ierr
 
  mcentral = m1
  select case (icentral)
@@ -763,10 +774,10 @@ subroutine setup_central_objects()
           print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
           print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
-          call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
+          call set_binary(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
                           posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
                           f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
-                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1 + m2
        case (1)
           !--unbound (flyby)
@@ -775,10 +786,10 @@ subroutine setup_central_objects()
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
           print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
-          call set_flyby(mprimary=m1,massratio=m2/m1,minimum_approach=flyby_a, &
+          call set_flyby(m1,m2,minimum_approach=flyby_a, &
                          initial_dist=flyby_d,posang_ascnode=flyby_O,inclination=flyby_i, &
                          accretion_radius1=accr1,accretion_radius2=accr2, &
-                         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+                         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1
        end select
     end select
@@ -2222,6 +2233,8 @@ subroutine write_setupfile(filename)
       'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
 #endif
 
+ if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -2493,6 +2506,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
  if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
 #endif
+
+ if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
 
  call close_db(db)
  ierr = nerr

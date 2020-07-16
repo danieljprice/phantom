@@ -29,11 +29,15 @@ module testrwdump
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of reading/writing dump files
+!+
+!-----------------------------------------------------------------------
 subroutine test_rwdump(ntests,npass)
  use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
                            Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
-                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           periodic,maxphase,mhd,maxvxyzu,igas,idust,&
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
@@ -109,7 +113,7 @@ subroutine test_rwdump(ntests,npass)
           Bxyz(1,i) = 10.
           Bxyz(2,i) = 11.
           Bxyz(3,i) = 12.
-          if (maxBevol >= 4) Bevol(4,i) = 13.
+          Bevol(4,i) = 13.
        endif
        if (gravity) then
           poten(i) = 15._4
@@ -260,7 +264,7 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,Bxyz(1,:),10.,tol,nfailed(10),'Bx')
           call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
           call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
-          if (maxBevol >= 4) call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
+          call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
        endif
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')

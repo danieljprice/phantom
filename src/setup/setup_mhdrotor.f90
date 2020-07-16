@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, io, mpiutils, part, physcon, prompting,
-!    setup_params, timestep, unifdis
+!  DEPENDENCIES: boundary, dim, domain, io, mpiutils, part, physcon,
+!    prompting, setup_params, timestep, unifdis
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -42,10 +42,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:igas,Bxyz
+ use part,         only:igas,Bxyz,periodic
  use prompting,    only:prompt
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -101,9 +102,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltadisk = deltax*(denszero/densdisk)**(1./3.)
 
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,nptot=npart_total,rcylmin=rdisk)
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,&
+                  rcylmin=rdisk,mask=i_belong)
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltadisk,hfact,npart,xyzh,nptot=npart_total,rcylmax=rdisk)
+                  deltadisk,hfact,npart,xyzh,periodic,nptot=npart_total,&
+                  rcylmax=rdisk,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -138,4 +141,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

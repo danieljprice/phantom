@@ -14,6 +14,7 @@
 !               4) Evrard
 !               5) Read data from MESA file
 !               6) Read data from KEPLER file
+!               7) Bonnor-Ebert sphere
 !
 !  REFERENCES: None
 !
@@ -31,14 +32,16 @@ module rho_profile
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-            rho_evrard,read_mesa_file,read_kepler_file
- public  :: calc_mass_enc
+            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+            rho_bonnorebert
+ public  :: write_softened_profile,calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
 
 contains
 
 !-----------------------------------------------------------------------
 !+
+!  Option 1:
 !  Calculate a uniform density profile
 !+
 !-----------------------------------------------------------------------
@@ -60,6 +63,7 @@ end subroutine rho_uniform
 
 !-----------------------------------------------------------------------
 !+
+!  Option 2:
 !  Calculate the density profile for a polytrope (recall G==1)
 !+
 !-----------------------------------------------------------------------
@@ -138,6 +142,7 @@ end subroutine rho_polytrope
 
 !-----------------------------------------------------------------------
 !+
+!  Option 3:
 !  Calculate the density profile for a piecewise polytrope
 !  Original Authors: Madeline Marshall & Bernard Field
 !  Supervisors: James Wurster & Paul Lasky
@@ -205,6 +210,7 @@ end subroutine rho_piecewise_polytrope
 
 !-----------------------------------------------------------------------
 !+
+!  Option 3: Piecewise-polytrope
 !  Calculate the density profile using an arbitrary EOS and
 !  given a central density
 !+
@@ -256,6 +262,7 @@ end subroutine integrate_rho_profile
 
 !-----------------------------------------------------------------------
 !+
+!  Option 3: Piecewise-polytrope
 !  Calculates pressure at a given density
 !+
 !-----------------------------------------------------------------------
@@ -296,6 +303,7 @@ end function get_dPdrho
 
 !-----------------------------------------------------------------------
 !+
+!  Option 3: Piecewise-polytrope
 !  Calculate the enclosed mass of a star
 !+
 !-----------------------------------------------------------------------
@@ -324,6 +332,7 @@ end subroutine calc_mass_enc
 
 !-----------------------------------------------------------------------
 !+
+!  Option 4:
 !  Calculate the density profile for the Evrard Collapse
 !+
 !-----------------------------------------------------------------------
@@ -344,6 +353,7 @@ end subroutine rho_evrard
 
 !-----------------------------------------------------------------------
 !+
+!  Option 5:
 !  Read in data output by the MESA stellar evolution code
 !+
 !-----------------------------------------------------------------------
@@ -441,6 +451,103 @@ end subroutine read_mesa_file
 
 !-----------------------------------------------------------------------
 !+
+!  Option 5:
+!  Alternative subroutine to read MESA profile; used in star setup to
+!  read profile to be softened using the setsoftenedcore module
+!+
+!-----------------------------------------------------------------------
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
+ integer                                           :: lines,rows=0,i
+ character(len=120), intent(in)                    :: filepath
+ character(len=10000)                              :: dumc
+ character(len=24),allocatable                     :: header(:),dum(:)
+ real(kind=8),allocatable,dimension(:,:)           :: dat
+ real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp, &
+                                                        Xfrac,Yfrac
+
+ ! reading data from datafile ! -----------------------------------------------
+ open(unit=40,file=filepath,status='old')
+ read(40,'()')
+ read(40,'()')
+ read(40,*) lines, lines
+ read(40,'()')
+ read(40,'()')
+ read(40,'(a)') dumc! counting rows
+ allocate(dum(500)) ; dum = 'aaa'
+ read(dumc,*,end=101) dum
+101 do i = 1,500
+    if (dum(i)=='aaa') then
+       rows = i-1
+       exit
+    endif
+ enddo
+
+ allocate(header(1:rows),dat(1:lines,1:rows))
+ header(1:rows) = dum(1:rows)
+ deallocate(dum)
+
+ do i = 1,lines
+    read(40,*) dat(lines-i+1,1:rows)
+ enddo
+
+ allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
+            temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
+
+ do i = 1, rows
+    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='x_mass_fraction_H') Xfrac(1:lines) = dat(1:lines,i)
+    if (trim(header(i))=='y_mass_fraction_He') Yfrac(1:lines) = dat(1:lines,i)
+ enddo
+end subroutine read_mesa
+
+!----------------------------------------------------------------
+!+
+!  Option 5:
+!  Write stellar profile in format readable by read_mesa_file;
+!  used in star setup to write softened stellar profile.
+!+
+!----------------------------------------------------------------
+subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)
+ real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
+ real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
+ character(len=120), intent(in)  :: outputpath
+ integer                         :: i
+
+ open(1, file = outputpath, status = 'new')
+
+ if (present(Xfrac) .and. present(Yfrac)) then
+    if (present(csound)) then
+       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
+       write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
+101    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
+       2x,es13.7,2x,es13.7)
+    else
+       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
+       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
+102    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
+       2x,es13.7)
+    endif
+ else
+    write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+    &[  Density  ]  [   E_int   ]'
+    write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
+103 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7)
+ endif
+
+ close(1, status = 'keep')
+
+end subroutine write_softened_profile
+
+!-----------------------------------------------------------------------
+!+
+!  Option 6:
 !  Read in datafile from the KEPLER stellar evolution code
 !+
 !-----------------------------------------------------------------------
@@ -548,5 +655,89 @@ subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  endif
 
 end subroutine read_kepler_file
+!-----------------------------------------------------------------------
+!+
+!  Option 7:
+!  Calculates a Bonnor-Ebert sphere
+!  (copied from the subroutine in sphNG)
+!+
+!-----------------------------------------------------------------------
+subroutine rho_bonnorebert(ximax,rBE,mBE,npts,iBElast,rtab,rhotab,central_density,edge_density,ierr)
+ use physcon, only: pi
+ integer, intent(in)    :: npts
+ integer, intent(out)   :: iBElast,ierr
+ real,    intent(in)    :: ximax,mBE
+ real,    intent(inout) :: rBE,central_density
+ real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
+ integer                :: i,j
+ real                   :: xi,phi,func,containedmass,dmass,conmassnext,dxi,dfunc,rho,dphi
+ real                   :: mtab(npts)
+ logical                :: write_BE_profile = .true.
 
+ !--Initialise variables
+ xi             = 0.0
+ phi            = 0.0
+ func           = 0.0
+ containedmass  = 0.0
+ dmass          = 1.0d-6
+ conmassnext    = dmass
+ dxi            = 1.0d3/float(npts)
+ dfunc          = (-exp(phi))*dxi
+ rtab           = 0.  ! array of radii
+ mtab           = 0.  ! array of enclosed masses
+ rhotab         = 0.  ! array of densities
+ rhotab(1)      = 1.  ! array of densities
+ rho            = 1.
+ i              = 1
+ j              = 2
+ ierr           = 0
+
+ !--Calculate a normalised profile
+ do while (j <=npts .and. xi <= ximax)
+    xi    = i*dxi
+    func  = func + dfunc
+    dphi  = func*dxi
+    phi   = phi + dphi
+    dfunc = (-exp(phi) - 2.0*func/xi)*dxi
+    rho   = exp(phi)
+    containedmass = containedmass + 4.0*pi*xi*xi*rho*dxi
+    if (containedmass >= conmassnext) then
+       rtab(j)     = xi
+       mtab(j)     = containedmass
+       rhotab(j)   = rho
+       conmassnext = conmassnext + dmass
+       j = j + 1
+    endif
+    i = i + 1
+ enddo
+ if (j > npts) then
+    write(*,*) 'ERROR: xi is too large for loop.  Increase size of rhotab).'
+    ierr = 1
+    return
+ endif
+ iBElast = j - 1
+
+ !--Scale the masses and radii
+ if (central_density > 0.) then
+    rBE = (-ximax*mBE/(4.0*pi*func*central_density))**(1./3.)
+ else
+    central_density = -ximax*mBE/(4.0*pi*func*rBE**3)
+ endif
+ edge_density    = central_density*rho
+ do j = 1, iBElast
+    rtab(j)   = rBE          * rtab(j)   / rtab(iBElast)
+    mtab(j)   = mBE          * mtab(j)   / mtab(iBElast)
+    rhotab(j) = edge_density * rhotab(j) / rhotab(iBElast)
+ enddo
+
+ if (write_BE_profile) then
+    open(unit = 26393,file='BonnorEbert.txt')
+    write(26393,'(a)') "# [01     r(code)]   [02 M_enc(code)]   [03   rho(code)]"
+    do j = 1,iBElast
+       write(26393,'(3(1pe18.10,1x))') rtab(j),mtab(j),rhotab(j)
+    enddo
+ endif
+
+end subroutine rho_bonnorebert
+!----------------------------------------------------------------
 end module rho_profile

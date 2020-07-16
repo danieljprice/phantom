@@ -5,7 +5,7 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 !+
-!  MODULE: extern_neutronstar
+!  MODULE: extern_densprofile
 !
 !  DESCRIPTION:
 !    This module contains routines relating to the computation
@@ -23,7 +23,7 @@
 !  DEPENDENCIES: datafiles, io, physcon, units
 !+
 !--------------------------------------------------------------------------
-module extern_neutronstar
+module extern_densprofile
  implicit none
 
  real, public, allocatable :: r2tab(:), ftab(:)
@@ -31,11 +31,11 @@ module extern_neutronstar
  integer, public                         :: ntab
 
  ! *** Add option to .in file to specify density profile / mass enclosed filename? ***
- character(15), public, parameter        :: rhotabfile = "ns-rdensity.tab"
- integer, public, parameter              :: nrhotab = 10001  ! maximum allowed size of r rho tabulated arrays
+ character(len=*), public, parameter     :: rhotabfile = 'density-profile.tab'
+ integer, public, parameter              :: nrhotab = 5000  ! maximum allowed size of r rho tabulated arrays
 
- public :: neutronstar_force, load_extern_neutronstar, read_rhotab, write_rhotab, calc_menc
- public ::  read_rhotab_wrapper
+ public :: densityprofile_force, load_extern_densityprofile, read_rhotab, write_rhotab, calc_menc
+ public :: read_rhotab_wrapper
 
  private
 
@@ -46,7 +46,7 @@ contains
 !  compute the force on a given particle
 !+
 !----------------------------------------------
-subroutine neutronstar_force(xi,yi,zi,fxi,fyi,fzi,phi)
+subroutine densityprofile_force(xi,yi,zi,fxi,fyi,fzi,phi)
  real, intent(in)  :: xi, yi, zi
  real, intent(out) :: fxi, fyi, fzi, phi
 
@@ -72,19 +72,19 @@ subroutine neutronstar_force(xi,yi,zi,fxi,fyi,fzi,phi)
  fzi = f * zi
  phi = f * ri2
 
-end subroutine neutronstar_force
+end subroutine densityprofile_force
 
 
 !----------------------------------------------
 !+
-!  load_extern_neutronstar
+!  load_extern_densityprofile
 !
 !  Read tabulated r, rho for NS and set
 !  up tables of values to interpolate
-!  over in extern_neutronstar
+!  over in extern_densityprofile
 !+
 !----------------------------------------------
-subroutine load_extern_neutronstar(ierr)
+subroutine load_extern_densityprofile(ierr)
  use units,   only: umass, utime, udist
  use physcon, only: pi, gg
  use io,      only: error
@@ -100,7 +100,7 @@ subroutine load_extern_neutronstar(ierr)
     ! Calculate r^2, F arrays to store
     allocate(r2tab(ntab), ftab(ntab), stat=ierr)
     if (ierr /= 0) then
-       call error('extern_neutronstar','Error allocating in load_extern_neutronstar')
+       call error('extern_densityprofile','Error allocating in load_extern_densityprofile')
        return
     endif
     call calc_menc(ntab, rtab, rhotab, menctab)
@@ -120,7 +120,7 @@ subroutine load_extern_neutronstar(ierr)
     ierr = 1
  endif
 
-end subroutine load_extern_neutronstar
+end subroutine load_extern_densityprofile
 
 
 ! Read tabulated r, rho from file
@@ -136,28 +136,27 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
  integer           :: i, iunit
  character(len=1)  :: hash   ! for reading in leading '#' character
 
- iunit = 15
  ierr = 0
- open(iunit,file=filename,access='sequential',action='read',status='old',iostat=ierr)
+ open(newunit=iunit,file=filename,action='read',status='old',iostat=ierr)
  if (ierr /= 0) then
-    if (id==master) call error('extern_neutronstar','Error opening '//trim(filename))
+    if (id==master) call error('extern_densityprofile','Error opening '//trim(filename))
     return
  endif
 
  ! First line: # K gamma rhoc
  read(iunit, *, iostat=ierr) hash,polyk, gamma, rhoc
  if (ierr /= 0) then
-    call error('extern_neutronstar','Error reading first line of header from '//trim(filename))
+    call error('extern_densityprofile','Error reading first line of header from '//trim(filename))
     return
  endif
  ! Second line: # nentries  (number of r density entries in file)
  read(iunit,*, iostat=ierr) hash,nread
  if (ierr /= 0) then
-    call error('extern_neutronstar','Error reading second line of header from '//trim(filename))
+    call error('extern_densityprofile','Error reading second line of header from '//trim(filename))
     return
  endif
  if (nread > nrhotab) then
-    call error('extern_neutronstar','Error with too many entries in density profile file')
+    call error('extern_densityprofile','Error with too many entries in density profile file')
     ierr = 1
     return
  endif
@@ -165,7 +164,7 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
  do i = 1,nread
     read(iunit,*, iostat=ierr) rtab(i), rhotab(i)
     if (ierr /= 0) then
-       call error('extern_neutronstar','Error reading data from '//trim(filename))
+       call error('extern_densityprofile','Error reading data from '//trim(filename))
        return
     endif
  enddo
@@ -177,31 +176,22 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
 end subroutine read_rhotab
 
 ! Write tabulated r, rho to file
-subroutine write_rhotab(rtab, rhotab, ntab, polyk, gamma, rhoc, ierr)
+subroutine write_rhotab(filename, rtab, rhotab, ntab, polyk, gamma, rhoc, ierr)
+ character(len=*), intent(in) :: filename
  real,    intent(in)    :: rtab(:), rhotab(:)
  integer, intent(in)    :: ntab
  real,    intent(in)    :: polyk, gamma, rhoc
  integer, intent(inout) :: ierr
+ integer                :: i, iunit
 
- integer           :: i, iunit
-
- iunit = 15
  ierr = 0
-
- open(iunit, file=rhotabfile, access='sequential', action='write', status='replace')
+ open(newunit=iunit,file=filename,action='write',status='replace')
 
  ! First line: # K gamma rhoc
- write(iunit, *) '# ', polyk, gamma, rhoc
+ write(iunit,*) '# ', polyk, gamma, rhoc
 
  ! Second line: # nentries  (number of r density entries in file)
  write(iunit,*) '# ', ntab
-
- if (ntab > nrhotab) then
-    print *, 'Error importing density profile: nrhotab < number of entries to read'
-    print *, 'nrhotab = ', nrhotab, ' ntab = ', ntab
-    ierr = 1
-    return
- endif
 
  ! Loop over 'n' lines: r and density separated by space
  do i = 1,ntab
@@ -333,4 +323,4 @@ subroutine read_rhotab_wrapper(densityfile,ng,r,den,npts,&
 
 end subroutine read_rhotab_wrapper
 
-end module extern_neutronstar
+end module extern_densprofile

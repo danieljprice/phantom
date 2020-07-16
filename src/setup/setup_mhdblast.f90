@@ -19,7 +19,7 @@
 !    npartx  -- number of particles in x-direction
 !    plasmaB -- plasma beta in the initial blast
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
+!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
 !    options, part, physcon, prompting, setup_params, timestep, unifdis,
 !    units
 !+
@@ -53,6 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -119,7 +120,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = dxbound/npartx
  !
  ! Put particles on grid
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                  deltax,hfact,npart,xyzh,periodic,mask=i_belong)
 
  ! Finalise particle properties
  npartoftype(:)    = 0

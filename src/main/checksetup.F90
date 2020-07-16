@@ -18,8 +18,8 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, eos, externalforces, io,
-!    metric_tools, options, part, physcon, sortutils, timestep, units,
+!  DEPENDENCIES: boundary, centreofmass, dim, dust, eos, externalforces,
+!    io, metric_tools, options, part, physcon, sortutils, timestep, units,
 !    utils_gr
 !+
 !--------------------------------------------------------------------------
@@ -54,15 +54,13 @@ subroutine check_setup(nerror,nwarn,restart)
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:umass,udist,utime
- use physcon,         only:gg
+ use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real(kind=8) :: gcode
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
  character(len=3) :: string
@@ -311,13 +309,11 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check G=1 in code units where necessary
 !
  if (gravity .or. nptmass > 0) then
-    gcode = gg*umass*utime**2/udist**3
-    if (abs(gcode-1.) > max(1.e-15,real(epsilon(gcode)))) then
+    if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'Error in setup: self-gravity ON but G /= 1 in code units'
+          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'Error in setup: sink particles used but G /= 1 in code units'
-          print*,gcode,gcode-1.,epsilon(gcode)
+          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
     endif
@@ -589,18 +585,29 @@ end subroutine check_setup_growth
 !------------------------------------------------------------------
 subroutine check_setup_dustgrid(nerror,nwarn)
  use part,    only:grainsize,graindens,ndustsmall,ndustlarge,ndusttypes
+ use options, only:use_dustfrac
+ use dim,     only:use_dust
  use units,   only:udist
  use physcon, only:km
+ use dust,    only:idrag
  integer, intent(inout) :: nerror,nwarn
  integer :: i
 
+ if (use_dustfrac .and. ndustsmall <= 0) then
+    print*,'ERROR: Using one fluid dust but no dust types have been set (ndustsmall=',ndustsmall,')'
+    nerror = nerror + 1
+ endif
+ if (use_dust .and. ndusttypes <= 0) then
+    print*,'WARNING: Using dust but no dust species are used (ndusttypes=',ndusttypes,')'
+    nwarn = nwarn + 1
+ endif
  if (ndusttypes /= ndustsmall + ndustlarge) then
     print*,'ERROR: nsmall + nlarge ',ndustsmall+ndustlarge,&
            ' not equal to ndusttypes: ',ndusttypes
     nerror = nerror + 1
  endif
  do i=1,ndusttypes
-    if (grainsize(i) <= 0.) then
+    if (idrag == 1 .and. grainsize(i) <= 0.) then
        print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
        nerror = nerror + 1
     endif
@@ -612,7 +619,7 @@ subroutine check_setup_dustgrid(nerror,nwarn)
     endif
  enddo
  do i=1,ndusttypes
-    if (graindens(i) <= 0.) then
+    if (idrag == 1 .and. graindens(i) <= 0.) then
        print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
        nerror = nerror + 1
     endif
@@ -625,24 +632,42 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
  use part,         only:isdead_or_accreted
+ use units,        only:in_geometric_units,get_G_code,get_c_code
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
  real    :: metrici(0:3,0:3,2),gcov(0:3,0:3),u0
  integer :: ierr,i,nbad
 
+ !
+ ! check code units are set for geometric units
+ !
+ if (.not. in_geometric_units()) then
+    print "(/,a)",' ERROR: units are incorrect for GR, need G = c = 1'
+    print *,' ...but we have G = ',get_G_code(),' and c = ',get_c_code()
+    print*
+    nerror = nerror + 1
+ endif
+
+ !
+ ! check for bad U0, indicating v or u > 1
+ !
  nbad = 0
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        call pack_metric(xyzh(1:3,i),metrici)
        call unpack_metric(metrici,gcov=gcov)
        call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
+       if (ierr /= 0) then
+          print*,vxyzu(1:3,i),gcov,U0
+          read*
+       endif
        if (ierr/=0) nbad = nbad + 1
     endif
  enddo
 
  if (nbad > 0) then
-    print*,'Error in setup: ',nbad,' of ',npart,' particles have undefined U0'
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nbad,' of ',npart,' particles have |v| > 1 or u > 1, giving undefined U^0'
     nerror = nerror + 1
  endif
 

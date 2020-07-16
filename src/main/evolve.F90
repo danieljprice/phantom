@@ -20,12 +20,12 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: analysis, centreofmass, cons2prim, derivutils, dim,
-!    energies, evwrite, extern_gr, externalforces, fileutils, forcing,
-!    initial_params, inject, io, io_summary, metric_tools, mf_write,
-!    mpiutils, options, part, ptmass, quitdump, readwrite_dumps,
-!    readwrite_infile, sort_particles, step_lf_global, supertimestep,
-!    timestep, timestep_ind, timestep_sts, timing
+!  DEPENDENCIES: analysis, centreofmass, derivutils, dim, energies,
+!    evwrite, externalforces, fileutils, forcing, initial_params, inject,
+!    io, io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
+!    quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
+!    step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
+!    timing
 !+
 !--------------------------------------------------------------------------
 module evolve
@@ -37,30 +37,26 @@ module evolve
 contains
 
 subroutine evol(infile,logfile,evfile,dumpfile)
- use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
+ use io,               only:iprint,iwritein,id,master,iverbose,&
+                            flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
-                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating,rkill
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
  use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
-#ifdef SORT
- use sort_particles,   only:sort_part
-#endif
 #ifdef IND_TIMESTEPS
- use dim,              only:maxp
- use part,             only:maxphase,ibin,iphase
+ use part,             only:ibin,iphase
  use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
                             write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-                            print_dtlog_ind,get_newbin
+                            print_dtlog_ind,get_newbin,print_dtind_efficiency
  use timestep,         only:dtdiff
  use timestep_sts,     only:sts_get_dtau_next,sts_init_step
  use step_lf_global,   only:init_step
@@ -79,16 +75,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,           only:inject_particles
  use part,             only:npartoftype
-#ifdef IND_TIMESTEPS
- use part,             only:twas
- use timestep_ind,     only:get_dt
+ use partinject,       only:update_injected_particles
 #endif
-#ifdef GR
- use part,             only:pxyzu,dens,metrics,metricderivs
- use cons2prim,        only:prim2consall
- use metric_tools,     only:init_metric,imet_minkowski,imetric
- use extern_gr,        only:get_grforce_all
-#endif
+ use dim,              only:do_radiation
+ use options,          only:exchange_radiation_energy
+ use part,             only:rad,radprop
+ use radiation_utils,  only:update_radenergy
+#ifndef IND_TIMESTEPS
+ use timestep,         only:dtrad
 #endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
@@ -97,7 +91,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
@@ -122,20 +116,21 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
 #ifdef IND_TIMESTEPS
- integer         :: i,nalive,inbin,iamtypei
+ integer         :: nalive,inbin
  integer(kind=1) :: nbinmaxprev
  integer(kind=8) :: nmovedtot,nalivetot
- real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
+ real            :: tlast,tcheck,dtau
  real(kind=4)    :: tall
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
-#ifdef INJECT_PARTICLES
- integer         :: iloop,npart_old
-#endif
 #else
  real            :: dtprint
- integer         :: nactive
+ integer         :: nactive,istepfrac
+ integer(kind=1) :: nbinmax
  logical, parameter :: dt_changed = .false.
+#endif
+#ifdef INJECT_PARTICLES
+ integer         :: npart_old
 #endif
  logical         :: fulldump,abortrun,at_dump_time
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
@@ -154,24 +149,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
 
- should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
-                           ipdv_heating==1 .and. ishock_heating==1 &
-                           .and. (.not.mhd .or. iresistive_heating==1))
- if (iexternalforce/=0) then
-    should_conserve_momentum = .false.
- else
-    should_conserve_momentum = (npartoftype(iboundary)==0)
- endif
- should_conserve_angmom   = (npartoftype(iboundary)==0 .and. .not.periodic &
-                            .and. iexternalforce <= 1)
- should_conserve_dustmass = use_dustfrac
-
-! Each injection routine will need to bookeep conserved quantities, but until then...
-#ifdef INJECT_PARTICLES
- should_conserve_energy   = .false.
- should_conserve_momentum = .false.
- should_conserve_angmom   = .false.
-#endif
+ call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+                               should_conserve_angmom,should_conserve_dustmass)
 
  noutput          = 1
  noutput_dtmax    = 1
@@ -194,21 +173,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  tcheck        = time
  timeperbin(:) = 0.
  dt_changed    = .false.
-!
-! first time through, move all particles on shortest timestep
-! then allow them to gradually adjust levels.
-! Keep boundary particles on level 0 since forces are never calculated
-! and to prevent boundaries from limiting the timestep
-!
- if (time < tiny(time)) then
-    !$omp parallel do schedule(static) private(i,iamtypei)
-    do i=1,npart
-       ibin(i) = nbinmax
-       if (maxphase==maxp) then
-          if (abs(iphase(i))==iboundary) ibin(i) = 0
-       endif
-    enddo
- endif
  call init_step(npart,time,dtmax)
  if (use_sts) then
     call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
@@ -218,6 +182,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use_global_dt = .true.
  nskip   = npart
  nactive = npart
+ istepfrac = 0 ! dummy values
+ nbinmax   = 0
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
 #endif
 !
@@ -234,7 +200,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  nskipped_sink = 0
  nsinkwrite_threshold  = int(0.99*ntot)
 !
-! timing between dumps
+! code timings
 !
  call get_timings(twalllast,tcpulast)
  tstart    = twalllast
@@ -250,13 +216,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call reset_timer(timer_extf,'extf')
 
  call flush(iprint)
-#ifdef LIVE_ANALYSIS
- if (id==master) then
-    call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-                     massoftype(igas),npart,time,ianalysis)
- endif
-#endif
-
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -266,30 +225,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! injection of new particles into simulation
     !
-#ifdef IND_TIMESTEPS
     npart_old=npart
-#endif
     call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-#ifdef GR
-    call init_metric(npart,xyzh,metrics,metricderivs)
-    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
-    if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
-    endif
-#endif
-#ifdef IND_TIMESTEPS
-    ! find timestep bin associated with dtinject
-    nbinmaxprev = nbinmax
-    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
-    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
-       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
-    endif
-    ! put all injected particles on shortest bin
-    do iloop=npart_old+1,npart
-       ibin(iloop) = nbinmax
-       twas(iloop) = time + 0.5*get_dt(dtmax,ibin(iloop))
-    enddo
-#endif
+    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 
     dtmaxold    = dtmax
@@ -328,7 +266,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
     endif
-
+    !
+    ! Strang splitting: implicit update for half step
+    !
+    if (do_radiation.and.exchange_radiation_energy) then
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
+    endif
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep
@@ -340,10 +283,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     else
        call step(npart,nactive,time,dt,dtextforce,dtnew)
     endif
+    !
+    ! Strang splitting: implicit update for another half step
+    !
+    if (do_radiation.and.exchange_radiation_energy) then
+       call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
+    endif
+
     dtlast = dt
 
     !--timings for step call
-
     call get_timings(t2,tcpu2)
     call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
@@ -355,24 +304,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
 
     !--print efficiency of partial timestep
-    if (id==master .and. iverbose >= 0 .and. nalivetot > 0) then
-       if (nactivetot==nalivetot) then
-          tall = t2-t1
-       elseif (tall > 0.) then
-          fracactive = nactivetot/real(nalivetot)
-          speedup = (t2-t1)/tall
-          if (iverbose >= 2) then
-             if (speedup > 0) then
-                efficiency = 100.*fracactive/speedup
-             else
-                efficiency = 0.
-             endif
-             write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
-                  'moved ',100.*fracactive,' of particles in ',100.*speedup, &
-                  ' of time, efficiency = ',efficiency
-          endif
-       endif
-    endif
+    if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,t2-t1,1)
+
     call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
     nmovedtot = nmovedtot + nactivetot
 
@@ -402,17 +335,12 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
     dtprint = min(tprint,tmax) - time + epsilon(dtmax)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
-    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject,dtrad)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,npart)
 #endif
-
-!    if (abs(dt) < 1e-8*dtmax) then
-!       write(iprint,*) 'main loop: timestep too small, dt = ',dt
-!       call quit   ! also writes dump file, safe here because called by all threads
-!    endif
 
 !   check that MPI threads are synchronised in time
     timecheck = reduceall_mpi('+',time)
@@ -444,7 +372,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !  in energies can be correctly included in the dumpfiles
 !
     nskipped = nskipped + nskip
-    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed) then
+    if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
        call write_evfile(time,dt)
@@ -456,11 +384,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
-       if (np_e_eq_0 > 0) then
-          call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
-       endif
-       if (np_cs_eq_0 > 0) then
-          call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
+       if (id==master) then
+          if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
+          if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
        endif
 
        !--write with the same ev file frequency also mass flux and binary position
@@ -473,9 +399,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef BINPOS
        call binpos_write(time,dt)
 #endif
-       !--timings for step call
        call get_timings(t2,tcpu2)
-       call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)
+       call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
     endif
 !-- Print out the sink particle properties & reset dt_changed.
 !-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
@@ -516,7 +441,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !   be reduced it too long between dumps)
 !
        call increment_timer(timer_fromstart,t2-tstart,tcpu2-tcpustart)
-       !call increment_timer(timer_lastdump,t2-twalllast,tcpu2-tcpulast)
        timer_fromstart%cpu  = reduce_mpi('+',timer_fromstart%cpu)
        timer_lastdump%cpu   = reduce_mpi('+',timer_lastdump%cpu)
        timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
@@ -570,12 +494,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
           endif
           ncount_fulldumps = ncount_fulldumps + 1
-
-#ifndef IND_TIMESTEPS
-#ifdef SORT
-          if (time < tmax) call sort_part()
-#endif
-#endif
        else
           call write_smalldump(time,dumpfile)
        endif
@@ -597,18 +515,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
 #ifdef IND_TIMESTEPS
        !--print summary of timestep bins
-       if (iverbose >= 0 .and. id==master .and. abs(tall) > tiny(tall) .and. nalivetot > 0) then
-          fracactive = nmovedtot/real(nalivetot)
-          speedup = timer_lastdump%wall/(tall + tiny(tall))
-          write(iprint,"(/,a,f6.2,'%')") ' IND TIMESTEPS efficiency = ',100.*fracactive/speedup
-          if (iverbose >= 1) then
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (last full step) : ',tall/real(nalivetot)
-             write(iprint,"(a,1pe14.2,'s')") '  wall time per particle (ave. all steps) : ',timer_lastdump%wall/real(nmovedtot)
-          endif
-       endif
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
           timeperbin(:) = 0.
+          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timer_lastdump%wall,2)
        endif
        tlast = tprint
        istepfrac = 0
@@ -660,21 +570,65 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     call correct_bulk_motion()
 #endif
 
-#ifndef IND_TIMESTEPS
-#ifdef INJECT_PARTICLES
-    !call dt_spheres_sync(time, dt)
-#endif
-#endif
-
     if (iverbose >= 1 .and. id==master) write(iprint,*)
     call flush(iprint)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
 
-
  enddo timestepping
 
 end subroutine evol
+
+!----------------------------------------------------------------
+!+
+!  check if conservation of various properties *should* be
+!  possible given the range of physics selected
+!+
+!----------------------------------------------------------------
+subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
+                                    should_conserve_angmom,should_conserve_dustmass)
+ use options, only:icooling,ieos,ipdv_heating,ishock_heating,&
+                   iresistive_heating,use_dustfrac,iexternalforce
+ use dim,     only:mhd,maxvxyzu,periodic
+ use part,    only:iboundary,npartoftype
+ logical, intent(out) :: should_conserve_energy,should_conserve_momentum
+ logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
+
+ !
+ ! should conserve energy if using adiabatic equation of state with no cooling
+ ! as long as all heating terms are included
+ !
+ should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. &
+                          icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
+                          .and. (.not.mhd .or. iresistive_heating==1))
+ !
+ ! code should conserve momentum unless boundary particles are employed
+ !
+ if (iexternalforce/=0) then
+    should_conserve_momentum = .false.
+ else
+    should_conserve_momentum = (npartoftype(iboundary)==0)
+ endif
+ !
+ ! code should conserve angular momentum as long as no boundaries (fixed or periodic)
+ ! and as long as there are no non-radial forces (iexternalforce > 1)
+ !
+ should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
+                          .and. iexternalforce <= 1)
+ !
+ ! should always conserve dust mass
+ !
+ should_conserve_dustmass = use_dustfrac
+
+! Each injection routine will need to bookeep conserved quantities, but until then...
+#ifdef INJECT_PARTICLES
+ should_conserve_energy   = .false.
+ should_conserve_momentum = .false.
+ should_conserve_angmom   = .false.
+#endif
+
+end subroutine init_conservation_checks
+
 !----------------------------------------------------------------
 !+
 !  routine to check conservation errors during the calculation
@@ -729,7 +683,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
            timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
            timer_dens,timer_force,timer_link,timer_extf)
  use io,     only:formatreal
- use timing, only:timer
+ use timing, only:timer,print_timer
  integer,      intent(in) :: iprint,nsteps,nsteplast
  type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
                              timer_dens,timer_force,timer_link,timer_extf
@@ -768,35 +722,5 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  endif
 
 end subroutine print_timinginfo
-
-!-----------------------------------------------
-!+
-!  Pretty-print timing entries in a nice table
-!+
-!-----------------------------------------------
-subroutine print_timer(lu,label,my_timer,time_between_dumps)
- use timing, only:timer
- integer,          intent(in) :: lu
- real(kind=4),     intent(in) :: time_between_dumps
- character(len=*), intent(in) :: label
- type(timer),      intent(in) :: my_timer
-
- if (my_timer%wall > epsilon(0._4)) then
-    if (time_between_dumps > 7200.0) then
-       write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    elseif (time_between_dumps > 120.0) then
-       write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    else
-       write(lu,"(1x,a12,':',f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall,my_timer%cpu,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_between_dumps*100.
-    endif
- endif
-
-end subroutine print_timer
 
 end module evolve

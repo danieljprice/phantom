@@ -18,7 +18,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: boundary, dim, dust, externalforces, io, mpiutils,
+!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, io, mpiutils,
 !    options, part, physcon, prompting, set_dust, setup_params,
 !    table_utils, timestep, unifdis, units
 !+
@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
-                          ndusttypes,ndustsmall,grainsize,graindens
+                          ndusttypes,ndustsmall,grainsize,graindens,periodic
  use physcon,        only:pi,au,solarm
  use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
@@ -54,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
+ use domain,         only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -93,9 +94,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  call bcast_mpi(npartx)
  if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                      ' midplane density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
+                      ' midplane density (> 0 for code units; < 0 for cgs)',rhozero)
  call set_units(dist=10.*au,mass=solarm,G=1.)
+ if (rhozero < 0.) rhozero = -rhozero*udist**3/umass
+ call bcast_mpi(rhozero)
  if (use_dust) then
     !--currently assume one fluid dust
     use_dustfrac = .true.
@@ -112,8 +114,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
           grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
           !--grain density
-          call prompt('Enter grain density in g/cm^3',graindens(1),0.)
-          graindens(1:ndusttypes) = graindens(1)/umass*udist**3
+          call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
+          graindens(1:ndusttypes) = graindenscgs/umass*udist**3
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
@@ -189,7 +191,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_previous = npart
 
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
-                   hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc,dir=2)
+                   hfact,npart,xyzh,periodic,nptot=npart_total,&
+                   rhofunc=rhofunc,dir=2,mask=i_belong)
 
  !--set which type of particle it is
  do i=npart_previous+1,npart
@@ -208,17 +211,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--one fluid dust: set dust fraction on gas particles
     if (use_dustfrac) then
-       call set_dustfrac(dtg,dustfrac(:,i))
+       if (ndusttypes > 1) then
+          dustfrac(1:ndusttypes,i) = dustbinfrac(1:ndusttypes)*dtg
+       else
+          call set_dustfrac(dtg,dustfrac(:,i))
+       endif
     else
        dustfrac(:,i) = 0.
     endif
  enddo
 
  npartoftype(itype) = npart - npart_previous
- if (id==master) print*,' npart = ',npart,npart_total
+ massoftype(itype)  = totmass/npartoftype(itype)*(1. + dtg)
 
- massoftype(itype) = totmass/npartoftype(itype)*(1. + dtg)
- if (id==master) print*,' particle mass = ',massoftype(itype)
+ if (id==master) then
+    print*,' npart                 = ',npart,npart_total
+    print*,' particle mass         = ',massoftype(itype),'code units'
+    print*,' particle mass         = ',massoftype(itype)*umass,'g'
+    print*,' total mass            = ',npart*massoftype(itype)*umass,'g'
+    print*,' mid-plane gas density = ',rhozero*umass/udist**3,'g/cm^3'
+ endif
 
 contains
 

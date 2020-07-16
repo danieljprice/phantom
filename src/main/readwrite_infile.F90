@@ -34,6 +34,8 @@
 !    dtmax_min          -- dynamic dtmax: minimum allowed dtmax
 !    dtwallmax          -- maximum wall time between dumps (hhh:mm, 000:00=ignore)
 !    dumpfile           -- dump file to start from
+!    flux_limiter       -- limit radiation flux
+!    hdivbbmax_max      -- max factor to decrease cleaning timestep propto B/(h|divB|)
 !    hfact              -- h in units of particle spacing [h = hfact(m/rho)^(1/3)]
 !    ipdv_heating       -- heating from PdV work (0=off, 1=on)
 !    irealvisc          -- physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)
@@ -68,12 +70,14 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating, &
-                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
-                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters
+                     icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
+                     use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters,&
+                     exchange_radiation_energy,limit_radiation_flux
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
+ use dim,       only:do_radiation
  implicit none
  logical :: incl_runtime2 = .false.
  character(len=80), parameter, public :: &
@@ -197,6 +201,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
+    call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
@@ -207,7 +212,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==16 .or. ieos == 19) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16 .or. ieos==19) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -265,6 +270,11 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_nicil(iwritein)
 #endif
 
+ if (do_radiation) then
+    write(iwritein,"(/,a)") '# options for radiation'
+    call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
+    call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
+ endif
 #ifdef GR
  call write_options_metric(iwritein)
 #endif
@@ -408,9 +418,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('dtmax_min')
        read(valstring,*,iostat=ierr) dtmax_min
        ! to prevent comparison errors from round-off
-       ratio = dtmax/dtmax_min
-       ratio = int(ratio+0.5)+0.0001
-       dtmax_min = dtmax/ratio
+       if (dtmax_min > epsilon(dtmax_min)) then
+          ratio = dtmax/dtmax_min
+          ratio = int(ratio+0.5)+0.0001
+          dtmax_min = dtmax/ratio
+       endif
     case('C_cour')
        read(valstring,*,iostat=ierr) C_cour
     case('C_force')
@@ -441,6 +453,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
+    case('hdivbbmax_max')
+       read(valstring,*,iostat=ierr) hdivbbmax_max
     case('beta')
        read(valstring,*,iostat=ierr) beta
     case('avdecayconst')
@@ -466,6 +480,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('use_mcfost_stars')
        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
 #endif
+    case('gas-rad_exchange')
+       read(valstring,*,iostat=ierr) exchange_radiation_energy
+    case('flux_limiter')
+       read(valstring,*,iostat=ierr) limit_radiation_flux
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -613,12 +631,17 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
+       if (hdivbbmax_max < overcleanfac) then
+          call warn(label,'Resetting hdivbbmax_max = overcleanfac')
+          hdivbbmax_max = overcleanfac
+       endif
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    !if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. ieos /= 15 .and. ieos /= 16)) &
-    !   call fatal(label,'only ieos=2 makes sense if storing thermal energy')
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. &
+                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 19)) &
+       call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
