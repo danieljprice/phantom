@@ -6,12 +6,14 @@ use Getopt::Long;
 use File::Basename;
 my ( %opt );
 my $replace=undef;
+my $show=undef;
 my $headerfile;
 my $programfile;
 #
 # OPTIONS HANDLING
 #
 my $status = GetOptions("replace" => \$opt{"replace"},
+                        "show" => \$opt{"show"},
                         "headerfile=s" => \$opt{"headerfile"},
                         "programfile=s" => \$opt{"programfile"});
 if (defined $opt{headerfile}) {
@@ -40,6 +42,7 @@ if (defined $opt{programfile}) {
 
 }
 my $replace=$opt{replace} if defined $opt{replace};
+my $show=$opt{show} if defined $opt{show};
 
 #
 # Usage
@@ -527,7 +530,11 @@ sub parsefile {
 my $file = @ARGV[0];
 
 if ( $file =~ m/.*\.[f,F]90/ ) {
-   parsefile($file,$headerfile);
+   if ($show) {
+      print get_header($file);
+   } else {
+     parsefile($file,$headerfile);
+   }
 } else {
    print stderr "skipping $file\n";
 }
