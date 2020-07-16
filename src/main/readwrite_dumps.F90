@@ -1232,6 +1232,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label,n_nucleation
+#else
+ integer, parameter :: n_nucleation = 0
 #endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
