@@ -349,7 +349,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
     print *,npart,i,inner_radius,dtlast,dtlast*wind_mass_rate/massoftype(igas)
-    if (npart.ne.i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
+    if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
 
     nreleased = nfill_domain
     nboundaries = iboundary_spheres
