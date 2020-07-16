@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -23,7 +23,7 @@
 !    kappa_gas     -- constant gas opacity (cm²/g)
 !    wind_CO_ratio -- wind initial C/O ratio
 !
-!  DEPENDENCIES: dim, infile_utils, io, physcon
+!  DEPENDENCIES: dim, eos, infile_utils, io, options, physcon, units
 !+
 !--------------------------------------------------------------------------
 

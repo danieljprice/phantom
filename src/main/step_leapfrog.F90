@@ -26,10 +26,11 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: bowen_dust, chem, cons2prim, cons2primsolver, coolfunc,
-!    damping, deriv, derivutils, dim, eos, extern_gr, externalforces,
-!    growth, io, io_summary, metric_tools, mpiutils, options, part, ptmass,
-!    timestep, timestep_ind, timestep_sts, timing
+!  DEPENDENCIES: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
+!    derivutils, dim, dust_formation, eos, extern_gr, externalforces,
+!    growth, h2cooling, io, io_summary, krome_interface, metric_tools,
+!    mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!    timestep_ind, timestep_sts, timing
 !+
 !--------------------------------------------------------------------------
 module step_lf_global

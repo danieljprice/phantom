@@ -20,7 +20,7 @@
 !
 !  DEPENDENCIES: cons2prim, densityforce, derivutils, dim, externalforces,
 !    forces, forcing, growth, io, linklist, part, photoevap, ptmass,
-!    timestep, timestep_ind, timing
+!    ptmass_radiation, timestep, timestep_ind, timing
 !+
 !--------------------------------------------------------------------------
 module deriv

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -11,7 +11,7 @@
 !
 !  REFERENCES: None
 !
-!  OWNER: Lionel Siess
+!  OWNER: Lionel
 !
 !  $Id$
 !
@@ -23,15 +23,15 @@
 !    piston_velocity    -- velocity amplitude of the pulsation (km/s)
 !    pulsation_period   -- stellar pulsation period (days)
 !    sonic_type         -- find transonic solution (1=yes,0=no)
-!    wind_inject_radius -- wind injection radius (au)
+!    wind_inject_radius -- wind injection radius (au, if 0 take Rstar)
 !    wind_mass_rate     -- wind mass loss rate (Msun/yr)
 !    wind_shell_spacing -- desired ratio of sphere spacing to particle spacing
 !    wind_temperature   -- wind temperature at the injection point (K)
 !    wind_velocity      -- injection wind velocity (km/s, if sonic_type = 0)
 !
 !  DEPENDENCIES: dim, eos, icosahedron, infile_utils, injectutils, io,
-!    options, part, partinject, physcon, ptmass_radiation, timestep, units,
-!    wind, wind_equations
+!    options, part, partinject, physcon, timestep, units, wind,
+!    wind_equations
 !+
 !--------------------------------------------------------------------------
 module inject
