@@ -4,35 +4,29 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: stretchmap
-!
-!  DESCRIPTION:
-!   This module implements stretch mapping to create one dimensional
-!   density profiles from uniform arrangements of SPH particles
-!
-!   The implementation is quite general, allowing the density function
-!   to be specified in any of the coordinate dimensions in either
-!   cartesian, cylindrical, spherical or toroidal coordinates. It is a
-!   generalisation of the spherical stretch map described in Herant (1994)
-!   and of the cartesian version used in Price (2004)
-!
-!  REFERENCES:
-!    Herant, M. (1994) "Dirty Tricks for SPH", MmSAI 65, 1013
-!    Price (2004), "Magnetic fields in Astrophysics", PhD Thesis, University of Cambridge
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: geometry, table_utils
-!+
-!--------------------------------------------------------------------------
 module stretchmap
+!
+! This module implements stretch mapping to create one dimensional
+! density profiles from uniform arrangements of SPH particles
+!
+! The implementation is quite general, allowing the density function
+! to be specified in any of the coordinate dimensions in either
+! cartesian, cylindrical, spherical or toroidal coordinates. It is a
+! generalisation of the spherical stretch map described in Herant (1994)
+! and of the cartesian version used in Price (2004)
+!
+! :References:
+!    - Herant, M. (1994) "Dirty Tricks for SPH", MmSAI 65, 1013
+!    - Price (2004), "Magnetic fields in Astrophysics", PhD Thesis, University of Cambridge
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: geometry, table_utils
+!
  implicit none
- real, parameter :: pi = 4.*atan(1.)
+ real, parameter :: pi = 4.*atan(1.) ! the circle of life
  public :: set_density_profile
  public :: get_mass_r
 
@@ -40,50 +34,51 @@ module stretchmap
  integer, parameter, private :: maxits = 100  ! max number of iterations
  integer, parameter, private :: maxits_nr = 30  ! max iterations with Newton-Raphson
  real,    parameter, private :: tol = 1.e-9  ! tolerance on iterations
- integer, parameter, public :: ierr_zero_size_density_table = 1, &
-                               ierr_memory_allocation = 2, &
-                               ierr_table_size_differs = 3, &
-                               ierr_not_converged = -1
+ integer, parameter, public :: ierr_zero_size_density_table = 1, & ! error code
+                               ierr_memory_allocation = 2, & ! error code
+                               ierr_table_size_differs = 3, & ! error code
+                               ierr_not_converged = -1 ! error code
 
  private
 
 contains
 
 subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord,verbose,err)
-!--------------------------------------------------------------------------
 !
 !  Subroutine to implement the stretch mapping procedure
 !
-!    xyzh : particle coordinates and smoothing length
-!    np : number of particles
-!    cmin, cmax  : range in the coordinate to apply transformation
-!    start       : only consider particles between start and np (optional)
-!    geom        : geometry in which stretch mapping is to be performed (optional)
-!                          1 - cartesian
-!                          2 - cylindrical
-!                          3 - spherical
-!                          4 - toroidal
-!                         (if not specified, assumed to be cartesian)
-!    coord       : coordinate direction in which stretch mapping is to be performed (optional)
-!                  (if not specified, assumed to be the first coordinate)
-!    rhofunc     : function containing the desired density function rho(r) or rho(x)
-!                  (optional)
-!    rhotab      : tabulated density profile (optional)
-!    ctab        : tabulated coordinate positions for density bins in table (optional)
-!
 !  The function rhofunc is assumed to be a real function with a single argument::
 !
-!     real function rhofunc(r)
-!        real, intent(in) :: r
+!     real function rho(r)
+!      real, intent(in) :: r
 !
-!        rhofunc = 1./r**2
+!       rho = 1./r**2
 !
-!     end function rhofunc
+!     end function rho
 !
 !  If the ctab array is not present, the table rhotab(:) is assumed to
 !  contain density values on equally spaced bins between cmin and cmax
 !
-!----------------------------------------------------------------
+!    xyzh    : particle coordinates and smoothing length
+!    np      : number of particles
+!    min_bn  : min range in the coordinate to apply transformation
+!    max_bn  : max range in the coordinate to apply transformation
+!    start   : only consider particles between start and np (optional)
+!    geom    : geometry in which stretch mapping is to be performed (optional)
+!                      1 - cartesian
+!                      2 - cylindrical
+!                      3 - spherical
+!                      4 - toroidal
+!                     (if not specified, assumed to be cartesian)
+!    coord   : coordinate direction in which stretch mapping is to be performed (optional)
+!              (if not specified, assumed to be the first coordinate)
+!    rhofunc : function containing the desired density function rho(r) or rho(x) (optional)
+!    xtab    : tabulated coordinate values (optional)
+!    rhotab  : tabulated density profile (optional)
+!    ctab    : tabulated coordinate positions for density bins in table (optional)
+!    verbose : turn on/off verbose output (optional)
+!    err     : error code (0 on successful run)
+!
  use geometry,    only:coord_transform,maxcoordsys,labelcoord,igeom_cartesian!,labelcoordsys
  use table_utils, only:yinterp,linspace
  integer, intent(in)    :: np
@@ -322,12 +317,10 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
 
 end subroutine set_density_profile
 
-!--------------------------------------------------------------
-!+
-!  query function for whether we have spherical r direction
-!+
-!--------------------------------------------------------------
 logical function is_rspherical(igeom,icoord)
+!
+! query function for whether we have spherical r direction
+!
  use geometry, only:igeom_spherical
  integer, intent(in) :: igeom,icoord
 
@@ -336,12 +329,10 @@ logical function is_rspherical(igeom,icoord)
 
 end function is_rspherical
 
-!--------------------------------------------------------------
-!+
-!  query function for whether we have cylindrical r direction
-!+
-!--------------------------------------------------------------
 logical function is_rcylindrical(igeom,icoord)
+!
+! query function for whether we have cylindrical r direction
+!
  use geometry, only:igeom_cylindrical,igeom_toroidal
  integer, intent(in) :: igeom,icoord
 
@@ -355,10 +346,10 @@ end function is_rcylindrical
 !  Integrate to get total mass along the coordinate direction
 !+
 !--------------------------------------------------------------
+real function get_mass_r(rhofunc,r,rmin)
 !
 ! mass integrated along spherical radius
 !
-real function get_mass_r(rhofunc,r,rmin)
  real, intent(in) :: r,rmin
  real, external   :: rhofunc
  real :: dr,ri,dmi,dmprev
@@ -376,10 +367,11 @@ real function get_mass_r(rhofunc,r,rmin)
  get_mass_r = 4.*pi*get_mass_r
 
 end function get_mass_r
+
+real function get_mass_rcyl(rhofunc,rcyl,rmin)
 !
 ! mass integrated along cylindrical radius
 !
-real function get_mass_rcyl(rhofunc,rcyl,rmin)
  real, intent(in) :: rcyl,rmin
  real, external   :: rhofunc
  real :: dr,ri,dmi,dmprev
@@ -397,10 +389,11 @@ real function get_mass_rcyl(rhofunc,rcyl,rmin)
  get_mass_rcyl = 2.*pi*get_mass_rcyl
 
 end function get_mass_rcyl
+
+real function get_mass(rhofunc,x,xmin)
 !
 ! mass integrated along cartesian direction
 !
-real function get_mass(rhofunc,x,xmin)
  real, intent(in) :: x,xmin
  real, external   :: rhofunc
  real :: dx,xi,dmi,dmprev
@@ -423,10 +416,10 @@ end function get_mass
 !  Same as above, but fills a table
 !+
 !------------------------------------
+subroutine get_mass_tab_r(masstab,rhotab,rtab)
 !
 ! version that integrates along spherical radius
 !
-subroutine get_mass_tab_r(masstab,rhotab,rtab)
  real, intent(in)  :: rhotab(:),rtab(:)
  real, intent(out) :: masstab(size(rhotab))
  real :: dr,ri,dmi,dmprev,rprev
@@ -446,10 +439,11 @@ subroutine get_mass_tab_r(masstab,rhotab,rtab)
  masstab(:) = 4.*pi*masstab(:)
 
 end subroutine get_mass_tab_r
+
+subroutine get_mass_tab_rcyl(masstab,rhotab,rtab)
 !
 ! version that integrates along cylindrical radius
 !
-subroutine get_mass_tab_rcyl(masstab,rhotab,rtab)
  real, intent(in)  :: rhotab(:),rtab(:)
  real, intent(out) :: masstab(size(rhotab))
  real :: dr,ri,dmi,dmprev,rprev
@@ -469,10 +463,11 @@ subroutine get_mass_tab_rcyl(masstab,rhotab,rtab)
  masstab(:) = 2.*pi*masstab(:)
 
 end subroutine get_mass_tab_rcyl
+
+subroutine get_mass_tab(masstab,rhotab,xtab)
 !
 ! version that integrates along a cartesian direction
 !
-subroutine get_mass_tab(masstab,rhotab,xtab)
  real, intent(in)  :: rhotab(:),xtab(:)
  real, intent(out) :: masstab(size(rhotab))
  real :: dx,xi,dmi,dmprev,xprev
