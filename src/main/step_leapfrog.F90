@@ -1261,7 +1261,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 !
                 ! Get updated abundances of all species, updates 'chemarrays',
                 !
-                dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                dphot = get_dphot(dphotflag,real(dphot0),xyzh(1,i),xyzh(2,i),xyzh(3,i))
                 call update_abundances(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),abundance(:,i),&
                       nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
              endif
