@@ -846,7 +846,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 wind.F90 inject_wind.f90
+    SRCINJECT= wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
