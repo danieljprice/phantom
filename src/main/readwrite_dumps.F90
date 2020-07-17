@@ -1227,13 +1227,14 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef KROME
  use krome_user, only: krome_nmols
  use part,       only: gamma_chem,mu_chem,T_chem
-#else
- integer, parameter :: krome_nmols = 0
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label,n_nucleation
 #else
  integer, parameter :: n_nucleation = 0
+#endif
+#ifndef KROME
+ integer, parameter :: krome_nmols = 0
 #endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
