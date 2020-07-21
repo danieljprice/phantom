@@ -885,7 +885,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       call allocate_memory(int(nparttot / nprocs))
+       call allocate_memory(int(nparttot / nprocs) + 1)
 #endif
     endif
 !
@@ -1077,7 +1077,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(nparttot / nprocs))
+ call allocate_memory(int(nparttot / nprocs) + 1)
 #endif
 
 !

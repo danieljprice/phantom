@@ -1612,6 +1612,11 @@ ifeq ($(MPI), mpifort)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), mpiifort)
+    FC= mpiifort
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), intel)
     FC= mpif90
     USEMPI=yes
