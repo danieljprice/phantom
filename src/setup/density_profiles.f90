@@ -525,20 +525,20 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac,
        write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
        &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
        write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
-101    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
-       2x,es13.7,2x,es13.7)
+101    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+       2x,es13.6,2x,es13.6)
     else
        write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
        &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
        write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-102    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
-       2x,es13.7)
+102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+       2x,es13.6)
     endif
  else
     write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
     &[  Density  ]  [   E_int   ]'
     write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
-103 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7)
+103 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  endif
 
  close(1, status = 'keep')
