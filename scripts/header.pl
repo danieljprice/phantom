@@ -301,6 +301,26 @@ sub get_id {
 }
 
 #
+# get extended header info
+#
+sub get_extra {
+   my $header = shift;
+   my $inheader = 1;
+   my $notinheader = '';
+   for (split /^/, $header) {
+       my $line = $_;
+       # match everything NOT included in original header
+       if ( !m/!.*|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
+       if ($inheader==0) {
+          if ( m/!.*$|^\s*$/ ) { # only lines that are comments or whitespace
+             $notinheader = "$notinheader$_";
+          }
+       }
+   }
+   #print "GOT EXTRA=$notinheader\nDONE\n";
+   return $notinheader;
+}
+#
 # get Usage from line matching "Usage:"
 #
 sub get_usage {
@@ -395,6 +415,7 @@ sub write_module_header {
    my $depstmp = shift;
    my %deps = %$depstmp;
    my $usage = shift;
+   my $extra = shift;
    open my $fh, '<', $file or die "Can't open $file\nSpecify location as follows:\n\n$0 --headerfile=../../scripts/$file\n\n";
    while ( <$fh> ) {
       if ( m/OWNER:/i ) {
@@ -451,6 +472,7 @@ sub write_module_header {
          print $_;
       }
    }
+   print $extra;
 }
 
 sub parsefile {
@@ -467,6 +489,7 @@ sub parsefile {
       $refs = "! :References: None\n";
    }
    my $id = get_id($header);
+   my $extra = get_extra($header);
    my $inheader = 0;
    if ( $filetype =~ m/module/ ) {
       if (length($modulename) > 0) {
@@ -477,14 +500,15 @@ sub parsefile {
          # find old-style description if current description is empty
          if (length($descript)==0) {
             $descript=get_module_descript_free($header);
+            #print "GOT $descript\nDONE\n",length($descript);
             if (length($descript)==0) {
-               $descript="!  $modulename\n";
+               $descript="! $modulename\n";
             } else {
                $descript="$descript";
             }
          }
          write_module_header( $headerfile, $author, $descript, $modulename,
-                              $refs, $id, $gen, \%vars, \%deps, $usage );
+                              $refs, $id, $gen, \%vars, \%deps, $usage, $extra );
          $inheader = 1;
       }
    } elsif ( $filetype =~ m/program/ ) {
