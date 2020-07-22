@@ -92,7 +92,6 @@ subroutine set_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
     call flip_array(r)
     call flip_array(rho)
     call flip_array(ene)
-    call flip_array(phi)
  endif
 
  if (iexclude_core_mass) then
