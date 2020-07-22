@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testeos
-!
-!  DESCRIPTION:
-!  Unit tests of the equation of state module
-!
-!  REFERENCES: None
-!
-!  OWNER: Terrence Tricco
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
-!    units
-!+
-!--------------------------------------------------------------------------
 module testeos
+!
+! Unit tests of the equation of state module
+!
+! :References: None
+!
+! :Owner: Terrence Tricco
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!   units
+!
  implicit none
  public :: test_eos
 

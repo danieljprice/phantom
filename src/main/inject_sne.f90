@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION:
-!   Routine for injecting supernovae for test from Balsara & Kim (2004)
-!
-!  REFERENCES: Balsara & Kim (2004), ApJ 602, 1079
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Routine for injecting supernovae for test from Balsara & Kim (2004)
+!
+! :References: Balsara & Kim (2004), ApJ 602, 1079
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, infile_utils, io, part, physcon
+!
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
 

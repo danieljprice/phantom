@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testsedov
-!
-!  DESCRIPTION:
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, deriv, dim, domain, energies, eos, evolve,
-!    evwrite, initial_params, io, io_summary, mpiutils, options, part,
-!    physcon, radiation_utils, testutils, timestep, unifdis, units,
-!    viscosity
-!+
-!--------------------------------------------------------------------------
 module testsedov
+!
+! No description
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, deriv, dim, domain, energies, eos, evolve,
+!   evwrite, initial_params, io, io_summary, mpiutils, options, part,
+!   physcon, radiation_utils, testutils, timestep, unifdis, units,
+!   viscosity
+!
  implicit none
 
  public :: test_sedov

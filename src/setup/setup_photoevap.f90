@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!  this module sets up photoevaporation problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: externalforces, io, options, physcon, setdisc, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! this module sets up photoevaporation problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: externalforces, io, options, physcon, setdisc, units
+!
  implicit none
  public :: setpart
 

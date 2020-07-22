@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine to calculate the mass weighted density PDF
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, part, pdfs, readwrite_dumps
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine to calculate the mass weighted density PDF
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, part, pdfs, readwrite_dumps
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'MWpdf'
  public :: do_analysis

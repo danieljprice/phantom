@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: slab
+module slab
 !
-!  DESCRIPTION:
-!   This module sets up particles in a thin slab, i.e. 3D box but with
+! This module sets up particles in a thin slab, i.e. 3D box but with
 !   small aspect ratio in the z direction. Useful for performing 2D
 !   test problems in 3D
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, domain, unifdis
 !
-!  DEPENDENCIES: boundary, domain, unifdis
-!+
-!--------------------------------------------------------------------------
-module slab
  implicit none
 
 contains

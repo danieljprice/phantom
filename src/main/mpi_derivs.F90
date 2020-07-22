@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiderivs
+module mpiderivs
 !
-!  DESCRIPTION:
-!   This module handles the MPI exchange of information during the
+! This module handles the MPI exchange of information during the
 !   density and force routines
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
+!   stack
 !
-!  DEPENDENCIES: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
-!    stack
-!+
-!--------------------------------------------------------------------------
 #ifdef MPI
 module mpiderivs
  use mpi

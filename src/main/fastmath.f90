@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: fastmath
+module fastmath
 !
-!  DESCRIPTION:
-!   This module computes a fast inverse square root
+! This module computes a fast inverse square root
 !   Algorithm originally in C by Chris Lomont,
 !   implemented here in Fortran by Daniel Price
 !
@@ -19,20 +17,16 @@
 !
 !   For fast sqrt, just use sqrt(x) = x*finvsqrt(x)
 !
-!  REFERENCES:
+! :References:
 !    Chris Lomont, "Fast Inverse Square Root"
 !    www.math.purdue.edu/~clomont
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module fastmath
  implicit none
 
  private

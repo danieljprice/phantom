@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testkdtree
+module testkdtree
 !
-!  DESCRIPTION:
-!   This module performs unit tests of the kdtree module
+! This module performs unit tests of the kdtree module
 !   The tests here are specific to the tree, some general
 !   tests of neighbour finding are done in test_link
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, domain, io, kdtree, kernel, linklist, part,
+!   testutils, timing, unifdis
 !
-!  DEPENDENCIES: dim, domain, io, kdtree, kernel, linklist, part,
-!    testutils, timing, unifdis
-!+
-!--------------------------------------------------------------------------
-module testkdtree
  implicit none
  public :: test_kdtree
 

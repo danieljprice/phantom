@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: energies
+module energies
 !
-!  DESCRIPTION:
-!   Calculates global quantities on the particles
+! Calculates global quantities on the particles
 !   To Developer: See instructions in evwrite.F90 about adding values
 !                 to the .ev file
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, dust, eos, externalforces, fastmath, gravwaveutils,
+!   io, metric_tools, mpiutils, nicil, options, part, ptmass, units,
+!   utils_gr, vectorutils, viscosity
 !
-!  DEPENDENCIES: dim, dust, eos, externalforces, fastmath, gravwaveutils,
-!    io, metric_tools, mpiutils, nicil, options, part, ptmass, units,
-!    utils_gr, vectorutils, viscosity
-!+
-!--------------------------------------------------------------------------
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
 module energies

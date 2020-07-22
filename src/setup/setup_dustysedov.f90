@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Sedov blast wave problem with dust
+! Sedov blast wave problem with dust
 !
-!  REFERENCES:
+! :References:
 !   Laibe & Price (2012a), MNRAS 420, 2345
 !   Laibe & Price (2012b), MNRAS 420, 2365
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, domain, io, part, physcon, prompting,
+!   setup_params, unifdis, units
 !
-!  DEPENDENCIES: boundary, domain, io, part, physcon, prompting,
-!    setup_params, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

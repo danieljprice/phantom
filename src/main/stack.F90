@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: stack
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Conrad Chan
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, mpidens, mpiforce
-!+
-!--------------------------------------------------------------------------
 module stack
+!
+! None
+!
+! :References: None
+!
+! :Owner: Conrad Chan
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, mpidens, mpiforce
+!
 #ifdef MPI
  use dim,         only:stacksize
  use io,          only:fatal

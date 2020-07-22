@@ -4,26 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: hdf5utils
+module hdf5utils
 !
-!  DESCRIPTION:
-!  This module provides Fortran interfaces to
+! This module provides Fortran interfaces to
 !  the c routines that handle HDF5 calls
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module hdf5utils
- !interface to the c versions
  interface
   subroutine write_grid_hdf5(filename,datasetname,datarr,nx,ny,nz,ierr) bind(c)
    use, intrinsic :: iso_c_binding

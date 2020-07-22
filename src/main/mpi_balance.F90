@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: balance
+module balance
 !
-!  DESCRIPTION:
-!  This module moves the particles onto their correct processor
+! This module moves the particles onto their correct processor
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, mpi, mpiutils, part, timing
 !
-!  DEPENDENCIES: dim, io, mpi, mpiutils, part, timing
-!+
-!--------------------------------------------------------------------------
 #ifdef MPI
 module balance
  use mpi

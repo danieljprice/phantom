@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: growth_smol
+module growth_smol
 !
-!  DESCRIPTION:
-!   Interface to library for dust growth and fragmentation
+! Interface to library for dust growth and fragmentation
 !   using Smoluchowsky solver. This module can be compiled
 !   with a special rule in the Makefile to link against the
 !   Smoluchowsky library
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon, smol2other, units
 !
-!  DEPENDENCIES: physcon, smol2other, units
-!+
-!--------------------------------------------------------------------------
-module growth_smol
  implicit none
 
  public :: grain_growth_smol

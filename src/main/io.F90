@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io
+module io
 !
-!  DESCRIPTION:
-!   This module contains utility routines related to input/output
+! This module contains utility routines related to input/output
 !   of runtime information from the code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: mpi
 !
-!  DEPENDENCIES: mpi
-!+
-!--------------------------------------------------------------------------
-module io
  implicit none
  integer, parameter, public :: stdout = 6
  integer, parameter, public :: stderr = 0

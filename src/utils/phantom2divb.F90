@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom2divb
-!
-!  DESCRIPTION: This program is a post-processing tool to calculate divB
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantom2divB dumpfile(s)
-!
-!  DEPENDENCIES: deriv, dim, initial, io, part, readwrite_dumps
-!+
-!--------------------------------------------------------------------------
 program phantom2divb
+!
+! This program is a post-processing tool to calculate divB
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantom2divB dumpfile(s)
+!
+! :Dependencies: deriv, dim, initial, io, part, readwrite_dumps
+!
  use dim,             only:ndivcurlB,maxp,mhd,tagline
  use part,            only:npart,xyzh,Bxyz,divcurlB,Bevol, &
                            hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase

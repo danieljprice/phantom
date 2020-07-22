@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: sphNGutils
+module sphNGutils
 !
-!  DESCRIPTION:
-!  This module contains routines allowing read/write compatibility
+! This module contains routines allowing read/write compatibility
 !  with sphNG dump files
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: part
 !
-!  DEPENDENCIES: part
-!+
-!--------------------------------------------------------------------------
-module sphNGutils
  implicit none
  ! labels for sphNG types, used when converting dumps (these cannot duplicate current itypes)
  integer, parameter :: isphNG_accreted  = 18

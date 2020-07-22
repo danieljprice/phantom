@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: ekin
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: ekin [no arguments]
-!
-!  DEPENDENCIES: dustywaves
-!+
-!--------------------------------------------------------------------------
 program ekin
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: ekin [no arguments]
+!
+! :Dependencies: dustywaves
+!
  use dustywaves
  implicit none
  integer, parameter :: nx = 200

@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!   Analysis routine for common envelope simulations
-!
-!  REFERENCES: None
-!
-!  OWNER: Thomas Reichardt
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, energies, eos, eos_mesa, kernel, part,
-!    physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
-!+
-!--------------------------------------------------------------------------
-
 module analysis
+!
+! Analysis routine for common envelope simulations
+!
+! :References: None
+!
+! :Owner: Thomas Reichardt
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, energies, eos, eos_mesa, kernel, part,
+!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
+!
+
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
                         rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
  use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,&

@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION:
-!  Handles uniform distribution injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    wind_resolution  -- resolution of the wind -- DO NOT CHANGE AFTER RUNNING SETUP --
-!    wind_temperature -- temperature of the wind (Kelvin)
-!
-!  DEPENDENCIES: boundary, eos, infile_utils, io, part, partinject,
-!    physcon, units
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Handles uniform distribution injection
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - wind_resolution  : *resolution of the wind -- DO NOT CHANGE AFTER RUNNING SETUP --*
+!   - wind_temperature : *temperature of the wind (Kelvin)*
+!
+! :Dependencies: boundary, eos, infile_utils, io, part, partinject,
+!   physcon, units
+!
  implicit none
  character(len=*), parameter, public :: inject_type = 'unifwind'
 

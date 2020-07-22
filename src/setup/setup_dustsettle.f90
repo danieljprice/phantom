@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup of dust settling problem from PL15
-!
-!  REFERENCES: Price & Laibe (2015), MNRAS 451, 5332
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, io, mpiutils,
-!    options, part, physcon, prompting, set_dust, setup_params,
-!    table_utils, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of dust settling problem from PL15
+!
+! :References: Price & Laibe (2015), MNRAS 451, 5332
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, dust, externalforces, io, mpiutils,
+!   options, part, physcon, prompting, set_dust, setup_params, table_utils,
+!   timestep, unifdis, units
+!
  implicit none
  public :: setpart
 

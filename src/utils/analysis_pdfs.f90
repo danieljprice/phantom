@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine to produce accurate volume-weighted
+! Analysis routine to produce accurate volume-weighted
 !  Probability Distribution Functions from SPH particle data
 !  by interpolation to an adaptive mesh
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - binspacing : * bin width in ln(rho) for PDF*
+!   - rhologmax  : * max ln(rho) for PDF*
+!   - rhologmin  : * min ln(rho) for PDF*
 !
-!  RUNTIME PARAMETERS:
-!    binspacing --  bin width in ln(rho) for PDF
-!    rhologmax  --  max ln(rho) for PDF
-!    rhologmin  --  min ln(rho) for PDF
+! :Dependencies: adaptivemesh, boundary, dim, infile_utils,
+!   interpolations3D_amr, part, pdfs
 !
-!  DEPENDENCIES: adaptivemesh, boundary, dim, infile_utils,
-!    interpolations3D_amr, part, pdfs
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'PDF on AMR mesh'
  public :: do_analysis
