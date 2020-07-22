@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine computing particle tracks for a box
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, part
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine computing particle tracks for a box
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, part
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'tracks'
  public :: do_analysis

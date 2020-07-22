@@ -4,40 +4,34 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: growth
+module growth
 !
-!  DESCRIPTION:
-!  Contains routine for dust growth and fragmentation
+! Contains routine for dust growth and fragmentation
 !
-!  REFERENCES:
+! :References:
 !  Stepinski & Valageas (1997)
 !  Kobayashi & Tanaka (2009)
 !
-!  OWNER: Arnaud Vericel
+! :Owner: Arnaud Vericel
 !
-!  $Id$
+! :Runtime parameters:
+!   - Tsnow         : *snow line condensation temperature in K*
+!   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
+!   - flyby         : *use primary for keplerian freq. calculation*
+!   - force_smax    : *(mcfost) set manually maximum size for binning*
+!   - grainsizemin  : *minimum allowed grain size in cm*
+!   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
+!   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
+!   - rsnow         : *snow line position in AU*
+!   - size_max_user : *(mcfost) maximum size for binning in cm*
+!   - vfrag         : *uniform fragmentation threshold in m/s*
+!   - vfragin       : *inward fragmentation threshold in m/s*
+!   - vfragout      : *inward fragmentation threshold in m/s*
+!   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
-!  RUNTIME PARAMETERS:
-!    Tsnow         -- snow line condensation temperature in K
-!    bin_per_dex   -- (mcfost) number of bins of sizes per dex
-!    flyby         -- use primary for keplerian freq. calculation
-!    force_smax    -- (mcfost) set manually maximum size for binning
-!    grainsizemin  -- minimum allowed grain size in cm
-!    ifrag         -- fragmentation of dust (0=off,1=on,2=Kobayashi)
-!    isnow         -- snow line (0=off,1=position based,2=temperature based)
-!    rsnow         -- snow line position in AU
-!    size_max_user -- (mcfost) maximum size for binning in cm
-!    vfrag         -- uniform fragmentation threshold in m/s
-!    vfragin       -- inward fragmentation threshold in m/s
-!    vfragout      -- inward fragmentation threshold in m/s
-!    wbymass       -- weight dustgasprops by mass rather than mass/density
+! :Dependencies: dim, dust, eos, infile_utils, initial_params, io, options,
+!   part, physcon, table_utils, units, viscosity
 !
-!  DEPENDENCIES: dim, dust, eos, infile_utils, initial_params, io, options,
-!    part, physcon, table_utils, units, viscosity
-!+
-!--------------------------------------------------------------------------
-module growth
  use units,        only:udist,unit_density,unit_velocity
  use physcon,      only:au,Ro
  use part,         only:xyzmh_ptmass,nptmass,this_is_a_flyby

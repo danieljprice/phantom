@@ -4,30 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: test
+module test
 !
-!  DESCRIPTION:
-!   Instead of running a simulation this routine, when called,
+! Instead of running a simulation this routine, when called,
 !   initiates a series of internal tests on the code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
+!   testcorotate, testderivs, testdust, testeos, testexternf, testgeometry,
+!   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
+!   testkernel, testlink, testmath, testnimhd, testptmass, testradiation,
+!   testrwdump, testsedov, testsetdisc, testsmol, teststep, timing
 !
-!  DEPENDENCIES: dim, io, io_summary, mpiutils, options, testcooling,
-!    testcorotate, testderivs, testdust, testeos, testexternf,
-!    testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
-!    testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!    testsmol, teststep, timing
-!+
-!--------------------------------------------------------------------------
-module test
  implicit none
  public :: testsuite
 

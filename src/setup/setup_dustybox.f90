@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for the dustybox problem in dust-gas mixtures
-!
-!  REFERENCES: Laibe & Price (2011), MNRAS 418, 1491
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, domain, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the dustybox problem in dust-gas mixtures
+!
+! :References: Laibe & Price (2011), MNRAS 418, 1491
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
+!   setup_params, unifdis, units
+!
  implicit none
  public :: setpart
 

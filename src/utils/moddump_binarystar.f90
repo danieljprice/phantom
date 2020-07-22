@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  Input is a relaxed star, output is two relaxed stars in binary orbit
-!
-!  REFERENCES: None
-!
-!  OWNER: Terrence Tricco
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, extern_gwinspiral, externalforces,
-!    initial_params, io, options, part, physcon, prompting,
-!    readwrite_dumps, timestep, units
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! Input is a relaxed star, output is two relaxed stars in binary orbit
+!
+! :References: None
+!
+! :Owner: Terrence Tricco
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, extern_gwinspiral, externalforces,
+!   initial_params, io, options, part, physcon, prompting, readwrite_dumps,
+!   timestep, units
+!
  implicit none
 
 contains

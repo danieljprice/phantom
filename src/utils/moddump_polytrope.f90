@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: prompting
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: prompting
+!
  implicit none
 
 contains

@@ -4,29 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: linklist
+module linklist
 !
-!  DESCRIPTION:
-!  This module contains all routines required for
+! This module contains all routines required for
 !  link-list based neighbour-finding
 !
 !  THIS VERSION USES A K-D TREE
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
-!  RUNTIME PARAMETERS:
-!    tree_accuracy -- tree opening criterion (0.0-1.0)
+! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
+!   kdtree, kernel, mpiutils, part
 !
-!  DEPENDENCIES: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!    kdtree, kernel, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module linklist
  use dim,          only:maxp,ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode

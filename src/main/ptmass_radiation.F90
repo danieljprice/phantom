@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: ptmass_radiation
+module ptmass_radiation
 !
-!  DESCRIPTION:
-!   Implementation of radiation from sink particles
+! Implementation of radiation from sink particles
 !   Contains routines to compute dust temperature assuming radiative equilibrium
 !   Also routine to compute radiative acceleration based on sink particle luminosity
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Lionel Siess
+! :Owner: Lionel Siess
 !
-!  $Id$
+! :Runtime parameters:
+!   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
+!   - iget_tdust      : *method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)*
+!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust)*
 !
-!  RUNTIME PARAMETERS:
-!    alpha_rad       -- fraction of the gravitational acceleration imparted to the gas
-!    iget_tdust      -- method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)
-!    isink_radiation -- sink radiation pressure method (0=off,1=alpha,2=dust)
+! :Dependencies: dust_formation, infile_utils, io, kernel, part, units
 !
-!  DEPENDENCIES: dust_formation, infile_utils, io, kernel, part, units
-!+
-!--------------------------------------------------------------------------
 
-module ptmass_radiation
 
  implicit none
  integer, public  :: isink_radiation = 0

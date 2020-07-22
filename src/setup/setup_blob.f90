@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for the Agertz et al. (2007) evaporating blob problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, domain, io, kernel, part, physcon, prompting,
-!    setup_params, timestep, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the Agertz et al. (2007) evaporating blob problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, kernel, part, physcon, prompting,
+!   setup_params, timestep, unifdis
+!
  implicit none
  public :: setpart
 

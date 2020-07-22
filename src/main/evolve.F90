@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: evolve
+module evolve
 !
-!  DESCRIPTION:
-!   Evolves the simulation through all timesteps
+! Evolves the simulation through all timesteps
 !   This subroutine contains the main timestepping loop and calls
 !   the output routines at the appropriate times
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: analysis, centreofmass, derivutils, dim, energies,
+!   evwrite, externalforces, fileutils, forcing, initial_params, inject,
+!   io, io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
+!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
+!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
+!   timing
 !
-!  DEPENDENCIES: analysis, centreofmass, derivutils, dim, energies,
-!    evwrite, externalforces, fileutils, forcing, initial_params, inject,
-!    io, io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!    quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!    step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!    timing
-!+
-!--------------------------------------------------------------------------
-module evolve
  implicit none
  public :: evol
 

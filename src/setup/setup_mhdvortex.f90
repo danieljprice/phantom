@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for the MHD Vortex problem. The centrifugal and centripetal
+! Setup for the MHD Vortex problem. The centrifugal and centripetal
 !   accelerations from the rotational velocity are balanced with
 !   those from the magnetic tension. The thermal and magnetic pressure
 !   are in balance. At t=10, the vortex should return to its original
 !   position unchanged.
 !
-!  REFERENCES:
+! :References:
 !    Balsara, 2004, APJS, 151, 149-184
 !    Dumbser, Balsara, Toro, Munz, 2008, J. Comp. Phys., 227, 8209-8253.
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
+!   setup_params, unifdis
 !
-!  DEPENDENCIES: boundary, domain, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

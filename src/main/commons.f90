@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup_params
+module setup_params
 !
-!  DESCRIPTION:
 ! This file contains all of the main "common blocks"
 !  for the code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim
 !
-!  DEPENDENCIES: dim
-!+
-!--------------------------------------------------------------------------
 
 !----------------------------------------------------------------
 !+
@@ -30,7 +25,6 @@
 !  used for subsequent restarts
 !+
 !---------------------------------------------------------------
-module initial_params
  use dim, only:maxdusttypes
  implicit none
  real,    public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws

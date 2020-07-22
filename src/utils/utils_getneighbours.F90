@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: getneigbours
+module getneigbours
 !
-!  DESCRIPTION:
-!  A set of routines generate neighbour lists for all particles, and
+! A set of routines generate neighbour lists for all particles, and
 !  read/write the list to file
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
 !
-!  DEPENDENCIES: boundary, dim, kdtree, kernel, linklist, part
-!+
-!--------------------------------------------------------------------------
-module getneigbours
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours

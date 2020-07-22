@@ -4,30 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: readwrite_dumps
+module readwrite_dumps
 !
-!  DESCRIPTION:
-!  This module contains all routines related
+! This module contains all routines related
 !  to the data format.
 !
 !  For Phantom, the format is identical to sphNG
 !  (although with fewer arrays dumped)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, eos, extern_binary, extern_gwinspiral,
+!   externalforces, gitinfo, initial_params, io, lumin_nsdisc, memory,
+!   mpiutils, options, part, setup_params, timestep, units,
+!   utils_dumpfiles_hdf5
 !
-!  DEPENDENCIES: boundary, dim, eos, extern_binary, extern_gwinspiral,
-!    externalforces, gitinfo, initial_params, io, lumin_nsdisc, memory,
-!    mpiutils, options, part, setup_params, timestep, units,
-!    utils_dumpfiles_hdf5
-!+
-!--------------------------------------------------------------------------
 #ifdef PHANTOM2HDF5
 module readwrite_dumps_hdf5
 #else

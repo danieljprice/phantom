@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testlink
-!
-!  DESCRIPTION:
-!  This module performs unit tests of the link list routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, io, kdtree, kernel, linklist,
-!    mpiutils, part, random, testutils, timing, unifdis
-!+
-!--------------------------------------------------------------------------
 module testlink
+!
+! This module performs unit tests of the link list routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, io, kdtree, kernel, linklist,
+!   mpiutils, part, random, testutils, timing, unifdis
+!
  implicit none
  public :: test_link
 

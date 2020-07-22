@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine calculating to determine the radial profile of a sphere
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, part, physcon, units
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine calculating to determine the radial profile of a sphere
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, part, physcon, units
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'sphere'
  logical :: firstcall = .true.

@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testexternf
-!
-!  DESCRIPTION:
-!  Unit tests of the externalforces module
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io
-!+
-!--------------------------------------------------------------------------
 module testexternf
+!
+! Unit tests of the externalforces module
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io
+!
  implicit none
  public :: test_externf
 

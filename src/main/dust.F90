@@ -4,35 +4,29 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dust
+module dust
 !
-!  DESCRIPTION:
-!  Contains routine for gas-dust drag term
+! Contains routine for gas-dust drag term
 !
-!  REFERENCES:
+! :References:
 !    Laibe & Price (2012a,b)
 !    Kwok (1975), Draine et al. (2006)
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - K_code            : *drag constant when constant drag is used*
+!   - graindens         : *Intrinsic grain density in g/cm^3*
+!   - grainsize         : *Grain size in cm*
+!   - icut_backreaction : *cut the drag on the gas phase (0=no, 1=yes)*
+!   - idrag             : *gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)*
+!   - ilimitdustflux    : *limit the dust flux using Ballabio et al. (2018)*
+!   - irecon            : *use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)*
 !
-!  RUNTIME PARAMETERS:
-!    K_code            -- drag constant when constant drag is used
-!    graindens         -- Intrinsic grain density in g/cm^3
-!    grainsize         -- Grain size in cm
-!    icut_backreaction -- cut the drag on the gas phase (0=no, 1=yes)
-!    idrag             -- gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)
-!    ilimitdustflux    -- limit the dust flux using Ballabio et al. (2018)
-!    irecon            -- use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)
+! :Dependencies: dim, eos, fileutils, infile_utils, io, options, part,
+!   physcon, units
 !
-!  DEPENDENCIES: dim, eos, fileutils, infile_utils, io, options, part,
-!    physcon, units
-!+
-!--------------------------------------------------------------------------
 
-module dust
  use dim,     only:use_dustgrowth,maxdusttypes
  use part,    only:ndusttypes,grainsize,graindens
  use physcon, only:pi

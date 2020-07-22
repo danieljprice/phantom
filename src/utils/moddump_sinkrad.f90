@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Enrico Ragusa
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! None
+!
+! :References: None
+!
+! :Owner: Enrico Ragusa
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part
+!
 
  use part, only:xyzmh_ptmass
 

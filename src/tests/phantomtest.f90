@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomtest
-!
-!  DESCRIPTION: Run all unit tests of the Phantom SPH code
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantomtest [no arguments]
-!
-!  DEPENDENCIES: initial, io, memory, mpiutils, test
-!+
-!--------------------------------------------------------------------------
 program phantomtest
+!
+! Run all unit tests of the Phantom SPH code
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantomtest [no arguments]
+!
+! :Dependencies: initial, io, memory, mpiutils, test
+!
  use memory,          only:allocate_memory
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise

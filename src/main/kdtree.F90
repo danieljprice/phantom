@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: kdtree
+module kdtree
 !
-!  DESCRIPTION: This module implements the k-d tree build
+! This module implements the k-d tree build
 !    and associated tree walking routines
 !
-!  REFERENCES:
+! :References:
 !    Gafton & Rosswog (2011), MNRAS 418, 770-781
 !    Benz, Bowers, Cameron & Press (1990), ApJ 348, 647-667
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: allocutils, balance, boundary, dim, domain, dtypekdtree,
+!   fastmath, io, kernel, mpiderivs, mpiutils, part
 !
-!  DEPENDENCIES: allocutils, balance, boundary, dim, domain, dtypekdtree,
-!    fastmath, io, kernel, mpiderivs, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module kdtree
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree

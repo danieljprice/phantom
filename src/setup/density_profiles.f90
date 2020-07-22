@@ -4,10 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: rho_profile
+module rho_profile
 !
-!  DESCRIPTION: This contains several density profiles, including
+! This contains several density profiles, including
 !               1) uniform
 !               2) polytrope
 !               3) piecewise polytrope
@@ -16,18 +15,14 @@
 !               6) Read data from KEPLER file
 !               7) Bonnor-Ebert sphere
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: datafiles, eos, physcon, units
 !
-!  DEPENDENCIES: datafiles, eos, physcon, units
-!+
-!--------------------------------------------------------------------------
-module rho_profile
  use physcon, only: pi,fourpi
  implicit none
 

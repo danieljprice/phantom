@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for simple MHD wave propagation test as per section 5.1 of Iwasaki (2015)
-!
-!  REFERENCES: None
-!
-!  OWNER: James Wurster
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    npartx  -- number of particles in x-direction
-!    plasmaB -- plasma beta in the initial blast
-!
-!  DEPENDENCIES: boundary, domain, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for simple MHD wave propagation test as per section 5.1 of Iwasaki (2015)
+!
+! :References: None
+!
+! :Owner: James Wurster
+!
+! :Runtime parameters:
+!   - npartx  : *number of particles in x-direction*
+!   - plasmaB : *plasma beta in the initial blast*
+!
+! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
  !--private module variables

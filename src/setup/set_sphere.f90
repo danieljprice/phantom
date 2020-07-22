@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: spherical
+module spherical
 !
-!  DESCRIPTION:
-!   This module sets up spherical particle distributions
+! This module sets up spherical particle distributions
 !   By default this is done by cropping and stretching cubes
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: random, stretchmap, unifdis
 !
-!  DEPENDENCIES: random, stretchmap, unifdis
-!+
-!--------------------------------------------------------------------------
-module spherical
  use unifdis, only:set_unifdis,mask_prototype,mask_true
  implicit none
 

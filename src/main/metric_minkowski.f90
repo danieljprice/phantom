@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: metric
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: infile_utils
-!+
-!--------------------------------------------------------------------------
 module metric
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: infile_utils
+!
  implicit none
  character(len=*), parameter :: metric_type = 'Minkowski'
  integer,          parameter :: imetric     = 1

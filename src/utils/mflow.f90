@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: mflow
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: mflow[int time] file01.mf file02.mf ...
-!
-!  DEPENDENCIES: mf_write
-!+
-!--------------------------------------------------------------------------
 program mflow
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: mflow[int time] file01.mf file02.mf ...
+!
+! :Dependencies: mf_write
+!
  use mf_write, only: nradi,ncolsi
  implicit none
 
