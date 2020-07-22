@@ -259,30 +259,61 @@ sub get_field {
    my $fieldname = shift;
    my $header = shift;
    my $field='';
-   $fieldname = ucfirst($fieldname);
-   #print "finding $fieldname in $header";
-   # following two match case where fieldname is NOT preceded by colon
-   if ($header =~ m/(\!\s*$fieldname:.*?\n)\!\s*\n\!\s*[\:|A-Z|a-z]+\:/si ) {
+   $fieldnameuc = uc($fieldname);     # upper case, e.g. DESCRIPTION
+   $fieldname = ucfirst($fieldname);  # first upper, e.g. Description
+   #
+   # first try to match case where fieldname UPPER CASE and NOT preceded by colon
+   # followed by another field also in upper case
+   # e.g. ! DESCRIPTION:
+   #      !   text here
+   #      !
+   #      ! REFERENCES:
+   if ($header =~ m/(\!\s*$fieldnameuc\:.*?\n)\!\s*\n\!\s*[A-Z]+\:/s ) {
       $field=$1;
       $field =~ s/$fieldname/\:$fieldname/i;  # add preceding colon
-   } elsif ($header =~ m/(\!\s*$fieldname:.*?\n)\!\+/si ) {
+      #print "GOT $fieldname=$field\nDONE\n"
+   #
+   # otherwise try to match case where fieldname UPPER CASE and NOT preceded by colon
+   # but followed by a comment line !+
+   # e.g. ! DESCRIPTION:
+   #      !
+   #      !+
+   #
+   } elsif ($header =~ m/(\!\s*$fieldnameuc:.*?\n)\!\+/si ) {
       $field=$1;
       $field =~ s/$fieldname/\:$fieldname/i;  # add preceding colon
-   # following two match case where fieldname is preceded by colon
+   #
+   # then try to match case where fieldname is preceded by colon
+   # e.g. ! :Description:
+   #      !   blah
+   #      !
+   #      ! :Anotherfield:
+   #
    } elsif ($header =~ m/(\!\s*\:$fieldname:.*?\n)\!\s*\n\!\s*[\:|A-Z|a-z]+\:/si ) {
       $field=$1;
+   #
+   # finally try to match case where fieldname followed by !+
+   # e.g. ! :Description:
+   #      !   blah
+   #      !
+   #      !+
+   #
    } elsif ($header =~ m/(\!\s*\:$fieldname:.*?\n)\!\+/si ) {
       $field=$1;
    }
-   # correct capitalisation
+   # correct capitalisation to uppercase first with case-insensitive replace
    $field =~ s/$fieldname/$fieldname/i;
-   # correct indentation
+   # correct indentation by removing preceding spaces before colon
    $field =~ s/!\s*\:/! \:/;
 
    if ($field =~ m/DESCRIPTION/i ) {
       $field =~ s/^! \:$fieldname\:\s*\n//i;  # do not add the word "DESCRIPTION"
       $field =~ s/\:$fieldname\://i;  # do not add the word "DESCRIPTION"
       $field =~ s/^!\s+(\w)/\! $1/;  # single indentation in description text
+      #print "REVISING ",length($field),"\n";
+      if (length($field)==0) {
+         $field="! No description\n";
+      }
    }
    #print "GOT $fieldname=$field\nDONE\n";
    return $field;
@@ -500,7 +531,7 @@ sub parsefile {
          # find old-style description if current description is empty
          if (length($descript)==0) {
             $descript=get_module_descript_free($header);
-            #print "GOT $descript\nDONE\n",length($descript);
+            #print "ALTGOT $descript\nDONE\n",length($descript);
             if (length($descript)==0) {
                $descript="! $modulename\n";
             } else {
