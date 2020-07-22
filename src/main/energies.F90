@@ -22,36 +22,36 @@ module energies
 !
 
 #define reduce_fn(a,b) reduceall_mpi(a,b)
-module energies
- use dim, only: maxdusttypes,maxdustsmall
- use units, only:utime
- implicit none
+ module energies
+  use dim, only: maxdusttypes,maxdustsmall
+  use units, only:utime
+  implicit none
 
- logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
- real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
- real,            public    :: xmom,ymom,zmom
- real,            public    :: totlum
- integer,         public    :: iquantities
- integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
- integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
+  logical,         public    :: gas_only,track_mass,track_lum
+  real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
+  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
+  real,            public    :: xmom,ymom,zmom
+  real,            public    :: totlum
+  integer,         public    :: iquantities
+  integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
+  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao(2),iev_etah(4),&
                                iev_etaa(2),iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n(4),iev_nR(5),iev_nT(2),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(4)
- integer,         public    :: iev_erad
- real,            public    :: erad
- integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
- integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
- integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
- integer,         parameter :: iev_min = 3    ! array index of the minimum of the quantity
- integer,         parameter :: iev_ave = 4    ! array index of the average of the quantity
- ! Subroutines
- public  :: compute_energies,ev_data_update
- private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
- ! Arrays
- real,             public :: ev_data(4,0:inumev),erot_com(6)
+  integer,         public    :: iev_erad
+  real,            public    :: erad
+  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
+  integer,         parameter :: iev_sum = 1    ! array index of the sum of the quantity
+  integer,         parameter :: iev_max = 2    ! array index of the maximum of the quantity
+  integer,         parameter :: iev_min = 3    ! array index of the minimum of the quantity
+  integer,         parameter :: iev_ave = 4    ! array index of the average of the quantity
+  ! Subroutines
+  public  :: compute_energies,ev_data_update
+  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
+  ! Arrays
+  real,             public :: ev_data(4,0:inumev),erot_com(6)
 
 contains
 
@@ -867,4 +867,4 @@ subroutine finalise_ev_data(evdata,dnptot)
 
 end subroutine finalise_ev_data
 !----------------------------------------------------------------
-end module energies
+ end module energies
