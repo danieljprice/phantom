@@ -24,11 +24,11 @@ module readwrite_dumps
 !   utils_dumpfiles_hdf5
 !
 #ifdef PHANTOM2HDF5
-module readwrite_dumps_hdf5
+ module readwrite_dumps_hdf5
 #else
-module readwrite_dumps
+ module readwrite_dumps
 #endif
- use utils_dumpfiles_hdf5, only:create_hdf5file,         &
+  use utils_dumpfiles_hdf5, only:create_hdf5file,         &
                                 open_hdf5file,           &
                                 close_hdf5file,          &
                                 hdf5_file_id,            &
@@ -42,17 +42,17 @@ module readwrite_dumps
                                 arrays_options_hdf5,     &
                                 externalforce_hdf5
 
- implicit none
- character(len=80), parameter, public :: &    ! module version
+  implicit none
+  character(len=80), parameter, public :: &    ! module version
     modid="$Id$"
 
- public :: read_dump,read_smalldump,write_smalldump,write_fulldump,write_gadgetdump
- logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
- logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
- integer, parameter, public :: is_small_dump = 1978
- integer, parameter, public :: is_not_mhd = 1979
+  public :: read_dump,read_smalldump,write_smalldump,write_fulldump,write_gadgetdump
+  logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
+  logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+  integer, parameter, public :: is_small_dump = 1978
+  integer, parameter, public :: is_not_mhd = 1979
 
- private
+  private
 
 contains
 
@@ -1148,7 +1148,7 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 end subroutine write_gadgetdump
 
 #ifdef PHANTOM2HDF5
-end module readwrite_dumps
+ end module readwrite_dumps
 #else
-end module readwrite_dumps
+ end module readwrite_dumps
 #endif
