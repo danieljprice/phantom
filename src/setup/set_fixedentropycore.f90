@@ -37,9 +37,9 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  use eos,         only:calc_temp_and_ene
  use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils, only:interpolator,flip_array
- real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
- real, allocatable          :: phi(:),r_alloc(:),rho_alloc(:),pres_alloc(:)
- real, intent(in)           :: mcore,hsoft,hphi
+ real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:),mcore
+ real, allocatable          :: r_alloc(:),rho_alloc(:),pres_alloc(:)
+ real, intent(in)           :: hsoft,hphi
  integer, intent(out)       :: ierr
  real                       :: mc,msoft,h,hphi_cm,eneguess
  logical                    :: isort_decreasing,iexclude_core_mass
@@ -68,6 +68,8 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
 
  call calc_rho_and_pres(r_alloc,mc,m(hidx),rho_alloc,pres_alloc,iSerr)
  if (iSerr == 1) ierr = 2
+ mcore = mc / solarm
+ write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
  rho(1:hidx)  = rho_alloc(1:hidx)
  pres(1:hidx) = pres_alloc(1:hidx)
 
@@ -90,7 +92,6 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
     call flip_array(r)
     call flip_array(rho)
     call flip_array(ene)
-    call flip_array(phi)
  endif
 
  if (iexclude_core_mass) then
@@ -107,7 +108,8 @@ end subroutine set_fixedS_softened_core
 !-----------------------------------------------------------------------
 subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
  real, allocatable, dimension(:), intent(in)    :: r
- real, intent(in)                               :: mcore,mh
+ real, intent(in)                               :: mh
+ real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  integer, intent(out)                           :: ierr
  integer                                        :: Nmax
@@ -118,7 +120,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
 ! input variables should be given in the following format
  
 ! r(0:Nmax+1): Array of radial grid to be softened, satisfying r(0)=0 and r(Nmax)=hsoft
-! mcore:       Core particle mass
+! mcore:       Core particle mass, need to provide initial guess
 ! mh:          Mass coordinate at hsoft, m(r=h)
 ! rho(0:Nmax): Give rho(Nmax)=(rho at hsoft) as input. Outputs density profile.
 ! p(0:Nmax+1): Give p(Nmax:Nmax+1)=(p at r(Nmax:Nmax+1)) as input. Outputs pressure profile.
@@ -132,19 +134,21 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
  Sedge = entropy(rho(Nmax),pres(Nmax))
  
  ! Start shooting method
- fac  = 0.5
+ fac  = 0.05
  mass = msoft
  Sc   = Sedge
 
  do
     mold = mass
     call one_shot(Sc,r,mcore,msoft,rho,pres,mass)
-    if (mass < 0.) then ! Increase entropy
-       Sc = Sc * (1. + fac)
+    if (mass < 0.) then
+       mcore = mcore * (1. - fac)
+       msoft = mh - mcore
     elseif (mass/msoft < 1d-10) then
        exit ! Happy when m(r=0) is sufficiently close to zero
     else
-       Sc = Sc * (1. - fac) ! Decrease entropy
+       mcore = mcore * (1. + fac)
+       msoft = mh - mcore
     endif
   
     if (mold * mass < 0.) fac = fac * 0.5
