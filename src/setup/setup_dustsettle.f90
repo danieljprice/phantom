@@ -29,13 +29,12 @@ module setup
  use setup_params,   only:rhozero
  use externalforces, only:mass1
  implicit none
- public :: setpart
+ public  :: setpart
 
- private
+private
  integer :: npartx,norbit
  real    :: Rdisc_au,Rmax_au
  real    :: H0,HonR,dtg,smincgs,smaxcgs,sindex
-
 
 contains
 
@@ -218,10 +217,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get total mass from integration of density profile
  ymaxdisc = 3.*H0
- totmass = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
-
+ totmass  = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
  npart_previous = npart
-
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
                    hfact,npart,xyzh,periodic,nptot=npart_total,&
                    rhofunc=rhofunc,dir=2,mask=i_belong)
@@ -229,9 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set which type of particle it is
  do i=npart_previous+1,npart
     call set_particle_type(i,itype)
-
     vxyzu(:,i) = 0.
-
     !--set internal energy if necessary
     if (maxvxyzu >= 4) then
        if (gamma > 1.) then
@@ -265,7 +260,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
 end subroutine setpart
-
 !----------------------------------------------------------------
 !+
 !  Calculate the vertical density in the disc
@@ -277,7 +271,6 @@ real function rhofunc(x)
  rhofunc = exp(-0.5*(x/H0)**2)
 
 end function rhofunc
-
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -315,7 +308,6 @@ subroutine write_setupfile(filename)
  close(iunit)
 
 end subroutine write_setupfile
-
 !----------------------------------------------------------------
 !+
 !  Read parameters from setup file
@@ -359,5 +351,4 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
-
 end module setup
