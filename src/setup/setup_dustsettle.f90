@@ -34,7 +34,7 @@ module setup
  private
  integer :: npartx,norbit
  real    :: Rdisc_au,Rmax_au
- real    :: H0,dtg,smincgs,smaxcgs,sindex
+ real    :: H0,HonR,dtg,smincgs,smaxcgs,sindex
 
 
 contains
@@ -76,7 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer            :: itype
  integer            :: npart_previous
  real               :: totmass,deltax,dz,length
- real               :: HonR,omega,ts(maxdustsmall),dustbinfrac(maxdustsmall)
+ real               :: omega,ts(maxdustsmall),dustbinfrac(maxdustsmall)
  real               :: xmini,xmaxi,ymaxdisc,cs,t_orb,Rmax
  logical            :: iexist
  character(len=100) :: filename
@@ -121,7 +121,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
     call prompt('Enter '//trim(labeltype(itype))//' midplane density (> 0 for code units; < 0 for cgs)',rhozero)
     call prompt('Enter the mass of the central star [Msun]',mass1,0.)
-    call prompt('Enter radius at which the calculations will be made [au]',Rdisc_au, 0.)
+    call prompt('Enter radius at which the calculations will be made, Rdisc [au]',Rdisc_au, 0.)
+    call prompt('Enter the ratio of H/R at Rdisc',HonR, 0.)
     Rmax_au = Rdisc_au
     call prompt('Complete N revolutions at what radius, Rmax? [au]',Rmax_au, 0.)
     call prompt('How many orbits at Rmax would you like to complete?',norbit, 1)
@@ -296,6 +297,7 @@ subroutine write_setupfile(filename)
  call write_inopt(rhozero,'rhozero','midplane density (> 0 for code units; < 0 for cgs)',iunit)
  call write_inopt(mass1,'stellar_mass','mass of the central star [Msun]',iunit)
  call write_inopt(Rdisc_au,'Rdisc','radius at which the calculations will be made [au]',iunit)
+ call write_inopt(HonR,'HonR','ratio of H/R',iunit)
  call write_inopt(Rmax_au,'Rmax','Complete N revolutions at what radius? [au]',iunit)
  call write_inopt(norbit,'norbit','Number of orbits at Rmax',iunit)
  write(iunit,"(/,a)") '# Dust properties'
@@ -335,6 +337,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(rhozero,'rhozero',db,ierr)
  call read_inopt(mass1,'stellar_mass',db,ierr)
  call read_inopt(Rdisc_au,'Rdisc',db,ierr)
+ call read_inopt(HonR,'HonR',db,ierr)
  call read_inopt(Rmax_au,'Rmax',db,ierr)
  call read_inopt(norbit,'norbit',db,ierr)
  call read_inopt(dtg,'dust_to_gas_ratio',db,ierr)
