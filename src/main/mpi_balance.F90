@@ -17,29 +17,28 @@ module balance
 ! :Dependencies: dim, io, mpi, mpiutils, part, timing
 !
 #ifdef MPI
- module balance
-  use mpi
-  use io,       only:id,nprocs
-  use dim,      only:maxprocs
-  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
+ use mpi
+ use io,       only:id,nprocs
+ use dim,      only:maxprocs
+ use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
                     comm_balance,comm_balancecount
-  use part,     only:ipartbufsize
+ use part,     only:ipartbufsize
 
-  implicit none
+ implicit none
 
-  integer :: npartnew,ncomplete
-  integer, dimension(1), private :: irequestrecv,irequestsend
+ integer :: npartnew,ncomplete
+ integer, dimension(1), private :: irequestrecv,irequestsend
 
-  real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
+ real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
 
-  private
-  public :: balancedomains
-  public :: balance_init,balance_finish,send_part,recv_part
+ private
+ public :: balancedomains
+ public :: balance_init,balance_finish,send_part,recv_part
 
-  integer(kind=8) :: ntot_start
+ integer(kind=8) :: ntot_start
 
-  integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
-  integer :: countrequest(maxprocs)
+ integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
+ integer :: countrequest(maxprocs)
 
 contains
 
@@ -340,6 +339,6 @@ subroutine check_complete
     endif
  enddo
 end subroutine check_complete
-
- end module balance
 #endif
+
+end module balance

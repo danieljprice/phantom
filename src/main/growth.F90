@@ -29,7 +29,7 @@ module growth
 !   - vfragout      : *inward fragmentation threshold in m/s*
 !   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
-! :Dependencies: dim, dust, eos, infile_utils, initial_params, io, options,
+! :Dependencies: dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
 !
  use units,        only:udist,unit_density,unit_velocity
@@ -536,7 +536,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use units,          only:udist
  use table_utils,    only:logspace
  use io,             only:fatal
- use initial_params, only:mdust_in
+ use energies,       only:mdust_in
  integer, intent(in)    :: bins_per_dex
  real,    intent(in)    :: smax_user
  logical, intent(inout) :: force_smax
@@ -687,7 +687,7 @@ subroutine merge_bins(npart,grid,npartmin)
  use part,           only:ndusttypes,ndustlarge,set_particle_type,&
                          npartoftype,massoftype,idust,iphase,iamtype,&
                          grainsize,graindens
- use initial_params, only:mdust_in
+ use energies,       only:mdust_in
  integer, intent(in) :: npart,npartmin
  real, intent(inout) :: grid(:)
  integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother

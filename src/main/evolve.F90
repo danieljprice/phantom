@@ -17,7 +17,7 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: analysis, centreofmass, derivutils, dim, energies,
-!   evwrite, externalforces, fileutils, forcing, initial_params, inject,
+!   evwrite, externalforces, fileutils, forcing, inject,
 !   io, io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
 !   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
 !   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
@@ -36,7 +36,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,&
+                            etot_in,angtot_in,totmom_in,mdust_in
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
@@ -91,7 +92,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif

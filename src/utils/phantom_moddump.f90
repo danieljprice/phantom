@@ -14,7 +14,7 @@ program phantommoddump
 !
 ! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
 !
-! :Dependencies: checksetup, dim, eos, initial_params, io, memory, moddump,
+! :Dependencies: checksetup, dim, eos, io, memory, moddump,
 !   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
 !   setup_params
 !
@@ -31,7 +31,7 @@ program phantommoddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
- use initial_params,  only:get_conserv
+ use energies,        only:get_conserv
  use memory,          only:allocate_memory
  implicit none
  integer :: nargs

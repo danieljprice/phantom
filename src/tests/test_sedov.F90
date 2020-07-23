@@ -15,7 +15,7 @@ module testsedov
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, deriv, dim, domain, energies, eos, evolve,
-!   evwrite, initial_params, io, io_summary, mpiutils, options, part,
+!   evwrite, io, io_summary, mpiutils, options, part,
 !   physcon, radiation_utils, testutils, timestep, unifdis, units,
 !   viscosity
 !
@@ -48,11 +48,10 @@ subroutine test_sedov(ntests,npass)
 #endif
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
- use energies,  only:etot,totmom,angtot,mdust
+ use energies,  only:etot,totmom,angtot,mdust,etot_in,angtot_in,totmom_in,mdust_in
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
- use initial_params, only:etot_in,angtot_in,totmom_in,mdust_in
  use mpiutils,  only:reduceall_mpi
  use domain,    only:i_belong
  use radiation_utils, only:set_radiation_and_gas_temperature_equal

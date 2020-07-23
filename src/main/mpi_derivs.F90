@@ -19,74 +19,73 @@ module mpiderivs
 !   stack
 !
 #ifdef MPI
- module mpiderivs
-  use mpi
-  use io,             only:id,nprocs
-  use dim,            only:maxprocs
-  use mpiutils,       only:mpierr,status,MPI_DEFAULT_REAL, &
+ use mpi
+ use io,             only:id,nprocs
+ use dim,            only:maxprocs
+ use mpiutils,       only:mpierr,status,MPI_DEFAULT_REAL, &
                           comm_cellexchange,comm_cellcount
-  use dtypekdtree,    only:kdnode,ndimtree
+ use dtypekdtree,    only:kdnode,ndimtree
 
-  implicit none
+ implicit none
 
-  interface init_cell_exchange
-   module procedure init_celldens_exchange,init_cellforce_exchange
-  end interface
+ interface init_cell_exchange
+  module procedure init_celldens_exchange,init_cellforce_exchange
+ end interface
 
-  interface send_cell
-   module procedure send_celldens,send_cellforce
-  end interface
+ interface send_cell
+  module procedure send_celldens,send_cellforce
+ end interface
 
-  interface check_send_finished
-   module procedure check_send_finished_dens,check_send_finished_force
-  end interface
+ interface check_send_finished
+  module procedure check_send_finished_dens,check_send_finished_force
+ end interface
 
-  interface recv_cells
-   module procedure recv_celldens,recv_cellforce
-  end interface
+ interface recv_cells
+  module procedure recv_celldens,recv_cellforce
+ end interface
 
-  interface finish_cell_exchange
-   module procedure finish_celldens_exchange,finish_cellforce_exchange
-  end interface
+ interface finish_cell_exchange
+  module procedure finish_celldens_exchange,finish_cellforce_exchange
+ end interface
 
-  interface recv_while_wait
-   module procedure recv_while_wait_force,recv_while_wait_dens
-  end interface
+ interface recv_while_wait
+  module procedure recv_while_wait_force,recv_while_wait_dens
+ end interface
 
-  private
+ private
 
-  integer :: ncomplete
+ integer :: ncomplete
 
-  integer :: dtype_celldens
-  integer :: dtype_cellforce
+ integer :: dtype_celldens
+ integer :: dtype_cellforce
 
-  integer :: globallevel
-  integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
-  integer :: comm_owner(maxprocs) ! only comms up to globallevel are used
+ integer :: globallevel
+ integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
+ integer :: comm_owner(maxprocs) ! only comms up to globallevel are used
 
-  integer :: nsent(maxprocs)     ! counter for number of cells sent to i
-  integer :: nexpect(maxprocs)   ! counter for number of cells expecting from i
-  integer :: nrecv(maxprocs)     ! counter for number of cells received from i
+ integer :: nsent(maxprocs)     ! counter for number of cells sent to i
+ integer :: nexpect(maxprocs)   ! counter for number of cells expecting from i
+ integer :: nrecv(maxprocs)     ! counter for number of cells received from i
 
-  integer :: countrequest(maxprocs)
+ integer :: countrequest(maxprocs)
 
-  public :: init_cell_exchange
-  public :: send_cell
-  public :: recv_cells
-  public :: check_send_finished
-  public :: finish_cell_exchange
-  public :: recv_while_wait
-  public :: get_group_cofm
-  public :: reduce_group
-  public :: tree_sync
-  public :: tree_bcast
-  public :: init_tree_comms
-  public :: finish_tree_comms
-  public :: reset_cell_counters
+ public :: init_cell_exchange
+ public :: send_cell
+ public :: recv_cells
+ public :: check_send_finished
+ public :: finish_cell_exchange
+ public :: recv_while_wait
+ public :: get_group_cofm
+ public :: reduce_group
+ public :: tree_sync
+ public :: tree_bcast
+ public :: init_tree_comms
+ public :: finish_tree_comms
+ public :: reset_cell_counters
 
-  interface reduce_group
-   module procedure reduce_group_real, reduce_group_int
-  end interface
+ interface reduce_group
+  module procedure reduce_group_real, reduce_group_int
+ end interface
 
 contains
 
@@ -714,5 +713,5 @@ subroutine reset_cell_counters
  enddo
 end subroutine reset_cell_counters
 
- end module mpiderivs
 #endif
+end module mpiderivs
