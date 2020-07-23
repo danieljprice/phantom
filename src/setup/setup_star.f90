@@ -478,7 +478,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  integer, intent(in)  :: id,master
  integer, intent(out) :: ierr
  integer :: i
- logical :: need_densityfile,need_rstar
+ logical :: need_rstar
 
  ierr = 0
  ! Select sphere & set default values
@@ -542,10 +542,16 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
                      '2: Use constant entropy softened profile'
-    call prompt('Select option above : ',isoftcore)
-    if (isoftcore == 0) then
+    call prompt('Select option above : ',isoftcore,0,2)
+
+    select case (isoftcore)
+    case(0)
        call prompt('Add a sink particle stellar core?',isinkcore)
-    else
+       if (isinkcore) then
+          call prompt('Enter mass of the created sink particle core',mcore,0.)
+          call prompt('Enter softening length of the sink particle core',hsoft,0.)
+       endif
+    case(1)
        isinkcore = .true. ! Create sink particle core automatically
        unsoftened_profile = densityfile
        print*,'Options for core softening:'
@@ -555,7 +561,8 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
                         '   of sink particle core (if you do not know what you are', &
                         '   doing, you will obtain a poorly softened profile)'
        call prompt('Select option above : ',isofteningopt,1,3)
-       select case(isofteningopt)
+
+       select case (isofteningopt)
        case(1)
           call prompt('Enter radius of density softening',hdens,0.)
        case(2)
@@ -564,12 +571,17 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
           call prompt('Enter radius of density softening',hdens,0.)
        end select
+
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
-    endif
-    if (isinkcore .and. (isoftcore == 0)) then
-       call prompt('Enter mass of the created sink particle core',mcore,0.)
-       call prompt('Enter softening length of the sink particle core',hsoft,0.)
-    endif
+    case(2)
+       isinkcore = .true. ! Create sink particle core automatically
+       unsoftened_profile = densityfile
+       print*,'Specify radius of density softening and initial guess for mass of sink particle core'
+       call prompt('Enter softening radius in Rsun : ',hdens,0.)
+       call prompt('Enter guess for core mass in Msun : ',mcore,0.)
+       call prompt('Enter output file name of cored stellar profile:',outputfilename)
+    end select
+ 
  endif
  call prompt('Relax star automatically during setup?',relax_star_in_setup)
 
@@ -715,7 +727,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  endif
 
  write(iunit,"(/,a)") '# star properties'
- if (need_densityfile) then
+ if (need_densityfile .and. (isoftcore == 0)) then
     call write_inopt(densityfile,'densityfile','File containing data for stellar profile',iunit)
  else
     call write_inopt(Rstar,'Rstar','radius of star',iunit)
@@ -726,17 +738,25 @@ subroutine write_setupfile(filename,gamma,polyk)
     write(iunit,"(/,a)") '# core softening and sink stellar core options'
     call write_inopt(isoftcore,'isoftcore','0=no core softening, 1=cubic core, 2=constant entropy core',iunit)
     if (isoftcore > 0) then
-       call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
        call write_inopt(unsoftened_profile,'unsoftened_profile','Path to MESA profile for softening',iunit)
        call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
-       call write_inopt(hdens,'hdens','Radius of core softening',iunit)
-       call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
-       call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
-    endif
-    call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
-    if (isinkcore .and. (isoftcore == 0)) then
-       call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
-       call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
+       if (isoftcore == 1) then
+          call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
+          if ((isofteningopt == 1) .or. (isofteningopt == 3)) then
+             call write_inopt(hdens,'hdens','Radius of core softening',iunit)
+          endif
+          if ((isofteningopt == 2) .or. (isofteningopt == 3)) then
+             call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
+          endif
+       elseif (isoftcore == 2) then
+         call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
+       endif
+    else
+       call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
+       if (isinkcore) then
+          call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
+          call write_inopt(hsoft,'hsoft','Softening length of sink particle stellar core',iunit)
+       endif
     endif
  endif
 
@@ -784,7 +804,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  nstar = np
 
  ! star properties
- if (need_densityfile) then
+ if (need_densityfile .and. (isoftcore == 0)) then
     call read_inopt(densityfile,'densityfile',db,errcount=nerr)
  else
     call read_inopt(Mstar,'Mstar',db,errcount=nerr)
@@ -816,16 +836,12 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
        if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
-       if (isofteningopt==1) call read_inopt(hdens,'hdens',db,errcount=nerr)
-       if (isofteningopt==2) call read_inopt(mcore,'mcore',db,errcount=nerr)
-       if (isofteningopt==3) then
-          call read_inopt(mcore,'mcore',db,errcount=nerr)
-          call read_inopt(hdens,'hdens',db,errcount=nerr)
-       endif
+       if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(hdens,'hdens',db,errcount=nerr)
+       if ((isofteningopt==2) .or. (isofteningopt==3)) call read_inopt(mcore,'mcore',db,errcount=nerr)
     endif
 
     ! sink particle core
-    call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
+    if (isoftcore == 0) call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
     if (isinkcore .and. (isoftcore == 0)) then
        call read_inopt(mcore,'mcore',db,errcount=nerr)
        call read_inopt(hsoft,'hsoft',db,errcount=nerr)
