@@ -127,7 +127,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('How many orbits at Rmax would you like to complete?',norbit, 1)
     if (use_dust) then
        !--currently assume one fluid dust
-       use_dustfrac = .true.
        call prompt('Enter total dust to gas ratio',dtg,0.)
        call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
        ndusttypes = ndustsmall
@@ -139,7 +138,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call prompt('Enter power-law index, e.g. MRN',sindex)
           !--grain density
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-          graindens(1:ndusttypes) = graindenscgs/umass*udist**3
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
@@ -151,9 +149,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  if (id==master) then
     if (use_dust) then
+       use_dustfrac = .true.
+       ndustsmall   = ndusttypes
        if (ndusttypes > 1) then
           call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
           grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
+          graindens(1:ndusttypes) = graindenscgs/umass*udist**3
        else
           grainsize(1) = grainsizecgs/udist
           graindens(1) = graindenscgs/umass*udist**3
