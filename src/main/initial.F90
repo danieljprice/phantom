@@ -17,7 +17,7 @@ module initial
 ! :Dependencies: analysis, balance, boundary, centreofmass, checkoptions,
 !   checksetup, chem, cons2prim, cooling, cpuinfo, densityforce, deriv,
 !   dim, domain, dust, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, h2cooling, initial_params,
+!   fastmath, fileutils, forcing, growth, h2cooling,
 !   inject, io, io_summary, krome_interface, linklist, metric_tools,
 !   mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup, omputils,
 !   options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
@@ -219,8 +219,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
- use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot, &
+                            get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile

@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, eos, growth, initial_params, io,
+! :Dependencies: deriv, dim, eos, growth, io,
 !   mcfost2phantom, omp_lib, options, part, physcon, timestep, units
 !
  use omp_lib
@@ -241,10 +241,10 @@ subroutine growth_to_fake_multi(npart)
 end subroutine growth_to_fake_multi
 
 subroutine back_to_growth(npart)
- use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
-                              npartoftype,iamtype,iphase,idust,&
-                              set_particle_type
- use initial_params, only:mdust_in
+ use part,     only:ndusttypes,ndustlarge,idust,massoftype,&
+                    npartoftype,iamtype,iphase,idust,&
+                    set_particle_type
+ use energies, only:mdust_in
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
 
