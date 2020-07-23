@@ -296,17 +296,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        ! Get values of hsoft and mcore
        !
-       if (isofteningopt == 1) then ! Default
-          call find_mcore_given_hsoft(hdens,r0,rho0,m0,mcore,ierr)
-          if (ierr==1) call fatal('setup','Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)')
-       elseif (isofteningopt == 2) then
-          call find_hsoft_given_mcore(mcore,r0,rho0,m0,hdens,ierr)
-          if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
-       else ! Both hdens and mcore are specified, check if values are sensible
-          call check_hsoft_and_mcore(hdens,mcore,r0,rho0,m0,ierr)
-          if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
-          if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
-          if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
+       if (isoftcore == 1) then
+          if (isofteningopt == 1) then ! Default
+             call find_mcore_given_hsoft(hdens,r0,rho0,m0,mcore,ierr)
+             if (ierr==1) call fatal('setup','Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)')
+          elseif (isofteningopt == 2) then
+             call find_hsoft_given_mcore(mcore,r0,rho0,m0,hdens,ierr)
+             if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
+          else ! Both hdens and mcore are specified, check if values are sensible
+             call check_hsoft_and_mcore(hdens,mcore,r0,rho0,m0,ierr)
+             if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
+             if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
+             if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
+          endif
        endif
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
@@ -726,12 +728,14 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
  endif
 
- write(iunit,"(/,a)") '# star properties'
- if (need_densityfile .and. (isoftcore == 0)) then
-    call write_inopt(densityfile,'densityfile','File containing data for stellar profile',iunit)
- else
-    call write_inopt(Rstar,'Rstar','radius of star',iunit)
-    call write_inopt(Mstar,'Mstar','mass of star',iunit)
+ if (isoftcore == 0) then
+    write(iunit,"(/,a)") '# star properties'
+    if (need_densityfile) then
+       call write_inopt(densityfile,'densityfile','File containing data for stellar profile',iunit)
+    else
+       call write_inopt(Rstar,'Rstar','radius of star',iunit)
+       call write_inopt(Mstar,'Mstar','mass of star',iunit)
+    endif
  endif
 
  if (iprofile==imesa) then
@@ -749,6 +753,7 @@ subroutine write_setupfile(filename,gamma,polyk)
              call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
           endif
        elseif (isoftcore == 2) then
+         call write_inopt(hdens,'hdens','Radius of core softening',iunit)
          call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
        endif
     else
@@ -803,14 +808,6 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  call read_inopt(use_exactN,'use_exactN',db,errcount=nerr)
  nstar = np
 
- ! star properties
- if (need_densityfile .and. (isoftcore == 0)) then
-    call read_inopt(densityfile,'densityfile',db,errcount=nerr)
- else
-    call read_inopt(Mstar,'Mstar',db,errcount=nerr)
-    if (need_rstar) call read_inopt(Rstar,'Rstar',db,errcount=nerr)
- endif
-
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
  select case(ieos)
@@ -831,13 +828,13 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  ! core softening
  if (iprofile==imesa) then
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+    if (isoftcore == 1) call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
+    if ((isofteningopt==1) .or. (isofteningopt==3) .or. (isoftcore == 2)) call read_inopt(hdens,'hdens',db,errcount=nerr)
+    if ((isofteningopt==2) .or. (isofteningopt==3) .or. (isoftcore == 2)) call read_inopt(mcore,'mcore',db,errcount=nerr)
     if (isoftcore > 0) then
-       call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
        call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
        if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
-       if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(hdens,'hdens',db,errcount=nerr)
-       if ((isofteningopt==2) .or. (isofteningopt==3)) call read_inopt(mcore,'mcore',db,errcount=nerr)
     endif
 
     ! sink particle core
@@ -846,6 +843,16 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(mcore,'mcore',db,errcount=nerr)
        call read_inopt(hsoft,'hsoft',db,errcount=nerr)
     endif
+ endif
+
+ ! star properties
+ if (isoftcore == 0) then
+  if (need_densityfile) then
+     call read_inopt(densityfile,'densityfile',db,errcount=nerr)
+  else
+     call read_inopt(Mstar,'Mstar',db,errcount=nerr)
+     if (need_rstar) call read_inopt(Rstar,'Rstar',db,errcount=nerr)
+  endif
  endif
 
  ! relax star options
