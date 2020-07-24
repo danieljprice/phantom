@@ -152,7 +152,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
     endif
 
     if (mold * mass < 0.) fac = fac * 0.5
- end do
+ enddo
 
  if (Sedge < Sc) ierr = 1
  return
@@ -181,7 +181,7 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
  do i = 1,Nmax+1
     dr(i) = r(i)-r(i-1)
     dvol(i) = 4.*pi/3. * (r(i)**3 - r(i-1)**3)
- end do
+ enddo
 
  hsoft = r(Nmax)
  mass  = msoft
@@ -194,7 +194,7 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
     if (mass < 0.) return ! Choice of entropy fails to give m(r=0) = 0
- end do
+ enddo
 
  return
 
@@ -224,7 +224,7 @@ function entropy(rho,pres)
     corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
           / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
     temp = temp - corr
- end do
+ enddo
 
  if (ieos == 2) then
     ! Include only gas entropy for adiabatic EoS
@@ -259,7 +259,7 @@ subroutine get_rho_from_p_s(pres,S,rho)
     dSdrho = (S_plus_dS - entropy(rho,pres)) / (rho_plus_drho - rho)
     corr = ( entropy(rho,pres) - S ) / dSdrho
     rho = rho - corr
- end do
+ enddo
 
 return
 
