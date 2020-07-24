@@ -65,17 +65,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
                           grainsize,graindens,periodic
- use physcon,        only:pi,au,solarm
+ use physcon,        only:pi,au,solarm,kboltz,mass_proton_cgs
  use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
  use externalforces, only:Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
- use units,          only:set_units,udist,umass
+ use units,          only:set_units,udist,umass,utime
  use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
  use domain,         only:i_belong
+ use eos,            only:gmw
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -203,8 +204,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu >= 4) then
     gamma = 5./3.
  else
-    gamma  = 1.
-    polyk  = cs**2
+    gamma = 1.
+    polyk = cs**2
  endif
 !
 !--get stopping time information
@@ -266,11 +267,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype(itype)  = totmass/npartoftype(itype)*(1. + dtg)
 
  if (id==master) then
-    print*,' npart                 = ',npart,npart_total
+    print*,' npart,npart_total     = ',npart,npart_total
     print*,' particle mass         = ',massoftype(itype),'code units'
     print*,' particle mass         = ',massoftype(itype)*umass,'g'
     print*,' total mass            = ',npart*massoftype(itype)*umass,'g'
     print*,' mid-plane gas density = ',rhozero*umass/udist**3,'g/cm^3'
+    print*,' Rdisc                 = ',Rdisc*udist/au,'au'
+    print*,' H0                    = ',H0*udist/au,'au'
+    print*,' H/R                   = ',HonR
+    print*,' cs                    = ',cs*udist/utime,'cm/s'
+    print*,' T                     = ',gmw*mass_proton_cgs*(cs*udist/utime)**2/(gamma*kboltz),'K'
+ endif
+ if (gmw*mass_proton_cgs*(cs*udist/utime)**2/(gamma*kboltz) > 20.) then
+    print*, ' '
+    print*, 'WARNING! This disc is hot, and *may* blow apart rather than settle.  A smaller ratio of H/R may be required.'
+    print*, '         The default value of 0.05 yields stable results'
+    print*, ' '
  endif
 
 end subroutine setpart
