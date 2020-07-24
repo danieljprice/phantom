@@ -1418,9 +1418,9 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
- ! Note: All forces adhere to the convention of being positive when directed along the component direction
- columns = (/'   par. drag', & ! Total parallel gravitational force acting on sink from direct summation
-             '  perp. drag', & ! Total perpendicular gravitational force acting on sink from direct summation
+ ! Note: All forces adhere to the convention of being positive when directed along the component direction 
+ columns = (/'   par. drag', & ! Component of net gravitational force acting on sink parallel to the sink velocity
+             '  perp. drag', & ! Component of net gravitational force acting on sink perpendicular to the sink velocity
              '    from dJz', & ! torque / r of sink
              '    BHL drag', & ! Gravitational drag calculated as Mdot * velocity contrast (see Bondi Mdot)
              '  Bondi Mdot', & ! Mass accretion rate from Bondi (1952) with Shima et al. (1985) factor of 2
@@ -1561,7 +1561,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(7,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
     drag_force(8,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
     drag_force(9,i)  = cs
-    drag_force(10,i)  = rho_avg
+    drag_force(10,i) = rho_avg
     drag_force(11,i) = racc
     drag_force(12,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
     drag_force(13,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel)      * xyzmh_ptmass(4,i)
