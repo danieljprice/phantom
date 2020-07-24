@@ -20,7 +20,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES:
+!  DEPENDENCIES: eos, kernel, physcon, table_utils
 !+
 !--------------------------------------------------------------------------
 module setfixedentropycore
