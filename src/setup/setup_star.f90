@@ -754,8 +754,8 @@ subroutine write_setupfile(filename,gamma,polyk)
              call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
           endif
        elseif (isoftcore == 2) then
-         call write_inopt(hdens,'hdens','Radius of core softening',iunit)
-         call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
+          call write_inopt(hdens,'hdens','Radius of core softening',iunit)
+          call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
        endif
     else
        call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
@@ -848,12 +848,12 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  ! star properties
  if (isoftcore == 0) then
-  if (need_densityfile) then
-     call read_inopt(densityfile,'densityfile',db,errcount=nerr)
-  else
-     call read_inopt(Mstar,'Mstar',db,errcount=nerr)
-     if (need_rstar) call read_inopt(Rstar,'Rstar',db,errcount=nerr)
-  endif
+    if (need_densityfile) then
+       call read_inopt(densityfile,'densityfile',db,errcount=nerr)
+    else
+       call read_inopt(Mstar,'Mstar',db,errcount=nerr)
+       if (need_rstar) call read_inopt(Rstar,'Rstar',db,errcount=nerr)
+    endif
  endif
 
  ! relax star options

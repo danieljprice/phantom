@@ -45,7 +45,7 @@ module setup
  implicit none
  public  :: setpart
 
-private
+ private
  integer :: npartx,norbit
  real    :: Rdisc_au,Rmax_au
  real    :: H0,HonR,dtg,smincgs,smaxcgs,sindex
