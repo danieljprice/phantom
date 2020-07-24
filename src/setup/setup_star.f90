@@ -584,7 +584,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter guess for core mass in Msun : ',mcore,0.)
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
     end select
- 
+
  endif
  call prompt('Relax star automatically during setup?',relax_star_in_setup)
 

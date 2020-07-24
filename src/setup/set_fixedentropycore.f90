@@ -60,7 +60,7 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  ! Make allocatable copies, see instructions of calc_rho_and_pres
  allocate(r_alloc(0:hidx+1))
  r_alloc(0) = 0.
- r_alloc(1:hidx+1) = r(1:hidx+1) 
+ r_alloc(1:hidx+1) = r(1:hidx+1)
  allocate(rho_alloc(0:hidx))
  rho_alloc(hidx) = rho(hidx)
  allocate(pres_alloc(0:hidx+1))
@@ -118,7 +118,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
 ! Instructions
 
 ! input variables should be given in the following format
- 
+
 ! r(0:Nmax+1): Array of radial grid to be softened, satisfying r(0)=0 and r(Nmax)=hsoft
 ! mcore:       Core particle mass, need to provide initial guess
 ! mh:          Mass coordinate at hsoft, m(r=h)
@@ -132,7 +132,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
  msoft = mh - mcore
  Nmax  = size(rho)-1 ! Index corresponding to r = h
  Sedge = entropy(rho(Nmax),pres(Nmax))
- 
+
  ! Start shooting method
  fac  = 0.05
  mass = msoft
@@ -150,7 +150,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
        mcore = mcore * (1. + fac)
        msoft = mh - mcore
     endif
-  
+
     if (mold * mass < 0.) fac = fac * 0.5
  end do
 
@@ -203,8 +203,8 @@ end subroutine one_shot
 
 !-----------------------------------------------------------------------
 !+
-!  Calculates mass-specific entropy (gas + radiation) up to an additive 
-!  integration constant, from density and pressure. 
+!  Calculates mass-specific entropy (gas + radiation) up to an additive
+!  integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
 function entropy(rho,pres)
@@ -231,9 +231,9 @@ function entropy(rho,pres)
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
  else
     ! Include both gas and radiation entropy for MESA and gas plus rad. EoSs
-    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho) 
+    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
  endif
-  
+
 end function entropy
 
 
@@ -281,7 +281,7 @@ function gcore(r,hsoft)
  q = r / hphi
  call kernel_softening(q**2,q,dum,gcore)
  gcore = gcore / hphi**2 ! Note: gcore is not multiplied by G or mcore yet.
-  
+
 end function gcore
 
 
