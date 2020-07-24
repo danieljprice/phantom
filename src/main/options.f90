@@ -18,6 +18,7 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
+ use eos, only:ieos ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
