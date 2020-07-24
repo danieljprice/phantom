@@ -1418,7 +1418,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
- ! Note: All forces adhere to the convention of being positive when directed along the component direction 
+ ! Note: All forces adhere to the convention of being positive when directed along the component direction
  columns = (/'   par. drag', & ! Component of net gravitational force acting on sink parallel to the sink velocity
              '  perp. drag', & ! Component of net gravitational force acting on sink perpendicular to the sink velocity
              '    from dJz', & ! torque / r of sink
