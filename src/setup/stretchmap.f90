@@ -100,9 +100,12 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  real, allocatable  :: xtable(:),masstab(:)
  integer            :: i,its,igeom,icoord,istart,nt,nerr,ierr
  logical            :: is_r, is_rcyl, bisect, isverbose
+ logical            :: use_rhotab
 
  isverbose = .true.
+ use_rhotab = .false.
  if (present(verbose)) isverbose = verbose
+ if (present(rhotab)) use_rhotab = .true.
 
  if (present(rhofunc) .or. present(rhotab)) then
     if (isverbose) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
@@ -199,7 +202,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
 
     nerr = 0
     !$omp parallel do default(none) &
-    !$omp shared(np,xyzh,rhozero,igeom,rhotab,xtable,masstab,nt) &
+    !$omp shared(np,xyzh,rhozero,igeom,use_rhotab,rhotab,xtable,masstab,nt) &
     !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart) &
     !$omp private(x,xold,xt,fracmassold,its,xprev,xi,hi,rhoi) &
     !$omp private(func,dfunc,xminbisect,xmaxbisect,bisect) &
@@ -228,7 +231,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
           xprev = 0.
           xi    = xold   ! starting guess
           ! calc func to determine if tol is met
-          if (present(rhotab)) then
+          if (use_rhotab) then
              func  = yinterp(masstab,xtable(1:nt),xi)
           else
              if (is_r) then
@@ -246,7 +249,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
           do while ((abs(func/totmass) > tol .and. its < maxits))
              xprev = xi
              its   = its + 1
-             if (present(rhotab)) then
+             if (use_rhotab) then
                 func  = yinterp(masstab,xtable(1:nt),xi) - fracmassold
                 if (is_r) then
                    dfunc = 4.*pi*xi**2*yinterp(rhotab,xtable(1:nt),xi)
@@ -294,7 +297,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
                 endif
              endif
           enddo
-          if (present(rhotab)) then
+          if (use_rhotab) then
              rhoi = yinterp(rhotab,xtable(1:nt),xi)
           else
              rhoi = rhofunc(xi)

@@ -72,8 +72,9 @@ end subroutine init_chem
 real function get_dphot(dphotflag,dphot0,xi,yi,zi)
  use units,   only:udist,umass
  use physcon, only:solarm,kpc,pi
- integer, intent(in) :: dphotflag
- real,    intent(in) :: dphot0,xi,yi,zi
+ integer,      intent(in) :: dphotflag
+ real(kind=8), intent(in) :: dphot0
+ real,         intent(in) :: xi,yi,zi
  real :: MdMo,ad,bd,r2,bit1,rhodisk
 
 !--Is dphot set or varying by radial distance?
