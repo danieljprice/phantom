@@ -103,7 +103,7 @@ end subroutine test_init
 subroutine test_idealplusrad(ntests, npass)
  integer, intent(inout) :: ntests,npass
 
- print*,'Hello World!'
+ ! please insert tests here
 
 end subroutine test_idealplusrad
 
@@ -152,7 +152,7 @@ subroutine test_barotropic(ntests, npass)
  do i=1,maxpts
     rhoi = 1.01*rhoi
     call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
-    write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
+    !write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
     if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
     !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
     ponrhoprev = ponrhoi

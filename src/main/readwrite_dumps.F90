@@ -885,7 +885,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       call allocate_memory(int(nparttot / nprocs))
+       call allocate_memory(int(nparttot / nprocs) + 1)
 #endif
     endif
 !
@@ -1077,7 +1077,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(nparttot / nprocs))
+ call allocate_memory(int(nparttot / nprocs) + 1)
 #endif
 
 !
@@ -1227,13 +1227,14 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #ifdef KROME
  use krome_user, only: krome_nmols
  use part,       only: gamma_chem,mu_chem,T_chem
-#else
- integer, parameter :: krome_nmols = 0
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label,n_nucleation
 #else
  integer, parameter :: n_nucleation = 0
+#endif
+#ifndef KROME
+ integer, parameter :: krome_nmols = 0
 #endif
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)

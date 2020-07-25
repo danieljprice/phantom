@@ -21,7 +21,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, physcon, table_utils, kernel
+!  DEPENDENCIES: eos, kernel, physcon, table_utils
 !+
 !--------------------------------------------------------------------------
 module setsoftenedcore
