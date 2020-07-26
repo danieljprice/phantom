@@ -139,7 +139,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
 
  do
     mold = mass
-    call one_shot(Sc,r,mcore,msoft,rho,pres,mass)
+    call one_shot(Sc,r,mcore,msoft,rho,pres,mass) ! returned mass is m(r=0)
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
        msoft = mh - mcore
@@ -149,8 +149,11 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
        mcore = mcore * (1. + fac)
        msoft = mh - mcore
     endif
-
     if (mold * mass < 0.) fac = fac * 0.5
+    if (mold == mass) then
+       write(*,'(a,f12.5)') 'Warning: Setting fixed entropy for m(r=0)/msoft = ',mass/msoft
+       exit
+    endif
  enddo
 
  if (Sedge < Sc) ierr = 1
@@ -192,7 +195,7 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
-    if (mass < 0.) return ! Choice of entropy fails to give m(r=0) = 0
+    if (mass < 0.) return ! m(r) < 0 encountered, exit and increase Sc
  enddo
 
  return
