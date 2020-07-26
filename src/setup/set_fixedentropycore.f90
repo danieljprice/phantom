@@ -220,18 +220,17 @@ function entropy(rho,pres)
  inv_mu = 1/gmw
  corr = 1d99; temp = 1d3
 
- ! First solve for temperature given density and pressure using Newton-
- ! Raphson method, assumming ideal gas plus radiation EoS
- do while (abs(corr) > eoserr*temp)
-    corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
-          / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
-    temp = temp - corr
- enddo
-
  if (ieos == 2) then
+    temp = pres * gmw / (rho * kb_on_mh)
     ! Include only gas entropy for adiabatic EoS
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
  else
+    ! Assume ideal gas plus radiation EoS, solve for temp using Newton-Raphson method
+    do while (abs(corr) > eoserr*temp)
+       corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
+             / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
+       temp = temp - corr
+    enddo
     ! Include both gas and radiation entropy for MESA and gas plus rad. EoSs
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
  endif
