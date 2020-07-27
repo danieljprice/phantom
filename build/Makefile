@@ -1823,8 +1823,8 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          timestep.f90 ${SRCEOS} ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
-         setup_params.f90 ${SRCFASTMATH} checkoptions.F90 checkconserved.f90 \
-         viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
+         setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
+         viscosity.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS}
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
@@ -1994,7 +1994,8 @@ OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           partinject.F90 random.f90 set_disc.F90 set_dust.f90 \
 		    icosahedron.f90 utils_inject.f90 ${SRCINJECT} \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
-          density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
+          density_profiles.f90 ptmass.F90 damping.f90 \
+          dust_formation.f90 ptmass_radiation.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
 OBJMOD2 = ${OBJMOD1:.F90=.o}
 OBJMOD = ${OBJMOD2:.f90=.o}
 OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
