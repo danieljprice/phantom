@@ -125,10 +125,10 @@ end subroutine deallocate_kdtree
 subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
- type(kdnode),    intent(out)   :: node(ncellsmax+1)
+ type(kdnode),    intent(out)   :: node(:) !ncellsmax+1)
  integer,         intent(in)    :: np,ndim
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
- integer,         intent(out)   :: ifirstincell(ncellsmax+1)
+ integer,         intent(out)   :: ifirstincell(:) !ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  integer, optional, intent(out)  :: refinelevels
 
@@ -343,7 +343,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  integer,         intent(in)  :: np,irootnode,ndim
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
- integer,         intent(inout) :: ifirstincell(ncellsmax+1)
+ integer,         intent(inout) :: ifirstincell(:)
  real,            intent(inout) :: xyzh(:,:)
  integer :: i,ncross
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
@@ -485,9 +485,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer,           intent(out)   :: il, ir, nl, nr
  real,              intent(out)   :: xminl(ndim), xmaxl(ndim), xminr(ndim), xmaxr(ndim)
  integer(kind=8),   intent(inout) :: ncells
- integer,           intent(out)   :: ifirstincell(ncellsmax+1)
+ integer,           intent(out)   :: ifirstincell(:)
  integer,           intent(inout) :: maxlevel, minlevel
- real,              intent(in)    :: xyzh(4,maxp)
+ real,              intent(in)    :: xyzh(:,:)
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
 
@@ -789,6 +789,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           inoderange(2,il) = inoderange(1,nnode) + nl - 1
           inoderange(1,ir) = inoderange(1,nnode) + nl
           inoderange(2,ir) = inoderange(2,nnode)
+          nr = npnode - nl
        endif
 
        xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
@@ -892,7 +893,6 @@ end subroutine sort_particles_in_cell
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,&
 & get_hj,fnode,remote_export)
- use dim,      only:maxneigh
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -902,15 +902,15 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  use fastmath, only:finvsqrt
 #endif
  use kernel,   only:radkern
- type(kdnode), intent(in)           :: node(ncellsmax+1)
+ type(kdnode), intent(in)           :: node(:) !ncellsmax+1)
  integer, intent(in)                :: ndim,ixyzcachesize
  real,    intent(in)                :: xpos(ndim)
  real,    intent(in)                :: xsizei,rcuti
- integer, intent(out)               :: listneigh(maxneigh)
+ integer, intent(out)               :: listneigh(:) !maxneigh)
  integer, intent(out)               :: nneigh
  real,    intent(in)                :: xyzh(:,:)
  real,    intent(out)               :: xyzcache(:,:)
- integer, intent(in)                :: ifirstincell(ncellsmax+1)
+ integer, intent(in)                :: ifirstincell(:)
  logical, intent(in)                :: get_hj
  real,    intent(out),    optional  :: fnode(lenfgrav)
  logical, intent(out),    optional  :: remote_export(:)
@@ -1232,9 +1232,9 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
  use dim,  only:maxp
  use part, only:maxphase,iphase,igas,massoftype,iamtype
  use io,   only:fatal
- type(kdnode), intent(inout) :: node(ncellsmax+1)
+ type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  real,    intent(in)  :: xyzh(:,:)
- integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
  integer(kind=8), intent(in) :: ncells
  real :: hmax, r2max
  real :: xi, yi, zi, hi
@@ -1464,16 +1464,16 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use mpiderivs,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
 
- type(kdnode), intent(out)     :: nodeglobal(ncellsmax+1)
- type(kdnode), intent(out)     :: node(ncellsmax+1)
- integer,      intent(out)     :: nodemap(ncellsmax+1)
+ type(kdnode), intent(out)     :: nodeglobal(:) !ncellsmax+1)
+ type(kdnode), intent(out)     :: node(:) !ncellsmax+1)
+ integer,      intent(out)     :: nodemap(:) !ncellsmax+1)
  integer,      intent(out)     :: globallevel
  integer,      intent(out)     :: refinelevels
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
- real,         intent(inout)   :: xyzh(4,maxp)
- integer,      intent(out)     :: cellatid(ncellsmax+1)
- integer,      intent(out)     :: ifirstincell(ncellsmax+1)
+ real,         intent(inout)   :: xyzh(:,:)
+ integer,      intent(out)     :: cellatid(:) !ncellsmax+1)
+ integer,      intent(out)     :: ifirstincell(:) !ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
