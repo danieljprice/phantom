@@ -73,6 +73,3 @@ echo 'plot:'
 echo '	cd ${SPLASH_DIR}; make sphNG'
 echo 'plotc:'
 echo '	cd ${SPLASH_DIR}; make clean'
-if [ $# -ge 1 ]; then
-    cp ${myphantomdir}/build/optionsKrome.opt krome.setup
-fi

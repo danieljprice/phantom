@@ -1,5 +1,16 @@
 # default (generic) settings for gfortran compiler
-# override these in the SYSTEM block in the Makefile
+#
+# DO NOT CHANGE THESE HERE
+#
+# Instead, override the variables you need to change
+# by creating a new SYSTEM block in the Makefile
+#
+# e.g.
+#  ifeq ($(SYSTEM),mysystem)
+#     import Makefile_defaults_gfortran
+#     FFLAGS+= -fmyflag
+#  endif
+#
 FC= gfortran
 FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -gdwarf-2 \
         -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \

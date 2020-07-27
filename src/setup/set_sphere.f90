@@ -352,8 +352,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
               , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
               ,"% more than requested."
-  endif
-  write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart,' particles in sphere'
+ endif
+ write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart,' particles in sphere'
 
 end subroutine set_unifdis_sphereN
 
