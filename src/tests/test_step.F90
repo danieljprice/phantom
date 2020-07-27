@@ -45,7 +45,7 @@ subroutine test_step(ntests,npass)
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
-                    dBevol,alphaind,maxphase,mhd,igas
+                    fext,dBevol,alphaind,maxphase,mhd,igas
  use unifdis,  only:set_unifdis
  use physcon,  only:pi
  use timing,   only:getused
@@ -56,6 +56,8 @@ subroutine test_step(ntests,npass)
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
  use domain,          only:i_belong
+ use checksetup,      only:check_setup
+ use deriv,           only:get_derivs_global
 #ifdef IND_TIMESTEPS
  use part,            only:ibin
  use timestep_ind,    only:nbinmax
@@ -65,7 +67,7 @@ subroutine test_step(ntests,npass)
 #ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
  real                   :: rhozero
- integer                :: i,nsteps
+ integer                :: i,j,nsteps,nerror,nwarn
  integer :: nfailed(9)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING STEP MODULE / boundary crossing'
@@ -75,12 +77,12 @@ subroutine test_step(ntests,npass)
  psep = dxbound/50.
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                  psep,hfact,npart,xyzh,periodic,mask=i_belong)
-
  npartoftype(:) = 0
  npartoftype(1) = npart
  !print*,' thread ',id,' npart = ',npart
  iverbose = 0
-
+ fxyzu(:,:) = 0.
+ fext(:,:)  = 0.
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
 
  rhozero = 7.5
@@ -124,7 +126,12 @@ subroutine test_step(ntests,npass)
     ibin(i) = nbinmax
  enddo
 #endif
+ nfailed(:) = 0
+ call check_setup(nerror,nwarn)
+ call checkval(nerror,0,0,nfailed(1),'no errors in setup')
+ call update_test_scores(ntests,nfailed,npass)
 
+ call get_derivs_global()
  call init_step(npart,t,dtmax)
 
  nfailed(:) = 0
