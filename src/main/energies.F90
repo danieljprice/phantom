@@ -29,8 +29,6 @@ module energies
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
- real,            public    :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
- real,            public    :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes)
  integer,         public    :: iquantities
  integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&

@@ -48,7 +48,8 @@ subroutine test_sedov(ntests,npass)
 #endif
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
- use energies,  only:etot,totmom,angtot,mdust,etot_in,angtot_in,totmom_in,mdust_in
+ use energies,  only:etot,totmom,angtot,mdust
+ use checkconserved, only:etot_in,angtot_in,totmom_in,mdust_in
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
