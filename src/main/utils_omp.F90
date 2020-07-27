@@ -17,8 +17,12 @@ module omputils
 ! :Dependencies: None
 !
 
-contains
+!$ use dim, only:maxp_hard,maxptmass
+!$ integer, parameter :: nlockgrp = 10
+!$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
+!$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
+contains
 !----------------------------------------------------------------
 !+
 !  info routine
