@@ -102,7 +102,7 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
  integer,         intent(in)    :: npart
  integer,         intent(out)   :: nactive,nalive
- integer(kind=1), intent(inout) :: iphase(maxp),ibin(maxp)
+ integer(kind=1), intent(inout) :: iphase(npart),ibin(npart) !iphase(maxp),ibin(maxp)
  real,            intent(in)    :: xyzh(4,maxp)
  integer                        :: i,itype
  integer(kind=1)                :: ibini
