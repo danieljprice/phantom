@@ -65,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
                           grainsize,graindens,periodic
- use physcon,        only:pi,au,solarm,kboltz,mass_proton_cgs
+ use physcon,        only:pi,au,solarm
  use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
  use externalforces, only:Rdisc,iext_discgravity
@@ -76,7 +76,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
  use domain,         only:i_belong
- use eos,            only:gmw
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -276,9 +275,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print*,' H0                    = ',H0*udist/au,'au'
     print*,' H/R                   = ',HonR
     print*,' cs                    = ',cs*udist/utime,'cm/s'
-    print*,' T                     = ',gmw*mass_proton_cgs*(cs*udist/utime)**2/(gamma*kboltz),'K'
  endif
- if (gmw*mass_proton_cgs*(cs*udist/utime)**2/(gamma*kboltz) > 20.) then
+ if (HonR > 0.1) then
     print*, ' '
     print*, 'WARNING! This disc is hot, and *may* blow apart rather than settle.  A smaller ratio of H/R may be required.'
     print*, '         The default value of 0.05 yields stable results'
