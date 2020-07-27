@@ -12,22 +12,43 @@
 !
 !  REFERENCES: Price & Laibe (2015), MNRAS 451, 5332
 !
-!  OWNER: Daniel Price
+!  OWNER: James Wurster
 !
 !  $Id$
 !
-!  RUNTIME PARAMETERS: None
+!  RUNTIME PARAMETERS:
+!    HonR              -- ratio of H/R
+!    Rdisc             -- radius at which the calculations will be made [au]
+!    Rmax              -- Complete N revolutions at what radius? [au]
+!    dust_to_gas_ratio -- dust-to-gas ratio
+!    graindenscgs      -- grain density [g/cm^3]
+!    grainsizecgs      -- grain size in [cm]
+!    ndusttypes        -- number of grain sizes
+!    norbit            -- Number of orbits at Rmax
+!    npartx            -- requested number of particles in x-direction
+!    rhozero           -- midplane density (> 0 for code units; < 0 for cgs)
+!    sindex            -- power-law index, e.g. MRN
+!    smaxcgs           -- maximum grain size [cm]
+!    smincgs           -- minimum grain size [cm]
+!    stellar_mass      -- mass of the central star [Msun]
 !
-!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, io, mpiutils,
-!    options, part, physcon, prompting, set_dust, setup_params,
-!    table_utils, timestep, unifdis, units
+!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, infile_utils,
+!    io, mpiutils, options, part, physcon, prompting, set_dust,
+!    setup_params, table_utils, timestep, unifdis, units
 !+
 !--------------------------------------------------------------------------
 module setup
+ use part,           only:ndusttypes,ndustsmall
+ use dust,           only:grainsizecgs,graindenscgs
+ use setup_params,   only:rhozero
+ use externalforces, only:mass1
  implicit none
- public :: setpart
+ public  :: setpart
 
  private
+ integer :: npartx,norbit
+ real    :: Rdisc_au,Rmax_au
+ real    :: H0,HonR,dtg,smincgs,smaxcgs,sindex
 
 contains
 
@@ -37,21 +58,21 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params,   only:npart_total,rhozero
+ use setup_params,   only:npart_total
  use io,             only:master
  use unifdis,        only:set_unifdis
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
-                          ndusttypes,ndustsmall,grainsize,graindens,periodic
+                          grainsize,graindens,periodic
  use physcon,        only:pi,au,solarm
  use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
  use prompting,      only:prompt
- use externalforces, only:mass1,Rdisc,iext_discgravity
+ use externalforces, only:Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
  use units,          only:set_units,udist,umass
- use dust,           only:init_drag,idrag,grainsizecgs,graindenscgs,get_ts
+ use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
  use domain,         only:i_belong
@@ -64,44 +85,62 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real :: totmass,deltax,dz,length
- integer :: i,iregime,ierr
- integer :: itype,npartx
- integer :: npart_previous
- real    :: H0,HonR,omega,ts(maxdustsmall),dustbinfrac(maxdustsmall)
- real    :: xmini,xmaxi,ymaxdisc,cs,t_orb
- real    :: dtg,smincgs,smaxcgs,sindex
-
+ integer            :: i,iregime,ierr
+ integer            :: itype
+ integer            :: npart_previous
+ real               :: totmass,deltax,dz,length
+ real               :: omega,ts(maxdustsmall),dustbinfrac(maxdustsmall)
+ real               :: xmini,xmaxi,ymaxdisc,cs,t_orb,Rmax
+ logical            :: iexist
+ character(len=100) :: filename
 !
-! default options
+!--default options
 !
- npartx = 32
- rhozero = 1.e-3
- dtg = 0.01
- grainsize = 0.
- graindens = 0.
+ npartx       = 32
+ rhozero      = 1.e-3
+ dtg          = 0.01
+ grainsize    = 0.
+ graindens    = 0.
  grainsizecgs = 0.1
  graindenscgs = 3.
- ndustsmall = 1
- smincgs = 1.e-5
- smaxcgs = 1.
- sindex = 3.5
-
- if (id==master) then
-    itype = igas
-    print "(/,a,/)",'  >>> Setting up particles for dust settling test <<<'
-    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
- endif
- call bcast_mpi(npartx)
- if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                      ' midplane density (> 0 for code units; < 0 for cgs)',rhozero)
+ ndustsmall   = 1
+ smincgs      = 1.e-5
+ smaxcgs      = 1.
+ sindex       = 3.5
+ HonR         = 0.05
+ Rdisc        = 5.
+ Rdisc_au     = 5.*10.
+ Rmax_au      = Rdisc_au
+ mass1        = 1.
+ norbit       = 15
+ time         = 0.
+ itype        = igas
+ iexternalforce = iext_discgravity
+!
+!--Read / write .setup file
+!
+ print "(/,a,/)",'  >>> Setting up particles for dust settling test <<<'
  call set_units(dist=10.*au,mass=solarm,G=1.)
- if (rhozero < 0.) rhozero = -rhozero*udist**3/umass
- call bcast_mpi(rhozero)
- if (use_dust) then
-    !--currently assume one fluid dust
-    use_dustfrac = .true.
-    if (id==master) then
+ filename = trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    call read_setupfile(filename,ierr)
+    if (ierr /= 0) then
+       if (id==master) call write_setupfile(filename)
+       stop
+    endif
+ elseif (id==master) then
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call prompt('Enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,maxp/144)
+    call prompt('Enter '//trim(labeltype(itype))//' midplane density (> 0 for code units; < 0 for cgs)',rhozero)
+    call prompt('Enter the mass of the central star [Msun]',mass1,0.)
+    call prompt('Enter radius at which the calculations will be made, Rdisc [au]',Rdisc_au, 0.)
+    call prompt('Enter the ratio of H/R at Rdisc',HonR, 0.)
+    Rmax_au = Rdisc_au
+    call prompt('Complete N revolutions at what radius, Rmax? [au]',Rmax_au, 0.)
+    call prompt('How many orbits at Rmax would you like to complete?',norbit, 1)
+    if (use_dust) then
+       !--currently assume one fluid dust
        call prompt('Enter total dust to gas ratio',dtg,0.)
        call prompt('How many grain sizes do you want?',ndustsmall,1,maxdustsmall)
        ndusttypes = ndustsmall
@@ -111,18 +150,32 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call prompt('Enter maximum grain size in cm',smaxcgs,0.)
           !--mass distribution
           call prompt('Enter power-law index, e.g. MRN',sindex)
-          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
-          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
           !--grain density
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-          graindens(1:ndusttypes) = graindenscgs/umass*udist**3
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
           call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
+       endif
+    endif
+    call write_setupfile(filename)
+ else
+    stop ! MPI, stop on other threads, interactive on master
+ endif
+ if (id==master) then
+    if (use_dust) then
+       use_dustfrac = .true.
+       ndustsmall   = ndusttypes
+       if (ndusttypes > 1) then
+          call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+          grainsize(1:ndusttypes) = grainsize(1:ndusttypes)/udist
+          graindens(1:ndusttypes) = graindenscgs/umass*udist**3
+       else
           grainsize(1) = grainsizecgs/udist
           graindens(1) = graindenscgs/umass*udist**3
        endif
     endif
+    call bcast_mpi(npartx)
+    call bcast_mpi(rhozero)
     call bcast_mpi(dtg)
     call bcast_mpi(ndustsmall)
     call bcast_mpi(ndusttypes)
@@ -136,22 +189,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call bcast_mpi(graindenscgs)
  endif
 !
-! general parameters
+!--set remaining parameters
 !
- HonR  = 0.05
- Rdisc = 5.
- mass1 = 1.
+ if (rhozero < 0.) rhozero = -rhozero*udist**3/umass
+ Rdisc = Rdisc_au * 0.1
+ Rmax  = Rmax_au  * 0.1
  H0    = HonR*Rdisc
  omega = sqrt(mass1/Rdisc**3)
- t_orb = 2.*pi/omega
+ t_orb = 2.*pi/sqrt(mass1/Rmax**3)
  cs    = H0*omega
- time   = 0.
- iexternalforce = iext_discgravity
  dtmax = 0.1*t_orb
- tmax  = 15.*t_orb
-!
-! equation of state
-!
+ tmax  = norbit*t_orb
  if (maxvxyzu >= 4) then
     gamma = 5./3.
  else
@@ -159,7 +207,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polyk  = cs**2
  endif
 !
-! get stopping time information
+!--get stopping time information
 !
  call init_drag(ierr)
  do i=1,ndustsmall
@@ -167,13 +215,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print*,'s (cm) =',grainsize(i),'   ','St = ts * Omega =',ts(i)*omega
  enddo
 !
-! boundaries
+!--boundaries
 !
- xmini = -0.25
- xmaxi =  0.25
+ xmini  = -0.25
+ xmaxi  =  0.25
  length = xmaxi - xmini
  deltax = length/npartx
- dz = 2.*sqrt(6.)/npartx
+ dz     = 2.*sqrt(6.)/npartx
  !deltay = fac*deltax*sqrt(0.75)
  call set_boundary(xmini,xmaxi,-10.*H0,10.*H0,-dz,dz)
 
@@ -181,15 +229,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
  npartoftype(:) = 0
 
- !--only works for one-fluid dust
- itype = igas
-
  !--get total mass from integration of density profile
  ymaxdisc = 3.*H0
- totmass = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
-
+ totmass  = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
  npart_previous = npart
-
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
                    hfact,npart,xyzh,periodic,nptot=npart_total,&
                    rhofunc=rhofunc,dir=2,mask=i_belong)
@@ -197,9 +240,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set which type of particle it is
  do i=npart_previous+1,npart
     call set_particle_type(i,itype)
-
     vxyzu(:,i) = 0.
-
     !--set internal energy if necessary
     if (maxvxyzu >= 4) then
        if (gamma > 1.) then
@@ -232,15 +273,96 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print*,' mid-plane gas density = ',rhozero*umass/udist**3,'g/cm^3'
  endif
 
-contains
-
+end subroutine setpart
+!----------------------------------------------------------------
+!+
+!  Calculate the vertical density in the disc
+!+
+!----------------------------------------------------------------
 real function rhofunc(x)
  real, intent(in) :: x
 
  rhofunc = exp(-0.5*(x/H0)**2)
 
 end function rhofunc
+!----------------------------------------------------------------
+!+
+!  write parameters to setup file
+!+
+!----------------------------------------------------------------
+subroutine write_setupfile(filename)
+ use infile_utils, only: write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter           :: iunit = 20
 
-end subroutine setpart
+ print "(a)",' writing setup options file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)") '# input file for dust settling routine'
+ write(iunit,"(/,a)") '# resolution'
+ call write_inopt(npartx,'npartx','requested number of particles in x-direction',iunit)
+ write(iunit,"(/,a)") '# Disc options'
+ call write_inopt(rhozero,'rhozero','midplane density (> 0 for code units; < 0 for cgs)',iunit)
+ call write_inopt(mass1,'stellar_mass','mass of the central star [Msun]',iunit)
+ call write_inopt(Rdisc_au,'Rdisc','radius at which the calculations will be made [au]',iunit)
+ call write_inopt(HonR,'HonR','ratio of H/R',iunit)
+ call write_inopt(Rmax_au,'Rmax','Complete N revolutions at what radius? [au]',iunit)
+ call write_inopt(norbit,'norbit','Number of orbits at Rmax',iunit)
+ write(iunit,"(/,a)") '# Dust properties'
+ call write_inopt(dtg,'dust_to_gas_ratio','dust-to-gas ratio',iunit)
+ call write_inopt(ndusttypes,'ndusttypes','number of grain sizes',iunit)
+ if (ndusttypes > 1) then
+    call write_inopt(smincgs,'smincgs','minimum grain size [cm]',iunit)
+    call write_inopt(smaxcgs,'smaxcgs','maximum grain size [cm]',iunit)
+    call write_inopt(sindex, 'sindex', 'power-law index, e.g. MRN',iunit)
+    call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
+ else
+    call write_inopt(grainsizecgs,'grainsizecgs','grain size in [cm]',iunit)
+    call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
+ endif
+ close(iunit)
 
+end subroutine write_setupfile
+!----------------------------------------------------------------
+!+
+!  Read parameters from setup file
+!+
+!----------------------------------------------------------------
+subroutine read_setupfile(filename,ierr)
+ use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use io,           only: error
+ use units,        only: select_unit
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter            :: iunit = 21
+ type(inopts), allocatable     :: db(:)
+
+ !--Read values
+ print "(a)",' reading setup options from '//trim(filename)
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_inopt(npartx,'npartx',db,ierr)
+ call read_inopt(rhozero,'rhozero',db,ierr)
+ call read_inopt(mass1,'stellar_mass',db,ierr)
+ call read_inopt(Rdisc_au,'Rdisc',db,ierr)
+ call read_inopt(HonR,'HonR',db,ierr)
+ call read_inopt(Rmax_au,'Rmax',db,ierr)
+ call read_inopt(norbit,'norbit',db,ierr)
+ call read_inopt(dtg,'dust_to_gas_ratio',db,ierr)
+ call read_inopt(ndusttypes,'ndusttypes',db,ierr)
+ if (ndusttypes > 1) then
+    call read_inopt(smincgs,'smincgs',db,ierr)
+    call read_inopt(smaxcgs,'smaxcgs',db,ierr)
+    call read_inopt(sindex,'cs_sphere',db,ierr)
+    call read_inopt(graindenscgs,'graindenscgs',db,ierr)
+ else
+    call read_inopt(grainsizecgs,'grainsizecgs',db,ierr)
+    call read_inopt(graindenscgs,'graindenscgs',     db,ierr)
+ endif
+ call close_db(db)
+
+ if (ierr > 0) then
+    print "(1x,a,i2,a)",'Setup_dustsettle: ',ierr,' error(s) during read of setup file.  Re-writing.'
+ endif
+
+end subroutine read_setupfile
+!----------------------------------------------------------------
 end module setup

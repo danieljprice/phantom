@@ -21,7 +21,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: eos, physcon, table_utils
+!  DEPENDENCIES: eos, kernel, physcon, table_utils
 !+
 !--------------------------------------------------------------------------
 module setsoftenedcore
@@ -92,7 +92,6 @@ subroutine set_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
     call flip_array(r)
     call flip_array(rho)
     call flip_array(ene)
-    call flip_array(phi)
  endif
 
  if (iexclude_core_mass) then
@@ -243,51 +242,47 @@ end subroutine calc_rho_and_m
 
 
 subroutine calc_phi(r,mc,mgas,hphi,phi)
+ use kernel, only:kernel_softening
  real, intent(in)               :: r(:),mgas(:),mc,hphi
- real, allocatable              :: q(:),phi_core(:),phi_gas(:)
+ real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
  real, allocatable, intent(out) :: phi(:)
- integer                        :: idx2hphi,idxhphi,i
+ real                           :: dum
+ integer                        :: i
+
  ! The gravitational potential is needed to integrate the pressure profile using the
  ! equation of hydrostatic equilibrium. First calculate gravitational potential due
- ! to point mass core, according to the cubic spline kernel in Price & Monaghan (2007)
- ! to be consistent with Phantom, then calculate the gravitational potential due to the
- ! softened gas.
- allocate(phi(size(r)), phi_core(size(r)), phi_gas(size(r)))
- ! (i) Gravitational potential due to core particle (cubic spline softening)
- ! For 0 <= r/hphi < 1
- call interpolator(r, hphi, idxhphi) ! Find index corresponding to r = 2*hphi
- allocate(q(1:idxhphi-1))
- q = r(1:idxhphi-1) / hphi
- phi_core(1:idxhphi-1) = gg*mc/hphi * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 &
-                                   - 7./5.)
- deallocate(q)
+ ! to point mass core, using softening kernel selected in Phantom. Then calculate the
+ ! gravitational potential due to the softened gas.
 
- ! For 1 <= r/hphi < 2
- call interpolator(r, 2*hphi, idx2hphi) ! Find index corresponding to r = 2*hphi
- allocate(q(idxhphi:idx2hphi-1))
- q = r(idxhphi:idx2hphi-1) / hphi
- phi_core(idxhphi:idx2hphi-1) = gg*mc/hphi * (4./3.*q**2 - q**3 + 0.3*q**4 &
-                                        - 1./30.*q**5 - 1.6 + 1./15./q)
- deallocate(q)
+ ! Gravitational potential due to primary core
+ allocate(phi(size(r)), phi_core(size(r)), phi_gas(size(r)), q(size(r)), q2(size(r)))
+ q  = r / hphi
+ q2 = q**2
+ do i = 1,size(r)
+    call kernel_softening(q2(i),q(i),phi_core(i),dum)
+ enddo
+ deallocate(q,q2)
+ phi_core = gg * phi_core * mc / hphi
 
- ! For 2 <= r/hphi
- phi_core(idx2hphi:size(r)) = - gg * mc / r(idx2hphi:size(r))
-
- ! (ii) Gravitational potential due to softened gas
+ ! Gravitational potential due to softened gas
  phi_gas(size(r)) = - gg * mgas(size(r)) / r(size(r)) ! Surface boundary condition for phi
  do i = 1,size(r)-1
     phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
                                                * (r(size(r)-i+1) - r(size(r)-i))
  enddo
 
- ! (iii) Add the potentials
  phi = phi_gas + phi_core
+
 end subroutine calc_phi
 
-
-subroutine calc_pres(r, rho, phi, pres)
- ! Calculates pressure by integrating the equation of hydrostatic equilibrium
- ! given the gravitational potential and the density profile
+!----------------------------------------------------------------
+!+
+!  Calculate pressure by integrating the equation of hydrostatic
+!  equilibrium given the gravitational potential and the density
+!  profile
+!+
+!----------------------------------------------------------------
+subroutine calc_pres(r,rho,phi,pres)
  real, intent(in)  :: rho(:),phi(:),r(:)
  real, intent(out) :: pres(:)
  integer           :: i
@@ -297,6 +292,7 @@ subroutine calc_pres(r, rho, phi, pres)
     ! Reverse Euler
     pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
  enddo
+
 end subroutine calc_pres
 
 end module setsoftenedcore
