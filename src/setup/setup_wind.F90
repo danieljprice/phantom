@@ -46,7 +46,6 @@ module setup
  real, public :: T_wind = 3000.
 #endif
  integer, public :: icompanion_star = 0
- real, public :: spacial_resolution
  real :: semi_major_axis
  real :: eccentricity = 0.
 
@@ -62,7 +61,6 @@ module setup
  real :: secondary_racc
  real :: semi_major_axis_au = 3.7
  real :: default_particle_mass = 1.e-11
- real :: spacial_resolution_au = 0.01
  real :: primary_lum_lsun = 5315.
  real :: primary_mass_msun = 1.2
  real :: primary_Reff_au = 0.
@@ -130,12 +128,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (icompanion_star > 0) then
     call set_binary(primary_mass, &
-                    secondary_mass/primary_mass, &
+                    secondary_mass, &
                     semi_major_axis, &
                     eccentricity, &
                     primary_racc, &
                     secondary_racc, &
-                    xyzmh_ptmass, vxyz_ptmass, nptmass)
+                    xyzmh_ptmass, vxyz_ptmass, nptmass, ierr)
     xyzmh_ptmass(iTeff,1) = primary_Teff
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
