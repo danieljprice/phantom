@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dump_utils
+module dump_utils
 !
-!  DESCRIPTION: Utility routines used when reading and writing the
+! Utility routines used when reading and writing the
 !   sphNG/Phantom dump file format
 !
 !  "Every complex file format eventually turns into a
 !    badly-designed programming language." - Anon
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module dump_utils
  implicit none
  public :: open_dumpfile_w, open_dumpfile_r, get_error_text
  public :: tag,check_tag,match_tag

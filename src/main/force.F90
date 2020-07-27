@@ -4,33 +4,27 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: forces
+module forces
 !
-!  DESCRIPTION:
-!   This module is the "guts" of the code
+! This module is the "guts" of the code
 !   Calculates force and rates of change for all particles
 !
-!  REFERENCES:
+! :References:
 !    Price (2012), J. Comp. Phys.
 !    Lodato & Price (2010), MNRAS
 !    Price & Federrath (2010), MNRAS
 !    Tricco & Price (2012), J. Comp. Phys.
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, dust, eos, eos_shen, fastmath, growth, io,
+!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
+!   mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
+!   radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
+!   utils_gr, viscosity
 !
-!  DEPENDENCIES: boundary, dim, dust, eos, eos_shen, fastmath, growth, io,
-!    io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
-!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
-!    radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
-!    utils_gr, viscosity
-!+
-!--------------------------------------------------------------------------
-module forces
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
  use mpiforce, only:cellforce,stackforce

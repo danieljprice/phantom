@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!   Analysis routine for dusty wind testing
-!
-!  REFERENCES: None
-!
-!  OWNER: Lionel Siess
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dust_formation, kernel, part, units
-!+
-!--------------------------------------------------------------------------
-
 module analysis
+!
+! Analysis routine for dusty wind testing
+!
+! :References: None
+!
+! :Owner: Lionel Siess
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dust_formation, kernel, part, units
+!
+
  implicit none
  character(len=20), parameter, public :: analysistype = 'dustywind'
 

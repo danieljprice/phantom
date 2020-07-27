@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: checkoptions
-!
-!  DESCRIPTION:
-!  this module performs checks of the compile time options
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, metric_tools, part
-!+
-!--------------------------------------------------------------------------
 module checkoptions
+!
+! this module performs checks of the compile time options
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, metric_tools, part
+!
  implicit none
  public :: check_compile_time_settings
 

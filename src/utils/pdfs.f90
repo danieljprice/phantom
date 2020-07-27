@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: pdfs
-!
-!  DESCRIPTION:
-!  module for probability distribution function calculation
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io
-!+
-!--------------------------------------------------------------------------
 module pdfs
+!
+! module for probability distribution function calculation
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io
+!
  implicit none
  public :: get_pdf,write_pdf
 

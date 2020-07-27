@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: lumin_nsdisc
+module lumin_nsdisc
 !
-!  DESCRIPTION:
 ! This module contains routines for calculating beta, the
 ! ratio of radiation to gravitational force, for an accretion disc
 ! surrounding a neutron star. It contains associated functions
 ! for calculating opacity, accretion luminosity, etc.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, fastmath, infile_utils, io, physcon, units
 !
-!  DEPENDENCIES: eos, fastmath, infile_utils, io, physcon, units
-!+
-!--------------------------------------------------------------------------
 
-module lumin_nsdisc
  use physcon, only: pi
  implicit none
 

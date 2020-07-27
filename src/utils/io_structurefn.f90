@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io_structurefn
-!
-!  DESCRIPTION:
-!  module for read/write of structure functions to/from file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fileutils
-!+
-!--------------------------------------------------------------------------
 module io_structurefn
+!
+! module for read/write of structure functions to/from file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fileutils
+!
  implicit none
  integer, parameter, public :: nformats = 4
  character(len=41), dimension(nformats) :: labelformat = &

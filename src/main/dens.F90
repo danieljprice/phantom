@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: densityforce
+module densityforce
 !
-!  DESCRIPTION:
-!  This module is the "guts" of the code
+! This module is the "guts" of the code
 !  Calculates density by iteration with smoothing length
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, eos, fastmath, io, io_summary, kdtree,
+!   kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
+!   stack, timestep, timing, viscosity
 !
-!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
-!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
-!    stack, timestep, timing, viscosity
-!+
-!--------------------------------------------------------------------------
-module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:mhd,dvdx

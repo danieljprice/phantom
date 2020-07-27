@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io_summary
-!
-!  DESCRIPTION:
-!  Print a summary given parameters every X steps
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module io_summary
+!
+! Print a summary given parameters every X steps
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
  integer, parameter :: maxrhomx = 32         ! Number of maximum possible rhomax' per set
  integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track

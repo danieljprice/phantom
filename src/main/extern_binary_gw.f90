@@ -4,29 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_binary
+module extern_binary
 !
-!  DESCRIPTION:
-!   This module contains routines relating to the computation
+! This module contains routines relating to the computation
 !   of a gravitational force/potential from a binary system
 !   that decays due to gravitational waves
 !   (2010 James Wetter & Daniel Price)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - accradius1 : *accretion radius of primary*
+!   - accradius2 : *accretion radius of secondary (if iexternalforce=binary)*
 !
-!  RUNTIME PARAMETERS:
-!    accradius1 -- accretion radius of primary
-!    accradius2 -- accretion radius of secondary (if iexternalforce=binary)
+! :Dependencies: dump_utils, infile_utils, io
 !
-!  DEPENDENCIES: dump_utils, infile_utils, io
-!+
-!--------------------------------------------------------------------------
-module extern_binary
  implicit none
  !
  !--code input parameters: these are the default values

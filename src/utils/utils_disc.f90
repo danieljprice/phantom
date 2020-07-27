@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: discanalysisutils
+module discanalysisutils
 !
-!  DESCRIPTION:
-!  Routine to calculate azimuithally averaged properties in a disc
+! Routine to calculate azimuithally averaged properties in a disc
 !  Can handle gas disc, gas disc + sinks and warped discs
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Bec Nealon
+! :Owner: Bec Nealon
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, externalforces, options, physcon, prompting,
+!   vectorutils
 !
-!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
-module discanalysisutils
  implicit none
 
  character(len=20), parameter, public :: analysistype = 'disc'

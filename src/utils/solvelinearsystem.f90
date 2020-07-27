@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: solvelinearsystem
+module solvelinearsystem
 !
-!  DESCRIPTION:
-!  module containing routine(s) to solve AX = B
+! module containing routine(s) to solve AX = B
 !  using a partial pivoting algorithm and reduced
 !  storage.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module solvelinearsystem
  implicit none
 
 contains

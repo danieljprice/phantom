@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: testbin
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: testbin [no arguments]
-!
-!  DEPENDENCIES: datafiles, prompting, testbinary
-!+
-!--------------------------------------------------------------------------
 program testbin
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: testbin [no arguments]
+!
+! :Dependencies: datafiles, prompting, testbinary
+!
  use testbinary, only:test_binary
  use prompting,  only:prompt
  use datafiles,  only:find_phantom_datafile

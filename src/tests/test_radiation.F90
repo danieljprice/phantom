@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testradiation
+module testradiation
 !
-!  DESCRIPTION: Unit tests for radiation hydro
+! Unit tests for radiation hydro
 !
-!  REFERENCES:
+! :References:
 !    Whitehouse & Bate (2004), 353, 1078
 !    Whitehouse, Bate & Monaghan (2005), 364, 1367
 !    Biriukov (2019), PhD thesis, Monash Univ.
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!   options, part, physcon, radiation_utils, readwrite_dumps,
+!   step_lf_global, testutils, timestep, unifdis, units
 !
-!  DEPENDENCIES: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!    options, part, physcon, radiation_utils, readwrite_dumps,
-!    step_lf_global, testutils, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module testradiation
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end

@@ -4,35 +4,30 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dumpsperorbit -- number of dumps per orbit
-!    eccentricity  -- eccentricity
-!    gastemp       -- gas temperature in K
-!    hacc1         -- white dwarf (sink) accretion radius (solar radii)
-!    ipot          -- wd modelled by 0=sink or 1=externalforce
-!    m1            -- mass of white dwarf (solar mass)
-!    m2            -- mass of asteroid (ceres mass)
-!    norbits       -- number of orbits
-!    rasteroid     -- radius of asteroid (km)
-!    semia         -- semi-major axis (solar radii)
-!
-!  DEPENDENCIES: eos, extern_lensethirring, externalforces, infile_utils,
-!    inject, io, options, part, physcon, setbinary, spherical, timestep,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - eccentricity  : *eccentricity*
+!   - gastemp       : *gas temperature in K*
+!   - hacc1         : *white dwarf (sink) accretion radius (solar radii)*
+!   - ipot          : *wd modelled by 0=sink or 1=externalforce*
+!   - m1            : *mass of white dwarf (solar mass)*
+!   - m2            : *mass of asteroid (ceres mass)*
+!   - norbits       : *number of orbits*
+!   - rasteroid     : *radius of asteroid (km)*
+!   - semia         : *semi-major axis (solar radii)*
+!
+! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
+!   inject, io, options, part, physcon, setbinary, spherical, timestep,
+!   units
+!
  implicit none
  public :: setpart
 

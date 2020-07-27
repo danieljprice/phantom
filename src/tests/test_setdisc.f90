@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testsetdisc
-!
-!  DESCRIPTION:
-!  Unit tests of set_disc module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!    testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testsetdisc
+!
+! Unit tests of set_disc module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: checksetup, deriv, dim, eos, io, options, part, setdisc,
+!   testutils, timing, units
+!
  implicit none
  public :: test_setdisc
 

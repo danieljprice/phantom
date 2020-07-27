@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for MHD rotor problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, io, mpiutils, part, physcon,
-!    prompting, setup_params, timestep, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for MHD rotor problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, io, mpiutils, part, physcon,
+!   prompting, setup_params, timestep, unifdis
+!
  implicit none
  public :: setpart
 

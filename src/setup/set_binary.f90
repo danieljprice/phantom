@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setbinary
+module setbinary
 !
-!  DESCRIPTION:
-!   This module is contains utilities for setting up binaries
+! This module is contains utilities for setting up binaries
 !   Our conventions for binary orbital parameters are consistent with
 !   those produced by the imorbel code (Pearce, Wyatt & Kennedy 2015)
 !   which can be used to produce orbits matching observed orbital
 !   arcs of binary companions on the sky
 !
-!  REFERENCES:
+! :References:
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Lucy (2014), A&A 563, A126
 !   Pearce, Wyatt & Kennedy (2015), MNRAS 448, 3679
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: binaryutils
 !
-!  DEPENDENCIES: binaryutils
-!+
-!--------------------------------------------------------------------------
-module setbinary
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
  public :: get_mean_angmom_vector,get_eccentricity_vector

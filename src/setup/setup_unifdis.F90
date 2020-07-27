@@ -4,39 +4,33 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup routine for uniform distribution
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    cs0         -- initial sound speed in code units
-!    dist_unit   -- distance unit (e.g. au)
-!    dust_to_gas -- dust-to-gas ratio
-!    ilattice    -- lattice type (1=cubic, 2=closepacked)
-!    mass_unit   -- mass unit (e.g. solarm)
-!    nx          -- number of particles in x direction
-!    rhozero     -- initial density in code units
-!    xmax        -- xmax boundary
-!    xmin        -- xmin boundary
-!    ymax        -- ymax boundary
-!    ymin        -- ymin boundary
-!    zmax        -- zmax boundary
-!    zmin        -- zmin boundary
-!
-!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, mpiutils,
-!    options, part, physcon, prompting, set_dust, setup_params, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup routine for uniform distribution
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - cs0         : *initial sound speed in code units*
+!   - dist_unit   : *distance unit (e.g. au)*
+!   - dust_to_gas : *dust-to-gas ratio*
+!   - ilattice    : *lattice type (1=cubic, 2=closepacked)*
+!   - mass_unit   : *mass unit (e.g. solarm)*
+!   - nx          : *number of particles in x direction*
+!   - rhozero     : *initial density in code units*
+!   - xmax        : *xmax boundary*
+!   - xmin        : *xmin boundary*
+!   - ymax        : *ymax boundary*
+!   - ymin        : *ymin boundary*
+!   - zmax        : *zmax boundary*
+!   - zmin        : *zmin boundary*
+!
+! :Dependencies: boundary, dim, domain, infile_utils, io, mpiutils,
+!   options, part, physcon, prompting, set_dust, setup_params, unifdis,
+!   units
+!
  use dim,          only:use_dust
  use options,      only:use_dustfrac
  use setup_params, only:rhozero

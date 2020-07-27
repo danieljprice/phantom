@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testderivs
-!
-!  DESCRIPTION:
-!   Unit test of derivs module and densityforce routine
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, densityforce, deriv, dim, domain, dust, eos, io,
-!    kernel, linklist, mpiutils, nicil, options, part, physcon, testutils,
-!    timestep_ind, timing, unifdis, units, viscosity
-!+
-!--------------------------------------------------------------------------
 module testderivs
+!
+! Unit test of derivs module and densityforce routine
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, densityforce, deriv, dim, domain, dust, eos, io,
+!   kernel, linklist, mpiutils, nicil, options, part, physcon, testutils,
+!   timestep_ind, timing, unifdis, units, viscosity
+!
  use part, only:massoftype
  implicit none
 
