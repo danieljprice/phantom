@@ -32,8 +32,8 @@ module ptmass_radiation
  public :: get_dust_temperature_from_ptmass
  private
  integer, parameter :: N = 1024
- double precision, parameter :: theta = 0., phi = 0.
- double precision, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
+ real, parameter :: theta = 0., phi = 0.
+ real, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
 
 contains
 !-----------------------------------------------------------------------
@@ -211,7 +211,7 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
  !.. find particles that lie within 2 smoothing lengths of the ray axis
  r0(1:3) = (/xa, ya, za/)
- dmin = 1.d99
+ dmin = huge(dmin)
  dmax = 0
  naxis = 0
 !$omp parallel do default(none) &
@@ -269,7 +269,7 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
 
  real :: OR(N),tau_prime(N),vTeq(N),kappa(N),dTeq,rho_m
  real :: dr, fact
- real, parameter :: tol = 1.d-2, kap_gas = 2.d-4
+ real, parameter :: tol = 1.e-2, kap_gas = 2.e-4
  integer :: i,istart,iter
 
 
@@ -304,8 +304,8 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
 #endif
        rho_m = (rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2))
        tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas)*rho_m
-       Teq(i) = T_star*(0.5*(1.-sqrt(1.-(R_star/OR(i))**2)) + 0.75*tau_prime(i))**(1./4.)
-       dTeq = max(dTeq,abs(1.-Teq(i)/(1.d-5+vTeq(i))))
+       Teq(i) = T_star*(0.5*(1.-sqrt(1.-(R_star/OR(i))**2)) + 0.75*tau_prime(i))**0.25
+       dTeq = max(dTeq,abs(1.-Teq(i)/(1.e-5+vTeq(i))))
        vTeq(i) = Teq(i)
     enddo
  enddo

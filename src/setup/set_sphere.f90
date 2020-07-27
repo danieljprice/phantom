@@ -237,7 +237,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  integer,          intent(out)   :: ierr
  procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
- integer                         :: nps_lo,nps_hi,npr_lo,npr_hi,test_region,iter
+ integer                         :: nps_lo,nps_hi,npr_lo,npr_hi,test_region,iter,nold(4)
  integer                         :: npin,npmax,npart0,nx,np,dn
  logical                         :: iterate_to_get_nps
  !
@@ -255,6 +255,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  iter          = 0
  npin          = npart
  npart_local   = npart_total
+ npart0        = 0
+ nold          = 0
  iterate_to_get_nps = .true.
 
  print*, ' set_sphere: Iterating to form sphere with approx ',nps_requested,' particles'
@@ -270,6 +272,13 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     npart_total = npart_local
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.,mask=mask)
+    if (nold(1)==np .and. nold(2)==npart0 .and. nold(3)==nps_lo .and. nold(4)==nps_hi) iterate_to_get_nps = .false.
+    if (nps_lo > 0 .and. nps_hi < npmax) then
+       nold(1) = np
+       nold(2) = npart0
+       nold(3) = nps_lo
+       nold(4) = nps_hi
+    endif
     npart0 = npart - npin
     if (npart0==nps_requested) then
        iterate_to_get_nps = .false.
@@ -305,25 +314,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
              np     = npr_lo + (npr_hi - npr_lo)/3
           endif
        elseif (test_region == 1) then
-          if (npart0 >= nps_hi .or. npart0 <= nps_requested ) then
-             ! this should be complete
-             if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
-                print "(a)",' ERROR: set_sphere: Did not converge for number of particles in the sphere'
-                ierr = ierr_notinrange
-                return
-             endif
-             ! always use more particles than requested
-             if (nps_requested - nps_lo < nps_hi - nps_requested) then
-                write(*,'(a,I8,a,F5.2,a)') " set_sphere: The closest number of particles to the requested number is " &
-                    ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
-                    ,"% than less requested."
-                write(*,'(a)') " set_sphere: We will not use fewer than the requested number of particles."
-             endif
-             write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
-              , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
-              ,"% more than requested."
-             np            = npr_hi
-          else
+          if (npart0 < nps_hi .and. npart0 > nps_requested ) then
              nps_hi = npart0
              npr_hi = np
              np     = npr_lo + 2*(npr_hi - npr_lo)/3
@@ -335,11 +326,28 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
        endif
     endif
  enddo
- if (iter >= 100) then
+ if (iter >= 100 .or. nps_lo > nps_requested .or. nps_requested > nps_hi) then
     print "(a)",' ERROR: set_sphere: Failed to converge to the correct number of particles in the sphere'
     ierr = ierr_not_converged
+ else
+    if (nps_lo > nps_requested .or. nps_requested > nps_hi) then ! sanity check
+       print "(a)",' ERROR: set_sphere: Did not converge for number of particles in the sphere'
+       ierr = ierr_notinrange
+       return
+    endif
+    ! always use more particles than requested
+    npart = nps_hi
+    if (nps_requested - nps_lo < nps_hi - nps_requested) then
+       write(*,'(a,I8,a,F5.2,a)') " set_sphere: The closest number of particles to the requested number is " &
+                    ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
+                    ,"% than less requested."
+       write(*,'(a)') " set_sphere: We will not use fewer than the requested number of particles."
+    endif
+    write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
+              , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
+              ,"% more than requested."
  endif
- write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart0,' particles in sphere'
+ write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart,' particles in sphere'
 
 end subroutine set_unifdis_sphereN
 

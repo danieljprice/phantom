@@ -151,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
  endif
- if (ierr /= 0 .and. id==master) then
+ if ((.not. iexist .or. ierr /= 0) .and. id==master) then
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg) ! write shock file with defaults
     print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
     stop

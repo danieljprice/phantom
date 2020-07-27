@@ -193,7 +193,7 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
 
  !carbon fraction
  !fC = max(1.d-15,K3/eps(iC))
- fac = max(0.75*K3*mc/(mass_per_H*rho_Cdust),1.d-15)
+ fac = max(0.75*K3*mc/(mass_per_H*rho_Cdust),1.e-15)
 
  !kappa = Qplanck_abs *fac ! planck
  !kappa = Qross_ext * fac  ! Rosseland
@@ -433,7 +433,7 @@ real function psat_C(T)
  real :: T2,T3,pC1!,pC2,pC3,pC4,pC5
 
  if (T > 1.d4) then
-    Psat_C = 1.d99
+    Psat_C = huge(Psat_C)
  else
     T2 = T*T
     T3 = T*T2

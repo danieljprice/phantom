@@ -846,7 +846,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= icosahedron.f90 utils_inject.f90 wind_equations.F90 wind.F90 inject_wind.f90
+    SRCINJECT= wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1612,6 +1612,11 @@ ifeq ($(MPI), mpifort)
     USEMPI=yes
 endif
 
+ifeq ($(MPI), mpiifort)
+    FC= mpiifort
+    USEMPI=yes
+endif
+
 ifeq ($(MPI), intel)
     FC= mpif90
     USEMPI=yes
@@ -1856,7 +1861,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 \
-          set_slab.f90 set_disc.F90 relax_star.f90 set_softened_core.f90 \
+          set_slab.f90 set_disc.F90 relax_star.f90 set_softened_core.f90 set_fixedentropycore.f90\
           set_vfield.f90 sort_particles.F90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
@@ -1992,10 +1997,9 @@ endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_sort.f90 checksetup.f90 set_Bfield.f90 \
           partinject.F90 random.f90 set_disc.F90 set_dust.f90 \
-		    icosahedron.f90 utils_inject.f90 ${SRCINJECT} \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
-          density_profiles.f90 ptmass.F90 damping.f90 \
-          dust_formation.f90 ptmass_radiation.F90 readwrite_infile.f90 ${MODFILE:.f90=.o}
+          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
+   		    icosahedron.f90 utils_inject.f90 ${SRCINJECT} \
+          density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 ${MODFILE:.f90=.o}
 OBJMOD2 = ${OBJMOD1:.F90=.o}
 OBJMOD = ${OBJMOD2:.f90=.o}
 OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
