@@ -31,7 +31,7 @@ program phantommoddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
- use energies,        only:get_conserv
+ use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
  implicit none
  integer :: nargs
