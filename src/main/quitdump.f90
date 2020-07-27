@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: quitdump
+module quitdump
 !
-!  DESCRIPTION:
 ! This module handles graceful exits
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, io_summary, part, readwrite_dumps, timestep
 !
-!  DEPENDENCIES: io, io_summary, part, readwrite_dumps, timestep
-!+
-!--------------------------------------------------------------------------
-module quitdump
  implicit none
  public :: quit
 

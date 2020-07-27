@@ -4,40 +4,33 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!  this module sets up the particles
+! this module sets up the particles
 !  (2014 Alice Cerioli)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - HoverRinput  : *H/R at R_in*
+!   - R_in         : *inner radius*
+!   - R_out        : *outer radius*
+!   - a0           : *initial binary separation*
+!   - accradius1   : *primary accretion radius*
+!   - accradius2   : *secondary accretion radius*
+!   - alphaSS      : *desired alpha_SS*
+!   - discm        : *disc mass*
+!   - inc          : *inclination (tilt) in degrees*
+!   - massr        : *mass ratio*
+!   - np           : *number of particles*
+!   - p_indexinput : *surface density profile*
+!   - q_indexinput : *temperature profile*
 !
-!  RUNTIME PARAMETERS:
-!    HoverRinput  -- H/R at R_in
-!    R_in         -- inner radius
-!    R_out        -- outer radius
-!    a0           -- initial binary separation
-!    accradius1   -- primary accretion radius
-!    accradius2   -- secondary accretion radius
-!    alphaSS      -- desired alpha_SS
-!    discm        -- disc mass
-!    inc          -- inclination (tilt) in degrees
-!    massr        -- mass ratio
-!    np           -- number of particles
-!    p_indexinput -- surface density profile
-!    q_indexinput -- temperature profile
+! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
+!   physcon, prompting, setdisc, units
 !
-!  DEPENDENCIES: extern_binary, externalforces, infile_utils, io, options,
-!    physcon, prompting, setdisc, units
-!+
-!--------------------------------------------------------------------------
-module setup
- use extern_binary, only:accradius1,accradius2,massr,a0 !,binary_posvel
  implicit none
  public :: setpart
 

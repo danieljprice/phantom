@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testexternf
-!
-!  DESCRIPTION:
-!  Unit tests of the externalforces module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: domain, extern_corotate, externalforces, io, part,
-!    physcon, testutils, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module testexternf
+!
+! Unit tests of the externalforces module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: domain, extern_corotate, externalforces, io, part,
+!   physcon, testutils, unifdis, units
+!
  implicit none
  public :: test_externf
 

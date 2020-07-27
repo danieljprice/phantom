@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: photoevap
+module photoevap
 !
-!  DESCRIPTION: This module contains all the subroutines necessary for the
+! This module contains all the subroutines necessary for the
 !     photoevaporation switch
 !
-!  REFERENCES: Alexander, Clarke & Pringle (2006), MNRAS 369, 216-228
+! :References: Alexander, Clarke & Pringle (2006), MNRAS 369, 216-228
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - ionflux_cgs    : *Stellar EUV flux rate*
+!   - mu_cgs         : *Mean molecular weight*
+!   - recombrate_cgs : *Recombination rate (alpha)*
 !
-!  RUNTIME PARAMETERS:
-!    ionflux_cgs    -- Stellar EUV flux rate
-!    mu_cgs         -- Mean molecular weight
-!    recombrate_cgs -- Recombination rate (alpha)
+! :Dependencies: allocutils, dim, eos, externalforces, infile_utils,
+!   physcon, units
 !
-!  DEPENDENCIES: allocutils, dim, eos, externalforces, infile_utils,
-!    physcon, units
-!+
-!--------------------------------------------------------------------------
-module photoevap
 
  implicit none
 

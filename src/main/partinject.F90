@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: partinject
+module partinject
 !
-!  DESCRIPTION:
-!  This module contains routines to inject/move particles in the simulation.
+! This module contains routines to inject/move particles in the simulation.
 !
 !  These routines were previously in the part module, but it had to be
 !  separated because of a circular dependency with the timestep_ind module.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: cons2prim, extern_gr, io, metric_tools, options, part,
+!   timestep_ind
 !
-!  DEPENDENCIES: cons2prim, extern_gr, io, metric_tools, options, part,
-!    timestep_ind
-!+
-!--------------------------------------------------------------------------
-module partinject
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"

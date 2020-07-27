@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION: Traces the centre of (stellar) mass each galaxy that
+! Traces the centre of (stellar) mass each galaxy that
 !  that is part of a major merger.  Stars initially assigned to each
 !  galaxy are assumed to remain in that galaxy for all time.
 !  Also output max and average densities for gas, stars and dark matter
 !
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: part, physcon, units
 !
-!  DEPENDENCIES: part, physcon, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'GalMerger'
  logical, private :: firstcall = .true.

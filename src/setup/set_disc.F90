@@ -4,53 +4,47 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setdisc
-!
-!  DESCRIPTION:
-!  This module contains utility routines for accretion disc setups
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Mentiplay
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    G           -- in code units
-!    M_disc      -- disc mass
-!    M_star      -- mass of central star
-!    Qmin        -- minimum Toomre Q parameter
-!    R_c         -- characteristic radius of the exponential taper
-!    R_in        -- inner disc boundary
-!    R_out       -- outer disc boundary
-!    R_ref       -- reference radius
-!    R_warp      -- position of warp
-!    T_in        -- temperature (K) at R=R_in
-!    T_out       -- temperature (K) at R=R_out
-!    T_ref       -- temperature (K) at R=R_ref
-!    alphaSS_max -- maximum Shakura-Sunyaev alpha viscosity in disc
-!    alphaSS_min -- minimum Shakura-Sunyaev alpha viscosity in disc
-!    c           -- in code units
-!    cs0         -- sound speed at R=1
-!    n           -- number of particles in the disc
-!    p_index     -- power law index of surface density profile
-!    psi_max     -- maximum warp amplitude
-!    q_index     -- power law index of sound speed profile
-!    sig_in      -- surface density (g/cm^2) at R=R_in
-!    sig_max     -- maximum surface density (g/cm^2)
-!    sig_out     -- surface density (g/cm^2) at R=R_out
-!    sig_ref     -- surface density (g/cm^2) at R=R_ref
-!    udist       -- distance units (cgs)
-!    umass       -- mass units (cgs)
-!    utime       -- time units (cgs)
-!
-!  DEPENDENCIES: centreofmass, dim, domain, eos, externalforces,
-!    infile_utils, io, mpiutils, options, part, physcon, random, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
 module setdisc
+!
+! This module contains utility routines for accretion disc setups
+!
+! :References: None
+!
+! :Owner: Daniel Mentiplay
+!
+! :Runtime parameters:
+!   - G           : *in code units*
+!   - M_disc      : *disc mass*
+!   - M_star      : *mass of central star*
+!   - Qmin        : *minimum Toomre Q parameter*
+!   - R_c         : *characteristic radius of the exponential taper*
+!   - R_in        : *inner disc boundary*
+!   - R_out       : *outer disc boundary*
+!   - R_ref       : *reference radius*
+!   - R_warp      : *position of warp*
+!   - T_in        : *temperature (K) at R=R_in*
+!   - T_out       : *temperature (K) at R=R_out*
+!   - T_ref       : *temperature (K) at R=R_ref*
+!   - alphaSS_max : *maximum Shakura-Sunyaev alpha viscosity in disc*
+!   - alphaSS_min : *minimum Shakura-Sunyaev alpha viscosity in disc*
+!   - c           : *in code units*
+!   - cs0         : *sound speed at R=1*
+!   - n           : *number of particles in the disc*
+!   - p_index     : *power law index of surface density profile*
+!   - psi_max     : *maximum warp amplitude*
+!   - q_index     : *power law index of sound speed profile*
+!   - sig_in      : *surface density (g/cm^2) at R=R_in*
+!   - sig_max     : *maximum surface density (g/cm^2)*
+!   - sig_out     : *surface density (g/cm^2) at R=R_out*
+!   - sig_ref     : *surface density (g/cm^2) at R=R_ref*
+!   - udist       : *distance units (cgs)*
+!   - umass       : *mass units (cgs)*
+!   - utime       : *time units (cgs)*
+!
+! :Dependencies: centreofmass, dim, domain, eos, externalforces,
+!   infile_utils, io, mpiutils, options, part, physcon, random, units,
+!   vectorutils
+!
  use dim,      only:maxvxyzu
  use domain,   only:i_belong_i4
  use io,       only:warning,error,fatal

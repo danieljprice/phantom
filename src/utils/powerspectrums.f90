@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: powerspectrums
+module powerspectrums
 !
-!  DESCRIPTION: None
+! None
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 
 !
 ! contains subroutines for taking power spectrums on particle data
 !
-module powerspectrums
  implicit none
  real, parameter, private :: pi = 3.141592653589
  real, parameter, private :: twopi = 2.*pi

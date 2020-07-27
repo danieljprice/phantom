@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: utils_gr
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fastmath, io, metric_tools, part
-!+
-!--------------------------------------------------------------------------
 module utils_gr
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fastmath, io, metric_tools, part
+!
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel

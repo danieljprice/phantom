@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: structurefn_part
+module structurefn_part
 !
-!  DESCRIPTION:
-!  module for obtaining structure functions
+! module for obtaining structure functions
 !  direct from SPH particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: random, timing
 !
-!  DEPENDENCIES: random, timing
-!+
-!--------------------------------------------------------------------------
-module structurefn_part
  implicit none
 
 contains

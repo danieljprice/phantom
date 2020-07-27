@@ -4,40 +4,34 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  Input is a relaxed star, output is two relaxed stars in binary orbit
-!
-!  REFERENCES: None
-!
-!  OWNER: Terrence Tricco
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, extern_gwinspiral, externalforces,
-!    initial_params, io, options, part, physcon, prompting,
-!    readwrite_dumps, timestep, units
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! Input is a relaxed star, output is two relaxed stars in binary orbit
+!
+! :References: None
+!
+! :Owner: Terrence Tricco
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, extern_gwinspiral, externalforces,
+!   io, options, part, physcon, prompting, readwrite_dumps, timestep,
+!   units
+!
  implicit none
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,           only: nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
- use prompting,      only: prompt
- use centreofmass,   only: reset_centreofmass,get_centreofmass
- use physcon,        only: c
- use units,          only: unit_velocity
- use timestep,       only: tmax,dtmax
- use initial_params, only: get_conserv
- use options,        only: iexternalforce
- use externalforces, only: iext_gwinspiral
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
+ use prompting,      only:prompt
+ use centreofmass,   only:reset_centreofmass,get_centreofmass
+ use physcon,        only:c
+ use units,          only:unit_velocity
+ use timestep,       only:tmax,dtmax
+ use energies,       only:get_conserv
+ use options,        only:iexternalforce
+ use externalforces, only:iext_gwinspiral
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)

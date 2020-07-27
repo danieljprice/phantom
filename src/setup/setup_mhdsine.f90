@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for simple MHD sine wave decay test
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, domain, io, part, physcon, prompting,
-!    setup_params, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for simple MHD sine wave decay test
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, part, physcon, prompting,
+!   setup_params, unifdis
+!
  implicit none
  public :: setpart
 

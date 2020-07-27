@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: teststep
-!
-!  DESCRIPTION:
-!  Unit tests of the step module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, eos, io, mpiutils, options, part,
-!    physcon, step_lf_global, testutils, timestep, timestep_ind, timing,
-!    unifdis, viscosity
-!+
-!--------------------------------------------------------------------------
 module teststep
+!
+! Unit tests of the step module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, eos, io, mpiutils, options, part,
+!   physcon, step_lf_global, testutils, timestep, timestep_ind, timing,
+!   unifdis, viscosity
+!
  implicit none
  public :: test_step
 
