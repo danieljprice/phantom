@@ -152,7 +152,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
 #endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
- use energies,       only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
@@ -473,7 +473,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
- use energies,       only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
  use options,        only:iexternalforce,use_dustfrac
@@ -677,7 +677,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
- use energies,       only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:error,fatal
  use memory,         only:allocate_memory
  use options,        only:iexternalforce,use_dustfrac

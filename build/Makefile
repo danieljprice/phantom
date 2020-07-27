@@ -1741,7 +1741,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
-         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 \
+         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} ${SRCGR} checkoptions.F90 checkconserved.f90 \
          viscosity.f90 options.f90 centreofmass.f90 ${SRCPOT} damping.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 \
@@ -1823,7 +1823,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          timestep.f90 ${SRCEOS} ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
-         setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
+         setup_params.f90 ${SRCFASTMATH} checkoptions.F90 checkconserved.f90 \
          viscosity.f90 options.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS}
 OBJDUMP1= $(SRCDUMP:.f90=.o)

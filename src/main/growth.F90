@@ -536,7 +536,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use units,          only:udist
  use table_utils,    only:logspace
  use io,             only:fatal
- use energies,       only:mdust_in
+ use checkconserved, only:mdust_in
  integer, intent(in)    :: bins_per_dex
  real,    intent(in)    :: smax_user
  logical, intent(inout) :: force_smax
@@ -544,7 +544,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  real                   :: smaxtmp,smintmp,smax,smin,tolm,&
                            mdustold,mdustnew,code_to_mum
  logical                :: init
- integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge
+ integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
  real, allocatable, dimension(:) :: grid
  character(len=20)               :: outfile = "bin_distrib.dat"
 
@@ -642,7 +642,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     enddo
 
     !- set massoftype for each bin and print info
-    if (verbose) open (unit=3693, file=outfile, status="replace")
+    if (verbose) open(newunit=iu,file=outfile,status="replace")
     write(*,"(a3,a1,a10,a1,a10,a1,a10,a5,a6)") "Bin #","|","s_min","|","s","|","s_max","|==>","npart"
 
     do itype=idust,idust+ndusttypes-1
@@ -655,11 +655,11 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
        mdustnew        = mdustnew + mdust_in(itype)
        ndustnew        = ndustnew + npartoftype(itype)
 
-       if (verbose) write(3693,*) itype-idust+1,grid(itype-idust+1)*code_to_mum,grainsize(itype-idust+1)*code_to_mum,&
+       if (verbose) write(iu,*) itype-idust+1,grid(itype-idust+1)*code_to_mum,grainsize(itype-idust+1)*code_to_mum,&
                      grid(itype-idust+2)*code_to_mum,npartoftype(itype)
     enddo
 
-    if (verbose) close(unit=3693)
+    if (verbose) close(unit=iu)
 
     !- sanity check for total number of dust particles
     if (sum(npartoftype(idust:)) /= ndustold) then
@@ -687,7 +687,7 @@ subroutine merge_bins(npart,grid,npartmin)
  use part,           only:ndusttypes,ndustlarge,set_particle_type,&
                          npartoftype,massoftype,idust,iphase,iamtype,&
                          grainsize,graindens
- use energies,       only:mdust_in
+ use checkconserved, only:mdust_in
  integer, intent(in) :: npart,npartmin
  real, intent(inout) :: grid(:)
  integer             :: i,iculprit,itype,idusttype,nculprit,nother,iother

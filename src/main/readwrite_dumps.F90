@@ -1836,7 +1836,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
                           idust,grainsize,graindens,ndusttypes
- use energies,       only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1965,7 +1965,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
                           maxtypes,grainsize,graindens,ndusttypes
- use energies,       only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary

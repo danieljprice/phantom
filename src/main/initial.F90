@@ -117,7 +117,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity,use_dust
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -219,8 +219,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
- use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot, &
-                            get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
+ use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -680,14 +680,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
  write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
  write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
-#ifdef DUST
- dust_label = 'dust'
- call make_tags_unique(ndusttypes,dust_label)
- do i=1,ndusttypes
-    write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
- enddo
- write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
-#endif
+ if (use_dust) then
+    dust_label = 'dust'
+    call make_tags_unique(ndusttypes,dust_label)
+    do i=1,ndusttypes
+       if (mdust_in(i) > 0.) write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
+    enddo
+    write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
+ endif
 !
 !--Print warnings of units if values are not reasonable
  tolu = 1.0d2
