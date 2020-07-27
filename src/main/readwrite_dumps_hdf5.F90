@@ -600,7 +600,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then
@@ -801,7 +801,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then
