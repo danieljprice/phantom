@@ -128,7 +128,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,alphaind,ntot,ndim, &
+                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
@@ -176,7 +176,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef DUST
  use dust,             only:init_drag
- use part,             only:ndusttypes
 #ifdef DUSTGROWTH
  use growth,           only:init_growth
 #endif
@@ -237,9 +236,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
  character(len=len(dumpfile)) :: dumpfileold
-#ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
-#endif
 !
 !--do preliminary initialisation
 !
