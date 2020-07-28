@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module readwrite_dumps
+!module readwrite_dumps
 !
 ! This module contains all routines related
 !  to the data format.
@@ -24,9 +24,9 @@ module readwrite_dumps
 !   utils_dumpfiles_hdf5
 !
 #ifdef PHANTOM2HDF5
- module readwrite_dumps_hdf5
+module readwrite_dumps_hdf5
 #else
- module readwrite_dumps
+module readwrite_dumps
 #endif
   use utils_dumpfiles_hdf5, only:create_hdf5file,         &
                                 open_hdf5file,           &
@@ -147,9 +147,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
  use part,           only:dt_in
 #endif
 #endif
-#ifdef KROME
  use part,           only:gamma_chem
-#endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
@@ -1148,7 +1146,7 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 end subroutine write_gadgetdump
 
 #ifdef PHANTOM2HDF5
- end module readwrite_dumps
+end module readwrite_dumps_hdf5
 #else
- end module readwrite_dumps
+end module readwrite_dumps
 #endif
