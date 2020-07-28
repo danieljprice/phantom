@@ -14,15 +14,15 @@ module initial
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, balance, boundary, centreofmass, checkoptions,
-!   checksetup, chem, cons2prim, cooling, cpuinfo, densityforce, deriv,
-!   dim, domain, dust, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, h2cooling,
-!   inject, io, io_summary, krome_interface, linklist, metric_tools,
-!   mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
-!   sort_particles, stack, timestep, timestep_ind, timestep_sts, timing,
-!   units, writeheader
+! :Dependencies: analysis, balance, boundary, centreofmass, checkconserved,
+!   checkoptions, checksetup, chem, cons2prim, cooling, cpuinfo,
+!   densityforce, deriv, dim, domain, dust, energies, eos, evwrite,
+!   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
+!   h2cooling, inject, io, io_summary, krome_interface, linklist,
+!   metric_tools, mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup,
+!   omputils, options, part, photoevap, ptmass, readwrite_dumps,
+!   readwrite_infile, sort_particles, stack, timestep, timestep_ind,
+!   timestep_sts, timing, units, writeheader
 !
 #ifdef MPI
  use mpi

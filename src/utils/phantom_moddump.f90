@@ -14,7 +14,7 @@ program phantommoddump
 !
 ! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
 !
-! :Dependencies: checksetup, dim, eos, io, memory, moddump,
+! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
 !   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
 !   setup_params
 !

@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setfixedentropycore
+module setfixedentropycore
 !
-!  DESCRIPTION:
-!   This module softens the core of a MESA stellar profile with a constant
+! This module softens the core of a MESA stellar profile with a constant
 !   entropy profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Mike Lau
+! :Owner: Mike Lau
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, kernel, physcon, table_utils
 !
-!  DEPENDENCIES: eos, kernel, physcon, table_utils
-!+
-!--------------------------------------------------------------------------
-module setfixedentropycore
  implicit none
 
 contains

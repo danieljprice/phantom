@@ -8,17 +8,6 @@ module analysis
 !
 ! Analysis routine for discs in binary systems by CJN
 !
-! Method:
-! "primary(secondary)" implies tag=1(2) not anything to do with mass or disc hosting etc.
-! Circumprimary   disc: only particles inside the primary   Roche-lobe & bound
-! Circumsecondary disc: only particles inside the secondary Roche-lobe & bound
-! Circumbinary    disc: only particles at R > a (semi-major axis, not separation) & bound
-!
-! Creates: binary.dat      for binary params
-!          circumprimary_*.dat   for circumprimary disc params
-!          circumsecondary_*.dat for circumsecondary disc params
-!          circumbinary_*.dat    for circumbinary disc params
-!
 ! :References: None
 !
 ! :Owner: Daniel Price

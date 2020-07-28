@@ -18,8 +18,8 @@ module readwrite_dumps
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, eos, extern_binary, extern_gwinspiral,
-!   externalforces, gitinfo, io, lumin_nsdisc, memory,
+! :Dependencies: boundary, checkconserved, dim, eos, extern_binary,
+!   extern_gwinspiral, externalforces, gitinfo, io, lumin_nsdisc, memory,
 !   mpiutils, options, part, setup_params, timestep, units,
 !   utils_dumpfiles_hdf5
 !

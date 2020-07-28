@@ -29,7 +29,7 @@ module growth
 !   - vfragout      : *inward fragmentation threshold in m/s*
 !   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
-! :Dependencies: dim, dust, eos, infile_utils, io, options,
+! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
 !
  use units,        only:udist,unit_density,unit_velocity
