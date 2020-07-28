@@ -18,9 +18,10 @@ module readwrite_dumps
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!   gitinfo, io, krome_user, lumin_nsdisc, memory, mpi,
-!   mpiutils, options, part, setup_params, sphNGutils, timestep, units
+! :Dependencies: boundary, checkconserved, dim, dump_utils, eos,
+!   externalforces, fileutils, gitinfo, io, krome_user, lumin_nsdisc,
+!   memory, mpi, mpiutils, options, part, setup_params, sphNGutils,
+!   timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag

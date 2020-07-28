@@ -15,7 +15,7 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: dim, externalforces, io, options, part
 !
  use dim, only:maxdusttypes
  implicit none

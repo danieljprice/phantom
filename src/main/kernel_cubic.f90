@@ -17,8 +17,6 @@ module kernel
 !
 ! :Dependencies: physcon
 !
-! :Generated: 2014-11-20 11:18:12.618733
-!
  use physcon, only:pi
  implicit none
  character(len=9), public :: kernelname = 'M_4 cubic'
