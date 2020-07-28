@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: omputils
-!
-!  DESCRIPTION:
-!  Utility subroutines specific to openMP parallelisation
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module omputils
+!
+! Utility subroutines specific to openMP parallelisation
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
+
 !$ use dim, only:maxp_hard,maxptmass
 !$ integer, parameter :: nlockgrp = 10
 !$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
 contains
-
 !----------------------------------------------------------------
 !+
 !  info routine

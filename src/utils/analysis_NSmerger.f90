@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION: analysis programmes used to analys a neutron star merger.
+! analysis programmes used to analys a neutron star merger.
 !  This is an interactive routine that includes multiple analysis options
 !  Note: all outputs are in code units unless explicitly stated
 !  Author: Bernard Field & Madeline Marshall (supervisors: James Wurster & Paul Lasky)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, extern_gwinspiral, io, part, physcon,
+!   prompting, readwrite_dumps, units
 !
-!  DEPENDENCIES: centreofmass, extern_gwinspiral, io, part, physcon,
-!    prompting, readwrite_dumps, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use io,              only: fatal
  use part,            only: rhoh
  use physcon,         only: pi

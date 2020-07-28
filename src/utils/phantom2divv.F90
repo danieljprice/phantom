@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom2divv
-!
-!  DESCRIPTION: This program is a post-processing tool to calculate divv
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantom2divv dumpfile(s)
-!
-!  DEPENDENCIES: deriv, dim, initial, io, kernel, part, readwrite_dumps
-!+
-!--------------------------------------------------------------------------
 program phantom2divv
+!
+! This program is a post-processing tool to calculate divv
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantom2divv dumpfile(s)
+!
+! :Dependencies: deriv, dim, initial, io, kernel, part, readwrite_dumps
+!
  use dim,             only:ndivcurlv,maxp,tagline
  use part,            only:npart,divcurlv,hfact,igas,isetphase,iphase,maxphase
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump

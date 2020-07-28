@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: checksetup
-!
-!  DESCRIPTION:
-!   Perform sanity checks of the particle setup
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, centreofmass, dim, dust, eos, externalforces,
-!    io, metric_tools, options, part, physcon, sortutils, timestep, units,
-!    utils_gr
-!+
-!--------------------------------------------------------------------------
 module checksetup
+!
+! Perform sanity checks of the particle setup
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
+!   io, metric_tools, options, part, physcon, sortutils, timestep, units,
+!   utils_gr
+!
  implicit none
  public :: check_setup
 

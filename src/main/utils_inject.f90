@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: injectutils
-!
-!  DESCRIPTION:
-!   Utility routines for geodesic sphere injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: icosahedron, part, partinject
-!+
-!--------------------------------------------------------------------------
 module injectutils
+!
+! Utility routines for geodesic sphere injection
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: icosahedron, part, partinject
+!
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real, parameter :: pi = 4.*atan(1.)

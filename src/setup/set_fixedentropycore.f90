@@ -216,7 +216,7 @@ function entropy(rho,pres)
  real, parameter :: eoserr=1d-10
 
  inv_mu = 1/gmw
- corr = 1d99; temp = 1d3
+ corr = huge(corr); temp = 1d3
 
  ! First solve for temperature given density and pressure using Newton-
  ! Raphson method, assumming ideal gas plus radiation EoS
@@ -250,7 +250,7 @@ subroutine get_rho_from_p_s(pres,S,rho)
  real, parameter   :: eoserr=1d-9,dfac=1d-12
 
  rho = 1d-8 ! Initial guess
- corr = 1d99
+ corr = huge(corr)
 
  do while (abs(corr) > eoserr*rho)
     ! First calculate dS/drho

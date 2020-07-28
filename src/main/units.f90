@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: units
+module units
 !
-!  DESCRIPTION:
-!  This module contains information about physical units
+! This module contains information about physical units
 !   (irrelevant if simulations are scale free except that
 !   the units are printed in the dump file header
 !   and log output is scaled in these units)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon
 !
-!  DEPENDENCIES: physcon
-!+
-!--------------------------------------------------------------------------
-module units
  implicit none
 !
 ! Default units (note that values below are overwritten by the call to set_units

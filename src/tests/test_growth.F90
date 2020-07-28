@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgrowth
-!
-!  DESCRIPTION:
-!   Unit tests of the growth module
-!
-!  REFERENCES:
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, deriv, dim, domain, dust, energies, eos, growth,
-!    io, kernel, mpiutils, options, part, physcon, step_lf_global,
-!    testdust, testutils, timestep, unifdis, units, viscosity
-!+
-!--------------------------------------------------------------------------
 module testgrowth
+!
+! Unit tests of the growth module
+!
+! :References:
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, deriv, dim, domain, dust, energies, eos, growth,
+!   io, kernel, mpiutils, options, part, physcon, step_lf_global, testdust,
+!   testutils, timestep, unifdis, units, viscosity
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
 #ifdef DUST

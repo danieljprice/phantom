@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for the MHD current loop advection problem
+! Setup for the MHD current loop advection problem
 !
-!  REFERENCES:
+! :References:
 !    Gardiner and Stone (2005)
 !    Rosswog and Price (2007)
 !    Stone et al. (2008)
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, io, mpiutils, part, physcon, prompting,
+!   setup_params, slab
 !
-!  DEPENDENCIES: boundary, dim, io, mpiutils, part, physcon, prompting,
-!    setup_params, slab
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

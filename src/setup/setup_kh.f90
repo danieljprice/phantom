@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for Kelvin-Helmholtz instability from Robertson et al. (2010)
+! Setup for Kelvin-Helmholtz instability from Robertson et al. (2010)
 !
-!  REFERENCES:
+! :References:
 !   Robertson et al. (2010), MNRAS 401, 2463-2476
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, domain, io, mpiutils, options, part, physcon,
+!   prompting, setup_params, timestep, unifdis
 !
-!  DEPENDENCIES: boundary, domain, io, mpiutils, options, part, physcon,
-!    prompting, setup_params, timestep, unifdis
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

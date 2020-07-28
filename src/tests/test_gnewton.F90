@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgnewton
+module testgnewton
 !
-!  DESCRIPTION:
-!   unit tests of the gnewton external force module
+! unit tests of the gnewton external force module
 !
-!  REFERENCES:
+! :References:
 !   Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
 !   Bonnerot et al., 2016, MNRAS, 455, 2253
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: extern_gnewton, externalforces, io, options, part,
+!   physcon, testutils, timestep, units
 !
-!  DEPENDENCIES: extern_gnewton, externalforces, io, options, part,
-!    physcon, testutils, timestep, units
-!+
-!--------------------------------------------------------------------------
-module testgnewton
  implicit none
  public :: test_gnewton
 

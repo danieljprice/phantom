@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis calculating magnetic field and wave characteristics.
+! Analysis calculating magnetic field and wave characteristics.
 !  Currently only possible when using fixed, non-calculated coefficients
 !  for ambipolar diffusion and/or the Hall effect
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: infile_utils, io, part, physcon
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'bzrms'
  public :: do_analysis

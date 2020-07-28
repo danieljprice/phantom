@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!  Handles injection of particles in Keplerian shearing flow
+! Handles injection of particles in Keplerian shearing flow
 !
 !  Here is the "philosophy" of this injection routine:
 !  Injected particles are queued up at two "injection zones" on either
@@ -28,30 +26,26 @@
 !
 !  The setdisc module is used to create the Keplerian flow for injection
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - HoverR      : *disc aspect ratio at inner sector radius*
+!   - R_in        : *inner total disc radius*
+!   - R_out       : *outer total disc radius*
+!   - Rsect_in    : *inner sector radius (inner injection radius)*
+!   - Rsect_out   : *outer sector radius (outer injection radius)*
+!   - disc_mass   : *total disc mass*
+!   - dr_bound    : *Radial boundary thickness*
+!   - object_mass : *mass of the central object*
+!   - p_index     : *radial surface density profile powerlaw*
+!   - phi_inject  : *azimuthal range of injection zone*
+!   - phimax      : *maximum azimuthal extent (-phimax,phimax)*
+!   - q_index     : *radial sound speed profile powerlaw*
 !
-!  RUNTIME PARAMETERS:
-!    HoverR      -- disc aspect ratio at inner sector radius
-!    R_in        -- inner total disc radius
-!    R_out       -- outer total disc radius
-!    Rsect_in    -- inner sector radius (inner injection radius)
-!    Rsect_out   -- outer sector radius (outer injection radius)
-!    disc_mass   -- total disc mass
-!    dr_bound    -- Radial boundary thickness
-!    object_mass -- mass of the central object
-!    p_index     -- radial surface density profile powerlaw
-!    phi_inject  -- azimuthal range of injection zone
-!    phimax      -- maximum azimuthal extent (-phimax,phimax)
-!    q_index     -- radial sound speed profile powerlaw
+! :Dependencies: eos, infile_utils, io, part, partinject, physcon, setdisc
 !
-!  DEPENDENCIES: eos, infile_utils, io, part, partinject, physcon, setdisc
-!+
-!--------------------------------------------------------------------------
-module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerianshear'
 

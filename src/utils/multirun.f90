@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: multirun
+program multirun
 !
-!  DESCRIPTION: This program generates a series of input files
+! This program generates a series of input files
 ! varying a particular parameter in each
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: multirun infile
 !
-!  USAGE: multirun infile
+! :Dependencies: dim, io, options, readwrite_infile, timestep, viscosity
 !
-!  DEPENDENCIES: dim, io, options, readwrite_infile, timestep, viscosity
-!+
-!--------------------------------------------------------------------------
-program multirun
  use dim,              only:tagline
  use readwrite_infile, only:read_infile,write_infile
  use options,          only:alpha,set_default_options

@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: timestep_ind
+module timestep_ind
 !
-!  DESCRIPTION:
-!  Parameters and routines related to
+! Parameters and routines related to
 !  individual particle timesteps
 !  (routines should ONLY be called if -DIND_TIMESTEPS set)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, mpiutils, part
 !
-!  DEPENDENCIES: dim, io, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module timestep_ind
  use dim, only:maxp
  implicit none
  integer(kind=1)    :: nbinmax
@@ -108,7 +102,7 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  use part, only:isdead_or_accreted,iamtype,isetphase,maxp,all_active,iboundary
  integer,         intent(in)    :: npart
  integer,         intent(out)   :: nactive,nalive
- integer(kind=1), intent(inout) :: iphase(maxp),ibin(maxp)
+ integer(kind=1), intent(inout) :: iphase(npart),ibin(npart) !iphase(maxp),ibin(maxp)
  real,            intent(in)    :: xyzh(4,maxp)
  integer                        :: i,itype
  integer(kind=1)                :: ibini

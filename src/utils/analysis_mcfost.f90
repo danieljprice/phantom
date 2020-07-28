@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!   Analysis routine to call MCFOST code to perform post-processing
+! Analysis routine to call MCFOST code to perform post-processing
 !   radiation transport
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: deriv, dim, eos, growth, io,
+!   mcfost2phantom, omp_lib, options, part, physcon, timestep, units
 !
-!  DEPENDENCIES: deriv, dim, eos, growth, initial_params, io,
-!    mcfost2phantom, omp_lib, options, part, physcon, timestep, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use omp_lib
 
  implicit none
@@ -247,10 +241,10 @@ subroutine growth_to_fake_multi(npart)
 end subroutine growth_to_fake_multi
 
 subroutine back_to_growth(npart)
- use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
-                              npartoftype,iamtype,iphase,idust,&
-                              set_particle_type
- use initial_params, only:mdust_in
+ use part,     only:ndusttypes,ndustlarge,idust,massoftype,&
+                    npartoftype,iamtype,iphase,idust,&
+                    set_particle_type
+ use energies, only:mdust_in
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
 

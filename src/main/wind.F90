@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: wind
-!
-!  DESCRIPTION: driver to integrate the wind equations
-!
-!  REFERENCES: Lamers & Cassinelli "Introduction to stellar winds"
-!
-!  OWNER: Lionel Siess
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: cooling, dust_formation, eos, io, options, part, physcon,
-!    ptmass_radiation, timestep, units, wind_equations
-!+
-!--------------------------------------------------------------------------
-
 module wind
+!
+! driver to integrate the wind equations
+!
+! :References: Lamers & Cassinelli "Introduction to stellar winds"
+!
+! :Owner: Lionel Siess
+!
+! :Runtime parameters: None
+!
+! :Dependencies: cooling, dust_formation, eos, io, options, part, physcon,
+!   ptmass_radiation, timestep, units, wind_equations
+!
+
  implicit none
  public :: setup_wind
  public :: wind_state,wind_profile,save_windprofile
