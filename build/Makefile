@@ -2110,6 +2110,17 @@ splitpart:
 cleansplitpart:
 	rm -f $(BINDIR)/splitpart
 
+#------------------------------------------------------
+# particle merging utility (this is a moddump compiled as a standalone utility)
+#
+.PHONY: mergepart
+mergepart:
+	${MAKE} moddump MODFILE="splitpart.f90 moddump_mergepart.f90"\
+        MODDUMPBIN=$@
+
+cleanmergepart:
+	rm -f $(BINDIR)/mergepart
+
 #----------------------------------------------------
 # utility to calculate divv from a dump file
 # compile using all phantom files
