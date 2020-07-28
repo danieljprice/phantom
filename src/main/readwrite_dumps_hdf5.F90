@@ -1042,4 +1042,104 @@ subroutine check_arrays(i1,i2,npartoftype,nptmass,nsinkproperties,massoftype,   
 
 end subroutine check_arrays
 
+!--------------------------------------------------------------------
+!+
+!  subroutine to write output to full dump file
+!  in GADGET format
+!+
+!-------------------------------------------------------------------
+subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
+ use io,       only:iprint,idump,real4
+#ifdef PERIODIC
+ use boundary, only:dxbound
+#endif
+ real,             intent(in) :: t,particlemass,utherm
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: npart
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: rho(:)
+
+ integer(kind=4) :: particleid(size(rho))
+ integer :: npartoftype(6),nall(6),ncrap(6)
+ real(kind=8) :: massoftype(6)
+ real(kind=8)                          :: time,boxsize
+ real(kind=8), parameter               :: dumz = 0.d0
+ real(kind=4) :: unused(15)
+ integer, parameter :: iflagsfr = 0, iflagfeedback = 0, iflagcool = 0
+ integer, parameter :: nfiles = 1
+ integer            :: ierr,i,j
+!
+!--open dumpfile
+!
+ write(iprint,"(/,/,'-------->   TIME = ',f12.4,"// &
+              "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+
+ write(iprint,*) 'writing to unit ',idump
+ open(unit=idump,file=dumpfile,status='replace',form='unformatted',iostat=ierr)
+ if (ierr /= 0) then
+    write(iprint,*) 'error: can''t create new dumpfile ',trim(dumpfile)
+    stop
+ endif
+
+ npartoftype(:) = 0
+ npartoftype(1) = npart
+ nall(:)  = npartoftype(:)
+ ncrap(:) = 0
+ time     = t
+#ifdef PERIODIC
+ boxsize = dxbound
+#else
+ boxsize = 0.
+#endif
+
+ massoftype(:) = 0.
+ massoftype(1) = particlemass
+ unused(:) = 0
+
+ do i=1,npart
+    particleid(i) = i
+ enddo
+ write(idump,iostat=ierr) npartoftype(1:6),massoftype(1:6),time,dumz, &
+                          iflagsfr,iflagfeedback,nall(1:6),iflagcool,nfiles,boxsize, &
+                          dumz,dumz,dumz,iflagsfr,iflagsfr,ncrap(1:6),iflagsfr,unused(:)
+
+ write(idump,iostat=ierr) ((real4(xyzh(j,i)),j=1,3),i=1,npart)
+ if (ierr /= 0) then
+    print*,' error writing positions'
+    return
+ endif
+ write(idump,iostat=ierr) ((real4(vxyzu(j,i)),j=1,3),i=1,npart)
+ if (ierr /= 0) then
+    print*,' error writing velocities'
+    return
+ endif
+ write(idump,iostat=ierr) (particleid(i),i=1,npart)
+ if (ierr /= 0) then
+    print*,' error writing particle ID'
+    return
+ endif
+ if (size(vxyzu(:,1)) >= 4) then
+    write(idump,iostat=ierr) (real4(vxyzu(4,i)),i=1,npart)
+ else
+    write(idump,iostat=ierr) (real4(utherm),i=1,npart)
+ endif
+ if (ierr /= 0) then
+    print*,' error writing utherm'
+    return
+ endif
+ write(idump,iostat=ierr) (real4(rho(i)),i=1,npart)
+ if (ierr /= 0) then
+    print*,' error writing rho'
+    return
+ endif
+ write(idump,iostat=ierr) (real4(xyzh(4,i)),i=1,npart)
+ if (ierr /= 0) then
+    print*,' error writing h'
+    return
+ endif
+ print*,' finished writing file -- OK'
+
+ return
+end subroutine write_gadgetdump
+
 end module readwrite_dumps_hdf5
