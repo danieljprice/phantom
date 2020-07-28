@@ -651,16 +651,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--Print box sizes and masses
 !
- if (get_conserv > 0.0) then
-    write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
- else
-    write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+ if (id==master) then
+    if (get_conserv > 0.0) then
+       write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+    else
+       write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+    endif
+    write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
+    write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
+    write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
+    write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+    write(iprint,'(a)') ' '
  endif
- write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
- write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
- write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
- write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
- write(iprint,'(a)') ' '
 !
 !--Set initial values for continual verification of conservation laws
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
@@ -670,23 +672,28 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
+    if (id==master) write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
+    if (id==master) then
+       write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
+    endif
  endif
- write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
- write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
- write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
- if (use_dust) then
-    dust_label = 'dust'
-    call make_tags_unique(ndusttypes,dust_label)
-    do i=1,ndusttypes
-       if (mdust_in(i) > 0.) write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
-    enddo
-    write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
+ if (id==master) then
+    write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
+    write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+    write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+    if (use_dust) then
+       dust_label = 'dust'
+       call make_tags_unique(ndusttypes,dust_label)
+       do i=1,ndusttypes
+          if (mdust_in(i) > 0.) write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
+       enddo
+       write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
+    endif
  endif
 !
 !--Print warnings of units if values are not reasonable
+!
  tolu = 1.0d2
  toll = 1.0d-2
  if (get_conserv > 0.0) then
