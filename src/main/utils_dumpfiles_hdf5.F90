@@ -348,6 +348,7 @@ subroutine write_hdf5_arrays( &
 
  integer(HID_T) :: group_id
  integer :: ndusttypes,ieos
+ integer :: errors(50)
 
  error = 0
  ieos = array_options%ieos
