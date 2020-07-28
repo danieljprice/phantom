@@ -59,6 +59,7 @@ subroutine initialise()
  use mpiderivs,        only:init_tree_comms
  use stack,            only:init_mpi_memory
 #endif
+ use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -106,6 +107,8 @@ subroutine initialise()
  call init_tree_comms()
  call init_mpi_memory()
 #endif
+
+ call init_readwrite_dumps()
 
  return
 end subroutine initialise

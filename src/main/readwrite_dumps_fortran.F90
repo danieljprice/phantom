@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module readwrite_dumps
+module readwrite_dumps_fortran
 !
 ! This module contains all routines related
 !  to the data format.
@@ -28,13 +28,13 @@ module readwrite_dumps
  character(len=80), parameter, public :: &    ! module version
     modid="$Id$"
 
- public :: write_smalldump,write_fulldump,read_smalldump,read_dump,write_gadgetdump
- public :: get_blocklimits
- logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
- logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ public :: write_smalldump_fortran,write_fulldump_fortran,read_smalldump_fortran,read_dump_fortran
+
+ logical, target, public    :: opened_full_dump_fortran       ! for use in analysis files if user wishes to skip small dumps
+ logical, target, public    :: dt_read_in_fortran             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
  integer, parameter :: maxphead = 256         ! max items in header
- integer, parameter, public :: is_small_dump = 1978
- integer, parameter, public :: is_not_mhd = 1979
+ integer, parameter :: is_small_dump = 1978
+ integer, parameter :: is_not_mhd = 1979
 
  private
 
@@ -294,7 +294,7 @@ end subroutine get_dump_size
 !  (this is everything needed to restart a run)
 !+
 !-------------------------------------------------------------------
-subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
+subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
  use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
@@ -591,7 +591,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  close(unit=idump)
  call end_threadwrite(id)
 
-end subroutine write_fulldump
+end subroutine write_fulldump_fortran
 
 !--------------------------------------------------------------------
 !+
@@ -603,7 +603,7 @@ end subroutine write_fulldump
 !+
 !-------------------------------------------------------------------
 
-subroutine write_smalldump(t,dumpfile)
+subroutine write_smalldump_fortran(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
@@ -722,7 +722,7 @@ subroutine write_smalldump(t,dumpfile)
  call end_threadwrite(id)
  return
 
-end subroutine write_smalldump
+end subroutine write_smalldump_fortran
 
 !--------------------------------------------------------------------
 !+
@@ -732,7 +732,7 @@ end subroutine write_smalldump
 !+
 !-------------------------------------------------------------------
 
-subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly)
+subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
@@ -749,6 +749,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
  integer,           intent(out) :: ierr
  logical, optional, intent(in)  :: headeronly
+ logical, optional, intent(in)  :: dustydisc
 
  integer               :: number
  integer               :: iblock,nblocks,i1,i2,noffset,npartread,narraylengths
@@ -762,8 +763,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  integer               :: i,ierrh
 
  if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading setup from file: '//trim(dumpfile)//' on unit ',idisk1
- opened_full_dump = .true.
- dt_read_in       = .false.
+ opened_full_dump_fortran = .true.
+ dt_read_in_fortran       = .false.
  !
  ! open dump file
  !
@@ -960,7 +961,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  ierr = 666
  return
 
-end subroutine read_dump
+end subroutine read_dump_fortran
 
 subroutine check_npartoftype(npartoftype,npart)
  integer, intent(inout) :: npartoftype(:)
@@ -979,7 +980,7 @@ end subroutine check_npartoftype
 !+
 !-------------------------------------------------------------------
 
-subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
  use dim,      only:maxvxyzu,mhd,maxphase,maxp
 #ifdef INJECT_PARTICLES
@@ -1011,7 +1012,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  integer               :: i
 
  if (id==master) write(iprint,"(/,1x,a,i3)") '>>> reading small dump file: '//trim(dumpfile)//' on unit ',idisk1
- opened_full_dump = .false.
+ opened_full_dump_fortran = .false.
  !
  ! open dump file
  !
@@ -1195,7 +1196,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  ierr = 666
  return
 
-end subroutine read_smalldump
+end subroutine read_smalldump_fortran
 
 !--------------------------------------------------------------------
 !+
@@ -1340,7 +1341,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              !
              ! read dt if it is in the file
              !
-             call read_array(dt_in,'dt',dt_read_in,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(dt_in,'dt',dt_read_in_fortran,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
              if (do_radiation) then
                 call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -2245,106 +2246,6 @@ subroutine fake_array_tags(iblock,ikind,tags,phantomdump)
 
 end subroutine fake_array_tags
 
-!--------------------------------------------------------------------
-!+
-!  subroutine to write output to full dump file
-!  in GADGET format
-!+
-!-------------------------------------------------------------------
-subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
- use io,       only:iprint,idump,real4
-#ifdef PERIODIC
- use boundary, only:dxbound
-#endif
- real,             intent(in) :: t,particlemass,utherm
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: npart
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: rho(:)
-
- integer(kind=4) :: particleid(size(rho))
- integer :: npartoftype(6),nall(6),ncrap(6)
- real(kind=8) :: massoftype(6)
- real(kind=8)                          :: time,boxsize
- real(kind=8), parameter               :: dumz = 0.d0
- real(kind=4) :: unused(15)
- integer, parameter :: iflagsfr = 0, iflagfeedback = 0, iflagcool = 0
- integer, parameter :: nfiles = 1
- integer            :: ierr,i,j
-!
-!--open dumpfile
-!
- write(iprint,"(/,/,'-------->   TIME = ',f12.4,"// &
-              "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
-
- write(iprint,*) 'writing to unit ',idump
- open(unit=idump,file=dumpfile,status='replace',form='unformatted',iostat=ierr)
- if (ierr /= 0) then
-    write(iprint,*) 'error: can''t create new dumpfile ',trim(dumpfile)
-    stop
- endif
-
- npartoftype(:) = 0
- npartoftype(1) = npart
- nall(:)  = npartoftype(:)
- ncrap(:) = 0
- time     = t
-#ifdef PERIODIC
- boxsize = dxbound
-#else
- boxsize = 0.
-#endif
-
- massoftype(:) = 0.
- massoftype(1) = particlemass
- unused(:) = 0
-
- do i=1,npart
-    particleid(i) = i
- enddo
- write(idump,iostat=ierr) npartoftype(1:6),massoftype(1:6),time,dumz, &
-                          iflagsfr,iflagfeedback,nall(1:6),iflagcool,nfiles,boxsize, &
-                          dumz,dumz,dumz,iflagsfr,iflagsfr,ncrap(1:6),iflagsfr,unused(:)
-
- write(idump,iostat=ierr) ((real4(xyzh(j,i)),j=1,3),i=1,npart)
- if (ierr /= 0) then
-    print*,' error writing positions'
-    return
- endif
- write(idump,iostat=ierr) ((real4(vxyzu(j,i)),j=1,3),i=1,npart)
- if (ierr /= 0) then
-    print*,' error writing velocities'
-    return
- endif
- write(idump,iostat=ierr) (particleid(i),i=1,npart)
- if (ierr /= 0) then
-    print*,' error writing particle ID'
-    return
- endif
- if (size(vxyzu(:,1)) >= 4) then
-    write(idump,iostat=ierr) (real4(vxyzu(4,i)),i=1,npart)
- else
-    write(idump,iostat=ierr) (real4(utherm),i=1,npart)
- endif
- if (ierr /= 0) then
-    print*,' error writing utherm'
-    return
- endif
- write(idump,iostat=ierr) (real4(rho(i)),i=1,npart)
- if (ierr /= 0) then
-    print*,' error writing rho'
-    return
- endif
- write(idump,iostat=ierr) (real4(xyzh(4,i)),i=1,npart)
- if (ierr /= 0) then
-    print*,' error writing h'
-    return
- endif
- print*,' finished writing file -- OK'
-
- return
-end subroutine write_gadgetdump
-
 subroutine count_particle_types(npartoftype)
  use part, only:iphase,iamtype,npart
  integer, intent(out) :: npartoftype(:)
@@ -2358,4 +2259,4 @@ subroutine count_particle_types(npartoftype)
 
 end subroutine count_particle_types
 
-end module readwrite_dumps
+end module readwrite_dumps_fortran

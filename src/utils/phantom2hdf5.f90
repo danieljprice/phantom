@@ -20,9 +20,8 @@ program phantom2hdf5
  use dim,                  only:tagline
  use part,                 only:hfact
  use io,                   only:set_io_unit_numbers,iprint,idisk1
- use readwrite_dumps,      only:read_dump,read_smalldump,write_fulldump
- use readwrite_dumps_hdf5, only:read_dump_hdf5=>read_dump, write_fulldump_hdf5=>write_fulldump
- use readwrite_dumps_hdf5, only:write_smalldump_hdf5=>write_smalldump
+ use readwrite_dumps,      only:read_dump_fortran,read_smalldump_fortran,write_fulldump_fortran
+ use readwrite_dumps_hdf5, only:read_dump_hdf5, write_fulldump_hdf5,write_smalldump_hdf5
  use eos,                  only:extract_eos_from_hdr
  use externalforces,       only:extract_iextern_from_hdr
  implicit none
@@ -55,12 +54,12 @@ program phantom2hdf5
     !--read particle setup from dumpfile
     !
     fulldump = .true.
-    call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+    call read_dump_fortran(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
 
     ! Try opening small dump if there is an error opening full dump
     if (ierr /= 0) then
        fulldump = .false.
-       call read_smalldump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+       call read_smalldump_fortran(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
     endif
 
     ! If there is still an error, skip to the next file
