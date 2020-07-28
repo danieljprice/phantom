@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testmath
-!
-!  DESCRIPTION:
-!  This module performs unit tests of the fast sqrt routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fastmath, io, mpiutils, random
-!+
-!--------------------------------------------------------------------------
 module testmath
+!
+! This module performs unit tests of the fast sqrt routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fastmath, io, mpiutils, random
+!
  implicit none
  public :: test_math
 

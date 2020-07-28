@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: evwrite
+module evwrite
 !
-!  DESCRIPTION:
-!  Calculates conserved quantities etc and writes to .ev file;
+! Calculates conserved quantities etc and writes to .ev file;
 !  Also writes log output
 !  To Developer: To add values to the .ev file, follow the following procedure.
 !     In the init_evfile subroutine in evwrite.F90, add the following command:
@@ -33,20 +31,15 @@
 !        where any or all of x,a,n can be used as a single action.  Although 0 & s are treated
 !        the same, they are kept separate for clarity without added computational cost
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
+!   fileutils, io, nicil, options, part, ptmass, timestep, units, viscosity
 !
-!  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    fileutils, io, nicil, options, part, ptmass, timestep, units,
-!    viscosity
-!+
-!--------------------------------------------------------------------------
-module evwrite
  use io,             only: fatal,iverbose
  use options,        only: iexternalforce
  use timestep,       only: dtmax_dratio

@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for discs
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, discanalysisutils, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for discs
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, discanalysisutils, infile_utils, io, part, physcon
+!
  use discanalysisutils, only:disc_analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc'

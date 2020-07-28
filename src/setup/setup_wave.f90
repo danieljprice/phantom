@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup of a linear sound wave in a box
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, dust, io, kernel, mpiutils,
-!    options, part, physcon, prompting, set_dust, setup_params, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of a linear sound wave in a box
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, dust, io, kernel, mpiutils,
+!   options, part, physcon, prompting, set_dust, setup_params, unifdis
+!
  implicit none
  public :: setpart
 

@@ -4,40 +4,34 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: h2cooling
+module h2cooling
 !
-!  DESCRIPTION:
-!  Contains routines for cooling
+! Contains routines for cooling
 !  Routines are originally by Simon Glover,
 !  Translated to Fortran 90 and adapted
 !  for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES:
+! :References:
 !   Sembach et al. (2000) ApJ 528, 310
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - abundc            : *Carbon abundance*
+!   - abunde            : *electron abundance*
+!   - abundo            : *Oxygen abundance*
+!   - abundsi           : *Silicon abundance*
+!   - dchem             : *distance for chemistry of HI*
+!   - dlq               : *distance for column density in cooling function*
+!   - dphot             : *photodissociation distance used for CO/H2*
+!   - dphotflag         : *photodissociation distance static or radially adaptive (0/1)*
+!   - dust_to_gas_ratio : *dust to gas ratio*
+!   - iflag_atom        : *Which atomic cooling (1:Gal ISM, 2:Z=0 gas)*
+!   - iphoto            : *Photoelectric heating treatment (0=optically thin, 1=w/extinction)*
 !
-!  RUNTIME PARAMETERS:
-!    abundc            -- Carbon abundance
-!    abunde            -- electron abundance
-!    abundo            -- Oxygen abundance
-!    abundsi           -- Silicon abundance
-!    dchem             -- distance for chemistry of HI
-!    dlq               -- distance for column density in cooling function
-!    dphot             -- photodissociation distance used for CO/H2
-!    dphotflag         -- photodissociation distance static or radially adaptive (0/1)
-!    dust_to_gas_ratio -- dust to gas ratio
-!    iflag_atom        -- Which atomic cooling (1:Gal ISM, 2:Z=0 gas)
-!    iphoto            -- Photoelectric heating treatment (0=optically thin, 1=w/extinction)
+! :Dependencies: fs_data, infile_utils, io, mol_data, part, physcon,
+!   splineutils, units
 !
-!  DEPENDENCIES: fs_data, infile_utils, io, mol_data, part, physcon,
-!    splineutils, units
-!+
-!--------------------------------------------------------------------------
-module h2cooling
  use physcon, only:kboltz
  implicit none
 !

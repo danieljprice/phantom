@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testcooling
-!
-!  DESCRIPTION:
-!   Unit tests of the cooling module
-!
-!  REFERENCES:
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: chem, cooling, h2cooling, io, part, physcon, testutils,
-!    units
-!+
-!--------------------------------------------------------------------------
 module testcooling
+!
+! Unit tests of the cooling module
+!
+! :References:
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: chem, cooling, h2cooling, io, part, physcon, testutils,
+!   units
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none

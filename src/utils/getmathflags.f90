@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: getmathflags
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: getmathflags [no arguments]
-!
-!  DEPENDENCIES: mpiutils, testmath
-!+
-!--------------------------------------------------------------------------
 program getmathflags
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: getmathflags [no arguments]
+!
+! :Dependencies: mpiutils, testmath
+!
  use testmath, only:test_math
  use mpiutils, only:init_mpi, finalise_mpi
  implicit none

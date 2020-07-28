@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testnimhd
+module testnimhd
 !
-!  DESCRIPTION:
-!   Unit tests of the non-ideal MHD algorithms; this requires the NICIL
+! Unit tests of the non-ideal MHD algorithms; this requires the NICIL
 !   module, but does not test its inner workings
 !   Note that this module should also test super-timestepping, but that
 !   is less straight forward
 !
-!  REFERENCES:
+! :References:
 !   Wurster, Price & Ayliffe (2014),  MNRAS 444, 1104
 !   Wurster, Price & Bate (2016), MNRAS 457, 1037
 !   Wurster (2016), PASA 33, e041
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!   nicil, options, part, physcon, step_lf_global, testutils, timestep,
+!   timestep_sts, unifdis, units
 !
-!  DEPENDENCIES: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!    nicil, options, part, physcon, step_lf_global, testutils, timestep,
-!    timestep_sts, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module testnimhd
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  use mpiutils,  only:reduceall_mpi

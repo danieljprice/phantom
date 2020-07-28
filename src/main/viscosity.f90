@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: viscosity
-!
-!  DESCRIPTION:
-!   Routines related to physical viscosity
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, part, timestep
-!+
-!--------------------------------------------------------------------------
 module viscosity
+!
+! Routines related to physical viscosity
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, part, timestep
+!
  implicit none
  integer, public :: irealvisc
  real, public :: shearparam, bulkvisc, HoverR

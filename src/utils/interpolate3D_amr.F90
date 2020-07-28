@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: interpolations3D_amr
+module interpolations3D_amr
 !
-!  DESCRIPTION:
-!  Module containing routine for interpolation from PHANTOM data
+! Module containing routine for interpolation from PHANTOM data
 !  to 3D adaptive mesh
 !
 !  Requires adaptivemesh.f90 module
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: adaptivemesh
 !
-!  DEPENDENCIES: adaptivemesh
-!+
-!--------------------------------------------------------------------------
 
-module interpolations3D_amr
  implicit none
  real, parameter, private :: dpi = 1./3.1415926536d0
  public :: interpolate3D_amr

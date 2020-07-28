@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: wind_equations
-!
-!  DESCRIPTION: integrate the 1D wind equation to determine the initial wind profile
-!
-!  REFERENCES: Introduction to stellar winds (Lamers & Cassinelli)
-!
-!  OWNER: Lionel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, options, physcon
-!+
-!--------------------------------------------------------------------------
 module wind_equations
+!
+! integrate the 1D wind equation to determine the initial wind profile
+!
+! :References: Introduction to stellar winds (Lamers & Cassinelli)
+!
+! :Owner: Lionel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, options, physcon
+!
 
  implicit none
 

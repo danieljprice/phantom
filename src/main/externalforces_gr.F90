@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: externalforces
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accradius1      -- soft accretion radius of black hole
-!    accradius1_hard -- hard accretion radius of black hole
-!
-!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, units
-!+
-!--------------------------------------------------------------------------
 module externalforces
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - accradius1      : *soft accretion radius of black hole*
+!   - accradius1_hard : *hard accretion radius of black hole*
+!
+! :Dependencies: dump_utils, infile_utils, io, metric_tools, part, units
+!
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"

@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine to print the sink masses as functions of time.
+! Analysis routine to print the sink masses as functions of time.
 !  Each sink particle will have its own file.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, part, prompting
 !
-!  DEPENDENCIES: dim, part, prompting
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'sinkmass'
  public :: do_analysis

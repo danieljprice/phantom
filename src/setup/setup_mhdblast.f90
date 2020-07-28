@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup for the MHD blast wave problem
-!
-!  REFERENCES: None
-!
-!  OWNER: James Wurster
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    npartx  -- number of particles in x-direction
-!    plasmaB -- plasma beta in the initial blast
-!
-!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the MHD blast wave problem
+!
+! :References: None
+!
+! :Owner: James Wurster
+!
+! :Runtime parameters:
+!   - npartx  : *number of particles in x-direction*
+!   - plasmaB : *plasma beta in the initial blast*
+!
+! :Dependencies: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
 

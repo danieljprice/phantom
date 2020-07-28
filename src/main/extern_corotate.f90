@@ -4,37 +4,31 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_corotate
+module extern_corotate
 !
-!  DESCRIPTION:
-!   Implementation of external forces needed to perform
+! Implementation of external forces needed to perform
 !   simulations in a corotating frame
 !   (i.e. coriolis & centrifugal forces)
 !
 !   Kinetic energy is 0.5*(v + Omega x r)^2
 !                   = 0.5*v^2 + v.(Omega x r) + 0.5*(Omega x r)^2
 !
-!  REFERENCES: e.g. Tong (2015) classical dynamics lecture notes
+! :References: e.g. Tong (2015) classical dynamics lecture notes
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - companion_mass    : *mass of companion*
+!   - companion_xpos    : *x-position of companion*
+!   - hsoft             : *softening radius of companion gravity*
+!   - icompanion_grav   : *1=add companion potential, 2=add companion and primary core potential*
+!   - omega_corotate    : *angular speed of corotating frame*
+!   - primarycore_hsoft : *softening radius of primary core*
+!   - primarycore_mass  : *mass of primary*
+!   - primarycore_xpos  : *x-position of primary*
 !
-!  RUNTIME PARAMETERS:
-!    companion_mass    -- mass of companion
-!    companion_xpos    -- x-position of companion
-!    hsoft             -- softening radius of companion gravity
-!    icompanion_grav   -- 1=add companion potential, 2=add companion and primary core potential
-!    omega_corotate    -- angular speed of corotating frame
-!    primarycore_hsoft -- softening radius of primary core
-!    primarycore_mass  -- mass of primary
-!    primarycore_xpos  -- x-position of primary
+! :Dependencies: infile_utils, io, kernel, physcon, vectorutils
 !
-!  DEPENDENCIES: infile_utils, io, kernel, physcon, vectorutils
-!+
-!--------------------------------------------------------------------------
-module extern_corotate
  implicit none
  !
  !--code input parameters: these are the default values

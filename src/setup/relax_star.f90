@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: relaxstar
+module relaxstar
 !
-!  DESCRIPTION:
-!   Automated relaxation of stellar density profile,
+! Automated relaxation of stellar density profile,
 !   iterating towards hydrostatic equilibrium
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - maxits   : *maximum number of relaxation iterations*
+!   - tol_dens : *% error in density to stop relaxation*
+!   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-!  RUNTIME PARAMETERS:
-!    maxits   -- maximum number of relaxation iterations
-!    tol_dens -- % error in density to stop relaxation
-!    tol_ekin -- tolerance on ekin/epot to stop relaxation
+! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
+!   infile_utils, initial, io, memory, options, part, physcon, ptmass,
+!   readwrite_dumps, step_lf_global, table_utils, units
 !
-!  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
-!    infile_utils, initial, io, memory, options, part, physcon, ptmass,
-!    readwrite_dumps, step_lf_global, table_utils, units
-!+
-!--------------------------------------------------------------------------
-module relaxstar
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
 

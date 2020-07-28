@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: writeheader
-!
-!  DESCRIPTION: writes runtime header to the logfile
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
-!    metric_tools, options, part, physcon, readwrite_infile, units,
-!    viscosity
-!+
-!--------------------------------------------------------------------------
 module writeheader
+!
+! writes runtime header to the logfile
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
+!   metric_tools, options, part, physcon, readwrite_infile, units,
+!   viscosity
+!
  implicit none
  public :: write_header,write_codeinfo
 

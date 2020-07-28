@@ -4,40 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup of dust settling problem from PL15
-!
-!  REFERENCES: Price & Laibe (2015), MNRAS 451, 5332
-!
-!  OWNER: James Wurster
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    HonR              -- ratio of H/R
-!    Rdisc             -- radius at which the calculations will be made [au]
-!    Rmax              -- Complete N revolutions at what radius? [au]
-!    dust_to_gas_ratio -- dust-to-gas ratio
-!    graindenscgs      -- grain density [g/cm^3]
-!    grainsizecgs      -- grain size in [cm]
-!    ndusttypes        -- number of grain sizes
-!    norbit            -- Number of orbits at Rmax
-!    npartx            -- requested number of particles in x-direction
-!    rhozero           -- midplane density (> 0 for code units; < 0 for cgs)
-!    sindex            -- power-law index, e.g. MRN
-!    smaxcgs           -- maximum grain size [cm]
-!    smincgs           -- minimum grain size [cm]
-!    stellar_mass      -- mass of the central star [Msun]
-!
-!  DEPENDENCIES: boundary, dim, domain, dust, externalforces, infile_utils,
-!    io, mpiutils, options, part, physcon, prompting, set_dust,
-!    setup_params, table_utils, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of dust settling problem from PL15
+!
+! :References: Price & Laibe (2015), MNRAS 451, 5332
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, dust, externalforces, io, mpiutils,
+!   options, part, physcon, prompting, set_dust, setup_params, table_utils,
+!   timestep, unifdis, units
+!
  use part,           only:ndusttypes,ndustsmall
  use dust,           only:grainsizecgs,graindenscgs
  use setup_params,   only:rhozero

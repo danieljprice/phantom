@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine which computes 3D kd-tree and writes to file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: kdtree, linklist, part
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine which computes 3D kd-tree and writes to file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: kdtree, linklist, part
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
 
