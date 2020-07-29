@@ -23,7 +23,7 @@
 !--------------------------------------------------------------------------
 module moddump
  implicit none
- integer, parameter :: nchild = 4
+ integer, parameter :: nchild = 13
 
 contains
 
@@ -40,7 +40,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: ichild,iparent,child_found
  logical :: iactive(npart)
  real, allocatable, dimension(:,:) :: xyzh_parent,vxyzu_parent,xyzh_in,vxyzu_in
- real    :: mchild,rik(3),rik2,rikmax,mparent
+ real    :: rik(3),rik2,rikmax
 
 ierr = 0
 
@@ -56,7 +56,6 @@ ierr = 0
  if (nactive < npart) print*,'Discarding inactive particles'
 
  !-- check number of parent particles
- mchild = massoftype(igas)
  nparent = floor(real(nactive)/real(nchild))
  remainder = mod(nactive,nchild)
  if (remainder/nactive > 0.01) then
@@ -94,10 +93,10 @@ over_parent: do i=1,npart
 
   ! find nearby children
   over_child: do j=1,nchild-1
-    rikmax = huge(rikmax)
     !-- choose the next closest particle as child
-    !-- (probably a much faster way to do this bit)
+    !-- (there *must* be a more accurate way to group them)
     child_found = -1
+    rikmax = huge(rikmax)
     over_neighbours: do k=1,npart
       if (on_list(k) > 0 .or. .not.iactive(k)) cycle over_neighbours
       rik = xyzh(1:3,k) - xyzh(1:3,i)
@@ -119,12 +118,13 @@ over_parent: do i=1,npart
     ichild = ichild + 1
     children_list(ichild) = child_found
     on_list(child_found) = 1
-
   enddo over_child
 
 ! send in children, parent returns
-call merge_particles(nchild,children_list,mchild, npart, &
-     xyzh,vxyzu,xyzh_parent(1:4,iparent),vxyzu_parent(1:3,iparent),mparent)
+! have to save these in a temporary array because need all
+! the children to calculate density at new parent
+call merge_particles(nchild,children_list,massoftype(igas), npart, &
+     xyzh,vxyzu,xyzh_parent(1:4,iparent),vxyzu_parent(1:3,iparent))
 
 enddo over_parent
 
@@ -144,7 +144,7 @@ enddo over_parent
 !--update npartoftype
   npartoftype(igas) = nparent
   npart = nparent
-  massoftype(igas) = mparent
+  massoftype(:) = massoftype(:) * nchild
 
   if (ierr /= 0) call fatal('moddump','could not merge particles')
 
