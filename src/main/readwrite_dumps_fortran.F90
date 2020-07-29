@@ -18,9 +18,10 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, dump_utils, eos, externalforces, fileutils,
-!   gitinfo, io, krome_user, lumin_nsdisc, memory, mpi,
-!   mpiutils, options, part, setup_params, sphNGutils, timestep, units
+! :Dependencies: boundary, checkconserved, dim, dump_utils, eos,
+!   externalforces, fileutils, gitinfo, io, krome_user, lumin_nsdisc,
+!   memory, mpi, mpiutils, options, part, setup_params, sphNGutils,
+!   timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -880,7 +881,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       call allocate_memory(int(nparttot / nprocs) + 1)
+       call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
     endif
 !
@@ -1072,7 +1073,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(nparttot / nprocs) + 1)
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
 !
@@ -1992,16 +1993,16 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('rhozero',rhozero,hdr,ierr)
  call extract('RK2',rk2,hdr,ierr)
  polyk = 2./3.*rk2
- if (maxvxyzu >= 4) then
-    if (use_krome) then
-       if (id==master) write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+ if (id==master) then
+    if (maxvxyzu >= 4) then
+       if (use_krome) then
+          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+       else
+          write(iprint,*) 'adiabatic eos: gamma = ',gamma
+       endif
     else
-       if (id==master) write(iprint,*) 'adiabatic eos: gamma = ',gamma
-    endif
- else
-    write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
-    if (polyk <= tiny(polyk)) then
-       write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
+       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+       if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
     endif
  endif
 
@@ -2086,10 +2087,12 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     call extract('Bextx',Bextx,hdr,ierrs(1))
     call extract('Bexty',Bexty,hdr,ierrs(2))
     call extract('Bextz',Bextz,hdr,ierrs(3))
-    if (any(ierrs(1:3) /= 0)) then
-       write(*,*) 'ERROR reading external field (setting to zero)'
-    else
-       write(*,*) 'External field found, Bext = ',Bextx,Bexty,Bextz
+    if (id==master) then
+       if (any(ierrs(1:3) /= 0)) then
+          write(*,*) 'ERROR reading external field (setting to zero)'
+       else
+          write(*,*) 'External field found, Bext = ',Bextx,Bexty,Bextz
+       endif
     endif
  endif
 

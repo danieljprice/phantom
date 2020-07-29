@@ -14,7 +14,7 @@ module setup_params
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim
+! :Dependencies: None
 !
  implicit none
  real            :: rmax,rhozero

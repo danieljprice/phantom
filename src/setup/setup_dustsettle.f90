@@ -10,13 +10,27 @@ module setup
 !
 ! :References: Price & Laibe (2015), MNRAS 451, 5332
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - HonR              : *ratio of H/R*
+!   - Rdisc             : *radius at which the calculations will be made [au]*
+!   - Rmax              : *Complete N revolutions at what radius? [au]*
+!   - dust_to_gas_ratio : *dust-to-gas ratio*
+!   - graindenscgs      : *grain density [g/cm^3]*
+!   - grainsizecgs      : *grain size in [cm]*
+!   - ndusttypes        : *number of grain sizes*
+!   - norbit            : *Number of orbits at Rmax*
+!   - npartx            : *requested number of particles in x-direction*
+!   - rhozero           : *midplane density (> 0 for code units; < 0 for cgs)*
+!   - sindex            : *power-law index, e.g. MRN*
+!   - smaxcgs           : *maximum grain size [cm]*
+!   - smincgs           : *minimum grain size [cm]*
+!   - stellar_mass      : *mass of the central star [Msun]*
 !
-! :Dependencies: boundary, dim, domain, dust, externalforces, io, mpiutils,
-!   options, part, physcon, prompting, set_dust, setup_params, table_utils,
-!   timestep, unifdis, units
+! :Dependencies: boundary, dim, domain, dust, externalforces, infile_utils,
+!   io, mpiutils, options, part, physcon, prompting, set_dust,
+!   setup_params, table_utils, timestep, unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall
  use dust,           only:grainsizecgs,graindenscgs
@@ -51,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
  use timestep,       only:dtmax,tmax
- use units,          only:set_units,udist,umass
+ use units,          only:set_units,udist,umass,utime
  use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
@@ -183,8 +197,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu >= 4) then
     gamma = 5./3.
  else
-    gamma  = 1.
-    polyk  = cs**2
+    gamma = 1.
+    polyk = cs**2
  endif
 !
 !--get stopping time information
@@ -246,11 +260,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype(itype)  = totmass/npartoftype(itype)*(1. + dtg)
 
  if (id==master) then
-    print*,' npart                 = ',npart,npart_total
+    print*,' npart,npart_total     = ',npart,npart_total
     print*,' particle mass         = ',massoftype(itype),'code units'
     print*,' particle mass         = ',massoftype(itype)*umass,'g'
     print*,' total mass            = ',npart*massoftype(itype)*umass,'g'
     print*,' mid-plane gas density = ',rhozero*umass/udist**3,'g/cm^3'
+    print*,' Rdisc                 = ',Rdisc*udist/au,'au'
+    print*,' H0                    = ',H0*udist/au,'au'
+    print*,' H/R                   = ',HonR
+    print*,' cs                    = ',cs*udist/utime,'cm/s'
+ endif
+ if (HonR > 0.1) then
+    print*, ' '
+    print*, 'WARNING! This disc is hot, and *may* blow apart rather than settle.  A smaller ratio of H/R may be required.'
+    print*, '         The default value of 0.05 yields stable results'
+    print*, ' '
  endif
 
 end subroutine setpart

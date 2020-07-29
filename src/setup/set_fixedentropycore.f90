@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setfixedentropycore
+module setfixedentropycore
 !
-!  DESCRIPTION:
-!   This module softens the core of a MESA stellar profile with a constant
+! This module softens the core of a MESA stellar profile with a constant
 !   entropy profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Mike Lau
+! :Owner: Mike Lau
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, kernel, physcon, table_utils
 !
-!  DEPENDENCIES: eos, kernel, physcon, table_utils
-!+
-!--------------------------------------------------------------------------
-module setfixedentropycore
  implicit none
 
 contains
@@ -47,7 +41,6 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
-
  ! Exclude core mass in output mass coordinate?
  iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
@@ -140,7 +133,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
 
  do
     mold = mass
-    call one_shot(Sc,r,mcore,msoft,rho,pres,mass)
+    call one_shot(Sc,r,mcore,msoft,rho,pres,mass) ! returned mass is m(r=0)
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
        msoft = mh - mcore
@@ -150,8 +143,11 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
        mcore = mcore * (1. + fac)
        msoft = mh - mcore
     endif
-
     if (mold * mass < 0.) fac = fac * 0.5
+    if (mold == mass) then
+       write(*,'(a,f12.5)') 'Warning: Setting fixed entropy for m(r=0)/msoft = ',mass/msoft
+       exit
+    endif
  enddo
 
  if (Sedge < Sc) ierr = 1
@@ -193,7 +189,7 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
-    if (mass < 0.) return ! Choice of entropy fails to give m(r=0) = 0
+    if (mass < 0.) return ! m(r) < 0 encountered, exit and increase Sc
  enddo
 
  return
@@ -218,18 +214,17 @@ function entropy(rho,pres)
  inv_mu = 1/gmw
  corr = huge(corr); temp = 1d3
 
- ! First solve for temperature given density and pressure using Newton-
- ! Raphson method, assumming ideal gas plus radiation EoS
- do while (abs(corr) > eoserr*temp)
-    corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
-          / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
-    temp = temp - corr
- enddo
-
  if (ieos == 2) then
+    temp = pres * gmw / (rho * kb_on_mh)
     ! Include only gas entropy for adiabatic EoS
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
  else
+    ! Assume ideal gas plus radiation EoS, solve for temp using Newton-Raphson method
+    do while (abs(corr) > eoserr*temp)
+       corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
+             / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
+       temp = temp - corr
+    enddo
     ! Include both gas and radiation entropy for MESA and gas plus rad. EoSs
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
  endif

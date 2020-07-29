@@ -14,9 +14,9 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, extern_gwinspiral, externalforces,
-!   io, options, part, physcon, prompting, readwrite_dumps, timestep,
-!   units
+! :Dependencies: centreofmass, dim, energies, extern_gwinspiral,
+!   externalforces, io, options, part, physcon, prompting, readwrite_dumps,
+!   timestep, units
 !
  implicit none
 

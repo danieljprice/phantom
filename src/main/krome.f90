@@ -11,7 +11,7 @@ module krome_interface
 !
 ! :References: None
 !
-! :Owner: ward
+! :Owner: Lionel
 !
 ! :Runtime parameters: None
 !

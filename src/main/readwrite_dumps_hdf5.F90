@@ -18,8 +18,8 @@ module readwrite_dumps_hdf5
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, eos, extern_binary, extern_gwinspiral,
-!   externalforces, gitinfo, io, lumin_nsdisc, memory,
+! :Dependencies: boundary, checkconserved, dim, eos, extern_binary,
+!   extern_gwinspiral, externalforces, gitinfo, io, lumin_nsdisc, memory,
 !   mpiutils, options, part, setup_params, timestep, units,
 !   utils_dumpfiles_hdf5
 !
@@ -590,7 +590,7 @@ subroutine read_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then
@@ -791,7 +791,7 @@ subroutine read_smalldump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then

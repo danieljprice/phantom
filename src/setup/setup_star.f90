@@ -33,7 +33,7 @@ module setup
 !   - ieos               : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp        : *initial temperature of the star*
 !   - isinkcore          : *Add a sink particle stellar core*
-!   - isoftcore          : *Soften the core of an input MESA profile*
+!   - isoftcore          : *0=no core softening, 1=cubic core, 2=constant entropy core*
 !   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
 !   - mass_unit          : *mass unit (e.g. solarm)*
 !   - mcore              : *Mass of sink particle stellar core*
@@ -48,8 +48,9 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
-!   setstellarcore, setup_params, spherical, table_utils, timestep, units
+!   part, physcon, prompting, relaxstar, rho_profile, setfixedentropycore,
+!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
+!   timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -308,6 +309,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! are same as the original profile for r > hsoft
 
        call init_eos(ieos,ierr)
+       if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
           call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
