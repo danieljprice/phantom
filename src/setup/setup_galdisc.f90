@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!  this module does setup for galactic discs with live or analytic stars
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: datafiles, dim, extern_spiral, externalforces, io,
-!    mpiutils, options, part, physcon, prompting, random, set_dust,
-!    setup_params, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! this module does setup for galactic discs with live or analytic stars
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, dim, extern_spiral, externalforces, io,
+!   mpiutils, options, part, physcon, prompting, random, set_dust,
+!   setup_params, units
+!
  implicit none
  public :: setpart
 

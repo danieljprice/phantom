@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: fileutils
+module fileutils
 !
-!  DESCRIPTION:
-!  This module contains useful utilities related to
+! This module contains useful utilities related to
 !  file names and numbering
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 
-module fileutils
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
  public :: strip_extension,is_digit,files_are_sequential

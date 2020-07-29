@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: step_lf_global
+module step_lf_global
 !
-!  DESCRIPTION:
-!   Computes one (hydro) timestep
+! Computes one (hydro) timestep
 !
 !   Change this subroutine to change the timestepping algorithm
 !
@@ -16,24 +14,20 @@
 !   substepping (operator splitting) of external/sink particle forces,
 !   following the Reversible RESPA algorithm of Tuckerman et al. 1992
 !
-!  REFERENCES:
+! :References:
 !     Verlet (1967), Phys. Rev. 159, 98-103
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
+!   derivutils, dim, dust_formation, eos, extern_gr, externalforces,
+!   growth, h2cooling, io, io_summary, krome_interface, metric_tools,
+!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!   timestep_ind, timestep_sts, timing
 !
-!  DEPENDENCIES: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
-!    derivutils, dim, dust_formation, eos, extern_gr, externalforces,
-!    growth, h2cooling, io, io_summary, krome_interface, metric_tools,
-!    mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!    timestep_ind, timestep_sts, timing
-!+
-!--------------------------------------------------------------------------
-module step_lf_global
  use dim,  only:maxp,maxvxyzu,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
  use part, only:radpred
@@ -1261,7 +1255,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 !
                 ! Get updated abundances of all species, updates 'chemarrays',
                 !
-                dphot = get_dphot(dphotflag,real(dphot0),xyzh(1,i),xyzh(2,i),xyzh(3,i))
+                dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
                 call update_abundances(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),abundance(:,i),&
                       nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
              endif

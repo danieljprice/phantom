@@ -4,35 +4,29 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for 3D shock tube tests
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dtg         -- Dust to gas ratio
-!    dust_method -- 1=one fluid, 2=two fluid
-!    gamma       -- Adiabatic index
-!    kappa       -- opacity in cm^2/g
-!    nx          -- resolution (number of particles in x) for -xleft < x < xshock
-!    polyk       -- square of the isothermal sound speed
-!    smooth_fac  -- smooth shock front over lengthscale smooth_fac*dxleft
-!    xleft       -- x min boundary
-!    xright      -- x max boundary
-!
-!  DEPENDENCIES: boundary, dim, dust, eos, infile_utils, io, kernel,
-!    mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
-!    set_dust, setshock, setup_params, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for 3D shock tube tests
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - dtg         : *Dust to gas ratio*
+!   - dust_method : *1=one fluid, 2=two fluid*
+!   - gamma       : *Adiabatic index*
+!   - kappa       : *opacity in cm^2/g*
+!   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - polyk       : *square of the isothermal sound speed*
+!   - smooth_fac  : *smooth shock front over lengthscale smooth_fac*dxleft*
+!   - xleft       : *x min boundary*
+!   - xright      : *x max boundary*
+!
+! :Dependencies: boundary, dim, dust, eos, infile_utils, io, kernel,
+!   mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
+!   set_dust, setshock, setup_params, timestep, unifdis, units
+!
  implicit none
  integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
@@ -157,7 +151,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
  endif
- if (ierr /= 0 .and. id==master) then
+ if ((.not. iexist .or. ierr /= 0) .and. id==master) then
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg) ! write shock file with defaults
     print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
     stop

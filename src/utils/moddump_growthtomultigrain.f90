@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  transforms dustgrowth dump into multigrain dump for mcfost usage
-!
-!  REFERENCES: None
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, growth, part, prompting, timestep
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! transforms dustgrowth dump into multigrain dump for mcfost usage
+!
+! :References: None
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, growth, part, prompting, timestep
+!
  implicit none
 
 contains

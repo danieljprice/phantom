@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: get_ang
+program get_ang
 !
-!  DESCRIPTION: Utility to extract accreted ang mom as a function of time
+! Utility to extract accreted ang mom as a function of time
 !    from the accretion.ev file
 !    Chris Nixon, March 2014
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: acc2ang sink_ID dt_min accretion.ev
 !
-!  USAGE: acc2ang sink_ID dt_min accretion.ev
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-program get_ang
  implicit none
  integer, parameter :: lu = 11, iout = 12
  integer, parameter :: imacc_col = 17

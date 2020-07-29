@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomevcompare
+program phantomevcompare
 !
-!  DESCRIPTION: For the given input .ev files, will rewrite them using
+! For the given input .ev files, will rewrite them using
 !               common headers
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: phantomevcompare [no arguments]
 !
-!  USAGE: phantomevcompare [no arguments]
+! :Dependencies: evutils, prompting
 !
-!  DEPENDENCIES: evutils, prompting
-!+
-!--------------------------------------------------------------------------
-program phantomevcompare
  use prompting, only: prompt
  use evutils,   only: max_columns,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
                       write_evin_file,write_columns_to_file

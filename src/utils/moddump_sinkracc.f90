@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: Change accretion radius of sink particle
-!
-!  REFERENCES: None
-!
-!  OWNER: Mike Lau
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, prompting
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! Change accretion radius of sink particle
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, prompting
+!
  use part,      only:xyzmh_ptmass,nptmass,ihacc,ihsoft
  use prompting, only:prompt
  implicit none

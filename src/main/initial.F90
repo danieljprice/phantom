@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: initial
-!
-!  DESCRIPTION:
-!   This module initialises (and ends) the run
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: analysis, balance, boundary, centreofmass, checkoptions,
-!    checksetup, chem, cons2prim, cooling, cpuinfo, densityforce, deriv,
-!    dim, domain, dust, energies, eos, evwrite, extern_gr, externalforces,
-!    fastmath, fileutils, forcing, growth, h2cooling, initial_params,
-!    inject, io, io_summary, krome_interface, linklist, metric_tools,
-!    mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup, omputils,
-!    options, part, photoevap, ptmass, readwrite_dumps, readwrite_infile,
-!    sort_particles, stack, timestep, timestep_ind, timestep_sts, timing,
-!    units, writeheader
-!+
-!--------------------------------------------------------------------------
 module initial
+!
+! This module initialises (and ends) the run
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: analysis, balance, boundary, centreofmass, checkconserved,
+!   checkoptions, checksetup, chem, cons2prim, cooling, cpuinfo,
+!   densityforce, deriv, dim, domain, dust, energies, eos, evwrite,
+!   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
+!   h2cooling, inject, io, io_summary, krome_interface, linklist,
+!   metric_tools, mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup,
+!   omputils, options, part, photoevap, ptmass, readwrite_dumps,
+!   readwrite_infile, sort_particles, stack, timestep, timestep_ind,
+!   timestep_sts, timing, units, writeheader
+!
 #ifdef MPI
  use mpi
 #endif
@@ -123,7 +117,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity
+ use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity,use_dust
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -134,7 +128,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,alphaind,ntot,ndim, &
+                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim, &
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
@@ -182,7 +176,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef DUST
  use dust,             only:init_drag
- use part,             only:ndusttypes
 #ifdef DUSTGROWTH
  use growth,           only:init_growth
 #endif
@@ -226,7 +219,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
- use initial_params,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -243,9 +236,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
  character(len=len(dumpfile)) :: dumpfileold
-#ifdef DUST
  character(len=7) :: dust_label(maxdusttypes)
-#endif
 !
 !--do preliminary initialisation
 !
@@ -660,16 +651,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 !--Print box sizes and masses
 !
- if (get_conserv > 0.0) then
-    write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
- else
-    write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+ if (id==master) then
+    if (get_conserv > 0.0) then
+       write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+    else
+       write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+    endif
+    write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
+    write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
+    write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
+    write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+    write(iprint,'(a)') ' '
  endif
- write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
- write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
- write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
- write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
- write(iprint,'(a)') ' '
 !
 !--Set initial values for continual verification of conservation laws
 !  get_conserve=0.5: update centre of mass only; get_conserve=1: update all; get_conserve=-1: update none
@@ -679,23 +672,28 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
+    if (id==master) write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
  else
-    write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
+    if (id==master) then
+       write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
+    endif
  endif
- write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
- write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
- write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
-#ifdef DUST
- dust_label = 'dust'
- call make_tags_unique(ndusttypes,dust_label)
- do i=1,ndusttypes
-    write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
- enddo
- write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
-#endif
+ if (id==master) then
+    write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
+    write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+    write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+    if (use_dust) then
+       dust_label = 'dust'
+       call make_tags_unique(ndusttypes,dust_label)
+       do i=1,ndusttypes
+          if (mdust_in(i) > 0.) write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
+       enddo
+       write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
+    endif
+ endif
 !
 !--Print warnings of units if values are not reasonable
+!
  tolu = 1.0d2
  toll = 1.0d-2
  if (get_conserv > 0.0) then

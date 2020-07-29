@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  test common envelope - put point source star next to gas sphere
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, extern_corotate, externalforces,
-!    infile_utils, io, options, part, physcon, prompting, rho_profile,
-!    setbinary, timestep, units
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! test common envelope - put point source star next to gas sphere
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
+!   infile_utils, io, options, part, physcon, prompting, rho_profile,
+!   setbinary, timestep, units
+!
  implicit none
 
 contains

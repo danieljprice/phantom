@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testptmass
-!
-!  DESCRIPTION:
-!   Unit tests of the ptmass/sink particles module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, checksetup, deriv, dim, energies, eos,
-!    fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
-!    ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module testptmass
+!
+! Unit tests of the ptmass/sink particles module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
+!   fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
+!   ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
+!   timestep, units
+!
  implicit none
  public :: test_ptmass
 

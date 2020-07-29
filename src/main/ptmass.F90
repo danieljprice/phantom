@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: ptmass
+module ptmass
 !
-!  DESCRIPTION:
-!  This module contains everything to do with
+! This module contains everything to do with
 !  sink / point mass particles
 !
 !  These are treated quite differently to SPH particles,
@@ -19,27 +17,23 @@
 !        of 'accretable' particles is given in (and can be modified in)
 !        in function 'is_accretable' in the 'part' module.
 !
-!  REFERENCES: Bate, Bonnell & Price (1995), MNRAS 277, 362-376 [BBP95]
+! :References: Bate, Bonnell & Price (1995), MNRAS 277, 362-376 [BBP95]
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - f_acc           : *particles < f_acc*h_acc accreted without checks*
+!   - h_acc           : *accretion radius for new sink particles*
+!   - h_soft_sinkgas  : *softening length for new sink particles*
+!   - h_soft_sinksink : *softening length between sink particles*
+!   - icreate_sinks   : *allow automatic sink particle creation*
+!   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
+!   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
-!  RUNTIME PARAMETERS:
-!    f_acc           -- particles < f_acc*h_acc accreted without checks
-!    h_acc           -- accretion radius for new sink particles
-!    h_soft_sinkgas  -- softening length for new sink particles
-!    h_soft_sinksink -- softening length between sink particles
-!    icreate_sinks   -- allow automatic sink particle creation
-!    r_crit          -- critical radius for point mass creation (no new sinks < r_crit from existing sink)
-!    rho_crit_cgs    -- density above which sink particles are created (g/cm^3)
+! :Dependencies: boundary, dim, domain, eos, externalforces, fastmath,
+!   infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
+!   options, part, units
 !
-!  DEPENDENCIES: boundary, dim, domain, eos, externalforces, fastmath,
-!    infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
-!    options, part, units
-!+
-!--------------------------------------------------------------------------
-module ptmass
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,ipafile,iskfile

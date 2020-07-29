@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: set_dust
-!
-!  DESCRIPTION:
-!  Contains utility routines for setting up dust size distributions
-!
-!  REFERENCES:
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: table_utils
-!+
-!--------------------------------------------------------------------------
-
 module set_dust
+!
+! Contains utility routines for setting up dust size distributions
+!
+! :References:
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: table_utils
+!
+
  implicit none
 
  public :: set_dustfrac

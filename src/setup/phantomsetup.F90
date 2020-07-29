@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomsetup
-!
-!  DESCRIPTION: Wrapper to routines for setting up Phantom simulations
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantomsetup fileprefix [nprocsfake]
-!
-!  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    krome_interface, memory, mpiutils, options, part, physcon,
-!    readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
-!    units
-!+
-!--------------------------------------------------------------------------
 program phantomsetup
+!
+! Wrapper to routines for setting up Phantom simulations
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantomsetup fileprefix [nprocsfake]
+!
+! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils, io,
+!   krome_interface, memory, mpiutils, options, part, physcon,
+!   readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
+!   units
+!
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,&
                            ndivcurlv,ndivcurlB,maxp_hard

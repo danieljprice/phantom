@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testrwdump
-!
-!  DESCRIPTION:
-!   Unit test of read/write of particle data to/from dump files
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!    options, part, physcon, readwrite_dumps, testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testrwdump
+!
+! Unit test of read/write of particle data to/from dump files
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
+!   options, part, physcon, readwrite_dumps, testutils, timing, units
+!
  implicit none
  public :: test_rwdump
 

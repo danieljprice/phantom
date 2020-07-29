@@ -4,42 +4,36 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
 ! this module does setup
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Lionel Siess
+! :Owner: Lionel Siess
 !
-!  $Id$
+! :Runtime parameters:
+!   - T_wind            : *temperature (K)*
+!   - eccentricity      : *eccentricity of the binary system*
+!   - icompanion_star   : *set to 1 for a binary system*
+!   - mass_of_particles : *mass resolution (Msun)*
+!   - primary_Reff      : *primary star effective radius (au)*
+!   - primary_Teff      : *primary star effective temperature (K)*
+!   - primary_lum       : *primary star luminosity (Lsun)*
+!   - primary_mass      : *primary star mass (Msun)*
+!   - primary_racc      : *primary star accretion radius (au)*
+!   - secondary_Reff    : *secondary star effective radius (au)*
+!   - secondary_Teff    : *secondary star effective temperature)*
+!   - secondary_lum     : *secondary star luminosity (Lsun)*
+!   - secondary_mass    : *secondary star mass (Msun)*
+!   - secondary_racc    : *secondary star accretion radius (au)*
+!   - semi_major_axis   : *semi-major axis of the binary system (au)*
+!   - temp_exponent     : *temperature profile T = R^-p (0 = isothermal)*
+!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
-!  RUNTIME PARAMETERS:
-!    T_wind            -- temperature (K)
-!    eccentricity      -- eccentricity of the binary system
-!    icompanion_star   -- set to 1 for a binary system
-!    mass_of_particles -- mass resolution (Msun)
-!    primary_Reff      -- primary star effective radius (au)
-!    primary_Teff      -- primary star effective temperature (K)
-!    primary_lum       -- primary star luminosity (Lsun)
-!    primary_mass      -- primary star mass (Msun)
-!    primary_racc      -- primary star accretion radius (au)
-!    secondary_Reff    -- secondary star effective radius (au)
-!    secondary_Teff    -- secondary star effective temperature)
-!    secondary_lum     -- secondary star luminosity (Lsun)
-!    secondary_mass    -- secondary star mass (Msun)
-!    secondary_racc    -- secondary star accretion radius (au)
-!    semi_major_axis   -- semi-major axis of the binary system (au)
-!    temp_exponent     -- temperature profile T = R^-p (0 = isothermal)
-!    wind_gamma        -- adiabatic index (initial if Krome chemistry used)
+! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
+!   setbinary, spherical, units
 !
-!  DEPENDENCIES: eos, infile_utils, inject, io, part, physcon, prompting,
-!    setbinary, spherical, units
-!+
-!--------------------------------------------------------------------------
-module setup
 
  implicit none
  public :: setpart

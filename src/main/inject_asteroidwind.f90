@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Bec Nealon
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dndt_type     -- injection rate (0=const, 1=cos(t), 2=r^(-2))
-!    mdot          -- mass injection rate in grams/second
-!    npartperorbit -- particle injection rate in particles/binary orbit
-!    vlag          -- percentage lag in velocity of wind
-!
-!  DEPENDENCIES: binaryutils, externalforces, infile_utils, io, options,
-!    part, partinject, physcon, random, units
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! None
+!
+! :References: None
+!
+! :Owner: Bec Nealon
+!
+! :Runtime parameters:
+!   - dndt_type     : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
+!   - mdot          : *mass injection rate in grams/second*
+!   - npartperorbit : *particle injection rate in particles/binary orbit*
+!   - vlag          : *percentage lag in velocity of wind*
+!
+! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
+!   part, partinject, physcon, random, units
+!
  use io, only:error
  use physcon, only:pi
  implicit none

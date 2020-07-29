@@ -4,37 +4,32 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION: Handles wind particle injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Lionel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    iboundary_spheres  -- number of boundary spheres (integer)
-!    iwind_resolution   -- if<>0 set number of particles on the sphere, reset particle mass
-!    nfill_domain       -- number of spheres used to set the background density profile
-!    outer_boundary     -- kill gas particles outside this radius (au)
-!    piston_velocity    -- velocity amplitude of the pulsation (km/s)
-!    pulsation_period   -- stellar pulsation period (days)
-!    sonic_type         -- find transonic solution (1=yes,0=no)
-!    wind_inject_radius -- wind injection radius (au, if 0 take Rstar)
-!    wind_mass_rate     -- wind mass loss rate (Msun/yr)
-!    wind_shell_spacing -- desired ratio of sphere spacing to particle spacing
-!    wind_temperature   -- wind temperature at the injection point (K)
-!    wind_velocity      -- injection wind velocity (km/s, if sonic_type = 0)
-!
-!  DEPENDENCIES: dim, eos, icosahedron, infile_utils, injectutils, io,
-!    options, part, partinject, physcon, timestep, units, wind,
-!    wind_equations
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Handles wind particle injection
+!
+! :References: None
+!
+! :Owner: Lionel Siess
+!
+! :Runtime parameters:
+!   - iboundary_spheres  : *number of boundary spheres (integer)*
+!   - iwind_resolution   : *if<>0 set number of particles on the sphere, reset particle mass*
+!   - nfill_domain       : *number of spheres used to set the background density profile*
+!   - outer_boundary     : *kill gas particles outside this radius (au)*
+!   - piston_velocity    : *velocity amplitude of the pulsation (km/s)*
+!   - pulsation_period   : *stellar pulsation period (days)*
+!   - sonic_type         : *find transonic solution (1=yes,0=no)*
+!   - wind_inject_radius : *wind injection radius (au, if 0 take Rstar)*
+!   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
+!   - wind_shell_spacing : *desired ratio of sphere spacing to particle spacing*
+!   - wind_temperature   : *wind temperature at the injection point (K)*
+!   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
+!
+! :Dependencies: dim, eos, icosahedron, infile_utils, injectutils, io,
+!   options, part, partinject, physcon, timestep, units, wind,
+!   wind_equations
+!
  use physcon, only: solarl
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'

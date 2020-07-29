@@ -4,10 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: rho_profile
+module rho_profile
 !
-!  DESCRIPTION: This contains several density profiles, including
+! This contains several density profiles, including
 !               1) uniform
 !               2) polytrope
 !               3) piecewise polytrope
@@ -16,18 +15,14 @@
 !               6) Read data from KEPLER file
 !               7) Bonnor-Ebert sphere
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: datafiles, eos, physcon, units
 !
-!  DEPENDENCIES: datafiles, eos, physcon, units
-!+
-!--------------------------------------------------------------------------
-module rho_profile
  use physcon, only: pi,fourpi
  implicit none
 
@@ -525,20 +520,20 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac,
        write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
        &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
        write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
-101    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
-       2x,es13.7,2x,es13.7)
+101    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+       2x,es13.6,2x,es13.6)
     else
        write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
        &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
        write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-102    format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,&
-       2x,es13.7)
+102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+       2x,es13.6)
     endif
  else
     write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
     &[  Density  ]  [   E_int   ]'
     write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
-103 format (es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7,2x,es13.7)
+103 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  endif
 
  close(1, status = 'keep')

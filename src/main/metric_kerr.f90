@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: metric
+module metric
 !
-!  DESCRIPTION: Kerr metric in Boyer-Lindquist coordinates
+! Kerr metric in Boyer-Lindquist coordinates
 !
-!  REFERENCES:
+! :References:
 !    Liptai & Price (2019), MNRAS 485, 819-842
 !    Tejeda, Gafton & Rosswog (2017), MNRAS 468, 4483-4503
 !    https://en.wikipedia.org/wiki/Kerr_metric#Boyer–Lindquist_coordinates
 !
-!  OWNER: David Liptai
+! :Owner: David Liptai
 !
-!  $Id$
+! :Runtime parameters:
+!   - a     : *spin parameter for Kerr metric*
+!   - mass1 : *black hole mass in code units*
 !
-!  RUNTIME PARAMETERS:
-!    a     -- spin parameter for Kerr metric
-!    mass1 -- black hole mass in code units
+! :Dependencies: infile_utils, io
 !
-!  DEPENDENCIES: infile_utils, io
-!+
-!--------------------------------------------------------------------------
-module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
  integer,          parameter :: imetric     = 3

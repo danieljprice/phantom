@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  default moddump routine: does not make any modifications
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, splitpart
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! default moddump routine: does not make any modifications
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, splitpart
+!
  implicit none
  integer            :: nchild = 12
  integer, parameter :: lattice_type = 0 ! 0 for lattice, 1 for random

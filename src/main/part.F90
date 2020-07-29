@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: part
+module part
 !
-!  DESCRIPTION:
-!  This module contains main particle data for the code and
+! This module contains main particle data for the code and
 !  functions used to query particle properties not stored.
 !
 !  Basically this module defines any quantity that is
@@ -18,18 +16,14 @@
 !  (for example, any routine that copies all of the variables
 !   stored on a given particle).
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
-!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
-!+
-!--------------------------------------------------------------------------
-module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,nabundances,maxtemp,periodic,&

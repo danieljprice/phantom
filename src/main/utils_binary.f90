@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: binaryutils
-!
-!  DESCRIPTION:
-!   Utility routines for binary setup, also used in asteroid injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Bec Nealon
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module binaryutils
+!
+! Utility routines for binary setup, also used in asteroid injection
+!
+! :References: None
+!
+! :Owner: Bec Nealon
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
  real, parameter :: pi = 4.*atan(1.)
 

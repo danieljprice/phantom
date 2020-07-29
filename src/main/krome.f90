@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: krome_interface
+module krome_interface
 !
-!  DESCRIPTION:
-!   This module contains all the necessary subroutines to establish
+! This module contains all the necessary subroutines to establish
 !   the coupling between phantom and KROME
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: ward
+! :Owner: Lionel
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, krome_main, krome_user, part, units
 !
-!  DEPENDENCIES: eos, krome_main, krome_user, part, units
-!+
-!--------------------------------------------------------------------------
-module krome_interface
 
  implicit none
 

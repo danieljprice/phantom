@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for Taylor-Green Vortex test (used in Phantom paper)
-!
-!  REFERENCES: Price et al. (2017)
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, domain, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for Taylor-Green Vortex test (used in Phantom paper)
+!
+! :References: Price et al. (2017)
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
+!   setup_params, unifdis
+!
  implicit none
  public :: setpart
 

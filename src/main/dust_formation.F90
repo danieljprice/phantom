@@ -4,30 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dust_formation
-!
-!  DESCRIPTION: Dust formation routine : theory of moments
-!
-!  REFERENCES: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
-!
-!  OWNER: Lionel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    bowen_Tcond   -- dust condensation temperature (K)
-!    bowen_delta   -- condensation temperature range (K)
-!    bowen_kmax    -- maximum dust opacity (cm²/g)
-!    idust_opacity -- compute dust opacity (0=off,1=on (bowen))
-!    kappa_gas     -- constant gas opacity (cm²/g)
-!    wind_CO_ratio -- wind initial C/O ratio
-!
-!  DEPENDENCIES: dim, eos, infile_utils, io, options, physcon, units
-!+
-!--------------------------------------------------------------------------
-
 module dust_formation
+!
+! Dust formation routine : theory of moments
+!
+! :References: Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
+!
+! :Owner: Lionel
+!
+! :Runtime parameters:
+!   - bowen_Tcond   : *dust condensation temperature (K)*
+!   - bowen_delta   : *condensation temperature range (K)*
+!   - bowen_kmax    : *maximum dust opacity (cm²/g)*
+!   - idust_opacity : *compute dust opacity (0=off,1=on (bowen))*
+!   - kappa_gas     : *constant gas opacity (cm²/g)*
+!   - wind_CO_ratio : *wind initial C/O ratio*
+!
+! :Dependencies: dim, eos, infile_utils, io, options, physcon, units
+!
+
  implicit none
  integer, public :: idust_opacity = 0
 

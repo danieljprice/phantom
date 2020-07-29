@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: vectorutils
+module vectorutils
 !
-!  DESCRIPTION:
-!  This module contains utilities for manipulating vectors
+! This module contains utilities for manipulating vectors
 !  and 3x3 matrices
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module vectorutils
  implicit none
  public :: minmaxave,cross_product3D,curl3D_epsijk,det
  public :: matrixinvert3D,rotatevec
