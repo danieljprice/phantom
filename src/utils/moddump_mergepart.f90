@@ -56,7 +56,7 @@ ierr = 0
  if (nactive < npart) print*,'Discarding inactive particles'
 
  !-- check number of parent particles
- mchild = massoftype(igas)/nchild
+ mchild = massoftype(igas)
  nparent = floor(real(nactive)/real(nchild))
  remainder = mod(nactive,nchild)
  if (remainder/nactive > 0.01) then
@@ -64,7 +64,7 @@ ierr = 0
     call error('merge_particles','need to merge evenly, make sure npart(active)/nchild ~ integer')
     ierr = 1
     return
-  else
+  elseif (remainder > 0) then
     ! ignore a couple
     do i = 1,remainder
       if (xyzh(4,npart-i) > 0.) iactive(npart-i) = .false.
@@ -144,7 +144,7 @@ enddo over_parent
 !--update npartoftype
   npartoftype(igas) = nparent
   npart = nparent
-  massoftype(:) = mparent
+  massoftype(igas) = mparent
 
   if (ierr /= 0) call fatal('moddump','could not merge particles')
 
