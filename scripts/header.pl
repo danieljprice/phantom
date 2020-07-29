@@ -177,7 +177,7 @@ sub get_descript {
       # header ends when a line that is not a comment
       # is encountered
       #
-      if ( !m/\!.*/ ) { $inheader = 0 };
+      if ( !m/^\s*\!.*/ ) { $inheader = 0 };
 
       if ($inheader && !m/\!\+/ && !m/\!-+/ && ($n == 1) ) {
          $descript = "$descript$_";
@@ -256,12 +256,22 @@ sub get_descript_free {
 sub get_module_descript_free {
    my $header = shift;
    my $descript = '';
-   # match everything between !+ and !+
    if ($header =~ m/\!\+\s*\n(.*?\n)\!\+\s*/ ) {
+   # match everything between !+ and !+
       $descript=$1;
+   } elsif ($header =~ m/^!\s*\n(.*?\n)^!(\s*?\n)!\s*\:References\:/sm ) {
    # match everything starting with a blank comment line
-   # and ending with another tag e.g. REFERENCES:
-   } elsif ($header =~ m/^!\s*\n(.*?\n)^!(\s*?\n)!\s*[A-Z|a-z|\:]+\:/sm ) {
+   # and ending with the :References: tag
+      $descript=$1;
+      $descript =~ s/!\s+(\w)/\! $1/;  # single indentation in description text
+   } elsif ($header =~ m/^!\s*\n(.*?\n)^!(\s*?\n)!\s*[A-Z]+\:/sm ) {
+   # match everything starting with a blank comment line
+   # and ending with another tag in upper case e.g. REFERENCES:
+      $descript=$1;
+      $descript =~ s/!\s+(\w)/\! $1/;  # single indentation in description text
+   } elsif ($header =~ m/^!\s*\n(.*?\n)^!(\s*?\n)!\s*\:[A-Z|a-z|\:]+\:/sm ) {
+   # match everything starting with a blank comment line
+   # and ending with another tag :tag:, either upper or lower case
       $descript=$1;
       $descript =~ s/!\s+(\w)/\! $1/;  # single indentation in description text
       #print "GOT DESCRIPT=$descript\n";
@@ -380,7 +390,7 @@ sub get_extra {
    for (split /^/, $header) {
        my $line = $_;
        # match everything NOT included in original header
-       if ( !m/!.*|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
+       if ( !m/^\s*!.*|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
        if ($inheader==0) {
           if ( m/!.*$|^\s*$/ ) { # only lines that are comments or whitespace
              $notinheader = "$notinheader$_";
@@ -613,7 +623,7 @@ sub parsefile {
       while ( <$fh> ) {
          # end of header is when no longer a comment
          # but includes the "module blah" or "program blah" statement
-         if ( !m/!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
+         if ( !m/^\s*!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
          if ($inheader==0) {
             print $_;
          }
