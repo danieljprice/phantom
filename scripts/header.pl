@@ -281,7 +281,7 @@ sub get_header {
    while ( <$fh> ) {
       # header is defined as lines that are comments or blank
       # and include the top-level module or program definition statement
-      if ( !m/!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
+      if ( !m/^\s*!.*|^\s*$|^\s*module\s+\w.*$|\s*program\s+\w.*$/ ) { $inheader = 0; }
       if ($inheader==1) {
          $header = "$header$_";
       }
