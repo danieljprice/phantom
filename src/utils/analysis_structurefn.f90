@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine to produce structure functions
+! Analysis routine to produce structure functions
 !  from SPH particle data
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, io_structurefn, part, structurefn_part
 !
-!  DEPENDENCIES: boundary, io_structurefn, part, structurefn_part
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'structure functions'
  public :: do_analysis

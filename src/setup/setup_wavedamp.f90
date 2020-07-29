@@ -4,43 +4,37 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module initialises the wave damping test, as per
+! This module initialises the wave damping test, as per
 !   Choi et al. 2009 (has been generalised for additional studies)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - Bxin      : *Initial x-magnetic field*
+!   - ambitest  : *Testing ambipolar diffusion*
+!   - amplitude : *Initial wave amplitude*
+!   - geo_cp    : *Using close-packed grid (F: cubic).*
+!   - halltest  : *Testing the Hall effect*
+!   - isowave   : *Modelling a sound wave (F: Alfven wave)*
+!   - kwave     : *Wavenumber (k/pi)*
+!   - kx_kxy    : *Using wavenumber in x only (F: initialise in x,y)*
+!   - nx        : *Particles in the x-direction*
+!   - ohmtest   : *Testing Ohmic resistivity*
+!   - polyk     : *Initial polyk*
+!   - realvals  : *Using physical values (F: arbitrary values)*
+!   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
+!   - rhoin     : *Initial density*
+!   - viscoff   : *Using no viscosity (F: using viscosity*
+!   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-!  RUNTIME PARAMETERS:
-!    Bxin      -- Initial x-magnetic field
-!    ambitest  -- Testing ambipolar diffusion
-!    amplitude -- Initial wave amplitude
-!    geo_cp    -- Using close-packed grid (F: cubic).
-!    halltest  -- Testing the Hall effect
-!    isowave   -- Modelling a sound wave (F: Alfven wave)
-!    kwave     -- Wavenumber (k/pi)
-!    kx_kxy    -- Using wavenumber in x only (F: initialise in x,y)
-!    nx        -- Particles in the x-direction
-!    ohmtest   -- Testing Ohmic resistivity
-!    polyk     -- Initial polyk
-!    realvals  -- Using physical values (F: arbitrary values)
-!    rect      -- Using rectangular cp grid (F: cubic cp grid)
-!    rhoin     -- Initial density
-!    viscoff   -- Using no viscosity (F: using viscosity
-!    vx_vz     -- Using velocity in x (F: initialise in z)
+! :Dependencies: boundary, dim, domain, infile_utils, io, mpiutils, nicil,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
 !
-!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, mpiutils, nicil,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
-module setup
  use part,    only:mhd
  use nicil,   only:use_ohm,use_ohm,use_hall,use_ambi
  use nicil,   only:eta_constant,eta_const_type,C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst

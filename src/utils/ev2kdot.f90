@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: get_kdot
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  USAGE: ev2kdot [dt_min] file01.ev file02.ev ...
-!
-!  DEPENDENCIES: evutils, fileutils
-!+
-!--------------------------------------------------------------------------
 program get_kdot
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Usage: ev2kdot [dt_min] file01.ev file02.ev ...
+!
+! :Dependencies: evutils, fileutils
+!
  use evutils
  use fileutils, only:files_are_sequential
  implicit none

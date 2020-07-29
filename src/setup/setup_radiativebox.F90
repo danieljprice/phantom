@@ -4,38 +4,32 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup routine for uniform distribution
-!
-!  REFERENCES: None
-!
-!  OWNER: Sergei Biriukov
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    cs0       -- initial sound speed in code units
-!    dist_unit -- distance unit (e.g. au)
-!    ilattice  -- lattice type (1=cubic, 2=closepacked)
-!    mass_unit -- mass unit (e.g. solarm)
-!    nx        -- number of particles in x direction
-!    rhozero   -- initial density in code units
-!    xmax      -- xmax boundary
-!    xmin      -- xmin boundary
-!    ymax      -- ymax boundary
-!    ymin      -- ymin boundary
-!    zmax      -- zmax boundary
-!    zmin      -- zmin boundary
-!
-!  DEPENDENCIES: boundary, domain, eos, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, set_dust, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup routine for uniform distribution
+!
+! :References: None
+!
+! :Owner: Sergei Biriukov
+!
+! :Runtime parameters:
+!   - cs0       : *initial sound speed in code units*
+!   - dist_unit : *distance unit (e.g. au)*
+!   - ilattice  : *lattice type (1=cubic, 2=closepacked)*
+!   - mass_unit : *mass unit (e.g. solarm)*
+!   - nx        : *number of particles in x direction*
+!   - rhozero   : *initial density in code units*
+!   - xmax      : *xmax boundary*
+!   - xmin      : *xmin boundary*
+!   - ymax      : *ymax boundary*
+!   - ymin      : *ymin boundary*
+!   - zmax      : *zmax boundary*
+!   - zmin      : *zmin boundary*
+!
+! :Dependencies: boundary, domain, eos, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, set_dust, setup_params, timestep, unifdis,
+!   units
+!
  use setup_params, only:rhozero
  implicit none
  public :: setpart

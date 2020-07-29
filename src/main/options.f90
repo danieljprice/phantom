@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: options
+module options
 !
-!  DESCRIPTION:
-!  Sets default values of input parameters
+! Sets default values of input parameters
 !  these are overwritten by reading from the input file or
 !  by setting them in the setup routine
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
-!  DEPENDENCIES: dim, eos, kernel, part, timestep, units, viscosity
-!+
-!--------------------------------------------------------------------------
-module options
- use eos, only:ieos ! so that this is available via options
+ use eos, only:ieos ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"

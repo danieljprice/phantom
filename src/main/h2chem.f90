@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: chem
+module chem
 !
-!  DESCRIPTION:
-!   Contains routines for Hydrogen Chemistry
+! Contains routines for Hydrogen Chemistry
 !   Routines are originally by Clare Dobbs
 !   Modified extensively by Alex Pettitt
 !   Translated to Fortran 90 and adapted
 !   for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES:
+! :References:
 !   Nelson & Langer (1997)
 !   Glover et al. (2010)
 !   Bergin et al. (2004)
 !
-!  OWNER: Lionel Siess
+! :Owner: Lionel Siess
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: h2cooling, part, physcon, units
 !
-!  DEPENDENCIES: h2cooling, part, physcon, units
-!+
-!--------------------------------------------------------------------------
 
-module chem
  implicit none
  public :: init_chem,update_abundances,get_dphot
 !
@@ -72,8 +66,9 @@ end subroutine init_chem
 real function get_dphot(dphotflag,dphot0,xi,yi,zi)
  use units,   only:udist,umass
  use physcon, only:solarm,kpc,pi
- integer, intent(in) :: dphotflag
- real,    intent(in) :: dphot0,xi,yi,zi
+ integer,      intent(in) :: dphotflag
+ real(kind=8), intent(in) :: dphot0
+ real,         intent(in) :: xi,yi,zi
  real :: MdMo,ad,bd,r2,bit1,rhodisk
 
 !--Is dphot set or varying by radial distance?

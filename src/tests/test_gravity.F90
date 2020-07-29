@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgravity
-!
-!  DESCRIPTION:
-!  Unit tests of self-gravity
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: deriv, dim, directsum, eos, io, kdtree, options, part,
-!    physcon, spherical, testutils, timing
-!+
-!--------------------------------------------------------------------------
 module testgravity
+!
+! Unit tests of self-gravity
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: deriv, dim, directsum, eos, io, kdtree, options, part,
+!   physcon, spherical, testutils, timing
+!
  implicit none
  public :: test_gravity
 

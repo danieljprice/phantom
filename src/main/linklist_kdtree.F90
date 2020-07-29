@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: linklist
+module linklist
 !
-!  DESCRIPTION:
-!  This module contains all routines required for
+! This module contains all routines required for
 !  link-list based neighbour-finding
 !
 !  THIS VERSION USES A K-D TREE
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
-!  RUNTIME PARAMETERS:
-!    tree_accuracy -- tree opening criterion (0.0-1.0)
+! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
+!   kdtree, kernel, mpiutils, part
 !
-!  DEPENDENCIES: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!    kdtree, kernel, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module linklist
- use dim,          only:maxp,ncellsmax
+ use dim,          only:ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
@@ -165,7 +159,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: npart
 #endif
  integer, intent(in)    :: nactive
- real,    intent(inout) :: xyzh(4,maxp)
+ real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
 
 #ifdef MPI
@@ -196,7 +190,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  integer, intent(in)  :: inode,ixyzcachesize
  integer, intent(out) :: listneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
  logical, intent(in),  optional :: getj
  real,    intent(out), optional :: f(lenfgrav)
@@ -263,16 +257,15 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 end subroutine get_neighbour_list
 
 subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
- use dim,    only:maxneigh
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
  real,    intent(in)  :: xpos(ndim)
  real,    intent(in)  :: xsizei,rcuti
- integer, intent(out) :: listneigh(maxneigh)
+ integer, intent(out) :: listneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
- integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                ifirstincell,.false.)

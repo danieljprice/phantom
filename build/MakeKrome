@@ -37,7 +37,7 @@ endif
 
 
 $(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(SYSTEM) switch=$(KFLAGS)
+	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(FC) switch=$(KFLAGS)
 
 clean_krome:
 	$(MAKE) -C $(KROME_BUILD_DIR) clean

@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for debugging/visualisation of kdtree build
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, giza, io, kdtree, kernel, linklist
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for debugging/visualisation of kdtree build
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, giza, io, kdtree, kernel, linklist
+!
  use kdtree, only:kdnode
  implicit none
  character(len=20), parameter, public :: analysistype = 'kdtree'

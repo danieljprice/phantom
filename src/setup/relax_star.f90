@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: relaxstar
+module relaxstar
 !
-!  DESCRIPTION:
-!   Automated relaxation of stellar density profile,
+! Automated relaxation of stellar density profile,
 !   iterating towards hydrostatic equilibrium
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - maxits   : *maximum number of relaxation iterations*
+!   - tol_dens : *% error in density to stop relaxation*
+!   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-!  RUNTIME PARAMETERS:
-!    maxits   -- maximum number of relaxation iterations
-!    tol_dens -- % error in density to stop relaxation
-!    tol_ekin -- tolerance on ekin/epot to stop relaxation
+! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
+!   infile_utils, initial, io, io_summary, memory, options, part, physcon,
+!   ptmass, readwrite_dumps, step_lf_global, table_utils, units
 !
-!  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
-!    infile_utils, initial, io, memory, options, part, physcon, ptmass,
-!    readwrite_dumps, step_lf_global, table_utils, units
-!+
-!--------------------------------------------------------------------------
-module relaxstar
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
 
@@ -72,6 +66,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use eos, only:gamma
  use physcon,     only:pi
  use options,     only:iexternalforce
+ use io_summary,  only:summary_initialise
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -91,6 +86,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
  call set_options_for_relaxation(tdyn)
+ call summary_initialise()
  !
  ! check particle setup is sensible
  !

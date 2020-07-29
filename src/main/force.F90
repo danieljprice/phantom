@@ -4,33 +4,27 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: forces
+module forces
 !
-!  DESCRIPTION:
-!   This module is the "guts" of the code
+! This module is the "guts" of the code
 !   Calculates force and rates of change for all particles
 !
-!  REFERENCES:
+! :References:
 !    Price (2012), J. Comp. Phys.
 !    Lodato & Price (2010), MNRAS
 !    Price & Federrath (2010), MNRAS
 !    Tricco & Price (2012), J. Comp. Phys.
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, dust, eos, eos_shen, fastmath, growth, io,
+!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
+!   mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
+!   radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
+!   utils_gr, viscosity
 !
-!  DEPENDENCIES: boundary, dim, dust, eos, eos_shen, fastmath, growth, io,
-!    io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
-!    mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
-!    radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
-!    utils_gr, viscosity
-!+
-!--------------------------------------------------------------------------
-module forces
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
  use mpiforce, only:cellforce,stackforce
@@ -169,7 +163,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location
  use options,      only:iresistive_heating
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,nabundances,iactive,gradh,&
+ use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
                         hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
@@ -2522,7 +2516,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:alpha,icooling,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
- use part,           only:h2chemistry,rhoanddhdrho,abundance,iboundary,igas,maxphase,maxvxyzu,nabundances, &
+ use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick
 #ifdef IND_TIMESTEPS
  use part,           only:ibin

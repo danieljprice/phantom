@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!  Sets up a calculation of supersonic turbulence in a periodic box.
+! Sets up a calculation of supersonic turbulence in a periodic box.
 !  Works for hydro, mhd, and dusty turbulence.
 !
-!  REFERENCES:
+! :References:
 !    Price & Federrath (2010), MNRAS
 !    Tricco, Price & Federrath (2016), MNRAS
 !    Tricco, Price & Laibe (2017), MNRAS Letters
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, domain, dust, io, mpiutils, options, part,
+!   physcon, prompting, set_dust, setup_params, table_utils, timestep,
+!   unifdis, units
 !
-!  DEPENDENCIES: boundary, dim, domain, dust, io, mpiutils, options, part,
-!    physcon, prompting, set_dust, setup_params, table_utils, timestep,
-!    unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

@@ -4,36 +4,31 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: readwrite_dumps
+module readwrite_dumps
 !
-!  DESCRIPTION:
-!  This module contains all routines related
+! This module contains all routines related
 !  to the data format.
 !
 !  For Phantom, the format is identical to sphNG
 !  (although with fewer arrays dumped)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, checkconserved, dim, eos, extern_binary,
+!   extern_gwinspiral, externalforces, gitinfo, io, lumin_nsdisc, memory,
+!   mpiutils, options, part, setup_params, timestep, units,
+!   utils_dumpfiles_hdf5
 !
-!  DEPENDENCIES: boundary, dim, eos, extern_binary, extern_gwinspiral,
-!    externalforces, gitinfo, initial_params, io, lumin_nsdisc, memory,
-!    mpiutils, options, part, setup_params, timestep, units,
-!    utils_dumpfiles_hdf5
-!+
-!--------------------------------------------------------------------------
 #ifdef PHANTOM2HDF5
-module readwrite_dumps_hdf5
+ module readwrite_dumps_hdf5
 #else
-module readwrite_dumps
+ module readwrite_dumps
 #endif
- use utils_dumpfiles_hdf5, only:create_hdf5file,         &
+  use utils_dumpfiles_hdf5, only:create_hdf5file,         &
                                 open_hdf5file,           &
                                 close_hdf5file,          &
                                 hdf5_file_id,            &
@@ -47,17 +42,17 @@ module readwrite_dumps
                                 arrays_options_hdf5,     &
                                 externalforce_hdf5
 
- implicit none
- character(len=80), parameter, public :: &    ! module version
+  implicit none
+  character(len=80), parameter, public :: &    ! module version
     modid="$Id$"
 
- public :: read_dump,read_smalldump,write_smalldump,write_fulldump,write_gadgetdump
- logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
- logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
- integer, parameter, public :: is_small_dump = 1978
- integer, parameter, public :: is_not_mhd = 1979
+  public :: read_dump,read_smalldump,write_smalldump,write_fulldump,write_gadgetdump
+  logical, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
+  logical, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+  integer, parameter, public :: is_small_dump = 1978
+  integer, parameter, public :: is_not_mhd = 1979
 
- private
+  private
 
 contains
 
@@ -157,7 +152,7 @@ subroutine write_dump(t,dumpfile,fulldump,ntotal)
 #endif
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use lumin_nsdisc,   only:beta
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
@@ -478,7 +473,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,maxp_hard
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
  use options,        only:iexternalforce,use_dustfrac
@@ -600,7 +595,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs))
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then
@@ -682,7 +677,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
- use initial_params, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:error,fatal
  use memory,         only:allocate_memory
  use options,        only:iexternalforce,use_dustfrac
@@ -801,7 +796,7 @@ subroutine read_smalldump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs))
+ call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
 #endif
 
  if (periodic) then
@@ -1153,7 +1148,7 @@ subroutine write_gadgetdump(dumpfile,t,xyzh,particlemass,vxyzu,rho,utherm,npart)
 end subroutine write_gadgetdump
 
 #ifdef PHANTOM2HDF5
-end module readwrite_dumps
+ end module readwrite_dumps
 #else
-end module readwrite_dumps
+ end module readwrite_dumps
 #endif

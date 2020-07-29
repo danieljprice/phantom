@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomanalysis
-!
-!  DESCRIPTION: This program is a wrapper for post-processing analysis tools
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantomanalysis dumpfile(s)
-!
-!  DEPENDENCIES: analysis, dim, eos, fileutils, infile_utils, io, part,
-!    readwrite_dumps
-!+
-!--------------------------------------------------------------------------
 program phantomanalysis
+!
+! This program is a wrapper for post-processing analysis tools
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantomanalysis dumpfile(s)
+!
+! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, part,
+!   readwrite_dumps
+!
  use dim,             only:tagline
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis

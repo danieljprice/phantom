@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for sphNG jet calculations
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, physcon, setup_params
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for sphNG jet calculations
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, physcon, setup_params
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'jet'
  public :: do_analysis

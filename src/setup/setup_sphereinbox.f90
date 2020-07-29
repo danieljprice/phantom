@@ -4,46 +4,40 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module sets up a sphere-in-a-box: a cold, dense sphere placed in
+! This module sets up a sphere-in-a-box: a cold, dense sphere placed in
 !   a warm medium; the two media are in pressure-equilibrium.
 !   This currently works for gas-only and two-fluid dust.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - BE_concentration : *concentration parameter of the BE sphere (critical is 6.45)*
+!   - Bzero            : *Magnetic field strength in Gauss*
+!   - ang_Bomega       : *Angle (degrees) between B and rotation axis*
+!   - angvel           : *angular velocity in rad/s*
+!   - cs_sphere_cgs    : *sound speed in sphere in cm/s*
+!   - density_contrast : *density contrast in code units*
+!   - dist_unit        : *distance unit (e.g. au)*
+!   - dusttogas        : *dust-to-gas ratio*
+!   - form_binary      : *the intent is to form a central binary*
+!   - mass_unit        : *mass unit (e.g. solarm)*
+!   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
+!   - np               : *requested number of particles in sphere*
+!   - pmass_dusttogas  : *dust-to-gas particle mass ratio*
+!   - r_sphere         : *radius of sphere in code units*
+!   - rho_cen_cgs      : *central density of the BE sphere (will override radius)*
+!   - rho_pert_amp     : *amplitude of density perturbation*
+!   - totmass_sphere   : *mass of sphere in code units*
+!   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-!  RUNTIME PARAMETERS:
-!    BE_concentration -- concentration parameter of the BE sphere (critical is 6.45)
-!    Bzero            -- Magnetic field strength in Gauss
-!    ang_Bomega       -- Angle (degrees) between B and rotation axis
-!    angvel           -- angular velocity in rad/s
-!    cs_sphere_cgs    -- sound speed in sphere in cm/s
-!    density_contrast -- density contrast in code units
-!    dist_unit        -- distance unit (e.g. au)
-!    dusttogas        -- dust-to-gas ratio
-!    form_binary      -- the intent is to form a central binary
-!    mass_unit        -- mass unit (e.g. solarm)
-!    masstoflux       -- mass-to-magnetic flux ratio in units of critical value
-!    np               -- requested number of particles in sphere
-!    pmass_dusttogas  -- dust-to-gas particle mass ratio
-!    r_sphere         -- radius of sphere in code units
-!    rho_cen_cgs      -- central density of the BE sphere (will override radius)
-!    rho_pert_amp     -- amplitude of density perturbation
-!    totmass_sphere   -- mass of sphere in code units
-!    use_BE_sphere    -- centrally condense as a BE sphere
+! :Dependencies: boundary, centreofmass, dim, domain, eos, infile_utils,
+!   io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
+!   setup_params, spherical, timestep, unifdis, units
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, domain, eos, infile_utils,
-!    io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
-!    setup_params, spherical, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic
  use options, only:calc_erot

@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testbinary
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: physcon, setbinary
-!+
-!--------------------------------------------------------------------------
 module testbinary
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon, setbinary
+!
  implicit none
  real, parameter :: pi = 4.*atan(1.)
 

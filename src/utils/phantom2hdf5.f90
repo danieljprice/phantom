@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom2hdf5
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  USAGE: phantom2hdf5 dumpfile(s)
-!
-!  DEPENDENCIES: dim, eos, externalforces, io, part, readwrite_dumps,
-!    readwrite_dumps_hdf5
-!+
-!--------------------------------------------------------------------------
 program phantom2hdf5
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Usage: phantom2hdf5 dumpfile(s)
+!
+! :Dependencies: dim, eos, externalforces, io, part, readwrite_dumps,
+!   readwrite_dumps_hdf5
+!
  use dim,                  only:tagline
  use part,                 only:hfact
  use io,                   only:set_io_unit_numbers,iprint,idisk1

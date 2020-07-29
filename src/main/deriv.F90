@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: deriv
-!
-!  DESCRIPTION:
-!  this module is a wrapper for the main derivative evaluation
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: cons2prim, densityforce, derivutils, dim, externalforces,
-!    forces, forcing, growth, io, linklist, part, photoevap, ptmass,
-!    ptmass_radiation, timestep, timestep_ind, timing
-!+
-!--------------------------------------------------------------------------
 module deriv
+!
+! this module is a wrapper for the main derivative evaluation
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
+!   forces, forcing, growth, io, linklist, part, photoevap, ptmass,
+!   ptmass_radiation, timestep, timestep_ind, timing
+!
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"

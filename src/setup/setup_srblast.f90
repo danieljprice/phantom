@@ -4,31 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup for the SR blast wave problem
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    Pblast    -- pressure in blast
-!    Pmed      -- pressure in medium
-!    Rblast    -- radius of blast
-!    boxsize   -- size of the box
-!    npartx    -- number of particles in x-direction
-!    smoothfac -- IC smoothing factor (in terms of particle spacing)
-!
-!  DEPENDENCIES: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the SR blast wave problem
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - Pblast    : *pressure in blast*
+!   - Pmed      : *pressure in medium*
+!   - Rblast    : *radius of blast*
+!   - boxsize   : *size of the box*
+!   - npartx    : *number of particles in x-direction*
+!   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
+!
+! :Dependencies: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
 

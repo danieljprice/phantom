@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
 ! this module does setup
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: part, physcon, setbinary, units
 !
-!  DEPENDENCIES: part, physcon, setbinary, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

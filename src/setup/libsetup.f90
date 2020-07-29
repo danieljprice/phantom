@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: libsetup
-!
-!  DESCRIPTION:
-!   This module contains the public API for setup library routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: stretchmap, unifdis
-!+
-!--------------------------------------------------------------------------
 module libsetup
+!
+! This module contains the public API for setup library routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: stretchmap, unifdis
+!
  use stretchmap, only:set_density_profile
  use unifdis,    only:set_unifdis, get_ny_nz_closepacked
  public

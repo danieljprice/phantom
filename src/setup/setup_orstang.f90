@@ -4,35 +4,29 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for the Orszag-Tang Vortex problem in 3D
+! Setup for the Orszag-Tang Vortex problem in 3D
 !
-!  REFERENCES:
+! :References:
 !    Orszag S. A., Tang C.-M., 1979, J. Fluid Mech., 90, 129
 !    Dahlburg R. B., Picone J. M., 1989, Physics of Fluids B, 1, 2153
 !    Picone J. M., Dahlburg R. B., 1991, Physics of Fluids B, 3, 29
 !    Price D. J., Monaghan J. J., 2005, MNRAS, 364, 384
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - betazero : *plasma beta*
+!   - bzero    : *magnetic field amplitude*
+!   - machzero : *Mach number*
+!   - nx       : *number of particles in the x-direction*
+!   - vzero    : *velocity amplitude*
+!   - xymin    : *xmin ~ ymin*
 !
-!  RUNTIME PARAMETERS:
-!    betazero -- plasma beta
-!    bzero    -- magnetic field amplitude
-!    machzero -- Mach number
-!    nx       -- number of particles in the x-direction
-!    vzero    -- velocity amplitude
-!    xymin    -- xmin ~ ymin
+! :Dependencies: boundary, domain, infile_utils, io, mpiutils, part,
+!   physcon, prompting, setup_params, timestep, unifdis, units
 !
-!  DEPENDENCIES: boundary, domain, infile_utils, io, mpiutils, part,
-!    physcon, prompting, setup_params, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

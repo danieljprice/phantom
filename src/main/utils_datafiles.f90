@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: datautils
+module datautils
 !
-!  DESCRIPTION:
-!   This module contains utilities to transparently handle
+! This module contains utilities to transparently handle
 !   finding/reading external data files
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module datautils
  implicit none
  public :: find_datafile
 
