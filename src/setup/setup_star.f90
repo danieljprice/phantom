@@ -309,6 +309,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! are same as the original profile for r > hsoft
 
        call init_eos(ieos,ierr)
+       if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
           call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
