@@ -14,9 +14,9 @@ module teststep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, eos, io, mpiutils, options, part,
-!   physcon, step_lf_global, testutils, timestep, timestep_ind, timing,
-!   unifdis, viscosity
+! :Dependencies: boundary, checksetup, deriv, dim, domain, eos, io,
+!   mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
+!   timestep_ind, timing, unifdis, viscosity
 !
  implicit none
  public :: test_step

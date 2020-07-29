@@ -66,6 +66,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use eos, only:gamma
  use physcon,     only:pi
  use options,     only:iexternalforce
+ use io_summary,  only:summary_initialise
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -85,6 +86,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
  call set_options_for_relaxation(tdyn)
+ call summary_initialise()
  !
  ! check particle setup is sensible
  !
