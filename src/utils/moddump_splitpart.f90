@@ -17,7 +17,7 @@ module moddump
 ! :Dependencies: io, splitpart
 !
  implicit none
- integer            :: nchild = 12
+ integer            :: nchild = 3
  integer, parameter :: lattice_type = 0 ! 0 for lattice, 1 for random
  integer, parameter :: ires = 1         ! use 12 particles per sphere
 
@@ -27,13 +27,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use splitpart,    only:split_particles
  use io,           only:fatal,error
  use injectutils,  only:get_parts_per_sphere
- use part,         only:igas,set_particle_type
+ use part,         only:igas,copy_particle
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real, allocatable, dimension(:,:) :: xyzh_child,vxyzu_child
- integer :: ierr,ichild,iold,inew,j
+ integer :: ierr,ichild,iparent
 
  ierr = 0
 
@@ -41,8 +40,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (lattice_type == 0) then
    nchild = get_parts_per_sphere(ires) + 1
  endif
-
- allocate(xyzh_child(4,nchild),vxyzu_child(3,nchild))
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < npart*nchild) then
@@ -55,23 +52,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  npartoftype(:) = npartoftype*nchild
 
  !--find positions of the new particles
- inew = npart ! put new particles after original parts
+ 
  ichild = npart !to keep track of the kids
 
- do iold=1,npart
+ do iparent=1,npart
     ! send in the parent, children return
-    call split_particles(nchild,iold,xyzh(1:4,iold),vxyzu(1:3,iold), &
-                         lattice_type,ires,xyzh_child,vxyzu_child)
+    ! (the parent acts as the first child, this routine generates nchild-1 new particles
+    ! and adjusts the smoothing length on the parent)
+    call split_particles(nchild,iparent,xyzh,vxyzu,lattice_type,ires,ichild)
 
-   ! copy children over, first replaces the parent
-   xyzh(1:4,iold) = xyzh_child(1:4,1)
-   vxyzu(1:3,iold) = vxyzu_child(1:3,1)
-   do j = 2,nchild
-     xyzh(1:4,ichild+j-1) = xyzh_child(1:4,j)
-     vxyzu(1:4,ichild+j-1) = vxyzu_child(1:4,j)
-     call set_particle_type(ichild+j-1,igas)
-   enddo
-   ichild = ichild + (nchild-1)
+    ! for next children
+    ichild = ichild + nchild - 1
  enddo
 
  !-- new npart
@@ -80,8 +71,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--new masses
  massoftype(:) = massoftype(:)/nchild
 
- !--tidy up
- deallocate(xyzh_child,vxyzu_child)
 
  if (ierr /= 0) call fatal('moddump','could not split particles')
  print*,' got npart = ',npart
