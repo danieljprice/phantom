@@ -19,8 +19,8 @@ module relaxstar
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
 ! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
-!   infile_utils, initial, io, memory, options, part, physcon, ptmass,
-!   readwrite_dumps, step_lf_global, table_utils, units
+!   infile_utils, initial, io, io_summary, memory, options, part, physcon,
+!   ptmass, readwrite_dumps, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
