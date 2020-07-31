@@ -49,7 +49,7 @@ module utils_dumpfiles_hdf5
  integer, parameter :: maxdustsmall_hdf5 = 50
  integer, parameter :: maxdusttypes_hdf5 = maxdustsmall_hdf5 + maxdustlarge_hdf5
  integer, parameter :: maxtypes_hdf5 = 7 + maxdustlarge_hdf5 - 1
- integer, parameter :: nsinkproperties_hdf5 = 11
+ integer, parameter :: nsinkproperties_hdf5 = 15
  integer, parameter :: iext_binary_hdf5 = 3
  integer, parameter :: iext_gwinspiral_hdf5 = 14
  integer, parameter :: iext_corot_binary_hdf5 = 16
@@ -348,7 +348,6 @@ subroutine write_hdf5_arrays( &
 
  integer(HID_T) :: group_id
  integer :: ndusttypes,ieos
- integer :: errors(50)
 
  error = 0
  ieos = array_options%ieos
@@ -432,7 +431,7 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(xyzmh_ptmass(12,1:nptmass),'lum',group_id,error)
     call write_to_hdf5(xyzmh_ptmass(13,1:nptmass),'Teff',group_id,error)
     call write_to_hdf5(xyzmh_ptmass(14,1:nptmass),'Reff',group_id,error)
-    call write_to_hdf5(xyzmh_ptmass(15,1:nptmass),'mdot',group_id,error)
+    call write_to_hdf5(xyzmh_ptmass(15,1:nptmass),'mdotloss',group_id,error)
     call write_to_hdf5(vxyz_ptmass(:,1:nptmass),'vxyz',group_id,error)
  endif
 
@@ -500,7 +499,7 @@ subroutine write_hdf5_arrays_small( &
  ! Dust arrays
  ndusttypes = array_options%ndustsmall + array_options%ndustlarge
  if (array_options%use_dust .and. ndusttypes > 0) then
-    call write_to_hdf5(real(dustfrac(:,1:npart), kind=4), 'dustfrac', group_id, error)
+    call write_to_hdf5(real(dustfrac(1:ndusttypes,1:npart), kind=4), 'dustfrac', group_id, error)
  endif
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainsize', group_id, error)
@@ -526,6 +525,10 @@ subroutine write_hdf5_arrays_small( &
     call write_to_hdf5(real(xyzmh_ptmass(7,1:nptmass), kind=4), 'maccreted', group_id, error)
     call write_to_hdf5(real(xyzmh_ptmass(8:10,1:nptmass), kind=4), 'spinxyz', group_id, error)
     call write_to_hdf5(real(xyzmh_ptmass(11,1:nptmass), kind=4), 'tlast', group_id, error)
+    call write_to_hdf5(real(xyzmh_ptmass(12,1:nptmass), kind=4), 'lum', group_id,error)
+    call write_to_hdf5(real(xyzmh_ptmass(13,1:nptmass), kind=4), 'Teff', group_id,error)
+    call write_to_hdf5(real(xyzmh_ptmass(14,1:nptmass), kind=4), 'Reff', group_id,error)
+    call write_to_hdf5(real(xyzmh_ptmass(15,1:nptmass), kind=4), 'mdotloss', group_id,error)
  endif
  ! Close the sink group
  call close_hdf5group(group_id, error)
@@ -649,6 +652,7 @@ subroutine read_hdf5_arrays( &
    error,                    &
    npart,                    &
    nptmass,                  &
+   ndusttypes,               &
    iphase,                   &
    xyzh,                     &
    vxyzu,                    &
@@ -671,7 +675,7 @@ subroutine read_hdf5_arrays( &
    got_arrays)
 
  integer(HID_T),  intent(in)  :: file_id
- integer,         intent(in)  :: npart, nptmass
+ integer,         intent(in)  :: npart, nptmass, ndusttypes
  type (arrays_options_hdf5), intent(in)  :: array_options
  type (got_arrays_hdf5),     intent(out) :: got_arrays
  integer(kind=1), intent(out) :: iphase(:)
@@ -698,6 +702,7 @@ subroutine read_hdf5_arrays( &
  logical :: got
 
  real(kind=4) :: rtmp(npart)
+ real(kind=4) :: r2tmp(ndusttypes,npart)
 
  error = 0
 
@@ -727,9 +732,9 @@ subroutine read_hdf5_arrays( &
  call read_from_hdf5(iphase, 'itype', group_id, got_arrays%got_iphase, error)
  call read_from_hdf5(xyzh(1:3,:), 'xyz', group_id, got, error)
  if (got) got_arrays%got_xyzh = .true.
- call read_from_hdf5(rtmp, 'h', group_id, got, error)
+ call read_from_hdf5(rtmp(1:npart), 'h', group_id, got, error)
  if (got) then
-    xyzh(4,:) = real(rtmp)
+    xyzh(4,1:npart) = real(rtmp(1:npart))
  else
     got_arrays%got_xyzh = .false.
  endif
@@ -751,7 +756,8 @@ subroutine read_hdf5_arrays( &
 
  ! Dust arrays
  if (array_options%use_dust) then
-    call read_from_hdf5(dustfrac, 'dustfrac', group_id, got_arrays%got_dustfrac, error)
+    call read_from_hdf5(r2tmp, 'dustfrac', group_id, got_arrays%got_dustfrac, error)
+    dustfrac(1:ndusttypes,1:npart) = real(r2tmp(1:ndusttypes,1:npart))
     call read_from_hdf5(tstop, 'tstop', group_id, got_arrays%got_tstop, error)
  endif
  if (array_options%use_dustfrac) call read_from_hdf5(deltav, 'deltavxyz', group_id, got_arrays%got_deltav, error)
@@ -783,6 +789,10 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(xyzmh_ptmass(8:10,1:nptmass), 'spinxyz', group_id, got_arrays%got_sink_data(8), error)
     got_arrays%got_sink_data(8:10) = got_arrays%got_sink_data(8)
     call read_from_hdf5(xyzmh_ptmass(11,1:nptmass), 'tlast', group_id, got_arrays%got_sink_data(11), error)
+    call read_from_hdf5(xyzmh_ptmass(12,1:nptmass), 'lum', group_id, got_arrays%got_sink_data(12), error)
+    call read_from_hdf5(xyzmh_ptmass(13,1:nptmass), 'Teff', group_id, got_arrays%got_sink_data(13), error)
+    call read_from_hdf5(xyzmh_ptmass(14,1:nptmass), 'Reff', group_id, got_arrays%got_sink_data(14), error)
+    call read_from_hdf5(xyzmh_ptmass(15,1:nptmass), 'mdotloss', group_id, got_arrays%got_sink_data(15), error)
     call read_from_hdf5(vxyz_ptmass(:,1:nptmass), 'vxyz', group_id, got_arrays%got_sink_vels, error)
  endif
 

@@ -35,8 +35,8 @@ subroutine test_rwdump(ntests,npass)
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndusttypes
- use dim,             only:maxp,maxdusttypes
+                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes
+ use dim,             only:maxp,maxdustsmall
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -114,8 +114,9 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dust) then
           use_dustfrac = .true.
-          ndustsmall = maxdusttypes
-          ndusttypes = ndustsmall
+          ndustsmall = maxdustsmall
+          ndustlarge = 1
+          ndusttypes = ndustsmall + ndustlarge
           dustfrac(:,i) = 0.16_4
        endif
     enddo
