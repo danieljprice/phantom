@@ -14,177 +14,178 @@ module splitpart
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: icosahedron, injectutils, io, part, random
+! :Dependencies: utils_splitmerge, io, part, timestep_ind
 !
+
+ use splitmergeutils, only:split_a_particle,merge_into_a_particle
+
  implicit none
 
 contains
 
-!--------------------------------------------------------------------------
-!+
-!  split particles into nchild particle
-!+
-!--------------------------------------------------------------------------
-subroutine split_particles(nchild,iparent,xyzh,vxyzu, &
-           lattice_type,ires,ichildren)
- use icosahedron, only:pixel2vector,compute_corners,compute_matrices
- use part,        only:copy_particle
- integer, intent(in)    :: nchild,iparent,lattice_type,ires
- integer, intent(in)    :: ichildren !the index *after* which children are stored
+ subroutine split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
+                                 nchild,lattice_type,ires)
+ use io,    only:fatal,error
+ use part,  only:igas,copy_particle
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: j,iseed,ichild
- real    :: dhfac,dx(3),sep,geodesic_R(0:19,3,3), geodesic_v(0:11,3)
+ integer, intent(in)    :: lattice_type,ires,nchild
+ integer :: ierr,ichild,iparent
 
- if (lattice_type == 0) then
-    call compute_matrices(geodesic_R)
-    call compute_corners(geodesic_v)
- else
-    ! initialise random number generator
-    iseed = -6542
+ ierr = 0
+
+ !--check there is enough memory
+ if (size(xyzh(1,:)) < npart*nchild) then
+   call error('split_all_particles','not enough memory, increase MAXP and recompile')
+   ierr = 1
+   return
  endif
 
- sep = xyzh(4,iparent)
- ichild = 0
+ !--update npartoftype
+ npartoftype(:) = npartoftype*nchild
 
- do j=0,nchild-2
-   ichild = ichild + 1
-   ! copy properties
-   call copy_particle(iparent,ichildren+ichild)
+ !--find positions of the new particles
 
-   ! adjust the position
-   if (lattice_type == 0) then
-     call pixel2vector(j,ires,geodesic_R,geodesic_v,dx)
-   else
-     call sample_kernel(iseed,dx)
-   endif
-      xyzh(1:3,ichildren+ichild) = xyzh(1:3,iparent) + sep*dx(:)
+ ichild = npart !to keep track of the kids
+
+ do iparent=1,npart
+   ! send in the parent, children return
+   ! (the parent acts as the first child, this routine generates nchild-1 new particles
+   ! and adjusts the smoothing length on the parent)
+   call split_a_particle(nchild,iparent,xyzh,vxyzu,lattice_type,ires,ichild)
+
+   ! for next children
+   ichild = ichild + nchild - 1
  enddo
 
- !--amend smoothing length of children + parent
- dhfac = 1./(nchild)**(1./3.)
- xyzh(4,ichildren:ichildren+nchild-1) = xyzh(4,iparent)*dhfac
- xyzh(4,iparent) = xyzh(4,iparent)*dhfac
+ !-- new npart
+ npart = npart * nchild
 
-end subroutine split_particles
+ !--new masses
+ massoftype(:) = massoftype(:)/nchild
 
-subroutine sample_kernel(iseed,dx)
- use random, only:gauss_random,get_random_pos_on_sphere
- integer, intent(inout) :: iseed
- real :: dx(3),r
+ if (ierr /= 0) call fatal('splitpart','could not split particles')
 
- r = 3.
- do while (abs(r) > 2.)
-    r = gauss_random(iseed)
- enddo
- dx = get_random_pos_on_sphere(iseed)
- dx = r*dx
+end subroutine split_all_particles
 
-end subroutine sample_kernel
+ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
+                                nchild,nactive_here)
+ use part,      only:igas,kill_particle,delete_dead_or_accreted_particles
+ use part,      only:isdead_or_accreted,copy_particle
+ use timestep_ind, only:nactive
+ use io,        only:fatal,error
+ integer, intent(inout) :: npart,npartoftype(:)
+ integer, intent(in)    :: nchild
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, optional, intent(in) :: nactive_here
+ integer :: ierr,nparent,remainder, i,j,k
+ integer :: on_list(npart), children_list(nchild)
+ integer :: ichild,iparent,child_found
+ real    :: rik(3),rik2,rikmax
 
-!-----------------------------------------------------------------------
-!+
-! routine that shuffles the particle positions slightly
-! (see Vacondio et al. 2013 Equation 11)
-! (currently mostly used in testing, not sure if it's important yet)
-!+
-!-----------------------------------------------------------------------
-subroutine shift_particles(npart,xyzh,vxyzu,deltat,beta,shifts)
-  use kernel, only:radkern2
-  real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
-  real, intent(in)    :: deltat,beta
-  integer, intent(in) :: npart
-  real, intent(out)   :: shifts(3,npart)
-  integer             :: i,j,neighbours
-  real                :: rnaught,rij2,dr3,vel2,vmax
-  real                :: q2,rij(3),rsum(3)
+ ierr = 0
 
-  vmax = tiny(vmax)
-  vel2 = 0.
+ !-- how many active particles? If called from moddump, its provided
+ if (present(nactive_here)) nactive = nactive_here
 
-  do i = 1,npart
-    rnaught = 0.
-    neighbours = 0
-    rsum = 0.
-    vel2 = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    if (vel2 > vmax) vmax = vel2
+ !-- check number of parent particles
+ nparent = floor(real(nactive)/real(nchild))
+ remainder = mod(nactive,nchild)
+ if (remainder/nactive > 0.01) then
+   ! discarding a couple of particles is ok, just don't want it to be too many
+   call error('merge_particles','need to merge evenly, make sure npart(active)/nchild ~ integer')
+   ierr = 1
+   return
+  elseif (remainder > 0) then
+    ! we just forget about these later on
+    print*,' ignoring',remainder,'particles to get an even split'
+  endif
 
-    over_npart: do j = 1,npart
-      if (i == j) cycle over_npart
-      rij = xyzh(1:3,j) - xyzh(1:3,i)
-      rij2 = dot_product(rij,rij)
-      q2 = rij2/(xyzh(4,i)*xyzh(4,i))
+  !--check there is enough memory
+  if (size(xyzh(1,:)) < nparent + npart) then
+    call error('merge_particles','not enough memory, increase MAXP and recompile')
+    ierr = 1
+    return
+  endif
 
-      if (q2 < radkern2) then
-        neighbours = neighbours + 1
-        rnaught = rnaught + sqrt(rij2)
+  iparent = 0
+  ichild = 0
+  on_list = -1
+  children_list = 0
+  i = 0
+
+  over_parent: do while (iparent < nparent) ! until all the children are found
+    i = i + 1
+    !already on the list
+    if (on_list(i) > 0) cycle over_parent
+
+    ! first child
+    iparent = iparent + 1
+    ichild = 1
+    on_list(i) = i
+    children_list(ichild) = i
+
+    ! find nearby children
+    over_child: do j=1,nchild-1
+      !-- choose the next closest particle as child
+      !-- (there *must* be a more accurate way to group them)
+      child_found = -1
+      rikmax = huge(rikmax)
+      over_neighbours: do k=1,npart
+        if (on_list(k) > 0) cycle over_neighbours
+        rik = xyzh(1:3,k) - xyzh(1:3,i)
+        rik2 = dot_product(rik,rik)
+        if (rik2 < rikmax) then
+          rikmax = rik2
+          child_found = k
+        endif
+      enddo over_neighbours
+
+      if (child_found > 0) then
+        ! if child found, save the child to the list
+        ichild = ichild + 1
+        children_list(ichild) = child_found
+        on_list(child_found) = k
+        !print*,'parent',iparent,'paired with',child_found
+      else
+        ! no children found for the parent particle
+        call error('mergepart','no child found for parent particle')
+        print*,'parent particle is',iparent
+        ierr = 1
       endif
 
-      dr3 = 1./(rij2**1.5)
-      rsum = rsum + (rij*dr3)
-    enddo over_npart
+    enddo over_child
 
-    rnaught = rnaught/neighbours
-    shifts(:,i) = beta*rnaught*rnaught*deltat*rsum
-  enddo
+    ! send in children, parent returns
+    ! parents temporarily stored after all the children
+    call merge_into_a_particle(nchild,children_list,massoftype(igas), &
+                               npart,xyzh,vxyzu,npart+iparent)
 
-  shifts = shifts*sqrt(vel2)
+ enddo over_parent
 
-end subroutine shift_particles
-
-!-----------------------------------------------------------------------
-!+
-! merges nchild particles in one parent particle
-!+
-!-----------------------------------------------------------------------
-subroutine merge_particles(nchild,ichildren,mchild,npart, &
-           xyzh,vxyzu,iparent)
- use kernel, only:get_kernel,cnormk,radkern
- use part,   only:copy_particle
- integer, intent(in)    :: nchild,ichildren(nchild),iparent
- integer, intent(inout) :: npart
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(out)   :: mchild
- integer :: i,j,ichild
- real    :: h1,h31,rij_vec(3)
- real    :: qij,rij,wchild,grkernchild,rho_parent
-
- !-- copy properties from first child
- call copy_particle(ichildren(1),iparent)
-
- !-- positions and velocities from centre of mass
- xyzh(1:3,iparent) = 0.
- vxyzu(1:3,iparent) = 0.
-
- do i=1,nchild
-   ichild = ichildren(i)
-   xyzh(1:3,iparent) = xyzh(1:3,iparent) + xyzh(1:3,ichild)
-   vxyzu(1:3,iparent) = vxyzu(1:3,iparent) + vxyzu(1:3,ichild)
+ !-- move the new parents
+ do i = 1,nparent
+   call copy_particle(npart+i,i)
  enddo
- xyzh(1:3,iparent) = xyzh(1:3,iparent)/nchild
- vxyzu(1:3,iparent) = vxyzu(1:3,iparent)/nchild
 
-!-- calculate density at the parent position from the children
-!-- procedure described in Vacondio et al. 2013, around Eq 21
-rho_parent = 0.
-  over_npart:  do j=1,npart
-    if (xyzh(4,j) < 0.) cycle over_npart
-    h1 = 1./xyzh(4,j)
-    h31 = h1**3
+ !-- kill all the useless children
+ do i=nparent+1,npart
+    call kill_particle(i,npartoftype)
+ enddo
 
-    rij_vec = xyzh(1:3,iparent) - xyzh(1:3,j)
+ !--tidy up
+ call delete_dead_or_accreted_particles(npart,npartoftype)
 
-    rij = sqrt(dot_product(rij_vec,rij_vec))
-    qij = rij*h1
+ !--update npartoftype
+ npartoftype(igas) = nparent
+ npart = nparent
+ massoftype(:) = massoftype(:) * nchild
 
-    wchild = 0.
-    if (qij < radkern) call get_kernel(qij*qij,qij,wchild,grkernchild)
+ if (ierr /= 0) call fatal('moddump','could not merge particles')
 
-    rho_parent = rho_parent + (mchild*wchild*cnormk*h31)
-  enddo over_npart
-
-!-- smoothing length from density
-xyzh(4,iparent) = 1.2*(nchild*mchild/rho_parent)**(1./3.)
-
-end subroutine merge_particles
+ end subroutine merge_all_particles
 
 end module splitpart
