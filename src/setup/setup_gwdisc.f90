@@ -31,6 +31,7 @@ module setup
 ! :Dependencies: externalforces, infile_utils, io, options, physcon,
 !   prompting, setdisc, units
 !
+ use extern_binary, only:accradius1,accradius2,massr,a0 !,binary_posvel
  implicit none
  public :: setpart
 
