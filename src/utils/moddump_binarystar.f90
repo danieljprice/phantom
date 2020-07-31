@@ -29,7 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,        only:c
  use units,          only:unit_velocity
  use timestep,       only:tmax,dtmax
- use energies,       only:get_conserv
+ use checkconserved, only:get_conserv
  use options,        only:iexternalforce
  use externalforces, only:iext_gwinspiral
  integer, intent(inout) :: npart
