@@ -141,7 +141,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  logical            :: use_gas,ind_timesteps,const_av,prdrag,isothermal
  real               :: ponrhoi,rhoi,spsoundi
  real, allocatable  :: pressure(:),dtin(:),beta_pr(:)
- character(len=200) :: fileid
+ character(len=200) :: fileid,fstr,sstr
  real :: posmh(10)
  real :: vels(6)
 
@@ -154,11 +154,13 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  type (arrays_options_hdf5) :: array_options
  type (externalforce_hdf5) :: extern
 
+ fstr = "(/,/,'-------->   TIME = ',g12.4,"//"': full dump written to file ',a,'   <--------',/)"
+ sstr = "(/,/,'-------->   TIME = ',g12.4,"//"': small dump written to file ',a,'   <--------',/)"
  if (id==master) then
     if (fulldump) then
-       write(iprint,"(/,/,'-------->   TIME = ',g12.4,"//"': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+       write(iprint,fstr) t, trim(dumpfile)
     else
-       write(iprint,"(/,/,'-------->   TIME = ',g12.4,"//"': small dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+       write(iprint,sstr) t, trim(dumpfile)
     endif
  endif
 
@@ -216,19 +218,39 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
        rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
        if (maxvxyzu >=4 ) then
           if (use_krome) then
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(4,i), &
-                                  gamma_local=gamma_chem(i))
+             call equationofstate(        &
+                ieos,                     &
+                ponrhoi,                  &
+                spsoundi,                 &
+                rhoi,                     &
+                xyzh(1,i),                &
+                xyzh(2,i),                &
+                xyzh(3,i),                &
+                eni=vxyzu(4,i),           &
+                gamma_local=gamma_chem(i) &
+             )
           elseif (store_temperature) then
              ! cases where the eos stores temperature (ie Helmholtz)
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),temperature(i))
+             call equationofstate(        &
+                ieos,                     &
+                ponrhoi,                  &
+                spsoundi,                 &
+                rhoi,                     &
+                xyzh(1,i),                &
+                xyzh(2,i),                &
+                xyzh(3,i),                &
+                temperature(i)            &
+             )
           else
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+             call equationofstate(                                                   &
+                 ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i) &
+             )
           endif
        else
           call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
        endif
        pressure(i) = ponrhoi*rhoi
-       if (prdrag) beta_pr(i)  = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
+       if (prdrag) beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
     enddo
     !$omp end parallel do
 
@@ -418,7 +440,8 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                                  VrelVf,       & !
                                  dustgasprop,  & !
                                  abundance,    & !
-                                 luminosity,   & !--------
+                                 luminosity,   & !
+                                 rad,          & !--------
                                  array_options)  ! Options
  endif
  if (ierr/=0) call fatal('write_fulldump_hdf5','could not write arrays')
@@ -435,7 +458,9 @@ end subroutine write_dump_hdf5
 !  subroutine to read a full dump from file
 !+
 !-------------------------------------------------------------------
-subroutine read_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+subroutine read_dump_hdf5(                                                    &
+   dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc &
+)
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -443,7 +468,19 @@ subroutine read_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
 
- call read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc,acceptsmall=.false.)
+ call read_any_dump_hdf5( &
+    dumpfile,             &
+    tfile,                &
+    hfactfile,            &
+    idisk1,               &
+    iprint,               &
+    id,                   &
+    nprocs,               &
+    ierr,                 &
+    headeronly,           &
+    dustydisc,            &
+    acceptsmall=.false.   &
+ )
 
 end subroutine read_dump_hdf5
 
@@ -452,7 +489,9 @@ end subroutine read_dump_hdf5
 !  subroutine to read a small dump from file
 !+
 !-------------------------------------------------------------------
-subroutine read_smalldump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
+subroutine read_smalldump_hdf5(                                               &
+   dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc &
+)
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -460,7 +499,19 @@ subroutine read_smalldump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
 
- call read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc,acceptsmall=.true.)
+ call read_any_dump_hdf5( &
+    dumpfile,             &
+    tfile,                &
+    hfactfile,            &
+    idisk1,               &
+    iprint,               &
+    id,                   &
+    nprocs,               &
+    ierr,                 &
+    headeronly,           &
+    dustydisc,            &
+    acceptsmall=.true.    &
+ )
 
 end subroutine read_smalldump_hdf5
 
@@ -469,7 +520,9 @@ end subroutine read_smalldump_hdf5
 !  subroutine to read full/small dump from file
 !+
 !-------------------------------------------------------------------
-subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc,acceptsmall)
+subroutine read_any_dump_hdf5(                                                            &
+   dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc,acceptsmall &
+)
  use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,     &
