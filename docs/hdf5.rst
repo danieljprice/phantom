@@ -151,13 +151,21 @@ Converting standard output files to HDF5 format with phantom2hdf5
 ``phantom2hdf5`` is a utility that can convert standard Phantom dump
 files to HDF5 format.
 
-To compile it, type
+You need to compile it with the same options as you compiled Phantom to produce
+the original Phantom dump. For example, if you have a dusty disc dump to convert
+that you originally compiled with
 
 ::
 
-   make phantom2hdf5 HDF5=yes PHANTOM2HDF5=yes
+   make SETUP=dustydisc MAXP=10000000
 
-Recall that you may need to set ``HDF5ROOT`` too.
+then you would compile ``phantom2hdf5`` as follows
+
+::
+
+   make SETUP=dustydisc MAXP=10000000 HDF5=yes HDF5ROOT=$HDF5_DIR phantom2hdf5
+
+Recall that you will need to set ``HDF5_DIR`` appropriately for your system.
 
 Now pass a file (or a list of files) to the converter
 
