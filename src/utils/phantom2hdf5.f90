@@ -18,10 +18,10 @@ program phantom2hdf5
 !   readwrite_dumps_hdf5
 !
  use dim,                     only:tagline
- use part,                    only:hfact
+ use part,                    only:hfact,dt_in
  use io,                      only:set_io_unit_numbers,iprint,idisk1
  use readwrite_dumps_fortran, only:read_dump_fortran,read_smalldump_fortran,write_fulldump_fortran
- use readwrite_dumps_hdf5,    only:read_dump_hdf5, write_fulldump_hdf5,write_smalldump_hdf5
+ use readwrite_dumps_hdf5,    only:read_dump_hdf5,write_dump_hdf5
  use eos,                     only:extract_eos_from_hdr
  use externalforces,          only:extract_iextern_from_hdr
  implicit none
@@ -69,11 +69,7 @@ program phantom2hdf5
        cycle over_args
     endif
 
-    if (fulldump) then
-       call write_fulldump_hdf5(time,trim(dumpfile))
-    else
-       call write_smalldump_hdf5(time,trim(dumpfile))
-    endif
+    call write_dump_hdf5(time,trim(dumpfile),fulldump=fulldump,dtind=dt_in)
 
  enddo over_args
 

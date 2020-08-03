@@ -49,7 +49,10 @@ module utils_dumpfiles_hdf5
  integer, parameter :: maxdustsmall_hdf5 = 50
  integer, parameter :: maxdusttypes_hdf5 = maxdustsmall_hdf5 + maxdustlarge_hdf5
  integer, parameter :: maxtypes_hdf5 = 7 + maxdustlarge_hdf5 - 1
+ integer, parameter :: nabundances_hdf5 = 5
  integer, parameter :: nsinkproperties_hdf5 = 15
+ integer, parameter :: max_krome_nmols_hdf5 = 100
+ integer, parameter :: maxirad_hdf5 = 1
  integer, parameter :: iext_binary_hdf5 = 3
  integer, parameter :: iext_gwinspiral_hdf5 = 14
  integer, parameter :: iext_corot_binary_hdf5 = 16
@@ -122,24 +125,33 @@ module utils_dumpfiles_hdf5
  end type
 
  type got_arrays_hdf5
-    logical :: got_iphase,                          &
-               got_xyzh,                            &
-               got_vxyzu,                           &
-               got_dustfrac,                        &
-               got_tstop,                           &
-               got_deltav,                          &
-               got_abund,                           &
-               got_dt_in,                           &
-               got_alpha,                           &
-               got_poten,                           &
-               got_sink_data(nsinkproperties_hdf5), &
-               got_sink_vels,                       &
-               got_Bxyz,                            &
-               got_psi,                             &
-               got_temp,                            &
-               got_dustprop(2),                     &
-               got_St,                              &
-               got_VrelVf
+    logical :: got_iphase,                           &
+               got_xyzh(4),                          &
+               got_vxyzu(4),                         &
+               got_dustfrac(maxdusttypes_hdf5),      &
+               got_tstop,                            &
+               got_deltav,                           &
+               got_abund(nabundances_hdf5),          &
+               got_dt_in,                            &
+               got_alpha,                            &
+               got_poten,                            &
+               got_sink_data(nsinkproperties_hdf5),  &
+               got_sink_vels(3),                     &
+               got_Bxyz(3),                          &
+               got_psi,                              &
+               got_temp,                             &
+               got_dustgasprop(3),                   &
+               got_dustprop(2),                      &
+               got_St,                               &
+               got_VrelVf,                           &
+               got_pxyzu(4),                         &
+               got_raden(maxirad_hdf5),              &
+               got_kappa,                            &
+               got_Tdust,                            &
+               got_krome_mols(max_krome_nmols_hdf5), &
+               got_krome_gamma,                      &
+               got_krome_mu,                         &
+               got_krome_T
  end type
 
  type arrays_options_hdf5
@@ -750,13 +762,15 @@ subroutine read_hdf5_arrays( &
 
  ! MHD arrays
  if (array_options%mhd) then
-    call read_from_hdf5(Bxyz, 'Bxyz', group_id, got_arrays%got_Bxyz, error)
+    call read_from_hdf5(Bxyz, 'Bxyz', group_id, got, error)
+    if (got) got_arrays%got_Bxyz = .true.
     call read_from_hdf5(Bevol(4,:), 'psi', group_id, got_arrays%got_psi, error)
  endif
 
  ! Dust arrays
  if (array_options%use_dust) then
-    call read_from_hdf5(r2tmp, 'dustfrac', group_id, got_arrays%got_dustfrac, error)
+    call read_from_hdf5(r2tmp, 'dustfrac', group_id, got, error)
+    if (got) got_arrays%got_dustfrac = .true.
     dustfrac(1:ndusttypes,1:npart) = real(r2tmp(1:ndusttypes,1:npart))
     call read_from_hdf5(tstop, 'tstop', group_id, got_arrays%got_tstop, error)
  endif
@@ -769,7 +783,10 @@ subroutine read_hdf5_arrays( &
  endif
 
  ! Other Arrays
- if (array_options%h2chemistry) call read_from_hdf5(abundance, 'abundance', group_id, got_arrays%got_abund, error)
+ if (array_options%h2chemistry) then
+    call read_from_hdf5(abundance, 'abundance', group_id, got, error)
+    if (got) got_arrays%got_abund = .true.
+ endif
  if (array_options%store_temperature) call read_from_hdf5(temperature, 'T', group_id, got_arrays%got_temp, error)
 
  ! Close the particles group
@@ -793,7 +810,8 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(xyzmh_ptmass(13,1:nptmass), 'Teff', group_id, got_arrays%got_sink_data(13), error)
     call read_from_hdf5(xyzmh_ptmass(14,1:nptmass), 'Reff', group_id, got_arrays%got_sink_data(14), error)
     call read_from_hdf5(xyzmh_ptmass(15,1:nptmass), 'mdotloss', group_id, got_arrays%got_sink_data(15), error)
-    call read_from_hdf5(vxyz_ptmass(:,1:nptmass), 'vxyz', group_id, got_arrays%got_sink_vels, error)
+    call read_from_hdf5(vxyz_ptmass(:,1:nptmass), 'vxyz', group_id, got, error)
+    if (got) got_arrays%got_sink_vels = .true.
  endif
 
  ! Close the sinks group

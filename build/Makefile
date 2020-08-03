@@ -1728,9 +1728,9 @@ SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+   SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-   SRCREADWRITE_DUMPS= readwrite_dumps_fortran.F90 readwrite_dumps.F90
+   SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
@@ -2200,20 +2200,11 @@ cleanphantom2mcfost:
 #----------------------------------------------------
 # these are the sources for the phantom2hdf5 utility
 #
-ifeq ($(PHANTOM2HDF5), yes)
-    FPPFLAGS += -DPHANTOM2HDF5
-endif
 checkhdf5flags:
    ifneq ($(HDF5), yes)
 	@echo "-----------------------------"
 	@echo "Need to compile with HDF5=yes"
 	@echo "-----------------------------"
-	${MAKE} err
-   endif
-   ifneq ($(PHANTOM2HDF5), yes)
-	@echo "-------------------------------------"
-	@echo "Need to compile with PHANTOM2HDF5=yes"
-	@echo "-------------------------------------"
 	${MAKE} err
    endif
 
