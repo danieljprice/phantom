@@ -92,10 +92,11 @@ end subroutine write_smalldump_hdf5
 !+
 !-------------------------------------------------------------------
 subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
- use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,   &
-                          use_dust,use_dustgrowth,phantom_version_major,     &
-                          phantom_version_minor,phantom_version_micro,       &
-                          store_temperature,phantom_version_string,use_krome
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,    &
+                          use_dust,use_dustgrowth,phantom_version_major,      &
+                          phantom_version_minor,phantom_version_micro,        &
+                          store_temperature,phantom_version_string,use_krome, &
+                          store_dust_temperature,do_radiation,gr
  use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk, &
                           gamma,polyk2,qfacdisc,isink
  use gitinfo,        only:gitsha
@@ -109,7 +110,11 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
-                          ndivcurlv,pxyzu
+                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_chem,      &
+                          dust_temp,rad,radprop
+#ifdef NUCLEATION
+ use part,           only:nucleation
+#endif
 #ifdef IND_TIMESTEPS
  use part,           only:ibin,dt_in
 #endif
@@ -130,15 +135,20 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  integer(kind=8),  intent(in), optional :: ntotal
  real(kind=4),     intent(in), optional :: dtind(:)
 
- integer           :: i
- integer           :: ierr
- integer(kind=8)   :: nparttot,npartoftypetot(maxtypes)
- logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
- real              :: ponrhoi,rhoi,spsoundi
- real, allocatable :: pressure(:),dtin(:),beta_pr(:)
+ integer            :: i
+ integer            :: ierr
+ integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
+ logical            :: use_gas,ind_timesteps,const_av,prdrag,isothermal
+ real               :: ponrhoi,rhoi,spsoundi
+ real, allocatable  :: pressure(:),dtin(:),beta_pr(:)
  character(len=200) :: fileid
  real :: posmh(10)
  real :: vels(6)
+
+ ! dummy nucleation array
+#ifndef NUCLEATION
+ real :: nucleation(1,1)
+#endif
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
@@ -343,15 +353,24 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  array_options%ndivcurlv = ndivcurlv
  array_options%ndustsmall = ndustsmall
  array_options%ndustlarge = ndustlarge
+ array_options%store_dust_temperature = store_dust_temperature
+ array_options%radiation = do_radiation
+ array_options%krome = use_krome
+ array_options%gr = gr
+#ifdef NUCLEATION
+ array_options%nucleation = .true.
+#else
+ array_options%nucleation = .false.
+#endif
 
  ! write the arrays to file
  if (fulldump) then
     call write_hdf5_arrays(hdf5_file_id, & ! File ID
                            ierr,         & ! Error code
-                           npart,        & ! # particles
-                           nptmass,      & ! # sinks
+                           npart,        & ! Num particles
+                           nptmass,      & ! Num sinks
                            xyzh,         & !---------
-                           vxyzu,        & !
+                           vxyzu,        & ! Arrays
                            iphase,       & !
                            pressure,     & !
                            alphaind,     & !
@@ -360,7 +379,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            xyzmh_ptmass, & !
                            vxyz_ptmass,  & !
                            Bxyz,         & !
-                           Bevol,        & ! Arrays
+                           Bevol,        & !
                            divcurlB,     & !
                            divBsymm,     & !
                            eta_nimhd,    & !
@@ -374,18 +393,27 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            temperature,  & !
                            divcurlv,     & !
                            luminosity,   & !
-                           beta_pr,      & !---------
+                           beta_pr,      & !
+                           pxyzu,        & !
+                           dens,         & !
+                           gamma_chem,   & !
+                           mu_chem,      & !
+                           T_chem,       & !
+                           nucleation,   & !
+                           dust_temp,    & !
+                           rad,          & !
+                           radprop,      & !---------
                            array_options)  ! Options
  else
     call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
                                  ierr,         & ! Error code
-                                 npart,        & ! # particles
-                                 nptmass,      & ! # sinks
+                                 npart,        & ! Num particles
+                                 nptmass,      & ! Num sinks
                                  xyzh,         & !--------
                                  iphase,       & !
-                                 xyzmh_ptmass, & !
+                                 xyzmh_ptmass, & ! Arrays
                                  Bxyz,         & !
-                                 dustfrac,     & ! Arrays
+                                 dustfrac,     & !
                                  dustprop,     & !
                                  VrelVf,       & !
                                  dustgasprop,  & !
