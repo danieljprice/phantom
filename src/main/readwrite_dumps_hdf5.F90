@@ -473,20 +473,25 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
  use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,     &
-                          maxp_hard
+                          maxp_hard,use_krome,store_dust_temperature,        &
+                          do_radiation,gr
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
  use memory,         only:allocate_memory
  use options,        only:iexternalforce,use_dustfrac
- use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,     &
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,        &
-                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,   &
-                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop, &
-                          tstop,dustgasprop,VrelVf,temperature,abundance,     &
-                          periodic,ndusttypes,pxyzu
+ use part,           only:iphase,xyzh,vxyzu,npart,npartoftype,massoftype,      &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,         &
+                          ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,    &
+                          alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
+                          tstop,dustgasprop,VrelVf,temperature,abundance,      &
+                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_chem, &
+                          dust_temp,rad,radprop
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
+#endif
+#ifdef NUCLEATION
+ use part,           only:nucleation
 #endif
  use setup_params,   only:rhozero
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
@@ -502,6 +507,11 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
  logical, optional, intent(in)  :: acceptsmall
 
  real(kind=4), allocatable :: dtind(:)
+
+ ! dummy nucleation array
+#ifndef NUCLEATION
+ real :: nucleation(1,1)
+#endif
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
  real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
@@ -640,6 +650,15 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
  array_options%use_dustgrowth = use_dustgrowth
  array_options%h2chemistry = h2chemistry
  array_options%store_temperature = store_temperature
+ array_options%store_dust_temperature = store_dust_temperature
+ array_options%radiation = do_radiation
+ array_options%krome = use_krome
+ array_options%gr = gr
+#ifdef NUCLEATION
+ array_options%nucleation = .true.
+#else
+ array_options%nucleation = .false.
+#endif
 
  allocate(dtind(npart))
  call read_hdf5_arrays(hdf5_file_id,  &
@@ -665,6 +684,14 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
                        dustgasprop,   &
                        temperature,   &
                        abundance,     &
+                       pxyzu,         &
+                       gamma_chem,    &
+                       mu_chem,       &
+                       T_chem,        &
+                       nucleation,    &
+                       dust_temp,     &
+                       rad,           &
+                       radprop,       &
                        array_options, &
                        got_arrays)
  if (ierr /= 0) then
