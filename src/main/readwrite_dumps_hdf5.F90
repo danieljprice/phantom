@@ -19,7 +19,7 @@ module readwrite_dumps_hdf5
 !   mpiutils, options, part, setup_params, timestep, units,
 !   utils_dumpfiles_hdf5
 !
- use readwrite_dumps_common, only:check_arrays
+ use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  use utils_dumpfiles_hdf5,   only:create_hdf5file,         &
                                   open_hdf5file,           &
                                   close_hdf5file,          &
@@ -52,36 +52,6 @@ module readwrite_dumps_hdf5
  private
 
 contains
-
-!--------------------------------------------------------------------
-!+
-!  extract various options used in Phantom from the fileid string
-!+
-!--------------------------------------------------------------------
-subroutine get_options_from_fileid(fileid,smalldump,use_onefluiddust,ierr)
- character(len=*), intent(in)  :: fileid
- logical,          intent(out) :: smalldump,use_onefluiddust
- integer,          intent(out) :: ierr
-!
-!--if file is a small dump, return an error code but still read what
-!  can be read from a small dump
-!
- ierr = 0
- smalldump = .false.
- if (fileid(1:4) /= 'full') then
-    if (fileid(1:5)=='small') then
-       smalldump = .true.
-    else
-       ierr = 1
-    endif
- endif
- if (index(fileid,'+1dust') /= 0) then
-    use_onefluiddust = .true.
- else
-    use_onefluiddust = .false.
- endif
-
-end subroutine get_options_from_fileid
 
 !--------------------------------------------------------------------
 !+
@@ -166,11 +136,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  logical           :: use_gas,ind_timesteps,const_av,prdrag,isothermal
  real              :: ponrhoi,rhoi,spsoundi
  real, allocatable :: pressure(:),dtin(:),beta_pr(:)
- character(len=100):: fileident
- character(len=10) :: datestring, timestring
- character(len=30) :: string
- character(len=9)  :: dumptype
- integer :: error
+ character(len=200) :: fileid
  real :: posmh(10)
  real :: vels(6)
 
@@ -273,40 +239,19 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
     const_av = .true.
  endif
 
- !
- !--print date and time stamp in file header
- !
- call date_and_time(datestring,timestring)
- datestring = datestring(7:8)//'/'//datestring(5:6)//'/'//datestring(1:4)
- timestring = timestring(1:2)//':'//timestring(3:4)//':'//timestring(5:)
-
- string = ' '
- if (gravity) string = trim(string)//'+grav'
- if (npartoftype(idust) > 0) string = trim(string)//'+dust'
- if (use_dustfrac) string = trim(string)//'+1dust'
- if (h2chemistry) string = trim(string)//'+H2chem'
- if (lightcurve) string = trim(string)//'+lightcurve'
- if (use_dustgrowth) string = trim(string)//'+dustgrowth'
-
+ ! generate fileid
  if (fulldump) then
-    dumptype = 'fulldump '
+    fileid = fileident('FT')
  else
-    dumptype = 'smalldump'
- endif
- fileident = trim(dumptype)//': '//'Phantom'//' '//trim(phantom_version_string)//' '//gitsha
-
- if (mhd) then
-    fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
- else
-    fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
+    fileid = fileident('ST')
  endif
 
  ! create the HDF file
- call create_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,error)
- if (error/=0) call fatal('write_fulldump_hdf5','could not open file')
+ call create_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,ierr)
+ if (ierr/=0) call fatal('write_fulldump_hdf5','could not open file')
 
  ! construct header derived type
- hdr%fileident = trim(fileident)
+ hdr%fileident = trim(fileid)
  hdr%ntypes = maxtypes
  hdr%isink = isink
  hdr%nptmass = nptmass
@@ -376,8 +321,8 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  end select
 
  ! write the header to the HDF file
- call write_hdf5_header(hdf5_file_id,hdr,extern,error)
- if (error/=0) call fatal('write_fulldump_hdf5','could not write header')
+ call write_hdf5_header(hdf5_file_id,hdr,extern,ierr)
+ if (ierr/=0) call fatal('write_fulldump_hdf5','could not write header')
 
  ! create options derived type for writing arrays
  array_options%ieos = ieos
@@ -402,7 +347,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  ! write the arrays to file
  if (fulldump) then
     call write_hdf5_arrays(hdf5_file_id, & ! File ID
-                           error,        & ! Error code
+                           ierr,         & ! Error code
                            npart,        & ! # particles
                            nptmass,      & ! # sinks
                            xyzh,         & !---------
@@ -433,7 +378,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            array_options)  ! Options
  else
     call write_hdf5_arrays_small(hdf5_file_id, & ! File ID
-                                 error,        & ! Error code
+                                 ierr,         & ! Error code
                                  npart,        & ! # particles
                                  nptmass,      & ! # sinks
                                  xyzh,         & !--------
@@ -448,10 +393,10 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                                  luminosity,   & !--------
                                  array_options)  ! Options
  endif
- if (error/=0) call fatal('write_fulldump_hdf5','could not write arrays')
+ if (ierr/=0) call fatal('write_fulldump_hdf5','could not write arrays')
 
- call close_hdf5file(hdf5_file_id,error)
- if (error/=0) call fatal('write_fulldump_hdf5','could not close file')
+ call close_hdf5file(hdf5_file_id,ierr)
+ if (ierr/=0) call fatal('write_fulldump_hdf5','could not close file')
 
  if (fulldump) deallocate(pressure,beta_pr,dtin)
 
@@ -532,9 +477,8 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
  real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
- character(len=200) :: fileident
- integer :: errors(5)
- logical :: smalldump,isothermal,ind_timesteps,const_av,small_ok
+ character(len=200) :: fileid
+ logical :: smalldump,isothermal,ind_timesteps,const_av,small_ok,tagged,phantomdump
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
@@ -546,20 +490,22 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
     if (acceptsmall) small_ok = .true.
  endif
 
- errors(:) = 0
-
- call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,errors(1))
- if (errors(1) /= 0) then
+ call open_hdf5file(trim(dumpfile)//'.h5',hdf5_file_id,ierr)
+ if (ierr /= 0) then
     ierr = 1
     call fatal('read_dump_hdf5',trim(dumpfile)//'.h5 does not exist')
  endif
 
- call read_hdf5_header(hdf5_file_id,hdr,extern,errors(2))
+ call read_hdf5_header(hdf5_file_id,hdr,extern,ierr)
+ if (ierr /= 0) then
+    ierr = 2
+    call error('read_dump_hdf5','cannot read header')
+ endif
 
  !
  !--Set values from header
  !
- fileident = hdr%fileident
+ fileid = hdr%fileident
  isink = hdr%isink
  nptmass = hdr%nptmass
  ndustlarge = hdr%ndustlarge
@@ -609,7 +555,7 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
  call set_units_extra()
  ndusttypes = ndustsmall + ndustlarge
 
- call get_options_from_fileid(fileident,smalldump,use_dustfrac,errors(3))
+ call get_options_from_fileid(fileid,tagged,phantomdump,smalldump,use_dustfrac,ierr)
 
  !
  !--Set values from external forces
@@ -669,7 +615,7 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
 
  allocate(dtind(npart))
  call read_hdf5_arrays(hdf5_file_id,  &
-                       errors(4),     &
+                       ierr,          &
                        npart,         &
                        nptmass,       &
                        ndusttypes,    &
@@ -693,6 +639,10 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
                        abundance,     &
                        array_options, &
                        got_arrays)
+ if (ierr /= 0) then
+    ierr = 3
+    call error('read_dump_hdf5','cannot read arrays')
+ endif
 
  if (.not.smalldump) then
     call check_arrays(1,                          &
@@ -737,6 +687,10 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
                       iprint,                     &
                       ierr)
  endif
+ if (ierr /= 0) then
+    ierr = 4
+    call error('read_dump_hdf5','error in checking arrays')
+ endif
 
 #ifdef IND_TIMESTEPS
  if (size(dt_in)/=size(dtind)) then
@@ -746,9 +700,11 @@ subroutine read_any_dump_hdf5(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,i
 #endif
  deallocate(dtind)
 
- call close_hdf5file(hdf5_file_id,errors(5))
-
- ierr = maxval(abs(errors))
+ call close_hdf5file(hdf5_file_id,ierr)
+ if (ierr /= 0) then
+    ierr = 5
+    call error('read_dump_hdf5','cannot close file')
+ endif
 
  if (smalldump) then
     if (.not.small_ok) then
