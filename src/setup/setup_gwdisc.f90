@@ -28,8 +28,8 @@ module setup
 !   - p_indexinput : *surface density profile*
 !   - q_indexinput : *temperature profile*
 !
-! :Dependencies: externalforces, infile_utils, io, options, physcon,
-!   prompting, setdisc, units
+! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
+!   physcon, prompting, setdisc, units
 !
  use extern_binary, only:accradius1,accradius2,massr,a0 !,binary_posvel
  implicit none
