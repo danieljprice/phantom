@@ -765,6 +765,14 @@ subroutine read_hdf5_arrays( &
    dustgasprop,              &
    temperature,              &
    abundance,                &
+   pxyzu,                    &
+   gamma_chem,               &
+   mu_chem,                  &
+   T_chem,                   &
+   nucleation,               &
+   dust_temp,                &
+   rad,                      &
+   radprop,                  &
    array_options,            &
    got_arrays)
 
@@ -786,7 +794,15 @@ subroutine read_hdf5_arrays( &
                                  tstop(:,:),        &
                                  VrelVf(:),         &
                                  temperature(:),    &
-                                 abundance(:,:)
+                                 abundance(:,:),    &
+                                 pxyzu(:,:),        &
+                                 gamma_chem(:),     &
+                                 mu_chem(:),        &
+                                 T_chem(:),         &
+                                 nucleation(:,:),   &
+                                 dust_temp(:),      &
+                                 rad(:,:),          &
+                                 radprop(:,:)
  real(kind=4),    intent(out) :: dt_in(:),          &
                                  alphaind(:,:),     &
                                  poten(:)
@@ -800,29 +816,37 @@ subroutine read_hdf5_arrays( &
 
  error = 0
 
- got_arrays%got_iphase    = .false.
- got_arrays%got_xyzh      = .false.
- got_arrays%got_vxyzu     = .false.
- got_arrays%got_dustfrac  = .false.
- got_arrays%got_tstop     = .false.
- got_arrays%got_deltav    = .false.
- got_arrays%got_abund     = .false.
- got_arrays%got_dt_in     = .false.
- got_arrays%got_alpha     = .false.
- got_arrays%got_poten     = .false.
- got_arrays%got_sink_data = .false.
- got_arrays%got_sink_vels = .false.
- got_arrays%got_Bxyz      = .false.
- got_arrays%got_psi       = .false.
- got_arrays%got_temp      = .false.
- got_arrays%got_dustprop  = .false.
- got_arrays%got_St        = .false.
- got_arrays%got_VrelVf    = .false.
+ got_arrays%got_iphase      = .false.
+ got_arrays%got_xyzh        = .false.
+ got_arrays%got_vxyzu       = .false.
+ got_arrays%got_dustfrac    = .false.
+ got_arrays%got_tstop       = .false.
+ got_arrays%got_deltav      = .false.
+ got_arrays%got_abund       = .false.
+ got_arrays%got_dt_in       = .false.
+ got_arrays%got_alpha       = .false.
+ got_arrays%got_poten       = .false.
+ got_arrays%got_sink_data   = .false.
+ got_arrays%got_sink_vels   = .false.
+ got_arrays%got_Bxyz        = .false.
+ got_arrays%got_psi         = .false.
+ got_arrays%got_temp        = .false.
+ got_arrays%got_dustprop    = .false.
+ got_arrays%got_St          = .false.
+ got_arrays%got_VrelVf      = .false.
+ got_arrays%got_pxyzu       = .false.
+ got_arrays%got_raden       = .false.
+ got_arrays%got_kappa       = .false.
+ got_arrays%got_Tdust       = .false.
+ got_arrays%got_krome_mols  = .false.
+ got_arrays%got_krome_gamma = .false.
+ got_arrays%got_krome_mu    = .false.
+ got_arrays%got_krome_T     = .false.
 
  ! Open particles group
  call open_hdf5group(file_id, 'particles', group_id, error)
 
- ! Main arrays
+ ! Type, position, smoothing length, velocity
  call read_from_hdf5(iphase, 'itype', group_id, got_arrays%got_iphase, error)
  call read_from_hdf5(xyzh(1:3,:), 'xyz', group_id, got, error)
  if (got) got_arrays%got_xyzh = .true.
@@ -834,22 +858,46 @@ subroutine read_hdf5_arrays( &
  endif
  call read_from_hdf5(vxyzu(1:3,:), 'vxyz', group_id, got, error)
  if (got) got_arrays%got_vxyzu = .true.
+
+ ! Equation of state
  if (.not.array_options%isothermal) then
     call read_from_hdf5(vxyzu(4,:), 'u', group_id, got, error)
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
- if (array_options%ind_timesteps) call read_from_hdf5(dt_in, 'dt', group_id, got_arrays%got_dt_in, error)
- if (.not. array_options%const_av) call read_from_hdf5(alphaind(1,:), 'alpha', group_id, got_arrays%got_alpha, error)
- if (array_options%gravity) call read_from_hdf5(poten, 'poten', group_id, got_arrays%got_poten, error)
+ if (array_options%store_temperature) then
+    call read_from_hdf5(temperature, 'T', group_id, got_arrays%got_temp, error)
+ endif
 
- ! MHD arrays
+ ! General relativity
+ if (array_options%gr) then
+    call read_from_hdf5(pxyzu(1:3,:), 'gr_momentum', group_id, got, error)
+    call read_from_hdf5(pxyzu(4,:), 'gr_entropy', group_id, got, error)
+    if (got) got_arrays%got_pxyzu = .true.
+ endif
+
+ ! Viscosity (only ever write 'first' alpha)
+ if (.not. array_options%const_av) then
+    call read_from_hdf5(alphaind(1,:), 'alpha', group_id, got_arrays%got_alpha, error)
+ endif
+
+ ! Individual timesteps
+ if (array_options%ind_timesteps) then
+    call read_from_hdf5(dt_in, 'dt', group_id, got_arrays%got_dt_in, error)
+ endif
+
+ ! Self-gravity
+ if (array_options%gravity) then
+    call read_from_hdf5(poten, 'poten', group_id, got_arrays%got_poten, error)
+ endif
+
+ ! MHD
  if (array_options%mhd) then
     call read_from_hdf5(Bxyz, 'Bxyz', group_id, got, error)
     if (got) got_arrays%got_Bxyz = .true.
     call read_from_hdf5(Bevol(4,:), 'psi', group_id, got_arrays%got_psi, error)
  endif
 
- ! Dust arrays
+ ! Dust
  if (array_options%use_dust) then
     call read_from_hdf5(r2tmp, 'dustfrac', group_id, got, error)
     if (got) got_arrays%got_dustfrac = .true.
@@ -857,6 +905,8 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(tstop, 'tstop', group_id, got_arrays%got_tstop, error)
  endif
  if (array_options%use_dustfrac) call read_from_hdf5(deltav, 'deltavxyz', group_id, got_arrays%got_deltav, error)
+
+ ! Dust growth
  if (array_options%use_dustgrowth) then
     call read_from_hdf5(dustprop(1,:), 'grainsize', group_id, got_arrays%got_dustprop(1), error)
     call read_from_hdf5(dustprop(2,:), 'graindens', group_id, got_arrays%got_dustprop(2), error)
@@ -864,12 +914,45 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(dustgasprop(3,:), 'St', group_id, got_arrays%got_St, error)
  endif
 
- ! Other Arrays
+ ! Chemistry
  if (array_options%h2chemistry) then
     call read_from_hdf5(abundance, 'abundance', group_id, got, error)
     if (got) got_arrays%got_abund = .true.
  endif
- if (array_options%store_temperature) call read_from_hdf5(temperature, 'T', group_id, got_arrays%got_temp, error)
+
+ ! Chemistry (Krome)
+ if (array_options%krome) then
+    call read_from_hdf5(abundance, 'abundance', group_id, got, error)
+    if (got) got_arrays%got_krome_mols = .true.
+    call read_from_hdf5(gamma_chem, 'gamma_chem', group_id, got_arrays%got_krome_gamma, error)
+    call read_from_hdf5(mu_chem, 'mu_chem', group_id, got_arrays%got_krome_mu, error)
+    call read_from_hdf5(T_chem, 'T_chem', group_id, got_arrays%got_krome_gamma, error)
+ endif
+
+ ! Nucleation
+ if (array_options%nucleation) then
+    call read_from_hdf5(nucleation(1,1:npart), 'nucleation_Jstar', group_id, got, error)
+    call read_from_hdf5(nucleation(2,1:npart), 'nucleation_K0', group_id, got, error)
+    call read_from_hdf5(nucleation(3,1:npart), 'nucleation_K1', group_id, got, error)
+    call read_from_hdf5(nucleation(4,1:npart), 'nucleation_K2', group_id, got, error)
+    call read_from_hdf5(nucleation(5,1:npart), 'nucleation_K3', group_id, got, error)
+    call read_from_hdf5(nucleation(6,1:npart), 'nucleation_mu', group_id, got, error)
+    call read_from_hdf5(nucleation(7,1:npart), 'nucleation_S', group_id, got, error)
+    call read_from_hdf5(nucleation(8,1:npart), 'nucleation_kappa', group_id, got, error)
+ endif
+
+ ! Radiation
+ if (array_options%store_dust_temperature) then
+    call read_from_hdf5(dust_temp(1:npart), 'temperature_dust', group_id, got, error)
+ endif
+ if (array_options%radiation) then
+    call read_from_hdf5(rad(1,1:npart), 'radiation_xi', group_id, got, error)
+    call read_from_hdf5(radprop(1:3,1:npart), 'radition_F', group_id, got, error)
+    call read_from_hdf5(radprop(4,1:npart), 'radiation_kappa', group_id, got, error)
+    call read_from_hdf5(radprop(5,1:npart), 'radiation_thick', group_id, got, error)
+    call read_from_hdf5(radprop(6,1:npart), 'radiation_numph', group_id, got, error)
+    call read_from_hdf5(radprop(7,1:npart), 'radiation_vorcl', group_id, got, error)
+ endif
 
  ! Close the particles group
  call close_hdf5group(group_id, error)
