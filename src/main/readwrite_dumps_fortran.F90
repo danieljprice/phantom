@@ -25,7 +25,7 @@ module readwrite_dumps_fortran
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
- use readwrite_dumps_common, only:check_arrays
+ use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  implicit none
  character(len=80), parameter, public :: &    ! module version
     modid="$Id$"
@@ -181,96 +181,6 @@ subroutine end_threadwrite(id)
 
  return
 end subroutine end_threadwrite
-
-!--------------------------------------------------------------------
-!+
-!  contruct header string based on compile-time options
-!  these are for information only (ie. not important for restarting)
-!+
-!--------------------------------------------------------------------
-character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:h2chemistry,mhd,npartoftype,idust,gravity,lightcurve
- use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature
- use gitinfo, only:gitsha
- character(len=2), intent(in) :: firstchar
- character(len=*), intent(in), optional :: codestring
- character(len=10) :: datestring, timestring
- character(len=30) :: string
-!
-!--print date and time stamp in file header
-!
- call date_and_time(datestring,timestring)
- datestring = datestring(7:8)//'/'//datestring(5:6)//'/'//datestring(1:4)
- timestring = timestring(1:2)//':'//timestring(3:4)//':'//timestring(5:)
-
- string = ' '
- if (gravity) string = trim(string)//'+grav'
- if (npartoftype(idust) > 0) string = trim(string)//'+dust'
- if (use_dustfrac) string = trim(string)//'+1dust'
- if (h2chemistry) string = trim(string)//'+H2chem'
- if (lightcurve) string = trim(string)//'+lightcurve'
- if (use_dustgrowth) string = trim(string)//'+dustgrowth'
- if (use_krome) string = trim(string)//'+krome'
- if (store_dust_temperature) string = trim(string)//'+Tdust'
-#ifdef NUCLEATION
- string = trim(string)//'+nucleation'
-#endif
- if (present(codestring)) then
-    fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
- else
-    fileident = firstchar//':Phantom'//':'//trim(phantom_version_string)//':'//gitsha
- endif
-
- if (mhd) then
-    fileident = trim(fileident)//' (mhd+clean'//trim(string)//')  : '//trim(datestring)//' '//trim(timestring)
- else
-    fileident = trim(fileident)//' (hydro'//trim(string)//'): '//trim(datestring)//' '//trim(timestring)
- endif
-
-end function fileident
-
-!--------------------------------------------------------------------
-!+
-!  extract various options used in Phantom from the fileid string
-!+
-!--------------------------------------------------------------------
-subroutine get_options_from_fileid(fileid,tagged,phantomdump,smalldump,&
-                                   use_onefluiddust,ierr)
- character(len=lenid), intent(in)  :: fileid
- logical,              intent(out) :: tagged,phantomdump,smalldump,use_onefluiddust
- integer,              intent(out) :: ierr
-!
-!--if file is a small dump, return an error code but still read what
-!  can be read from a small dump
-!
- ierr = 0
- tagged      = .false.
- smalldump   = .false.
- phantomdump = .false.
- if (fileid(2:2)=='T') tagged = .true.
- if (fileid(1:1) /= 'F') then
-    !write(*,*) 'ERROR! file header indicates file is not a full dump'
-    ierr = 1
-    if (fileid(1:1)=='S') smalldump = .true.
- endif
- if (index(fileid,'Phantom') /= 0) then
-    phantomdump = .true.
- elseif (index(fileid,'sphNG') /= 0) then
-    phantomdump = .false.
-    write(*,*) 'reading dump in sphNG format'
- else
-    write(*,*) 'WARNING: could not determine Phantom/sphNG from fileident'
-    write(*,*) '(assuming sphNG...)'
-    phantomdump = .false.
- endif
- if (index(fileid,'+1dust') /= 0) then
-    use_onefluiddust = .true.
- else
-    use_onefluiddust = .false.
- endif
-
-end subroutine get_options_from_fileid
 
 !--------------------------------------------------------------------
 !+
