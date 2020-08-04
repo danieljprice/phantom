@@ -1384,7 +1384,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              call get_P(rhoj,rho1j,xj,yj,zj,pmassj,enj,tempj,Bxj,Byj,Bzj,dustfracj, &
                         ponrhoj,pro2j,prj,spsoundj,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
-                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,gammaj)
+                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,rad(1,j),radprop(8,j),gammaj)
 #else
              call get_P(rhoj,rho1j,xj,yj,zj, &
 #ifdef GR
@@ -1393,7 +1393,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                         pmassj,enj,tempj,Bxj,Byj,Bzj,dustfracj, &
                         ponrhoj,pro2j,prj,spsoundj,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
-                        realviscosity,divvj,bulkvisc,dvdxj,stressmax)
+                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,rad(1,j),radprop(8,j))
 #endif
 
              if (store_temperature) then
@@ -1912,13 +1912,14 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
                  ponrhoi,pro2i,pri,spsoundi,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,dvdx,stressmax, &
-                 gammai)
+                 radeni,radPi,gammai)
 
- use dim,       only:maxvxyzu,maxdvdx,maxp,store_temperature
- use part,      only:mhd,strain_from_dvdx
- use eos,       only:equationofstate
- use options,   only:ieos
- use viscosity, only:shearfunc
+ use dim,             only:maxvxyzu,maxdvdx,maxp,store_temperature
+ use part,            only:mhd,strain_from_dvdx
+ use eos,             only:equationofstate
+ use options,         only:ieos
+ use viscosity,       only:shearfunc
+ use radiation_utils, only:radiation_equation_of_state
 #ifdef GR
  use utils_gr,  only:rho2dens
 #endif
@@ -1932,6 +1933,8 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
  real,    intent(in)    :: divvi,bulkvisc,stressmax
  real,    intent(in)    :: dvdx(9)
  real,    intent(inout)   , optional :: gammai
+ real,    intent(in)    :: radeni
+ real,    intent(out)   :: radPi
 #ifdef GR
  real,    intent(in)  :: densi
  real :: p_on_densgas
@@ -2035,6 +2038,14 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 !
     pro2i  = ponrhoi*rho1i + stressiso
     vwavei = spsoundi
+ endif
+
+ if (do_radiation) then
+   !calculate radiation pressure with eos from radiation_utils
+   radPi = 1. / 3. * radeni * rhoi
+   !call radiation_equation_of_state(radPi, radeni, rhoi)
+
+   pro2i = pro2i + radPi*rho1i*rho1i
  endif
 
  return
@@ -2194,7 +2205,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   ponrhoi,pro2i,pri,spsoundi, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
                   visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
-                  gammai)
+                  rad(1,i),radprop(8,i),gammai)
 #else
        call get_P(rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
@@ -2207,7 +2218,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   dustfraci(:), &
                   ponrhoi,pro2i,pri,spsoundi, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax)
+                  visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax,rad(1,i),radprop(8,i))
 #endif
 #ifdef DUST
        !

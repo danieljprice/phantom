@@ -21,6 +21,7 @@ module radiation_utils
  public :: set_radiation_and_gas_temperature_equal
  public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
+ public :: radiation_equation_of_state
 
  private
 
@@ -273,7 +274,7 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
   real, intent(out) :: radPi
   real, intent(in) :: Xii, rhoi
 
-  radPi = 1. / 3./ Xii * rhoi
+  radPi = 1. / 3. * Xii * rhoi
    
 end subroutine radiation_equation_of_state
 
