@@ -264,6 +264,19 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
 
 end subroutine solve_internal_energy_explicit_substeps
 
+!--------------------------------------------------------------------
+!+
+!  calculate radiation Pressure from radiation Energy
+!+
+!--------------------------------------------------------------------
+subroutine radiation_equation_of_state(radPi, Xii, rhoi)
+  real, intent(out) :: radPi
+  real, intent(in) :: Xii, rhoi
+
+  radPi = 1. / 3./ Xii * rhoi
+   
+end subroutine radiation_equation_of_state
+
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
 !   use eos,     only: get_spsound
