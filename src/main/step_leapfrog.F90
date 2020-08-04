@@ -26,7 +26,7 @@
 !
 !  RUNTIME PARAMETERS: None
 !
-!  DEPENDENCIES: bowen_dust, chem, cons2prim, cons2primsolver, coolfunc,
+!  DEPENDENCIES: bowen_dust, chem, cons2prim, cons2primsolver, coolfunc, rprocess_heating,
 !    damping, deriv, derivutils, dim, eos, extern_gr, externalforces,
 !    growth, io, io_summary, metric_tools, mpiutils, options, part, ptmass,
 !    timestep, timestep_ind, timestep_sts, timing
@@ -116,6 +116,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake,this_is_a_test
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
  use coolfunc,       only:energ_coolfunc
+ use rprocess_heating, only:energ_rprocess
 #ifdef IND_TIMESTEPS
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow
@@ -414,6 +415,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
+!$omp shared(timei) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -519,6 +521,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              pxyzu(2,i) = pyi
              pxyzu(3,i) = pzi
              pxyzu(4,i) = eni
+
+             !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
+             !----- In Liptai & Price (2019), K is given the symbol K. -----
+             if (icooling==4) call energ_rprocess(pxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),timei,dtsph)
           else
              vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
              vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)

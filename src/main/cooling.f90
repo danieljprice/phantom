@@ -22,7 +22,7 @@
 !    beta_cool -- beta factor in Gammie (2001) cooling
 !    icooling  -- cooling function (0=off, 1=Gammie cooling 2=SD93 3=cooling function)
 !
-!  DEPENDENCIES: coolfunc, dim, eos, h2cooling, infile_utils, io, options,
+!  DEPENDENCIES: coolfunc, rprocess_heating, dim, eos, h2cooling, infile_utils, io, options,
 !    part, physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
@@ -149,6 +149,7 @@ subroutine write_options_cooling(iunit)
  use infile_utils, only:write_inopt
  use h2cooling,    only:write_options_h2cooling
  use coolfunc,     only:write_options_coolfunc
+ use rprocess_heating, only:write_options_rprocess
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
@@ -166,6 +167,8 @@ subroutine write_options_cooling(iunit)
     call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
  elseif (icooling == 3) then
     call write_options_coolfunc(iunit)
+ elseif (icooling == 4) then
+    call write_options_rprocess(iunit)
  endif
 
 end subroutine write_options_cooling
@@ -178,12 +181,13 @@ end subroutine write_options_cooling
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use h2cooling, only:read_options_h2cooling
  use coolfunc,  only:read_options_coolfunc
+ use rprocess_heating, only:read_options_rprocess
  use io,        only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallh2,igotallcf
+ logical :: igotallh2,igotallcf,igotallrp
 
  imatch  = .true.
  igotall = .false.  ! cooling options are compulsory
@@ -206,6 +210,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     imatch = .false.
     if (h2chemistry) call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     if (icooling==3) call read_options_coolfunc(name,valstring,imatch,igotallcf,ierr)
+    if (icooling==4) call read_options_rprocess(name,valstring,imatch,igotallrp,ierr)
  end select
 
  if (igotallh2 .and. ngot >= 1) igotall = .true.
@@ -213,6 +218,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  if (icooling > 1 .and. ngot >= 2) igotall = .true.
 
  if (.not.igotallcf) igotall = .false.
+
+ if (.not.igotallrp) igotall = .false.
 
  if (.not.h2chemistry .and. (icooling == 1 .and. ngot < 3)) igotall= .false.
 
