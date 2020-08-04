@@ -193,6 +193,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  igotall = .false.  ! cooling options are compulsory
  igotallh2 = .true.
  igotallcf = .true.
+ igotallrp = .true.
  if (maxvxyzu < 4) igotall = .true. ! options unnecessary if isothermal
 
  select case(trim(name))
