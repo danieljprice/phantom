@@ -125,6 +125,8 @@ subroutine test_step(ntests,npass)
  call checkval(nerror,0,0,nfailed(1),'no errors in setup')
  call update_test_scores(ntests,nfailed,npass)
 
+ fxyzu = 0.
+ fext = 0.
  call get_derivs_global()
  call init_step(npart,t,dtmax)
 
