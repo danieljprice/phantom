@@ -70,10 +70,14 @@ subroutine test_link(ntests,npass)
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
  real, allocatable :: xyzcache(:,:)
- integer :: listneigh(maxneigh)
+ integer, allocatable :: listneigh(:)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
  if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
+!
+!--allocate memory for neighbour list
+!
+ allocate(listneigh(maxneigh))
 !
 !--set up a random particle distribution
 !
@@ -436,6 +440,7 @@ subroutine test_link(ntests,npass)
  enddo
 
  if (allocated(xyzcache)) deallocate(xyzcache)
+ deallocate(listneigh)
 
  if (id==master) write(*,"(/,a,/)") '<-- LINKLIST TEST COMPLETE'
 
