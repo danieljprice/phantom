@@ -125,7 +125,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
-                     get_cell_location,set_hmaxcell,sync_hmax_mpi
+                     listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,&
@@ -162,9 +162,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
 
- integer, save :: listneigh(maxneigh)
  real,   save :: xyzcache(isizecellcache,3)
-!$omp threadprivate(xyzcache,listneigh)
+!$omp threadprivate(xyzcache)
 
  integer :: i,icell
  integer :: nneigh,np
