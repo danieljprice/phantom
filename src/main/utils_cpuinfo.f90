@@ -81,6 +81,10 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
 !
  ierr = 0
  ncpu = 0
+ ncpureal = 0
+ cpuspeed = 0.
+ cpumodel = ''
+ cachesize = ''
  inquire(file='/proc/cpuinfo',exist=iexist)
  if (iexist) then
     open(unit=iunit,file='/proc/cpuinfo',status='old',iostat=ierr)

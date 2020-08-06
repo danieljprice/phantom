@@ -1458,10 +1458,11 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  if (use_dust) then
     call extract('ndustsmall',ndustsmall,hdr,ierrs(1))
     call extract('ndustlarge',ndustlarge,hdr,ierrs(2))
-    ndusttypes = ndustsmall + ndustlarge
     if (any(ierrs(1:2) /= 0)) then
-       write(*,*) 'ERROR reading number of small/large grain types from file header'
+       call extract('ndustfluids',ndustsmall,hdr,ierrs(1)) ! for backwards compatibility
+       if (ierrs(1) /= 0) write(*,*) 'ERROR reading number of small/large grain types from file header'
     endif
+    ndusttypes = ndustsmall + ndustlarge
  endif
 !
 !--units
