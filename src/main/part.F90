@@ -592,6 +592,11 @@ subroutine init_part
  dustgasprop(:,:) = 0.
  VrelVf(:)        = 0.
 #endif
+#ifdef IND_TIMESTEPS
+ ibin(:)       = 0
+ ibin_old(:)   = 0
+ ibin_wake(:)  = 0
+#endif
 
 end subroutine init_part
 
