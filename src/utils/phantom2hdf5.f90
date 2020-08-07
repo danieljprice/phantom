@@ -14,8 +14,8 @@ program phantom2hdf5
 !
 ! :Usage: phantom2hdf5 dumpfile(s)
 !
-! :Dependencies: dim, eos, externalforces, io, part, readwrite_dumps,
-!   readwrite_dumps_hdf5
+! :Dependencies: dim, eos, externalforces, io, part,
+!   readwrite_dumps_fortran, readwrite_dumps_hdf5
 !
  use dim,                     only:tagline
  use part,                    only:hfact,dt_in

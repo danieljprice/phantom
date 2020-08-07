@@ -1,4 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module readwrite_dumps
+!
+! readwrite_dumps
+!
+! :References: None
+!
+! :Owner: Christophe Pinte
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, io, readwrite_dumps_fortran,
+!   readwrite_dumps_hdf5
+!
 
   use readwrite_dumps_fortran
 #ifdef HDF5
