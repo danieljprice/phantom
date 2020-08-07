@@ -256,11 +256,11 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 
     ! Compute dtind array
 #ifdef IND_TIMESTEPS
-       if (present(dtind)) then
-          dtin = dtind
-       else
-          dtin = dtmax/2**ibin(1:npart)
-       endif
+    if (present(dtind)) then
+       dtin = dtind
+    else
+       dtin = dtmax/2**ibin(1:npart)
+    endif
 #endif
  endif
 
