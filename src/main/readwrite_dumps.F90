@@ -10,7 +10,7 @@ module readwrite_dumps
 !
 ! :References: None
 !
-! :Owner: Christophe Pinte
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
