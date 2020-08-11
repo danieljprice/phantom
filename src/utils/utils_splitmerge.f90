@@ -134,16 +134,17 @@ end subroutine shift_particles
 !-----------------------------------------------------------------------
 !+
 ! merges nchild particles in one parent particle
+! parent properties averaged from children
 !+
 !-----------------------------------------------------------------------
-subroutine merge_into_a_particle(nchild,ichildren,mchild,npart, &
+subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
            xyzh,vxyzu,iparent)
  use kernel, only:get_kernel,cnormk,radkern
  use part,   only:copy_particle
  integer, intent(in)    :: nchild,ichildren(nchild),iparent
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(out)   :: mchild
+ real,    intent(in)   :: mchild
  integer :: i,j,ichild
  real    :: h1,h31,rij_vec(3)
  real    :: qij,rij,wchild,grkernchild,rho_parent
@@ -185,6 +186,34 @@ rho_parent = 0.
 !-- smoothing length from density
 xyzh(4,iparent) = 1.2*(nchild*mchild/rho_parent)**(1./3.)
 
-end subroutine merge_into_a_particle
+end subroutine fancy_merge_into_a_particle
+
+!-----------------------------------------------------------------------
+!+
+! merges nchild particles in one parent particle
+! chooses the first particle to be the de-facto parent
+! and discards the rest (super fast)
+!+
+!-----------------------------------------------------------------------
+subroutine fast_merge_into_a_particle(nchild,ichildren,mchild,npart, &
+           xyzh,vxyzu,npartoftype,iparent)
+ use part,   only:copy_particle,kill_particle
+ integer, intent(in)    :: nchild,ichildren(nchild),iparent
+ integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)    :: mchild
+ integer, intent(inout) :: npartoftype(:)
+ integer :: i
+
+ ! use first child to be parent
+ call copy_particle(ichildren(1),iparent)
+ xyzh(4,iparent) = xyzh(4,ichildren(1)) * (nchild)**(1./3.)
+
+ ! discard the rest
+ do i=2,nchild
+    call kill_particle(ichildren(i),npartoftype(:))
+ enddo
+
+end subroutine fast_merge_into_a_particle
 
 end module splitmergeutils
