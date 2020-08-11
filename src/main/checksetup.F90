@@ -37,11 +37,11 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
-                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop
  use eos,             only:gamma,polyk
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
@@ -400,6 +400,11 @@ subroutine check_setup(nerror,nwarn,restart)
 #endif
 
 !
+!--check radiation setup
+!
+ if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
+
+!
 !--check dust growth arrays
 !
  if (use_dustgrowth) call check_setup_growth(npart,nerror)
@@ -722,5 +727,33 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  deallocate(index)
 
 end subroutine check_for_identical_positions
+
+
+!------------------------------------------------------------------
+!+
+! check for optically thin particles when 
+! To do! : check that radiation energy is never negative to begin with
+!+
+!------------------------------------------------------------------
+
+subroutine check_setup_radiation(npart, nerror, radprop, rad)
+ use part,      only:ithick
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ real,    intent(in)    :: rad(:,:), radprop(:,:)
+ integer :: i, nthin
+ 
+ nthin = 0
+ do i=1, npart
+    if (radprop(ithick, i) < 0.5) nthin=nthin + 1
+ end do
+
+ if (nthin > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
+    ' particles are being treated as optically thin without MCFOST being compiled'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_setup_radiation
 
 end module checksetup

@@ -1127,7 +1127,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       temperature,dustprop,dustprop_label,divcurlv,divcurlv_label,&
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1258,6 +1258,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (do_radiation) then
                 call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ikappa,:),radprop_label(ikappa),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
