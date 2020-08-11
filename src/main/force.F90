@@ -896,7 +896,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer(kind=1), intent(out)   :: ibin_wake(:),ibin_neighi
  integer(kind=1), intent(in)    :: ibinnow_m1
  logical,         intent(in)    :: ignoreself
- real,            intent(in)    :: rad(:,:),radprop(:,:),dens(:),metrics(:,:,:,:)
+ real,            intent(in)    :: rad(:,:),dens(:),metrics(:,:,:,:)
+ real,            intent(inout) :: radprop(:,:)
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
@@ -1665,8 +1666,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radprop(ikappa,j)
                 radenj = rad(iradxi,j)
                 radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
-                ! radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                radlambdaj = 1./3.
+                radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                !radlambdaj = 1./3.
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2042,8 +2043,7 @@ subroutine get_P(rhoi,rho1i,xi,yi,zi, &
 
  if (do_radiation) then
    !calculate radiation pressure with eos from radiation_utils
-   radPi = 1. / 3. * radeni * rhoi
-   !call radiation_equation_of_state(radPi, radeni, rhoi)
+   call radiation_equation_of_state(radPi, radeni, rhoi)
 
    pro2i = pro2i + radPi*rho1i*rho1i
  endif
@@ -2088,7 +2088,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real,               intent(inout) :: temperature(:)
  real(kind=4),       intent(in)    :: alphaind(:,:)
  real,               intent(in)    :: stressmax
- real,               intent(in)    :: rad(:,:),radprop(:,:)
+ real,               intent(in)    :: rad(:,:)
+ real,               intent(inout) :: radprop(:,:)
  real,               intent(in)    :: dens(:)
  real,               intent(in)    :: metrics(:,:,:,:)
  real         :: radRi
@@ -2339,9 +2340,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          !  cell%xpartvec(iradlambdai,cell%npcell)     = &
-          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          cell%xpartvec(iradlambdai,cell%npcell)     = &
+               (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          !cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2415,7 +2416,8 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(in)     :: ibinnow_m1
  real,            intent(in)     :: stressmax
  real,            intent(in)     :: xyzcache(:,:)
- real,            intent(in)     :: rad(:,:),radprop(:,:)
+ real,            intent(in)     :: rad(:,:)
+ real,            intent(inout)  :: radprop(:,:)
  real,            intent(in)     :: dens(:),metrics(:,:,:,:)
 
  real                            :: hi
