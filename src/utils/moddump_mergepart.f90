@@ -23,7 +23,7 @@
 !--------------------------------------------------------------------------
 module moddump
  implicit none
- integer, parameter :: nchild = 10
+ integer, parameter :: nchild = 2
 
 contains
 
@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Merge 'em!
  call merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
-                                nchild,nactive)
+                                nchild,nactive,fancy_merging=.true.)
 
  print*,' new npart = ',npart
 
