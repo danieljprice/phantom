@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module getneigbours
+module getneighbours
 !
 ! A set of routines generate neighbour lists for all particles, and
 !  read/write the list to file
