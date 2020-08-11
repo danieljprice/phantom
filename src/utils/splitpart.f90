@@ -72,10 +72,11 @@ end subroutine split_all_particles
 
  subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
                                 nchild,nactive_here,fancy_merging)
- use part,      only:igas,kill_particle,delete_dead_or_accreted_particles
- use part,      only:isdead_or_accreted,copy_particle
- use timestep_ind, only:nactive
- use io,        only:fatal,error
+ use part,          only:igas,kill_particle,delete_dead_or_accreted_particles
+ use part,          only:isdead_or_accreted,copy_particle
+ use timestep_ind,  only:nactive
+ use io,            only:fatal,error
+ use getneighbours, only:generate_neighbour_lists,neighb,neighcount,neighmax
  integer, intent(inout) :: npart,npartoftype(:)
  integer, intent(in)    :: nchild
  real,    intent(inout) :: massoftype(:)
@@ -84,6 +85,7 @@ end subroutine split_all_particles
  integer, optional, intent(in) :: nactive_here
  integer :: ierr,nparent,remainder, i,j,k
  integer :: on_list(npart), children_list(nchild)
+ integer :: neighbours(nchild,neighmax),neigh_count(nchild)
  integer :: ichild,iparent,child_found
  real    :: rik(3),rik2,rikmax
  logical :: merge_stochastically
@@ -95,7 +97,7 @@ end subroutine split_all_particles
  merge_stochastically = .true.
  if (present(fancy_merging)) then
     merge_stochastically = .false.
-    print*,' doing fancy merging, this may take a bit longer'
+    print*,'Doing fancy merging, this takes a bit longer'
  endif
 
  !-- how many active particles? If called from moddump, it must be provided
@@ -136,6 +138,10 @@ end subroutine split_all_particles
    enddo
  else
    !-- slower merging that averages properties of children to find new parent
+   !-- find all the neighbours first
+   call generate_neighbour_lists(xyzh,vxyzu,npart,'dummy',write_neighbour_list=.false.)
+
+   !-- now find the children
    over_parent: do while (iparent < nparent) ! until all the children are found
      i = i + 1
      !already on the list
@@ -146,6 +152,8 @@ end subroutine split_all_particles
      ichild = 1
      on_list(i) = i
      children_list(ichild) = i
+     neigh_count(ichild) = neighcount(i)
+     neighbours(ichild,:) = neighb(i,:)
 
      ! find nearby children
      over_child: do j=1,nchild-1
@@ -167,7 +175,9 @@ end subroutine split_all_particles
          ! if child found, save the child to the list
          ichild = ichild + 1
          children_list(ichild) = child_found
-         on_list(child_found) = k
+         on_list(child_found)  = child_found
+         neigh_count(ichild)   = neighcount(child_found)
+         neighbours(ichild,:)  = neighb(child_found,:)
        else
         ! no children found for the parent particle
          call error('mergepart','no child found for parent particle')
@@ -178,9 +188,11 @@ end subroutine split_all_particles
 
     ! send in children, parent returns
     ! parents temporarily stored after all the children
-    call fancy_merge_into_a_particle(nchild,children_list,massoftype(igas), &
+    call fancy_merge_into_a_particle(nchild,children_list,neighbours, &
+                               neigh_count,massoftype(igas), &
                                npart,xyzh,vxyzu,npart+iparent)
-
+ neighbours = 0
+ neigh_count = 0
  enddo over_parent
  endif
 
