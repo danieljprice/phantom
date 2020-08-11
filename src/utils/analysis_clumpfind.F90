@@ -18,11 +18,11 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, getneigbours, part, prompting, ptmass,
+! :Dependencies: boundary, dim, getneighbours, part, prompting, ptmass,
 !   readwrite_dumps, sortutils, units
 !
  use dim,             only:maxp
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
