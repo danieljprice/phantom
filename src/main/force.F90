@@ -1666,8 +1666,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radprop(ikappa,j)
                 radenj = rad(iradxi,j)
                 radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
-                radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                !radlambdaj = 1./3.
+                !radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                radlambdaj = 1./3.
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2340,9 +2340,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          cell%xpartvec(iradlambdai,cell%npcell)     = &
-               (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          !cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          !cell%xpartvec(iradlambdai,cell%npcell)     = &
+          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
+          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
