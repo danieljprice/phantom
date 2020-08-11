@@ -137,15 +137,16 @@ end subroutine shift_particles
 ! parent properties averaged from children
 !+
 !-----------------------------------------------------------------------
-subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
-           xyzh,vxyzu,iparent)
+subroutine fancy_merge_into_a_particle(nchild,ichildren,neighbours, &
+                 neighcount_children,mchild,npart,xyzh,vxyzu,iparent)
  use kernel, only:get_kernel,cnormk,radkern
  use part,   only:copy_particle
  integer, intent(in)    :: nchild,ichildren(nchild),iparent
+ integer, intent(in)    :: neighbours(:,:),neighcount_children(:)
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,    intent(in)   :: mchild
- integer :: i,j,ichild
+ integer :: i,j,ichild,k
  real    :: h1,h31,rij_vec(3)
  real    :: qij,rij,wchild,grkernchild,rho_parent
 
@@ -166,13 +167,17 @@ subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
 
 !-- calculate density at the parent position from the children
 !-- procedure described in Vacondio et al. 2013, around Eq 21
+!-- here, we only use the neighbours of the children
 rho_parent = 0.
-  over_npart:  do j=1,npart
-    if (xyzh(4,j) < 0.) cycle over_npart
-    h1 = 1./xyzh(4,j)
+over_child: do i=1,nchild
+  over_neighbours: do j=1,neighcount_children(i)
+
+    k = neighbours(i,j)
+    if (xyzh(4,k) < 0.) cycle over_neighbours
+    h1 = 1./xyzh(4,k)
     h31 = h1**3
 
-    rij_vec = xyzh(1:3,iparent) - xyzh(1:3,j)
+    rij_vec = xyzh(1:3,iparent) - xyzh(1:3,k)
 
     rij = sqrt(dot_product(rij_vec,rij_vec))
     qij = rij*h1
@@ -181,10 +186,13 @@ rho_parent = 0.
     if (qij < radkern) call get_kernel(qij*qij,qij,wchild,grkernchild)
 
     rho_parent = rho_parent + (mchild*wchild*cnormk*h31)
-  enddo over_npart
+
+  enddo over_neighbours
+enddo over_child
 
 !-- smoothing length from density
 xyzh(4,iparent) = 1.2*(nchild*mchild/rho_parent)**(1./3.)
+
 
 end subroutine fancy_merge_into_a_particle
 
