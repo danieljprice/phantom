@@ -162,7 +162,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           print*, 'Neighbour finding: Keeping the ',neighmax,' closest neighbours.'
           neighcount(i) = neighmax
           do p = 1,neighmax
-             j = minloc(rneigh_all,1)
+             j = minloc(rneigh_all(1:neighcount(i)),1)
              neighb(i,p) = ineigh_all(j)
              rneigh_all(j) = huge(rij2)
           enddo
