@@ -141,7 +141,7 @@ real function fsmooth(x,x0,psep,fac,fl,fr)
  if (fac > 0.)  then
     delta = (x - x0)/(fac*psep)
  else
-    delta = 2.*sign(x-x0,1.0)*dsmooth
+    delta = 2.*sign(1.0,x-x0)*dsmooth
  endif
 
  if (delta > dsmooth) then
