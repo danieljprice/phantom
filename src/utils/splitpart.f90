@@ -83,12 +83,12 @@ end subroutine split_all_particles
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  logical, optional, intent(in) :: fancy_merging
  integer, optional, intent(in) :: nactive_here
- integer :: ierr,nparent,remainder, i,j,k
+ integer :: ierr,nparent,remainder, i,k
  integer :: on_list(npart), children_list(nchild)
- integer :: neighbours(nchild,neighmax),neigh_count(nchild)
- integer :: ichild,iparent,child_found
- real    :: rik(3),rik2,rikmax
- logical :: merge_stochastically
+ integer :: neighbours(neighmax),neigh_count
+ integer :: ichild,iparent,child_found,m
+ real    :: rik(3),rik2,rikmax,r2_neighbours(neighmax)
+ logical :: merge_stochastically,found
 
  ierr = 0
 
@@ -102,6 +102,11 @@ end subroutine split_all_particles
 
  !-- how many active particles? If called from moddump, it must be provided
  if (present(nactive_here)) nactive = nactive_here
+
+ if (nactive < npart) then
+   call delete_dead_or_accreted_particles(npart,npartoftype)
+   print*,'Discarding inactive particles'
+ endif
 
  !-- check number of parent particles
  nparent = floor(real(nactive)/real(nchild))
@@ -128,6 +133,8 @@ end subroutine split_all_particles
   on_list = -1
   children_list = 0
   i = 0
+  neighbours = 0
+  neigh_count = 0
 
  if (merge_stochastically) then
    !-- quick stochastic merging
@@ -144,7 +151,7 @@ end subroutine split_all_particles
    !-- now find the children
    over_parent: do while (iparent < nparent) ! until all the children are found
      i = i + 1
-     !already on the list
+     ! already on the list
      if (on_list(i) > 0) cycle over_parent
 
      ! first child
@@ -152,47 +159,66 @@ end subroutine split_all_particles
      ichild = 1
      on_list(i) = i
      children_list(ichild) = i
-     neigh_count(ichild) = neighcount(i)
-     neighbours(ichild,:) = neighb(i,:)
+     neigh_count = neighcount(i)
+     neighbours(:) = neighb(i,:)
 
-     ! find nearby children
-     over_child: do j=1,nchild-1
-       !-- choose the next closest particle as child
-       !-- (there *must* be a more accurate way to group them)
+     ! calculate distance to neighbours
+     do k = 1, neigh_count
+       m = neighbours(k)
+       rik = xyzh(1:3,m) - xyzh(1:3,i)
+       r2_neighbours(k) = dot_product(rik,rik)
+     enddo
+
+     finding_children: do while (ichild < nchild)
+       found = .false.
        child_found = -1
        rikmax = huge(rikmax)
-       over_neighbours: do k=1,npart
-         if (on_list(k) > 0) cycle over_neighbours
-         rik = xyzh(1:3,k) - xyzh(1:3,i)
-         rik2 = dot_product(rik,rik)
-         if (rik2 < rikmax) then
-           rikmax = rik2
-           child_found = k
-         endif
-       enddo over_neighbours
 
-       if (child_found > 0) then
-         ! if child found, save the child to the list
-         ichild = ichild + 1
-         children_list(ichild) = child_found
-         on_list(child_found)  = child_found
-         neigh_count(ichild)   = neighcount(child_found)
-         neighbours(ichild,:)  = neighb(child_found,:)
-       else
-        ! no children found for the parent particle
+        !first check over the neighbours
+       if (.not.found) then
+         over_neighbours: do k=1, neigh_count
+           m = neighbours(k)
+           if (on_list(m) > 0) cycle over_neighbours
+           if (r2_neighbours(k) < rikmax) then
+             rikmax = r2_neighbours(k)
+             child_found = m
+           endif
+         enddo over_neighbours
+         if (child_found > 0) found = .true.
+      endif
+
+       ! otherwise, check everyone else
+       if (.not.found) then
+         over_all: do k = 1,npart
+           if (on_list(k) > 0) cycle over_all
+           rik = xyzh(1:3,k) - xyzh(1:3,i)
+           rik2 = dot_product(rik,rik)
+           if (rik2 < rikmax) then
+             rikmax = rik2
+             child_found = k
+           endif
+         enddo over_all
+         if (child_found > 0) found = .true.
+       endif
+
+       ! error if no children found for the parent particle
+       if (.not.found) then
          call error('mergepart','no child found for parent particle')
          ierr = 1
        endif
 
-     enddo over_child
+       ! save the child to the list
+       ichild = ichild + 1
+       children_list(ichild) = child_found
+       on_list(child_found)  = child_found
+     enddo finding_children
+
 
     ! send in children, parent returns
     ! parents temporarily stored after all the children
-    call fancy_merge_into_a_particle(nchild,children_list,neighbours, &
-                               neigh_count,massoftype(igas), &
+    call fancy_merge_into_a_particle(nchild,children_list, massoftype(igas), &
                                npart,xyzh,vxyzu,npart+iparent)
- neighbours = 0
- neigh_count = 0
+
  enddo over_parent
  endif
 

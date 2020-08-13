@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Merge 'em!
  call merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
-                                nchild,nactive,fancy_merging=.true.)
+                                nchild,nactive)
 
  print*,' new npart = ',npart
 
