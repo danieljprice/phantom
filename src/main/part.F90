@@ -811,8 +811,8 @@ pure integer(kind=1) function isetphase(itype,iactive)
  integer, intent(in) :: itype
  logical, intent(in) :: iactive
 
- if ((set_boundaries_to_active .and. itype==iboundary)   .or. &
-     (iactive                  .and. itype/=iboundary) ) then
+ if ((set_boundaries_to_active .and.      iamboundary(itype))   .or. &
+     (iactive                  .and. .not.iamboundary(itype)) ) then
     isetphase = int(itype,kind=1)
  else
     isetphase = -int(abs(itype),kind=1)
