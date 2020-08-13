@@ -325,9 +325,9 @@ subroutine test_rwdump(ntests,npass)
     endif
  enddo over_tests
 
- if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
  call deallocate_memory
  call allocate_memory(maxp_old)
+ if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump
 
