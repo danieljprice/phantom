@@ -10,11 +10,11 @@ module splitpart
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Bec Nealon
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: utils_splitmerge, io, part, timestep_ind
+! :Dependencies: getneighbours, io, part, splitmergeutils, timestep_ind
 !
 
  use splitmergeutils, only:split_a_particle,fancy_merge_into_a_particle

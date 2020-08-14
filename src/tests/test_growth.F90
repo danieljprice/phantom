@@ -14,9 +14,10 @@ module testgrowth
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, dust, energies, eos, growth,
-!   io, kernel, mpiutils, options, part, physcon, step_lf_global, testdust,
-!   testutils, timestep, unifdis, units, viscosity
+! :Dependencies: boundary, checksetup, deriv, dim, domain, dust, energies,
+!   eos, growth, io, kernel, mpiutils, options, part, physcon,
+!   step_lf_global, testdust, testutils, timestep, unifdis, units,
+!   viscosity
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
