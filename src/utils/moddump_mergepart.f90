@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  merges particles; input simulation with npart, get npart/nchild back
-!
-!  REFERENCES: Vacondio et al. 2013
-!
-!  OWNER: Rebecca Nealon
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, splitpart
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! merges particles; input simulation with npart, get npart/nchild back
+!
+! :References: Vacondio et al. 2013
+!
+! :Owner: Bec Nealon
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, part, splitpart
+!
  implicit none
  integer, parameter :: nchild = 2
 

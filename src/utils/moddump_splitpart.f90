@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, splitpart, injectutils
+! :Dependencies: injectutils, io, part, splitpart
 !
  implicit none
  integer            :: nchild = 12

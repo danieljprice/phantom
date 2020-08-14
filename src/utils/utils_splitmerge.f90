@@ -10,11 +10,11 @@ module splitmergeutils
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Bec Nealon
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: icosahedron, injectutils, io, part, random, part, kernel
+! :Dependencies: icosahedron, kernel, part, random
 !
  implicit none
 
