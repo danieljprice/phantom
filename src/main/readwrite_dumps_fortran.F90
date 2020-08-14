@@ -216,9 +216,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
-                 dustfrac_label,tstop_label,dustprop,dustprop_label,temperature,ndusttypes,ndustsmall,VrelVf,&
+                 dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -375,40 +375,11 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (store_temperature) call write_array(1,temperature,'T',npart,k,ipass,idump,nums,ierrs(12))
+       if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
-          if (.not. allocated(temparr)) allocate(temparr(npart))
-          if (.not.done_init_eos) call init_eos(ieos,ierr)
-          !$omp parallel do default(none) &
-          !$omp shared(xyzh,vxyzu,ieos,npart,temparr,temperature,use_gas) &
-#ifdef KROME
-          !$omp shared(gamma_chem) &
-#endif
-          !$omp private(i,iu,ponrhoi,spsoundi,rhoi)
-          do i=1,npart
-             rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-             if (maxvxyzu >=4 ) then
-                iu = 4
-#ifdef KROME
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=vxyzu(iu,i), &
-                                        gamma_local=gamma_chem(i))
-#else
-                if (store_temperature) then
-                   ! cases where the eos stores temperature (ie Helmholtz)
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i),tempi=temperature(i))
-                else
-                   call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(iu,i))
-                endif
-#endif
-             else
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-             endif
-             temparr(i) = ponrhoi*rhoi
-          enddo
-          !$omp end parallel do
-          call write_array(1,temparr,'pressure',npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,eos_vars(igasP,:),eos_vars_label(igasP),npart,k,ipass,idump,nums,ierrs(13))
        endif
 
        ! smoothing length written as real*4 to save disk space
@@ -1125,9 +1096,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
-                      temperature,dustprop,dustprop_label,divcurlv,divcurlv_label,&
+                      eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,&
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick,itemp
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1238,7 +1209,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_temperature) then
-                call read_array(temperature,'T',got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(eos_vars(itemp,:),eos_vars_label(itemp),got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !

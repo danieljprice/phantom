@@ -136,7 +136,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
+                            Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -347,12 +347,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  So we now convert our primitive variable read, B, to the conservative B/rho
 !  This necessitates computing the density sum.
 !
- if (mhd) then
+ if (mhd .or. use_dustfrac) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
     endif
 
     ! now convert to B/rho
@@ -361,9 +361,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       Bevol(1,i) = Bxyz(1,i) * rhoi1
-       Bevol(2,i) = Bxyz(2,i) * rhoi1
-       Bevol(3,i) = Bxyz(3,i) * rhoi1
+       if (mhd) then
+          Bevol(1,i) = Bxyz(1,i) * rhoi1
+          Bevol(2,i) = Bxyz(2,i) * rhoi1
+          Bevol(3,i) = Bxyz(3,i) * rhoi1
+       endif
+       if (use_dustfrac) then
+         !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+         dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+       endif
     enddo
  endif
 
@@ -427,7 +433,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -552,31 +558,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,&
-                              temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
-    if (use_dustfrac) then
-       ! set grainsize parameterisation from the initial dustfrac setting now we know rho
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
-!------------------------------------------------
-          endif
-       enddo
-    endif
+                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
+                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
-                ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
+                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 #endif
  enddo
 

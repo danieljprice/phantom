@@ -731,29 +731,45 @@ end subroutine check_for_identical_positions
 
 !------------------------------------------------------------------
 !+
-! check for optically thin particles when 
-! To do! : check that radiation energy is never negative to begin with
+! 1) check for optically thin particles when mcfost is disabled,
+! as the particles will then be overlooked if they are flagged as thin 
+! 2) To do! : check that radiation energy is never negative to begin with
 !+
 !------------------------------------------------------------------
 
 subroutine check_setup_radiation(npart, nerror, radprop, rad)
- use part,      only:ithick
+ use part,      only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: rad(:,:), radprop(:,:)
- integer :: i, nthin
+ integer :: i, nthin, nradEn, nkappa
  
  nthin = 0
+ nradEn = 0
+ nkappa = 0
  do i=1, npart
     if (radprop(ithick, i) < 0.5) nthin=nthin + 1
+    if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
+    if (radprop(ikappa, i) == 0.0) nkappa=nkappa + 1
  end do
-
+ 
  if (nthin > 0) then
     print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
     ' particles are being treated as optically thin without MCFOST being compiled'
     nerror = nerror + 1
  endif
 
+ if (nradEn > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nradEn,' of ',npart,&
+    ' particles have negative radiation Energy'
+    nerror = nerror + 1
+ endif
+
+ if (nkappa > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
+    ' particles have opacity 0.0'
+    nerror = nerror + 1
+ endif
 end subroutine check_setup_radiation
 
 end module checksetup

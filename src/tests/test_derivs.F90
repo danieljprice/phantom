@@ -353,7 +353,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop)
+                           rad,radprop,dvdx)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0
@@ -1492,7 +1492,7 @@ end function ddivvdtfunc
 real function alphalocfunc(xyzhi)
  use options,      only:alpha,alphamax
  use eos,          only:gamma,polyk
- use densityforce, only:get_alphaloc
+ use cullendehnen, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 
