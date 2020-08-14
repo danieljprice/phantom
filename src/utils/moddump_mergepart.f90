@@ -35,16 +35,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !-- how many active particles
  nactive = 0
  do i = 1,npart
-   if (.not.isdead_or_accreted(xyzh(4,i))) then
-     nactive = nactive + 1
-   else
-     call kill_particle(i,npartoftype)
-   endif
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       nactive = nactive + 1
+    else
+       call kill_particle(i,npartoftype)
+    endif
  enddo
 
  if (nactive < npart) then
-   call delete_dead_or_accreted_particles(npart,npartoftype)
-   print*,' discarding inactive particles'
+    call delete_dead_or_accreted_particles(npart,npartoftype)
+    print*,' discarding inactive particles'
  endif
 
  ! Merge 'em!
