@@ -14,10 +14,10 @@ module readwrite_dumps_hdf5
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, eos, extern_binary, extern_gwinspiral,
-!   externalforces, gitinfo, io, lumin_nsdisc, memory,
-!   mpiutils, options, part, setup_params, timestep, units,
-!   utils_dumpfiles_hdf5
+! :Dependencies: boundary, checkconserved, dim, eos, extern_binary,
+!   extern_gwinspiral, externalforces, gitinfo, io, lumin_nsdisc, memory,
+!   mpiutils, options, part, readwrite_dumps_common, setup_params,
+!   timestep, units, utils_dumpfiles_hdf5
 !
  use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  use utils_dumpfiles_hdf5,   only:create_hdf5file,         &
@@ -256,11 +256,11 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 
     ! Compute dtind array
 #ifdef IND_TIMESTEPS
-       if (present(dtind)) then
-          dtin = dtind
-       else
-          dtin = dtmax/2**ibin(1:npart)
-       endif
+    if (present(dtind)) then
+       dtin = dtind
+    else
+       dtin = dtmax/2**ibin(1:npart)
+    endif
 #endif
  endif
 

@@ -5,6 +5,18 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module readwrite_dumps_common
+!
+! readwrite_dumps_common
+!
+! :References: None
+!
+! :Owner: Daniel Mentiplay
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, dump_utils, eos, gitinfo, io, options, part,
+!   sphNGutils
+!
  use dump_utils, only:lenid
  implicit none
 

@@ -2109,11 +2109,22 @@ cleanstructutils: cleanstruct2struct cleanget_struct_slope
 #
 .PHONY: splitpart
 splitpart:
-	${MAKE} moddump MODFILE="splitpart.f90 moddump_splitpart.f90"\
+	${MAKE} moddump MODFILE="utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
         MODDUMPBIN=$@
 
 cleansplitpart:
 	rm -f $(BINDIR)/splitpart
+
+#------------------------------------------------------
+# particle merging utility (this is a moddump compiled as a standalone utility)
+#
+.PHONY: mergepart
+mergepart:
+	${MAKE} moddump MODFILE="utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_mergepart.f90"\
+        MODDUMPBIN=$@
+
+cleanmergepart:
+	rm -f $(BINDIR)/mergepart
 
 #----------------------------------------------------
 # utility to calculate divv from a dump file
