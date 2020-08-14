@@ -47,17 +47,17 @@ subroutine split_a_particle(nchild,iparent,xyzh,vxyzu, &
  ichild = 0
 
  do j=0,nchild-2
-   ichild = ichild + 1
-   ! copy properties
-   call copy_particle(iparent,ichildren+ichild)
+    ichild = ichild + 1
+    ! copy properties
+    call copy_particle(iparent,ichildren+ichild)
 
-   ! adjust the position
-   if (lattice_type == 0) then
-     call pixel2vector(j,ires,geodesic_R,geodesic_v,dx)
-   else
-     call sample_kernel(iseed,dx)
-   endif
-      xyzh(1:3,ichildren+ichild) = xyzh(1:3,iparent) + sep*dx(:)
+    ! adjust the position
+    if (lattice_type == 0) then
+       call pixel2vector(j,ires,geodesic_R,geodesic_v,dx)
+    else
+       call sample_kernel(iseed,dx)
+    endif
+    xyzh(1:3,ichildren+ichild) = xyzh(1:3,iparent) + sep*dx(:)
  enddo
 
  !--amend smoothing length of children + parent
@@ -89,19 +89,19 @@ end subroutine sample_kernel
 !+
 !-----------------------------------------------------------------------
 subroutine shift_particles(npart,xyzh,vxyzu,deltat,beta,shifts)
-  use kernel, only:radkern2
-  real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
-  real, intent(in)    :: deltat,beta
-  integer, intent(in) :: npart
-  real, intent(out)   :: shifts(3,npart)
-  integer             :: i,j,neighbours
-  real                :: rnaught,rij2,dr3,vel2,vmax
-  real                :: q2,rij(3),rsum(3)
+ use kernel, only:radkern2
+ real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real, intent(in)    :: deltat,beta
+ integer, intent(in) :: npart
+ real, intent(out)   :: shifts(3,npart)
+ integer             :: i,j,neighbours
+ real                :: rnaught,rij2,dr3,vel2,vmax
+ real                :: q2,rij(3),rsum(3)
 
-  vmax = tiny(vmax)
-  vel2 = 0.
+ vmax = tiny(vmax)
+ vel2 = 0.
 
-  do i = 1,npart
+ do i = 1,npart
     rnaught = 0.
     neighbours = 0
     rsum = 0.
@@ -109,25 +109,25 @@ subroutine shift_particles(npart,xyzh,vxyzu,deltat,beta,shifts)
     if (vel2 > vmax) vmax = vel2
 
     over_npart: do j = 1,npart
-      if (i == j) cycle over_npart
-      rij = xyzh(1:3,j) - xyzh(1:3,i)
-      rij2 = dot_product(rij,rij)
-      q2 = rij2/(xyzh(4,i)*xyzh(4,i))
+       if (i == j) cycle over_npart
+       rij = xyzh(1:3,j) - xyzh(1:3,i)
+       rij2 = dot_product(rij,rij)
+       q2 = rij2/(xyzh(4,i)*xyzh(4,i))
 
-      if (q2 < radkern2) then
-        neighbours = neighbours + 1
-        rnaught = rnaught + sqrt(rij2)
-      endif
+       if (q2 < radkern2) then
+          neighbours = neighbours + 1
+          rnaught = rnaught + sqrt(rij2)
+       endif
 
-      dr3 = 1./(rij2**1.5)
-      rsum = rsum + (rij*dr3)
+       dr3 = 1./(rij2**1.5)
+       rsum = rsum + (rij*dr3)
     enddo over_npart
 
     rnaught = rnaught/neighbours
     shifts(:,i) = beta*rnaught*rnaught*deltat*rsum
-  enddo
+ enddo
 
-  shifts = shifts*sqrt(vel2)
+ shifts = shifts*sqrt(vel2)
 
 end subroutine shift_particles
 
@@ -157,9 +157,9 @@ subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
  vxyzu(1:3,iparent) = 0.
 
  do i=1,nchild
-   ichild = ichildren(i)
-   xyzh(1:3,iparent) = xyzh(1:3,iparent) + xyzh(1:3,ichild)
-   vxyzu(1:3,iparent) = vxyzu(1:3,iparent) + vxyzu(1:3,ichild)
+    ichild = ichildren(i)
+    xyzh(1:3,iparent) = xyzh(1:3,iparent) + xyzh(1:3,ichild)
+    vxyzu(1:3,iparent) = vxyzu(1:3,iparent) + vxyzu(1:3,ichild)
  enddo
  xyzh(1:3,iparent) = xyzh(1:3,iparent)/nchild
  vxyzu(1:3,iparent) = vxyzu(1:3,iparent)/nchild
@@ -169,22 +169,22 @@ subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
 !-- here, we only use the neighbours of the children
  rho_parent = 0.
  do j=1,npart
-   h1 = 1./xyzh(4,j)
-   h31 = h1**3
+    h1 = 1./xyzh(4,j)
+    h31 = h1**3
 
-   rij_vec = xyzh(1:3,iparent) - xyzh(1:3,j)
+    rij_vec = xyzh(1:3,iparent) - xyzh(1:3,j)
 
-   rij = sqrt(dot_product(rij_vec,rij_vec))
-   qij = rij*h1
+    rij = sqrt(dot_product(rij_vec,rij_vec))
+    qij = rij*h1
 
-   wchild = 0.
-   if (qij < radkern) call get_kernel(qij*qij,qij,wchild,grkernchild)
+    wchild = 0.
+    if (qij < radkern) call get_kernel(qij*qij,qij,wchild,grkernchild)
 
-   rho_parent = rho_parent + (mchild*wchild*cnormk*h31)
+    rho_parent = rho_parent + (mchild*wchild*cnormk*h31)
  enddo
 
 !-- smoothing length from density
-xyzh(4,iparent) = hfact*(nchild*mchild/rho_parent)**(1./3.)
+ xyzh(4,iparent) = hfact*(nchild*mchild/rho_parent)**(1./3.)
 
 end subroutine fancy_merge_into_a_particle
 

@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !-- if using the regular grid, set nchild to get desired resolution
  if (lattice_type == 0) then
-   nchild = get_parts_per_sphere(ires) + 1
+    nchild = get_parts_per_sphere(ires) + 1
  endif
 
  !-- don't split accreted particles

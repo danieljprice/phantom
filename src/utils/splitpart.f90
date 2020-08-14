@@ -23,7 +23,7 @@ module splitpart
 
 contains
 
- subroutine split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
+subroutine split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
                                  nchild,lattice_type,ires)
  use io,    only:fatal,error
  use part,  only:igas,copy_particle
@@ -38,9 +38,9 @@ contains
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < npart*nchild) then
-   call error('split_all_particles','not enough memory, increase MAXP and recompile')
-   ierr = 1
-   return
+    call error('split_all_particles','not enough memory, increase MAXP and recompile')
+    ierr = 1
+    return
  endif
 
  !--update npartoftype
@@ -51,13 +51,13 @@ contains
  ichild = npart !to keep track of the kids
 
  do iparent=1,npart
-   ! send in the parent, children return
-   ! (the parent acts as the first child, this routine generates nchild-1 new particles
-   ! and adjusts the smoothing length on the parent)
-   call split_a_particle(nchild,iparent,xyzh,vxyzu,lattice_type,ires,ichild)
+    ! send in the parent, children return
+    ! (the parent acts as the first child, this routine generates nchild-1 new particles
+    ! and adjusts the smoothing length on the parent)
+    call split_a_particle(nchild,iparent,xyzh,vxyzu,lattice_type,ires,ichild)
 
-   ! for next children
-   ichild = ichild + nchild - 1
+    ! for next children
+    ichild = ichild + nchild - 1
  enddo
 
  !-- new npart
@@ -70,7 +70,7 @@ contains
 
 end subroutine split_all_particles
 
- subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
+subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
                                 nchild,nactive_here,fancy_merging)
  use part,          only:igas,kill_particle,delete_dead_or_accreted_particles
  use part,          only:isdead_or_accreted,copy_particle
@@ -104,127 +104,127 @@ end subroutine split_all_particles
  if (present(nactive_here)) nactive = nactive_here
 
  if (nactive < npart) then
-   call delete_dead_or_accreted_particles(npart,npartoftype)
-   print*,'Discarding inactive particles'
+    call delete_dead_or_accreted_particles(npart,npartoftype)
+    print*,'Discarding inactive particles'
  endif
 
  !-- check number of parent particles
  nparent = floor(real(nactive)/real(nchild))
  remainder = mod(nactive,nchild)
  if (remainder/nactive > 0.01) then
-   ! discarding a couple of particles is ok, just don't want it to be too many
-   call error('merge_particles','need to merge evenly, make sure npart(active)/nchild ~ integer')
-   ierr = 1
-   return
-  elseif (remainder > 0) then
+    ! discarding a couple of particles is ok, just don't want it to be too many
+    call error('merge_particles','need to merge evenly, make sure npart(active)/nchild ~ integer')
+    ierr = 1
+    return
+ elseif (remainder > 0) then
     ! we just forget about these later on
     print*,' ignoring',remainder,'particles to get an even split'
-  endif
+ endif
 
-  !--check there is enough memory
-  if (size(xyzh(1,:)) < nparent + npart) then
+ !--check there is enough memory
+ if (size(xyzh(1,:)) < nparent + npart) then
     call error('merge_particles','not enough memory, increase MAXP and recompile')
     ierr = 1
     return
-  endif
+ endif
 
-  iparent = 0
-  ichild = 0
-  on_list = -1
-  children_list = 0
-  i = 0
-  neighbours = 0
-  neigh_count = 0
+ iparent = 0
+ ichild = 0
+ on_list = -1
+ children_list = 0
+ i = 0
+ neighbours = 0
+ neigh_count = 0
 
  if (merge_stochastically) then
-   !-- quick stochastic merging
-   do i = 1,npart,nchild
-      iparent = iparent + 1
-      call copy_particle(i,npart+iparent)
-      xyzh(4,npart+iparent) = xyzh(4,i) * (nchild)**(1./3.)
-   enddo
+    !-- quick stochastic merging
+    do i = 1,npart,nchild
+       iparent = iparent + 1
+       call copy_particle(i,npart+iparent)
+       xyzh(4,npart+iparent) = xyzh(4,i) * (nchild)**(1./3.)
+    enddo
  else
-   !-- slower merging that averages properties of children to find new parent
-   !-- find all the neighbours first
-   call generate_neighbour_lists(xyzh,vxyzu,npart,'dummy',write_neighbour_list=.false.)
+    !-- slower merging that averages properties of children to find new parent
+    !-- find all the neighbours first
+    call generate_neighbour_lists(xyzh,vxyzu,npart,'dummy',write_neighbour_list=.false.)
 
-   !-- now find the children
-   over_parent: do while (iparent < nparent) ! until all the children are found
-     i = i + 1
-     ! already on the list
-     if (on_list(i) > 0) cycle over_parent
+    !-- now find the children
+    over_parent: do while (iparent < nparent) ! until all the children are found
+       i = i + 1
+       ! already on the list
+       if (on_list(i) > 0) cycle over_parent
 
-     ! first child
-     iparent = iparent + 1
-     ichild = 1
-     on_list(i) = i
-     children_list(ichild) = i
-     neigh_count = neighcount(i)
-     neighbours(:) = neighb(i,:)
+       ! first child
+       iparent = iparent + 1
+       ichild = 1
+       on_list(i) = i
+       children_list(ichild) = i
+       neigh_count = neighcount(i)
+       neighbours(:) = neighb(i,:)
 
-     ! calculate distance to neighbours
-     do k = 1, neigh_count
-       m = neighbours(k)
-       rik = xyzh(1:3,m) - xyzh(1:3,i)
-       r2_neighbours(k) = dot_product(rik,rik)
-     enddo
+       ! calculate distance to neighbours
+       do k = 1, neigh_count
+          m = neighbours(k)
+          rik = xyzh(1:3,m) - xyzh(1:3,i)
+          r2_neighbours(k) = dot_product(rik,rik)
+       enddo
 
-     finding_children: do while (ichild < nchild)
-       found = .false.
-       child_found = -1
-       rikmax = huge(rikmax)
+       finding_children: do while (ichild < nchild)
+          found = .false.
+          child_found = -1
+          rikmax = huge(rikmax)
 
-        !first check over the neighbours
-       if (.not.found) then
-         over_neighbours: do k=1, neigh_count
-           m = neighbours(k)
-           if (on_list(m) > 0) cycle over_neighbours
-           if (r2_neighbours(k) < rikmax) then
-             rikmax = r2_neighbours(k)
-             child_found = m
-           endif
-         enddo over_neighbours
-         if (child_found > 0) found = .true.
-      endif
+          !first check over the neighbours
+          if (.not.found) then
+             over_neighbours: do k=1, neigh_count
+                m = neighbours(k)
+                if (on_list(m) > 0) cycle over_neighbours
+                if (r2_neighbours(k) < rikmax) then
+                   rikmax = r2_neighbours(k)
+                   child_found = m
+                endif
+             enddo over_neighbours
+             if (child_found > 0) found = .true.
+          endif
 
-       ! otherwise, check everyone else
-       if (.not.found) then
-         over_all: do k = 1,npart
-           if (on_list(k) > 0) cycle over_all
-           rik = xyzh(1:3,k) - xyzh(1:3,i)
-           rik2 = dot_product(rik,rik)
-           if (rik2 < rikmax) then
-             rikmax = rik2
-             child_found = k
-           endif
-         enddo over_all
-         if (child_found > 0) found = .true.
-       endif
+          ! otherwise, check everyone else
+          if (.not.found) then
+             over_all: do k = 1,npart
+                if (on_list(k) > 0) cycle over_all
+                rik = xyzh(1:3,k) - xyzh(1:3,i)
+                rik2 = dot_product(rik,rik)
+                if (rik2 < rikmax) then
+                   rikmax = rik2
+                   child_found = k
+                endif
+             enddo over_all
+             if (child_found > 0) found = .true.
+          endif
 
-       ! error if no children found for the parent particle
-       if (.not.found) then
-         call error('mergepart','no child found for parent particle')
-         ierr = 1
-       endif
+          ! error if no children found for the parent particle
+          if (.not.found) then
+             call error('mergepart','no child found for parent particle')
+             ierr = 1
+          endif
 
-       ! save the child to the list
-       ichild = ichild + 1
-       children_list(ichild) = child_found
-       on_list(child_found)  = child_found
-     enddo finding_children
+          ! save the child to the list
+          ichild = ichild + 1
+          children_list(ichild) = child_found
+          on_list(child_found)  = child_found
+       enddo finding_children
 
 
-    ! send in children, parent returns
-    ! parents temporarily stored after all the children
-    call fancy_merge_into_a_particle(nchild,children_list, massoftype(igas), &
+       ! send in children, parent returns
+       ! parents temporarily stored after all the children
+       call fancy_merge_into_a_particle(nchild,children_list, massoftype(igas), &
                                npart,xyzh,vxyzu,npart+iparent)
 
- enddo over_parent
+    enddo over_parent
  endif
 
  !-- move the new parents
  do i = 1,nparent
-   call copy_particle(npart+i,i)
+    call copy_particle(npart+i,i)
  enddo
 
  !-- kill all the useless children
@@ -242,6 +242,6 @@ end subroutine split_all_particles
 
  if (ierr /= 0) call fatal('moddump','could not merge particles')
 
- end subroutine merge_all_particles
+end subroutine merge_all_particles
 
 end module splitpart
