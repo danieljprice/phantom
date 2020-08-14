@@ -367,8 +367,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           Bevol(3,i) = Bxyz(3,i) * rhoi1
        endif
        if (use_dustfrac) then
-         !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-         dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+          !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+          dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
        endif
     enddo
  endif

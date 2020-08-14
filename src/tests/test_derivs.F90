@@ -41,7 +41,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
-                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
@@ -88,7 +88,7 @@ subroutine test_derivs(ntests,npass,string)
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
+ real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
  real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS
@@ -485,7 +485,8 @@ subroutine test_derivs(ntests,npass,string)
        call set_velocity_and_energy
        do i=1,npart
           do j=1,ndustsmall
-             dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
+             dustfracj = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfracj))
+             dustevol(j,i) = sqrt(dustfracj/(1.-dustfracj))
           enddo
        enddo
 
@@ -514,26 +515,16 @@ subroutine test_derivs(ntests,npass,string)
           dedust = 0.
           dmdust(:) = 0.
           do i=1,npart
-             dustfraci(:)  = dustfrac(1:maxdustsmall,i)
+             dustfraci(:)  = dustfrac(1:ndustsmall,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
              drhodti       = -rhoi*divcurlv(1,i)
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             sonrhoi(:)    = sqrt(dustfrac(1:maxdustsmall,i)/rhoi)
-!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
              sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
-             ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
-!             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
-!------------------------------------------------
-             dmdust(:)     = dmdust(:) + ddustevoli(:)
+             depsdti(:)    = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
+             dmdust(:)     = dmdust(:) + depsdti(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
              deint  = deint  + (1. - sum(dustfraci))*fxyzu(iu,i)
-             dedust = dedust - vxyzu(iu,i)*sum(ddustevoli)
+             dedust = dedust - vxyzu(iu,i)*sum(depsdti)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -552,6 +543,7 @@ subroutine test_derivs(ntests,npass,string)
        ! reset dustfrac to zero for subsequent tests
        !
        dustfrac(:,:) = 0.
+       dustevol(:,:) = 0.
 
     else
        if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'

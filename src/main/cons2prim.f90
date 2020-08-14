@@ -150,7 +150,8 @@ end subroutine cons2primall
 !
 !-------------------------------------
 
-subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
+                                gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
                            iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                            ndustsmall,itemp
@@ -211,7 +212,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma
           !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
           if (.not.(use_dustgrowth .and. this_is_a_test)) &
              dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
-          gasfrac = (1. - sum(dustfrac(:,i)))  ! rhogas/rho
+          gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
           rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
        else
           rhogas  = rhoi
@@ -285,8 +286,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma
  enddo
 !$omp end parallel do
 
-
-
-
 end subroutine cons2prim_everything
+
 end module cons2prim
