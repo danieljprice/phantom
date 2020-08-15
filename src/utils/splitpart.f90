@@ -10,7 +10,7 @@ module splitpart
 !
 ! :References: None
 !
-! :Owner: Bec Nealon
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
