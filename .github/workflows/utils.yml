@@ -20,6 +20,7 @@ jobs:
     env:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
+      SPLASH_DIR: ./splash
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -28,6 +29,9 @@ jobs:
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
+
+    - name: grab a copy of splash source code
+      run: git checkout https://github.com/danieljprice/splash
 
     - name: compile utils with SETUP=test
       run: make SETUP=test utils
