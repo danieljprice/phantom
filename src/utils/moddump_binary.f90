@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
  real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
- real                      :: hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
+ real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  integer, parameter        :: ng_max = 5000
  real                      :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
@@ -161,7 +161,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  else
 
     !choose what to do with the star: set a binary or setup a magnetic field
-    print "(7(/,a))",'1) Set up a binary system', &
+    print "(7(/,a))",'1) Set up a binary system by adding a sink companion', &
                      '2) Set up a magnetic field in the star', &
                      '3) Manually cut profile to create sink in core', &
                      '4) Manually create sink in core', &
@@ -190,9 +190,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter companion radial velocity', vr)
 
        print*, 'Current length unit is ', udist ,'cm):'
-       hacc1 = 0.0
+       hacc1 = xyzmh_ptmass(ihacc,1)
        hacc2 = 0.0
-       call prompt('Enter accretion radius for the primary in code units', hacc1, 0.0)
+       print*, 'Current accretion radius of primary core is ', hacc1,' code units'
+       call prompt('Enter accretion radius for the primary core in code units', hacc1, 0.0)
        call prompt('Enter accretion radius for the companion in code units', hacc2, 0.0)
 
        corotate_answer = .false.
@@ -213,6 +214,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
+
+       !save value of primary core hsoft before setting up binary
+       hsoft_primary = xyzmh_ptmass(ihsoft,1)
 
        !sets the binary
        !corotating frame
@@ -260,10 +264,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
-       xyzmh_ptmass(ihsoft,1) = xyzmh_ptmass(ihsoft,1)
-       xyzmh_ptmass(ihsoft,2) = xyzmh_ptmass(ihsoft,1)
-       call prompt('Enter softening length for primary',xyzmh_ptmass(ihsoft,1),0.)
-       call prompt('Enter softening length for secondary',xyzmh_ptmass(ihsoft,2),0.)
+       xyzmh_ptmass(ihsoft,1) = hsoft_primary
+       print*, 'Current softening length of the primary core is ', xyzmh_ptmass(ihsoft,1),' code units'
+       call prompt('Enter softening length for the primary core',xyzmh_ptmass(ihsoft,1),0.)
+       call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
 
        !shifts gas to the primary point mass created in 'set_binary'
        do i=1,npart
