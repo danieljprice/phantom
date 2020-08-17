@@ -185,7 +185,7 @@ end subroutine set_linklist
 ! the list is returned in 'listneigh' (length nneigh)
 !+
 !-----------------------------------------------------------------------
-subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
  use kdtree, only:getneigh,lenfgrav
@@ -195,7 +195,7 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  use boundary, only:dxbound,dybound,dzbound
 #endif
  integer, intent(in)  :: inode,ixyzcachesize
- integer, intent(out) :: listneigh(:)
+ integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
@@ -238,11 +238,11 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                 cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
 #endif
-    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
     if (present(local_gravity)) then
        f = fgrav
@@ -253,28 +253,28 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               cellatid,get_j,remote_export=remote_export)
     endif
 #endif
-    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                ifirstincell,get_j)
  endif
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
  real,    intent(in)  :: xpos(ndim)
  real,    intent(in)  :: xsizei,rcuti
- integer, intent(out) :: listneigh(:)
+ integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
- call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                ifirstincell,.false.)
 
 end subroutine getneigh_pos
