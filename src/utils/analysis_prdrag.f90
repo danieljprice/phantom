@@ -4,29 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine comparing time between dumps
+! Analysis routine comparing time between dumps
 !
 !  Produces three output files:
 !     radial.out      - rho, kappa, beta calculated on the radial grid
 !     radialinterp.out- the same quantities interpolated onto a Cartesian grid
 !     applied.out     - beta for all the actual particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: lumin_nsdisc, physcon, units
 !
-!  DEPENDENCIES: lumin_nsdisc, physcon, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'prdrag'
  public :: do_analysis

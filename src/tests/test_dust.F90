@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testdust
+module testdust
 !
-!  DESCRIPTION:
-!   Unit tests of the dust module
+! Unit tests of the dust module
 !
-!  REFERENCES:
+! :References:
 !   Laibe & Price (2011),  MNRAS 418, 1491
 !   Laibe & Price (2012a), MNRAS 420, 2345
 !   Laibe & Price (2012b), MNRAS 420, 2365
 !   Price & Laibe (2015),  MNRAS 451, 5332
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, deriv, dim, domain, dust, energies, eos, growth,
+!   io, kernel, mpiutils, options, part, physcon, random, set_dust,
+!   step_lf_global, table_utils, testutils, timestep, unifdis, units,
+!   vectorutils
 !
-!  DEPENDENCIES: boundary, deriv, dim, domain, dust, energies, eos, growth,
-!    io, kernel, mpiutils, options, part, physcon, random, set_dust,
-!    step_lf_global, table_utils, testutils, timestep, unifdis, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
-module testdust
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none

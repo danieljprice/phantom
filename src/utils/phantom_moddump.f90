@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantommoddump
-!
-!  DESCRIPTION: This program is a simple utility for modifying a dump file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
-!
-!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, memory, moddump,
-!    options, part, prompting, readwrite_dumps, readwrite_infile,
-!    setBfield, setup_params
-!+
-!--------------------------------------------------------------------------
 program phantommoddump
+!
+! This program is a simple utility for modifying a dump file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+!
+! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
+!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
+!   setup_params
+!
  use dim,             only:tagline,maxp_hard
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
@@ -36,7 +31,7 @@ program phantommoddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
- use initial_params,  only:get_conserv
+ use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
  implicit none
  integer :: nargs

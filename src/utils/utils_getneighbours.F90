@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: getneigbours
+module getneighbours
 !
-!  DESCRIPTION:
-!  A set of routines generate neighbour lists for all particles, and
+! A set of routines generate neighbour lists for all particles, and
 !  read/write the list to file
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
 !
-!  DEPENDENCIES: boundary, dim, kdtree, kernel, linklist, part
-!+
-!--------------------------------------------------------------------------
-module getneigbours
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours
@@ -168,7 +162,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           print*, 'Neighbour finding: Keeping the ',neighmax,' closest neighbours.'
           neighcount(i) = neighmax
           do p = 1,neighmax
-             j = minloc(rneigh_all,1)
+             j = minloc(rneigh_all(1:neighcount(i)),1)
              neighb(i,p) = ineigh_all(j)
              rneigh_all(j) = huge(rij2)
           enddo

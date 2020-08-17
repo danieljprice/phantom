@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testlink
-!
-!  DESCRIPTION:
-!  This module performs unit tests of the link list routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, domain, io, kdtree, kernel, linklist,
-!    mpiutils, part, random, testutils, timing, unifdis
-!+
-!--------------------------------------------------------------------------
 module testlink
+!
+! This module performs unit tests of the link list routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, io, kdtree, kernel, linklist,
+!   mpiutils, part, random, testutils, timing, unifdis
+!
  implicit none
  public :: test_link
 
@@ -76,10 +70,14 @@ subroutine test_link(ntests,npass)
  integer :: nfailed(8)
  logical                :: iactivei,iactivej,activecell
  real, allocatable :: xyzcache(:,:)
- integer :: listneigh(maxneigh)
+ integer, allocatable :: listneigh(:)
  character(len=1), dimension(3), parameter :: xlabel = (/'x','y','z'/)
 
  if (id==master) write(*,"(a,/)") '--> TESTING LINKLIST / NEIGHBOUR FINDING'
+!
+!--allocate memory for neighbour list
+!
+ allocate(listneigh(maxneigh))
 !
 !--set up a random particle distribution
 !
@@ -442,6 +440,7 @@ subroutine test_link(ntests,npass)
  enddo
 
  if (allocated(xyzcache)) deallocate(xyzcache)
+ deallocate(listneigh)
 
  if (id==master) write(*,"(/,a,/)") '<-- LINKLIST TEST COMPLETE'
 

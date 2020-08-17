@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: lombperiod
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: lombperiod time1 time2 *-colxxxxx.mflow file
-!
-!  DEPENDENCIES: powerspectrums
-!+
-!--------------------------------------------------------------------------
 program lombperiod
-
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: lombperiod time1 time2 *-colxxxxx.mflow file
+!
+! :Dependencies: powerspectrums
+!
  use powerspectrums, only: powerspectrum
 
  implicit none

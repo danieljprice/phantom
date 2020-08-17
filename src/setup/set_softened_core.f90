@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setsoftenedcore
+module setsoftenedcore
 !
-!  DESCRIPTION:
-!   This module softens the core of a MESA stellar profile with a cubic
+! This module softens the core of a MESA stellar profile with a cubic
 !   density profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES: For cubic spline softening of sink gravity, see Price &
+! :References: For cubic spline softening of sink gravity, see Price &
 !              Monaghan (2007)
 !
-!  OWNER: Mike Lau
+! :Owner: Mike Lau
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, kernel, physcon, table_utils
 !
-!  DEPENDENCIES: eos, kernel, physcon, table_utils
-!+
-!--------------------------------------------------------------------------
-module setsoftenedcore
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils,      only:interpolator,diff
 

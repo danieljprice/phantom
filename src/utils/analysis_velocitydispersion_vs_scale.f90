@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine calculates the velocity dispersion as a function of size scale
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, getneigbours, io, part, physcon, prompting,
-!    sortutils
-!+
-!--------------------------------------------------------------------------
 module analysis
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+!
+! Analysis routine calculates the velocity dispersion as a function of size scale
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, getneighbours, io, part, physcon, prompting,
+!   sortutils
+!
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax,meanneigh
  implicit none
  character(len=27), parameter, public :: analysistype = 'velocitydispersion_vs_scale'
