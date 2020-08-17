@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom2sphNG
+program phantom2sphNG
 !
-!  DESCRIPTION: This program converts Phantom dumps into sphNG dumps
+! This program converts Phantom dumps into sphNG dumps
 ! (the opposite is not required as Phantom can
 !  be started directly from an sphNG dump file).
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: phantom2sphNG dumpfilein dumpfileout
 !
-!  USAGE: phantom2sphNG dumpfilein dumpfileout
+! :Dependencies: dim, io, part, readwrite_dumps
 !
-!  DEPENDENCIES: dim, io, part, readwrite_dumps
-!+
-!--------------------------------------------------------------------------
-program phantom2sphNG
  use dim,             only:tagline
  use part,            only:hfact
  use io,              only:set_io_unit_numbers,iprint,idisk1

@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos
+module eos
 !
-!  DESCRIPTION:
-!  This module contains stuff to do with the equation of state
+! This module contains stuff to do with the equation of state
 !  Current options:
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
@@ -23,39 +21,35 @@
 !    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - X           : *hydrogen mass fraction*
+!   - drhocrit    : *transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)*
+!   - gamma0pwp   : *adiabatic index 0 (piecewise polytropic eos)*
+!   - gamma1      : *adiabatic index 1 (barotropic eos)*
+!   - gamma1pwp   : *adiabatic index 1 (piecewise polytropic eos)*
+!   - gamma2      : *adiabatic index 2 (barotropic eos)*
+!   - gamma2pwp   : *adiabatic index 2 (piecewise polytropic eos)*
+!   - gamma3      : *adiabatic index 3 (barotropic eos)*
+!   - gamma3pwp   : *adiabatic index 3 (piecewise polytropic eos)*
+!   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
+!   - metallicity : *metallicity*
+!   - mu          : *mean molecular weight*
+!   - p1pwp       : *pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)*
+!   - rhocrit0    : *critical density 0 in g/cm^3 (barotropic eos)*
+!   - rhocrit0pwp : *critical density 0 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit1    : *critical density 1 in g/cm^3 (barotropic eos)*
+!   - rhocrit1pwp : *critical density 1 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit2    : *critical density 2 in g/cm^3 (barotropic eos)*
+!   - rhocrit2pwp : *critical density 2 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit3    : *critical density 3 in g/cm^3 (barotropic eos)*
 !
-!  RUNTIME PARAMETERS:
-!    X           -- hydrogen mass fraction
-!    drhocrit    -- transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)
-!    gamma0pwp   -- adiabatic index 0 (piecewise polytropic eos)
-!    gamma1      -- adiabatic index 1 (barotropic eos)
-!    gamma1pwp   -- adiabatic index 1 (piecewise polytropic eos)
-!    gamma2      -- adiabatic index 2 (barotropic eos)
-!    gamma2pwp   -- adiabatic index 2 (piecewise polytropic eos)
-!    gamma3      -- adiabatic index 3 (barotropic eos)
-!    gamma3pwp   -- adiabatic index 3 (piecewise polytropic eos)
-!    ieos        -- eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)
-!    metallicity -- metallicity
-!    mu          -- mean molecular weight
-!    p1pwp       -- pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)
-!    rhocrit0    -- critical density 0 in g/cm^3 (barotropic eos)
-!    rhocrit0pwp -- critical density 0 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit1    -- critical density 1 in g/cm^3 (barotropic eos)
-!    rhocrit1pwp -- critical density 1 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit2    -- critical density 2 in g/cm^3 (barotropic eos)
-!    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
+! :Dependencies: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
+!   infile_utils, io, part, physcon, units
 !
-!  DEPENDENCIES: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
-!    infile_utils, io, part, physcon, units
-!+
-!--------------------------------------------------------------------------
-module eos
  implicit none
  integer, parameter, public :: maxeos = 19
  real,               public :: polyk, polyk2, gamma

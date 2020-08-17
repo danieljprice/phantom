@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine which computes the velocity shear tensor for all particles
+! Analysis routine which computes the velocity shear tensor for all particles
 !
 !  Sij = 0.5*(di vj + dj vi)
 !
 !  and writes the eigenvalues and eigenvectors to file
 !  REFERENCES: None
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, getneighbours, kernel, part
 !
-!  DEPENDENCIES: dim, getneigbours, kernel, part
-!+
-!--------------------------------------------------------------------------
-module analysis
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'velocityshear'

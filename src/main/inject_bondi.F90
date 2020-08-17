@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    drdp          -- desired ratio of sphere spacing to particle spacing
-!    iboundspheres -- number of boundary spheres (integer)
-!    isol          -- solution type (1=geodesic | 2=sonic point)
-!    rin           -- radius of injection of the wind
-!
-!  DEPENDENCIES: bondiexact, eos, icosahedron, infile_utils, injectutils,
-!    io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - drdp          : *desired ratio of sphere spacing to particle spacing*
+!   - iboundspheres : *number of boundary spheres (integer)*
+!   - isol          : *solution type (1=geodesic | 2=sonic point)*
+!   - rin           : *radius of injection of the wind*
+!
+! :Dependencies: bondiexact, eos, icosahedron, infile_utils, injectutils,
+!   io, part, physcon
+!
  use physcon, only:pi
  implicit none
 

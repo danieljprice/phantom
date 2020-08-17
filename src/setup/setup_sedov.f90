@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup for the Sedov blast wave problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    npartx -- number of particles in x-direction
-!
-!  DEPENDENCIES: boundary, domain, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the Sedov blast wave problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - npartx : *number of particles in x-direction*
+!
+! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
 

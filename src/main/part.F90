@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: part
+module part
 !
-!  DESCRIPTION:
-!  This module contains main particle data for the code and
+! This module contains main particle data for the code and
 !  functions used to query particle properties not stored.
 !
 !  Basically this module defines any quantity that is
@@ -18,18 +16,14 @@
 !  (for example, any routine that copies all of the variables
 !   stored on a given particle).
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
-!  DEPENDENCIES: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
-!+
-!--------------------------------------------------------------------------
-module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,nabundances,maxtemp,periodic,&
@@ -598,6 +592,11 @@ subroutine init_part
  dustgasprop(:,:) = 0.
  VrelVf(:)        = 0.
 #endif
+#ifdef IND_TIMESTEPS
+ ibin(:)       = 0
+ ibin_old(:)   = 0
+ ibin_wake(:)  = 0
+#endif
 
 end subroutine init_part
 
@@ -812,8 +811,8 @@ pure integer(kind=1) function isetphase(itype,iactive)
  integer, intent(in) :: itype
  logical, intent(in) :: iactive
 
- if ((set_boundaries_to_active .and. itype==iboundary)   .or. &
-     (iactive                  .and. itype/=iboundary) ) then
+ if ((set_boundaries_to_active .and.      iamboundary(itype))   .or. &
+     (iactive                  .and. .not.iamboundary(itype)) ) then
     isetphase = int(itype,kind=1)
  else
     isetphase = -int(abs(itype),kind=1)

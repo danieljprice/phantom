@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setfixedentropycore
+module setfixedentropycore
 !
-!  DESCRIPTION:
-!   This module softens the core of a MESA stellar profile with a constant
+! This module softens the core of a MESA stellar profile with a constant
 !   entropy profile, given a softening length and core mass, in preparation
 !   for adding a sink particle core.
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Mike Lau
+! :Owner: Mike Lau
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, kernel, physcon, table_utils
 !
-!  DEPENDENCIES: eos, kernel, physcon, table_utils
-!+
-!--------------------------------------------------------------------------
-module setfixedentropycore
  implicit none
 
 contains
@@ -218,7 +212,7 @@ function entropy(rho,pres)
  real, parameter :: eoserr=1d-10
 
  inv_mu = 1/gmw
- corr = 1d99; temp = 1d3
+ corr = huge(corr); temp = 1d3
 
  if (ieos == 2) then
     temp = pres * gmw / (rho * kb_on_mh)
@@ -251,7 +245,7 @@ subroutine get_rho_from_p_s(pres,S,rho)
  real, parameter   :: eoserr=1d-9,dfac=1d-12
 
  rho = 1d-8 ! Initial guess
- corr = 1d99
+ corr = huge(corr)
 
  do while (abs(corr) > eoserr*rho)
     ! First calculate dS/drho

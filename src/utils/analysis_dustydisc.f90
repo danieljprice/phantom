@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for dustydisc
-!
-!  REFERENCES: None
-!
-!  OWNER: Mark Hutchison
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, solvelinearsystem, units
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for dustydisc
+!
+! :References: None
+!
+! :Owner: Mark Hutchison
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, dust, infile_utils, io, leastsquares, options, part,
+!   physcon, solvelinearsystem, units
+!
  use dim,  only:maxdusttypes
  use dust, only:grainsizecgs
  use part, only:ndusttypes

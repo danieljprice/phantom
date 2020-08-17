@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: unifdis
-!
-!  DESCRIPTION:
-!   Setup of uniform particle distributions on various lattices
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: random, stretchmap
-!+
-!--------------------------------------------------------------------------
 module unifdis
+!
+! Setup of uniform particle distributions on various lattices
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: random, stretchmap
+!
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked
  public :: is_valid_lattice, is_closepacked

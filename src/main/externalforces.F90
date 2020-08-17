@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: externalforces
-!
-!  DESCRIPTION:
-!  Routines dealing with external forces/ potentials
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accradius1      -- soft accretion radius of central object
-!    accradius1_hard -- hard accretion radius of central object
-!    eps_soft        -- softening length (Plummer) for central potential in code units
-!    mass1           -- mass of central object in code units
-!
-!  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!    extern_densprofile, extern_gnewton, extern_gwinspiral,
-!    extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!    fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
-!+
-!--------------------------------------------------------------------------
 module externalforces
+!
+! Routines dealing with external forces/ potentials
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - accradius1      : *soft accretion radius of central object*
+!   - accradius1_hard : *hard accretion radius of central object*
+!   - eps_soft        : *softening length (Plummer) for central potential in code units*
+!   - mass1           : *mass of central object in code units*
+!
+! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
+!   extern_densprofile, extern_gnewton, extern_gwinspiral,
+!   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
+!   fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
+!
  use extern_binary,   only:accradius1
  use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none

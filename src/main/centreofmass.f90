@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: centreofmass
+module centreofmass
 !
-!  DESCRIPTION:
-!   Utilities for computing the centre of mass on the particles
+! Utilities for computing the centre of mass on the particles
 !   and correcting the bulk motion (used for turbulent driving)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
-!  DEPENDENCIES: dim, io, mpiutils, part, vectorutils
-!+
-!--------------------------------------------------------------------------
-module centreofmass
  implicit none
  public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
 

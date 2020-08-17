@@ -4,28 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: metric_tools
+module metric_tools
 !
-!  DESCRIPTION: This module contains wrapper subroutines to get:
+! This module contains wrapper subroutines to get:
 !      - The metric (covariant and contravariant)
 !      - Derivatives of the covariant metric
 !  As well as some general tools that are not specfic to each metric:
 !      - Numerical metric derivatives
 !      - Tensor transformations
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: David Liptai
+! :Owner: David Liptai
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: fastmath, inverse4x4, metric
 !
-!  DEPENDENCIES: fastmath, inverse4x4, metric
-!+
-!--------------------------------------------------------------------------
-module metric_tools
  use metric, only:imetric
  implicit none
 

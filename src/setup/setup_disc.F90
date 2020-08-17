@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module sets up accretion discs. The central object(s) can be
+! This module sets up accretion discs. The central object(s) can be
 !   modelled with sink particles or external potentials. Systems with two
 !   sink particles:
 !     (i)  in a bound binary can have circumbinary, circumprimary, and
@@ -19,58 +17,54 @@
 !   one fluid or two fluid methods. The dust can only grow in the two-fluid
 !   method. Embedded planets can be added to single or circumbinary discs.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters:
+!   - Ratm_in       : *inner atmosphere radius (planet radii)*
+!   - Ratm_out      : *outer atmosphere radius (planet radii)*
+!   - accr1         : *central star accretion radius*
+!   - accr2         : *perturber accretion radius*
+!   - alphaSS       : *desired alphaSS*
+!   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - bhspin        : *black hole spin*
+!   - bhspinangle   : *black hole spin angle (deg)*
+!   - binary_O      : *Omega, PA of ascending node (deg)*
+!   - binary_a      : *binary semi-major axis*
+!   - binary_e      : *binary eccentricity*
+!   - binary_f      : *f, initial true anomaly (deg,180=apastron)*
+!   - binary_i      : *i, inclination (deg)*
+!   - binary_w      : *w, argument of periapsis (deg)*
+!   - deltat        : *output interval as fraction of orbital period*
+!   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
+!   - einst_prec    : *include Einstein precession*
+!   - flyby_O       : *position angle of ascending node (deg)*
+!   - flyby_a       : *distance of minimum approach*
+!   - flyby_d       : *initial distance (units of dist. min. approach)*
+!   - flyby_i       : *inclination (deg)*
+!   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
+!   - ipotential    : *potential (1=central point mass,*
+!   - m1            : *central star mass*
+!   - m2            : *perturber mass*
+!   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
+!   - norbits       : *maximum number of orbits at outer disc*
+!   - np            : *number of gas particles*
+!   - nplanets      : *number of planets*
+!   - nsinks        : *number of sinks*
+!   - radkappa      : *constant radiation opacity kappa*
+!   - ramp          : *Do you want to ramp up the planet mass slowly?*
+!   - rho_core      : *planet core density (cgs units)*
+!   - setplanets    : *add planets? (0=no,1=yes)*
+!   - surface_force : *model m1 as planet with surface*
+!   - use_mcfost    : *use the mcfost library*
 !
-!  RUNTIME PARAMETERS:
-!    Ratm_in       -- inner atmosphere radius (planet radii)
-!    Ratm_out      -- outer atmosphere radius (planet radii)
-!    accr1         -- central star accretion radius
-!    accr2         -- perturber accretion radius
-!    alphaSS       -- desired alphaSS
-!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin        -- black hole spin
-!    bhspinangle   -- black hole spin angle (deg)
-!    binary_O      -- Omega, PA of ascending node (deg)
-!    binary_a      -- binary semi-major axis
-!    binary_e      -- binary eccentricity
-!    binary_f      -- f, initial true anomaly (deg,180=apastron)
-!    binary_i      -- i, inclination (deg)
-!    binary_w      -- w, argument of periapsis (deg)
-!    deltat        -- output interval as fraction of orbital period
-!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec    -- include Einstein precession
-!    flyby_O       -- position angle of ascending node (deg)
-!    flyby_a       -- distance of minimum approach
-!    flyby_d       -- initial distance (units of dist. min. approach)
-!    flyby_i       -- inclination (deg)
-!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential    -- potential (1=central point mass,
-!    m1            -- central star mass
-!    m2            -- perturber mass
-!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits       -- maximum number of orbits at outer disc
-!    np            -- number of gas particles
-!    nplanets      -- number of planets
-!    nsinks        -- number of sinks
-!    radkappa      -- constant radiation opacity kappa
-!    ramp          -- Do you want to ramp up the planet mass slowly?
-!    rho_core      -- planet core density (cgs units)
-!    setplanets    -- add planets? (0=no,1=yes)
-!    surface_force -- model m1 as planet with surface
-!    use_mcfost    -- use the mcfost library
+! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
+!   extern_corotate, extern_lensethirring, externalforces, fileutils,
+!   growth, infile_utils, io, kernel, memory, options, part, physcon,
+!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!   setdisc, setflyby, spherical, timestep, units, vectorutils
 !
-!  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, memory, options, part, physcon,
-!    prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!    setdisc, setflyby, spherical, timestep, units, vectorutils
-!+
-!--------------------------------------------------------------------------
-module setup
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&

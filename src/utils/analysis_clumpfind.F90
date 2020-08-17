@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine which runs the CLUMPFIND algorithm
+! Analysis routine which runs the CLUMPFIND algorithm
 !
 !  This uses local potential minima (and neighbour lists)
 !  to identify objects/clumps in the gas distribution
 !  Clumps are matched across timesteps using standard merger tree algorithms
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, getneighbours, part, prompting, ptmass,
+!   readwrite_dumps, sortutils, units
 !
-!  DEPENDENCIES: boundary, dim, getneigbours, part, prompting, ptmass,
-!    readwrite_dumps, sortutils, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use dim,             only:maxp
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'

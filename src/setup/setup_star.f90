@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!    This module sets up sphere(s).  There are multiple options, including
+! This module sets up sphere(s).  There are multiple options, including
 !    1) uniform unit sphere
 !    2) single polytrope
 !    3) binary polytrope (decommissioned)
@@ -19,45 +17,41 @@
 !    8) KEPLER star from file
 !    9) Helmholtz Equation of state
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - EOSopt             : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
+!   - Mstar              : *mass of star*
+!   - Rstar              : *radius of star*
+!   - densityfile        : *File containing data for stellar profile*
+!   - dist_unit          : *distance unit (e.g. au)*
+!   - gamma              : *Adiabatic index*
+!   - hdens              : *Radius of core softening*
+!   - hsoft              : *Softening length of sink particle stellar core*
+!   - ieos               : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
+!   - initialtemp        : *initial temperature of the star*
+!   - isinkcore          : *Add a sink particle stellar core*
+!   - isoftcore          : *0=no core softening, 1=cubic core, 2=constant entropy core*
+!   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
+!   - mass_unit          : *mass unit (e.g. solarm)*
+!   - mcore              : *Mass of sink particle stellar core*
+!   - np                 : *approx number of particles (in box of size 2R)*
+!   - outputfilename     : *Output path for softened MESA profile*
+!   - polyk              : *polytropic constant (cs^2 if isothermal)*
+!   - relax_star         : *relax star automatically during setup*
+!   - ui_coef            : *specific internal energy (units of GM/R)*
+!   - unsoftened_profile : *Path to MESA profile for softening*
+!   - use_exactN         : *find closest particle number to np*
+!   - write_rho_to_file  : *write density profile to file*
 !
-!  RUNTIME PARAMETERS:
-!    EOSopt             -- EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)
-!    Mstar              -- mass of star
-!    Rstar              -- radius of star
-!    densityfile        -- File containing data for stellar profile
-!    dist_unit          -- distance unit (e.g. au)
-!    gamma              -- Adiabatic index
-!    hdens              -- Radius of core softening
-!    hsoft              -- Softening length of sink particle stellar core
-!    ieos               -- 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
-!    initialtemp        -- initial temperature of the star
-!    isinkcore          -- Add a sink particle stellar core
-!    isoftcore          -- 0=no core softening, 1=cubic core, 2=constant entropy core
-!    isofteningopt      -- 1=supply hsoft, 2=supply mcore, 3=supply both
-!    mass_unit          -- mass unit (e.g. solarm)
-!    mcore              -- Mass of sink particle stellar core
-!    np                 -- approx number of particles (in box of size 2R)
-!    outputfilename     -- Output path for softened MESA profile
-!    polyk              -- polytropic constant (cs^2 if isothermal)
-!    relax_star         -- relax star automatically during setup
-!    ui_coef            -- specific internal energy (units of GM/R)
-!    unsoftened_profile -- Path to MESA profile for softening
-!    use_exactN         -- find closest particle number to np
-!    write_rho_to_file  -- write density profile to file
+! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
+!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
+!   part, physcon, prompting, relaxstar, rho_profile, setfixedentropycore,
+!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
+!   timestep, units
 !
-!  DEPENDENCIES: centreofmass, dim, domain, eos, eos_idealplusrad,
-!    extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!    part, physcon, prompting, relaxstar, rho_profile, setfixedentropycore,
-!    setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
-module setup
  use io,             only:fatal,error,master
  use part,           only:gravity
  use physcon,        only:solarm,solarr,km,pi,c,kb_on_mh,radconst
@@ -315,6 +309,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! are same as the original profile for r > hsoft
 
        call init_eos(ieos,ierr)
+       if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
           call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)

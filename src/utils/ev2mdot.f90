@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: get_mdot
+program get_mdot
 !
-!  DESCRIPTION: Utility to extract mdot as a function of time
+! Utility to extract mdot as a function of time
 !    from the .ev file. Splices the sequence of .ev files back
 !    together to reconstruct a single file dataset
 !    Daniel Price, March 2011, rewritten in Aug 2017
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: ev2mdot [dt_min] file01.ev file02.ev ...
 !
-!  USAGE: ev2mdot [dt_min] file01.ev file02.ev ...
+! :Dependencies: evutils, fileutils
 !
-!  DEPENDENCIES: evutils, fileutils
-!+
-!--------------------------------------------------------------------------
-program get_mdot
  use evutils
  use fileutils, only:files_are_sequential
  implicit none

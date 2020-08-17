@@ -4,30 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: energies
+module energies
 !
-!  DESCRIPTION:
-!   Calculates global quantities on the particles
+! Calculates global quantities on the particles
 !   To Developer: See instructions in evwrite.F90 about adding values
 !                 to the .ev file
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, dust, eos, externalforces, fastmath, gravwaveutils,
+!   io, metric_tools, mpiutils, nicil, options, part, ptmass, units,
+!   utils_gr, vectorutils, viscosity
 !
-!  DEPENDENCIES: dim, dust, eos, externalforces, fastmath, gravwaveutils,
-!    io, metric_tools, mpiutils, nicil, options, part, ptmass, units,
-!    utils_gr, vectorutils, viscosity
-!+
-!--------------------------------------------------------------------------
-
-#define reduce_fn(a,b) reduceall_mpi(a,b)
-module energies
  use dim, only: maxdusttypes,maxdustsmall
  use units, only:utime
  implicit none
@@ -621,9 +613,9 @@ subroutine compute_energies(t)
 !$omp end parallel
 
  !--Determing the number of active gas particles
- nptot    = reduce_fn('+',np)
- npgas    = reduce_fn('+',npgas)
- npartall = reduce_fn('+',npart)
+ nptot    = reduceall_mpi('+',np)
+ npgas    = reduceall_mpi('+',npgas)
+ npartall = reduceall_mpi('+',npart)
  ndead    = npartall - nptot
  if (nptot > 0) then
     dnptot = 1./real(nptot)
@@ -636,8 +628,8 @@ subroutine compute_energies(t)
     dnpgas = 0.
  endif
  !--Number of gas particles without a sound speed or energy
- np_cs_eq_0 = reduce_fn('+',np_cs_eq_0)
- np_e_eq_0  = reduce_fn('+',np_e_eq_0)
+ np_cs_eq_0 = reduceall_mpi('+',np_cs_eq_0)
+ np_e_eq_0  = reduceall_mpi('+',np_e_eq_0)
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
  call finalise_ev_data(ev_data,dnpgas)
@@ -645,36 +637,36 @@ subroutine compute_energies(t)
  ekin = 0.5*ekin
 #endif
  emag = 0.5*emag
- ekin = reduce_fn('+',ekin)
- if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduce_fn('+',etherm)
- emag = reduce_fn('+',emag)
- epot = reduce_fn('+',epot)
- erad = reduce_fn('+',erad)
+ ekin = reduceall_mpi('+',ekin)
+ if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduceall_mpi('+',etherm)
+ emag = reduceall_mpi('+',emag)
+ epot = reduceall_mpi('+',epot)
+ erad = reduceall_mpi('+',erad)
  if (nptmass > 1) epot = epot + epot_sinksink
 
  etot = ekin + etherm + emag + epot + erad
 
- xcom = reduce_fn('+',xcom)
- ycom = reduce_fn('+',ycom)
- zcom = reduce_fn('+',zcom)
- mtot = reduce_fn('+',mtot)
+ xcom = reduceall_mpi('+',xcom)
+ ycom = reduceall_mpi('+',ycom)
+ zcom = reduceall_mpi('+',zcom)
+ mtot = reduceall_mpi('+',mtot)
  if (mtot > 0.0) dm = 1.0 / mtot
  xcom = xcom * dm
  ycom = ycom * dm
  zcom = zcom * dm
 
- xmom = reduce_fn('+',xmom)
- ymom = reduce_fn('+',ymom)
- zmom = reduce_fn('+',zmom)
+ xmom = reduceall_mpi('+',xmom)
+ ymom = reduceall_mpi('+',ymom)
+ zmom = reduceall_mpi('+',zmom)
  totmom = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
 
- angx = reduce_fn('+',angx)
- angy = reduce_fn('+',angy)
- angz = reduce_fn('+',angz)
+ angx = reduceall_mpi('+',angx)
+ angy = reduceall_mpi('+',angy)
+ angz = reduceall_mpi('+',angz)
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
 
- vrms    = reduce_fn('+',vrms)
- rmsmach = reduce_fn('+',rmsmach)
+ vrms    = reduceall_mpi('+',vrms)
+ rmsmach = reduceall_mpi('+',rmsmach)
  vrms    = sqrt(vrms*dnptot)
  rmsmach = sqrt(rmsmach*dnpgas)
 
@@ -710,13 +702,13 @@ subroutine compute_energies(t)
  endif
 
  if (use_dust) then
-    mgas  = reduce_fn('+',mgas)
-    mdust = reduce_fn('+',mdust)
+    mgas  = reduceall_mpi('+',mgas)
+    mdust = reduceall_mpi('+',mdust)
  endif
 
  if (.not. gas_only) then
     do i = 1,maxtypes
-       np_rho(i) = reduce_fn('+',np_rho(i))
+       np_rho(i) = reduceall_mpi('+',np_rho(i))
     enddo
     ! correct the average densities so that division is by n_p and not n_gas
     ev_data(iev_ave,iev_rho) = ev_data(iev_ave,iev_rho)*real(npgas)*dnptot
@@ -728,18 +720,18 @@ subroutine compute_energies(t)
  endif
 
  if (iexternalforce > 0) then
-    xmomacc   = reduce_fn('+',xmomacc)
-    ymomacc   = reduce_fn('+',ymomacc)
-    zmomacc   = reduce_fn('+',zmomacc)
+    xmomacc   = reduceall_mpi('+',xmomacc)
+    ymomacc   = reduceall_mpi('+',ymomacc)
+    zmomacc   = reduceall_mpi('+',zmomacc)
 
     xmomall   = xmom + xmomacc
     ymomall   = ymom + ymomacc
     zmomall   = zmom + zmomacc
     ev_data(iev_sum,iev_momall) = sqrt(xmomall*xmomall + ymomall*ymomall + zmomall*zmomall)
 
-    angaccx = reduce_fn('+',angaccx)
-    angaccy = reduce_fn('+',angaccy)
-    angaccz = reduce_fn('+',angaccz)
+    angaccx = reduceall_mpi('+',angaccx)
+    angaccy = reduceall_mpi('+',angaccy)
+    angaccz = reduceall_mpi('+',angaccz)
     angxall = angx + angaccx
     angyall = angy + angaccy
     angzall = angz + angaccz
@@ -760,10 +752,10 @@ subroutine compute_energies(t)
 #endif
     pmassi = massoftype(igas)
     call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
-    hx  = reduce_fn('+',hx)
-    hp  = reduce_fn('+',hp)
-    hxx = reduce_fn('+',hxx)
-    hpp = reduce_fn('+',hpp)
+    hx  = reduceall_mpi('+',hx)
+    hp  = reduceall_mpi('+',hp)
+    hxx = reduceall_mpi('+',hxx)
+    hpp = reduceall_mpi('+',hpp)
     ev_data(iev_sum,iev_gws(1)) = hx
     ev_data(iev_sum,iev_gws(2)) = hp
     ev_data(iev_sum,iev_gws(3)) = hxx
@@ -864,9 +856,9 @@ subroutine finalise_ev_data(evdata,dnptot)
  integer                        :: i
 
  do i = 1,iquantities
-    evdata(iev_sum,i) = reduce_fn('+',  evdata(iev_sum,i))
-    evdata(iev_max,i) = reduce_fn('max',evdata(iev_max,i))
-    evdata(iev_min,i) = reduce_fn('min',evdata(iev_min,i))
+    evdata(iev_sum,i) = reduceall_mpi('+',  evdata(iev_sum,i))
+    evdata(iev_max,i) = reduceall_mpi('max',evdata(iev_max,i))
+    evdata(iev_min,i) = reduceall_mpi('min',evdata(iev_min,i))
     evdata(iev_ave,i) = evdata(iev_sum,i)*dnptot
  enddo
 

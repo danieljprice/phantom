@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!   Wind injection from galactic centre stars
+! Wind injection from galactic centre stars
 !   Written by Daniel Price, Jorge Cuadra, and Christopher Russell
 !
-!  REFERENCES: Cuadra et al. (2008), MNRAS 383, 458
+! :References: Cuadra et al. (2008), MNRAS 383, 458
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - datafile       : *name of data file for wind injection*
+!   - outer_boundary : *kill gas particles outside this radius*
 !
-!  RUNTIME PARAMETERS:
-!    datafile       -- name of data file for wind injection
-!    outer_boundary -- kill gas particles outside this radius
+! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
+!   random, units
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    random, units
-!+
-!--------------------------------------------------------------------------
-module inject
  use dim,  only:maxptmass
  use part, only:nptmass
  implicit none

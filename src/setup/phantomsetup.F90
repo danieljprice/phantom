@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomsetup
-!
-!  DESCRIPTION: Wrapper to routines for setting up Phantom simulations
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantomsetup fileprefix [nprocsfake]
-!
-!  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    krome_interface, memory, mpiutils, options, part, physcon,
-!    readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
-!    units
-!+
-!--------------------------------------------------------------------------
 program phantomsetup
+!
+! Wrapper to routines for setting up Phantom simulations
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantomsetup fileprefix [nprocsfake]
+!
+! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils, io,
+!   krome_interface, memory, mpiutils, options, part, physcon,
+!   readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
+!   units
+!
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,&
                            ndivcurlv,ndivcurlB,maxp_hard
@@ -33,7 +28,7 @@ program phantomsetup
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup,           only:setpart
@@ -178,6 +173,7 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
+    call init_readwrite_dumps()
     call write_fulldump(time,dumpfile,ntotal)
 !
 !--write an input file if it doesn't already exist

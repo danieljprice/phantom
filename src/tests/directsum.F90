@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: directsum
+module directsum
 !
-!  DESCRIPTION:
-!  This module computes self-gravity by direct summation
+! This module computes self-gravity by direct summation
 !  over the particles - used to test the treecode.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, kernel, part
 !
-!  DEPENDENCIES: dim, io, kernel, part
-!+
-!--------------------------------------------------------------------------
-module directsum
  implicit none
  public :: directsum_grav
 

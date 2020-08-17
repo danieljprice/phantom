@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: densityforce
+module densityforce
 !
-!  DESCRIPTION:
-!  This module is the "guts" of the code
+! This module is the "guts" of the code
 !  Calculates density by iteration with smoothing length
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, eos, fastmath, io, io_summary, kdtree,
+!   kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
+!   stack, timestep, timing, viscosity
 !
-!  DEPENDENCIES: boundary, dim, eos, fastmath, io, io_summary, kdtree,
-!    kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
-!    stack, timestep, timing, viscosity
-!+
-!--------------------------------------------------------------------------
-module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:mhd,dvdx
@@ -131,7 +125,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
-                     get_cell_location,set_hmaxcell,sync_hmax_mpi
+                     listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,&
@@ -168,9 +162,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
 
- integer, save :: listneigh(maxneigh)
  real,   save :: xyzcache(isizecellcache,3)
-!$omp threadprivate(xyzcache,listneigh)
+!$omp threadprivate(xyzcache)
 
  integer :: i,icell
  integer :: nneigh,np

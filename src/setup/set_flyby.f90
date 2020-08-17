@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setflyby
+module setflyby
 !
-!  DESCRIPTION:
-!   This module is contains utilities for setting up flyby.
+! This module is contains utilities for setting up flyby.
 !   Our conventions for angles are the same as in Xiang-Gruess (2016).
 !   Eccentricity is set to unity, i.e. for a parabolic orbit.
 !
@@ -20,20 +18,16 @@
 !                        defined by the position angle (for
 !                        posang_ascnode==0 this is a roll angle)
 !
-!  REFERENCES:
+! :References:
 !   Xiang-Gruess (2016), MNRAS 455, 3086-3100
 !   Cuello et al. (2019), MNRAS 483, 4114-4139
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon, vectorutils
 !
-!  DEPENDENCIES: physcon, vectorutils
-!+
-!--------------------------------------------------------------------------
-module setflyby
  use physcon, only:pi
  implicit none
  public :: set_flyby,get_T_flyby

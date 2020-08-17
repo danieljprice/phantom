@@ -4,25 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos_shen
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: datafiles, io
-!+
-!--------------------------------------------------------------------------
 module eos_shen
- !author: G.Shen, C. Horowitz, and S. Teige
- !modified: Z. Pellow
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, io
+!
  use datafiles, only:find_phantom_datafile
  use io,        only:warning
  implicit none

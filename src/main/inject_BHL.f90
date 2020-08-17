@@ -4,34 +4,28 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!  Handles wind injection for 3D Bondi Hoyle Lyttleton simulations
+! Handles wind injection for 3D Bondi Hoyle Lyttleton simulations
 !
-!  REFERENCES: Ruffert & Arnett (1994): Three-dimensional hydrodynamic Bondi-Hoyle accretion.
+! :References: Ruffert & Arnett (1994): Three-dimensional hydrodynamic Bondi-Hoyle accretion.
 !              2: Homogeneous medium at Mach 3 with gamma = 5/3
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - BHL_closepacked      : *0: cubic distribution, 1: closepacked distribution*
+!   - BHL_handled_layers   : *(integer) number of handled BHL wind layers*
+!   - BHL_mach             : *BHL wind mach number*
+!   - BHL_psep             : *particle separation (in star radii)*
+!   - BHL_r_star           : *BHL star radius (in accretion radii)*
+!   - BHL_radius           : *radius of the wind cylinder (in star radii)*
+!   - BHL_wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - BHL_wind_length      : *crude wind length (in star radii)*
 !
-!  RUNTIME PARAMETERS:
-!    BHL_closepacked      -- 0: cubic distribution, 1: closepacked distribution
-!    BHL_handled_layers   -- (integer) number of handled BHL wind layers
-!    BHL_mach             -- BHL wind mach number
-!    BHL_psep             -- particle separation (in star radii)
-!    BHL_r_star           -- BHL star radius (in accretion radii)
-!    BHL_radius           -- radius of the wind cylinder (in star radii)
-!    BHL_wind_injection_x -- x position of the wind injection boundary (in star radii)
-!    BHL_wind_length      -- crude wind length (in star radii)
+! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
+!   units
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    units
-!+
-!--------------------------------------------------------------------------
-module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'BHL'
 

@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_densprofile
+module extern_densprofile
 !
-!  DESCRIPTION:
-!    This module contains routines relating to the computation
+! This module contains routines relating to the computation
 !    of the background gravitational force/potential for a
 !    (neutron) star, from the equilibrium density profile
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: datafiles, io, physcon, units
 !
-!  DEPENDENCIES: datafiles, io, physcon, units
-!+
-!--------------------------------------------------------------------------
-module extern_densprofile
  implicit none
 
  real, public, allocatable :: r2tab(:), ftab(:)

@@ -4,29 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setBfield
+module setBfield
 !
-!  DESCRIPTION:
-!   Interactive setup of magnetic field on the particles
+! Interactive setup of magnetic field on the particles
 !
 !    Can be used to add magnetic field to hydro setups, and
 !   is used by utilities like moddump to add magnetic field
 !   to purely hydrodynamic dump files before continuing the
 !   calculation
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, physcon, prompting, setup_params, units
 !
-!  DEPENDENCIES: io, physcon, prompting, setup_params, units
-!+
-!--------------------------------------------------------------------------
-module setBfield
  implicit none
  public :: set_Bfield
 
