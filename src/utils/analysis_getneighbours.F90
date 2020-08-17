@@ -14,9 +14,9 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: getneigbours
+! :Dependencies: getneighbours
 !
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'getneighbours'

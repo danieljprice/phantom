@@ -585,7 +585,7 @@ end subroutine check_setup_growth
 subroutine check_setup_dustgrid(nerror,nwarn)
  use part,    only:grainsize,graindens,ndustsmall,ndustlarge,ndusttypes
  use options, only:use_dustfrac
- use dim,     only:use_dust
+ use dim,     only:use_dust,use_dustgrowth
  use units,   only:udist
  use physcon, only:km
  use dust,    only:idrag
@@ -605,22 +605,35 @@ subroutine check_setup_dustgrid(nerror,nwarn)
            ' not equal to ndusttypes: ',ndusttypes
     nerror = nerror + 1
  endif
- do i=1,ndusttypes
-    if (idrag == 1 .and. grainsize(i) <= 0.) then
-       print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
+ !
+ ! check that grain size array is sensible and non-zero
+ ! except if dustgrowth is switched on, in which case the size defined in
+ ! dustprop should be non-zero
+ !
+ if (use_dustgrowth) then
+    ! dust growth not implemented for more than one grain size
+    if (ndusttypes > 1) then
+       print*,'ERROR: dust growth requires ndusttypes = 1, but ndusttypes = ',ndusttypes
        nerror = nerror + 1
     endif
- enddo
+ else
+    do i=1,ndusttypes
+       if (idrag == 1 .and. grainsize(i) <= 0.) then
+          print*,'ERROR: grainsize = ',grainsize(i),' in dust bin ',i
+          nerror = nerror + 1
+       endif
+    enddo
+    do i=1,ndusttypes
+       if (idrag == 1 .and. graindens(i) <= 0.) then
+          print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
+          nerror = nerror + 1
+       endif
+    enddo
+ endif
  do i=1,ndusttypes
     if (grainsize(i) > 10.*km/udist) then
        print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
        nwarn = nwarn + 1
-    endif
- enddo
- do i=1,ndusttypes
-    if (idrag == 1 .and. graindens(i) <= 0.) then
-       print*,'ERROR: graindens = ',graindens(i),' in dust bin ',i
-       nerror = nerror + 1
     endif
  enddo
 

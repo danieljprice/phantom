@@ -77,7 +77,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: i,ipart,npinject,seed,pt,test_integral
  real    :: dmdt,dndt,rasteroid,h,u,speed,inject_this_step
  real    :: m1,m2,mu,period,r,q
- real    :: phi,theta,mod_time,dt,func_now
+ real    :: phi,theta,mod_time,dt,func_now, phi_facing
 
  real, save :: have_injected,func_old,t_old
  real, save :: semia, ra, rp, ecc
@@ -173,9 +173,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 !
 !-- Randomly inject particles around the asteroids outer 'radius'
+!-- Only inject them on the side that is facing the central sink
 !
  do i=1,npinject
-    phi       = ran2(seed)*twopi
+    phi_facing = atan2(xyzmh_ptmass(2,pt),xyzmh_ptmass(1,pt)) + 0.5*pi
+    phi       = phi_facing + ran2(seed)*pi
     theta     = ran2(seed)*pi
     xyz       = r2 + (/rasteroid*cos(phi)*sin(theta),rasteroid*sin(phi)*sin(theta),rasteroid*cos(theta)/)
     vxyz      = (1.-vlag/100)*speed*vhat
