@@ -1279,8 +1279,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           tempj = 0.0
           if (store_temperature) then
              tempj = temperature(j)
+             denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
+          else
+             denij = eni - enj
           endif
-          denij = eni - enj
        else
           denij = 0.
           tempj = 0.0
