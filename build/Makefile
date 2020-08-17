@@ -2109,7 +2109,7 @@ cleanstructutils: cleanstruct2struct cleanget_struct_slope
 #
 .PHONY: splitpart
 splitpart:
-	${MAKE} moddump MODFILE="utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
+	${MAKE} moddump MODFILE="utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
         MODDUMPBIN=$@
 
 cleansplitpart:
