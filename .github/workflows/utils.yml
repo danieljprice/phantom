@@ -20,7 +20,7 @@ jobs:
     env:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
-      SPLASH_DIR: ./splash
+      SPLASH_DIR: /home/runner/work/splash
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -31,7 +31,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: grab a copy of splash source code
-      run: git clone https://github.com/danieljprice/splash
+      run: git clone https://github.com/danieljprice/splash /home/runner/work/splash
 
     - name: compile utils with SETUP=test
       run: make SETUP=test utils
