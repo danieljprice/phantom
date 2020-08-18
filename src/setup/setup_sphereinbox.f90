@@ -24,10 +24,14 @@ module setup
 !   - dist_unit        : *distance unit (e.g. au)*
 !   - dusttogas        : *dust-to-gas ratio*
 !   - form_binary      : *the intent is to form a central binary*
+!   - h_acc            : *accretion radius (code units)*
+!   - h_soft_sinksink  : *sink-sink softening radius (code units)*
+!   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
 !   - mass_unit        : *mass unit (e.g. solarm)*
 !   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
 !   - np               : *requested number of particles in sphere*
 !   - pmass_dusttogas  : *dust-to-gas particle mass ratio*
+!   - r_crit           : *critical radius (code units)*
 !   - r_sphere         : *radius of sphere in code units*
 !   - rho_cen_cgs      : *central density of the BE sphere (will override radius)*
 !   - rho_pert_amp     : *amplitude of density perturbation*
@@ -40,6 +44,7 @@ module setup
 !
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic
+ use ptmass,  only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use options, only:calc_erot
  implicit none
  public :: setpart
@@ -76,7 +81,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,          only:polyk2,ieos
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
- use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
@@ -466,7 +470,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump    = 1
     calc_erot    = .true.
     dtmax_dratio = 1.258
-    if (make_sinks) then
+    if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
        dtmax_min = 0.0
@@ -566,6 +570,15 @@ subroutine write_setupfile(filename)
  if (binary) then
     call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
  endif
+ write(iunit,"(/,a)") '# Sink properties (will overwrite values in .in file if present)'
+ call write_inopt(icreate_sinks,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
+ if (icreate_sinks==1) then
+    call write_inopt(h_acc,'h_acc','accretion radius (code units)',iunit)
+    call write_inopt(r_crit,'r_crit','critical radius (code units)',iunit)
+    if (binary) then
+       call write_inopt(h_soft_sinksink,'h_soft_sinksink','sink-sink softening radius (code units)',iunit)
+    endif
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -634,6 +647,14 @@ subroutine read_setupfile(filename,ierr)
  endif
  if (binary) then
     call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
+ endif
+ call read_inopt(icreate_sinks,'icreate_sinks',db,ierr)
+ if (icreate_sinks==1) then
+    call read_inopt(h_acc,'h_acc',db,ierr)
+    call read_inopt(r_crit,'r_crit',db,ierr)
+    if (binary) then
+       call read_inopt(h_soft_sinksink,'h_soft_sinksink',db,ierr)
+    endif
  endif
  call close_db(db)
  !
