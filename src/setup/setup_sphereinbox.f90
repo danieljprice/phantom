@@ -24,10 +24,14 @@ module setup
 !   - dist_unit        : *distance unit (e.g. au)*
 !   - dusttogas        : *dust-to-gas ratio*
 !   - form_binary      : *the intent is to form a central binary*
+!   - h_acc            : *accretion radius (code units)*
+!   - h_soft_sinksink  : *sink-sink softening radius (code units)*
+!   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
 !   - mass_unit        : *mass unit (e.g. solarm)*
 !   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
 !   - np               : *requested number of particles in sphere*
 !   - pmass_dusttogas  : *dust-to-gas particle mass ratio*
+!   - r_crit           : *critical radius (code units)*
 !   - r_sphere         : *radius of sphere in code units*
 !   - rho_cen_cgs      : *central density of the BE sphere (will override radius)*
 !   - rho_pert_amp     : *amplitude of density perturbation*
