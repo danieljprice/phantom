@@ -13,15 +13,35 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - dtg         : *Dust to gas ratio*
-!   - dust_method : *1=one fluid, 2=two fluid*
-!   - gamma       : *Adiabatic index*
-!   - kappa       : *opacity in cm^2/g*
-!   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
-!   - polyk       : *square of the isothermal sound speed*
-!   - smooth_fac  : *smooth shock front over lengthscale smooth_fac*dxleft*
-!   - xleft       : *x min boundary*
-!   - xright      : *x max boundary*
+!   - C_AD           : *Ambipolar diffusion coefficient*
+!   - C_HE           : *Hall effect coefficient*
+!   - C_OR           : *Ohmic resistivity coefficient*
+!   - C_nimhd        : *non-ideal MHD timestep coefficient*
+!   - K_code         : *Constant drag coefficient*
+!   - alpha          : *minimum artificial viscosity coefficient*
+!   - alphaB         : *artificial resistivity coefficient*
+!   - alphamax       : *maximum artificial viscosity coefficient*
+!   - alphau         : *artificial conductivity coefficient*
+!   - dtg            : *Dust to gas ratio*
+!   - dtmax          : *time between dumps*
+!   - dust_method    : *1=one fluid, 2=two fluid*
+!   - eta_const_type : *the type of constant physical resistivity*
+!   - eta_constant   : *use a constant physical resistivity*
+!   - gamma          : *Adiabatic index*
+!   - gmw            : *mean molecular mass*
+!   - ieos           : *equation of state option*
+!   - kappa          : *opacity in cm^2/g*
+!   - nfulldump      : *frequency of writing full dumps*
+!   - nx             : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - polyk          : *square of the isothermal sound speed*
+!   - rho_i_cnst     : *constant ion density*
+!   - smooth_fac     : *smooth shock front over lengthscale smooth_fac*dxleft*
+!   - tmax           : *maximum runtime*
+!   - use_ambi       : *include ambipolar diffusion*
+!   - use_hall       : *include the Hall effect*
+!   - use_ohm        : *include Ohmic resistivity*
+!   - xleft          : *x min boundary*
+!   - xright         : *x max boundary*
 !
 ! :Dependencies: boundary, dim, dust, eos, infile_utils, io, kernel,
 !   mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
