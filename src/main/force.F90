@@ -81,23 +81,22 @@ module forces
        ijcbxi      = 37, &
        ijcbyi      = 38, &
        ijcbzi      = 39, &
-       iponrhoi    = 40, &
-       idivBi      = 41, &
-       icurlBxi    = 42, &
-       icurlByi    = 43, &
-       icurlBzi    = 44, &
-       igrainsizei = 45, &
-       igraindensi = 46, &
-       idvxdxi     = 47, &
-       idvzdzi     = 55, &
+       idivBi      = 40, &
+       icurlBxi    = 41, &
+       icurlByi    = 42, &
+       icurlBzi    = 43, &
+       igrainsizei = 44, &
+       igraindensi = 45, &
+       idvxdxi     = 46, &
+       idvzdzi     = 54, &
        !--dust arrays initial index
-       idustfraci    = 56, &
+       idustfraci    = 55, &
        !--dust arrays final index
-       idustfraciend = 56 + (maxdusttypes - 1), &
-       itstop        = 57 + (maxdusttypes - 1), &
-       itstopend     = 57 + 2*(maxdusttypes - 1), &
+       idustfraciend = 55 + (maxdusttypes - 1), &
+       itstop        = 56 + (maxdusttypes - 1), &
+       itstopend     = 56 + 2*(maxdusttypes - 1), &
        !--final dust index
-       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
+       lastxpvdust   = 56 + 2*(maxdusttypes - 1), &
        iradxii        = lastxpvdust + 1, &
        iradfxi        = lastxpvdust + 2, &
        iradfyi        = lastxpvdust + 3, &
@@ -909,7 +908,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: grkernj,grgrkernj,autermj,avBtermj,vsigj,spsoundj
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
- real    :: rhoj,ponrhoj,prj,rhoav1
+ real    :: rhoj,prj,rhoav1
  real    :: hj1,hj21,q2j,qj,vwavej,divvj
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
@@ -1378,7 +1377,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !--calculate j terms (which were precalculated outside loop for i)
              !
              call get_stress(prj,spsoundj,rhoj,rho1j,xj,yj,zj,pmassj,Bxj,Byj,Bzj, &
-                        ponrhoj,pro2j,vwavej, &
+                        pro2j,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
                         realviscosity,divvj,bulkvisc,dvdxj,stressmax,radPj)
 
@@ -1887,7 +1886,7 @@ end subroutine compute_forces
 !----------------------------------------------------------------
 subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
                  pmassi,Bxi,Byi,Bzi, &
-                 ponrhoi,pro2i,vwavei, &
+                 pro2i,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,dvdx,stressmax, &
                  radPi)
@@ -1898,7 +1897,7 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
 
  real,    intent(in)    :: pri,spsoundi,rhoi,rho1i,xi,yi,zi,pmassi
  real,    intent(in)    :: Bxi,Byi,Bzi
- real,    intent(out)   :: ponrhoi,pro2i,vwavei
+ real,    intent(out)   :: pro2i,vwavei
  real,    intent(out)   :: sxxi,sxyi,sxzi,syyi,syzi,szzi
  real,    intent(out)   :: visctermiso,visctermaniso
  logical, intent(in)    :: realviscosity
@@ -1909,8 +1908,6 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
  real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
  real :: shearvisc,etavisc,valfven2i,p_on_rhogas
-
- ponrhoi = pri * rho1i
 
  sxxi = 0.
  sxyi = 0.
@@ -1973,17 +1970,15 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
 !
 !--construct total isotropic pressure term (gas + magnetic + stress)
 !
-    pro2i = ponrhoi*rho1i + stressiso + 0.5*Bro2i
+    pro2i = (pri + radPi)*rho1i*rho1i + stressiso + 0.5*Bro2i
 
  else
 !
 !--construct m*p/(rho^2 \Omega) in force equation using pressure
 !
-    pro2i  = ponrhoi*rho1i + stressiso
+    pro2i  = (pri + radPi)*rho1i*rho1i + stressiso
     vwavei = spsoundi
  endif
-
- if (do_radiation) pro2i = pro2i + radPi*rho1i*rho1i
 
  return
 end subroutine get_stress
@@ -2033,7 +2028,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
- real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,ponrhoi,pro2i,pri,spsoundi
+ real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
 #ifdef DUST
  real         :: tstopi(maxdusttypes)
@@ -2125,7 +2120,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
                   pmassi, &
                   Bxi,Byi,Bzi, &
-                  ponrhoi,pro2i, &
+                  pro2i, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
                   visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
                   radPi)
@@ -2163,7 +2158,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        rhogasi = 0.
        pri = 0.
        pro2i = 0.
-       ponrhoi = 0.
        sxxi = 0.
        sxyi = 0.
        sxzi = 0.
@@ -2221,7 +2215,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     if (iamgasi) then
        cell%xpartvec(ivwavei,cell%npcell)         = vwavei
        cell%xpartvec(irhogasi,cell%npcell)        = rhogasi
-       cell%xpartvec(iponrhoi,cell%npcell)        = ponrhoi
+       cell%xpartvec(ipri,cell%npcell)            = pri
        cell%xpartvec(ispsoundi,cell%npcell)       = spsoundi
        cell%xpartvec(isxxi,cell%npcell)           = sxxi
        cell%xpartvec(isxyi,cell%npcell)           = sxyi
@@ -2502,7 +2496,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
  real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
- real    :: ponrhoi,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
+ real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau,hdivbbmax
  real    :: eni,dudtnonideal
  real    :: dustfraci(maxdusttypes),dustfracisum
@@ -2616,7 +2610,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        rhoi    = xpartveci(irhoi)
        rho1i   = 1./rhoi
        rhogasi = xpartveci(irhogasi)
-       ponrhoi = xpartveci(iponrhoi)
+       pri     = xpartveci(ipri)
        vwavei  = xpartveci(ivwavei)
 
        if (mhd) then
@@ -2681,7 +2675,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        !
        divBsymmi  = fsum(idivBsymi)
        if (B2i > 0.0) then
-          betai = 2.0*ponrhoi*rhoi/B2i
+          betai = 2.0*pri/B2i
           if (betai < 2.0) then
              frac_divB = 1.0
           elseif (betai < 10.0) then
@@ -2753,14 +2747,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
                 dTdui = dTdui_cgs / unit_ergg
                 !use cgs
-                fxyz4 = fxyz4 + dTdui*(ponrhoi*rho1i*drhodti + fsum(idudtdissi))
+                fxyz4 = fxyz4 + dTdui*(pri*rho1i*rho1i*drhodti + fsum(idudtdissi))
              else
                 fxyz4 = 0.
              endif
           else ! eni is the internal energy
              fac = rhoi/rhogasi
 #ifndef IMPLICIT_COOLING
-             pdv_work = ponrhoi*rho1i*drhodti
+             pdv_work = pri*rho1i*rho1i*drhodti
              !the pdv_work is accounted for in wind_cooling.F90
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
@@ -2773,7 +2767,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
 #ifdef LIGHTCURVE
              if (lightcurve) then
-                pdv_work = ponrhoi*rho1i*drhodti
+                pdv_work = pri*rho1i*rho1i*drhodti
                 if (pdv_work > tiny(pdv_work)) then ! pdv_work < 0 is possible, and we want to ignore this case
                    dudt_radi = fac*pdv_work + fac*fsum(idudtdissi)
                 else
