@@ -32,7 +32,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use metric,    only:mass1
  use units,     only:umass,udist,utime,unit_velocity,unit_energ,unit_density,unit_ergg
  use physcon,   only:solarm,pi,solarr,gg,c,eV,radconst,kboltz
- use part,      only:hfact
+ use part,      only:hfact,pxyzu,dens,metrics,metricderivs
+ use metric_tools, only:init_metric
+ use utils_gr,  only:h2dens
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: numfile,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -41,7 +43,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real    :: x,y,z,h
  real    :: r, theta, phi, e, l, u_r, u_theta, dt_dtau, dr_dtau, dtheta_dtau, dphi_dtau, dr_dt, dtheta_dt, dphi_dt
  real    :: vx, vy, vz, uint
- real    :: m, rho, delta
+ real    :: m, rho
  real    :: T, s, y_e
  real    :: q
  real    :: time_output
@@ -67,6 +69,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  write(1,'(A)',IOSTAT=iostatus) '# [11]= T'
  write(1,'(A)',IOSTAT=iostatus) '# [12]= rho'
 
+ call init_metric(npart,xyzh,metrics,metricderivs)
+
  do i=1,npart
 
     m = pmass
@@ -80,9 +84,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     !----- vxyzu(:,i) is the array (vx,vy,vz,u) for the ith SPH particle, where (vx,vy,vz) are the coordinate velocities and u is the specific internal energy in the rest frame.
     !----- In Price et al PASA (2018) and in Liptai & Price (2019), u is given the symbol u.
-    vx = vxyzu(1,i)
-    vy = vxyzu(2,i)
-    vz = vxyzu(3,i)
+    vx = vxyzu(1,i) !----- vx here is defined as vx = dx/dt
+    vy = vxyzu(2,i) !----- vy here is defined as vy = dy/dt
+    vz = vxyzu(3,i) !----- vz here is defined as vz = dz/dt
     uint = vxyzu(4,i) !----- the specific internal energy in the rest frame
 
     r = (x**2. + y**2. + z**2.)**(1./2.)
@@ -108,7 +112,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     u_theta = dtheta_dtau * (r**2.)
     l = dphi_dtau * ((r**2.)*(sin(theta)**2.))
 
-    rho = m * (hfact/h)**3.
+    !----- rho here is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+    !----- Note:
+    !----- the routines in GR Phantom use a different naming convention:
+    !----- they use the variable name 'dens' for the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+    !----- they use the variable name 'rho' for the "relativistic rest mass density." In Liptai & Price (2019), the "relativistic rest mass density" is given the symbol rho^*
+    call h2dens(rho, xyzh(:,i), metrics(:,:,:,i), vxyzu(1:3,i))
 
     T = ( (uint*unit_ergg) * (rho*unit_density) / radconst )**(1./4.) !----- temperature in K
 
@@ -133,16 +142,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 
     write(1,'(ES11.4,1X)',advance='no',IOSTAT=iostatus) m
-    write(1,'(F10.3,1X)',advance='no',IOSTAT=iostatus) r
+    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) r
     write(1,'(F9.5,1X)',advance='no',IOSTAT=iostatus) theta
-    write(1,'(F10.6,1X)',advance='no',IOSTAT=iostatus) phi
+    write(1,'(F9.5,1X)',advance='no',IOSTAT=iostatus) phi
     write(1,'(F10.5,1X)',advance='no',IOSTAT=iostatus) e
-    write(1,'(F10.4,1X)',advance='no',IOSTAT=iostatus) l
-    write(1,'(F12.6,1X)',advance='no',IOSTAT=iostatus) u_r
-    write(1,'(F10.4,1X)',advance='no',IOSTAT=iostatus) u_theta
+    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) l
+    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) u_r
+    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) u_theta
     write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) y_e
     write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) s
-    write(1,'(F10.6,1X)',advance='no',IOSTAT=iostatus) T
+    write(1,'(ES12.4,1X)',advance='no',IOSTAT=iostatus) T
     write(1,'(ES12.5)',IOSTAT=iostatus) rho
 
  enddo
