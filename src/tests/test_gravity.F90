@@ -43,6 +43,7 @@ subroutine test_gravity(ntests,npass,string)
  use timing,    only:getused,printused
  use directsum, only:directsum_grav
  use kdtree,    only:compute_fnode,expand_fgrav_in_taylor_series,tree_accuracy
+ use energies,  only:compute_energies,epot
 #endif
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
@@ -57,7 +58,7 @@ subroutine test_gravity(ntests,npass,string)
  real :: xposjd(3,3),dfdx_approx(3,3),d2f(3,3),dpot(3)
  real :: fnode(20)
  real :: quads(6)
- real :: dr,phiexact,phi,dr2,pmassi,epot,tol,tree_acc_prev
+ real :: dr,phiexact,phi,dr2,pmassi,epoti,tol,tree_acc_prev
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING SELF-GRAVITY'
 
@@ -296,13 +297,16 @@ subroutine test_gravity(ntests,npass,string)
           call checkval(np,fxyzu(1,:),vxyzu(1,:),5.e-3,nfailed(1),'fgrav(x)')
           call checkval(np,fxyzu(2,:),vxyzu(2,:),6.e-3,nfailed(2),'fgrav(y)')
           call checkval(np,fxyzu(3,:),vxyzu(3,:),9.4e-3,nfailed(3),'fgrav(z)')
-          epot = 0.
+          epoti = 0.
           do i=1,npart
-             epot = epot + poten(i)
+             epoti = epoti + poten(i)
           enddo
-          call checkval(epot,phitot,5.1e-4,nfailed(4),'potential')
-          call checkval(epot,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
-          call update_test_scores(ntests,nfailed(1:5),npass)
+          call checkval(epoti,phitot,5.1e-4,nfailed(4),'potential')
+          call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
+          ! check that potential energy computed via compute_energies is also correct
+          call compute_energies(0.)
+          call checkval(epot,phitot,5.1e-4,nfailed(6),'epot in compute_energies')
+          call update_test_scores(ntests,nfailed(1:6),npass)
        endif
     enddo
 !
