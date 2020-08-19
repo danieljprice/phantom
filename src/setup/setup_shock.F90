@@ -13,21 +13,52 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - dtg         : *Dust to gas ratio*
-!   - dust_method : *1=one fluid, 2=two fluid*
-!   - gamma       : *Adiabatic index*
-!   - kappa       : *opacity in cm^2/g*
-!   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
-!   - polyk       : *square of the isothermal sound speed*
-!   - smooth_fac  : *smooth shock front over lengthscale smooth_fac*dxleft*
-!   - xleft       : *x min boundary*
-!   - xright      : *x max boundary*
+!   - C_AD           : *Ambipolar diffusion coefficient*
+!   - C_HE           : *Hall effect coefficient*
+!   - C_OR           : *Ohmic resistivity coefficient*
+!   - C_nimhd        : *non-ideal MHD timestep coefficient*
+!   - K_code         : *Constant drag coefficient*
+!   - alpha          : *minimum artificial viscosity coefficient*
+!   - alphaB         : *artificial resistivity coefficient*
+!   - alphamax       : *maximum artificial viscosity coefficient*
+!   - alphau         : *artificial conductivity coefficient*
+!   - dtg            : *Dust to gas ratio*
+!   - dtmax          : *time between dumps*
+!   - dust_method    : *1=one fluid, 2=two fluid*
+!   - eta_const_type : *the type of constant physical resistivity*
+!   - eta_constant   : *use a constant physical resistivity*
+!   - gamma          : *Adiabatic index*
+!   - gmw            : *mean molecular mass*
+!   - ieos           : *equation of state option*
+!   - kappa          : *opacity in cm^2/g*
+!   - nfulldump      : *frequency of writing full dumps*
+!   - nx             : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - polyk          : *square of the isothermal sound speed*
+!   - rho_i_cnst     : *constant ion density*
+!   - smooth_fac     : *smooth shock front over lengthscale smooth_fac*dxleft*
+!   - tmax           : *maximum runtime*
+!   - use_ambi       : *include ambipolar diffusion*
+!   - use_hall       : *include the Hall effect*
+!   - use_ohm        : *include Ohmic resistivity*
+!   - xleft          : *x min boundary*
+!   - xright         : *x max boundary*
 !
 ! :Dependencies: boundary, dim, dust, eos, infile_utils, io, kernel,
 !   mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
 !   set_dust, setshock, setup_params, timestep, unifdis, units
 !
+ use dim,       only:maxvxyzu,use_dust,do_radiation
+ use options,   only:nfulldump,alpha,alphamax,alphaB,alphau,use_dustfrac
+ use timestep,  only:dtmax,tmax
+ use dust,      only:K_code
+ use eos,       only:ieos,gmw
+#ifdef NONIDEALMHD
+ use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
+                       C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst,rho_i_cnst
+#endif
+
  implicit none
+
  integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
  real    :: dxleft, kappa, smooth_fac
@@ -67,22 +98,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:fatal,master,iprint,error
  use boundary,     only:ymin,zmin,ymax,zmax,set_boundary
  use mpiutils,     only:bcast_mpi
- use dim,          only:maxvxyzu,ndim,mhd,do_radiation,use_dust
+ use dim,          only:ndim,mhd
  use options,      only:use_dustfrac
  use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
                         periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,         only:rad,radprop,iradxi,ikappa
- use eos,          only:gmw
  use kernel,       only:radkern,hfact_default
- use timestep,     only:tmax
  use prompting,    only:prompt
  use set_dust,     only:set_dustfrac
  use units,        only:set_units,unit_opacity
  use dust,         only:idrag
  use unifdis,      only:is_closepacked,is_valid_lattice
-#ifdef NONIDEALMHD
- use nicil,           only:rho_i_cnst
-#endif
  use physcon,         only:au,solarm
  use radiation_utils, only:radiation_and_gas_temperature_equal
  use setshock,     only:set_shock,adjust_shock_boundaries,fsmooth
@@ -99,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright,rholeft,rhoright
  integer                          :: i,ierr,nbpts,iverbose
  character(len=120)               :: shkfile, filename
- logical                          :: iexist,use_closepacked
+ logical                          :: iexist,jexist,use_closepacked
 
  if (gr) call set_units(G=1.,c=1.)
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
@@ -145,13 +171,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! if file does not exist, then ask for user input
  !
  shkfile = trim(fileprefix)//'.setup'
- inquire(file=shkfile,exist=iexist)
- if (iexist) then
+ inquire(file=shkfile,exist=jexist)
+ if (jexist) then
     call read_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg,ierr)
  else
     if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
  endif
- if ((.not. iexist .or. ierr /= 0) .and. id==master) then
+ if ((.not. jexist .or. ierr /= 0) .and. id==master) then
     call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg) ! write shock file with defaults
     print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
     stop
@@ -159,7 +185,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  rholeft  = get_conserved_density(leftstate)
  rhoright = get_conserved_density(rightstate)
-
  !
  ! choose dust method (from .setup file)
  !
@@ -293,7 +318,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 #endif
 
 end subroutine setpart
-
 !-----------------------------------------------------------------------
 !+
 !  setup dust particles (at the moment setup only allows for fixed
@@ -349,7 +373,6 @@ subroutine set_dust_particles(dtg,npart,npartoftype,massoftype,xyzh,vxyzu,ierr)
 
 end subroutine set_dust_particles
 
-
 !-----------------------------------------------------------------------
 !+
 !  Choose which shock tube problem to set up
@@ -358,19 +381,10 @@ end subroutine set_dust_particles
 subroutine choose_shock (gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
  use dim,       only:mhd,maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
- use eos,       only:equationofstate,ieos
+ use eos,       only:equationofstate
  use physcon,   only:pi,Rg,au,solarm
- use options,   only:nfulldump,alpha,alphamax,alphaB,use_dustfrac
- use options,   only:alphau
- use timestep,  only:dtmax,tmax
  use prompting, only:prompt
- use dust,      only:K_code
-#ifdef NONIDEALMHD
- use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
-                       C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst
-#endif
  use units,     only:udist,utime,unit_density,unit_pressure
- use eos,       only:gmw
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
  logical, intent(in)    :: iexist
@@ -378,7 +392,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  character(len=30)      :: shocks(nshocks)
  integer                :: i,choice
 #ifdef NONIDEALMHD
- real                   :: gamma_AD,rho_i_cnst
+ real                   :: gamma_AD
 #endif
  real                   :: const,uu,dens,pres,Tgas
  integer                :: relativistic_choice
@@ -673,7 +687,7 @@ end function get_conserved_density
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu,use_dust,do_radiation
+ use dim,          only:tagline
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
@@ -717,12 +731,38 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
     call write_inopt(dust_method,'dust_method','1=one fluid, 2=two fluid',lu,ierr1)
     call write_inopt(dtg,'dtg','Dust to gas ratio',lu,ierr2)
     if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing dust options'
+    call write_inopt(K_code(1),'K_code','Constant drag coefficient',lu,ierr2)
  endif
 
  if (do_radiation) then
     write(lu,"(/,a)") '# radiation properties'
     call write_inopt(kappa,'kappa','opacity in cm^2/g',lu,ierr1)
  endif
+
+ write(lu,"(/,a)") '# Additional properties for the dump & .in files'
+ write(lu,"(  a)") '# (not all values are required for every shock option)'
+ write(lu,"(  a)") '# (will overwrite values in .in file if present)'
+ call write_inopt(tmax,'tmax','maximum runtime',lu,ierr1)
+ call write_inopt(dtmax,'dtmax','time between dumps',lu,ierr1)
+ call write_inopt(nfulldump,'nfulldump','frequency of writing full dumps',lu,ierr1)
+ call write_inopt(alpha,'alpha','minimum artificial viscosity coefficient',lu,ierr1)
+ call write_inopt(alphamax,'alphamax','maximum artificial viscosity coefficient',lu,ierr1)
+ call write_inopt(alphaB,'alphaB','artificial resistivity coefficient',lu,ierr1)
+ call write_inopt(alphau,'alphau','artificial conductivity coefficient',lu,ierr1)
+ call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
+ call write_inopt(gmw,'gmw','mean molecular mass',lu,ierr1)
+#ifdef NONIDEALMHD
+ call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
+ call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
+ call write_inopt(use_ambi,'use_ambi','include ambipolar diffusion',lu,ierr1)
+ call write_inopt(eta_constant,'eta_constant','use a constant physical resistivity',lu,ierr1)
+ call write_inopt(eta_const_type,'eta_const_type','the type of constant physical resistivity',lu,ierr1)
+ call write_inopt(rho_i_cnst,'rho_i_cnst','constant ion density',lu,ierr1)
+ call write_inopt(C_OR,'C_OR','Ohmic resistivity coefficient',lu,ierr1)
+ call write_inopt(C_HE,'C_HE','Hall effect coefficient',lu,ierr1)
+ call write_inopt(C_AD,'C_AD','Ambipolar diffusion coefficient',lu,ierr1)
+ call write_inopt(C_nimhd,'C_nimhd','non-ideal MHD timestep coefficient',lu,ierr1)
+#endif
 
  close(unit=lu)
 
@@ -735,7 +775,6 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use dim,          only:maxvxyzu,use_dust,do_radiation
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
@@ -766,11 +805,33 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  if (use_dust) then
     call read_inopt(dust_method,'dust_method',db,min=1,errcount=nerr)
     call read_inopt(dtg,'dtg',db,min=0.,errcount=nerr)
+    call read_inopt(K_code(1),'K_code',db,min=0.,errcount=nerr)
  endif
 
  if (do_radiation) then
     call read_inopt(kappa,'kappa',db,min=0.,errcount=nerr)
  endif
+
+ call read_inopt(tmax,'tmax',db,errcount=nerr)
+ call read_inopt(dtmax,'dtmax',db,errcount=nerr)
+ call read_inopt(nfulldump,'nfulldump',db,errcount=nerr)
+ call read_inopt(alphamax,'alphamax',db,errcount=nerr)
+ call read_inopt(alphaB,'alphaB',db,errcount=nerr)
+ call read_inopt(alphau,'alphau',db,errcount=nerr)
+ call read_inopt(ieos,'ieos',db,errcount=nerr)
+ call read_inopt(gmw,'gmw',db,errcount=nerr)
+#ifdef NONIDEALMHD
+ call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
+ call read_inopt(use_hall,'use_hall',db,errcount=nerr)
+ call read_inopt(use_ambi,'use_ambi',db,errcount=nerr)
+ call read_inopt(eta_constant,'eta_constant',db,errcount=nerr)
+ call read_inopt(eta_const_type,'eta_const_type',db,errcount=nerr)
+ call read_inopt(rho_i_cnst,'rho_i_cnst',db,errcount=nerr)
+ call read_inopt(C_OR,'C_OR',db,errcount=nerr)
+ call read_inopt(C_HE,'C_HE',db,errcount=nerr)
+ call read_inopt(C_AD,'C_AD',db,errcount=nerr)
+ call read_inopt(C_nimhd,'C_nimhd',db,errcount=nerr)
+#endif
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'Setup_shock: ',nerr,' error(s) during read of setup file'
