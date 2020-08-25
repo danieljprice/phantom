@@ -126,11 +126,9 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
-#ifndef GR
  use extern_binary,  only:binary_posvel,a0,direction,accretedmass1,accretedmass2
  use extern_gwinspiral, only:Nstar
  use lumin_nsdisc,   only:beta
-#endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  logical,          intent(in) :: fulldump
@@ -252,9 +250,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
           call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
        endif
        pressure(i) = ponrhoi*rhoi
-#ifndef GR
        if (prdrag) beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
-#endif
     enddo
     !$omp end parallel do
 
@@ -341,7 +337,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  hdr%unit_Bfield = unit_Bfield
 
  ! contstruct external force derived type
-#ifndef GR
  select case(hdr%iexternalforce)
  case(iext_gwinspiral)
     extern%Nstar = Nstar
@@ -356,7 +351,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
     extern%a0 = a0
     extern%direction = direction
  end select
-#endif
 
  ! write the header to the HDF file
  call write_hdf5_header(hdf5_file_id,hdr,extern,ierr)
@@ -555,10 +549,8 @@ subroutine read_any_dump_hdf5(                                                  
  use setup_params,   only:rhozero
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
-#ifndef GR
  use extern_gwinspiral, only:Nstar
  use extern_binary,  only:a0,direction,accretedmass1,accretedmass2
-#endif
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -659,7 +651,6 @@ subroutine read_any_dump_hdf5(                                                  
  !
  !--Set values from external forces
  !
-#ifndef GR
  select case(hdr%iexternalforce)
  case(iext_gwinspiral)
     Nstar = extern%Nstar
@@ -669,7 +660,6 @@ subroutine read_any_dump_hdf5(                                                  
     accretedmass1 = extern%accretedmass1
     accretedmass2 = extern%accretedmass2
  end select
-#endif
 
  !
  !--Allocate main arrays
