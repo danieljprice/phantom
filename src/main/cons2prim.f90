@@ -143,7 +143,6 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 end subroutine cons2primall
 
-
 !-------------------------------------
 !
 !  Primitive variables from conservative variables
