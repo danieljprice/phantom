@@ -35,10 +35,10 @@ subroutine test_sedov(ntests,npass)
  use unifdis,  only:set_unifdis
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa
- use part,     only:iphase,maxphase,igas,isetphase
- use eos,      only:gamma,polyk
+ use part,     only:iphase,maxphase,igas,isetphase,rhoh,iradxi
+ use eos,      only:gamma,polyk,gmw
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
- use physcon,  only:pi,au,solarm
+ use physcon,  only:pi,au,solarm,pc
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
  use units,    only:set_units
@@ -54,12 +54,15 @@ subroutine test_sedov(ntests,npass)
  use io_summary,only:summary_reset
  use mpiutils,  only:reduceall_mpi
  use domain,    only:i_belong
- use radiation_utils, only:set_radiation_and_gas_temperature_equal
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal,&
+                           T_from_Etot,Tgas_from_ugas,ugas_from_Tgas,radE_from_Trad,Trad_from_radE
+ use readwrite_dumps, only:write_fulldump
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
  real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotin,momtotin,etotend,momtotend
+ real    :: rhoi,temp
  character(len=20) :: logfile,evfile,dumpfile
 
 #ifndef PERIODIC
@@ -102,12 +105,18 @@ subroutine test_sedov(ntests,npass)
     rblast   = 2.*hfact*psep
     gamma    = 5./3.
     gam1     =  gamma - 1.
-    prblast  = gam1*enblast/(4./3.*pi*rblast**3)
+    if (do_radiation) then
+       ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
+       temp = T_from_Etot(denszero,enblast,gamma,gmw)
+    else
+       ! if no radiation is present, then etot = ugas when calculating temp
+       temp = Tgas_from_ugas(enblast,gamma,gmw)
+    endif
+    prblast  = gam1*ugas_from_Tgas(temp,gamma,gmw)/(4./3.*pi*rblast**3)
     npart    = 0
-
+    
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
                      npart,xyzh,periodic,mask=i_belong)
-
     npartoftype(:) = 0
     npartoftype(1) = npart
     ntot           = npart
@@ -116,12 +125,12 @@ subroutine test_sedov(ntests,npass)
     massoftype(:) = 0.
     massoftype(igas) = totmass/reduceall_mpi('+',npart)
     print*,' npart = ',npart,' particle mass = ',massoftype(igas)
-
+    
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.
        if ((xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2) < rblast*rblast) then
-          vxyzu(iu,i) = prblast/(gam1*denszero)
+          vxyzu(iu,i) = ugas_from_Tgas(temp,gamma,gmw)!prblast/(gam1*denszero)
        else
           vxyzu(iu,i) = 0.
        endif
@@ -138,6 +147,7 @@ subroutine test_sedov(ntests,npass)
 !--call derivs the first time around
 !
     call get_derivs_global()
+    call write_fulldump(0.,'test000',int(npart,kind=8))
 !
 !--now call evolve
 !
