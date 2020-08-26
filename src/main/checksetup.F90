@@ -764,7 +764,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
     if (radprop(ithick, i) < 0.5) nthin=nthin + 1
     if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
     if (radprop(ikappa, i) == 0.0) nkappa=nkappa + 1
- end do
+ enddo
 
  if (nthin > 0) then
     print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&

@@ -1392,7 +1392,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              else
                 vsigj = max(vwavej - beta*projv,0.)
                 vsigavj = max(alphaj*vwavej - beta*projv,0.)
-             end if
+             endif
              if (vsigj > vsigmax) vsigmax = vsigj
           else
              vsigj = max(-projv,0.)
