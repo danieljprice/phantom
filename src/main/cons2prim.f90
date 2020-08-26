@@ -19,7 +19,7 @@ module cons2prim
  use cons2primsolver, only:ien_entropy
  implicit none
 
- public :: cons2primall
+ public :: cons2primall,cons2prim_everything
  public :: prim2consall,prim2consi
 
  private
@@ -105,20 +105,21 @@ end subroutine prim2consi
 !
 !-------------------------------------
 
-subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh
+ use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
  use io,              only:fatal
  use eos,             only:equationofstate,ieos,gamma
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
+ real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,pondens,spsound
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,gamma) &
+!$omp shared(ieos,gamma,eos_vars) &
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -128,6 +129,8 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+       eos_vars(igasP,i)     = p_guess
+       eos_vars(ics,i)       = spsound
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -139,5 +142,149 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
 !$omp end parallel do
 
 end subroutine cons2primall
+
+!-------------------------------------
+!
+!  Primitive variables from conservative variables
+!
+!-------------------------------------
+
+subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
+                                gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+ use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
+                           iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
+                           ndustsmall,itemp
+ use eos,             only:equationofstate,ieos,gamma,get_temperature
+ use radiation_utils, only:radiation_equation_of_state
+ use dim,             only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
+                           do_radiation,nalpha,mhd_nonideal
+ use nicil,           only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
+ use io,              only:fatal,real4
+ use cullendehnen,    only:get_alphaloc,xi_limiter
+ use options,         only:alpha,alphamax,use_dustfrac
+
+ integer,      intent(in)    :: npart
+ real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
+ real(kind=4), intent(in)    :: dvdx(:,:)
+ real,         intent(inout) :: vxyzu(:,:)
+ real(kind=4), intent(inout) :: alphaind(:,:)
+ real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
+ integer      :: i,ierr
+ real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
+ real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
+ real         :: xi,yi,zi,hi
+ integer      :: iamtypei
+ logical      :: iactivei,iamgasi,iamdusti
+
+ iactivei = .true.
+ iamtypei = igas
+ iamgasi  = .true.
+ iamdusti = .false.
+
+!$omp parallel do default (none) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
+!$omp shared(ieos,gamma,gamma_chem,n_R,n_electronT,eta_nimhd) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
+!$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
+!$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
+!$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
+!$omp private(xi,yi,zi,hi) &
+!$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       !
+       !--get pressure (actually pr/dens) and sound speed from equation of state
+       !
+       xi      = xyzh(1,i)
+       yi      = xyzh(2,i)
+       zi      = xyzh(3,i)
+       hi      = xyzh(4,i)
+
+       if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+
+       pmassi  = massoftype(iamtypei)
+       rhoi    = rhoh(hi,pmassi)
+       !
+       !--Convert dust variable to dustfrac
+       !
+       if (use_dustfrac) then
+          !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+          if (.not.(use_dustgrowth .and. this_is_a_test)) &
+             dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
+          gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
+          rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
+       else
+          rhogas  = rhoi
+       endif
+       if (.not. iamgasi) cycle  !stop here if not a gas particle
+
+       !
+       !--Calling Equation of state
+       !
+       if (maxvxyzu >= 4) then
+          if (store_gamma) then
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
+          elseif (store_temperature) then
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=eos_vars(itemp,i))
+          else
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
+          endif
+       else
+          !isothermal
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
+       endif
+
+       eos_vars(igasP,i)     = p_on_rhogas*rhogas
+       eos_vars(ics,i)       = spsound
+
+       !
+       !--Getting radiation pressure from the radiation energy
+       !
+       if (do_radiation) call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+
+       !
+       ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
+       !
+       if (nalpha >= 2 .and. iamgasi) then
+          xi_limiteri = xi_limiter(dvdx(:,i))
+          alphaind(2,i) = real4(get_alphaloc(real(alphaind(3,i)),spsound,hi,xi_limiteri,alpha,alphamax))
+       endif
+
+       if (mhd) then
+          ! construct B from B/rho (conservative to primitive)
+          Bxi = Bevol(1,i) * rhoi
+          Byi = Bevol(2,i) * rhoi
+          Bzi = Bevol(3,i) * rhoi
+          psii = Bevol(4,i)
+
+          ! store primitive variables
+          Bxyz(1,i) = Bxi
+          Bxyz(2,i) = Byi
+          Bxyz(3,i) = Bzi
+
+          !
+          !--calculate Z_grain, n_electron and non-ideal MHD coefficients
+          !
+          if (mhd_nonideal) then
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+             Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+             call nicil_get_ion_n(rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
+             if (ierr/=0) then
+                call nicil_translate_error(ierr)
+                if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating number densities')
+             endif
+             call nicil_get_eta(eta_nimhd(iohm,i),eta_nimhd(ihall,i),eta_nimhd(iambi,i),Bi, &
+                            rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
+             if (ierr/=0) then ! ierr is reset in the above subroutine
+                call nicil_translate_error(ierr)
+                if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating eta')
+             endif
+          endif
+       endif
+    endif
+ enddo
+!$omp end parallel do
+
+end subroutine cons2prim_everything
 
 end module cons2prim
