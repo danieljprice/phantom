@@ -16,7 +16,8 @@ module testsedov
 !
 ! :Dependencies: boundary, checkconserved, deriv, dim, domain, energies,
 !   eos, evolve, evwrite, io, io_summary, mpiutils, options, part, physcon,
-!   radiation_utils, testutils, timestep, unifdis, units, viscosity
+!   radiation_utils, readwrite_dumps, testutils, timestep, unifdis, units,
+!   viscosity
 !
  implicit none
 
