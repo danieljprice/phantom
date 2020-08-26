@@ -102,14 +102,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftype,&
-                          dustfrac,dustevol,ddustevol,temperature,alphaind,nptmass,store_temperature,&
-                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics
+                          dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
+                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
  use eos,            only:get_spsound
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake,this_is_a_test
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
 #ifdef KROME
  use part,           only:gamma_chem
@@ -234,7 +234,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call get_timings(t1,tcpu1)
 #ifdef GR
  if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
  else
@@ -263,11 +263,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc,this_is_a_test) &
-!$omp shared(temperature) &
-#ifdef KROME
-!$omp shared(gamma_chem) &
-#endif
+!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
+!$omp shared(eos_vars) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
@@ -325,9 +322,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              rhoi          = rhoh(xyzh(4,i),pmassi)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             if (.not.(use_dustgrowth .and. this_is_a_test)) &
-                dustfrac(1:ndustsmall,i) = dustpred(:,i)**2/(1.+dustpred(:,i)**2)
           endif
           if (do_radiation) radpred(:,i) = rad(:,i) + hdti*drad(:,i)
        endif
@@ -337,15 +331,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (maxalpha==maxp) then
           hi   = xyzh(4,i)
           rhoi = rhoh(hi,pmassi)
-#ifdef KROME
-          spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),gammai=gamma_chem(i))
-#else
-          if (store_temperature) then
-             spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i),tempi=temperature(i))
-          else
-             spsoundi = get_spsound(ieos,xyzh(:,i),rhoi,vpred(:,i))
-          endif
-#endif
+          spsoundi = eos_vars(ics,i)
           tdecay1  = avdecayconst*spsoundi/hi
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
           if (nalpha >= 2) then
@@ -378,7 +364,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
-                dustfrac,ddustevol,temperature,timei,dtsph,dtnew,&
+                dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
  endif
@@ -636,8 +622,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustfrac,ddustevol,&
-                     temperature,timei,dtsph,dtnew,ppred,dens,metrics)
+                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,dustfrac,&
+                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
  enddo iterations
@@ -650,7 +636,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #ifdef GR
- call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+ call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 #endif
 
  return
@@ -1035,7 +1021,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
  use options,        only:iexternalforce,idamp,icooling
- use part,           only:maxphase,abundance,nabundances,h2chemistry,temperature,store_temperature,epot_sinksink,&
+ use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp
  use chem,           only:update_abundances,get_dphot
@@ -1155,7 +1141,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-    !$omp shared(temperature,dust_temp) &
+    !$omp shared(eos_vars,dust_temp) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
