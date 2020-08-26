@@ -20,7 +20,7 @@ program phantomanalysis
  use dim,             only:tagline
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
- use readwrite_dumps, only:read_dump,read_smalldump,is_small_dump
+ use readwrite_dumps, only:init_readwrite_dumps,read_dump,read_smalldump,is_small_dump
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
@@ -47,6 +47,7 @@ program phantomanalysis
  endif
 
  print "(/,a,/)",' Phantom analysis ('//trim(analysistype)//'): You data, we analyse'
+ call init_readwrite_dumps()
 
  over_args: do iarg=1,nargs
 
