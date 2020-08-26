@@ -21,7 +21,7 @@ module densityforce
 !
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
- use part,    only:mhd,dvdx
+ use part,    only:mhd
  use kdtree,      only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
@@ -31,7 +31,7 @@ module densityforce
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- public :: densityiterate,get_neighbour_stats,get_alphaloc
+ public :: densityiterate,get_neighbour_stats
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -120,7 +120,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,rad,radprop)
+                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -130,9 +130,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,&
                      all_active,dustfrac,Bxyz,set_boundaries_to_active
-#ifdef KROME
- use part,      only:gamma_chem
-#endif
 #ifdef FINVSQRT
  use fastmath,  only:finvsqrt
 #endif
@@ -161,6 +158,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(out)   :: stressmax
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
+ real(kind=4), intent(out)   :: dvdx(:,:)
 
  real,   save :: xyzcache(isizecellcache,3)
 !$omp threadprivate(xyzcache)
@@ -245,9 +243,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlv) &
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
-#ifdef KROME
-!$omp shared(gamma_chem) &
-#endif
 !$omp shared(dustfrac) &
 !$omp shared(Bxyz) &
 !$omp shared(dvdx) &
@@ -391,10 +386,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (.not. do_export) then
 #endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-               divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
-#ifdef KROME
-               gamma_chem,&
-#endif
+               divcurlB,alphaind,dvdx,vxyzu,&
                dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
 #ifdef MPI
           nlocal = nlocal + 1
@@ -509,10 +501,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              stack_redo%cells(cell%waiting_index) = cell
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-                  divcurlB,alphaind,dvdx,vxyzu,Bxyz, &
-#ifdef KROME
-                  gamma_chem,&
-#endif
+                  divcurlB,alphaind,dvdx,vxyzu, &
                   dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
           endif
 
@@ -896,12 +885,12 @@ end subroutine calculate_rmatrix_from_sums
 !  calculated during the density loop
 !+
 !----------------------------------------------------------------
-pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,xi_limiter,ndivcurlv,denom,rmatrix)
+pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv,denom,rmatrix)
  use part, only:nalpha
  integer, intent(in)  :: ndivcurlv
  real,    intent(in)  :: rhosum(:),denom,rmatrix(6)
  real,    intent(in)  :: termnorm
- real,    intent(out) :: divcurlvi(5),xi_limiter
+ real,    intent(out) :: divcurlvi(5)
  real :: div_a
  real :: gradaxdx,gradaxdy,gradaxdz,gradaydx,gradaydy,gradaydz,gradazdx,gradazdy,gradazdz
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
@@ -960,28 +949,6 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,xi_limite
     endif
     divcurlvi(5) = div_a - (dvxdxi**2 + dvydyi**2 + dvzdzi**2 + &
                              2.*(dvxdyi*dvydxi + dvxdzi*dvzdxi + dvydzi*dvzdyi))
-    !if (divcurlvi(1) < 0.) then
-    !   Ri = -1.
-    !else
-    !   Ri = 1.
-    !endif
-    txx = dvxdxi - divcurlvi(1)/3.
-    tyy = dvydyi - divcurlvi(1)/3.
-    tzz = dvzdzi - divcurlvi(1)/3.
-    txy = 0.5*(dvxdyi + dvydxi)
-    txz = 0.5*(dvxdzi + dvzdxi)
-    tyz = 0.5*(dvydzi + dvzdyi)
-    fac    = max(-divcurlvi(1),0.)**2 !(2.*(1. - Ri)**4*divcurlvi(1))**2
-    !traceS = txx**2 + tyy**2 + tzz**2 + 2.*(txy**2 + txz**2 + tyz**2)
-    !traceS = txy**2 + txz**2 + tyz**2
-    traceS = (dvzdyi - dvydzi)**2 + (dvxdzi - dvzdxi)**2 + (dvydxi - dvxdyi)**2
-    if (fac + traceS > 0.) then
-       xi_limiter = fac/(fac + traceS)
-    else
-       xi_limiter = 1.
-    endif
- else
-    xi_limiter = 1.
  endif
 
 end subroutine calculate_divcurlv_from_sums
@@ -992,11 +959,11 @@ end subroutine calculate_divcurlv_from_sums
 !  calculated during the density loop
 !+
 !----------------------------------------------------------------
-pure subroutine calculate_divcurlB_from_sums(rhosum,termnorm,divcurlBi,gradBi,ndivcurlB)
+pure subroutine calculate_divcurlB_from_sums(rhosum,termnorm,divcurlBi,ndivcurlB)
  integer, intent(in)  :: ndivcurlB
  real,    intent(in)  :: rhosum(:)
  real,    intent(in)  :: termnorm
- real,    intent(out) :: divcurlBi(ndivcurlB),gradBi
+ real,    intent(out) :: divcurlBi(ndivcurlB)
 
  ! we need these for adaptive resistivity switch
  if (ndivcurlB >= 1) divcurlBi(1) = -rhosum(idivBi)*termnorm
@@ -1005,16 +972,6 @@ pure subroutine calculate_divcurlB_from_sums(rhosum,termnorm,divcurlBi,gradBi,nd
     divcurlBi(3) = -(rhosum(idBxdzi) - rhosum(idBzdxi))*termnorm
     divcurlBi(4) = -(rhosum(idBydxi) - rhosum(idBxdyi))*termnorm
  endif
- gradBi = rhosum(idBxdxi) * rhosum(idBxdxi) &
-        + rhosum(idBxdyi) * rhosum(idBxdyi) &
-        + rhosum(idBxdzi) * rhosum(idBxdzi) &
-        + rhosum(idBydxi) * rhosum(idBydxi) &
-        + rhosum(idBydyi) * rhosum(idBydyi) &
-        + rhosum(idBydzi) * rhosum(idBydzi) &
-        + rhosum(idBzdxi) * rhosum(idBzdxi) &
-        + rhosum(idBzdyi) * rhosum(idBzdyi) &
-        + rhosum(idBzdzi) * rhosum(idBzdzi)
- gradBi = sqrt(termnorm * termnorm * gradBi)
 
 end subroutine calculate_divcurlB_from_sums
 
@@ -1120,28 +1077,6 @@ pure subroutine exactlinear(gradAx,gradAy,gradAz,dAx,dAy,dAz,rmatrix,ddenom)
  gradAz =(dAx*rmatrix(3) + dAy*rmatrix(5) + dAz*rmatrix(6))*ddenom
 
 end subroutine exactlinear
-
-!-------------------------------------------------------------------------------
-!+
-!  function to return alphaloc from known values of d(divv)/dt and sound speed
-!  for use in Cullen & Dehnen (2010) switch
-!+
-!-------------------------------------------------------------------------------
-pure real function get_alphaloc(divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax)
- !use kernel, only:radkern
- real, intent(in) :: divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax
- real :: source
- real :: temp
-
- source = 10.*hi**2*xi_limiter*max(-divvdti,0.)
- temp = spsoundi**2 !+ source
- if (temp > epsilon(temp)) then
-    get_alphaloc = max(min(source/temp,alphamax),alphamin)
- else
-    get_alphaloc = alphamin
- endif
-
-end function get_alphaloc
 
 !----------------------------------------------------------------
 !+
@@ -1550,27 +1485,21 @@ end subroutine finish_rhosum
 !+
 !--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
-                         gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,Bxyz,&
-#ifdef KROME
-                         gamma_chem,&
-#endif
+                         gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,get_partinfo,iamgas,&
                        maxphase,massoftype,igas,n_R,n_electronT,&
-                       eta_nimhd,iohm,ihall,iambi,ndustlarge,ndustsmall,xyzh_soa,&
-                       store_temperature,temperature,maxgradh,idust,&
+                       eta_nimhd,iambi,ndustlarge,ndustsmall,xyzh_soa,&
+                       maxgradh,idust,&
                        ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
- use eos,         only:get_temperature,get_spsound
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,mhd_nonideal,use_dust,&
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,&
                        do_radiation
  use options,     only:ieos,alpha,alphamax,use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
- use nicil,       only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
- use part,        only:xyzh_soa,store_temperature,temperature
  use kdtree,      only:inodeparts
 
  integer,         intent(in)    :: icall
@@ -1584,13 +1513,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real(kind=4),    intent(inout) :: divcurlv(:,:)
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
-#ifdef KROME
- real,            intent(in)    :: gamma_chem(:)
-#endif
  real(kind=4),    intent(inout) :: dvdx(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
- real,            intent(out)   :: Bxyz(:,:)
  real,            intent(inout) :: rhomax
  integer(kind=8), intent(inout) :: nneightry
  integer(kind=8), intent(inout) :: nneighact
@@ -1604,17 +1529,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  integer      :: iamtypei,i,lli,ierr,l
  logical      :: iactivei,iamgasi,iamdusti
- logical      :: igotrmatrix,igotspsound
+ logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
  real         :: pmassi,rhoi
  real(kind=8) :: gradhi,gradsofti
- real         :: psii
- real         :: Bxi,Byi,Bzi,gradBi
- real         :: vxyzui(4)
- real         :: spsoundi,xi_limiter
  real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
- real         :: temperaturei,Bi
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 
  do i = 1,cell%npcell
@@ -1672,38 +1592,18 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           enddo
        endif
     endif
+
     !
     ! store divv and curl v and related quantities
     !
     igotrmatrix = .false.
-    igotspsound = .false.
 
     term = cnormk*pmassi*gradhi*rho1i*hi41
     if (getdv) then
        call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
-       call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,xi_limiter,ndivcurlv,denom,rmatrix)
+       call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)
        divcurlv(1:ndivcurlv,lli) = real(divcurlvi(1:ndivcurlv),kind=kind(divcurlv)) ! save to global memory
-       !
-       ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
-       !
-       if (nalpha >= 2 .and. iamgasi) then
-          igotspsound = .true.
-          vxyzui(1) = cell%xpartvec(ivxi,i)
-          vxyzui(2) = cell%xpartvec(ivyi,i)
-          vxyzui(3) = cell%xpartvec(ivzi,i)
-          vxyzui(4) = cell%xpartvec(ieni,i)
-
-#ifdef KROME
-          spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),gammai=gamma_chem(lli))
-#else
-          if (store_temperature) then
-             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:),tempi=temperature(lli))
-          else
-             spsoundi = get_spsound(ieos,xyzh(:,lli),real(rhoi),vxyzui(:))
-          endif
-#endif
-          alphaind(2,lli) = real4(get_alphaloc(divcurlvi(5),spsoundi,hi,xi_limiter,alpha,alphamax))
-       endif
+       if (nalpha >= 3) alphaind(3,lli) = divcurlvi(5)
     else ! we always need div v for h prediction
        if (ndivcurlv >= 1) divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
        if (nalpha >= 2) alphaind(2,lli) = 0.
@@ -1712,49 +1612,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     ! store div B, curl B and related quantities
     !
     if (mhd .and. iamgasi) then
-       ! construct B from B/rho (conservative to primitive)
-       Bxi = cell%xpartvec(iBevolxi,i) * rhoi
-       Byi = cell%xpartvec(iBevolyi,i) * rhoi
-       Bzi = cell%xpartvec(iBevolzi,i) * rhoi
-       psii = cell%xpartvec(ipsi,i)
-
-       ! store primitive variables (if icall < 2)
-       if (icall==0 .or. icall==1) then
-          Bxyz(1,lli) = Bxi
-          Bxyz(2,lli) = Byi
-          Bxyz(3,lli) = Bzi
-       endif
-
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41
-          call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,gradBi,ndivcurlB)
+          call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,ndivcurlB)
           divcurlB(:,lli) = real(divcurlBi(:),kind=kind(divcurlB))
        else
           divcurlBi(:) = 0.
-       endif
-       !
-       !--calculate Z_grain, n_electron and non-ideal MHD coefficients
-       !
-       if (mhd_nonideal) then
-          if (.not. igotspsound) then
-             vxyzui(1) = cell%rhosums(ivxi,i)
-             vxyzui(2) = cell%rhosums(ivyi,i)
-             vxyzui(3) = cell%rhosums(ivzi,i)
-             vxyzui(4) = cell%rhosums(ieni,i)
-          endif
-          temperaturei = get_temperature(ieos,cell%xpartvec(ixi:izi,i),real(rhoi),vxyzui(:))
-          Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
-          call nicil_get_ion_n(real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
-          if (ierr/=0) then
-             call nicil_translate_error(ierr)
-             if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating number densities')
-          endif
-          call nicil_get_eta(eta_nimhd(iohm,lli),eta_nimhd(ihall,lli),eta_nimhd(iambi,lli),Bi &
-                            ,real(rhoi),temperaturei,n_R(:,lli),n_electronT(lli),ierr)
-          if (ierr/=0) then ! ierr is reset in the above subroutine
-             call nicil_translate_error(ierr)
-             if (ierr > 0) call fatal('densityiterate','error in Nicil in calculating eta')
-          endif
        endif
     endif
     !
