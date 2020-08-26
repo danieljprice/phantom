@@ -10,11 +10,12 @@ module cons2prim
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Elisabeth Borchert
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, eos, io, part, utils_gr
+! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
+!   options, part, radiation_utils, utils_gr
 !
  use cons2primsolver, only:ien_entropy
  implicit none
