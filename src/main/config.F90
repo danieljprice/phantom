@@ -172,7 +172,7 @@ module dim
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
 #else
- integer, parameter :: nalpha = 2
+ integer, parameter :: nalpha = 3
 #endif
 #endif
 #endif
@@ -214,7 +214,9 @@ module dim
  integer :: maxp_krome = 0
 #ifdef KROME
  logical, parameter :: use_krome = .true.
+ logical, parameter :: store_gamma = .true.
 #else
+ logical, parameter :: store_gamma = .false.
  logical, parameter :: use_krome = .false.
 #endif
 
