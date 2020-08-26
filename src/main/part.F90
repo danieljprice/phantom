@@ -113,10 +113,20 @@ module part
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 #endif
+
 !
-!--storage of temperature
+!--eos_variables
 !
- real, allocatable :: temperature(:)
+ real, allocatable  :: eos_vars(:,:)
+ integer, parameter :: igasP = 1, &
+                       ics   = 2, &
+                       itemp = 3, &
+                       imu   = 4, &
+                       maxeosvars = 4
+ character(len=*), parameter :: eos_vars_label(maxeosvars) = &
+    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
+
+!
 !
 !--one-fluid dust (small grains)
 !
@@ -211,9 +221,10 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       maxradprop = 7
+                       iradP = 8, &
+                       maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl'/)
+    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
 !
 !--lightcurves
 !
@@ -323,11 +334,9 @@ module part
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
 #endif
+   +maxeosvars                          &  ! eos_vars
 #ifdef GRAVITY
  +1                                   &  ! poten
-#endif
-#ifdef STORE_TEMPERATURE
- +1                                   &  ! temperature
 #endif
 #ifdef SINK_RADIATION
  +1                                   &  ! dust temperature
@@ -400,7 +409,7 @@ subroutine allocate_part
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
- call allocate_array('temperature', temperature, maxtemp)
+ call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
@@ -479,7 +488,7 @@ subroutine deallocate_part
  if (allocated(dustgasprop))  deallocate(dustgasprop)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
- if (allocated(temperature))  deallocate(temperature)
+ if (allocated(eos_vars))     deallocate(eos_vars)
  if (allocated(dustfrac))     deallocate(dustfrac)
  if (allocated(dustevol))     deallocate(dustevol)
  if (allocated(ddustevol))    deallocate(ddustevol)
@@ -1040,7 +1049,7 @@ subroutine copy_particle(src, dst)
     dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
- if (store_temperature) temperature(dst) = temperature(src)
+ eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
  return
@@ -1123,7 +1132,7 @@ subroutine copy_particle_all(src,dst)
     endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
- if (store_temperature) temperature(dst) = temperature(src)
+ eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 #ifdef NUCLEATION
  nucleation(:,dst) = nucleation(:,src)
@@ -1340,9 +1349,7 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
-    if (store_temperature) then
-       call fill_buffer(xtemp, temperature(i),nbuf)
-    endif
+    call fill_buffer(xtemp, eos_vars(:,i),nbuf)
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1410,9 +1417,7 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
- if (store_temperature) then
-    temperature(ipart)  = unfill_buf(xbuf,j)
- endif
+ eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif

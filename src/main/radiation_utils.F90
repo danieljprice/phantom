@@ -21,6 +21,12 @@ module radiation_utils
  public :: set_radiation_and_gas_temperature_equal
  public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
+ public :: radiation_equation_of_state
+ public :: T_from_Etot
+ public :: radE_from_Trad
+ public :: Trad_from_radE
+ public :: ugas_from_Tgas
+ public :: Tgas_from_ugas
 
  private
 
@@ -69,16 +75,124 @@ end subroutine set_radiation_and_gas_temperature_equal
 !  set equal gas and radiation temperature
 !+
 !-------------------------------------------------
-real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(e_rad)
+real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi)
  use physcon,   only:Rg,steboltz,c
- use units,     only:unit_ergg,unit_density
+ use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
  real, intent(in) :: rho,u_gas,gamma,gmw
- real :: Tgas
+ real :: temp,cv1,a,Erad,steboltz_code,c_code
+ 
+ steboltz_code = get_steboltz_code()
+ c_code        = get_c_code()
 
- Tgas = gmw*((gamma-1.)*u_gas*unit_ergg)/Rg
- e_rad = (4.0*steboltz*Tgas**4.0/c/(rho*unit_density))/unit_ergg
+ a   = 4.*steboltz_code/c_code
+ cv1 = (gamma-1.)*gmw/Rg*unit_ergg
+
+ temp = u_gas*cv1
+ Erad = temp**4*a
+ xi   = Erad /rho
 
 end function radiation_and_gas_temperature_equal
+
+!---------------------------------------------------------
+!+
+!  solve for the temperature for which Etot=Erad+ugas is 
+!  satisfied assuming Tgas=Trad
+!+
+!---------------------------------------------------------
+real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
+ use physcon,   only:Rg
+ use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
+ real, intent(in)    :: rho,etot,gamma,gmw
+ real                :: steboltz_code,c_code,a,cv1
+ real                :: numerator,denominator,correction
+ real, parameter     :: tolerance = 1d-15
+
+ steboltz_code = get_steboltz_code()
+ c_code        = get_c_code()
+
+ a   = 4.*steboltz_code/c_code
+ cv1 = (gamma-1.)*gmw/Rg*unit_ergg
+
+ if (temp <= 0.) then
+    temp = etot*cv1  ! Take gas temperature as initial guess
+ endif
+
+ correction = huge(0.)
+ do while (abs(correction) > tolerance*temp)
+    numerator   = etot*rho - rho*temp/cv1 - a*temp**4
+    denominator =  - rho/cv1 - 4.*a*temp**3
+    correction  = numerator/denominator
+    temp        = temp - correction
+ enddo
+end function T_from_Etot
+
+!---------------------------------------------------------
+!+
+!  get the radiation energy from the raditaion temperature
+!+
+!---------------------------------------------------------
+real function radE_from_Trad(Trad) result(radE)
+ use units,     only:get_steboltz_code,get_c_code
+ real, intent(in)  :: Trad
+ real              :: a,steboltz_code,c_code
+
+ steboltz_code = get_steboltz_code()
+ c_code        = get_c_code()
+
+ a = 4. * steboltz_code/c_code
+
+ radE = Trad**4*a
+end function radE_from_Trad
+
+!---------------------------------------------------------
+!+
+!  get the radiation temperature from the radiation energy
+!+
+!---------------------------------------------------------
+real function Trad_from_radE(radE) result(Trad)
+ use units,     only:get_steboltz_code,get_c_code
+ real, intent(in)    :: radE
+ real                :: a,steboltz_code,c_code
+
+ steboltz_code = get_steboltz_code()
+ c_code        = get_c_code()
+
+ a = 4. * steboltz_code/c_code
+
+ Trad = (radE/a)**0.25
+end function Trad_from_radE
+
+!---------------------------------------------------------
+!+
+!  get the internal energy from the gas temperature
+!+
+!---------------------------------------------------------
+real function ugas_from_Tgas(Tgas,gamma,gmw) result(ugas)
+ use physcon,   only:Rg
+ use units,     only:unit_ergg
+ real, intent(in)  :: Tgas,gamma,gmw
+ real              :: cv1
+
+ cv1 = (gamma-1.)*gmw/Rg*unit_ergg
+
+ ugas = Tgas/cv1
+end function ugas_from_Tgas
+
+!---------------------------------------------------------
+!+
+!  get gas temperature from the internal energy
+!+
+!---------------------------------------------------------
+real function Tgas_from_ugas(ugas,gamma,gmw) result(Tgas)
+ use physcon,   only:Rg
+ use units,     only:unit_ergg
+ real, intent(in)    :: ugas,gamma,gmw
+ real                :: cv1
+
+ cv1 = (gamma-1.)*gmw/Rg*unit_ergg
+
+ Tgas = ugas*cv1
+end function Tgas_from_ugas
 
 !--------------------------------------------------------------------
 !+
@@ -209,7 +323,7 @@ subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
  do while ((abs(unew-uold) > epsilon(unew)).and.(iter < 10))
     uold = unew
     iter = iter + 1
-    fu   = unew - u0 - dt*dudt - dt*ack*(rho*(etot-unew)/a - (unew*cv1)**4)
+    fu   = unew - u0 - 0.*dt*dudt - dt*ack*(rho*(etot-unew)/a - (unew*cv1)**4)
     dfu  = 1. + dt*ack*(rho/a + 4.*(unew**3*cv1**4))
     unew = unew - fu/dfu
  enddo
@@ -263,6 +377,19 @@ subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,c
  enddo
 
 end subroutine solve_internal_energy_explicit_substeps
+
+!--------------------------------------------------------------------
+!+
+!  calculate radiation Pressure from radiation Energy
+!+
+!--------------------------------------------------------------------
+subroutine radiation_equation_of_state(radPi, Xii, rhoi)
+  real, intent(out) :: radPi
+  real, intent(in) :: Xii, rhoi
+
+  radPi = 1. / 3. * Xii * rhoi
+   
+end subroutine radiation_equation_of_state
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
