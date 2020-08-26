@@ -45,7 +45,7 @@ pure real function xi_limiter(dvdx)
  real(kind=4), intent(in) :: dvdx(9)
  real  :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz
  real  :: fac,traceS,divv,curlvx,curlvy,curlvz
- 
+
  dvxdx = dvdx(1)
  dvxdy = dvdx(2)
  dvxdz = dvdx(3)
@@ -60,7 +60,7 @@ pure real function xi_limiter(dvdx)
  curlvy = dvxdz - dvzdx
  curlvz = dvydx - dvxdy
 
- fac    = max(-divv,0.)**2 
+ fac    = max(-divv,0.)**2
  traceS = curlvx**2 + curlvy**2 + curlvz**2
  if (fac + traceS > 0.) then
     xi_limiter = fac/(fac + traceS)
