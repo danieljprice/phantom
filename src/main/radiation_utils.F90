@@ -384,10 +384,10 @@ end subroutine solve_internal_energy_explicit_substeps
 !+
 !--------------------------------------------------------------------
 subroutine radiation_equation_of_state(radPi, Xii, rhoi)
-  real, intent(out) :: radPi
-  real, intent(in) :: Xii, rhoi
+ real, intent(out) :: radPi
+ real, intent(in) :: Xii, rhoi
 
-  radPi = 1. / 3. * Xii * rhoi
+ radPi = 1. / 3. * Xii * rhoi
 
 end subroutine radiation_equation_of_state
 
