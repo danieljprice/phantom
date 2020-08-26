@@ -80,7 +80,7 @@ real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi
  use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
  real, intent(in) :: rho,u_gas,gamma,gmw
  real :: temp,cv1,a,Erad,steboltz_code,c_code
- 
+
  steboltz_code = get_steboltz_code()
  c_code        = get_c_code()
 
@@ -95,7 +95,7 @@ end function radiation_and_gas_temperature_equal
 
 !---------------------------------------------------------
 !+
-!  solve for the temperature for which Etot=Erad+ugas is 
+!  solve for the temperature for which Etot=Erad+ugas is
 !  satisfied assuming Tgas=Trad
 !+
 !---------------------------------------------------------
@@ -388,7 +388,7 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
   real, intent(in) :: Xii, rhoi
 
   radPi = 1. / 3. * Xii * rhoi
-   
+
 end subroutine radiation_equation_of_state
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
