@@ -35,7 +35,7 @@ UNAME=${shell uname}
 # Sensible defaults for phantom configuration
 #----------------------------------------------------------------
 CONFIG        = config.F90
-SETUPFILE     = setup_unifdis.F90
+SETUPFILE     = setup_unifdis.f90
 MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
@@ -195,7 +195,7 @@ ifeq ($(SETUP), turbdrive)
     else
        FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
     endif
-    SETUPFILE= setup_unifdis.F90
+    SETUPFILE= setup_unifdis.f90
     SRCTURB= forcing.F90
     MULTIRUNFILE= multirun_mach.f90
     KNOWN_SETUP=yes
@@ -731,7 +731,7 @@ endif
 ifeq ($(SETUP), balsarakim)
 #   Balsara-Kim 2004
     PERIODIC=yes
-    SETUPFILE= setup_unifdis.F90
+    SETUPFILE= setup_unifdis.f90
     MHD=yes
     KNOWN_SETUP=yes
     SRCINJECT=inject_sne.f90
@@ -846,7 +846,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= wind_equations.F90 wind.F90 inject_wind.f90
+    SRCINJECT= wind_equations.f90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1016,7 +1016,7 @@ endif
 
 ifeq ($(SETUP), default)
     KNOWN_SETUP=yes
-    SETUPFILE= setup_unifdis.F90
+    SETUPFILE= setup_unifdis.f90
     PERIODIC=yes
     DUST=yes
 endif
@@ -1097,7 +1097,7 @@ ifeq ($(SETUP), radiativebox)
 endif
 
 ifndef SETUPFILE
-    SETUPFILE= setup_unifdis.F90
+    SETUPFILE= setup_unifdis.f90
 endif
 
 ifndef SRCNIMHD
@@ -1109,7 +1109,7 @@ ifndef SRCDUST
 endif
 
 ifdef SMOL
-    SRCDUST+= growth_smol.F90
+    SRCDUST+= growth_smol.f90
 endif
 
 #ifndef SRCGROWTH
@@ -1722,7 +1722,7 @@ SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.
 
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.F90
 
-SRCMESA= eos_mesa_microphysics.F90 eos_mesa.f90
+SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
@@ -1889,7 +1889,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
-         test_gnewton.F90 test_corotate.f90 test_geometry.f90 \
+         test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          test_sedov.F90 test_radiation.F90 \
          testsuite.F90 phantomtest.f90
 
@@ -1899,7 +1899,7 @@ endif
 # replace a few test routines for the GR code
 ifeq ($(GR),yes)
    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-   SRCTEST2 = $(SRCTEST1:test_gnewton.F90=)
+   SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
    SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 OBJTEST1= $(SRCTEST:.f90=.o)
@@ -1930,8 +1930,8 @@ phantom-version.h:
 
 #----------------------------------------------------
 # Smoluchowsky library
-growth_smol.o: checksmol ../src/main/growth_smol.F90
-	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) ../src/main/growth_smol.F90 -I$(SMOL_DIR) -o $@
+growth_smol.o: checksmol ../src/main/growth_smol.f90
+	$(FC) -c $(FFLAGS) ${FPP_PREFIX} $(FPPFLAGS) ../src/main/growth_smol.f90 -I$(SMOL_DIR) -o $@
 
 #----------------------------------------------------
 # Probability Distribution Functions from fixed grid
