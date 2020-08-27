@@ -124,7 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
- use part,            only:temperature,store_temperature
+ use part,            only:eos_vars,itemp,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
@@ -409,15 +409,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           tempi = initialtemp
           call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
           vxyzu(4,i) = eni
-          if (store_temperature) temperature(i) = initialtemp
+          if (store_temperature) eos_vars(itemp,i) = initialtemp
        case(12) ! Ideal gas plus radiation EoS
           call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
           call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
           vxyzu(4,i) = eni / unit_ergg
-          if (store_temperature) temperature(i) = tempi
+          if (store_temperature) eos_vars(itemp,i) = tempi
        case(10) ! MESA EoS
           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-          if (store_temperature) temperature(i) = yinterp(temp(1:npts),r(1:npts),ri)
+          if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),r(1:npts),ri)
        case default
           if (gamma < 1.00001) then
              vxyzu(4,i) = polyk
