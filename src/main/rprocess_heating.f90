@@ -90,11 +90,11 @@ end subroutine get_rprocess_heating_rate
 !  get the change in the entropy variable K in the timestep t -> t+dt
 !+
 !-----------------------------------------------------------------------
-subroutine energ_rprocess(entrop_var,rho,t,dt)
+subroutine energ_rprocess(entrop_var,dens,t,dt)
  use eos,     only:gamma
  use physcon, only:days
  use units,   only:unit_ergg,utime
- real, intent(in)    :: rho,t,dt
+ real, intent(in)    :: dens,t,dt
  real, intent(inout) :: entrop_var
  real :: dt_seconds
  real :: q, q_cgs
@@ -113,7 +113,7 @@ subroutine energ_rprocess(entrop_var,rho,t,dt)
 
  !----- Change in the entropy variable K during the time step
  !----- In Liptai & Price (2019), K is given the symbol K. -----
- delta_entrop_var =  (gamma - 1.) * rho**(1. - gamma) * delta_u
+ delta_entrop_var =  (gamma - 1.) * delta_u / dens**(gamma - 1.)
  entrop_var = entrop_var + delta_entrop_var
 
 end subroutine energ_rprocess

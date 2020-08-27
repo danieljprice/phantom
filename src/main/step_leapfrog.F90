@@ -415,7 +415,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling) &
-!$omp shared(timei) &
+!$omp shared(dens,timei) & !----- This line is needed to call the function energ_rprocess below
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -524,7 +524,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
              !----- In Liptai & Price (2019), K is given the symbol K. -----
-             if (icooling==4) call energ_rprocess(pxyzu(4,i),rhoh(xyzh(4,i),massoftype(itype)),timei,dtsph)
+             ! if (icooling==4) call energ_rprocess(pxyzu(4,i), rhoh(xyzh(4,i),massoftype(itype)), timei, dtsph)
+             if (icooling==4) then
+                call energ_rprocess(pxyzu(4,i), dens(i), timei, dtsph)
+             endif
           else
              vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
              vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)

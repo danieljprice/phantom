@@ -42,8 +42,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer :: iostatus, i
  real    :: x,y,z,h
  real    :: r, theta, phi, e, l, u_r, u_theta, dt_dtau, dr_dtau, dtheta_dtau, dphi_dtau, dr_dt, dtheta_dt, dphi_dt
- real    :: vx, vy, vz, uint
- real    :: m, rho
+ real    :: vx, vy, vz, u
+ real    :: m, densi
  real    :: T, s, y_e
  real    :: q
  real    :: time_output
@@ -87,7 +87,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     vx = vxyzu(1,i) !----- vx here is defined as vx = dx/dt
     vy = vxyzu(2,i) !----- vy here is defined as vy = dy/dt
     vz = vxyzu(3,i) !----- vz here is defined as vz = dz/dt
-    uint = vxyzu(4,i) !----- the specific internal energy in the rest frame
+    u = vxyzu(4,i) !----- the specific internal energy in the rest frame
 
     r = (x**2. + y**2. + z**2.)**(1./2.)
     q = (x**2. + y**2.)**(1./2.)
@@ -112,18 +112,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     u_theta = dtheta_dtau * (r**2.)
     l = dphi_dtau * ((r**2.)*(sin(theta)**2.))
 
-    !----- rho here is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
-    !----- Note:
-    !----- the routines in GR Phantom use a different naming convention:
-    !----- they use the variable name 'dens' for the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
-    !----- they use the variable name 'rho' for the "relativistic rest mass density." In Liptai & Price (2019), the "relativistic rest mass density" is given the symbol rho^*
-    call h2dens(rho, xyzh(:,i), metrics(:,:,:,i), vxyzu(1:3,i))
+    !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
+    !----- The routines in GR Phantom use the following naming convention:
+    !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+    !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
+    !call h2dens(densi, xyzh(:,i), metrics(:,:,:,i), vxyzu(1:3,i))
+    densi = dens(i)
 
-    T = ( (uint*unit_ergg) * (rho*unit_density) / radconst )**(1./4.) !----- temperature in K
+    T = ( (u*unit_ergg) * (densi*unit_density) / radconst )**(1./4.) !----- temperature in K
 
     y_e = 0. !----- The SPH gas particles do not store the electron fraction Y_e since the code doesn't evolve the composition, so I just set it to zero here
 
-    s = 0. !----- I'm not sure how to calculate the entropy of the SPH particles, or what the units are for the entropy in the particle file, so I just set it to zero here
+    s = 0. !----- I'm not sure what the units are for the entropy in the particle file, so I just set it to zero here
 
 
 
@@ -137,7 +137,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     u_r = u_r * unit_velocity / c
     u_theta = u_theta * (udist*unit_velocity) / (gg*solarm/c)
     T = kboltz * T / ( (1.e6)*eV ) !----- temperature in MeV
-    rho = rho * unit_density / ( solarm / (gg*solarm/(c**2.))**3. )
+    densi = densi * unit_density / ( solarm / (gg*solarm/(c**2.))**3. )
 
 
 
@@ -152,7 +152,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) y_e
     write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) s
     write(1,'(ES12.4,1X)',advance='no',IOSTAT=iostatus) T
-    write(1,'(ES12.5)',IOSTAT=iostatus) rho
+    write(1,'(ES12.5)',IOSTAT=iostatus) densi
 
  enddo
 

@@ -18,7 +18,7 @@
 !    particle_file_name -- name of SpEC particle file
 !
 !  DEPENDENCIES: eos, externalforces, infile_utils, io, metric, part,
-!    physcon, rho_profile, timestep, units, vectorutils
+!    physcon, timestep, units
 !+
 !--------------------------------------------------------------------------
 module setup
@@ -65,11 +65,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,i
  logical :: iexist
  real    :: x,y,z
- real, allocatable  :: m_array(:), r_array(:), theta_array(:), phi_array(:), e_array(:), l_array(:), u_r_array(:), u_theta_array(:), y_e_array(:), s_array(:), T_array(:), rho_array(:)
+ real, allocatable  :: m_array(:), r_array(:), theta_array(:), phi_array(:), e_array(:), l_array(:), u_r_array(:), u_theta_array(:), y_e_array(:), s_array(:), T_array(:), dens_array(:)
  real    :: m_ejecta
  real    :: r, theta, phi, e, l, u_r, u_theta, dt_dtau, dr_dtau, dtheta_dtau, dphi_dtau, dr_dt, dtheta_dt, dphi_dt
  real    :: vx, vy, vz
- real    :: m, rho, delta
+ real    :: m, dens
  real    :: T, y_e
 
 !
@@ -134,9 +134,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  allocate(y_e_array(npart))
  allocate(s_array(npart))
  allocate(T_array(npart))
- allocate(rho_array(npart))
+ allocate(dens_array(npart))
 
- call read_particle_data(npart, m_array, r_array, theta_array, phi_array, e_array, l_array, u_r_array, u_theta_array, y_e_array, s_array, T_array, rho_array)
+ call read_particle_data(npart, m_array, r_array, theta_array, phi_array, e_array, l_array, u_r_array, u_theta_array, y_e_array, s_array, T_array, dens_array)
 
  m_ejecta = 0
  do i=1,npart
@@ -152,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! y_e_array(i) = y_e_array(i) !----- Y_e is dimensionless, so we don't need to do any unit conversion
     ! s_array(i) = s_array(i)* !----- I'm not sure what the units are for the entropy in the particle file, I have to look into this
     T_array(i) = T_array(i) * (1.e6)*eV / unit_energ
-    rho_array(i) = rho_array(i) * ((c**6.)/((gg**3.)*(solarm**2.))) / unit_density
+    dens_array(i) = dens_array(i) * ((c**6.)/((gg**3.)*(solarm**2.))) / unit_density
 
     m_ejecta = m_ejecta + m_array(i)
  enddo
@@ -179,21 +179,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dr_dt = dr_dtau / dt_dtau
     dtheta_dt = dtheta_dtau / dt_dtau
     dphi_dt = dphi_dtau / dt_dtau
-    vx = sin(theta)*cos(phi)*dr_dt + r*cos(theta)*cos(phi)*dtheta_dt - r*sin(theta)*sin(phi)*dphi_dt
-    vy = sin(theta)*sin(phi)*dr_dt + r*cos(theta)*sin(phi)*dtheta_dt + r*sin(theta)*cos(phi)*dphi_dt
-    vz = cos(theta)*dr_dt - r*sin(theta)*dtheta_dt
+    vx = sin(theta)*cos(phi)*dr_dt + r*cos(theta)*cos(phi)*dtheta_dt - r*sin(theta)*sin(phi)*dphi_dt !----- vx here is defined as vx = dx/dt
+    vy = sin(theta)*sin(phi)*dr_dt + r*cos(theta)*sin(phi)*dtheta_dt + r*sin(theta)*cos(phi)*dphi_dt !----- vy here is defined as vy = dy/dt
+    vz = cos(theta)*dr_dt - r*sin(theta)*dtheta_dt  !----- vz here is defined as vz = dz/dt
+    m = m_array(i)
+    !----- dens is the rest mass density
+    !----- The routines in GR Phantom use the following naming convention:
+    !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+    !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
+    !----- The initial value for dens provided here is irrelevant, the code will calculate the relativistic rest-mass density rho from the particle distribution.
+    dens = dens_array(i)
     !----- xyzh(:,i) is the array (x,y,z,h) for the ith SPH particle, where (x,y,z) are the coordinates and h is the smoothing length.
     !----- In Price et al PASA (2018) and in Liptai & Price (2019), h is given by the symbols h and h_a.
-    m = m_array(i)
-    rho = rho_array(i)
-    delta = (m/rho)**(1./3.) !----- local interparticle spacing
-    xyzh(4,i)    = hfact*delta !----- smoothing length
+    !----- The initial value for the smoothing length h provided here is irrelevant, the code will calculate it from the particle distribution. We simply set it equal to the proportionality factor hfact.
+    xyzh(4,i)    = hfact
     xyzh(1:3,i)  = (/x,y,z/)
     !----- vxyzu(:,i) is the array (vx,vy,vz,u) for the ith SPH particle, where (vx,vy,vz) are the coordinate velocities and u is the specific internal energy in the rest frame.
     !----- In Price et al PASA (2018) and in Liptai & Price (2019), u is given the symbol u.
     T = T_array(i)
     y_e = y_e_array(i)
-    vxyzu(4,i)   = ( radconst * ((T*unit_energ/kboltz)**4.) / (rho*unit_density) ) / unit_ergg !----- the specific internal energy in the rest frame, u = a * T^4 / rho
+    vxyzu(4,i)   = ( radconst * ((T*unit_energ/kboltz)**4.) / (dens*unit_density) ) / unit_ergg !----- the specific internal energy in the rest frame, u = a * T^4 / dens
     vxyzu(1:3,i) = (/vx,vy,vz/)
  enddo
 
@@ -208,7 +213,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deallocate(y_e_array)
  deallocate(s_array)
  deallocate(T_array)
- deallocate(rho_array)
+ deallocate(dens_array)
 
  if (id==master) then
     print "(/,a)",       ' EJECTA SETUP:'
@@ -268,7 +273,7 @@ end subroutine read_setupfile
 subroutine get_num_particles(npart)
  integer :: iostatus, i
  integer, intent(out) :: npart
- real :: m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, rho
+ real :: m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, dens
 
  print *, 'getting number of particles from '//trim(particle_file_name)
 
@@ -280,7 +285,7 @@ subroutine get_num_particles(npart)
 
  i = 0
  do
-    read(1,*,IOSTAT=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, rho
+    read(1,*,IOSTAT=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, dens
     ! read failed
     if (iostatus > 0) then
         print *, 'read failed, input data not in correct format'
@@ -302,10 +307,10 @@ end subroutine get_num_particles
 !
 !---Read particle data--------------------------------------------------
 !
-subroutine read_particle_data(npart, m_array, r_array, theta_array, phi_array, e_array, l_array, u_r_array, u_theta_array, y_e_array, s_array, T_array, rho_array)
+subroutine read_particle_data(npart, m_array, r_array, theta_array, phi_array, e_array, l_array, u_r_array, u_theta_array, y_e_array, s_array, T_array, dens_array)
  integer :: iostatus, i
  integer, intent(in) :: npart
- real, intent(out)    :: m_array(:), r_array(:), theta_array(:), phi_array(:), e_array(:), l_array(:), u_r_array(:), u_theta_array(:), y_e_array(:), s_array(:), T_array(:), rho_array(:)
+ real, intent(out)    :: m_array(:), r_array(:), theta_array(:), phi_array(:), e_array(:), l_array(:), u_r_array(:), u_theta_array(:), y_e_array(:), s_array(:), T_array(:), dens_array(:)
 
  print *, 'reading particle data from '//trim(particle_file_name)
 
@@ -317,7 +322,7 @@ subroutine read_particle_data(npart, m_array, r_array, theta_array, phi_array, e
 
  i = 1
  do
-    read(1,*,IOSTAT=iostatus) m_array(i), r_array(i), theta_array(i), phi_array(i), e_array(i), l_array(i), u_r_array(i), u_theta_array(i), y_e_array(i), s_array(i), T_array(i), rho_array(i)
+    read(1,*,IOSTAT=iostatus) m_array(i), r_array(i), theta_array(i), phi_array(i), e_array(i), l_array(i), u_r_array(i), u_theta_array(i), y_e_array(i), s_array(i), T_array(i), dens_array(i)
     ! read failed
     if (iostatus > 0) then
         print *, 'read failed, input data not in correct format'
