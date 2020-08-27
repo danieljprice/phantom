@@ -23,7 +23,7 @@ program phantommoddump
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:initialise_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
+ use readwrite_dumps, only:init_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
