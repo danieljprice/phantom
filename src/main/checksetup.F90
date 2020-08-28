@@ -745,7 +745,7 @@ end subroutine check_for_identical_positions
 !------------------------------------------------------------------
 !+
 ! 1) check for optically thin particles when mcfost is disabled,
-! as the particles will then be overlooked if they are flagged as thin 
+! as the particles will then be overlooked if they are flagged as thin
 ! 2) To do! : check that radiation energy is never negative to begin with
 !+
 !------------------------------------------------------------------
@@ -756,7 +756,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
  integer, intent(inout) :: nerror
  real,    intent(in)    :: rad(:,:), radprop(:,:)
  integer :: i, nthin, nradEn, nkappa
- 
+
  nthin = 0
  nradEn = 0
  nkappa = 0
@@ -764,8 +764,8 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
     if (radprop(ithick, i) < 0.5) nthin=nthin + 1
     if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
     if (radprop(ikappa, i) == 0.0) nkappa=nkappa + 1
- end do
- 
+ enddo
+
  if (nthin > 0) then
     print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
     ' particles are being treated as optically thin without MCFOST being compiled'
