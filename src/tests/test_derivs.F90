@@ -14,9 +14,9 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, densityforce, deriv, dim, domain, dust, eos, io,
-!   kernel, linklist, mpiutils, nicil, options, part, physcon, testutils,
-!   timestep_ind, timing, unifdis, units, viscosity
+! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, domain,
+!   dust, eos, io, kernel, linklist, mpiutils, nicil, options, part,
+!   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
  use part, only:massoftype
  implicit none

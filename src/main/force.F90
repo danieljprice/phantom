@@ -859,9 +859,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:overcleanfac,use_dustfrac
  use units,       only:get_c_code
 #ifdef GR
- use utils_gr,    only:get_bigv
  use metric_tools,only:imet_minkowski,imetric
 #endif
+ use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
@@ -1392,7 +1392,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              else
                 vsigj = max(vwavej - beta*projv,0.)
                 vsigavj = max(alphaj*vwavej - beta*projv,0.)
-             end if
+             endif
              if (vsigj > vsigmax) vsigmax = vsigj
           else
              vsigj = max(-projv,0.)
