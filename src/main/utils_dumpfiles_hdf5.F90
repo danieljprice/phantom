@@ -129,7 +129,6 @@ module utils_dumpfiles_hdf5
                got_xyzh(4),                          &
                got_vxyzu(4),                         &
                got_dustfrac(maxdusttypes_hdf5),      &
-               got_tstop,                            &
                got_deltav,                           &
                got_abund(nabundances_hdf5),          &
                got_dt_in,                            &
@@ -559,8 +558,6 @@ subroutine write_hdf5_arrays_small( &
    Bxyz,                            &
    dustfrac,                        &
    dustprop,                        &
-   VrelVf,                          &
-   dustgasprop,                     &
    abundance,                       &
    luminosity,                      &
    rad,                             &
@@ -575,10 +572,8 @@ subroutine write_hdf5_arrays_small( &
                                 xyzmh_ptmass(:,:), &
                                 dustfrac(:,:),     &
                                 dustprop(:,:),     &
-                                dustgasprop(:,:),  &
                                 abundance(:,:),    &
-                                rad(:,:),          &
-                                VrelVf(:)
+                                rad(:,:)
  real(kind=4),    intent(in) :: luminosity(:)
  integer(kind=1), intent(in) :: iphase(:)
  type (arrays_options_hdf5), intent(in)  :: array_options
@@ -616,8 +611,6 @@ subroutine write_hdf5_arrays_small( &
  if (array_options%use_dustgrowth) then
     call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainsize', group_id, error)
     call write_to_hdf5(real(dustprop(2,1:npart), kind=4), 'graindens', group_id, error)
-    call write_to_hdf5(real(VrelVf(1:npart), kind=4), 'vrel_on_vfrag', group_id, error)
-    call write_to_hdf5(real(dustgasprop(3,1:npart), kind=4), 'St', group_id, error)
  endif
 
  ! Chemistry
@@ -784,7 +777,6 @@ subroutine read_hdf5_arrays( &
    dustfrac,                 &
    deltav,                   &
    dustprop,                 &
-   tstop,                    &
    VrelVf,                   &
    dustgasprop,              &
    temperature,              &
@@ -815,7 +807,6 @@ subroutine read_hdf5_arrays( &
                                  deltav(:,:,:),     &
                                  dustprop(:,:),     &
                                  dustgasprop(:,:),  &
-                                 tstop(:,:),        &
                                  VrelVf(:),         &
                                  temperature(:),    &
                                  abundance(:,:),    &
@@ -844,7 +835,6 @@ subroutine read_hdf5_arrays( &
  got_arrays%got_xyzh        = .false.
  got_arrays%got_vxyzu       = .false.
  got_arrays%got_dustfrac    = .false.
- got_arrays%got_tstop       = .false.
  got_arrays%got_deltav      = .false.
  got_arrays%got_abund       = .false.
  got_arrays%got_dt_in       = .false.
@@ -926,7 +916,6 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(r2tmp, 'dustfrac', group_id, got, error)
     if (got) got_arrays%got_dustfrac = .true.
     dustfrac(1:ndusttypes,1:npart) = real(r2tmp(1:ndusttypes,1:npart))
-    call read_from_hdf5(tstop, 'tstop', group_id, got_arrays%got_tstop, error)
  endif
  if (array_options%use_dustfrac) call read_from_hdf5(deltav, 'deltavxyz', group_id, got_arrays%got_deltav, error)
 
