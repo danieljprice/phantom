@@ -69,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: m_ejecta
  real    :: r, theta, phi, e, l, u_r, u_theta, dt_dtau, dr_dtau, dtheta_dtau, dphi_dtau, dr_dt, dtheta_dt, dphi_dt
  real    :: vx, vy, vz
- real    :: m, dens
+ real    :: m, densi
  real    :: T, y_e
 
 !
@@ -183,12 +183,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vy = sin(theta)*sin(phi)*dr_dt + r*cos(theta)*sin(phi)*dtheta_dt + r*sin(theta)*cos(phi)*dphi_dt !----- vy here is defined as vy = dy/dt
     vz = cos(theta)*dr_dt - r*sin(theta)*dtheta_dt  !----- vz here is defined as vz = dz/dt
     m = m_array(i)
-    !----- dens is the rest mass density
+    !----- densi is the rest mass density of the ith SPH particle
     !----- The routines in GR Phantom use the following naming convention:
     !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
-    !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
-    !----- The initial value for dens provided here is irrelevant, the code will calculate the relativistic rest-mass density rho from the particle distribution.
-    dens = dens_array(i)
+    !----- The variable name 'rho' is the "relativistic rest-mass density", aka the "conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
+    !----- The initial value for densi provided here is irrelevant, the code will calculate the relativistic rest-mass density rho from the particle distribution.
+    densi = dens_array(i)
     !----- xyzh(:,i) is the array (x,y,z,h) for the ith SPH particle, where (x,y,z) are the coordinates and h is the smoothing length.
     !----- In Price et al PASA (2018) and in Liptai & Price (2019), h is given by the symbols h and h_a.
     !----- The initial value for the smoothing length h provided here is irrelevant, the code will calculate it from the particle distribution. We simply set it equal to the proportionality factor hfact.
@@ -198,7 +198,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !----- In Price et al PASA (2018) and in Liptai & Price (2019), u is given the symbol u.
     T = T_array(i)
     y_e = y_e_array(i)
-    vxyzu(4,i)   = ( radconst * ((T*unit_energ/kboltz)**4.) / (dens*unit_density) ) / unit_ergg !----- the specific internal energy in the rest frame, u = a * T^4 / dens
+    vxyzu(4,i)   = ( radconst * ((T*unit_energ/kboltz)**4.) / (densi*unit_density) ) / unit_ergg !----- the specific internal energy in the rest frame, u = a * T^4 / densi
     vxyzu(1:3,i) = (/vx,vy,vz/)
  enddo
 
@@ -273,7 +273,7 @@ end subroutine read_setupfile
 subroutine get_num_particles(npart)
  integer :: iostatus, i
  integer, intent(out) :: npart
- real :: m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, dens
+ real :: m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, densi
 
  print *, 'getting number of particles from '//trim(particle_file_name)
 
@@ -285,7 +285,7 @@ subroutine get_num_particles(npart)
 
  i = 0
  do
-    read(1,*,IOSTAT=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, dens
+    read(1,*,IOSTAT=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, densi
     ! read failed
     if (iostatus > 0) then
         print *, 'read failed, input data not in correct format'

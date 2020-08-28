@@ -113,6 +113,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     l = dphi_dtau * ((r**2.)*(sin(theta)**2.))
 
     !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
+    !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
     !----- The routines in GR Phantom use the following naming convention:
     !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
     !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
