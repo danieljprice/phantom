@@ -32,7 +32,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use metric,    only:mass1
  use units,     only:umass,udist,utime,unit_velocity,unit_energ,unit_density,unit_ergg
  use physcon,   only:solarm,pi,solarr,gg,c,eV,radconst,kboltz
- use part,      only:hfact,pxyzu,dens,metrics,metricderivs
+ use part,      only:hfact,pxyzu,metrics,metricderivs
  use metric_tools, only:init_metric
  use utils_gr,  only:h2dens
  character(len=*), intent(in) :: dumpfile
@@ -46,7 +46,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real    :: m, densi
  real    :: T, s, y_e
  real    :: q
- real    :: time_output
+ real    :: time_output, time_output_seconds
  character(len=120) :: particle_file_name, info_file_name
 
 
@@ -112,13 +112,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     u_theta = dtheta_dtau * (r**2.)
     l = dphi_dtau * ((r**2.)*(sin(theta)**2.))
 
-    !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
-    !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
+    !----- densi is the rest mass density of the ith SPH particle
     !----- The routines in GR Phantom use the following naming convention:
     !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
     !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
-    !call h2dens(densi, xyzh(:,i), metrics(:,:,:,i), vxyzu(1:3,i))
-    densi = dens(i)
+    call h2dens(densi, xyzh(:,i), metrics(:,:,:,i), vxyzu(1:3,i))
 
     T = ( (u*unit_ergg) * (densi*unit_density) / radconst )**(1./4.) !----- temperature in K
 
@@ -164,12 +162,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  !----- Convert time from code units to units of particle file, i.e. first convert to cgs then normalize to units of particle file
  !----- Note: the particle file is in units of G = c = M_Sun = 1 (for most of the variables), whereas in set_units in setup_grbhnsejecta.f90 we set the code units to be G = c = M_bh = 1
  time_output = time * utime / (gg*solarm/(c**3.))
+ time_output_seconds = time * utime
 
  info_file_name = trim(dumpfile)//'.info'
 
  open(2, file=info_file_name, action='write', status='replace')
 
  write(2,'(A,1X,ES10.3,1X,A)',IOSTAT=iostatus) 'time =', time_output, '[G = c = M_Sun = 1]'
+ write(2,'(A,1X,ES10.3,1X,A)',IOSTAT=iostatus) 'time_seconds =', time_output_seconds, '[s]'
 
  close(2)
 

@@ -524,10 +524,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
              !----- In Liptai & Price (2019), K is given the symbol K. -----
+             !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
+             !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
+             !----- The routines in GR Phantom use the following naming convention:
+             !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+             !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
              ! if (icooling==4) call energ_rprocess(pxyzu(4,i), rhoh(xyzh(4,i),massoftype(itype)), timei, dtsph)
-             if (icooling==4) then
-                call energ_rprocess(pxyzu(4,i), dens(i), timei, dtsph)
-             endif
+             if (icooling==4) call energ_rprocess(pxyzu(4,i), dens(i), timei, dtsph)
           else
              vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
              vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
