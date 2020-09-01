@@ -130,7 +130,7 @@ subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  integer, intent(in) :: npart
  real, intent(in)    :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
  real, intent(out)   :: axyz(3,npart)
- real :: gcon(0:3,0:3), v(4), gderiv(0:3,0:3,0:3), a(3)
+ real :: gcon(0:3,0:3), v(0:3), gderiv(0:3,0:3,0:3), a(3)
  integer :: i,lambda,mu,sigma
 
  !$omp parallel do default(none) &
