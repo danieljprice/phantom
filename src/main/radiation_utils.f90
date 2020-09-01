@@ -101,7 +101,7 @@ end function radiation_and_gas_temperature_equal
 !---------------------------------------------------------
 real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  use physcon,   only:Rg
- use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
+ use units,     only:unit_ergg,get_steboltz_code,get_c_code
  real, intent(in)    :: rho,etot,gamma,gmw
  real                :: steboltz_code,c_code,a,cv1
  real                :: numerator,denominator,correction
@@ -113,9 +113,7 @@ real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  a   = 4.*steboltz_code/c_code
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
 
- if (temp <= 0.) then
-    temp = etot*cv1  ! Take gas temperature as initial guess
- endif
+ temp = etot*cv1  ! Take gas temperature as initial guess
 
  correction = huge(0.)
  do while (abs(correction) > tolerance*temp)
