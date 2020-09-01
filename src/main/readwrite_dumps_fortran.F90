@@ -209,7 +209,7 @@ end subroutine get_dump_size
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
- use eos,   only:utherm,ieos,equationofstate,done_init_eos,init_eos
+ use eos,   only:ieos
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
@@ -253,7 +253,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: i,ipass,k,l,iu
+ integer            :: ipass,k,l
  integer            :: ierr,ierrs(28)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
@@ -261,7 +261,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  character(len=lenid)  :: fileid
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
- real :: ponrhoi,rhoi,spsoundi
 !
 !--collect global information from MPI threads
 !
