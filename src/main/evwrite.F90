@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: evwrite
+module evwrite
 !
-!  DESCRIPTION:
-!  Calculates conserved quantities etc and writes to .ev file;
+! Calculates conserved quantities etc and writes to .ev file;
 !  Also writes log output
 !  To Developer: To add values to the .ev file, follow the following procedure.
 !     In the init_evfile subroutine in evwrite.F90, add the following command:
@@ -33,26 +31,21 @@
 !        where any or all of x,a,n can be used as a single action.  Although 0 & s are treated
 !        the same, they are kept separate for clarity without added computational cost
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
+!   fileutils, io, nicil, options, part, ptmass, timestep, units, viscosity
 !
-!  DEPENDENCIES: boundary, dim, energies, extern_binary, externalforces,
-!    fileutils, io, nicil, options, part, timestep, units, viscosity
-!+
-!--------------------------------------------------------------------------
-module evwrite
- use io,             only: fatal
- use part,           only: npart
+ use io,             only: fatal,iverbose
  use options,        only: iexternalforce
  use timestep,       only: dtmax_dratio
  use externalforces, only: iext_binary,was_accreted
  use energies,       only: inumev,iquantities,ev_data
- use energies,       only: ndead
+ use energies,       only: ndead,npartall
  use energies,       only: gas_only,track_mass,track_lum
  use energies,       only: iev_sum,iev_max,iev_min,iev_ave
  use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
@@ -413,24 +406,26 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
-                         use_dust,maxdusttypes,do_radiation
+                         use_dust,maxdusttypes,do_radiation,particles_are_injected
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
- use part,          only:ndusttypes
+ use part,          only:nptmass,ndusttypes
  use viscosity,     only:irealvisc,shearparam
  use boundary,      only:dxbound,dybound,dzbound
  use units,         only:unit_density
  use options,       only:use_dustfrac
  use fileutils,     only:make_tags_unique
+ use ptmass,        only:icreate_sinks
  integer, intent(in) :: iprint
  character(len=120)  :: string,Mdust_label(maxdusttypes)
- integer :: i
+ integer             :: i
 
- if (ndead > 0) then
-    write(iprint,"(1x,a,I10,a,I10)") 'n_alive=',npart-ndead,', n_dead_or_accreted=',ndead
+ if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected .or. iverbose > 0) then
+    write(iprint,"(1x,4(a,I10))") 'npart=',npartall,', n_alive=',npartall-ndead, &
+                                  ', n_dead_or_accreted=',ndead,', nptmass=',nptmass
  endif
- write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") &
-      'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
+
+ write(iprint,"(1x,3('E',a,'=',es10.3,', '),('E',a,'=',es10.3))") 'tot',etot,'kin',ekin,'therm',etherm,'pot',epot
 
  if (mhd)          write(iprint,"(1x,('E',a,'=',es10.3))") 'mag',emag
  if (do_radiation) write(iprint,"(1x,('E',a,'=',es10.3))") 'rad',erad
@@ -489,6 +484,8 @@ subroutine write_evlog(iprint)
       'div B ',ev_data(iev_max,iev_divB),'div B ',ev_data(iev_ave,iev_divB)
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),(a,'(mean)=',es10.3))") &
       'h|div B|/B ',ev_data(iev_max,iev_hdivB),'h|div B|/B ',ev_data(iev_ave,iev_hdivB)
+    if (ev_data(iev_max,iev_hdivB) > 10.) &
+      write(iprint,'(a)') 'WARNING! h|div B|/B is growing!  Recommend increasing hdivbbmax_max for better stability'
  endif
  write(iprint,"(/)")
 

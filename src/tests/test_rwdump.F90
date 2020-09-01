@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testrwdump
-!
-!  DESCRIPTION:
-!   Unit test of read/write of particle data to/from dump files
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!    options, part, physcon, readwrite_dumps, testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testrwdump
+!
+! Unit test of read/write of particle data to/from dump files
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
+!   options, part, physcon, readwrite_dumps, testutils, timing, units
+!
  implicit none
  public :: test_rwdump
 
@@ -37,12 +31,12 @@ contains
 subroutine test_rwdump(ntests,npass)
  use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
                            Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
-                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           periodic,maxphase,mhd,maxvxyzu,igas,idust,&
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndusttypes
- use dim,             only:maxp,maxdusttypes
+                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes
+ use dim,             only:maxp,maxdustsmall
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -113,15 +107,16 @@ subroutine test_rwdump(ntests,npass)
           Bxyz(1,i) = 10.
           Bxyz(2,i) = 11.
           Bxyz(3,i) = 12.
-          if (maxBevol >= 4) Bevol(4,i) = 13.
+          Bevol(4,i) = 13.
        endif
        if (gravity) then
           poten(i) = 15._4
        endif
        if (use_dust) then
           use_dustfrac = .true.
-          ndustsmall = maxdusttypes
-          ndusttypes = ndustsmall
+          ndustsmall = maxdustsmall
+          ndustlarge = 1
+          ndusttypes = ndustsmall + ndustlarge
           dustfrac(:,i) = 0.16_4
        endif
     enddo
@@ -264,7 +259,7 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,Bxyz(1,:),10.,tol,nfailed(10),'Bx')
           call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
           call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
-          if (maxBevol >= 4) call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
+          call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
        endif
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
@@ -330,9 +325,9 @@ subroutine test_rwdump(ntests,npass)
     endif
  enddo over_tests
 
- if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
  call deallocate_memory
  call allocate_memory(maxp_old)
+ if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump
 

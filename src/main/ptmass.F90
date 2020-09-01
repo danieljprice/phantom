@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: ptmass
+module ptmass
 !
-!  DESCRIPTION:
-!  This module contains everything to do with
+! This module contains everything to do with
 !  sink / point mass particles
 !
 !  These are treated quite differently to SPH particles,
@@ -19,27 +17,23 @@
 !        of 'accretable' particles is given in (and can be modified in)
 !        in function 'is_accretable' in the 'part' module.
 !
-!  REFERENCES: Bate, Bonnell & Price (1995), MNRAS 277, 362-376 [BBP95]
+! :References: Bate, Bonnell & Price (1995), MNRAS 277, 362-376 [BBP95]
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - f_acc           : *particles < f_acc*h_acc accreted without checks*
+!   - h_acc           : *accretion radius for new sink particles*
+!   - h_soft_sinkgas  : *softening length for new sink particles*
+!   - h_soft_sinksink : *softening length between sink particles*
+!   - icreate_sinks   : *allow automatic sink particle creation*
+!   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
+!   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
-!  RUNTIME PARAMETERS:
-!    f_acc           -- particles < f_acc*h_acc accreted without checks
-!    h_acc           -- accretion radius for new sink particles
-!    h_soft_sinkgas  -- softening length for new sink particles
-!    h_soft_sinksink -- softening length between sink particles
-!    icreate_sinks   -- allow automatic sink particle creation
-!    r_crit          -- critical radius for point mass creation (no new sinks < r_crit from existing sink)
-!    rho_crit_cgs    -- density above which sink particles are created (g/cm^3)
+! :Dependencies: boundary, dim, domain, eos, externalforces, fastmath,
+!   infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
+!   options, part, units
 !
-!  DEPENDENCIES: boundary, dim, eos, externalforces, fastmath,
-!    infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
-!    options, part, units
-!+
-!--------------------------------------------------------------------------
-module ptmass
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,ipafile,iskfile
@@ -54,6 +48,9 @@ module ptmass
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+#ifdef PERIODIC
+ public :: ptmass_boundary_crossing
+#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -233,11 +230,10 @@ end subroutine get_accel_sink_gas
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
             iexternalforce,ti)
 #ifdef FINVSQRT
- use fastmath, only:finvsqrt
+ use fastmath,       only:finvsqrt
 #endif
  use externalforces, only:externalforce
- use kernel,   only:kernel_softening,radkern
- !$ use omputils, only:ipart_omp_lock
+ use kernel,         only:kernel_softening,radkern
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(out) :: fxyz_ptmass(4,maxptmass)
@@ -245,7 +241,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: ti
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
- real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2,term
+ real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2
  real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
  real    :: fterm, pterm
@@ -258,11 +254,11 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,ipart_omp_lock) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
- !$omp private(fxi,fyi,fzi,phii,term) &
+ !$omp private(fxi,fyi,fzi,phii) &
  !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm) &
@@ -278,7 +274,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fyi    = 0.
     fzi    = 0.
     phii   = 0.
-    do j=i+1,nptmass
+    do j=1,nptmass
+       if (i==j) cycle
        dx     = xi - xyzmh_ptmass(1,j)
        dy     = yi - xyzmh_ptmass(2,j)
        dz     = zi - xyzmh_ptmass(3,j)
@@ -312,10 +309,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           fzi   = fzi - dz*f1
           pterm = psoft*hsoft1
           phii  = phii + pmassj*pterm ! potential (spline-softened)
-
-          ! acceleration of sink2 from sink1
-          f2    = pmassi*fterm
-          term  = pmassi*pmassj*psoft*hsoft1
        else
           ! no softening on the sink-sink interaction
           dr3   = ddr*ddr*ddr
@@ -327,21 +320,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           fzi   = fzi - dz*f1
           pterm = -ddr
           phii  = phii + pmassj*pterm    ! potential (GM/r)
-
-          ! acceleration of sink2 from sink1
-          f2   = pmassi*dr3
-          term = -pmassi*pmassj*ddr
        endif
 
-       phitot = phitot + term  ! potential (G M_1 M_2/r)
-
-       !$ call omp_set_lock(ipart_omp_lock(j))
-       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
-       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
-       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
-       fxyz_ptmass(4,j) = fxyz_ptmass(4,j) + pmassi*pterm
-       !$ call omp_unset_lock(ipart_omp_lock(j))
-
+       phitot = phitot + 0.5*pmassi*pmassj*pterm  ! total potential (G M_1 M_2/r)
     enddo
 
     !
@@ -359,12 +340,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    !$ call omp_set_lock(ipart_omp_lock(i))
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
     fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-    !$ call omp_unset_lock(ipart_omp_lock(i))
 
  enddo
  !$omp end parallel do
@@ -391,7 +370,26 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  enddo
 
 end subroutine get_accel_sink_sink
+!----------------------------------------------------------------
+!+
+!  Update position of sink particles if they cross the periodic boundary
+!+
+!----------------------------------------------------------------
+#ifdef PERIODIC
+subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
+ use boundary, only:cross_boundary
+ use domain,   only:isperiodic
+ integer, intent(in)    :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ integer                :: i,ncross
 
+ ncross = 0
+ do i = 1,nptmass
+    call cross_boundary(isperiodic,xyzmh_ptmass(:,i),ncross)
+ enddo
+
+end subroutine ptmass_boundary_crossing
+#endif
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses
@@ -553,7 +551,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
- !$ use omputils, only:ipart_omp_lock
+!$ use omputils, only:ipart_omp_lock
  use part,       only: ihacc
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
@@ -673,7 +671,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 ! if accreted==true, then checks all passed => accrete particle
 !
     if ( accreted ) then
-       !$ call omp_set_lock(ipart_omp_lock(i))
+!$     call omp_set_lock(ipart_omp_lock(i))
 
 ! Set new position for the sink particles
        dptmass(idxmsi,i) = dptmass(idxmsi,i) + xi*pmassi
@@ -709,7 +707,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
           if (ifail == -1) iosum_ptmass(2,i) = iosum_ptmass(2,i) + 1
        endif
 
-       !$ call omp_unset_lock(ipart_omp_lock(i))
+!$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
 
        if (record_accreted) then

@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testderivs
-!
-!  DESCRIPTION:
-!   Unit test of derivs module and densityforce routine
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
-!    linklist, mpiutils, nicil, options, part, physcon, testutils,
-!    timestep_ind, timing, unifdis, units, viscosity
-!+
-!--------------------------------------------------------------------------
 module testderivs
+!
+! Unit test of derivs module and densityforce routine
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, domain,
+!   dust, eos, io, kernel, linklist, mpiutils, nicil, options, part,
+!   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
+!
  use part, only:massoftype
  implicit none
 
@@ -37,7 +31,7 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall
+                        maxdustsmall,periodic
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,use_entropy
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
@@ -47,7 +41,7 @@ subroutine test_derivs(ntests,npass,string)
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
-                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
@@ -69,6 +63,7 @@ subroutine test_derivs(ntests,npass,string)
 #endif
  use units,        only:set_units
  use testutils,    only:checkval,checkvalf,update_test_scores
+ use domain,       only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass
@@ -93,7 +88,7 @@ subroutine test_derivs(ntests,npass,string)
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
+ real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
  real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS
@@ -155,7 +150,8 @@ subroutine test_derivs(ntests,npass,string)
  npart = 0
  totmass = rhozero*dxbound*dybound*dzbound
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
  np = npart
 
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
@@ -357,7 +353,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop)
+                           rad,radprop,dvdx)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0
@@ -489,7 +485,8 @@ subroutine test_derivs(ntests,npass,string)
        call set_velocity_and_energy
        do i=1,npart
           do j=1,ndustsmall
-             dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
+             dustfracj = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfracj))
+             dustevol(j,i) = sqrt(dustfracj/(1.-dustfracj))
           enddo
        enddo
 
@@ -518,26 +515,16 @@ subroutine test_derivs(ntests,npass,string)
           dedust = 0.
           dmdust(:) = 0.
           do i=1,npart
-             dustfraci(:)  = dustfrac(1:maxdustsmall,i)
+             dustfraci(:)  = dustfrac(1:ndustsmall,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
              drhodti       = -rhoi*divcurlv(1,i)
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             sonrhoi(:)    = sqrt(dustfrac(1:maxdustsmall,i)/rhoi)
-!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
              sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
-             ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
-!             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
-!------------------------------------------------
-             dmdust(:)     = dmdust(:) + ddustevoli(:)
+             depsdti(:)    = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
+             dmdust(:)     = dmdust(:) + depsdti(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
              deint  = deint  + (1. - sum(dustfraci))*fxyzu(iu,i)
-             dedust = dedust - vxyzu(iu,i)*sum(ddustevoli)
+             dedust = dedust - vxyzu(iu,i)*sum(depsdti)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -556,6 +543,7 @@ subroutine test_derivs(ntests,npass,string)
        ! reset dustfrac to zero for subsequent tests
        !
        dustfrac(:,:) = 0.
+       dustevol(:,:) = 0.
 
     else
        if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'
@@ -585,7 +573,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_only
           call set_magnetic_field
           do i=1,npart
-             if (maxBevol >= 4) Bevol(4,i) = 0.
+             Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive/nprocs,igas)
           call get_derivs_global()
@@ -632,8 +620,8 @@ subroutine test_derivs(ntests,npass,string)
           ieos  = 1  ! isothermal eos, so that the PdV term is zero
           call set_magnetic_field
           do i=1,npart
-             vxyzu(:,i) = 0.                    ! v=0 for this test
-             if (maxBevol >= 4) Bevol(4,i) = 0. ! psi=0 for this test
+             vxyzu(:,i) = 0.     ! v=0 for this test
+             Bevol(4,i) = 0.     ! psi=0 for this test
           enddo
           call set_active(npart,nactive,igas)
           call get_derivs_global()
@@ -680,7 +668,7 @@ subroutine test_derivs(ntests,npass,string)
     do itest=nint(log10(real(nptot))),0,-2
        nactive = 10**itest
 #endif
-       if (mhd .and. maxBevol==4) then
+       if (mhd) then
           if (id==master) then
              write(*,"(/,a)") '--> testing div B cleaning terms'
              if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
@@ -732,7 +720,7 @@ subroutine test_derivs(ntests,npass,string)
           call set_velocity_only
           call set_magnetic_field
           do i=1,npart
-             if (maxBevol>=4) Bevol(4,i) = 0.
+             Bevol(4,i) = 0.
           enddo
           call set_active(npart,nactive,igas)
           call get_derivs_global()
@@ -776,15 +764,18 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--setup high density blob
     !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,hfact,npart,xyzh,rmax=rtest)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmax=rtest)
     nparttest = npart
 
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,hfact,npart,xyzh,rmin=rtest,rmax=rblob)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rtest,rmax=rblob)
     npartblob = npart
     !
     !--setup surrounding medium
     !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,npart,xyzh,rmin=rblob)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rblob)
     npartoftype(1) = npart
     nptot = reduceall_mpi('+',npart)
     print*,' thread ',id,' npart = ',npart,' in blob = ',npartblob,' to test = ',nparttest
@@ -885,7 +876,7 @@ subroutine test_derivs(ntests,npass,string)
 
     npart = 0
     call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      psep,hfact,npart,xyzh)
+                      psep,hfact,npart,xyzh,periodic,mask=i_belong)
 
     !
     !--need to initialise dBevol to zero, otherwise if cleaning is not updated
@@ -941,9 +932,7 @@ subroutine test_derivs(ntests,npass,string)
                 call checkval(nptest,dBevol(1,:),dBdtstore(1,1:nptest),1.e-5,nfailed(5),'dBx/dt')
                 call checkval(nptest,dBevol(2,:),dBdtstore(2,1:nptest),1.e-5,nfailed(6),'dBy/dt')
                 call checkval(nptest,dBevol(3,:),dBdtstore(3,1:nptest),1.e-5,nfailed(7),'dBz/dt')
-                if (maxBevol >= 4) then
-                   call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
-                endif
+                call checkval(nptest,dBevol(4,:),dBdtstore(4,1:nptest),1.e-5,nfailed(8),'dpsi/dt')
                 call checkval(nptest,divBsymm,real(dBdtstore(maxBevol+1,1:nptest),kind=kind(divBsymm)),&
                               1.e-3,nfailed(9),'div B (symm)')
              endif
@@ -1060,10 +1049,8 @@ subroutine set_magnetic_field
        Bevol(1,i) = Bxyz(1,i) * rho1i
        Bevol(2,i) = Bxyz(2,i) * rho1i
        Bevol(3,i) = Bxyz(3,i) * rho1i
-       if (maxBevol >= 4) then
-          vwavei = sqrt(polyk + (Bxyz(1,i)**2 + Bxyz(2,i)**2 + Bxyz(3,i)**2)*rho1i)
-          Bevol(4,i) = psi(xyzh(:,i))/vwavei
-       endif
+       vwavei     = sqrt(polyk + (Bxyz(1,i)**2 + Bxyz(2,i)**2 + Bxyz(3,i)**2)*rho1i)
+       Bevol(4,i) = psi(xyzh(:,i))/vwavei
     endif
  enddo
 
@@ -1497,7 +1484,7 @@ end function ddivvdtfunc
 real function alphalocfunc(xyzhi)
  use options,      only:alpha,alphamax
  use eos,          only:gamma,polyk
- use densityforce, only:get_alphaloc
+ use cullendehnen, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 

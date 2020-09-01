@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: utils_hdf5
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Mentiplay
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: hdf5, iso_c_binding
-!+
-!--------------------------------------------------------------------------
 module utils_hdf5
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Mentiplay
+!
+! :Runtime parameters: None
+!
+! :Dependencies: hdf5, iso_c_binding
+!
  use hdf5
  use iso_c_binding, only:c_loc
 

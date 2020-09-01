@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: externalforces, gravwaveutils, io, options, part,
-!    prompting, timestep, units
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: externalforces, gravwaveutils, io, options, part,
+!   prompting, timestep, units
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'gws'
 

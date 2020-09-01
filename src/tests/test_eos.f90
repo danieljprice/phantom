@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testeos
-!
-!  DESCRIPTION:
-!  Unit tests of the equation of state module
-!
-!  REFERENCES: None
-!
-!  OWNER: Terrence Tricco
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
-!    units
-!+
-!--------------------------------------------------------------------------
 module testeos
+!
+! Unit tests of the equation of state module
+!
+! :References: None
+!
+! :Owner: Terrence Tricco
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+!   units
+!
  implicit none
  public :: test_eos
 
@@ -47,6 +41,7 @@ subroutine test_eos(ntests,npass)
  call test_init(ntests, npass)
  call test_barotropic(ntests, npass)
  !call test_helmholtz(ntests, npass)
+ call test_idealplusrad(ntests, npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -94,6 +89,17 @@ subroutine test_init(ntests, npass)
 
 end subroutine test_init
 
+!----------------------------------------------------------------------------
+!+
+!  test ideal gas plus radiation eos
+!+
+!----------------------------------------------------------------------------
+subroutine test_idealplusrad(ntests, npass)
+ integer, intent(inout) :: ntests,npass
+
+ ! please insert tests here
+
+end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+
@@ -140,7 +146,7 @@ subroutine test_barotropic(ntests, npass)
  do i=1,maxpts
     rhoi = 1.01*rhoi
     call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
-    write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
+    !write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
     if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
     !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
     ponrhoprev = ponrhoi

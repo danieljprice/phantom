@@ -4,55 +4,49 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setdisc
-!
-!  DESCRIPTION:
-!  This module contains utility routines for accretion disc setups
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Mentiplay
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    G           -- in code units
-!    M_disc      -- disc mass
-!    M_star      -- mass of central star
-!    Qmin        -- minimum Toomre Q parameter
-!    R_c         -- characteristic radius of the exponential taper
-!    R_in        -- inner disc boundary
-!    R_out       -- outer disc boundary
-!    R_ref       -- reference radius
-!    R_warp      -- position of warp
-!    T_in        -- temperature (K) at R=R_in
-!    T_out       -- temperature (K) at R=R_out
-!    T_ref       -- temperature (K) at R=R_ref
-!    alphaSS_max -- maximum Shakura-Sunyaev alpha viscosity in disc
-!    alphaSS_min -- minimum Shakura-Sunyaev alpha viscosity in disc
-!    c           -- in code units
-!    cs0         -- sound speed at R=1
-!    n           -- number of particles in the disc
-!    p_index     -- power law index of surface density profile
-!    psi_max     -- maximum warp amplitude
-!    q_index     -- power law index of sound speed profile
-!    sig_in      -- surface density (g/cm^2) at R=R_in
-!    sig_max     -- maximum surface density (g/cm^2)
-!    sig_out     -- surface density (g/cm^2) at R=R_out
-!    sig_ref     -- surface density (g/cm^2) at R=R_ref
-!    udist       -- distance units (cgs)
-!    umass       -- mass units (cgs)
-!    utime       -- time units (cgs)
-!
-!  DEPENDENCIES: centreofmass, dim, domain, eos, externalforces,
-!    infile_utils, io, mpiutils, options, part, physcon, random, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
 module setdisc
+!
+! This module contains utility routines for accretion disc setups
+!
+! :References: None
+!
+! :Owner: Daniel Mentiplay
+!
+! :Runtime parameters:
+!   - G           : *in code units*
+!   - M_disc      : *disc mass*
+!   - M_star      : *mass of central star*
+!   - Qmin        : *minimum Toomre Q parameter*
+!   - R_c         : *characteristic radius of the exponential taper*
+!   - R_in        : *inner disc boundary*
+!   - R_out       : *outer disc boundary*
+!   - R_ref       : *reference radius*
+!   - R_warp      : *position of warp*
+!   - T_in        : *temperature (K) at R=R_in*
+!   - T_out       : *temperature (K) at R=R_out*
+!   - T_ref       : *temperature (K) at R=R_ref*
+!   - alphaSS_max : *maximum Shakura-Sunyaev alpha viscosity in disc*
+!   - alphaSS_min : *minimum Shakura-Sunyaev alpha viscosity in disc*
+!   - c           : *in code units*
+!   - cs0         : *sound speed at R=1*
+!   - n           : *number of particles in the disc*
+!   - p_index     : *power law index of surface density profile*
+!   - psi_max     : *maximum warp amplitude*
+!   - q_index     : *power law index of sound speed profile*
+!   - sig_in      : *surface density (g/cm^2) at R=R_in*
+!   - sig_max     : *maximum surface density (g/cm^2)*
+!   - sig_out     : *surface density (g/cm^2) at R=R_out*
+!   - sig_ref     : *surface density (g/cm^2) at R=R_ref*
+!   - udist       : *distance units (cgs)*
+!   - umass       : *mass units (cgs)*
+!   - utime       : *time units (cgs)*
+!
+! :Dependencies: centreofmass, dim, domain, eos, externalforces,
+!   infile_utils, io, mpiutils, options, part, physcon, random, units,
+!   vectorutils
+!
  use dim,      only:maxvxyzu
- use domain,   only:i_belong
+ use domain,   only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
@@ -78,7 +72,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
                     bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
- use dim,  only:maxalpha
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
@@ -333,7 +326,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(nparttot)) then
     npart = 0
     do i=1,npart_set
-       if (i_belong(i)) npart = npart + 1
+       if (i_belong_i4(i)) npart = npart + 1
     enddo
  endif
  !
@@ -600,7 +593,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !--set positions -- move to origin below
        xyzh(1,ipart) = R*cos(phi)
@@ -648,7 +641,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  ierr = 0
  ipart = npart_start_count - 1
  do i=npart_start_count,npart_tot
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !
        !--set velocities to give centrifugal balance:
@@ -763,7 +756,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  totmass       = 0.
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
@@ -781,7 +774,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
 
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass + x0
        vxyzu(1:3,ipart) = vxyzu(1:3,ipart) - vcentreofmass + v0
@@ -1016,7 +1009,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  !--loop over particles putting properties into the correct bin
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        if (xyzh(4,ipart) > tiny(xyzh)) then ! IF ACTIVE
           ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))

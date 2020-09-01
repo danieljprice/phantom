@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module sets up accretion discs. The central object(s) can be
+! This module sets up accretion discs. The central object(s) can be
 !   modelled with sink particles or external potentials. Systems with two
 !   sink particles:
 !     (i)  in a bound binary can have circumbinary, circumprimary, and
@@ -19,58 +17,54 @@
 !   one fluid or two fluid methods. The dust can only grow in the two-fluid
 !   method. Embedded planets can be added to single or circumbinary discs.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters:
+!   - Ratm_in       : *inner atmosphere radius (planet radii)*
+!   - Ratm_out      : *outer atmosphere radius (planet radii)*
+!   - accr1         : *central star accretion radius*
+!   - accr2         : *perturber accretion radius*
+!   - alphaSS       : *desired alphaSS*
+!   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - bhspin        : *black hole spin*
+!   - bhspinangle   : *black hole spin angle (deg)*
+!   - binary_O      : *Omega, PA of ascending node (deg)*
+!   - binary_a      : *binary semi-major axis*
+!   - binary_e      : *binary eccentricity*
+!   - binary_f      : *f, initial true anomaly (deg,180=apastron)*
+!   - binary_i      : *i, inclination (deg)*
+!   - binary_w      : *w, argument of periapsis (deg)*
+!   - deltat        : *output interval as fraction of orbital period*
+!   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
+!   - einst_prec    : *include Einstein precession*
+!   - flyby_O       : *position angle of ascending node (deg)*
+!   - flyby_a       : *distance of minimum approach*
+!   - flyby_d       : *initial distance (units of dist. min. approach)*
+!   - flyby_i       : *inclination (deg)*
+!   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
+!   - ipotential    : *potential (1=central point mass,*
+!   - m1            : *central star mass*
+!   - m2            : *perturber mass*
+!   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
+!   - norbits       : *maximum number of orbits at outer disc*
+!   - np            : *number of gas particles*
+!   - nplanets      : *number of planets*
+!   - nsinks        : *number of sinks*
+!   - radkappa      : *constant radiation opacity kappa*
+!   - ramp          : *Do you want to ramp up the planet mass slowly?*
+!   - rho_core      : *planet core density (cgs units)*
+!   - setplanets    : *add planets? (0=no,1=yes)*
+!   - surface_force : *model m1 as planet with surface*
+!   - use_mcfost    : *use the mcfost library*
 !
-!  RUNTIME PARAMETERS:
-!    Ratm_in       -- inner atmosphere radius (planet radii)
-!    Ratm_out      -- outer atmosphere radius (planet radii)
-!    accr1         -- central star accretion radius
-!    accr2         -- perturber accretion radius
-!    alphaSS       -- desired alphaSS
-!    atm_type      -- atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))
-!    bhspin        -- black hole spin
-!    bhspinangle   -- black hole spin angle (deg)
-!    binary_O      -- Omega, PA of ascending node (deg)
-!    binary_a      -- binary semi-major axis
-!    binary_e      -- binary eccentricity
-!    binary_f      -- f, initial true anomaly (deg,180=apastron)
-!    binary_i      -- i, inclination (deg)
-!    binary_w      -- w, argument of periapsis (deg)
-!    deltat        -- output interval as fraction of orbital period
-!    dist_unit     -- distance unit (e.g. au,pc,kpc,0.1pc)
-!    einst_prec    -- include Einstein precession
-!    flyby_O       -- position angle of ascending node (deg)
-!    flyby_a       -- distance of minimum approach
-!    flyby_d       -- initial distance (units of dist. min. approach)
-!    flyby_i       -- inclination (deg)
-!    ibinary       -- binary orbit (0=bound,1=unbound [flyby])
-!    ipotential    -- potential (1=central point mass,
-!    m1            -- central star mass
-!    m2            -- perturber mass
-!    mass_unit     -- mass unit (e.g. solarm,jupiterm,earthm)
-!    norbits       -- maximum number of orbits at outer disc
-!    np            -- number of gas particles
-!    nplanets      -- number of planets
-!    nsinks        -- number of sinks
-!    radkappa      -- constant radiation opacity kappa
-!    ramp          -- Do you want to ramp up the planet mass slowly?
-!    rho_core      -- planet core density (cgs units)
-!    setplanets    -- add planets? (0=no,1=yes)
-!    surface_force -- model m1 as planet with surface
-!    use_mcfost    -- use the mcfost library
+! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
+!   extern_corotate, extern_lensethirring, externalforces, fileutils,
+!   growth, infile_utils, io, kernel, memory, options, part, physcon,
+!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!   setdisc, setflyby, spherical, timestep, units, vectorutils
 !
-!  DEPENDENCIES: centreofmass, dim, dust, eos, extern_binary,
-!    extern_corotate, extern_lensethirring, externalforces, fileutils,
-!    growth, infile_utils, io, kernel, options, part, physcon, prompting,
-!    radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!    setflyby, spherical, timestep, units, vectorutils
-!+
-!--------------------------------------------------------------------------
-module setup
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
@@ -97,7 +91,7 @@ module setup
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
-
+ use memory,           only:allocate_memory
  implicit none
 
  public  :: setpart
@@ -213,6 +207,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
+ integer :: nalloc
 
  write(*,10)
 10 format(/, &
@@ -230,6 +225,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ !--allocate memory
+ !nalloc = np
+ !if (use_dust) nalloc = nalloc + sum(np_dust)
+ !call allocate_memory(nalloc, part_only=.true.)
 
  !--setup units
  call setup_units()
@@ -451,11 +451,8 @@ subroutine get_setup_parameters(id,fileprefix)
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-
     !--read from setup file
-    print*,"read setup file?"
     call read_setupfile(filename,ierr)
-    print*,"after read setup file?"
     if (id==master) call write_setupfile(filename)
     if (ierr /= 0) then
        stop
@@ -704,7 +701,7 @@ subroutine setup_central_objects()
  use setbinary,            only:set_binary
  use setflyby,             only:set_flyby
 
- integer :: i
+ integer :: i,ierr
 
  mcentral = m1
  select case (icentral)
@@ -771,10 +768,10 @@ subroutine setup_central_objects()
           print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
           print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
-          call set_binary(m1,massratio=m2/m1,semimajoraxis=binary_a,eccentricity=binary_e, &
+          call set_binary(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
                           posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
                           f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
-                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1 + m2
        case (1)
           !--unbound (flyby)
@@ -783,10 +780,10 @@ subroutine setup_central_objects()
           print "(a,g10.3,a)",'   Perturber mass:     ', m2,    trim(mass_unit)
           print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
           print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
-          call set_flyby(mprimary=m1,massratio=m2/m1,minimum_approach=flyby_a, &
+          call set_flyby(m1,m2,minimum_approach=flyby_a, &
                          initial_dist=flyby_d,posang_ascnode=flyby_O,inclination=flyby_i, &
                          accretion_radius1=accr1,accretion_radius2=accr2, &
-                         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass)
+                         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1
        end select
     end select

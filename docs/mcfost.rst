@@ -103,10 +103,13 @@ Using MCFOST to set temperatures in a live calculation
 ------------------------------------------------------
 
 This is a work in progress, so please *ask* before using this feature.
+
 You first need to compile libmcfost:
 
 ::
-
+   $ mkdir ~/mcfost-install
+   $ export MCFOST_INSTALL=~/mcfost-install
+   $ export MCFOST_GIT=1
    $ cd mcfost/src
    $ make all
 

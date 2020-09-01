@@ -4,27 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dump_utils
+module dump_utils
 !
-!  DESCRIPTION: Utility routines used when reading and writing the
+! Utility routines used when reading and writing the
 !   sphNG/Phantom dump file format
 !
 !  "Every complex file format eventually turns into a
 !    badly-designed programming language." - Anon
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module dump_utils
  implicit none
  public :: open_dumpfile_w, open_dumpfile_r, get_error_text
  public :: tag,check_tag,match_tag
@@ -1574,7 +1569,7 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
  interface
   integer(kind=1) pure function func(x)
    integer(kind=1), intent(in) :: x
-  end function
+  end function func
  end interface
  optional :: func
  !integer(kind=1), optional :: func
@@ -1611,7 +1606,7 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  interface
   real(kind=4) pure function func(x)
    real(kind=4), intent(in) :: x
-  end function
+  end function func
  end interface
  optional :: func
  !real(kind=4), optional :: func
@@ -1656,7 +1651,7 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  interface
   real(kind=8) pure function func(x)
    real(kind=8), intent(in) :: x
-  end function
+  end function func
  end interface
  optional :: func
  !real(kind=8), optional :: func

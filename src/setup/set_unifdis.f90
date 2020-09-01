@@ -4,26 +4,31 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: unifdis
-!
-!  DESCRIPTION:
-!   Setup of uniform particle distributions on various lattices
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: domain, part, random, stretchmap
-!+
-!--------------------------------------------------------------------------
 module unifdis
+!
+! Setup of uniform particle distributions on various lattices
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: random, stretchmap
+!
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked
+ public :: is_valid_lattice, is_closepacked
+
+ ! following lines of code allow an optional mask= argument
+ ! to setup only certain subsets of the particle domain (used for MPI)
+ abstract interface
+  logical function mask_prototype(ip)
+   integer(kind=8), intent(in) :: ip
+  end function mask_prototype
+ end interface
+
+ public :: mask_prototype, mask_true
 
  private
 
@@ -36,17 +41,18 @@ contains
 !+
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                       zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom)
+                       zmin,zmax,delta,hfact,np,xyzh,periodic,rmin,rmax,rcylmin,rcylmax,&
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
- use part,       only:periodic
  use stretchmap, only:set_density_profile
- use domain,     only:i_belong
+ !use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
  real,             intent(out)   :: xyzh(:,:)
+ logical,          intent(in)    :: periodic ! true or false
+
  real,             intent(in),    optional :: rmin,rmax
  real,             intent(in),    optional :: rcylmin,rcylmax
  integer(kind=8),  intent(inout), optional :: nptot
@@ -54,8 +60,11 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre
+ integer,          intent(out),   optional :: err
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: i_belong
 
- integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
+ integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
  integer(kind=8)    :: iparttot
  real               :: delx,dely
@@ -116,10 +125,14 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  endif
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
-
  is_verbose = .true.
- if (present(verbose)) then
-    is_verbose = verbose
+ if (present(verbose)) is_verbose = verbose
+
+ ! check against mask
+ if (present(mask)) then
+    i_belong => mask
+ else
+    i_belong => mask_true
  endif
 
  centre_lattice = .false.
@@ -541,15 +554,19 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xmaxs = ymax
        endif
     endif
-    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,start=npin,geom=igeom,coord=icoord)
+    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+    if (ierr > 0) then
+       if (present(err)) err = ierr
+       return
+    endif
  endif
 
- return
 end subroutine set_unifdis
-!
+
 !-------------------------------------------------------------
 !+
-!  Supplementary function & subroutine
+!  check if value of x is between xmin and xmax
 !+
 !-------------------------------------------------------------
 pure logical function in_range(x,xmin,xmax)
@@ -559,7 +576,20 @@ pure logical function in_range(x,xmin,xmax)
 
 end function in_range
 
-subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
+pure logical function mask_true(ip)
+ integer(kind=8), intent(in) :: ip
+
+ mask_true = .true.
+
+end function mask_true
+
+!-------------------------------------------------------------
+!+
+!  helper routine to figure out exact spacing in y and z
+!  directions for close sphere packing
+!+
+!-------------------------------------------------------------
+pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
  real,     intent(in) :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
@@ -575,5 +605,37 @@ subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
-!-------------------------------------------------------------
+!---------------------------------------------------------------
+!+
+!  helper routine to sanity check that the latticetype is valid
+!+
+!---------------------------------------------------------------
+pure logical function is_valid_lattice(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ select case(trim(latticetype))
+ case ('random','cubic','closepacked','hcp')
+    is_valid_lattice = .true.
+ case default
+    is_valid_lattice = .false.
+ end select
+
+end function is_valid_lattice
+
+!---------------------------------------------------------------
+!+
+!  check that the latticetype is closepacked
+!+
+!---------------------------------------------------------------
+pure logical function is_closepacked(latticetype)
+ character(len=*), intent(in) :: latticetype
+
+ if (trim(latticetype)=='closepacked') then
+    is_closepacked = .true.
+ else
+    is_closepacked = .false.
+ endif
+
+end function is_closepacked
+
 end module unifdis

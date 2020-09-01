@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: checkoptions
-!
-!  DESCRIPTION:
-!  this module performs checks of the compile time options
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, metric_tools, part
-!+
-!--------------------------------------------------------------------------
 module checkoptions
+!
+! this module performs checks of the compile time options
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, metric_tools, part
+!
  implicit none
  public :: check_compile_time_settings
 
@@ -36,11 +30,12 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,maxBevol,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth,maxtypes,maxsts
+ use part,  only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use dim,   only:use_dustgrowth,maxtypes
  use io,    only:error,id,master,fatal,warning
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
+ use dim,          only:maxsts
 #endif
  integer, intent(out) :: ierr
  character(len=16), parameter :: string = 'compile settings'
@@ -55,12 +50,6 @@ subroutine check_compile_time_settings(ierr)
     ierr = 1
  endif
 #endif
- if (mhd) then
-    if (maxBevol < 3 .or. maxBevol > 4) then
-       if (id==master) call error(string,'must have maxBevol=3 (no cleaning) or maxBevol=4 (cleaning)')
-       ierr = 1
-    endif
- endif
 #ifdef NONIDEALMHD
  if (.not.mhd) then
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')

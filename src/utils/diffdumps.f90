@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: diffdumps
+program diffdumps
 !
-!  DESCRIPTION: This program is a simple utility for finding
+! This program is a simple utility for finding
 !   any differences between two phantom dumps (e.g. for checking
 !   that two calculations have produced the same answer)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: diffdumps firstdumpfilename seconddumpfilename [tolerance]
 !
-!  USAGE: diffdumps firstdumpfilename seconddumpfilename [tolerance]
+! :Dependencies: dim, io, part, readwrite_dumps, testutils
 !
-!  DEPENDENCIES: dim, io, part, readwrite_dumps, testutils
-!+
-!--------------------------------------------------------------------------
-program diffdumps
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact
  use io,      only:set_io_unit_numbers,iprint,idisk1,real4

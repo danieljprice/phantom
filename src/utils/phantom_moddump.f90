@@ -4,31 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantommoddump
-!
-!  DESCRIPTION: This program is a simple utility for modifying a dump file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
-!
-!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, memory, moddump,
-!    options, part, prompting, readwrite_dumps, readwrite_infile,
-!    setBfield, setup_params
-!+
-!--------------------------------------------------------------------------
 program phantommoddump
+!
+! This program is a simple utility for modifying a dump file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+!
+! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
+!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
+!   setup_params
+!
  use dim,             only:tagline,maxp_hard
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
+ use readwrite_dumps, only:init_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
@@ -36,7 +31,7 @@ program phantommoddump
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
- use initial_params,  only:get_conserv
+ use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
  implicit none
  integer :: nargs
@@ -120,6 +115,7 @@ program phantommoddump
 !
 !--read particle setup from dumpfile
 !
+ call init_readwrite_dumps()
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.

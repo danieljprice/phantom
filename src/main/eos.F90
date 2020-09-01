@@ -4,11 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos
+module eos
 !
-!  DESCRIPTION:
-!  This module contains stuff to do with the equation of state
+! This module contains stuff to do with the equation of state
 !  Current options:
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
@@ -20,43 +18,40 @@
 !     9 = Piecewise polytrope
 !    10 = MESA EoS
 !    11 = isothermal eos with zero pressure
+!    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - X           : *hydrogen mass fraction*
+!   - drhocrit    : *transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)*
+!   - gamma0pwp   : *adiabatic index 0 (piecewise polytropic eos)*
+!   - gamma1      : *adiabatic index 1 (barotropic eos)*
+!   - gamma1pwp   : *adiabatic index 1 (piecewise polytropic eos)*
+!   - gamma2      : *adiabatic index 2 (barotropic eos)*
+!   - gamma2pwp   : *adiabatic index 2 (piecewise polytropic eos)*
+!   - gamma3      : *adiabatic index 3 (barotropic eos)*
+!   - gamma3pwp   : *adiabatic index 3 (piecewise polytropic eos)*
+!   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
+!   - metallicity : *metallicity*
+!   - mu          : *mean molecular weight*
+!   - p1pwp       : *pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)*
+!   - rhocrit0    : *critical density 0 in g/cm^3 (barotropic eos)*
+!   - rhocrit0pwp : *critical density 0 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit1    : *critical density 1 in g/cm^3 (barotropic eos)*
+!   - rhocrit1pwp : *critical density 1 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit2    : *critical density 2 in g/cm^3 (barotropic eos)*
+!   - rhocrit2pwp : *critical density 2 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit3    : *critical density 3 in g/cm^3 (barotropic eos)*
 !
-!  RUNTIME PARAMETERS:
-!    X           -- hydrogen mass fraction
-!    drhocrit    -- transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)
-!    gamma0pwp   -- adiabatic index 0 (piecewise polytropic eos)
-!    gamma1      -- adiabatic index 1 (barotropic eos)
-!    gamma1pwp   -- adiabatic index 1 (piecewise polytropic eos)
-!    gamma2      -- adiabatic index 2 (barotropic eos)
-!    gamma2pwp   -- adiabatic index 2 (piecewise polytropic eos)
-!    gamma3      -- adiabatic index 3 (barotropic eos)
-!    gamma3pwp   -- adiabatic index 3 (piecewise polytropic eos)
-!    ieos        -- eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)
-!    metallicity -- metallicity
-!    mu          -- mean molecular weight
-!    p1pwp       -- pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)
-!    rhocrit0    -- critical density 0 in g/cm^3 (barotropic eos)
-!    rhocrit0pwp -- critical density 0 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit1    -- critical density 1 in g/cm^3 (barotropic eos)
-!    rhocrit1pwp -- critical density 1 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit2    -- critical density 2 in g/cm^3 (barotropic eos)
-!    rhocrit2pwp -- critical density 2 in g/cm^3 (piecewise polytropic eos)
-!    rhocrit3    -- critical density 3 in g/cm^3 (barotropic eos)
+! :Dependencies: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
+!   infile_utils, io, part, physcon, units
 !
-!  DEPENDENCIES: dim, eos_helmholtz, eos_mesa, eos_shen, infile_utils, io,
-!    part, physcon, units
-!+
-!--------------------------------------------------------------------------
-module eos
  implicit none
- integer, parameter, public :: maxeos = 16
+ integer, parameter, public :: maxeos = 19
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -67,8 +62,11 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho
- public  :: gamma_pwp
- public  :: init_eos, finish_eos, write_options_eos, read_options_eos
+#ifdef KROME
+ public  :: get_local_temperature, get_local_u_internal
+#endif
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene
+ public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
  private
@@ -84,6 +82,7 @@ module eos
  real,    public :: gamma2      = 1.1
  real,    public :: gamma3      = 5./3.
  !--Default initial parameters for piecewise polytrope Eos
+ integer, parameter, public :: maxEOSopt =  4 ! maximum number of piecewise polytrope defaults
  real,    public :: rhocrit0pwpcgs = 2.62780d12
  real,    public :: rhocrit1pwpcgs = 5.01187d14
  real,    public :: rhocrit2pwpcgs = 1.0d15
@@ -111,22 +110,24 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
- use io,    only:fatal,error,warning
- use part,  only:xyzmh_ptmass
- use units,   only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use eos_mesa, only:get_eos_pressure_gamma1_mesa
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local)
+ use io,            only:fatal,error,warning
+ use part,          only:xyzmh_ptmass
+ use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
+ use eos_mesa,      only:get_eos_pressure_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
- use eos_shen, only: eos_shen_NL3
+ use eos_shen,      only:eos_shen_NL3
+ use eos_idealplusrad
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
+ real,    intent(in)   , optional :: gamma_local
  real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai
- real :: cgsrhoi, cgseni, cgspgas, pgas, gam1, cgsspsoundi
+ real :: gammai,temperaturei
+ real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
 #ifdef GR
@@ -281,10 +282,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
 
-    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspgas,gam1,ierr)
-    pgas = cgspgas / unit_pressure
+    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspresi,gam1,ierr)
+    presi = cgspresi / unit_pressure
 
-    ponrhoi  = pgas / rhoi
+    ponrhoi  = presi / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
@@ -294,6 +295,26 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
+
+ case(12)
+!
+!--ideal gas plus radiation pressure
+!
+    if (present(tempi)) then
+       temperaturei = tempi
+    else
+       temperaturei = -1. ! Use gas temperature as initial guess
+    endif
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei)
+    call get_idealplusrad_pres(cgsrhoi,temperaturei,gmw,cgspresi)
+    call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
+    spsoundi = spsoundi / unit_velocity
+    presi = cgspresi / unit_pressure
+    ponrhoi = presi / rhoi
+    if (present(tempi)) tempi = temperaturei
+
 
  case(14)
 !
@@ -316,24 +337,33 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
+!
+!--variable gamma
+!
+ case(19)
+
+    if (present(gamma_local)) then
+       ponrhoi  = (gamma_local-1.)*eni
+       spsoundi = sqrt(gamma_local*ponrhoi)
+    else
+       call fatal('eos','invoking KROME to calculate local gamma but variable '&
+                        'not passed in equationofstate (bad value for eos?)')
+    endif
 
  case(16)
 !
 !--shen eos
 !
-
 !    if (present(enei)) then
     cgsrhoi = rhoi * unit_density
     !note eni is actually tempi
-    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspgas,cgsspsoundi)
+    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspresi,cgsspsoundi)
     spsoundi=cgsspsoundi / unit_velocity
-    pgas = cgspgas / unit_pressure
-    ponrhoi = pgas / rhoi
+    presi = cgspresi / unit_pressure
+    ponrhoi = presi / rhoi
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
-
-
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -350,17 +380,20 @@ end subroutine equationofstate
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
  use dim, only:maxvxyzu
- integer,      intent(in) :: eos_type
- real,         intent(in) :: xyzi(:),rhoi
- real,         intent(inout) :: vxyzui(:)
- real, intent(inout), optional :: tempi
+ integer,      intent(in)      :: eos_type
+ real,         intent(in)      :: xyzi(:),rhoi
+ real,         intent(inout)   :: vxyzui(:)
+ real, intent(inout)   , optional    :: tempi
+ real, intent(in)      , optional    :: gammai
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    if (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi)
+    if (present(gammai)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
+    elseif (present(tempi)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
     endif
@@ -373,25 +406,77 @@ end function get_spsound
 
 !-----------------------------------------------------------------------
 !+
-!  query function to return the temperature
-!  (currently only required for non-ideal MHD)
+!  query function to return the temperature given density,
+!  position and/or thermal energy
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(:)
+ real, intent(in), optional  :: gammai
  real :: spsoundi,ponrhoi
 
  if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    if (present(gammai)) then
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
+    else
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+    endif
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
+
  get_temperature = temperature_coef*gmw*ponrhoi
 
 end function get_temperature
+
+#ifdef KROME
+!-----------------------------------------------------------------------
+!+
+!  query function to return the temperature for calculations with a local
+!  mean molecular weight and local adiabatic index
+!+
+!-----------------------------------------------------------------------
+subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
+ use dim, only:maxvxyzu
+ integer,      intent(in)    :: eos_type
+ real,         intent(in)    :: xi,yi,zi,rhoi,gmwi,gammai
+ real,         intent(inout) :: intenerg
+ real,         intent(out)   :: local_temperature
+ real :: spsoundi,ponrhoi
+
+ if (maxvxyzu==4) then
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=intenerg,gamma_local=gammai)
+ else
+    print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
+ endif
+ local_temperature = temperature_coef*gmwi*ponrhoi
+
+end subroutine get_local_temperature
+
+!----------------------------------------------------------------------------
+!+
+!  query function to return the internal energyfor calculations with a local
+!  mean molecular weight and local adiabatic index
+!+
+!----------------------------------------------------------------------------
+
+real function get_local_u_internal(gammai, gmwi, gas_temp_local)
+ real,         intent(in)    :: gammai, gmwi, gas_temp_local
+ real :: ponrhoi
+
+ ponrhoi              = gas_temp_local/(gmwi*temperature_coef)
+ get_local_u_internal = ponrhoi/(gammai-1.)
+
+end function get_local_u_internal
+#endif
+!-----------------------------------------------------------------------
+!
+!  query function to get (gas) temperature given P/rho, assuming fixed
+!  mean molecular weight (gmw)
+!
 !-----------------------------------------------------------------------
 real function get_temperature_from_ponrho(ponrho)
  real, intent(in) :: ponrho
@@ -548,6 +633,36 @@ end subroutine init_eos
 
 !-----------------------------------------------------------------------
 !+
+!  The default piecewise polytrope options, as per Read et al (2009)
+!  The unlisted values are common to all options; all values are in cgs
+!  The array is
+!  pw(i,:) = (/ prescrit,gamma1,gamma2,gamma3 /)
+!  pw(:,j) = (/ ARP3,SLy,MS1,ENG/)
+!+
+!-----------------------------------------------------------------------
+subroutine init_eos_9(EOSopt)
+ integer, parameter :: numparam =  4 ! number of parameters governing the piecewise polytrope
+ integer, intent(in) :: EOSopt
+ real :: pw(maxEOSopt,numparam)
+ !
+ ! Define the default options
+ !
+ pw(1,:)  = (/ 10**34.392, 3.166, 3.573, 3.281 /)
+ pw(2,:)  = (/ 10**34.384, 3.005, 2.988, 2.851 /)
+ pw(3,:)  = (/ 10**34.858, 3.224, 3.033, 1.325 /)
+ pw(4,:)  = (/ 10**34.437, 3.514, 3.130, 3.168 /)
+ !
+ ! Choose the default option
+ !
+ p1pwpcgs  = pw(EOSopt,1)
+ gamma1pwp = pw(EOSopt,2)
+ gamma2pwp = pw(EOSopt,3)
+ gamma3pwp = pw(EOSopt,4)
+
+end subroutine init_eos_9
+
+!-----------------------------------------------------------------------
+!+
 !  finish equation of state
 !+
 !-----------------------------------------------------------------------
@@ -635,7 +750,9 @@ subroutine write_options_eos(iunit)
 
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
+#ifndef KROME
  call write_inopt(gmw,'mu','mean molecular weight',iunit)
+#endif
  select case(ieos)
  case(8)
     call write_inopt(drhocrit0,  'drhocrit','transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)',iunit)
@@ -867,7 +984,6 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
     write(iprint,*) 'WARNING: polyk = 0 in equation of state'
  endif
 
- return
 end subroutine setpolyk
 !----------------------------------------------------------------
 !+
@@ -1028,5 +1144,63 @@ real function en_from_utherm(utherm,rho)
 
  return
 end function en_from_utherm
+
+!----------------------------------------------------------------
+!+
+!  Get recombination energy (per unit mass) assumming complete
+!  ionisation
+!+
+!----------------------------------------------------------------
+subroutine calc_rec_ene(XX,YY,e_rec)
+ real, intent(in)  :: XX, YY
+ real, intent(out) :: e_rec
+ real              :: e_H2,e_HI,e_HeI,e_HeII
+ real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
+                      e_ion_HI   = 4.36d12, &
+                      e_ion_HeI  = 2.3723d13, &
+                      e_ion_HeII = 5.2505d13
+
+ ! XX     : Hydrogen mass fraction
+ ! YY     : Helium mass fraction
+ ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
+
+ e_H2   = 0.5 * XX * e_ion_H2
+ e_HI   = XX * e_ion_HI
+ e_HeI  = 0.25 * YY * e_ion_HeI
+ e_HeII = 0.25 * YY * e_ion_HeII
+ e_rec  = e_H2 + e_HI + e_HeI + e_HeII
+
+end subroutine calc_rec_ene
+
+!----------------------------------------------------------------
+!+
+!  Calculate temperature and specific internal energy from
+!  pressure and density
+!+
+!----------------------------------------------------------------
+subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
+ use physcon,          only:kb_on_mh
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ real, intent(in)           :: rho,pres
+ real, intent(inout)        :: ene,temp
+ real, intent(in), optional :: guesseint
+ integer, intent(out)       :: ierr
+
+ ierr = 0
+ select case(ieos)
+ case(2) ! Adiabatic/polytropic EoS
+    temp = pres / (rho * kb_on_mh) * gmw
+    ene = pres / ( (gamma-1.) * rho)
+ case(12) ! Ideal plus rad. EoS
+    call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp)
+    call get_idealplusrad_enfromtemp(rho,temp,gmw,ene)
+ case(10) ! MESA-like EoS
+    call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
+ case default
+    ierr = 1
+ end select
+
+end subroutine calc_temp_and_ene
 
 end module eos

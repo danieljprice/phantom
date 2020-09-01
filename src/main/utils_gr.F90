@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: utils_gr
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fastmath, io, metric_tools, part
-!+
-!--------------------------------------------------------------------------
 module utils_gr
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fastmath, io, metric_tools, part
+!
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel
@@ -135,7 +130,7 @@ subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  integer, intent(in) :: npart
  real, intent(in)    :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
  real, intent(out)   :: axyz(3,npart)
- real :: gcon(0:3,0:3), v(4), gderiv(0:3,0:3,0:3), a(3)
+ real :: gcon(0:3,0:3), v(0:3), gderiv(0:3,0:3,0:3), a(3)
  integer :: i,lambda,mu,sigma
 
  !$omp parallel do default(none) &

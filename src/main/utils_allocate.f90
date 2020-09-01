@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: allocutils
-!
-!  DESCRIPTION: Utilities related to memory allocation
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dtypekdtree, io
-!+
-!--------------------------------------------------------------------------
 module allocutils
+!
+! Utilities related to memory allocation
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dtypekdtree, io
+!
  use io,           only:fatal,error,iprint,id,master,iverbose
  use dtypekdtree,  only:kdnode,kdnode_bytes
 
@@ -62,7 +57,7 @@ subroutine allocate_array_real8_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'real(4)')
+ call print_allocation_stats(name, (/n1/), 'real(8)')
 
 end subroutine allocate_array_real8_1d
 
