@@ -433,18 +433,18 @@ end subroutine energ_cooling
 
 !-----------------------------------------------------------------------
 !
-!   This function returns the rprocess specific heating rate q at time t, both in code units
+!   This function adds the rprocess specific heating rate q to du/dt at time t, all in code units
 !
 !-----------------------------------------------------------------------
-subroutine get_rprocess_heating_rate(q,t)
+subroutine get_rprocess_heating_rate(dudt,t)
  use physcon, only:days
  use units,   only:unit_ergg,utime
  real, intent(in)    :: t !----- time, in code units
- real, intent(out)   :: q !----- specific heating rate, in code units
+ real, intent(out)   :: dudt !----- specific heating/cooling rate, in code units
  real :: t_seconds, t_days
  real :: t_b1_days, t_b2_days
  real :: t_start_days, t_new_days
- real :: q_cgs
+ real :: q, q_cgs
 
  t_seconds = t * utime
  t_days = t_seconds / days
@@ -465,6 +465,8 @@ subroutine get_rprocess_heating_rate(q,t)
  endif
 
  q = q_cgs / (unit_ergg/utime)
+
+ dudt = dudt + q
 
 end subroutine get_rprocess_heating_rate
 
