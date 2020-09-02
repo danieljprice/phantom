@@ -25,7 +25,7 @@ module step_lf_global
 ! :Dependencies: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
 !   derivutils, dim, dust_formation, eos, extern_gr, externalforces,
 !   growth, h2cooling, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, rprocess_heating, timestep,
+!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
 !   timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation
@@ -111,7 +111,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
- use rprocess_heating, only:energ_rprocess
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -512,16 +511,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              pxyzu(2,i) = pyi
              pxyzu(3,i) = pzi
              pxyzu(4,i) = eni
-
-             !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
-             !----- In Liptai & Price (2019), K is given the symbol K. -----
-             !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
-             !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
-             !----- The routines in GR Phantom use the following naming convention:
-             !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
-             !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
-             ! if (icooling==4) call energ_rprocess(pxyzu(4,i), rhoh(xyzh(4,i),massoftype(itype)), timei, dtsph)
-             if (icooling==4) call energ_rprocess(pxyzu(4,i), dens(i), timei, dtsph)
           else
              vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
              vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
@@ -792,6 +781,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt,xtol,ptol) &
+    !$omp shared(timei,dKdtcool) & !----- This line is needed to call energ_cooling below, which calls the rprocess heating function when icooling==4
     !$omp shared(ieos,gamma,pxyzu,dens,metrics,metricderivs) &
     !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
@@ -815,6 +805,14 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           !
           ! make local copies of array quantities
           !
+          !----- (Siva Darbha): Some notes for myself about the variable names:
+          !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
+          !----- In Liptai & Price (2019), K is given the symbol K. -----
+          !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
+          !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
+          !----- The routines in GR Phantom use the following naming convention:
+          !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+          !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
           pxyz(1:3) = pxyzu(1:3,i)
           eni       = pxyzu(4,i)
           vxyz(1:3) = vxyzu(1:3,i)
@@ -823,6 +821,26 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           densi     = dens(i)
 
           pxyz      = pxyz + hdt*fexti
+
+          !----- (Siva Darbha): I call the heating/cooling function in the predictor step, in analogy with nonrelativistic SPH
+          if (maxvxyzu >= 4) then
+             dudtcool = 0.
+             !
+             ! COOLING
+             !
+             !----- Calls the rprocess heating rate
+             if (icooling == 4) then
+
+                !----- The rprocess heating rate only requires the arguments dudtcool and timei, so I pass zeros to the rest
+                call energ_cooling(0, 0, 0, 0, dudtcool, 0, 0, 0, 0, 0, 0, timei)
+                !call energ_cooling(xyzh(1,i), xyzh(2,i), xyzh(3,i), vxyzu(4,i), dudtcool, rhoh(xyzh(4,i), pmassi), dt, 0, 0, 0, 0, timei)
+
+                !----- Updates the entropy variable
+                dKdtcool = dudtcool * (gamma - 1) / densi**(gamma - 1)
+                eni = eni + dt * dKdtcool !----- (Siva Darbha): I used dt here, but I might have to use hdt, I'm not sure
+
+             endif
+          endif
 
           !-- Compute pressure for the first guess in cons2prim
           call equationofstate(ieos,pondensi,spsoundi,densi,xyz(1),xyz(2),xyz(3),uui)
@@ -879,6 +897,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           ! re-pack arrays back where they belong
           xyzh(1:3,i) = xyz(1:3)
           pxyzu(1:3,i) = pxyz(1:3)
+          pxyzu(4,i) = eni !----- This line is needed if you call energ_cooling above, which calls the rprocess heating function when icooling==4, which updates the entropy variable
           vxyzu(1:3,i) = vxyz(1:3)
           vxyzu(4,i) = uui
           fext(:,i)  = fexti

@@ -24,8 +24,15 @@ module cooling
 !   - icool_radiation_H0   : *H0 cooling on/off*
 !   - icool_relax_bowen    : *Bowen (diffusive) relaxation on/off*
 !   - icool_relax_stefan   : *radiative relaxation on/off*
-!   - icooling             : *cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)*
+!   - icooling             : *cooling function (0=off, 1=physics, 2=cooling table, 3=gammie, 4=rprocess heating rate (only works with GR Phantom for now))*
 !   - temp_floor           : *Minimum allowed temperature in K*
+!   ----- Input parameters for the rprocess heating rate function:
+!   - q_0_cgs         : heating rate coefficient, in [ergs/s/g]
+!   - t_b1_seconds    : time of break 1 in heating rate, in [s]'
+!   - exp_1           : exponent 1 in radioactive power component
+!   - t_b2_seconds    : time of break 2 in heating rate, in [s]'
+!   - exp_2           : exponent 2 in radioactive power component
+!   - t_start_seconds : time after merger at which the simulation begins [s]
 !
 ! :Dependencies: datafiles, eos, h2cooling, infile_utils, io, options,
 !   part, physcon, timestep, units
@@ -55,6 +62,13 @@ module cooling
  real :: Tgrid(nTg)
  integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
+ !----- Input parameters for the rprocess heating rate function:
+ real :: q_0_cgs    = 0 ! heating rate coefficient [ergs/s/g]
+ real :: t_b1_seconds = 0 ! time of break 1 in heating rate [s]
+ real :: exp_1 = 0 ! exponent 1 in heating rate
+ real :: t_b2_seconds = 0 ! time of break 2 in heating rate [s]
+ real :: exp_2 = 0 ! exponent 2 in heating rate
+ real :: t_start_seconds = 0 ! time after merger at which the simulation begins [s]
 
 
 contains
@@ -396,12 +410,15 @@ end subroutine implicit_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
- real, intent(in) :: xi, yi, zi, u, rho, dt !in code unit
+subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa, t)
+ real, intent(in) :: xi, yi, zi, u, rho, dt ! in code unit
  real, intent(in), optional :: Trad, mu_in, K2, kappa ! in cgs!!!
+ real, intent(in), optional :: t ! in code units
  real, intent(inout) :: dudt
 
  select case (icooling)
+ case (4)
+    call get_rprocess_heating_rate(dudt, t)
  case (3)
     call cooling_Gammie(xi, yi, zi, u, dudt)
  case (2)
@@ -413,6 +430,43 @@ subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
  end select
 
 end subroutine energ_cooling
+
+!-----------------------------------------------------------------------
+!
+!   This function returns the rprocess specific heating rate q at time t, both in code units
+!
+!-----------------------------------------------------------------------
+subroutine get_rprocess_heating_rate(q,t)
+ use physcon, only:days
+ use units,   only:unit_ergg,utime
+ real, intent(in)    :: t !----- time, in code units
+ real, intent(out)   :: q !----- specific heating rate, in code units
+ real :: t_seconds, t_days
+ real :: t_b1_days, t_b2_days
+ real :: t_start_days, t_new_days
+ real :: q_cgs
+
+ t_seconds = t * utime
+ t_days = t_seconds / days
+
+ t_b1_days = t_b1_seconds / days
+ t_b2_days = t_b2_seconds / days
+
+ t_start_days = t_start_seconds / days
+ t_new_days = t_days + t_start_days
+
+ !----- Heating rate in [ergs/s/g]
+ if (t_new_days < t_b1_days) then
+    q_cgs = q_0_cgs
+ else if ( (t_b1_days <= t_new_days) .and. (t_new_days < t_b2_days) ) then
+    q_cgs = q_0_cgs * (t_days/t_b1_days)**exp_1
+ else
+    q_cgs = q_0_cgs * (t_b2_days/t_b1_days)**exp_1 * (t_days/t_b2_days)**exp_2
+ endif
+
+ q = q_cgs / (unit_ergg/utime)
+
+end subroutine get_rprocess_heating_rate
 
 !-----------------------------------------------------------------------
 !
@@ -601,7 +655,7 @@ subroutine write_options_cooling(iunit)
        call write_options_h2cooling(iunit)
     endif
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=physics, 2=cooling table, 3=gammie, 4=rprocess heating rate (only works with GR Phantom for now))',iunit)
     select case(icooling)
     case(1)
        call write_inopt(icool_radiation_H0,'icool_radiation_H0','H0 cooling on/off',iunit)
@@ -615,6 +669,14 @@ subroutine write_options_cooling(iunit)
        call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
     case(3)
        call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
+    !----- Input parameters for the rprocess heating rate function:
+    case(4)
+       call write_inopt(q_0_cgs,'q_0_cgs','heating rate coefficient [ergs/s/g]',iunit)
+       call write_inopt(t_b1_seconds,'t_b1_seconds','time of break 1 in heating rate [s]',iunit)
+       call write_inopt(exp_1,'exp_1','exponent 1 in heating rate',iunit)
+       call write_inopt(t_b2_seconds,'t_b2_seconds','time of break 2 in heating rate [s]',iunit)
+       call write_inopt(exp_2,'exp_2','exponent 2 in heating rate',iunit)
+       call write_inopt(t_start_seconds,'t_start_seconds','time after merger at which the simulation begins [s]',iunit)
     end select
  endif
 
@@ -669,12 +731,33 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) beta_cool
     ngot = ngot + 1
     if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
+ !----- Input parameters for the rprocess heating rate function:
+ case('q_0_cgs')
+    read(valstring,*,iostat=ierr) q_0_cgs
+    ngot = ngot + 1
+ case('t_b1_seconds')
+    read(valstring,*,iostat=ierr) t_b1_seconds
+    ngot = ngot + 1
+ case('exp_1')
+    read(valstring,*,iostat=ierr) exp_1
+    ngot = ngot + 1
+ case('t_b2_seconds')
+    read(valstring,*,iostat=ierr) t_b2_seconds
+    ngot = ngot + 1
+ case('exp_2')
+    read(valstring,*,iostat=ierr) exp_2
+    ngot = ngot + 1
+ case('t_start_seconds')
+    read(valstring,*,iostat=ierr) t_start_seconds
+    ngot = ngot + 1
+ !----- End of input parameters for rprocess heating rate function
  case default
     imatch = .false.
     if (h2chemistry) then
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
  end select
+ if (icooling == 4 .and. ngot >= 6) igotall = .true.
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
  if (icooling == 1 .and. ngot >= 5) igotall = .true.

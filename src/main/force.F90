@@ -2438,8 +2438,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nimhd_get_dudt,nimhd_get_dt
- use rprocess_heating, only:get_rprocess_heating_rate !----- This line is needed to call the function get_rprocess_heating_rate below
- use timestep,       only:time !----- This line is needed to call the function get_rprocess_heating_rate below
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density
@@ -2529,7 +2527,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real                  :: densi, vxi,vyi,vzi,u0i
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
- real :: q !----- This line is needed to call the function get_rprocess_heating_rate below
 
  eni = 0.
  realviscosity = (irealvisc > 0)
@@ -2736,12 +2733,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              if (gr) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idendtdissi)
              endif
-
-             ! add r-process heating, if option selected
-             !if (gr) then
-             !   if (icooling==4) call get_rprocess_heating_rate(q,time)
-             !   fxyz4 = fxyz4 + q * (gamma - 1.) / densi**(gamma - 1.)
-             !endif
 
 #ifdef GR
 #ifdef ISENTROPIC
