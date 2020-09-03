@@ -28,7 +28,7 @@ module analysis
  use energies,     only:compute_energies,ekin,etherm,epot,etot
  use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
- use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,get_spsound
+ use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
                         get_eos_various_mesa,get_eos_pressure_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
@@ -39,7 +39,7 @@ module analysis
  integer                              :: analysis_to_perform
  integer                              :: dump_number = 0
 
- real                                 :: omega_corotate=0, init_radius, rho_surface
+ real                                 :: omega_corotate=0,init_radius,rho_surface,gamma
  logical, dimension(5)                :: switch = .false.
 
 
@@ -112,7 +112,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/ 2, 3, 4, 6, 8, 9, 10, 11, 13, 14 /) == analysis_to_perform) .and. dump_number == 0 ) call init_eos(ieos,ierr)
+ if ( ANY((/ 2, 3, 4, 6, 8, 9, 10, 11, 13, 14, 15/) == analysis_to_perform) .and. dump_number == 0 ) then
+    ieos = 2
+    call prompt('Enter ieos:',ieos)
+
+    select case(ieos)
+    case(2)
+       gamma = 1.6667
+       call prompt('Enter gamma for adiabatic EoS:',gamma,0.)
+    case(12)
+       gmw = 0.641304087
+       call prompt('Enter mean molecular weight for ieos 12:',gmw,0.)
+    case(10)
+       X_in = 0.653061631
+       Z_in = 0.0200640711083
+       call prompt('Enter hydrogen mass fraction:',X_in,0.)
+       call prompt('Enter metallicity:',Z_in,0.)
+    end select
+    call init_eos(ieos,ierr)
+ endif
 
  !analysis
  select case(analysis_to_perform)
@@ -121,7 +139,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call separation_vs_time(time,num)
 
  case(2) !bound and unbound quantities
-    ieos = 2 ! Mike: Hard coding this for now
     call bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 
  case(3) !Energies and bound mass
@@ -133,7 +150,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(5) !Mass within roche lobes
     call roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
 
- case(6) !Star stabilisation suite
+ case(6) !Star stabilisation suite 
     call star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
 
  case(7) !Units
@@ -372,13 +389,17 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 end subroutine bound_mass
 
 
-!!!!! Calculate energies !!!!!
-subroutine calculate_energies(time, num, npart, particlemass, xyzh, vxyzu)
- integer, intent(in)            :: npart, num
- real, intent(in)               :: time, particlemass
+!----------------------------------------------------------------
+!+
+!  Calculate energies
+!+
+!----------------------------------------------------------------
+subroutine calculate_energies(time,num,npart,particlemass,xyzh,vxyzu)
+ integer, intent(in)            :: npart,num
+ real, intent(in)               :: time,particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
- real                           :: etoti, ekini, einti, epoti, phii, phii1, jz, fxi, fyi, fzi
- real                           :: rhopart, ponrhoi, spsoundi, r_ij, radvel
+ real                           :: etoti,ekini,einti,epoti,phii,phii1,jz,fxi,fyi,fzi
+ real                           :: rhopart,ponrhoi,spsoundi,r_ij,radvel
  real, dimension(3)             :: rcrossmv
  character(len=17), allocatable :: columns(:)
  integer                        :: i, j, ncols
@@ -408,15 +429,39 @@ subroutine calculate_energies(time, num, npart, particlemass, xyzh, vxyzu)
  integer, parameter             :: fallbackmom   = fallbackmass + 1
  real, dimension(fallbackmom)   :: encomp
 
+ ncols = 23
+ allocate(columns(ncols))
+ columns = (/'total energy',&
+             '  pot energy',&
+             '  kin energy',&
+             'therm energy',&
+             '    sink pot',&
+             '    sink kin',&
+             '    sink orb',&
+             '    comp orb',&
+             '     env pot',&
+             '  env energy',&
+             '   bound kin',&
+             ' unbound kin',&
+             '  bound mass',&
+             'unbound mass',&
+             '     p-p pot',&
+             '     p-s pot',&
+             ' tot ang mom',&
+             '   b ang mom',&
+             '  ub ang mom',&
+             ' orb ang mom',&
+             '  gas energy',&
+             '    fallback',&
+             'fallback mom'/)
+
  encomp(5:) = 0.
-
  call compute_energies(time)
-
  ekin = 0.
 
  do i=1,npart
-    encomp(ipot_pp) = encomp(ipot_pp) + poten(i)
-    encomp(ipot_env) = encomp(ipot_env) + poten(i)
+    encomp(ipot_pp) = encomp(ipot_pp) + poten(i) ! THIS IS WRONG: You are double counting
+    encomp(ipot_env) = encomp(ipot_env) + poten(i) ! THIS IS WRONG: You are double counting
 
     call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
 
@@ -494,34 +539,9 @@ subroutine calculate_energies(time, num, npart, particlemass, xyzh, vxyzu)
  encomp(ie_kin) = ekin
  encomp(ie_therm) = etherm
 
- ncols = 23
- allocate(columns(ncols))
- columns = (/'total energy',&
-             '  pot energy',&
-             '  kin energy',&
-             'therm energy',&
-             '    sink pot',&
-             '    sink kin',&
-             '    sink orb',&
-             '    comp orb',&
-             '     env pot',&
-             '  env energy',&
-             '   bound kin',&
-             ' unbound kin',&
-             '  bound mass',&
-             'unbound mass',&
-             '     p-p pot',&
-             '     p-s pot',&
-             ' tot ang mom',&
-             '   b ang mom',&
-             '  ub ang mom',&
-             ' orb ang mom',&
-             '  gas energy',&
-             '    fallback',&
-             'fallback mom'/)
-
  call write_time_file('energy', columns, time, encomp, ncols, dump_number)
  deallocate(columns)
+ 
 end subroutine calculate_energies
 
 
@@ -791,15 +811,22 @@ subroutine roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
 end subroutine roche_lobe_values
 
 
-!!!!! Star stabilisation suite !!!!!
+!----------------------------------------------------------------
+!+
+!  Star stabilisation
+!+
+!----------------------------------------------------------------
 subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
+ use part,   only:fxyzu
+ use eos,    only:equationofstate
  integer, intent(in)            :: npart, num
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i, j, k, ncols, mean_rad_num, iorder(npart), npart_a, iorder_a(npart)
- real                           :: star_stability(8)
- real                           :: total_mass, rhovol, totvol, rhopart
+ integer                        :: i,j,k,ncols,mean_rad_num,iorder(npart),npart_a,iorder_a(npart)
+ real, allocatable              :: star_stability(:)
+ real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
+ real                           :: phii,ponrhoi,spsoundi,epoti,ekini,einti,etoti,totekin,totepot,virialintegral,gamma
  integer, parameter             :: ivoleqrad    = 1
  integer, parameter             :: idensrad     = 2
  integer, parameter             :: imassout     = 3
@@ -808,9 +835,11 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  integer, parameter             :: ipart2hrad   = 6
  integer, parameter             :: ipdensrad    = 7
  integer, parameter             :: ip2hdensrad  = 8
+ integer, parameter             :: ivirialpart  = 9
+ integer, parameter             :: ivirialfluid = 10
 
- ncols = 9
- allocate(columns(ncols))
+ ncols = 10
+ allocate(columns(ncols),star_stability(ncols))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
@@ -818,8 +847,9 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
              '    part rad',&
              ' part 2h rad',&
              '  p dens rad',&
-             'p2h dens rad'/)
- ! 'virial cond.'/)
+             'p2h dens rad',&
+             'part. virial',& ! Residual of virial theorem for self-gravitating particles
+             'fluid virial'/) ! Residual of virial theorem for fluid
 
  ! Get order of particles by distance from sink particle core
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
@@ -833,37 +863,56 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  npart_a = 0
  totvol = 0.
  rhovol = 0.
+ virialpart = 0.
+ totekin = 0.
+ totepot = 0.
+ virialintegral= 0.
  do i = 1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
+    virialpart = virialpart + particlemass * ( dot_product(fxyzu(1:3,i),xyzh(1:3,i)) + dot_product(vxyzu(1:3,i),vxyzu(1:3,i)) )
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
+    totekin = totekin + ekini
+    totepot = totepot + 0.5*epoti ! Factor of 1/2 to correct for double counting
     if (rhopart > rho_surface) then
        ! Sum "volume" of particles within "surface" of initial star dump
        rhovol = rhovol + particlemass / rhopart
-       npart_a = npart_a + 1 ! Number of particles within "surface" of initial star dump
+       npart_a = npart_a + 1 ! Count number of particles within "surface" of initial star dump
     endif
+    ! Calculate residual of Virial theorem for fluid
+    if (ieos == 2) then
+       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),gamma_local=gamma)
+    else
+       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    endif
+    virialintegral = virialintegral + 3. * ponrhoi * particlemass
  enddo
+ virialpart = virialpart / (abs(totepot) + 2.*abs(totekin)) ! Normalisation for the virial
+ virialfluid = (virialintegral + totepot) / (abs(virialintegral) + abs(totepot))
 
  ! Sort particles within "surface" by radius
  call indexxfunc(npart_a,r2func_origin,xyzh,iorder_a)
 
- mean_rad_num = npart / 200
+ mean_rad_num = npart / 200 ! 0.5 percent of particles
  star_stability = 0.
  ! Loop over the outermost npart/200 particles that are within the "surface"
  do i = npart_a - mean_rad_num,npart_a
     j = iorder(i)
     k = iorder_a(i)
-    star_stability(ipartrad) = star_stability(ipartrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
-    star_stability(ipart2hrad) = star_stability(ipart2hrad) + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
-    star_stability(ipdensrad) = star_stability(ipdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
+    star_stability(ipartrad)    = star_stability(ipartrad)    + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1))
+    star_stability(ipart2hrad)  = star_stability(ipart2hrad)  + separation(xyzh(1:3,j),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
+    star_stability(ipdensrad)   = star_stability(ipdensrad)   + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1))
     star_stability(ip2hdensrad) = star_stability(ip2hdensrad) + separation(xyzh(1:3,k),xyzmh_ptmass(1:3,1)) + xyzh(4,j)
  enddo
 
- star_stability(ipartrad) = star_stability(ipartrad) / real(mean_rad_num)
- star_stability(ipart2hrad) = star_stability(ipart2hrad) / real(mean_rad_num)
- star_stability(ipdensrad) = star_stability(ipdensrad) / real(mean_rad_num)
+ star_stability(ipartrad)    = star_stability(ipartrad)    / real(mean_rad_num)
+ star_stability(ipart2hrad)  = star_stability(ipart2hrad)  / real(mean_rad_num)
+ star_stability(ipdensrad)   = star_stability(ipdensrad)   / real(mean_rad_num)
  star_stability(ip2hdensrad) = star_stability(ip2hdensrad) / real(mean_rad_num)
- star_stability(ivoleqrad) = (3. * totvol/(4. * pi))**(1./3.)
- star_stability(idensrad)  = (3. * rhovol/(4. * pi))**(1./3.)
+ star_stability(ivoleqrad)   = (3. * totvol/(4. * pi))**(1./3.)
+ star_stability(idensrad)    = (3. * rhovol/(4. * pi))**(1./3.)
+ star_stability(ivirialpart) = virialpart
+ star_stability(ivirialfluid)= virialfluid
 
  if (dump_number == 0) then
     init_radius = star_stability(ivoleqrad)
@@ -879,19 +928,13 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  enddo
 
  star_stability(imassfracout) = star_stability(imassout) / total_mass
- !
- !--Calculate virial condition
- !
-!  total_binding_energy = 0.
-!  total_eint           = 0.
-!  do i = 1,npart
-!     total_eint = total_eint + vxyzu(4,i)*particlemass
-!     total_binding_energy = total_binding_energy +
-!  enddo
-
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
  deallocate(columns)
 end subroutine star_stabilisation_suite
+
+
+
+
 
 
 !!!!! Print simulation parameters !!!!!
@@ -925,7 +968,7 @@ subroutine output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxy
  real                           :: etoti, ekini, einti, epoti, phii
  real                           :: rhopart, ponrhoi, spsoundi, kappat, kappar
  real, dimension(npart)         :: bound_energy, mach_number, omega_ratio, kappa, temp, pressure
- real, dimension(3)             :: xyz_a, vxyz_a, com_xyz, com_vxyz
+ !real, dimension(3)             :: xyz_a, vxyz_a, com_xyz, com_vxyz
  real                           :: ang_vel
 
  call compute_energies(time)
@@ -987,7 +1030,8 @@ subroutine eos_surfaces
  real    :: kappa_array(1000,400)
  real    :: gam1_array(1000,1000)
  real    :: pres_array(1000,1000)
- real    :: kappat, kappar, temp
+ real    :: kappat, kappar
+! real    :: temp
 
 
  do i=1,size(rho_array)
@@ -1202,22 +1246,27 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
 end subroutine unbound_profiles
 
 
-!!!!! Sink properties !!!!!
+!----------------------------------------------------------------
+!+
+!  Sink properties
+!+
+!----------------------------------------------------------------
 subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
  integer, intent(in)          :: npart, num
  real, intent(in)             :: time, particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  character(len=17)            :: filename
- real                         :: sinkcomp(30)
+ real                         :: sinkcomp(35)
  real                         :: ang_mom(3)
  real                         :: phitot, dtsinksink, fonrmax
  real                         :: fxi, fyi, fzi, phii
  real, dimension(4,maxptmass) :: fssxyz_ptmass
  real, dimension(4,maxptmass) :: fxyz_ptmass
+ real, dimension(3)           :: com_xyz,com_vxyz 
  integer                      :: i, ncols
 
- ncols = 25
+ ncols = 31
  allocate(columns(ncols))
  columns = (/'            x', &
              '            y', &
@@ -1235,11 +1284,21 @@ subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
              '         fssy', &
              '         fssz', &
              '        |fss|', &
+             '          fsx', &
+             '          fsy', &
+             '          fsz', &
+             '         |fs|', &
              '    ang mom x', &
              '    ang mom y', &
              '    ang mom z', &
              '    |ang mom|', &
-             '       kin en'/)
+             '       kin en', &
+             '       CoM x ', &
+             '       CoM y ', &
+             '       CoM z ', &
+             '       CoM vx', &
+             '       CoM vy', &
+             '       CoM vz' /)
 
  fxyz_ptmass = 0.
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
@@ -1248,6 +1307,9 @@ subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
     call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                             fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
  enddo
+
+ ! Determine position and velocity of the CoM
+ call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
  do i=1,nptmass
     sinkcomp = 0.
@@ -1280,10 +1342,15 @@ subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
     sinkcomp(24)    = distance(ang_mom(1:3))
     ! kinetic energy
     sinkcomp(25)    = 0.5*xyzmh_ptmass(4,i)*sinkcomp(8)**2
+    ! CoM position
+    sinkcomp(26:28) = com_xyz(1:3)
+    ! CoM velocity
+    sinkcomp(29:31) = com_vxyz(1:3) 
 
     call write_time_file(filename, columns, time, sinkcomp, ncols, dump_number)
  enddo
  deallocate(columns)
+
 end subroutine sink_properties
 
 subroutine bound_unbound_thermo(time, num, npart, particlemass, xyzh, vxyzu)
@@ -1376,7 +1443,7 @@ end subroutine bound_unbound_thermo
 !+
 !----------------------------------------------------------------
 subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
- implicit none
+ use prompting, only:prompt
  integer, intent(in)                   :: npart,num
  real,    intent(in)                   :: time,particlemass
  real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
@@ -1388,42 +1455,48 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(4,maxptmass)          :: fxyz_ptmass
  real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp, &
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp, &
-                                          pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere
+                                          pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere, &
+                                          xyz_opp,unit_sep,unit_sep_perp,vel_contrast_vec
  real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere, &
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi, &
                                           fzi,phii,phitot,dtsinksink
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
- logical                               :: iacc
+ logical, save                         :: iopposite,iacc
 
  ! OPTIONS
- ieos = 2 ! Do not hard-code in the future
-
- write(*,"(a,i2)") 'Assumming ieos = ',ieos
- if ( xyzmh_ptmass(ihacc,2) > 0 ) then
-    write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
-    write(*,"(a)") 'Will analyse accretion'
-    iacc = .true.
- else
-    write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
-    iacc = .false.
+ if (dump_number == 0) then
+    iopposite = .true.
+    call prompt('Average quantities on opposite side of sink orbit?',iopposite)
+    write(*,"(a,i2)") 'Using ieos = ',ieos
+    if ( xyzmh_ptmass(ihacc,2) > 0 ) then
+       write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
+       write(*,"(a)") 'Will analyse accretion'
+       iacc = .true.
+    else
+       write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
+       iacc = .false.
+    endif
  endif
 
  ncols = 22
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
  ! Note: All forces adhere to the convention of being positive when directed along the component direction
- columns = (/'   par. drag', & ! Component of net gravitational force acting on sink parallel to the sink velocity
-             '  perp. drag', & ! Component of net gravitational force acting on sink perpendicular to the sink velocity
+ columns = (/'   par. drag', & ! Component of net grav. force antiparallel to instantaneous circular orbit of the sink
+             '  perp. drag', & ! Component of net grav. force perpendicular to instantaneous circular orbit of the sink
              '    from dJz', & ! torque / r of sink
-             '    BHL drag', & ! Gravitational drag calculated as Mdot * velocity contrast (see Bondi Mdot)
+             '    BHL drag', & ! Bondi-Hoyle-Lyttleton drag force
              '  Bondi Mdot', & ! Mass accretion rate from Bondi (1952) with Shima et al. (1985) factor of 2
-             'vel contrast', & ! Positive (negative) when sink speed is larger (smaller) than average gas parallel velocity
-             'par. v. con.', & ! Parallel velocity contrast
-             'per. v. con.', & ! Perpendicular velocity contrast
+             'vel contrast', & ! Magnitude of average background gas velocity minus sink velocity, positive (negative)
+                               ! when sink speed is smaller (larger) than average gas parallel velocity
+             'par. v. con.', & ! Component of velocity contrast along tangent of instantaneous circular orbit of sink
+                               ! Positive (negative) when pointing backwards (forwards)
+             'per. v. con.', & ! Component of velocity contrast perpendicular to tangent of instantaneous circular orbit of sink
+                               ! Positive (negative) when pointing inwards (outwards) to the other point mass.
              ' sound speed', &
              ' rho at sink', &
-             '        racc', & ! Bondi-Hoyle-Lyttleton radius??
+             '        racc', & ! Accretion radius
              'com-sink sep', &
              '   par cut 1', & ! Same as 'par. drag', but limited to particles within some radius from the sink
              '  perp cut 1', & ! Same as 'perp. drag', but limited to particles within some radius from the sink
@@ -1441,18 +1514,25 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  do i = 1,2
     ! Note: The analysis below is performed for both the companion (i=2) and the donor core (i=1). We
     !       comment for the case of the companion only for clarity.
-    fxyz_ptmass    = 0.
-    vel_in_sphere  = 0.
-    cs_in_sphere   = 0.
-    mass_in_sphere = 0.
-    avg_vel        = 0.
-    avg_vel_par    = 0.
-    avg_vel_perp   = 0.
-    vel_contrast   = 0.
-    racc           = 0.
-    cs             = 0.
+    fxyz_ptmass      = 0.
+    vel_in_sphere    = 0.
+    rho_avg          = 0.
+    mdot             = 0.
+    cs_in_sphere     = 0.
+    mass_in_sphere   = 0.
+    avg_vel          = 0.
+    avg_vel_par      = 0.
+    avg_vel_perp     = 0.
+    vel_contrast     = 0.
+    vel_contrast_vec = 0.
+    racc             = 0.
+    cs               = 0.
 
-    call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3))
+    ! Calculate directions
+    call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3)) ! Direction along sink velocity
+    call cross(unit_vel, (/0.,0.,1./), unit_vel_perp)   ! Direction perpendicular to sink velocity (pointing away from the CoM)
+    unit_sep = (xyzmh_ptmass(1:3,i) - xyzmh_ptmass(1:3,3-i)) / separation(xyzmh_ptmass(1:3,i), xyzmh_ptmass(1:3,3-i)) ! Sink separation unit vector (pointing from sink 1 to sink 2)
+    call cross((/0.,0.,1./), unit_sep, unit_sep_perp) ! Direction perpendicular to sink separation vector (pointing towards sink velocity)
 
     ! Calculate orbit CoM by calculating the CoM of the stellar cores plus with the inclusion
     ! of a number of particles around the primary.
@@ -1471,40 +1551,53 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        ! This should actually be -dtmax in the infile
     endif
 
-    ! Get order of particles from closest to farthest from companion
-    call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
+    ! Get order of particles from closest to farthest to centre of averaging sphere
+    if (iopposite) then
+       ! Use companion position on the opposite side of orbit
+       xyz_opp = 2.*xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
+       call set_r2func_origin(xyz_opp(1),xyz_opp(2),xyz_opp(3))
+    else
+       ! Use companion position
+       call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
+    endif
+
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
 
     ! Sum velocities, cs, and densities of all particles within radius 'sep' from
     ! the companion, where 'sep' is the distance between the companion and the
     ! orbit CoM
-    Rsphere = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+    Rsphere = 0.2 * separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i)) !separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
     do j = 1,npart
-       ! Only use particles within sphere centred on the companion with radius
-       ! equal to the distance from the CoM to the companion
+       ! Only use particles within the averaging sphere
        k = iorder(j)
        if (.not. isdead_or_accreted(xyzh(4,k))) then
-          sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+          if (iopposite) then
+             sep = separation(xyzh(1:3,k),xyz_opp)
+          else
+             sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+          endif
           if (sep > Rsphere) exit
           vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
           cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
-          mass_in_sphere     = mass_in_sphere + particlemass
        endif
     enddo
-
+    if (iopposite) vel_in_sphere = - vel_in_sphere ! Need to flip the vector
     npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
+    mass_in_sphere = npart_insphere * particlemass
 
     ! Average within sphere
     if (npart_insphere > 0) then
        avg_vel(1:3)      = vel_in_sphere(1:3) / float(npart_insphere)
        avg_vel_par(1:3)  = dot_product(avg_vel, unit_vel) * unit_vel
        avg_vel_perp(1:3) = avg_vel(1:3) - avg_vel_par(1:3)
-       vel_contrast      = sign( distance(vxyz_ptmass(1:3,i)) - distance(avg_vel_par(1:3)), &
-                                separation( vxyz_ptmass(1:3,i), avg_vel_par(1:3) ) )
+       vel_contrast_vec  = avg_vel - vxyz_ptmass(1:3,i)!sign( distance(vxyz_ptmass(1:3,i)) - distance(avg_vel_par(1:3)), &
+                                !separation( vxyz_ptmass(1:3,i), avg_vel_par(1:3) ) )
+       vel_contrast      = distance(vel_contrast_vec)
        cs                = cs_in_sphere / float(npart_insphere)
        rho_avg           = mass_in_sphere / (4./3. * dacos(-1.) * Rsphere**3)
-       racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Hoyle-Lyttleton radius???
-       mdot              = 4*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! Bondi mass accretion rate
+       racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Accretion radius
+       mdot              = 4.*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! Bondi mass accretion rate
     endif
 
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
@@ -1514,27 +1607,26 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
-    call logspace(Rcut,0.2,2.6)
-
-    do k = 1,sizeRcut
-       if (Rcut(k) > 1.) force_cut_vec(:,:,k) = fxyz_ptmass(:,:) ! Include force due to other sink if R > separation
-    enddo
-
+    call logspace(Rcut,0.4,2.5)
     !Rcut = Rcut * racc
     Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
+
+    !do k = 1,sizeRcut
+    !   if (Rcut(k) > 1.) force_cut_vec(:,:,k) = fxyz_ptmass(:,:) ! Include force due to other sink if R > separation
+    !enddo
+
     do j = 1,npart
        if (.not. isdead_or_accreted(xyzh(4,j))) then
           call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
                                     fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
           do k = 1,sizeRcut
-             if ( separation( xyzh(1:3,j),xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
+             if ( separation(xyzh(1:3,j), xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
                 call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
                                             fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
              endif
           enddo
        endif
     enddo
-    call cross(unit_vel, (/ 0., 0., 1. /), unit_vel_perp)
 
     ! Calculate angular momentum of companion wrt orbit CoM
     pos_wrt_CM = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
@@ -1545,29 +1637,28 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     ang_mom_old(i) = ang_mom(3) ! Set ang_mom_old for next dump
     time_old(i) = time
 
-    drag_force(1,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel)       * xyzmh_ptmass(4,i)
-    drag_force(2,i)  = dot_product(fxyz_ptmass(1:3,i),unit_vel_perp)  * xyzmh_ptmass(4,i)
+    drag_force(1,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(2,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep)      * xyzmh_ptmass(4,i)
     drag_force(3,i)  = Jdot / R2
     drag_force(4,i)  = mdot * vel_contrast
-    !drag_force(4,i)  = - rho_avg * (vel_contrast * abs(vel_contrast)) * pi * racc**2
     drag_force(5,i)  = mdot
     drag_force(6,i)  = vel_contrast
-    drag_force(7,i)  = cos_vector_angle(unit_vel, avg_vel_par)  * distance(avg_vel_par)
-    drag_force(8,i)  = cos_vector_angle(unit_vel, avg_vel_perp) * distance(avg_vel_perp)
+    drag_force(7,i)  = - dot_product(vel_contrast_vec, unit_sep_perp)
+    drag_force(8,i)  = - dot_product(vel_contrast_vec, unit_sep)
     drag_force(9,i)  = cs
     drag_force(10,i) = rho_avg
     drag_force(11,i) = racc
     drag_force(12,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-    drag_force(13,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(14,i) = dot_product(force_cut_vec(1:3,i,1),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(15,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(16,i) = dot_product(force_cut_vec(1:3,i,2),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(17,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(18,i) = dot_product(force_cut_vec(1:3,i,3),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(19,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(20,i) = dot_product(force_cut_vec(1:3,i,4),unit_vel_perp) * xyzmh_ptmass(4,i)
-    drag_force(21,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel)      * xyzmh_ptmass(4,i)
-    drag_force(22,i) = dot_product(force_cut_vec(1:3,i,5),unit_vel_perp) * xyzmh_ptmass(4,i)
+    drag_force(13,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(14,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(15,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(16,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(17,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(18,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(19,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(20,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(21,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(22,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep_perp) * xyzmh_ptmass(4,i)
 
     ! Write to output
     write (filename, "(A16,I0)") "sink_drag_", i
@@ -1576,6 +1667,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(columns)
 
 end subroutine gravitational_drag
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!
@@ -1966,8 +2058,9 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
 
 end subroutine write_time_file
 
+
 subroutine cross(a,b,c)
- ! Return the vector cross product of two 3d vectors
+ ! Returns vector product, c = a x b
  real,intent(in),dimension(3)  :: a,b
  real,intent(out),dimension(3) :: c
 
