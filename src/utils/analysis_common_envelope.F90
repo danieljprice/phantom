@@ -1453,13 +1453,13 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass
- real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp, &
+ real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,&
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp, &
-                                          pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere, &
+                                          pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere,&
                                           xyz_opp,unit_sep,unit_sep_perp,vel_contrast_vec
- real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere, &
-                                          mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi, &
-                                          fzi,phii,phitot,dtsinksink
+ real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere,&
+                                          mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi,fzi,&
+                                          phii,phitot,dtsinksink,interior_mass,sinksinksep,vKep
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
  logical, save                         :: iopposite,iacc
@@ -1479,7 +1479,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     endif
  endif
 
- ncols = 22
+ ncols = 25
  allocate(columns(ncols))
  allocate(drag_force(ncols,nptmass))
  ! Note: All forces adhere to the convention of being positive when directed along the component direction
@@ -1494,9 +1494,12 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
                                ! Positive (negative) when pointing backwards (forwards)
              'per. v. con.', & ! Component of velocity contrast perpendicular to tangent of instantaneous circular orbit of sink
                                ! Positive (negative) when pointing inwards (outwards) to the other point mass.
+             '        vKep', & ! Keplerian velocity of companion, sqrt(M(<r) / |r2-r1|)
+             ' mass inside', & ! Mass interior to current companion radius
              ' sound speed', &
              ' rho at sink', &
              '        racc', & ! Accretion radius
+             '  donor spin', & ! Spin angular velocity of donor, vKep / |r2-r1|
              'com-sink sep', &
              '   par cut 1', & ! Same as 'par. drag', but limited to particles within some radius from the sink
              '  perp cut 1', & ! Same as 'perp. drag', but limited to particles within some radius from the sink
@@ -1637,6 +1640,19 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     ang_mom_old(i) = ang_mom(3) ! Set ang_mom_old for next dump
     time_old(i) = time
 
+    ! Calculate Keplerian velocity
+    call set_r2func_origin(xyzmh_ptmass(1,3-i),xyzmh_ptmass(2,3-i),xyzmh_ptmass(3,3-i)) ! Order particles by distance from donor core
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+    sinksinksep = separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
+    interior_mass = xyzmh_ptmass(4,3-i) ! Include mass of donor core
+    do j = 1,npart
+       k = iorder(j)
+       sep = separation(xyzmh_ptmass(1,3-i), xyzh(1:3,k))
+       if (sep > sinksinksep) exit
+       interior_mass = interior_mass + particlemass
+    enddo
+    vKep = sqrt(interior_mass / sinksinksep)
+
     drag_force(1,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep_perp) * xyzmh_ptmass(4,i)
     drag_force(2,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep)      * xyzmh_ptmass(4,i)
     drag_force(3,i)  = Jdot / R2
@@ -1645,20 +1661,23 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(6,i)  = vel_contrast
     drag_force(7,i)  = - dot_product(vel_contrast_vec, unit_sep_perp)
     drag_force(8,i)  = - dot_product(vel_contrast_vec, unit_sep)
-    drag_force(9,i)  = cs
-    drag_force(10,i) = rho_avg
-    drag_force(11,i) = racc
-    drag_force(12,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-    drag_force(13,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep)      * xyzmh_ptmass(4,i)
-    drag_force(14,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep_perp) * xyzmh_ptmass(4,i)
-    drag_force(15,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep)      * xyzmh_ptmass(4,i)
-    drag_force(16,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep_perp) * xyzmh_ptmass(4,i)
-    drag_force(17,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep)      * xyzmh_ptmass(4,i)
-    drag_force(18,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep_perp) * xyzmh_ptmass(4,i)
-    drag_force(19,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep)      * xyzmh_ptmass(4,i)
-    drag_force(20,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep_perp) * xyzmh_ptmass(4,i)
-    drag_force(21,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep)      * xyzmh_ptmass(4,i)
-    drag_force(22,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(9,i)  = vKep
+    drag_force(10,i) = interior_mass
+    drag_force(11,i)  = cs
+    drag_force(12,i) = rho_avg
+    drag_force(13,i) = racc
+    drag_force(14,i) = vKep / sinksinksep
+    drag_force(15,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
+    drag_force(16,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(17,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(18,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(19,i) = - dot_product(force_cut_vec(1:3,i,2),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(20,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(21,i) = - dot_product(force_cut_vec(1:3,i,3),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(22,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(23,i) = - dot_product(force_cut_vec(1:3,i,4),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(24,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep)      * xyzmh_ptmass(4,i)
+    drag_force(25,i) = - dot_product(force_cut_vec(1:3,i,5),unit_sep_perp) * xyzmh_ptmass(4,i)
 
     ! Write to output
     write (filename, "(A16,I0)") "sink_drag_", i
