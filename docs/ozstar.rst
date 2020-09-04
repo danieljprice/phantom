@@ -32,7 +32,6 @@ load intel compilers, git, git-lfs and splash
    $ module load ifort/2016.2.181-gcc-6.4.0
    $ module load git/2.16.0
    $ module load git-lfs/2.4.0
-   $ module load splash/2.7.0
 
 Get phantom
 ~~~~~~~~~~~
@@ -75,10 +74,9 @@ contains the modules I want loaded every time I log in. For example:
 ::
 
    $ cat .modules
-   module load ifort/2016.2.181-gcc-6.4.0
-   module load git/2.16.0
-   module load git-lfs/2.4.0
-   module load splash/2.7.0
+   module load ifort
+   module load git
+   module load git-lfs
 
 Then, add the following lines to your ~/.bashrc
 
@@ -187,7 +185,7 @@ version that gets regularly updated in the shared project folder
 
 ::
 
-   /fred/oz015/splash/bin/ssplash
+   /fred/oz015/splash/bin/splash
 
 You can add this directory in your path by putting the following lines
 in your ~/.bashrc file:
@@ -195,6 +193,7 @@ in your ~/.bashrc file:
 ::
 
    export PATH=/fred/oz015/splash/bin:${PATH}
+   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/fred/oz015/splash/giza/lib
 
 more info
 ~~~~~~~~~
