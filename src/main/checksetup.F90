@@ -110,7 +110,7 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
-if ( (ieos == 10 .or. ieos == 12) .and. .not. store_temperature) then
+ if ( (ieos == 10 .or. ieos == 12) .and. .not. store_temperature) then
     print*,'WARNING! Using non-ideal EoS but not storing temperature'
     nwarn = nwarn + 1
  endif

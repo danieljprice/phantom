@@ -834,7 +834,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
           call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
           if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
        endif
-    ! if the core has NOT to be softened
+       ! if the core has NOT to be softened
     else
        ! sink particle core
        call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
