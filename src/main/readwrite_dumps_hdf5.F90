@@ -97,30 +97,27 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           phantom_version_minor,phantom_version_micro,        &
                           store_temperature,phantom_version_string,use_krome, &
                           store_dust_temperature,do_radiation,gr
- use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk, &
-                          gamma,polyk2,qfacdisc,isink
- use gitinfo,        only:gitsha
- use io,             only:nprocs,fatal,id,master,iprint
+ use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
+ use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes,    &
-                          alphaind,rhoh,divBsymm,maxphase,iphase,nptmass,      &
+                          alphaind,rhoh,divBsymm,iphase,nptmass,               &
                           xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,        &
                           divcurlv,divcurlB,poten,dustfrac,deltav,tstop,       &
-                          dustprop,temperature,VrelVf,dustgasprop,ndustsmall,  &
+                          dustprop,VrelVf,dustgasprop,ndustsmall,  &
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
                           ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_chem,      &
-                          dust_temp,rad,radprop
+                          dust_temp,rad,radprop,itemp,igasP,eos_vars
 #ifdef NUCLEATION
  use part,           only:nucleation
 #endif
 #ifdef IND_TIMESTEPS
- use part,           only:ibin,dt_in
+ use part,           only:ibin
 #endif
  use part,           only:gamma_chem
  use mpiutils,       only:reduce_mpi,reduceall_mpi
- use lumin_nsdisc,   only:beta
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax,C_cour,C_force
@@ -129,6 +126,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
  use extern_binary,  only:binary_posvel,a0,direction,accretedmass1,accretedmass2
  use extern_gwinspiral, only:Nstar
+ use lumin_nsdisc,   only:beta
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  logical,          intent(in) :: fulldump
@@ -138,9 +136,8 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  integer            :: i
  integer            :: ierr
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
- logical            :: use_gas,ind_timesteps,const_av,prdrag,isothermal
- real               :: ponrhoi,rhoi,spsoundi
- real, allocatable  :: pressure(:),dtin(:),beta_pr(:)
+ logical            :: ind_timesteps,const_av,prdrag,isothermal
+ real, allocatable  :: dtin(:),beta_pr(:)
  character(len=200) :: fileid,fstr,sstr
  real :: posmh(10)
  real :: vels(6)
@@ -200,59 +197,15 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  isothermal = .false.
 #endif
 
- if (maxphase==maxp) then
-    use_gas = .false.
- else
-    use_gas = .true.
- endif
-
  if (fulldump) then
-    allocate(pressure(npart),beta_pr(npart),dtin(npart))
+    allocate(beta_pr(npart),dtin(npart))
 
-    ! Compute pressure and beta_pr array
-    if (.not.done_init_eos) call init_eos(ieos,ierr)
-    !$omp parallel do default(none) &
-    !$omp shared(xyzh,vxyzu,ieos,npart,pressure,beta_pr,temperature,use_gas,prdrag) &
-    !$omp private(i,ponrhoi,spsoundi,rhoi)
-    do i=1,int(npart)
-       rhoi = rhoh(xyzh(4,i),get_pmass(i,use_gas))
-       if (maxvxyzu >=4 ) then
-          if (use_krome) then
-             call equationofstate(        &
-                ieos,                     &
-                ponrhoi,                  &
-                spsoundi,                 &
-                rhoi,                     &
-                xyzh(1,i),                &
-                xyzh(2,i),                &
-                xyzh(3,i),                &
-                eni=vxyzu(4,i),           &
-                gamma_local=gamma_chem(i) &
-             )
-          elseif (store_temperature) then
-             ! cases where the eos stores temperature (ie Helmholtz)
-             call equationofstate(        &
-                ieos,                     &
-                ponrhoi,                  &
-                spsoundi,                 &
-                rhoi,                     &
-                xyzh(1,i),                &
-                xyzh(2,i),                &
-                xyzh(3,i),                &
-                temperature(i)            &
-             )
-          else
-             call equationofstate(                                                   &
-                 ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i) &
-             )
-          endif
-       else
-          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-       endif
-       pressure(i) = ponrhoi*rhoi
-       if (prdrag) beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
-    enddo
-    !$omp end parallel do
+    ! Compute beta_pr array
+    if (prdrag) then
+       do i=1,int(npart)
+          beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
+       enddo
+    endif
 
     ! Compute dtind array
 #ifdef IND_TIMESTEPS
@@ -262,6 +215,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
        dtin = dtmax/2**ibin(1:npart)
     endif
 #endif
+
  endif
 
 ! Check if constant AV
@@ -394,7 +348,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            xyzh,         & !---------
                            vxyzu,        & ! Arrays
                            iphase,       & !
-                           pressure,     & !
+                           eos_vars,     & !
                            alphaind,     & !
                            dtin,         & !
                            poten,        & !
@@ -412,7 +366,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            VrelVf,       & !
                            dustgasprop,  & !
                            abundance,    & !
-                           temperature,  & !
                            divcurlv,     & !
                            luminosity,   & !
                            beta_pr,      & !
@@ -437,8 +390,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                                  Bxyz,         & !
                                  dustfrac,     & !
                                  dustprop,     & !
-                                 VrelVf,       & !
-                                 dustgasprop,  & !
                                  abundance,    & !
                                  luminosity,   & !
                                  rad,          & !--------
@@ -449,7 +400,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  call close_hdf5file(hdf5_file_id,ierr)
  if (ierr/=0) call fatal('write_fulldump_hdf5','could not close file')
 
- if (fulldump) deallocate(pressure,beta_pr,dtin)
+ if (fulldump) deallocate(beta_pr,dtin)
 
 end subroutine write_dump_hdf5
 
@@ -537,9 +488,9 @@ subroutine read_any_dump_hdf5(                                                  
                           nptmass,xyzmh_ptmass,vxyz_ptmass,ndustlarge,         &
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,    &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
-                          tstop,dustgasprop,VrelVf,temperature,abundance,      &
+                          dustgasprop,VrelVf,eos_vars,abundance,               &
                           periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_chem, &
-                          dust_temp,rad,radprop
+                          dust_temp,rad,radprop,igasP,itemp
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -724,6 +675,7 @@ subroutine read_any_dump_hdf5(                                                  
                        vxyzu,         &
                        xyzmh_ptmass,  &
                        vxyz_ptmass,   &
+                       eos_vars,      &
                        dtind,         &
                        alphaind,      &
                        poten,         &
@@ -732,10 +684,8 @@ subroutine read_any_dump_hdf5(                                                  
                        dustfrac,      &
                        deltav,        &
                        dustprop,      &
-                       tstop,         &
                        VrelVf,        &
                        dustgasprop,   &
-                       temperature,   &
                        abundance,     &
                        pxyzu,         &
                        gamma_chem,    &
