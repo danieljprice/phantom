@@ -15,9 +15,9 @@ module readwrite_dumps_hdf5
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, checkconserved, dim, eos, extern_binary,
-!   extern_gwinspiral, externalforces, gitinfo, io, lumin_nsdisc, memory,
-!   mpiutils, options, part, readwrite_dumps_common, setup_params,
-!   timestep, units, utils_dumpfiles_hdf5
+!   extern_gwinspiral, externalforces, io, lumin_nsdisc, memory, mpiutils,
+!   options, part, readwrite_dumps_common, setup_params, timestep, units,
+!   utils_dumpfiles_hdf5
 !
  use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  use utils_dumpfiles_hdf5,   only:create_hdf5file,         &
