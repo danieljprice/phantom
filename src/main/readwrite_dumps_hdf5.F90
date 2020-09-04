@@ -97,8 +97,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           phantom_version_minor,phantom_version_micro,        &
                           store_temperature,phantom_version_string,use_krome, &
                           store_dust_temperature,do_radiation,gr
- use eos,            only:ieos,equationofstate,done_init_eos,init_eos,polyk, &
-                          gamma,polyk2,qfacdisc,isink
+ use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,Bevol,Bxyz,npart,npartoftype,maxtypes,    &
@@ -138,7 +137,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  integer            :: ierr
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
  logical            :: ind_timesteps,const_av,prdrag,isothermal
- real, allocatable  :: pressure(:),dtin(:),beta_pr(:),temperature(:)
+ real, allocatable  :: dtin(:),beta_pr(:)
  character(len=200) :: fileid,fstr,sstr
  real :: posmh(10)
  real :: vels(6)
@@ -199,20 +198,14 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 #endif
 
  if (fulldump) then
-    allocate(pressure(npart),beta_pr(npart),dtin(npart),temperature(npart))
+    allocate(beta_pr(npart),dtin(npart))
 
-    ! Compute pressure, temperature and beta_pr array
-    if (.not.done_init_eos) call init_eos(ieos,ierr)
-
-    !$omp parallel do default(none) &
-    !$omp shared(xyzh,ieos,npart,pressure,beta_pr,temperature,prdrag,eos_vars) &
-    !$omp private(i)
-    do i=1,int(npart)
-       pressure(i) = eos_vars(igasP,i)
-       if (store_temperature) temperature(i) = eos_vars(itemp,i)
-       if (prdrag) beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
-    enddo
-    !$omp end parallel do
+    ! Compute beta_pr array
+    if (prdrag) then
+       do i=1,int(npart)
+          beta_pr(i) = beta(xyzh(1,i), xyzh(2,i), xyzh(3,i))
+       enddo
+    endif
 
     ! Compute dtind array
 #ifdef IND_TIMESTEPS
@@ -355,7 +348,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            xyzh,         & !---------
                            vxyzu,        & ! Arrays
                            iphase,       & !
-                           pressure,     & !
+                           eos_vars,     & !
                            alphaind,     & !
                            dtin,         & !
                            poten,        & !
@@ -373,7 +366,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            VrelVf,       & !
                            dustgasprop,  & !
                            abundance,    & !
-                           temperature,  & !
                            divcurlv,     & !
                            luminosity,   & !
                            beta_pr,      & !
@@ -408,7 +400,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  call close_hdf5file(hdf5_file_id,ierr)
  if (ierr/=0) call fatal('write_fulldump_hdf5','could not close file')
 
- if (fulldump) deallocate(pressure,beta_pr,dtin,temperature)
+ if (fulldump) deallocate(beta_pr,dtin)
 
 end subroutine write_dump_hdf5
 
@@ -683,6 +675,7 @@ subroutine read_any_dump_hdf5(                                                  
                        vxyzu,         &
                        xyzmh_ptmass,  &
                        vxyz_ptmass,   &
+                       eos_vars,      &
                        dtind,         &
                        alphaind,      &
                        poten,         &
@@ -693,7 +686,6 @@ subroutine read_any_dump_hdf5(                                                  
                        dustprop,      &
                        VrelVf,        &
                        dustgasprop,   &
-                       eos_vars(itemp,1:npart),&
                        abundance,     &
                        pxyzu,         &
                        gamma_chem,    &
