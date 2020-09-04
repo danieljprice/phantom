@@ -16,6 +16,8 @@ module utils_dumpfiles_hdf5
 !
 ! :Dependencies: utils_hdf5
 !
+ use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
+ use part,       only:eos_vars_label,igasP,itemp,maxirad
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
                       create_hdf5file,  &
@@ -43,16 +45,11 @@ module utils_dumpfiles_hdf5
 
  integer(HID_T), public :: hdf5_file_id
 
+ integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
+
  ! Ideally this section should come from Phantom modules.
- ! However, this module aims to be a library with no non-HDF5 dependencies.
- integer, parameter :: maxdustlarge_hdf5 = 50
- integer, parameter :: maxdustsmall_hdf5 = 50
- integer, parameter :: maxdusttypes_hdf5 = maxdustsmall_hdf5 + maxdustlarge_hdf5
- integer, parameter :: maxtypes_hdf5 = 7 + maxdustlarge_hdf5 - 1
- integer, parameter :: nabundances_hdf5 = 5
- integer, parameter :: nsinkproperties_hdf5 = 15
+ ! However, this module aims to be a library with minimal non-HDF5 dependencies.
  integer, parameter :: max_krome_nmols_hdf5 = 100
- integer, parameter :: maxirad_hdf5 = 1
  integer, parameter :: iext_binary_hdf5 = 3
  integer, parameter :: iext_gwinspiral_hdf5 = 14
  integer, parameter :: iext_corot_binary_hdf5 = 16
@@ -70,7 +67,7 @@ module utils_dumpfiles_hdf5
                           phantom_version_minor,         &
                           phantom_version_micro,         &
                           nparttot,                      &
-                          npartoftypetot(maxtypes_hdf5), &
+                          npartoftypetot(maxtypes),      &
                           iexternalforce,                &
                           ieos
     real               :: time,                          &
@@ -87,7 +84,7 @@ module utils_dumpfiles_hdf5
                           alphaB,                        &
                           polyk2,                        &
                           qfacdisc,                      &
-                          massoftype(maxtypes_hdf5),     &
+                          massoftype(maxtypes),          &
                           Bextx,                         &
                           Bexty,                         &
                           Bextz,                         &
@@ -101,9 +98,9 @@ module utils_dumpfiles_hdf5
                           etot_in,                       &
                           angtot_in,                     &
                           totmom_in,                     &
-                          mdust_in(maxdusttypes_hdf5),   &
-                          grainsize(maxdusttypes_hdf5),  &
-                          graindens(maxdusttypes_hdf5),  &
+                          mdust_in(maxdusttypes),        &
+                          grainsize(maxdusttypes),       &
+                          graindens(maxdusttypes),       &
                           udist,                         &
                           umass,                         &
                           utime,                         &
@@ -128,13 +125,13 @@ module utils_dumpfiles_hdf5
     logical :: got_iphase,                           &
                got_xyzh(4),                          &
                got_vxyzu(4),                         &
-               got_dustfrac(maxdusttypes_hdf5),      &
+               got_dustfrac(maxdusttypes),           &
                got_deltav,                           &
-               got_abund(nabundances_hdf5),          &
+               got_abund(nabundances),               &
                got_dt_in,                            &
                got_alpha,                            &
                got_poten,                            &
-               got_sink_data(nsinkproperties_hdf5),  &
+               got_sink_data(nsinkproperties),       &
                got_sink_vels(3),                     &
                got_Bxyz(3),                          &
                got_psi,                              &
@@ -144,7 +141,7 @@ module utils_dumpfiles_hdf5
                got_St,                               &
                got_VrelVf,                           &
                got_pxyzu(4),                         &
-               got_raden(maxirad_hdf5),              &
+               got_raden(maxirad),                   &
                got_kappa,                            &
                got_Tdust,                            &
                got_krome_mols(max_krome_nmols_hdf5), &
@@ -216,7 +213,7 @@ subroutine write_hdf5_header(file_id, hdr, extern, error)
  call write_to_hdf5(hdr%phantom_version_minor, 'minorv', group_id, error)
  call write_to_hdf5(hdr%phantom_version_micro, 'microv', group_id, error)
  call write_to_hdf5(hdr%nparttot, 'nparttot', group_id, error)
- call write_to_hdf5(hdr%npartoftypetot(1:maxtypes_hdf5), 'npartoftype', group_id, error)
+ call write_to_hdf5(hdr%npartoftypetot(1:maxtypes), 'npartoftype', group_id, error)
  call write_to_hdf5(hdr%iexternalforce, 'iexternalforce', group_id, error)
  call write_to_hdf5(hdr%ieos, 'ieos', group_id, error)
  call write_to_hdf5(hdr%time, 'time', group_id, error)
@@ -307,7 +304,7 @@ subroutine write_hdf5_arrays( &
    xyzh,                      &
    vxyzu,                     &
    iphase,                    &
-   pressure,                  &
+   eos_vars,                  &
    alphaind,                  &
    dtind,                     &
    poten,                     &
@@ -325,7 +322,6 @@ subroutine write_hdf5_arrays( &
    VrelVf,                    &
    dustgasprop,               &
    abundance,                 &
-   temperature,               &
    divcurlv,                  &
    luminosity,                &
    beta_pr,                   &
@@ -347,12 +343,11 @@ subroutine write_hdf5_arrays( &
  real,            intent(in) :: dtind(:),          &
                                 beta_pr(:),        &
                                 VrelVf(:),         &
-                                temperature(:),    &
                                 xyzh(:,:),         &
                                 vxyzu(:,:),        &
                                 Bxyz(:,:),         &
                                 Bevol(:,:),        &
-                                pressure(:),       &
+                                eos_vars(:,:),     &
                                 eta_nimhd(:,:),    &
                                 xyzmh_ptmass(:,:), &
                                 vxyz_ptmass(:,:),  &
@@ -400,10 +395,10 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(vxyzu(4,1:npart), 'u', group_id, error)
  endif
  if (ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) then
-    call write_to_hdf5(pressure(1:npart), 'pressure', group_id, error)
+    call write_to_hdf5(eos_vars(igasP,1:npart), eos_vars_label(igasP), group_id, error)
  endif
  if (array_options%store_temperature) then
-    call write_to_hdf5(temperature(1:npart), 'T', group_id, error)
+    call write_to_hdf5(eos_vars(itemp,1:npart), eos_vars_label(itemp), group_id, error)
  endif
  if (array_options%lightcurve) then
     call write_to_hdf5(luminosity(1:npart), 'luminosity', group_id, error)
@@ -769,6 +764,7 @@ subroutine read_hdf5_arrays( &
    vxyzu,                    &
    xyzmh_ptmass,             &
    vxyz_ptmass,              &
+   eos_vars,                 &
    dt_in,                    &
    alphaind,                 &
    poten,                    &
@@ -779,7 +775,6 @@ subroutine read_hdf5_arrays( &
    dustprop,                 &
    VrelVf,                   &
    dustgasprop,              &
-   temperature,              &
    abundance,                &
    pxyzu,                    &
    gamma_chem,               &
@@ -801,6 +796,7 @@ subroutine read_hdf5_arrays( &
                                  vxyzu(:,:),        &
                                  xyzmh_ptmass(:,:), &
                                  vxyz_ptmass(:,:),  &
+                                 eos_vars(:,:),     &
                                  Bxyz(:,:),         &
                                  Bevol(:,:),        &
                                  dustfrac(:,:),     &
@@ -808,7 +804,6 @@ subroutine read_hdf5_arrays( &
                                  dustprop(:,:),     &
                                  dustgasprop(:,:),  &
                                  VrelVf(:),         &
-                                 temperature(:),    &
                                  abundance(:,:),    &
                                  pxyzu(:,:),        &
                                  gamma_chem(:),     &
@@ -879,7 +874,7 @@ subroutine read_hdf5_arrays( &
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
  if (array_options%store_temperature) then
-    call read_from_hdf5(temperature, 'T', group_id, got_arrays%got_temp, error)
+    call read_from_hdf5(eos_vars(itemp,:), eos_vars_label(itemp), group_id, got_arrays%got_temp, error)
  endif
 
  ! General relativity
