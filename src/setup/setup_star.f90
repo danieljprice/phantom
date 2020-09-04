@@ -825,7 +825,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  if (iprofile==imesa) then
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
     ! if the core has to be softened
-    if (isoftcore /= 0) then	
+    if (isoftcore /= 0) then        
        if (isoftcore == 1) call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
        if ((isofteningopt==1) .or. (isofteningopt==3) .and. (isoftcore == 2)) call read_inopt(hdens,'hdens',db,errcount=nerr)    
        if ((isofteningopt==2) .or. (isofteningopt==3) .and. (isoftcore == 2)) call read_inopt(mcore,'mcore',db,errcount=nerr)
