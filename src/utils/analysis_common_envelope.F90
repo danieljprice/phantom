@@ -329,7 +329,6 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
              '  ube tot en'/)
 
  bound = 0.
-
  do i = 1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
@@ -343,7 +342,6 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
        ekini   = 0.
        ponrhoi = 0.
        rcrossmv = (/ 0., 0., 0. /)
-
     endif
 
 
@@ -359,7 +357,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
     bound(bound_i + 3) = bound(bound_i + 3) + etoti
 
-    ! Bound criterion INCLUDING thermal energy
+    ! Bound criterion INCLUDING internal energy
     if ((etoti < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = 9
     else
@@ -372,7 +370,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i + 3) = bound(bound_i + 3) + etoti
 
     ! Bound criterion INCLUDING enthalpy
-    if ((etoti + ponrhoi*particlemass < 0.0)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((etoti + ponrhoi*particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = 17
     else
        bound_i = 21
@@ -386,6 +384,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 
  call write_time_file('boundunbound_vs_time', columns, time, bound, ncols, dump_number)
  deallocate(columns)
+
 end subroutine bound_mass
 
 
@@ -1453,13 +1452,14 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass
- real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,&
-                                          com_xyz,com_vxyz,unit_vel,unit_vel_perp, &
+ real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,rot_in_sphere,&
+                                          com_xyz,com_vxyz,unit_vel,unit_vel_perp,&
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere,&
                                           xyz_opp,unit_sep,unit_sep_perp,vel_contrast_vec
  real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere,&
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi,fzi,&
-                                          phii,phitot,dtsinksink,interior_mass,sinksinksep,vKep
+                                          phii,phitot,dtsinksink,interior_mass,sinksinksep,&
+                                          vKep,avg_rot
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
  logical, save                         :: iopposite,iacc
@@ -1519,6 +1519,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     !       comment for the case of the companion only for clarity.
     fxyz_ptmass      = 0.
     vel_in_sphere    = 0.
+    rot_in_sphere    = 0.
     rho_avg          = 0.
     mdot             = 0.
     cs_in_sphere     = 0.
@@ -1530,6 +1531,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     vel_contrast_vec = 0.
     racc             = 0.
     cs               = 0.
+    avg_rot          = 0.
 
     ! Calculate directions
     call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3)) ! Direction along sink velocity
@@ -1583,9 +1585,13 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
           if (sep > Rsphere) exit
           vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
           cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
+          rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) / sep
        endif
     enddo
-    if (iopposite) vel_in_sphere = - vel_in_sphere ! Need to flip the vector
+    if (iopposite) then
+       vel_in_sphere = - vel_in_sphere ! Need to flip the vector
+       rot_in_sphere = - rot_in_sphere 
+    endif
     npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
     mass_in_sphere = npart_insphere * particlemass
 
@@ -1597,6 +1603,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        vel_contrast_vec  = avg_vel - vxyz_ptmass(1:3,i)!sign( distance(vxyz_ptmass(1:3,i)) - distance(avg_vel_par(1:3)), &
                                 !separation( vxyz_ptmass(1:3,i), avg_vel_par(1:3) ) )
        vel_contrast      = distance(vel_contrast_vec)
+       avg_rot           = dot_product(rot_in_sphere, -unit_sep_perp) / float(npart_insphere)
        cs                = cs_in_sphere / float(npart_insphere)
        rho_avg           = mass_in_sphere / (4./3. * dacos(-1.) * Rsphere**3)
        racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Accretion radius
@@ -1666,7 +1673,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     drag_force(11,i)  = cs
     drag_force(12,i) = rho_avg
     drag_force(13,i) = racc
-    drag_force(14,i) = vKep / sinksinksep
+    drag_force(14,i) = avg_rot
     drag_force(15,i) = separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
     drag_force(16,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep)      * xyzmh_ptmass(4,i)
     drag_force(17,i) = - dot_product(force_cut_vec(1:3,i,1),unit_sep_perp) * xyzmh_ptmass(4,i)
