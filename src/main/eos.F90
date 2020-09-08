@@ -516,6 +516,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
+ use dim,      only:do_radiation
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -617,6 +618,19 @@ subroutine init_eos(eos_type,ierr)
     !--MESA EoS initialisation
     !
     call init_eos_mesa(X_in,Z_in,ierr)
+    if (do_radiation) then
+       call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
+       ierr=2       !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
+    endif
+
+ case(12)
+    !
+    ! ideal plus radiation
+    !
+    if (do_radiation) then
+       call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
+       ierr = 2
+    endif
 
  case(15)
 
@@ -628,6 +642,8 @@ subroutine init_eos(eos_type,ierr)
 
  end select
  done_init_eos = .true.
+
+ if (do_radiation) call init_eos_mesa(X_in,Z_in,ierr)
 
 end subroutine init_eos
 

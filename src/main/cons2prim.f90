@@ -151,17 +151,19 @@ end subroutine cons2primall
 
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
-                           iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                           ndustsmall,itemp
- use eos,             only:equationofstate,ieos,gamma,get_temperature
- use radiation_utils, only:radiation_equation_of_state
- use dim,             only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                           do_radiation,nalpha,mhd_nonideal
- use nicil,           only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
- use io,              only:fatal,real4
- use cullendehnen,    only:get_alphaloc,xi_limiter
- use options,         only:alpha,alphamax,use_dustfrac
+ use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
+                             iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
+                             ndustsmall,itemp,ikappa
+ use eos,               only:equationofstate,ieos,gamma,get_temperature
+ use radiation_utils,   only:radiation_equation_of_state
+ use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
+                             do_radiation,nalpha,mhd_nonideal
+ use nicil,             only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
+ use io,                only:fatal,real4
+ use cullendehnen,      only:get_alphaloc,xi_limiter
+ use options,           only:alpha,alphamax,use_dustfrac
+ use mesa_microphysics, only:get_kappa_mesa
+ use units,             only:unit_density,unit_opacity
 
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
@@ -173,6 +175,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
  real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
  real         :: xi,yi,zi,hi
+ real         :: kapt,kapr,kap
  integer      :: iamtypei
  logical      :: iactivei,iamgasi,iamdusti
 
@@ -186,9 +189,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma,gamma_chem,n_R,n_electronT,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
+!$omp shared(unit_density,unit_opacity) &
 !$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
-!$omp private(xi,yi,zi,hi) &
+!$omp private(xi,yi,zi,hi,kapt,kapr,kap) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -224,14 +228,17 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (maxvxyzu >= 4) then
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
+             eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
           elseif (store_temperature) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=eos_vars(itemp,i))
           else
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
+             eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
           endif
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
+          eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
        endif
 
        eos_vars(igasP,i)     = p_on_rhogas*rhogas
@@ -240,8 +247,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        !--Getting radiation pressure from the radiation energy
        !
-       if (do_radiation) call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
-
+       if (do_radiation) then
+          call get_kappa_mesa(rhogas*unit_density,eos_vars(itemp,i),kap,kapt,kapr)
+          radprop(ikappa,i) = kap/unit_opacity
+          call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+       endif
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
        !
@@ -266,7 +276,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !--calculate Z_grain, n_electron and non-ideal MHD coefficients
           !
           if (mhd_nonideal) then
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
              Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
              call nicil_get_ion_n(rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
              if (ierr/=0) then

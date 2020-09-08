@@ -304,7 +304,7 @@ ifeq ($(SETUP), adiabaticdisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
-    MULTIRUNFILE= multirun.f90
+    RADIATION=yes
 endif
 
 ifeq ($(SETUP), lightcurvedisc)
