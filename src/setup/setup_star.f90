@@ -824,25 +824,27 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  ! core softening
  if (iprofile==imesa) then
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
-    ! if the core has to be softened
-    if (isoftcore /= 0) then
-       if (isoftcore == 1) call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
-       if ((isofteningopt==1) .or. (isofteningopt==3) .and. (isoftcore == 2)) call read_inopt(hdens,'hdens',db,errcount=nerr)
-       if ((isofteningopt==2) .or. (isofteningopt==3) .and. (isoftcore == 2)) call read_inopt(mcore,'mcore',db,errcount=nerr)
-       if (isoftcore > 0) then
-          call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
-          call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
-          if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
-       endif
-       ! if the core has NOT to be softened
-    else
-       ! sink particle core
+    select case(isoftcore)
+    case(0) ! sink particle core without softening
        call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
        if (isinkcore) then
           call read_inopt(mcore,'mcore',db,errcount=nerr)
           call read_inopt(hsoft,'hsoft',db,errcount=nerr)
        endif
-    endif
+    case(1) ! cubic core density profile
+       call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
+       if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(hdens,'hdens',db,errcount=nerr)
+       if ((isofteningopt==2) .or. (isofteningopt==3)) call read_inopt(mcore,'mcore',db,errcount=nerr)
+    case(2) ! fixed entropy softened core
+       call read_inopt(hdens,'hdens',db,errcount=nerr)
+       call read_inopt(mcore,'mcore',db,errcount=nerr)
+    end select
+
+    if (isoftcore > 0) then
+       call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
+       call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
+       if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
+    endif    
  endif
 
  ! star properties
