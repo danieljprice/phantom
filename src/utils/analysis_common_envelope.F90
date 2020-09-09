@@ -355,7 +355,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + etoti
+    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
 
     ! Bound criterion INCLUDING internal energy
     if ((etoti < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
@@ -367,9 +367,9 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + etoti
+    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
 
-    ! Bound criterion INCLUDING enthalpy
+    ! Bound criterion using enthalpy
     if ((etoti + ponrhoi*particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = 17
     else
@@ -379,7 +379,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + etoti
+    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
  enddo
 
  call write_time_file('boundunbound_vs_time', columns, time, bound, ncols, dump_number)
@@ -929,14 +929,15 @@ subroutine star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
  star_stability(imassfracout) = star_stability(imassout) / total_mass
  call write_time_file('star_stability', columns, time, star_stability, ncols, dump_number)
  deallocate(columns)
+
 end subroutine star_stabilisation_suite
 
 
-
-
-
-
-!!!!! Print simulation parameters !!!!!
+!----------------------------------------------------------------
+!+
+!  Print simulation parameters
+!+
+!----------------------------------------------------------------
 subroutine print_simulation_parameters(num, npart, particlemass)
  integer, intent(in)            :: npart, num
  real, intent(in)               :: particlemass
@@ -951,6 +952,7 @@ subroutine print_simulation_parameters(num, npart, particlemass)
  do i=1,nptmass
     write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
  enddo
+ ! Add sink separation
 
  write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
@@ -1701,6 +1703,8 @@ end subroutine gravitational_drag
 
 subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
  ! Calculates kinetic, potential and internal energy of a gas particle
+ ! Warning: Do not sum epoti or etoti as it is to obtain a total energy; this would not give the correct
+ !          total energy due to complications related to double-counting.
  use ptmass, only:get_accel_sink_gas
  use part,   only:nptmass
  real, intent(in)                       :: particlemass
