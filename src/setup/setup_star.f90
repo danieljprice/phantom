@@ -844,7 +844,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        call read_inopt(unsoftened_profile,'unsoftened_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
        if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
-    endif    
+    endif
  endif
 
  ! star properties
