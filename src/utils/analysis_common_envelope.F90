@@ -298,6 +298,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
  real, dimension(3)             :: rcrossmv
  real, dimension(24)            :: bound
  integer                        :: i,bound_i,ncols
+ integer, parameter             :: ib=1,ibt=9,ibe=17
  character(len=17), allocatable :: columns(:)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -340,6 +341,8 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
        etoti   = 0.
        epoti   = 0.
        ekini   = 0.
+       einti   = 0.
+       phii    = 0.
        ponrhoi = 0.
        rcrossmv = (/ 0., 0., 0. /)
     endif
@@ -347,9 +350,9 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 
     ! Bound criterion
     if ((epoti + ekini < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
-       bound_i = 1
+       bound_i = ib
     else
-       bound_i = 5 ! Unbound
+       bound_i = ib + 4 ! Unbound
     endif
 
     bound(bound_i)     = bound(bound_i)     + 1
@@ -359,9 +362,9 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 
     ! Bound criterion INCLUDING internal energy
     if ((etoti < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
-       bound_i = 9
+       bound_i = ibt
     else
-       bound_i = 13
+       bound_i = ibt + 4
     endif
 
     bound(bound_i)     = bound(bound_i)     + 1
@@ -371,9 +374,9 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
 
     ! Bound criterion using enthalpy
     if ((etoti + ponrhoi*particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
-       bound_i = 17
+       bound_i = ibe
     else
-       bound_i = 21
+       bound_i = ibe + 4
     endif
 
     bound(bound_i)     = bound(bound_i)     + 1
@@ -1457,26 +1460,33 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,rot_in_sphere,&
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp,&
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere,&
-                                          xyz_opp,unit_sep,unit_sep_perp,vel_contrast_vec
+                                          sphere_centre,unit_sep,unit_sep_perp,vel_contrast_vec
  real                                  :: vel_contrast,mdot,sep,Jdot,R2,Rsphere,cs_in_sphere,&
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi,fzi,&
                                           phii,phitot,dtsinksink,interior_mass,sinksinksep,&
-                                          vKep,avg_rot
+                                          vKep,avg_rot,Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),&
+                                          dR,dz,Rsinksink,avging_volume
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
- logical, save                         :: iopposite,iacc
+ logical, save                         :: iacc
+ integer, save                         :: iavgopt
 
  ! OPTIONS
  if (dump_number == 0) then
-    iopposite = .true.
-    call prompt('Average quantities on opposite side of sink orbit?',iopposite)
+    print*,'Options for averaging gas properties:'
+    print "(5(/,a))",'1. Average over sphere centred on the companion (not recommended)',&
+                     '2. Average over sphere centred on opposite side of orbit wrt primary core',&
+                     '3. Average over annulus',&
+                     '4. Average over annulus but excluding sphere centred on the companion',&
+                     '5. Average over sphere twice as far on the opposite side of the orbit'
+    iavgopt = 2
+    call prompt('Select option above : ',iavgopt,1,5)
     write(*,"(a,i2)") 'Using ieos = ',ieos
     if ( xyzmh_ptmass(ihacc,2) > 0 ) then
        write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
        write(*,"(a)") 'Will analyse accretion'
        iacc = .true.
     else
-       write(*,"(a)") 'Companion has no accretion radius. Will not analyse accretion.'
        iacc = .false.
     endif
  endif
@@ -1526,6 +1536,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     mdot             = 0.
     cs_in_sphere     = 0.
     mass_in_sphere   = 0.
+    npart_insphere   = 0.
     avg_vel          = 0.
     avg_vel_par      = 0.
     avg_vel_perp     = 0.
@@ -1558,44 +1569,59 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        ! This should actually be -dtmax in the infile
     endif
 
-    ! Get order of particles from closest to farthest to centre of averaging sphere
-    if (iopposite) then
-       ! Use companion position on the opposite side of orbit
-       xyz_opp = 2.*xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
-       call set_r2func_origin(xyz_opp(1),xyz_opp(2),xyz_opp(3))
-    else
-       ! Use companion position
-       call set_r2func_origin(xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
-    endif
-
-    call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
-
-    ! Sum velocities, cs, and densities of all particles within radius 'sep' from
-    ! the companion, where 'sep' is the distance between the companion and the
-    ! orbit CoM
-    Rsphere = 0.2 * separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i)) !separation(com_xyz(1:3),xyzmh_ptmass(1:3,i))
-    do j = 1,npart
-       ! Only use particles within the averaging sphere
-       k = iorder(j)
-       if (.not. isdead_or_accreted(xyzh(4,k))) then
-          if (iopposite) then
-             sep = separation(xyzh(1:3,k),xyz_opp)
-          else
-             sep = separation(xyzh(1:3,k),xyzmh_ptmass(1:3,i))
+    ! If averaging over a sphere, get order of particles from closest to farthest sphere centre
+    if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5)) then
+       select case (iavgopt)
+       case(1) ! Use companion position
+          sphere_centre = xyzmh_ptmass(1:3,i)
+       case(2) ! Use companion position on the opposite side of orbit
+          sphere_centre = 2.*xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
+       case(5) ! Averaging twice as far on opposite side of orbit
+          sphere_centre = 2.*(xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i)) ! Just r1 - 2(r2 - r1)
+       end select
+       call set_r2func_origin(sphere_centre(1),sphere_centre(2),sphere_centre(3))
+       call indexxfunc(npart,r2func_origin,xyzh,iorder)
+       
+       ! Sum velocities, cs, and densities of all particles within averaging sphere
+       Rsphere = 0.2 * separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
+       do j = 1,npart
+          k = iorder(j) ! Only use particles within the averaging sphere
+          if (.not. isdead_or_accreted(xyzh(4,k))) then
+             sep = separation(xyzh(1:3,k), sphere_centre)
+             if (sep > Rsphere) exit
+             vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
+             cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
+             rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) /&
+                                  separation(xyzh(1:3,k),xyzmh_ptmass(1:3,3-i)) ! To-do: use azimuthal velocity and projected sep
           endif
-          if (sep > Rsphere) exit
-          vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
-          cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
-          rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) / sep
+       enddo
+       npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
+       mass_in_sphere = npart_insphere * particlemass
+       if ((iavgopt == 2) .or. (iavgopt == 5)) then ! Need to flip the vectors
+          vel_in_sphere = - vel_in_sphere 
+          rot_in_sphere = - rot_in_sphere 
        endif
-    enddo
-    if (iopposite) then
-       vel_in_sphere = - vel_in_sphere ! Need to flip the vector
-       rot_in_sphere = - rot_in_sphere 
+
+    elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
+       Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
+       zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
+       Rsinksink = separation(xyzmh_ptmass(1:2,i), xyzmh_ptmass(1:2,3-i)) ! [(x2-x1)^2 + (y2-y1)^2]^0.5
+       if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
+       dR = 0.2*Rsinksink
+       dz = 0.2*Rsinksink
+       do k = 1,npart
+          if ( (iavgopt == 4) .and. (separation(xyzh(1:3,k), xyzmh_ptmass(1:3,i)) < Rsphere) ) cycle
+          if ( (abs(Rarray(k) - Rsinksink) < 0.5*dR) .and.&
+               (abs(zarray(k) - xyzmh_ptmass(3,3-i)) < 0.5*dz) ) then
+                vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
+                cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
+                rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) /&
+                                     separation(xyzh(1:3,k),xyzmh_ptmass(1:3,3-i))
+                npart_insphere     = npart_insphere + 1
+          endif
+       enddo
+       mass_in_sphere = npart_insphere * particlemass
     endif
-    npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
-    mass_in_sphere = npart_insphere * particlemass
 
     ! Average within sphere
     if (npart_insphere > 0) then
@@ -1607,7 +1633,15 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        vel_contrast      = distance(vel_contrast_vec)
        avg_rot           = dot_product(rot_in_sphere, -unit_sep_perp) / float(npart_insphere)
        cs                = cs_in_sphere / float(npart_insphere)
-       rho_avg           = mass_in_sphere / (4./3. * dacos(-1.) * Rsphere**3)
+       if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5)) then
+          avging_volume = 4./3.*pi*Rsphere**3
+       elseif (iavgopt == 3) then
+          avging_volume  = 2.*pi * Rsinksink * dR * dz ! annulus
+       elseif (iavgopt == 4) then
+          avging_volume  = 2.*pi * Rsinksink * dR * dz ! annulus
+          avging_volume  = avging_volume - 0.4*dR*dz*Rsinksink !  subtract sphere volume
+       endif
+       rho_avg           = mass_in_sphere / avging_volume
        racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Accretion radius
        mdot              = 4.*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! Bondi mass accretion rate
     endif
@@ -1616,7 +1650,6 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     force_cut_vec = 0.
     fxyz_ptmass = 0.
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
-
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
     call logspace(Rcut,0.4,2.5)
