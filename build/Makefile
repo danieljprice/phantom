@@ -1711,7 +1711,7 @@ SRCPOT=${SRCPOTS}
 endif
 
 ifeq ($(GR),yes)
-   SRCPOT=extern_gr.F90 externalforces_gr.F90
+   SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
    SRCMETRIC= metric_${METRIC}.f90
@@ -1726,7 +1726,7 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+   SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif

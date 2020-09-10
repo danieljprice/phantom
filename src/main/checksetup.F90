@@ -37,7 +37,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation,store_temperature
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
@@ -110,6 +110,10 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
+ if ( (ieos == 10 .or. ieos == 12) .and. .not. store_temperature) then
+    print*,'WARNING! Using non-ideal EoS but not storing temperature'
+    nwarn = nwarn + 1
+ endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
