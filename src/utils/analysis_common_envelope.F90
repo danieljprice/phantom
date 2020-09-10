@@ -1457,7 +1457,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass
- real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,rot_in_sphere,&
+ real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,&
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp,&
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,vel_in_sphere,&
                                           sphere_centre,unit_sep,unit_sep_perp,vel_contrast_vec
@@ -1465,7 +1465,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
                                           mass_in_sphere,rho_avg,cs,racc,fonrmax,fxi,fyi,fzi,&
                                           phii,phitot,dtsinksink,interior_mass,sinksinksep,&
                                           vKep,avg_rot,Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),&
-                                          dR,dz,Rsinksink,avging_volume
+                                          dR,dz,Rsinksink,avging_volume,omega,rot_in_sphere
  real, dimension(:), allocatable       :: Rcut
  real, dimension(4,maxptmass,5)        :: force_cut_vec
  logical, save                         :: iacc
@@ -1474,13 +1474,14 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  ! OPTIONS
  if (dump_number == 0) then
     print*,'Options for averaging gas properties:'
-    print "(5(/,a))",'1. Average over sphere centred on the companion (not recommended)',&
+    print "(6(/,a))",'1. Average over sphere centred on the companion (not recommended)',&
                      '2. Average over sphere centred on opposite side of orbit wrt primary core',&
                      '3. Average over annulus',&
                      '4. Average over annulus but excluding sphere centred on the companion',&
-                     '5. Average over sphere twice as far on the opposite side of the orbit'
+                     '5. Average over sphere twice as far on the opposite side of the orbit',&
+                     '6. Average over sphere half as far on the opposite side of the orbit'
     iavgopt = 2
-    call prompt('Select option above : ',iavgopt,1,5)
+    call prompt('Select option above : ',iavgopt,1,6)
     write(*,"(a,i2)") 'Using ieos = ',ieos
     if ( xyzmh_ptmass(ihacc,2) > 0 ) then
        write(*,"(a,f13.7,a)") 'Companion has accretion radius = ', xyzmh_ptmass(ihacc,2), '(code units)'
@@ -1570,7 +1571,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     endif
 
     ! If averaging over a sphere, get order of particles from closest to farthest sphere centre
-    if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5)) then
+    if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
        select case (iavgopt)
        case(1) ! Use companion position
           sphere_centre = xyzmh_ptmass(1:3,i)
@@ -1578,6 +1579,8 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
           sphere_centre = 2.*xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
        case(5) ! Averaging twice as far on opposite side of orbit
           sphere_centre = 2.*(xyzmh_ptmass(1:3,3-i) - xyzmh_ptmass(1:3,i)) ! Just r1 - 2(r2 - r1)
+       case(6) ! Averaging half as far on opposite side of orbit
+          sphere_centre = 1.5*xyzmh_ptmass(1:3,3-i) - 0.5*xyzmh_ptmass(1:3,i) ! Just r1 - 0.5*(r2 - r1)
        end select
        call set_r2func_origin(sphere_centre(1),sphere_centre(2),sphere_centre(3))
        call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -1591,16 +1594,13 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
              if (sep > Rsphere) exit
              vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
              cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
-             rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) /&
-                                  separation(xyzh(1:3,k),xyzmh_ptmass(1:3,3-i)) ! To-do: use azimuthal velocity and projected sep
+             call get_gas_omega(xyzmh_ptmass(1:3,3-i),vxyz_ptmass(1:3,3-i),xyzh(1:3,k),vxyzu(1:3,k),omega)
+             rot_in_sphere      = rot_in_sphere + omega
           endif
        enddo
        npart_insphere = j-1 ! Number of (unaccreted) particles in the sphere
        mass_in_sphere = npart_insphere * particlemass
-       if ((iavgopt == 2) .or. (iavgopt == 5)) then ! Need to flip the vectors
-          vel_in_sphere = - vel_in_sphere 
-          rot_in_sphere = - rot_in_sphere 
-       endif
+       if ((iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) vel_in_sphere = - vel_in_sphere ! To-do: get rid of this line
 
     elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
        Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
@@ -1615,8 +1615,8 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
                (abs(zarray(k) - xyzmh_ptmass(3,3-i)) < 0.5*dz) ) then
                 vel_in_sphere(1:3) = vel_in_sphere(1:3) + vxyzu(1:3,k)
                 cs_in_sphere       = cs_in_sphere + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu(:,k))
-                rot_in_sphere      = rot_in_sphere + (vxyzu(1:3,k) - vxyz_ptmass(1:3,3-i)) /&
-                                     separation(xyzh(1:3,k),xyzmh_ptmass(1:3,3-i))
+                call get_gas_omega(xyzmh_ptmass(1:3,3-i),vxyz_ptmass(1:3,3-i),xyzh(1:3,k),vxyzu(1:3,k),omega)
+                rot_in_sphere      = rot_in_sphere + omega
                 npart_insphere     = npart_insphere + 1
           endif
        enddo
@@ -1631,9 +1631,9 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        vel_contrast_vec  = avg_vel - vxyz_ptmass(1:3,i)!sign( distance(vxyz_ptmass(1:3,i)) - distance(avg_vel_par(1:3)), &
                                 !separation( vxyz_ptmass(1:3,i), avg_vel_par(1:3) ) )
        vel_contrast      = distance(vel_contrast_vec)
-       avg_rot           = dot_product(rot_in_sphere, -unit_sep_perp) / float(npart_insphere)
+       avg_rot           = rot_in_sphere / float(npart_insphere)
        cs                = cs_in_sphere / float(npart_insphere)
-       if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5)) then
+       if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
           avging_volume = 4./3.*pi*Rsphere**3
        elseif (iavgopt == 3) then
           avging_volume  = 2.*pi * Rsinksink * dR * dz ! annulus
@@ -1733,6 +1733,27 @@ end subroutine gravitational_drag
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!----------------------------------------------------------------
+!+
+!  Calculate the angular velocity of an envelope gas particle
+!  relative to the donor core 
+!+
+!----------------------------------------------------------------
+subroutine get_gas_omega(xyz_core,vxyz_core,xyzi,vxyzi,omega)
+ real, intent(in)  :: xyz_core(1:3),vxyz_core(1:3),xyzi(1:3),vxyzi(1:3)
+ real, intent(out) :: omega
+ real              :: vphi,Rmag,R(1:2),phi_unitvec(1:3),R_unitvec(1:3)
+ 
+ R = xyzi(1:2) - xyz_core(1:2) ! Separation projected onto z = 0 plane
+ Rmag = sqrt(dot_product(R,R))
+ R_unitvec = (/ R / Rmag, 0. /)
+ call cross((/0.,0.,1./), R_unitvec, phi_unitvec) ! phi = z x R
+ vphi = dot_product(vxyzi - vxyz_core, phi_unitvec)
+ omega = vphi / Rmag
+
+end subroutine get_gas_omega
+
 
 subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
  ! Calculates kinetic, potential and internal energy of a gas particle
