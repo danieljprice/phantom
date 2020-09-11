@@ -91,6 +91,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 ! Read in input parameters from file (if it exists)
  call read_analysis_options(dumpfile)
 
+! Print warning
+ if (checkbound) then
+    print*, '*************************************************************'
+    print*, '*                                                           *'
+    print*, '*                         WARNING!!!                        *'
+    print*, '*                                                           *'
+    print*, '*     Potential energy of a clump is the sum of poten,      *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Npart Gm_jm_i/r_ij         *'
+    print*, '*     rather than being the potential of just the clump,    *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Nclump Gm_jm_i/r_ij        *'
+    print*, '*     Therefore the potential energy is much too large!     *'
+    print*, '*     Consider using analysis_clumpfindTD.F90               *'
+    print*, '*                                                           *'
+    print*, '*************************************************************'
+ endif
+
 ! Skip small dumps (as they do not include velocity data)
  if (skipsmalldumps .and. .not.opened_full_dump) then
     print*, 'Skipping clumpfind analysis for small dumps (velocity data missing)'
