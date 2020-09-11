@@ -5,7 +5,7 @@ Apply for an account at http://nci.org.au
 
 If you are in Daniel Price’s research group, request to join project “fu7”
 
-Log in 
+Log in
 -------
 
 ::
@@ -28,9 +28,9 @@ Mine has::
    export MAXP=2000000
    ulimit -s unlimited
    source ~/.modules
-  
+
 If you are using phantom+mcfost, you will need the following lines::
-   
+
    export MCFOST_DIR=/scratch/fu7/mcfost-src/
    export MCFOST_AUTO_UPDATE=0
    export MCFOST_INSTALL=/scratch/fu7/mcfost/
@@ -63,16 +63,15 @@ Finally, make a shortcut to the /scratch filesystem::
 Get phantom
 -----------
 
-Clone a copy of phantom into your home directory and install git-lfs::
+Clone a copy of phantom into your home directory::
 
    $ cd $HOME
    $ git clone https://github.com/danieljprice/phantom.git
    $ cd phantom
-   $ git lfs install
 
 Run a calculation
 ------------------
-   
+
 then make a subdirectory for the name of the calculation you want to run
 (e.g. tde)::
 
