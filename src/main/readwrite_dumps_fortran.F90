@@ -1602,6 +1602,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use dump_utils,     only:extract
+ use dust,           only:grainsizecgs,graindenscgs
+ use units,          only:unit_density,udist
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile,nptmass
@@ -1746,6 +1748,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     call extract('graindens',graindens(1:ndusttypes),hdr,ierrs(2))
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
+       grainsize(1) = grainsizecgs/udist
+       graindens(1) = graindenscgs/unit_density
     endif
  endif
 
