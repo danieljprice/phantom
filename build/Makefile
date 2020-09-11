@@ -870,8 +870,8 @@ ifeq ($(SETUP), jet)
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
     DUST=no
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), jetnimhd)
@@ -1808,7 +1808,7 @@ cleanutils: cleansetup cleananalysis \
             cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanphantom2pdf-amr cleansplitpart \
-            cleanphantom2struct cleanphantomevcompare cleanlibphantom
+            cleanphantom2struct cleanphantomevcompare cleanlibphantom cleanphantomsinks
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -2247,6 +2247,19 @@ phantomevcompare: $(OBJEVC)
 
 cleanphantomevcompare:
 	rm -f $(BINDIR)/phantomevcompare
+
+#----------------------------------------------------
+# utility to extract sink information from a master file
+#
+.PHONY: phantomsinks
+phantomsinks: phantomextractsinks.o
+	@echo ""
+	@echo "phantomsinks: extracting sink information!"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJEVC)
+
+cleanphantomsinks:
+	rm -f $(BINDIR)/phantomextractsinks
 
 #----------------------------------------------------
 # these are the sources for the multirun utility
