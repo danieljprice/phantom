@@ -49,7 +49,8 @@ end subroutine test_part
 !----------------------------------------------------------
 subroutine test_accrete_and_kill_routines(ntests, npass)
  use io,        only:id,master
- use part,      only:xyzh,npartoftype,npart,periodic,init_part,shuffle_part
+ use part,      only:xyzh,npartoftype,npart,periodic,init_part,shuffle_part,&
+                     igas,isetphase,iphase,maxphase,maxp
  use part,      only:kill_particle,count_dead_particles,isdead_or_accreted, &
                      accrete_particles_outside_sphere,delete_dead_or_accreted_particles
  use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
@@ -77,6 +78,7 @@ subroutine test_accrete_and_kill_routines(ntests, npass)
                   hfact_default,npart,xyzh,periodic,mask=i_belong)
  nfailed = 0
  npartoftype(1) = npart
+ if (maxphase==maxp) iphase(1:npart) = isetphase(igas,.true.)
  !
  ! accrete particles outside r=1
  !
