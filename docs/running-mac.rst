@@ -23,11 +23,6 @@ You will need:
 
 -  A copy of `splash <http://users.monash.edu.au/~dprice/splash>`__
 
--  A reasonably up-to-date copy of git (Large data files in the
-   phantom/data directory are handled using `git’s large file
-   storage <https://git-lfs.github.com>`__. A recent version of git is
-   needed to retrieve these correctly when you \`git clone’)
-
 The easiest way to install the last three is to first install either
 `Homebrew <https://brew.sh>`__ or `Macports <http://macports.org>`__.
 Using homebrew you can simply type:
@@ -45,38 +40,6 @@ How to install phantom
 
 Once you have the above, you can just follow the regular :doc:`getting
 started guide <running-first-calculation>`.
-
-Known issues / troubleshooting
-------------------------------
-
-*Issue*: Default git on Mac does not allow git-lfs, resulting in the
-error
-
-::
-
-   git-lfs filter-process: git-lfs: command not found
-   fatal: the remote end hung up unexpectedly
-   warning: Clone succeeded, but checkout failed.
-   You can inspect what was checked out with ‘git status’.
-   and retry the checkout with ‘git checkout -f HEAD’
-
-*Solution:* Use homebrew or macports to install the git-lfs package:
-
-::
-
-   brew install git-lfs
-
-OR
-
-::
-
-   port install git-lfs
-
-followed by
-
-::
-
-   git lfs install
 
 
 *Issue*: Sometimes if you installed gfortran from binary (which installs
