@@ -18,7 +18,7 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checkconserved, dim, dump_utils, eos,
+! :Dependencies: boundary, checkconserved, dim, dump_utils, dust, eos,
 !   externalforces, fileutils, io, krome_user, lumin_nsdisc, memory, mpi,
 !   mpiutils, options, part, readwrite_dumps_common, setup_params,
 !   sphNGutils, timestep, units
