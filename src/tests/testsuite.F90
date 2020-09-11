@@ -18,8 +18,9 @@ module test
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
 !   testcorotate, testderivs, testdust, testeos, testexternf, testgeometry,
 !   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
-!   testkernel, testlink, testmath, testnimhd, testptmass, testradiation,
-!   testrwdump, testsedov, testsetdisc, testsmol, teststep, timing
+!   testkernel, testlink, testmath, testnimhd, testpart, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsmol, teststep,
+!   timing
 !
  implicit none
  public :: testsuite
