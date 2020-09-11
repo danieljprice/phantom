@@ -761,11 +761,10 @@ end subroutine finalise
 !----------------------------------------------------------------
 
 subroutine endrun
- use io,       only:iprint,ievfile,iscfile,ipafile,imflow,ivmflow,ibinpos,igpos
+ use io,       only:iprint,ievfile,iskfile,iscfile,ipafile,imflow,ivmflow,ibinpos,igpos
  use timing,   only:printused
  use part,     only:nptmass
  use eos,      only:ieos,finish_eos
- use ptmass,   only:finish_ptmass
  integer           :: ierr
  character(len=10) :: finishdate, finishtime
 
@@ -803,10 +802,9 @@ subroutine endrun
  close(unit=ibinpos)
  close(unit=igpos)
 
- if (iscfile > 0) close(unit=iscfile)
+ if (nptmass > 0) close(unit=iskfile)
  if (ipafile > 0) close(unit=ipafile)
-
- call finish_ptmass(nptmass)
+ if (iscfile > 0) close(unit=iscfile)
 
 end subroutine endrun
 

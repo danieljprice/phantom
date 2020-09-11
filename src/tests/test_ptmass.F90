@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass)
  use step_lf_global,  only:step,init_step
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
-                           ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
+                           ptmass_create,h_acc,get_accel_sink_gas,f_acc, &
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
@@ -593,7 +593,7 @@ subroutine test_ptmass(ntests,npass)
        call update_test_scores(ntests,nfailed,npass)
 
        iverbose = 0
-       call finish_ptmass(nptmass)
+       close(iskfile)
     enddo
  endif testcreatesink
 
@@ -602,14 +602,12 @@ subroutine test_ptmass(ntests,npass)
 
  ! clean up temporary files
  itmp = 201
- do i=iskfile+1,iskfile+2    ! we used 2 point masses in tests above
-    close(i,iostat=ierr)     ! close file unit numbers if they are already open
-    write(filename,"(i3)") i
-    filename = 'fort.'//trim(adjustl(filename))
-    open(unit=itmp,file=filename,status='old',iostat=ierr)
-    close(itmp,status='delete',iostat=ierr)
- enddo
- open(unit=itmp,file='SinkSink0001N00.ev',status='old',iostat=ierr)
+ close(iskfile,iostat=ierr)
+ write(filename,"(i3)") iskfile
+ filename = 'fort.'//trim(adjustl(filename))
+ open(unit=itmp,file=filename,status='old',iostat=ierr)
+ close(itmp,status='delete',iostat=ierr)
+ open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
