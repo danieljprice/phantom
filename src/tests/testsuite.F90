@@ -40,6 +40,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
  use testsmol,     only:test_smol
+ use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
@@ -69,7 +70,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation
+ logical :: dogr,doradiation,dopart
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -95,6 +96,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  testall    = .false.
  dokernel   = .false.
  dolink     = .false.
+ dopart     = .false.
  dokdtree   = .false.
  doderivs   = .false.
  dostep     = .false.
@@ -119,6 +121,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
+ if (index(string,'part')      /= 0) dopart    = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
  if (index(string,'directsum') /= 0) dogravity = .true.
  if (index(string,'dust')      /= 0) dodust    = .true.
@@ -133,7 +136,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'rad')       /= 0) doradiation = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
-               doptmass,docooling,dogeom,dogr,dosmol,doradiation/))
+               doptmass,docooling,dogeom,dogr,dosmol,doradiation,dopart/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -190,6 +193,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dolink.or.testall) then
     call test_link(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of part module
+!
+ if (dopart .or. testall) then
+    call test_part(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

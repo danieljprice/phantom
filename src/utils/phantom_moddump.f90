@@ -122,6 +122,11 @@ program phantommoddump
  elseif (ierr /= 0) then
     stop 'error reading dumpfile'
  endif
+ call check_setup(nerr,nwarn,restart=.true.)
+ if (nwarn > 0) call warning('moddump','warnings from original setup',var='warnings',ival=nwarn)
+ if (nerr > 0) call warning('moddump','ERRORS in original setup',var='errors',ival=nerr)
+!
+!--modify the dump file
 !
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  get_conserv = 1.
