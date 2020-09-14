@@ -138,13 +138,15 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
 
 end subroutine set_sphere
 
-subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
-                         ierr,nptot,mask)
-!
+!-----------------------------------------------------------------------
+!+
 ! set up uniform spherical particle distribution using Monte Carlo particle
 ! placement. Particles are placed in pairs so the distribution
 ! is symmetric about the origin
-!
+!+
+!-----------------------------------------------------------------------
+subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
+                         ierr,nptot,mask)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  integer,          intent(in)    :: id,master,np_requested
@@ -235,10 +237,12 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  real,             intent(out)   :: psep,xyzh(:,:)
  integer(kind=8),  intent(inout) :: npart_total
  integer,          intent(out)   :: ierr
+ integer,          parameter     :: itermax = 100
  procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
- integer                         :: nps_lo,nps_hi,npr_lo,npr_hi,test_region,iter,nold(4)
+ integer                         :: i,iter,test_region,nps_lo,nps_hi,npr_lo,npr_hi
  integer                         :: npin,npmax,npart0,nx,np,dn
+ integer                         :: ninout(2,itermax),nold(4)
  logical                         :: iterate_to_get_nps
  !
  !--Initialise values
@@ -263,16 +267,18 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  !
  !--Perform the iterations
  !
- do while (iterate_to_get_nps .and. iter < 100)
+ do while (iterate_to_get_nps .and. iter < itermax)
     iter = iter + 1
     nx   = int(np**(1./3.)) - 1           ! subtract 1 because of adjustment due to periodic BCs
-    psep = (v_sphere)**(1./3.)/real(nx) ! particle separation in sphere
+    psep = (v_sphere)**(1./3.)/real(nx)   ! particle separation in sphere
     if (lattice=='closepacked') psep = psep*sqrt(2.)**(1./3.)         ! adjust psep for close-packed lattice
     npart       = npin
     npart_total = npart_local
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.,mask=mask)
     if (nold(1)==np .and. nold(2)==npart0 .and. nold(3)==nps_lo .and. nold(4)==nps_hi) iterate_to_get_nps = .false.
+    ninout(1,iter) = nx
+    ninout(2,iter) = npart
     if (nps_lo > 0 .and. nps_hi < npmax) then
        nold(1) = np
        nold(2) = npart0
@@ -336,7 +342,15 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
        return
     endif
     ! always use more particles than requested
-    npart = nps_hi
+    npart_total = npart_local
+    npart = npin
+    do i = 1,iter
+       if (ninout(2,i)==nps_hi) nx = ninout(1,i)
+    enddo
+    psep = (v_sphere)**(1./3.)/real(nx)   ! particle separation in sphere
+    if (lattice=='closepacked') psep = psep*sqrt(2.)**(1./3.)         ! adjust psep for close-packed lattice
+    call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                    hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.true.,mask=mask)
     if (nps_requested - nps_lo < nps_hi - nps_requested) then
        write(*,'(a,I8,a,F5.2,a)') " set_sphere: The closest number of particles to the requested number is " &
                     ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
@@ -344,7 +358,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
        write(*,'(a)') " set_sphere: We will not use fewer than the requested number of particles."
     endif
     write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
-              , nps_hi," particles, which is ",float(nps_hi - nps_requested)/float(nps_requested)*100.0 &
+              , npart," particles, which is ",float(npart - nps_requested)/float(nps_requested)*100.0 &
               ,"% more than requested."
  endif
  write(*,'(a,I10,a)') ' set_sphere: Iterations complete: added ',npart,' particles in sphere'
