@@ -296,13 +296,13 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
  real                           :: etoti,ekini,einti,epoti,phii
  real                           :: rhopart,ponrhoi,spsoundi
  real, dimension(3)             :: rcrossmv
- real, dimension(24)            :: bound
+ real, dimension(25)            :: bound
  integer                        :: i,bound_i,ncols
  integer, parameter             :: ib=1,ibt=9,ibe=17
  character(len=17), allocatable :: columns(:)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- ncols = 24
+ ncols = 25
  allocate(columns(ncols))
  columns = (/'  b num part', & ! Total bound number of particles
              '      b mass', & ! Total bound gas mass
@@ -327,7 +327,8 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
              'ube num part', &
              '    ube mass', &
              ' ube ang mom', &
-             '  ube tot en'/)
+             '  ube tot en', &
+             '   brec mass'/)
 
  bound = 0.
  do i = 1,npart
@@ -383,6 +384,12 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
     bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
+
+    ! Bound criterion including 1.6e13 erg/g = 3.0508e+28 [codeunits] of recombination energy
+    if ((etoti + 3.0508e28 * particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+       bound(25) = bound(25) + particlemass
+    endif
+
  enddo
 
  call write_time_file('boundunbound_vs_time', columns, time, bound, ncols, dump_number)
