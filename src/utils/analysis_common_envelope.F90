@@ -1722,7 +1722,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     end select
     do j = 1,npart
        k = iorder(j)
-       sep = separation(xyzmh_ptmass(1,3-i), xyzh(1:3,k))
+       sep = separation(xyzmh_ptmass(1:3,3-i), xyzh(1:3,k))
        if (sep > maxsep) exit
        interior_mass = interior_mass + particlemass
     enddo
@@ -2225,9 +2225,9 @@ end subroutine separation_vector
 
 real function separation(a,b)
  !return the distance between two vectors
- real, intent(in), dimension(3) :: a,b
+ real, intent(in), dimension(:) :: a,b
 
- separation = distance(a(1:3) - b(1:3))
+ separation = distance(a - b)
 end function separation
 
 !Sorting routines
