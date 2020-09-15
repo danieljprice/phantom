@@ -294,15 +294,18 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
  real, intent(in)               :: time,particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  real                           :: etoti,ekini,einti,epoti,phii
+ real                           :: E_H2,E_HI,E_HeI,E_HeII,Zfrac
+ real, save                     :: Xfrac,Yfrac
  real                           :: rhopart,ponrhoi,spsoundi
  real, dimension(3)             :: rcrossmv
- real, dimension(25)            :: bound
+ real, dimension(28)            :: bound
  integer                        :: i,bound_i,ncols
  integer, parameter             :: ib=1,ibt=9,ibe=17
  character(len=17), allocatable :: columns(:)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- ncols = 25
+ ncols = 28
+ bound = 0.
  allocate(columns(ncols))
  columns = (/'  b num part', & ! Total bound number of particles
              '      b mass', & ! Total bound gas mass
@@ -328,9 +331,25 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
              '    ube mass', &
              ' ube ang mom', &
              '  ube tot en', &
-             '   brec mass'/)
+             '     HeII bm', & ! Bound mass including ionisation energy of HeII
+             ' HeII+HeI bm', & ! Bound mass including ionisation energy of HeII
+             '    He+HI bm', & ! Bound mass including ionisation energy of HeII, HeI, HI
+             ' He+HI+H2 bm'/)  ! Bound mass including ionisation energy of HeII, HeI, HI, H2
 
- bound = 0.
+ if (dump_number == 1) then
+    Xfrac = 0.653061631
+    Zfrac = 0.0200640711083
+    call prompt('Enter hydrogen mass fraction:',Xfrac,0.,1.)
+    call prompt('Enter metallicity:',Zfrac,0.,1.)
+    Yfrac = 1 - Xfrac - Zfrac
+ endif
+
+ ! Ionisation energies per particle (in code units)
+ E_H2   = 0.5*Xfrac*0.0022866 * particlemass
+ E_HI   = Xfrac*0.0068808 * particlemass
+ E_HeI  = 0.25*Yfrac*0.012442 * particlemass
+ E_HeII = 0.25*Yfrac*0.027536 * particlemass
+ 
  do i = 1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
@@ -385,11 +404,25 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
     bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
 
-    ! Bound criterion including 1.6e13 erg/g = 3.0508e+28 [codeunits] of recombination energy
-    if ((etoti + 3.0508e28 * particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    ! Bound criterion including HeI + HeII ionisation energy
+    if ((etoti + E_HeII < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound(25) = bound(25) + particlemass
     endif
 
+    ! Bound criterion including HeI + HeII ionisation energy
+    if ((etoti + E_HeII + E_HeI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+       bound(26) = bound(26) + particlemass
+    endif
+
+    ! Bound criterion including HeI + HeII + HI ionisation energy
+    if ((etoti + E_HeII + E_HeI + E_HI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+      bound(27) = bound(27) + particlemass
+    endif
+
+    ! Bound criterion including HeI + HeII + HI + H2 ionisation energy
+    if ((etoti + E_HeII + E_HeI + E_HI + E_H2 < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+      bound(28) = bound(28) + particlemass
+   endif
  enddo
 
  call write_time_file('boundunbound_vs_time', columns, time, bound, ncols, dump_number)
