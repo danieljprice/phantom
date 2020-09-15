@@ -995,7 +995,7 @@ subroutine print_simulation_parameters(num, npart, particlemass)
  do i=1,nptmass
     write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
  enddo
- ! Add sink separation
+ write(*,"(A,ES10.3)")  'Sink-sink separation: ', separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
 
  write(*,'(A,I7,A,ES10.3)') 'Gas particles : ',npart,' particles, each of mass ',particlemass
 
