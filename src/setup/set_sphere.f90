@@ -240,9 +240,9 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  integer,          parameter     :: itermax = 100
  procedure(mask_prototype)       :: mask
  integer(kind=8)                 :: npart_local
- integer                         :: i,iter,test_region,nps_lo,nps_hi,npr_lo,npr_hi
+ integer                         :: iter,test_region,nps_lo,nps_hi,npr_lo,npr_hi,nps_hi_nx
  integer                         :: npin,npmax,npart0,nx,np,dn
- integer                         :: ninout(2,itermax),nold(4)
+ integer                         :: nold(4)
  logical                         :: iterate_to_get_nps
  !
  !--Initialise values
@@ -261,6 +261,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  npart_local   = npart_total
  npart0        = 0
  nold          = 0
+ nps_hi_nx     = 0
  iterate_to_get_nps = .true.
 
  print*, ' set_sphere: Iterating to form sphere with approx ',nps_requested,' particles'
@@ -277,8 +278,6 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.false.,mask=mask)
     if (nold(1)==np .and. nold(2)==npart0 .and. nold(3)==nps_lo .and. nold(4)==nps_hi) iterate_to_get_nps = .false.
-    ninout(1,iter) = nx
-    ninout(2,iter) = npart
     if (nps_lo > 0 .and. nps_hi < npmax) then
        nold(1) = np
        nold(2) = npart0
@@ -330,6 +329,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
           ierr = ierr_unknown
           return
        endif
+       if (npart==nps_hi) nps_hi_nx = nx
+       print*, npart,nps_hi,nx,nps_hi_nx
     endif
  enddo
  if (iter >= 100 .or. nps_lo > nps_requested .or. nps_requested > nps_hi) then
@@ -343,11 +344,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     endif
     ! always use more particles than requested
     npart_total = npart_local
-    npart = npin
-    do i = 1,iter
-       if (ninout(2,i)==nps_hi) nx = ninout(1,i)
-    enddo
-    psep = (v_sphere)**(1./3.)/real(nx)   ! particle separation in sphere
+    npart       = npin
+    psep        = (v_sphere)**(1./3.)/real(nps_hi_nx)                 ! particle separation in sphere
     if (lattice=='closepacked') psep = psep*sqrt(2.)**(1./3.)         ! adjust psep for close-packed lattice
     call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,xyzh,.false.,rmax=r_sphere,nptot=npart_total,verbose=.true.,mask=mask)
