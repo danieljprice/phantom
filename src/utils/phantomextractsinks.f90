@@ -29,7 +29,7 @@ program phantomextractsinks
  real               :: tnow,tstart(maxfiles+1),asink(17)
  logical            :: fexists
  character(len= 32) :: prefix,filename
- character(len=512) :: cdummy,header
+ character(len=512) :: header
  !
  !--If argument exists, read it in
  !
@@ -64,7 +64,7 @@ program phantomextractsinks
  do i = 1,nfiles
     write(filename,'(a,I2.2,a)') trim(prefix),i,'.sink'
     open(unit=20,file=trim(filename))
-    read(20,'(a)') cdummy
+    read(20,*)
     read(20,'(a)') header
     read(20,*) tstart(i),isink,asink,nsink
     close(20)
@@ -76,8 +76,8 @@ program phantomextractsinks
  do i = 1,nfiles
     write(filename,'(a,I2.2,a)') trim(prefix),i,'.sink'
     open(unit=20,file=trim(filename))
-    read(20,'(a)') cdummy
-    read(20,'(a)') cdummy
+    read(20,*)
+    read(20,*)
     io = 0
     do while (io==0)
        read(20,*,iostat=io) tnow,isink,asink,nsink
