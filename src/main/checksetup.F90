@@ -37,12 +37,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
-<<<<<<< HEAD
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,&
-                use_dustgrowth,store_temperature
-=======
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation
->>>>>>> 1d782ab1f61763cdcfc0b118c43a50159cd68227
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation,store_temperature
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,&
