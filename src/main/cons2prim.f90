@@ -235,8 +235,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
        endif
 
-       eos_vars(igasP,i)     = p_on_rhogas*rhogas
-       eos_vars(ics,i)       = spsound
+       eos_vars(igasP,i) = p_on_rhogas*rhogas
+       eos_vars(ics,i)   = spsound
 
        !
        !--Getting radiation pressure from the radiation energy
@@ -251,7 +251,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           alphaind(2,i) = real4(get_alphaloc(real(alphaind(3,i)),spsound,hi,xi_limiteri,alpha,alphamax))
        endif
 
-       if (mhd) then
+       if (mhd .and. iamgasi) then
           ! construct B from B/rho (conservative to primitive)
           Bxi = Bevol(1,i) * rhoi
           Byi = Bevol(2,i) * rhoi
@@ -266,7 +266,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !
           !--calculate Z_grain, n_electron and non-ideal MHD coefficients
           !
-          if (mhd_nonideal) then
+          if (mhd_nonideal .and. iactivei) then
              temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
              Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
              call nicil_get_ion_n(rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
