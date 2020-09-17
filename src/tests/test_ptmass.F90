@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass)
  use step_lf_global,  only:step,init_step
  use energies,        only:compute_energies,etot,totmom,epot,angtot !,accretedmass
  use ptmass,          only:get_accel_sink_sink,ptmass_accrete,h_soft_sinksink, &
-                           ptmass_create,h_acc,get_accel_sink_gas,f_acc, &
+                           ptmass_create,h_acc,get_accel_sink_gas,f_acc,finish_ptmass, &
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
@@ -593,7 +593,7 @@ subroutine test_ptmass(ntests,npass)
        call update_test_scores(ntests,nfailed,npass)
 
        iverbose = 0
-       close(iskfile)
+       call finish_ptmass(nptmass)
     enddo
  endif testcreatesink
 

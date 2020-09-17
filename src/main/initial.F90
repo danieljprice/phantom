@@ -765,6 +765,7 @@ subroutine endrun
  use timing,   only:printused
  use part,     only:nptmass
  use eos,      only:ieos,finish_eos
+ use ptmass,   only:finish_ptmass
  integer           :: ierr
  character(len=10) :: finishdate, finishtime
 
@@ -802,9 +803,10 @@ subroutine endrun
  close(unit=ibinpos)
  close(unit=igpos)
 
- if (nptmass > 0) close(unit=iskfile)
- if (ipafile > 0) close(unit=ipafile)
  if (iscfile > 0) close(unit=iscfile)
+ if (ipafile > 0) close(unit=ipafile)
+
+ call finish_ptmass(nptmass)
 
 end subroutine endrun
 

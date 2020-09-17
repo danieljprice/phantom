@@ -102,9 +102,9 @@ subroutine set_io_unit_numbers
  ianalysis  = 25 ! for writing analysis output
  iuniteos   = 28 ! for printing the eos to file
  igit       = 29 ! for reading phantom_version
- iskfile    = 30 ! for writing details of the sink particles
  ipafile    = 31 ! for writing details of particle accretion
  iscfile    = 32 ! for writing details of sink creation
+ iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
  iverbose   = 0
 
 end subroutine set_io_unit_numbers
