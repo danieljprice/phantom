@@ -646,6 +646,7 @@ end subroutine read_kepler_file
 !  To reproduce the sphere in Saiki & Machida (2020):
 !     iBEparam = 4, normalised radius = 12.9; physical radius = 5300au; fac = 6.98
 !     cs_sphere = 18900cm/s (this is 10K, assuming gamma = 1)
+!     density_contrast = 4.48
 !+
 !-----------------------------------------------------------------------
 subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,facBE,csBE,npts,iBElast,rtab,rhotab,ierr)
