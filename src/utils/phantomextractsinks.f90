@@ -66,7 +66,7 @@ program phantomextractsinks
     open(unit=20,file=trim(filename))
     read(20,*)
     read(20,'(a)') header
-    read(20,*) tstart(i),isink,asink,nsink
+    read(20,*) tstart(i),asink,isink,nsink
     close(20)
  enddo
  !
@@ -80,7 +80,7 @@ program phantomextractsinks
     read(20,*)
     io = 0
     do while (io==0)
-       read(20,*,iostat=io) tnow,isink,asink,nsink
+       read(20,*,iostat=io) tnow,asink,isink,nsink
        if (io == 0) then
           if (isink > nsink0) then
              nsink0 = isink
@@ -88,7 +88,7 @@ program phantomextractsinks
              open(unit=20+isink,file=trim(filename))
              write(20+isink,'(a)') trim(header)
           endif
-          if (tnow < tstart(i+1)) write(20+isink,"(1pe18.9,1x,I18,1x,17(1pe18.9,1x),I18)") tnow,isink,asink,nsink
+          if (tnow < tstart(i+1)) write(20+isink,"(18(1pe18.9,1x),2(I18,1x))") tnow,asink,isink,nsink
        endif
     enddo
     close(20)

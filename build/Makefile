@@ -2256,7 +2256,7 @@ phantomsinks: phantomextractsinks.o
 	@echo ""
 	@echo "phantomsinks: extracting sink information!"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJEVC)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ phantomextractsinks.o
 
 cleanphantomsinks:
 	rm -f $(BINDIR)/phantomextractsinks
