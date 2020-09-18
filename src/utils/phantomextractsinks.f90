@@ -4,26 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomextractsinks
+program phantomextractsinks
 !
-!  DESCRIPTION: The will create one data file per sink from the master sink
+! The will create one data file per sink from the master sink
 !               file generated at runtime.  In the event that there are
 !               multiple files per sink, we will use the data from the most
 !               recent file
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Usage: phantomextractsinks [no arguments]
 !
-!  USAGE: phantomextractsinks [no arguments]
+! :Dependencies: None
 !
-!  DEPENDENCIES: prompting
-!+
-!--------------------------------------------------------------------------
-program phantomextractsinks
  integer, parameter :: maxfiles = 100
  integer            :: i,io,nargs,nfiles,isink,nsink,nsink0
  real               :: tnow,tstart(maxfiles+1),asink(17)

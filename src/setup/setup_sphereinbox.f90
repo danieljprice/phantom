@@ -15,7 +15,11 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - BE_concentration : *concentration parameter of the BE sphere (critical is 6.45)*
+!   - BEfac            : *over-density factor of the BE sphere [code units]*
+!   - BEmass           : *mass radius of the BE sphere [code units]*
+!   - BErad_norm       : *normalised radius of the BE sphere*
+!   - BErad_phys       : *physical radius of the BE sphere [code units]*
+!   - BErho_cen        : *central density of the BE sphere [code units]*
 !   - Bzero            : *Magnetic field strength in Gauss*
 !   - ang_Bomega       : *Angle (degrees) between B and rotation axis*
 !   - angvel           : *angular velocity in rad/s*
@@ -26,7 +30,9 @@ module setup
 !   - form_binary      : *the intent is to form a central binary*
 !   - h_acc            : *accretion radius (code units)*
 !   - h_soft_sinksink  : *sink-sink softening radius (code units)*
+!   - iBE_options      : *The set of parameters to define the BE sphere*
 !   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
+!   - lbox             : *length of a box side in terms of spherical radii*
 !   - mass_unit        : *mass unit (e.g. solarm)*
 !   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
 !   - np               : *requested number of particles in sphere*
