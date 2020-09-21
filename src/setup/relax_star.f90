@@ -62,7 +62,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use checksetup,  only:check_setup
  use io,          only:error,warning
  use fileutils,   only:getnextfilename
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
  use eos, only:gamma
  use physcon,     only:pi
  use options,     only:iexternalforce
@@ -136,6 +136,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
 
  filename = 'relax_00000'
  if (write_files) then
+    call init_readwrite_dumps()
     call write_fulldump(t,filename)
     open(newunit=iunit,file='relax.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'

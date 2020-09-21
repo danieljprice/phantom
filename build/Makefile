@@ -888,8 +888,8 @@ ifeq ($(SETUP), jet)
     ISOTHERMAL=yes
     MHD=yes
     IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
     DUST=no
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), jetnimhd)
@@ -1758,7 +1758,7 @@ SRCPOT=${SRCPOTS}
 endif
 
 ifeq ($(GR),yes)
-   SRCPOT=extern_gr.F90 externalforces_gr.F90
+   SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
    SRCMETRIC= metric_${METRIC}.f90
@@ -1773,7 +1773,7 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.F90 utils_dumpfiles_hdf5.F90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+   SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
@@ -1855,7 +1855,7 @@ cleanutils: cleansetup cleananalysis \
             cleandiffdumps cleanshowheader cleanshowarrays cleanev2mdot cleanacc2ang \
             cleanp2s cleanphantom2gadget \
             cleansfutils cleanphantom2pdf-amr cleansplitpart \
-            cleanphantom2struct cleanphantomevcompare cleanlibphantom
+            cleanphantom2struct cleanphantomevcompare cleanlibphantom cleanphantomsinks
 
 #--------------------------------------------------------------
 # edit target opens current setup module in the default editor
@@ -1935,7 +1935,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
-         test_link.F90 test_kdtree.F90 test_ptmass.F90 test_luminosity.F90\
+         test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          test_sedov.F90 test_radiation.F90 \
          testsuite.F90 phantomtest.f90
@@ -2294,6 +2294,19 @@ phantomevcompare: $(OBJEVC)
 
 cleanphantomevcompare:
 	rm -f $(BINDIR)/phantomevcompare
+
+#----------------------------------------------------
+# utility to extract sink information from a master file
+#
+.PHONY: phantomsinks
+phantomsinks: phantomextractsinks.o
+	@echo ""
+	@echo "phantomsinks: extracting sink information!"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ phantomextractsinks.o
+
+cleanphantomsinks:
+	rm -f $(BINDIR)/phantomextractsinks
 
 #----------------------------------------------------
 # these are the sources for the multirun utility

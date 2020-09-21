@@ -74,8 +74,9 @@ module ptmass
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
  logical, private, parameter :: record_accreted = .false.  ! verbose tracking of particle accretion
+ logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
  character(len=50), private  :: pt_prefix = 'Sink'
- character(len=50), private  :: pt_suffix = '00.ev'
+ character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
 
  integer, public, parameter :: ndptmass = 13
  integer, public, parameter :: &
@@ -1301,6 +1302,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
+    fxyz_ptmass(:,nptmass) = 0.0
+    fxyz_ptmass_sinksink(:,nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     if (id==id_rhomax) then
@@ -1312,9 +1315,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! open new file to track new sink particle details & and update all sink-tracking files;
     ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
     !
-    fxyz_ptmass = 0.0
-    fxyz_ptmass_sinksink = 0.0
-    call pt_open_sinkev(nptmass)
+    if (write_one_ptfile) then
+       if (nptmass==1) call pt_open_sinkev(0)  ! otherwise file is already open
+    else
+       call pt_open_sinkev(nptmass)
+    endif
     call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
  else
     !
@@ -1342,22 +1347,26 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  integer                      :: i,idot,idash
  character(len=150)           :: filename
  !
- !--Extract prefix
+ !--Extract prefix & suffix
  !
  idash = index(dumpfile,'_')
  write(pt_prefix,"(a)") dumpfile(1:idash-1)
- !
- !--Extract suffix
- !
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
- write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".ev"
  !
- !--Open file for each sink particle
+ !--Define file name components and finalise suffix & open files
  !
- do i = 1,nptmass
-    call pt_open_sinkev(i)
- enddo
+ if (icreate_sinks > 0) then
+    write_one_ptfile = .true.
+    write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".sink"
+    if (nptmass > 0) call pt_open_sinkev(0)
+ else
+    write_one_ptfile = .false.
+    write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".ev"
+    do i = 1,nptmass
+       call pt_open_sinkev(i)
+    enddo
+ endif
  !
  !--Open file for tracking sink creation (if required)
  !
@@ -1425,7 +1434,6 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  endif
 
 end subroutine init_ptmass
-
 !-----------------------------------------------------------------------
 !+
 !  finalise ptmass stuff, free memory, close files
@@ -1437,7 +1445,6 @@ subroutine finish_ptmass(nptmass)
  call pt_close_sinkev(nptmass)
 
 end subroutine finish_ptmass
-
 !-----------------------------------------------------------------------
 !+
 !  write open sink data files
@@ -1448,31 +1455,39 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
- write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
+ if (write_one_ptfile) then
+    write(filename,'(2a)') trim(pt_prefix),trim(pt_suffix)
+ else
+    write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
+ endif
  iunit = iskfile+num
  open(unit=iunit,file=trim(filename),form='formatted',status='replace')
- write(iunit,"('#',18(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'time',  &
-          2,'x',     &
-          3,'y',     &
-          4,'z',     &
-          5,'mass',  &
-          6,'vx',    &
-          7,'vy',    &
-          8,'vz',    &
-          9,'spinx', &
-         10,'spiny', &
-         11,'spinz', &
-         12,'macc',  &
-         13,'fx',    &
-         14,'fy',    &
-         15,'fz',    &
-         16,'fssx',  &
-         17,'fssy',  &
-         18,'fssz'
+ if (write_one_ptfile) then
+    write(iunit,'(a)') 'To extract one file per sink: make sinks; ./phantomsinks '
+ endif
+ write(iunit,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
+          1,'time',    &
+          2,'x',       &
+          3,'y',       &
+          4,'z',       &
+          5,'mass',    &
+          6,'vx',      &
+          7,'vy',      &
+          8,'vz',      &
+          9,'spinx',   &
+         10,'spiny',   &
+         11,'spinz',   &
+         12,'macc',    &
+         13,'fx',      &
+         14,'fy',      &
+         15,'fz',      &
+         16,'fssx',    &
+         17,'fssy',    &
+         18,'fssz',    &
+         19,'sink ID', &
+         20,'nptmass'
 
 end subroutine pt_open_sinkev
-
 !-----------------------------------------------------------------------
 !+
 !  close sink data files
@@ -1481,14 +1496,16 @@ end subroutine pt_open_sinkev
 subroutine pt_close_sinkev(nptmass)
  integer, intent(in) :: nptmass
  integer             :: i,iunit
-
- do i = 1,nptmass
-    iunit = iskfile+i
-    close(iunit)
- enddo
+ if (write_one_ptfile) then
+    close(iskfile)
+ else
+    do i = 1,nptmass
+       iunit = iskfile+i
+       close(iunit)
+    enddo
+ endif
 
 end subroutine pt_close_sinkev
-
 !-----------------------------------------------------------------------
 !+
 !  write sink data to files
@@ -1500,13 +1517,14 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit
 
+ iunit = iskfile
  do i = 1,nptmass
-    iunit = iskfile+i
-    write(iunit,"(18(1pe18.9,1x))") &
+    if (.not. write_one_ptfile) iunit = iskfile+i
+    write(iunit,"(18(1pe18.9,1x),2(I18,1x))") &
     time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
     xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i)
-    call flush(iunit)
+    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),i,nptmass
+    if (i==nptmass .or. (.not. write_one_ptfile)) call flush(iunit)
  enddo
 
 end subroutine pt_write_sinkev
