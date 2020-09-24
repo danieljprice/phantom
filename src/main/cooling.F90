@@ -673,6 +673,7 @@ subroutine write_options_cooling(iunit)
        call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
     !----- Input parameters for the rprocess heating rate function:
     case(4)
+       call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
        call write_inopt(q_0_cgs,'q_0_cgs','heating rate coefficient [ergs/s/g]',iunit)
        call write_inopt(t_b1_seconds,'t_b1_seconds','time of break 1 in heating rate [s]',iunit)
        call write_inopt(exp_1,'exp_1','exponent 1 in heating rate',iunit)
@@ -759,7 +760,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
  end select
- if (icooling == 4 .and. ngot >= 6) igotall = .true.
+ if (icooling == 4 .and. ngot >= 7) igotall = .true.
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
  if (icooling == 1 .and. ngot >= 5) igotall = .true.
