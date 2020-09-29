@@ -114,7 +114,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use eos_mesa,      only:get_eos_pressure_gamma1_mesa
+ use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
@@ -281,12 +281,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-
-    call get_eos_pressure_gamma1_mesa(cgsrhoi,cgseni,cgspresi,gam1,ierr)
+    call get_eos_pressure_temp_gamma1_mesa(cgsrhoi,cgseni,cgspresi,temperaturei,gam1,ierr)
     presi = cgspresi / unit_pressure
 
     ponrhoi  = presi / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
+    if (present(tempi)) tempi = temperaturei
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
  case(11)
