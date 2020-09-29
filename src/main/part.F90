@@ -607,6 +607,8 @@ subroutine init_part
  ibin_wake(:)  = 0
 #endif
 
+ ideadhead = 0
+
 end subroutine init_part
 
 !----------------------------------------------------------------
@@ -784,6 +786,8 @@ end function isdead_or_accreted
 subroutine kill_particle(i,npoftype)
  integer, intent(in) :: i
  integer, intent(inout), optional :: npoftype(:)
+
+ if (i < 1 .or. i > npart) return ! do nothing
  !
  ! WARNING : this routine is *NOT THREAD SAFE *
  !
