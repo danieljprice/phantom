@@ -246,12 +246,12 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
        !
-       if (nalpha >= 2 .and. iamgasi) then
+       if (nalpha >= 2) then
           xi_limiteri = xi_limiter(dvdx(:,i))
           alphaind(2,i) = real4(get_alphaloc(real(alphaind(3,i)),spsound,hi,xi_limiteri,alpha,alphamax))
        endif
 
-       if (mhd .and. iamgasi) then
+       if (mhd) then
           ! construct B from B/rho (conservative to primitive)
           Bxi = Bevol(1,i) * rhoi
           Byi = Bevol(2,i) * rhoi
@@ -262,9 +262,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           Bxyz(1,i) = Bxi
           Bxyz(2,i) = Byi
           Bxyz(3,i) = Bzi
-
           !
-          !--calculate Z_grain, n_electron and non-ideal MHD coefficients
+          !--calculate species number densities & non-ideal MHD coefficients
           !
           if (mhd_nonideal .and. iactivei) then
              temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
