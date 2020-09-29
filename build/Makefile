@@ -272,6 +272,23 @@ ifeq ($(SETUP), grtde)
     ANALYSIS=analysis_tde.f90
 endif
 
+# I (SD) added this setup for the ejecta from a BH-NS merger
+ifeq ($(SETUP), grbhnsejecta)
+    SETUPFILE=setup_grbhnsejecta.f90
+    ANALYSIS=analysis_bhnsejecta.f90
+#     SRCINJECT=inject_bhnsejecta_particles.f90
+    GR=yes
+    METRIC=schwarzschild
+    GRAVITY=no
+#     GRAVITY=yes
+    ISOTHERMAL=no
+    IND_TIMESTEPS=no
+    KNOWN_SETUP=yes
+    KERNEL=cubic
+#     KERNEL=quintic
+#     KERNEL=WendlandC4
+endif
+
 ifeq ($(SETUP), srpolytrope)
     FPPFLAGS= -DPRIM2CONS_FIRST
     SETUPFILE= setup_srpolytrope.f90
@@ -538,6 +555,7 @@ ifeq ($(SETUP), srshock)
     MAXP=900000
     CONST_AV=yes
 endif
+
 
 ifeq ($(SETUP), testparticles)
 #   test particles
@@ -1223,6 +1241,33 @@ ifeq ($(SYSTEM), g2)
     MPIEXEC='mpiexec -npernode 1'
 endif
 
+# I (SD) added this system to be able to compile Phantom on NERSC Cori
+# On Cori, you load programming environments, which use wrappers for the compilers, you do not use the vendor specific compiler names directly
+# I (SD) just copied the parameters from Makefile_defaults_ifort and ozstar below and made several replacements
+# Most importantly, I (SD) made the replacements ifort -> ftn and icc -> cc, and added CRAYPE_LINK_TYPE to tell Cori how to link
+ifeq ($(SYSTEM), cori)
+#Cori (NERSC machine)
+    FC= ftn
+#     FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    FFLAGS= -O3 -inline-factor=500 -shared-intel -warn uninitialized -warn unused -warn truncated_source
+    DBLFLAG= -r8
+    DEBUGFLAG= -check all -WB -traceback -g -debug -all
+    ENDIANFLAGBIG= -convert big_endian
+    ENDIANFLAGLITTLE= -convert little_endian
+    CC= cc
+#     CCFLAGS= -O3 -mcmodel=medium
+    CCFLAGS= -O3
+    LIBCXX = -cxxlib
+    QSYS= slurm
+    OMPFLAGS= -qopenmp
+    NOMP=64
+    KNOWN_SYSTEM=yes
+#     CRAYPE_LINK_TYPE=dynamic
+    CRAYPE_LINK_TYPE=static
+    MAXP=2000000
+#     MAXP=8000000
+endif
+
 ifeq ($(SYSTEM), ozstar)
 #   ozstar facility
     include Makefile_defaults_ifort
@@ -1232,6 +1277,8 @@ ifeq ($(SYSTEM), ozstar)
     QSYS = slurm
     WALLTIME='168:00:00'
 endif
+
+
 
 ifeq ($(SYSTEM), monarch)
     include Makefile_defaults_ifort
@@ -1720,7 +1767,7 @@ else
 endif
 SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
 
-SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.F90
+SRCCHEM= rprocess_heating.f90 fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.f90
 
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
@@ -2941,7 +2988,7 @@ checkparams:
    ifneq ($(FPPFLAGS),$(LASTFPPFLAGS))
 	@echo 'pre-processor flags changed from "'${LASTFPPFLAGS}'" to "'${FPPFLAGS}'"'
 	@${MAKE} clean;
-	#for x in ../src/*/*.F90; do y=`basename $$x`; rm -f $${y/.F90/.o}; done
+# 	for x in ../src/*/*.F90; do y=`basename $$x`; rm -f $${y/.F90/.o}; done
    endif
 	@echo "Preprocessor flags are "${FPPFLAGS}
 	@echo "${FPPFLAGS}" > .make_lastfppflags

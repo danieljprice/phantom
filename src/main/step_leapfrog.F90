@@ -233,7 +233,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
 #ifdef GR
- if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
+ ! This now includes a condition on icooling. If icooling == 4, then step_extern_gr calls the function energ_cooling, which calls the rprocess heating function
+ if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. icooling == 4) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
@@ -405,6 +406,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,icooling,ieos) &
+!$omp shared(dens,timei) & !----- This line is needed to call the function energ_rprocess below
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -706,7 +708,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
- use options,        only:iexternalforce,idamp
+ use options,        only:iexternalforce,idamp,icooling !----- icooling is needed on this line to call energ_cooling below
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
@@ -716,12 +718,14 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
+ use cooling,        only:energ_cooling !----- this line is needed to call energ_cooling below
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
  integer :: i,itype,nsubsteps,naccreted,its,ierr
  real    :: timei,t_end_step,hdt,pmassi
+ real    :: dudtcool,dKdtcool !----- these variables are needed to use energ_cooling below
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pri,spsoundi,pondensi
  real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
@@ -780,7 +784,9 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt,xtol,ptol) &
+    !$omp shared(icooling,timei) & !----- This line is needed to call energ_cooling below, which calls the rprocess heating function when icooling==4
     !$omp shared(ieos,gamma,pxyzu,dens,metrics,metricderivs) &
+    !$omp private(dudtcool,dKdtcool) & !----- This line is needed to call energ_cooling below, which calls the rprocess heating function when icooling==4
     !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
@@ -803,6 +809,14 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           !
           ! make local copies of array quantities
           !
+          !----- (Siva Darbha): Some notes for myself about the variable names:
+          !----- pxyzu(:,i) is the array (px,py,pz,K) for the ith SPH particle, where (px,py,pz) are the conserved coordinate momenta and K is the entropy variable in the rest frame.
+          !----- In Liptai & Price (2019), K is given the symbol K. -----
+          !----- dens(:) is the array of rest mass densities of the SPH particles, where dens(i) is the rest mass density of the ith SPH particle
+          !----- The dens(:) array resides in the part module in the file part.F90, and is updated when the code calls the conservative to primitive variable transformation function
+          !----- The routines in GR Phantom use the following naming convention:
+          !----- The variable name 'dens' is the rest mass density. In Liptai & Price (2019), the rest mass density is given the symbol rho
+          !----- The variable name 'rho' is the "relativistic rest-mass density"/"conserved density". In Liptai & Price (2019), the "relativistic rest-mass density" is given the symbol rho^*
           pxyz(1:3) = pxyzu(1:3,i)
           eni       = pxyzu(4,i)
           vxyz(1:3) = vxyzu(1:3,i)
@@ -811,6 +825,23 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           densi     = dens(i)
 
           pxyz      = pxyz + hdt*fexti
+
+          !----- (Siva Darbha): I call the heating/cooling function in the predictor step, in analogy with nonrelativistic SPH
+          if (maxvxyzu >= 4) then
+             dudtcool = 0.
+             !
+             ! COOLING
+             !
+             !----- Calls the rprocess heating rate
+             if (icooling == 4) then
+                !----- (Siva Darbha): The rprocess heating rate only requires the arguments dudtcool and timei, so I pass zeros to the rest
+                call energ_cooling(0., 0., 0., 0., dudtcool, 0., 0., 0., 0., 0., 0., timei)
+                !call energ_cooling(xyzh(1,i), xyzh(2,i), xyzh(3,i), vxyzu(4,i), dudtcool, rhoh(xyzh(4,i), pmassi), dt, 0, 0, 0, 0, timei)
+             endif
+             !----- Updates the entropy variable
+             dKdtcool = dudtcool * (gamma - 1) / densi**(gamma - 1)
+             eni = eni + dt * dKdtcool !----- (Siva Darbha): I used dt here, but I might have to use hdt, I'm not sure
+          endif
 
           !-- Compute pressure for the first guess in cons2prim
           call equationofstate(ieos,pondensi,spsoundi,densi,xyz(1),xyz(2),xyz(3),uui)
@@ -867,6 +898,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           ! re-pack arrays back where they belong
           xyzh(1:3,i) = xyz(1:3)
           pxyzu(1:3,i) = pxyz(1:3)
+          pxyzu(4,i) = eni !----- This line is needed if you call energ_cooling above, which calls the rprocess heating function when icooling==4, which updates the entropy variable
           vxyzu(1:3,i) = vxyz(1:3)
           vxyzu(4,i) = uui
           fext(:,i)  = fexti
