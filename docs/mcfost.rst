@@ -107,10 +107,30 @@ This is a work in progress, so please *ask* before using this feature.
 You first need to compile libmcfost:
 
 ::
-   $ mkdir ~/mcfost-install
-   $ export MCFOST_INSTALL=~/mcfost-install
-   $ export MCFOST_GIT=1
-   $ cd mcfost/src
-   $ make all
+
+   mkdir ~/mcfost-install
+   export MCFOST_INSTALL=~/mcfost-install
+   export MCFOST_GIT=1
+   cd mcfost/src
+   make all
 
 then simply set MCFOST=yes when compiling PHANTOM.
+
+Using Phantom+MCFOST on Ozstar
+-------------------------------
+There is a copy of mcfost and libmcfost.a compiled in /fred/oz015/cpinte/mcfost
+
+To compile phantom with mcfost on ozstar using this pre-compiled version, you will need::
+
+   module load ifort/2018
+   ~/phantom/scripts/writemake.sh mcfost > Makefile
+   make setup MCFOST_LIBS=/fred/oz015/cpinte/mcfost/src/libtmp
+   make MCFOST_LIBS=/fred/oz015/cpinte/mcfost/src/libtmp
+   ./phantomsetup disc
+   
+To run the code with MCFOST you will need:
+
+   export MCFOST_UTILS=/fred/oz015/mcfost/utils
+   ./phantom disc
+
+You will also need a disc.para file

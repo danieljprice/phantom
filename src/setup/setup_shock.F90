@@ -22,7 +22,7 @@ module setup
 !   - dtmax       : *time between dumps*
 !   - dust_method : *1=one fluid, 2=two fluid*
 !   - gamma       : *Adiabatic index*
-!   - gmw         : *mean molecular mass*
+!   - gmw         : *mean molecular weight*
 !   - ieos        : *equation of state option*
 !   - kappa       : *opacity in cm^2/g*
 !   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
