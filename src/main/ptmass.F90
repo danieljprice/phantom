@@ -36,7 +36,7 @@ module ptmass
 !
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
- use io,   only:iscfile,ipafile,iskfile
+ use io,   only:iscfile,iskfile
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -73,7 +73,6 @@ module ptmass
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
- logical, private, parameter :: record_accreted = .false.  ! verbose tracking of particle accretion
  logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
  character(len=50), private  :: pt_prefix = 'Sink'
  character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
@@ -724,15 +723,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 
 !$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
-
-       if (record_accreted) then
-          !$omp critical(trackacc)
-          call fatal('ptmass', 'track_accreted has been deprecated because it relied on OpenMP-unsafe code')
-          call track_accreted(time,i,dx,dy,dz,dvx,dvy,dvz,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
-            xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),pmassi,vxyz_ptmass(1:3,i),xyzmh_ptmass(1,i), &
-            xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i))
-          !$omp end critical(trackacc)
-       endif
 
 ! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
        exit sinkloop
@@ -1409,43 +1399,6 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  else
     iscfile = -abs(iscfile)
  endif
- !
- !--Open file for tracking particle accretion (if required)
- !
- if (record_accreted) then
-    filename = trim(pt_prefix)//"ParticleAccretion"//trim(pt_suffix)
-    open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
-    write(ipafile,'("# Data of accreted particles")')
-    write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
-           1,'time', &
-           2,'sinki',&
-           3,'angx', &
-           4,'angy', &
-           5,'angz', &
-           6,'mpart',&
-           7,'msink',&
-           8,'mu',   &
-           9,'dx',   &
-          10,'dy',   &
-          11,'dz',   &
-          12,'dvx',  &
-          13,'dvy',  &
-          14,'dvz',  &
-          15,'xsink_new', &
-          16,'ysink_new', &
-          17,'zsink_new', &
-          18,'xsink_old', &
-          19,'ysink_old', &
-          20,'zsink_old', &
-          21,'vxsink_new',&
-          22,'vysink_new',&
-          23,'vzsink_new',&
-          24,'vxsink_old',&
-          25,'vysink_old',&
-          26,'vzsink_old'
- else
-    ipafile = -abs(ipafile)
- endif
 
 end subroutine init_ptmass
 !-----------------------------------------------------------------------
@@ -1542,39 +1495,6 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
  enddo
 
 end subroutine pt_write_sinkev
-
-!-----------------------------------------------------------------------
-!+
-! writes accreted particle properties to file
-! Author: CJN.  Modified: JHW (July 2015)
-!+
-!-----------------------------------------------------------------------
-subroutine track_accreted(time,sinki,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart,v_new,xs,ys,zs,vxs,vys,vzs)
- integer, intent(in) :: sinki
- real,    intent(in) :: time,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart
- real,    intent(in) :: v_new(3),xs,ys,zs, vxs,vys,vzs
- real                :: spinm
- real                :: pos(3),vel(3),ang(3)
-
- pos(1) = dx
- pos(2) = dy
- pos(3) = dz
-
- vel(1) = dvx
- vel(2) = dvy
- vel(3) = dvz
-
- spinm  = msink*mpart/(msink+mpart)
- ang(1) = (pos(2)*vel(3) - pos(3)*vel(2))
- ang(2) = (pos(3)*vel(1) - pos(1)*vel(3))
- ang(3) = (pos(1)*vel(2) - pos(2)*vel(1))
- ang(:) = spinm*ang(:)
-
- write(ipafile,'(es18.10,1x,i18,1x,24(es18.10,1x))') time,sinki,ang(1),ang(2),ang(3),mpart,msink,spinm, &
-      dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,xs,ys,zs, v_new,vxs,vys,vzs
- call flush(ipafile)
-
-end subroutine track_accreted
 
 !-----------------------------------------------------------------------
 !+
