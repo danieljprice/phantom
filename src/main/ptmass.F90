@@ -243,25 +243,37 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    intent(in)  :: ti
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2
- real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
+ real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
- real    :: fterm, pterm
+ real    :: fterm,pterm,potensoft0
  integer :: i,j
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
  phitot = 0.
  !
+ !--get self-contribution to the potential if sink-sink softening is used
+ !
+ if (h_soft_sinksink > 0.) then
+    hsoft1 = 1.0/h_soft_sinksink
+    hsoft21= hsoft1**2
+    call kernel_softening(0.,0.,potensoft0,fterm)
+ else
+    hsoft1 = 0.  ! to avoid compiler warnings
+    hsoft21 = 0.
+    potensoft0 = 0.
+ endif
+ !
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
- !$omp shared(iexternalforce,ti,h_soft_sinksink) &
+ !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii) &
  !$omp private(fextx,fexty,fextz,phiext) &
- !$omp private(hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft) &
+ !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot)
@@ -296,8 +308,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           ! if the sink particle is given a softening length, soften the
           ! force and potential if r < radkern*h_soft_sinksink
           !
-          hsoft1 = 1.0/h_soft_sinksink
-          hsoft21= hsoft1**2
           q2i    = rr2*hsoft21
           qi     = sqrt(q2i)
           call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
@@ -337,15 +347,19 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        phii   = phii + phiext
        phitot = phitot + phiext
     endif
-
+    !
+    !--add self-contribution to the potential if sink-sink softening is set
+    !
+    pterm = 0.5*pmassi*pmassi*potensoft0*hsoft1
+    phii = phii + pterm
+    phitot = phitot + pterm
     !
     !--store sink-sink forces (only)
     !
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-
+    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
  enddo
  !$omp end parallel do
 
