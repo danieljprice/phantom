@@ -15,7 +15,7 @@ module testgravity
 ! :Runtime parameters: None
 !
 ! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree, options,
-!   part, physcon, spherical, testutils, timing
+!   part, physcon, ptmass, spherical, testutils, timing
 !
  use io, only:id,master
  implicit none
