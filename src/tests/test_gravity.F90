@@ -232,9 +232,10 @@ end subroutine test_taylorseries
 !+
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
- use dim,       only:maxp
+ use dim,       only:maxp,maxptmass
  use part,      only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
-                     gradh,poten,iphase,isetphase,maxphase,labeltype
+                     gradh,poten,iphase,isetphase,maxphase,labeltype,&
+                     nptmass,xyzmh_ptmass,fxyz_ptmass
  use eos,       only:polyk,gamma
  use options,   only:ieos,alpha,alphau,alphaB,tolh
  use spherical, only:set_sphere
@@ -245,11 +246,12 @@ subroutine test_directsum(ntests,npass)
  use energies,  only:compute_energies,epot
  use kdtree,    only:tree_accuracy
  use testutils, only:checkval,checkvalbuf_end,update_test_scores
+ use ptmass,    only:get_accel_sink_sink,h_soft_sinksink
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
  integer :: maxvxyzu,nx,np,i,k
- real :: psep,totvol,totmass,rhozero
- real :: time,rmin,rmax,phitot
+ real :: psep,totvol,totmass,rhozero,tol
+ real :: time,rmin,rmax,phitot,dtsinksink
  real(kind=4) :: t1,t2
  real :: epoti,tree_acc_prev
 
@@ -338,6 +340,41 @@ subroutine test_directsum(ntests,npass)
        call update_test_scores(ntests,nfailed(1:6),npass)
     endif
  enddo
+
+!
+!--test that the same results can be obtained from a cloud of sink particles
+!  with softening lengths equal to the original SPH particle smoothing lengths
+!
+ if (maxptmass >= npart) then
+    if (id==master) write(*,"(/,3a)") '--> testing gravity between sink particles'
+
+    call copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,totmass/npart)
+    h_soft_sinksink = hfact*psep
+!
+!--compute direct sum for comparison, but with fixed h and hence gradh terms switched off
+
+    do i=1,npart
+       xyzh(4,i)  = h_soft_sinksink
+       gradh(1,i) = 1.
+       gradh(2,i) = 0.
+       vxyzu(:,i) = 0.
+    enddo
+    call directsum_grav(xyzh,gradh,vxyzu,phitot,npart)
+!
+!--compute gravity on the sink particles
+!
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.)
+!
+!--compare the results
+!
+    tol = 1.e-14
+    call checkval(np,fxyz_ptmass(1,:),vxyzu(1,:),tol,nfailed(1),'fgrav(x)')
+    call checkval(np,fxyz_ptmass(2,:),vxyzu(2,:),tol,nfailed(2),'fgrav(y)')
+    call checkval(np,fxyz_ptmass(3,:),vxyzu(3,:),tol,nfailed(3),'fgrav(z)')
+    call checkval(epoti,phitot,1.e-12,nfailed(4),'potential')
+    call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
+    call update_test_scores(ntests,nfailed(1:5),npass)
+ endif
 !
 !--clean up doggie-doos
 !
@@ -348,6 +385,23 @@ subroutine test_directsum(ntests,npass)
  vxyzu = 0.
 
 end subroutine test_directsum
+
+subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
+ integer, intent(in)  :: npart
+ integer, intent(out) :: nptmass
+ real, intent(in)  :: xyzh(:,:),massi
+ real, intent(out) :: xyzmh_ptmass(:,:)
+ integer :: i
+
+ nptmass = npart
+ do i=1,npart
+    ! make a sink particle with the position of each SPH particle
+    xyzmh_ptmass(1:3,i) = xyzh(1:3,i)
+    xyzmh_ptmass(4,i) =  massi ! same mass as SPH particles
+    xyzmh_ptmass(5:,i) = 0.
+ enddo
+
+end subroutine copy_gas_particles_to_sinks
 
 subroutine get_dx_dr(x1,x2,dx,dr)
  real, intent(in) :: x1(3),x2(3)
