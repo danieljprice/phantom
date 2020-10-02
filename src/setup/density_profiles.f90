@@ -492,7 +492,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
     if ( (trim(header(i))=='mass_grams') .or.&
           (trim(header(i))=='mass') ) m(1:lines) = dat(1:lines,i)
     if ( (trim(header(i))=='rho') .or.&
-          (trim(header(i0)=='density')) ) rho(1:lines) = dat(1:lines,i)
+          (trim(header(i)=='density')) ) rho(1:lines) = dat(1:lines,i)
     if ( (trim(header(i))=='cell_specific_IE') .or.&
           (trim(header(i))=='energy') ) ene(1:lines) = dat(1:lines,i)
     if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
