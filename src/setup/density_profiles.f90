@@ -474,11 +474,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
             temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
 
  do i = 1, rows
-    if ( (trim(header(i))=='mass_grams') .or.
+    if ( (trim(header(i))=='mass_grams') .or.&
           (trim(header(i))=='mass') ) m(1:lines) = dat(1:lines,i)
-    if ( (trim(header(i))=='rho') .or.
+    if ( (trim(header(i))=='rho') .or.&
           (trim(header(i0)=='density')) ) rho(1:lines) = dat(1:lines,i)
-    if ( (trim(header(i))=='cell_specific_IE') .or.
+    if ( (trim(header(i))=='cell_specific_IE') .or.&
           (trim(header(i))=='energy') ) ene(1:lines) = dat(1:lines,i)
     if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
     if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
