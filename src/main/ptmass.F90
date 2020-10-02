@@ -347,11 +347,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        phitot = phitot + phiext
     endif
     !
-    !--add self-contribution to the potential if sink-sink softening is set
+    !--self-contribution to the potential if sink-sink softening is used
+    !  Note: we do NOT add this for sink-sink interactions because the
+    !  positions are assumed to be UNCORRELATED, hence the self-contribution
+    !  is not important. Other particles (e.g. gas) are assumed to have
+    !  correlated positions, so the self-contribution is important
     !
-    pterm = 0.5*pmassi*pmassi*potensoft0*hsoft1
-    phii = phii + pterm
-    phitot = phitot + pterm
+    !pterm = 0.5*pmassi*pmassi*potensoft0*hsoft1
+    !phii = phii + pterm
+    !phitot = phitot + pterm
     !
     !--store sink-sink forces (only)
     !
