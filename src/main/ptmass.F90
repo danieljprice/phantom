@@ -36,7 +36,7 @@ module ptmass
 !
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
- use io,   only:iscfile,ipafile,iskfile
+ use io,   only:iscfile,iskfile
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -73,7 +73,6 @@ module ptmass
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
- logical, private, parameter :: record_accreted = .false.  ! verbose tracking of particle accretion
  logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
  character(len=50), private  :: pt_prefix = 'Sink'
  character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
@@ -243,25 +242,37 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    intent(in)  :: ti
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2
- real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
+ real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
- real    :: fterm, pterm
+ real    :: fterm,pterm,potensoft0
  integer :: i,j
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
  phitot = 0.
  !
+ !--get self-contribution to the potential if sink-sink softening is used
+ !
+ if (h_soft_sinksink > 0.) then
+    hsoft1 = 1.0/h_soft_sinksink
+    hsoft21= hsoft1**2
+    call kernel_softening(0.,0.,potensoft0,fterm)
+ else
+    hsoft1 = 0.  ! to avoid compiler warnings
+    hsoft21 = 0.
+    potensoft0 = 0.
+ endif
+ !
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
- !$omp shared(iexternalforce,ti,h_soft_sinksink) &
+ !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii) &
  !$omp private(fextx,fexty,fextz,phiext) &
- !$omp private(hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft) &
+ !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot)
@@ -296,8 +307,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           ! if the sink particle is given a softening length, soften the
           ! force and potential if r < radkern*h_soft_sinksink
           !
-          hsoft1 = 1.0/h_soft_sinksink
-          hsoft21= hsoft1**2
           q2i    = rr2*hsoft21
           qi     = sqrt(q2i)
           call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
@@ -337,15 +346,23 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        phii   = phii + phiext
        phitot = phitot + phiext
     endif
-
+    !
+    !--self-contribution to the potential if sink-sink softening is used
+    !  Note: we do NOT add this for sink-sink interactions because the
+    !  positions are assumed to be UNCORRELATED, hence the self-contribution
+    !  is not important. Other particles (e.g. gas) are assumed to have
+    !  correlated positions, so the self-contribution is important
+    !
+    !pterm = 0.5*pmassi*pmassi*potensoft0*hsoft1
+    !phii = phii + pterm
+    !phitot = phitot + pterm
     !
     !--store sink-sink forces (only)
     !
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-
+    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
  enddo
  !$omp end parallel do
 
@@ -710,15 +727,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 
 !$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
-
-       if (record_accreted) then
-          !$omp critical(trackacc)
-          call fatal('ptmass', 'track_accreted has been deprecated because it relied on OpenMP-unsafe code')
-          call track_accreted(time,i,dx,dy,dz,dvx,dvy,dvz,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
-            xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),pmassi,vxyz_ptmass(1:3,i),xyzmh_ptmass(1,i), &
-            xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i))
-          !$omp end critical(trackacc)
-       endif
 
 ! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
        exit sinkloop
@@ -1395,43 +1403,6 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  else
     iscfile = -abs(iscfile)
  endif
- !
- !--Open file for tracking particle accretion (if required)
- !
- if (record_accreted) then
-    filename = trim(pt_prefix)//"ParticleAccretion"//trim(pt_suffix)
-    open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
-    write(ipafile,'("# Data of accreted particles")')
-    write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
-           1,'time', &
-           2,'sinki',&
-           3,'angx', &
-           4,'angy', &
-           5,'angz', &
-           6,'mpart',&
-           7,'msink',&
-           8,'mu',   &
-           9,'dx',   &
-          10,'dy',   &
-          11,'dz',   &
-          12,'dvx',  &
-          13,'dvy',  &
-          14,'dvz',  &
-          15,'xsink_new', &
-          16,'ysink_new', &
-          17,'zsink_new', &
-          18,'xsink_old', &
-          19,'ysink_old', &
-          20,'zsink_old', &
-          21,'vxsink_new',&
-          22,'vysink_new',&
-          23,'vzsink_new',&
-          24,'vxsink_old',&
-          25,'vysink_old',&
-          26,'vzsink_old'
- else
-    ipafile = -abs(ipafile)
- endif
 
 end subroutine init_ptmass
 !-----------------------------------------------------------------------
@@ -1528,39 +1499,6 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
  enddo
 
 end subroutine pt_write_sinkev
-
-!-----------------------------------------------------------------------
-!+
-! writes accreted particle properties to file
-! Author: CJN.  Modified: JHW (July 2015)
-!+
-!-----------------------------------------------------------------------
-subroutine track_accreted(time,sinki,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart,v_new,xs,ys,zs,vxs,vys,vzs)
- integer, intent(in) :: sinki
- real,    intent(in) :: time,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart
- real,    intent(in) :: v_new(3),xs,ys,zs, vxs,vys,vzs
- real                :: spinm
- real                :: pos(3),vel(3),ang(3)
-
- pos(1) = dx
- pos(2) = dy
- pos(3) = dz
-
- vel(1) = dvx
- vel(2) = dvy
- vel(3) = dvz
-
- spinm  = msink*mpart/(msink+mpart)
- ang(1) = (pos(2)*vel(3) - pos(3)*vel(2))
- ang(2) = (pos(3)*vel(1) - pos(1)*vel(3))
- ang(3) = (pos(1)*vel(2) - pos(2)*vel(1))
- ang(:) = spinm*ang(:)
-
- write(ipafile,'(es18.10,1x,i18,1x,24(es18.10,1x))') time,sinki,ang(1),ang(2),ang(3),mpart,msink,spinm, &
-      dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,xs,ys,zs, v_new,vxs,vys,vzs
- call flush(ipafile)
-
-end subroutine track_accreted
 
 !-----------------------------------------------------------------------
 !+

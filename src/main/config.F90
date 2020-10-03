@@ -42,7 +42,7 @@ module dim
 #ifdef MAXPTMASS
  integer, parameter :: maxptmass = MAXPTMASS
 #else
- integer, parameter :: maxptmass = 100
+ integer, parameter :: maxptmass = 1000
 #endif
  integer, parameter :: nsinkproperties = 15
 
