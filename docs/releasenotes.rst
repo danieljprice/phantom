@@ -1,19 +1,19 @@
 Release notes
 =============
 
-Current development version - v1.x.x
+Current development version - v2.x.x
 -------------------------------------
 
 Physics
 ~~~~~~~
-- General relativistic hydrodynamics in Kerr, Schwarzschild and Minkowski metrics (Liptai & Price 2019)
+- General relativistic hydrodynamics in Kerr, Schwarzschild and Minkowski metrics (`Liptai & Price 2019 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.485..819L/abstract>`__)
 - Major improvements to wind injection/line cooling/dust formation (contributed by Lionel Siess)
 - Interface with KROME chemistry library for chemistry+cooling (contributed by Ward Homan)
-- Multigrain dust-as-particles now works (Mentiplay et al. 2020)
-- Overdamping problem for small grains fixed when dust is simulated with particles (Price & Laibe 2020)
+- Multigrain dust-as-particles (i.e. multiple large grain species) now works (Mentiplay et al. 2020)
+- Overdamping problem for small grains fixed when dust is simulated with particles (`Price & Laibe 2020 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.3929P/abstract>`__)
 - Stepinski-Valageas dust growth algorithm works with both dust-as-mixture and dust-as-particles (Vericel et al. 2020)
 - Preliminary implementation of flux limited diffusion radiation hydro, explicit timestepping only (Biriukov, Borchert)
-- Added "ideal + radiation" equation of state
+- Added "ideal + radiation" equation of state (Lau)
 - Various improvements to asteroid wind injection modules (Trevascus, Nealon)
 - gravitational wave inspiral via external force works with sink particles (Toscani)
 - gravitational wave emission computed automatically using Quadrupole approximation (Toscani)
@@ -21,14 +21,14 @@ Physics
 
 Setup
 ~~~~~
-- Major improvements to setup procedure when mapping MESA stars into phantom (Lau, Hirai, Gonzalez, de Marco, Reichardt), including ability to replace core with softened point mass particle
-- automated relaxation of stellar profiles in phantomsetup using asynchronous shifting (relax-o-matic), similar to Diehl et al. (2015).
+- Major improvements to setup procedure when mapping MESA stars into phantom, including ability to replace core with softened point mass particle (Lau, Hirai, Gonzalez, de Marco, Reichardt)
+- automated relaxation of stellar profiles in phantomsetup using asynchronous shifting (relax-o-matic), similar to `Diehl et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015PASA...32...48D/abstract>`__.
 - added random-but-symmetric option to set_sphere, giving arbitrary density profile with centre of mass exactly at origin
 - Various setup routines for GR simulations, e.g. setup_grtde for tidal disruption problems (Liptai et al. 2019)
 - Dust growth setups (growingdisc,testgrowth)
-- Shocktube setup includes special relativistic shock tubes (Liptai & Price 2019), radiative shocks (Borchert, Biriukov) and dusty shocks with multiple grain sizes (Mentiplay et al. 2020). Also added ability to smooth initial shock front if desired (c.f. Mentiplay et al. 2020)
+- Shocktube setup includes special relativistic shock tubes (`Liptai & Price 2019 <https://ui.adsabs.harvard.edu/abs/2019MNRAS.485..819L/abstract>`__), radiative shocks (Borchert, Biriukov) and dusty shocks with multiple grain sizes (Mentiplay et al. 2020). Also added ability to smooth initial shock front if desired (c.f. Mentiplay et al. 2020)
 - Ability to set up initial density profile as Bonnor-Ebert sphere in star formation setups (Wurster)
-- phantomsetup now shows the percentage of particles not satisfying the terminal velocity approximation (Ragusa)
+- Disc setup with dust now shows the percentage of particles not satisfying the terminal velocity approximation (Ragusa)
 
 Bugs
 ~~~~
@@ -53,7 +53,7 @@ Utils
 - analysis_tde for analysing GR tidal disruption calculations (Liptai)
 - ev2dot utility for taking derivative of any column in a .ev file (Liptai)
 - evcut, evhead, evcat utilities for manipulating/combining .ev files (Liptai)
-- combinedustdumps utility for stacking dust-gas simulations performed with single grain sizes 
+- combinedustdumps utility for stacking dust-gas simulations performed with single grain sizes (Mentiplay, Price)
 
 Build
 ~~~~~
@@ -65,7 +65,7 @@ Other
 ~~~~~
 - Added rkill option to kill particles outside a certain radius, useful for simulations with particle injection (Veronesi)
 - get_derivs_global routine simplifies a lot of code in the test suite
-- Remaining static memory allocation removed, phantom itself no longer requires MAXP= flag to increase the particle number beyond 10^6. Some issues remain in phantomsetup.
+- Remaining static memory allocation removed, phantom itself no longer requires MAXP= flag to increase the particle number beyond 10^6. However, this remains necessary in phantomsetup.
 - migrated repositories and continuous integration tests to github
 - simplified code due to pressure now being stored on particles, use "conservative to primitive" routine to convert conserved variables to primitive variables
 - automated documentation of code modules via sphinx-fortran
