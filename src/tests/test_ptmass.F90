@@ -118,6 +118,7 @@ subroutine test_ptmass(ntests,npass)
 #endif
     iverbose = 0
     tree_accuracy = 0.
+    h_soft_sinksink = 0.
 
     binary_tests: do itest = 1,nbinary_tests
        select case(itest)
