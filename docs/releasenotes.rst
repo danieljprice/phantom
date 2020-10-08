@@ -6,9 +6,73 @@ Current development version - v1.x.x
 
 Physics
 ~~~~~~~
+- General relativistic hydrodynamics in Kerr, Schwarzschild and Minkowski metrics (Liptai & Price 2019)
+- Major improvements to wind injection/line cooling/dust formation (contributed by Lionel Siess)
+- Interface with KROME chemistry library for chemistry+cooling (contributed by Ward Homan)
+- Multigrain dust-as-particles now works (Mentiplay et al. 2020)
+- Overdamping problem for small grains fixed when dust is simulated with particles (Price & Laibe 2020)
+- Stepinski-Valageas dust growth algorithm works with both dust-as-mixture and dust-as-particles (Vericel et al. 2020)
+- Preliminary implementation of flux limited diffusion radiation hydro, explicit timestepping only (Biriukov, Borchert)
+- Added "ideal + radiation" equation of state
+- Various improvements to asteroid wind injection modules (Trevascus, Nealon)
+- gravitational wave inspiral via external force works with sink particles (Toscani)
+- gravitational wave emission computed automatically using Quadrupole approximation (Toscani)
+- NICIL library for non-ideal MHD diffusion coefficients updated to v1.2.6 (Wurster)
+
+Setup
+~~~~~
+- Major improvements to setup procedure when mapping MESA stars into phantom (Lau, Hirai, Gonzalez, de Marco, Reichardt), including ability to replace core with softened point mass particle
+- automated relaxation of stellar profiles in phantomsetup using asynchronous shifting (relax-o-matic), similar to Diehl et al. (2015).
+- added random-but-symmetric option to set_sphere, giving arbitrary density profile with centre of mass exactly at origin
+- Various setup routines for GR simulations, e.g. setup_grtde for tidal disruption problems (Liptai et al. 2019)
+- Dust growth setups (growingdisc,testgrowth)
+- Shocktube setup includes special relativistic shock tubes (Liptai & Price 2019), radiative shocks (Borchert, Biriukov) and dusty shocks with multiple grain sizes (Mentiplay et al. 2020). Also added ability to smooth initial shock front if desired (c.f. Mentiplay et al. 2020)
+- Ability to set up initial density profile as Bonnor-Ebert sphere in star formation setups (Wurster)
+- phantomsetup now shows the percentage of particles not satisfying the terminal velocity approximation (Ragusa)
+
+Bugs
+~~~~
+- Various bug fixes with radiation hydrodynamics with flux-limited diffusion (Borchert, Biriukov)
+- Various issues with live phantom-mcfost simulations fixed (Pinte)
+- Various issues with multigrain dust calculations fixed (Mentiplay)
+- Various issues with dust growth fixed (Vericel)
+- Fixed bug with artificial conductivity being incorrect when non-ideal equations of state were used (Lau, Hirai)
+- Bug fix with sink particles not crossing periodic boundaries (Wurster)
+- Now check for dead particles present in dump files and remove them
+- bug fixes with phantom2pdf_amr for computing volume-weighted probability density functions
+- bug fix in analysis_disc regarding where the origin is assumed to be (Nealon)
+- bug fix with memory allocation for dvdx, possibly meaning shock viscosity switch was not applied properly
+
+Utils
+~~~~~
+- splitpart and mergepart utilities added for splitting and merging particles, can be used to continue a simulation at a lower/higher resolution (Nealon, Wurster, Price)
+- growth_to_mcfost utility added for radiative transfer post-processing of simulations with dust growth (Vericel)
+- major improvements to analysis_common_envelope (Lau, de Marco)
+- various issues with phantom2hdf5 utility fixed (Mentiplay, Pinte)
+- moddump_sink can be used to modify various sink particle properties by hand (Pinte, Lau)
+- analysis_tde for analysing GR tidal disruption calculations (Liptai)
+- ev2dot utility for taking derivative of any column in a .ev file (Liptai)
+- evcut, evhead, evcat utilities for manipulating/combining .ev files (Liptai)
+- combinedustdumps utility for stacking dust-gas simulations performed with single grain sizes 
+
+Build
+~~~~~
+- code compiled into more modular and re-usable libraries (libsetup, libphantom)
+- phantomtest is now compiled as a separate binary to phantom, where phantomtest depends on phantom but not the other way around
+- phantomsetup now compiles using libsetup to keep dependencies clean
+
+Other
+~~~~~
+- Added rkill option to kill particles outside a certain radius, useful for simulations with particle injection (Veronesi)
+- get_derivs_global routine simplifies a lot of code in the test suite
+- Remaining static memory allocation removed, phantom itself no longer requires MAXP= flag to increase the particle number beyond 10^6. Some issues remain in phantomsetup.
+- migrated repositories and continuous integration tests to github
+- simplified code due to pressure now being stored on particles, use "conservative to primitive" routine to convert conserved variables to primitive variables
+- automated documentation of code modules via sphinx-fortran
 
 Performance
 ~~~~~~~~~~~
+- pressure, temperature and sound speed are now stored on particles, removing the need to call the equation of state routine on neighbours. This improves performance of simulations using tabulated equations of state. Equation of state is now only called once per timestep.
 
 
 v1.4.0 - 20th January 2020 - 1b48489
