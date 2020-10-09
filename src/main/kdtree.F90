@@ -335,6 +335,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use part, only:iphase,iactive
 #endif
  use part, only:isdead_or_accreted
+ use io,   only:fatal
  integer,         intent(in)  :: np,irootnode,ndim
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
@@ -372,6 +373,9 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
+       if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+          call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+       endif
        xminpart = min(xminpart,xi)
        yminpart = min(yminpart,yi)
        zminpart = min(zminpart,zi)
