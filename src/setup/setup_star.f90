@@ -124,6 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
+ use eos_mesa,        only:get_eos_eT_from_rhop_mesa, get_eos_pressure_temp_mesa
  use part,            only:eos_vars,itemp,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
@@ -243,6 +244,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total    = 0
  vxyzu          = 0.0
  !
+ ! where needed initialise the EoS
+ !
+ !polytropic
+ calc_polyk = .true.
+ if (ieos==9) call init_eos_9(EOSopt)
+ !MESA
+ if (ieos==10) call init_eos(ieos,ierr)  
+ !
  ! setup tabulated density profile
  !
  calc_polyk = .true.
@@ -308,7 +317,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
 
-       call init_eos(ieos,ierr)
        if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
@@ -416,8 +424,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(4,i) = eni / unit_ergg
           if (store_temperature) eos_vars(itemp,i) = tempi
        case(10) ! MESA EoS
-          vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-          if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),r(1:npts),ri)
+          call get_eos_eT_from_rhop_mesa(densi*unit_density,presi*unit_pressure,eni,tempi) ! No initial guess for eint used 
+          vxyzu(4,i) = eni / unit_ergg
+          if (store_temperature) eos_vars(itemp,i) = tempi
        case default
           if (gamma < 1.00001) then
              vxyzu(4,i) = polyk
