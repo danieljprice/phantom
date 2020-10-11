@@ -437,6 +437,7 @@ end subroutine read_mesa_file
 !  Alternative subroutine to read MESA profile; used in star setup to
 !-----------------------------------------------------------------------
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
+ use physcon, only:solarm
  integer                                           :: lines,rows=0,i
  character(len=120), intent(in)                    :: filepath
  character(len=10000)                              :: dumc
@@ -475,7 +476,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
 
  do i = 1, rows
     if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='mass') m(1:lines) = dat(1:lines,i) * 1.989e33
+    if (trim(header(i))=='mass') m(1:lines) = dat(1:lines,i) * solarm
     if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
     if (trim(header(i))=='density') rho(1:lines) = dat(1:lines,i)
     if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
