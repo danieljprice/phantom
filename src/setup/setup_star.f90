@@ -47,10 +47,10 @@ module setup
 !   - write_rho_to_file  : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, relaxstar, rho_profile, setfixedentropycore,
-!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
-!   timestep, units
+!   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
+!   options, part, physcon, prompting, relaxstar, rho_profile,
+!   setfixedentropycore, setsoftenedcore, setstellarcore, setup_params,
+!   spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
