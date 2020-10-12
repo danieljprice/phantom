@@ -43,7 +43,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
                 remove_particle_from_npartoftype
- use eos,             only:gamma,polyk
+ use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
@@ -111,7 +111,7 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( (ieos == 10 .or. ieos == 12) .and. .not. store_temperature) then
+ if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
     print*,'WARNING! Using non-ideal EoS but not storing temperature'
     nwarn = nwarn + 1
  endif
