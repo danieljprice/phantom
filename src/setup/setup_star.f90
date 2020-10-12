@@ -250,7 +250,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  calc_polyk = .true.
  if (ieos==9) call init_eos_9(EOSopt)
  !MESA
- if (ieos==10) call init_eos(ieos,ierr)  
+ if (ieos==10) call init_eos(ieos,ierr)
  !
  ! setup tabulated density profile
  !
@@ -424,7 +424,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(4,i) = eni / unit_ergg
           if (store_temperature) eos_vars(itemp,i) = tempi
        case(10) ! MESA EoS
-          call get_eos_eT_from_rhop_mesa(densi*unit_density,presi*unit_pressure,eni,tempi) ! No initial guess for eint used 
+          call get_eos_eT_from_rhop_mesa(densi*unit_density,presi*unit_pressure,eni,tempi) ! No initial guess for eint used
           vxyzu(4,i) = eni / unit_ergg
           if (store_temperature) eos_vars(itemp,i) = tempi
        case default
