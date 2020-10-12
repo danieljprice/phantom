@@ -61,7 +61,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
@@ -373,6 +373,23 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
  return
 end subroutine equationofstate
+
+!----------------------------------------------------------------
+!+
+!  Query function to return whether an EoS is non-ideal
+!+
+!----------------------------------------------------------------
+logical function eos_is_non_ideal(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(10,12,15)
+    eos_is_non_ideal = .true.
+ case default
+    eos_is_non_ideal = .false.
+ end select
+
+end function eos_is_non_ideal
 
 !----------------------------------------------------------------
 !+
