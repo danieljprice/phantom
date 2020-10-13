@@ -127,6 +127,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only:eos_vars,itemp,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
+ use setfixedentropysurf, only: set_fixedS_surface
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
                            check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
@@ -318,6 +319,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_fixedS_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
           if (ierr==2) call fatal('setup','Choice of fixed entropy exceeds outer entropy. Try choosing a smaller core mass.')
           if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
+          call set_fixedS_surface(mcore,m0,rho0,r0,pres0,ene0,temp0,ierr)
+          if (ierr==2) call fatal('setup','Error encountered in set_fixedS_surface')
        end select
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)

@@ -108,9 +108,9 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
  integer                                        :: Nmax
  real                                           :: Sc,mass,mold,msoft,fac,Sedge
 
-! Instructions
+! INSTRUCTIONS
 
-! input variables should be given in the following format
+! Input variables should be given in the following format:
 
 ! r(0:Nmax+1): Array of radial grid to be softened, satisfying r(0)=0 and r(Nmax)=hsoft
 ! mcore:       Core particle mass, need to provide initial guess
