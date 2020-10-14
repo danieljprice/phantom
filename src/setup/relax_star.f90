@@ -283,21 +283,30 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_en
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
- real :: ri,rhor,rhoi,rho1
+ real :: ri,rhor,rhoi,rho1,Rstar
  integer :: i
 
  rho1 = yinterp(rho,r,0.)
  rmax = 0.
  rmserr = 0.
+ Rstar = r(nt)
  do i=1,npart
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     rhor = yinterp(rho,r,ri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
+          if (ri > rmax) then ! particle exceeds radial grid
+             vxyzu(4,i) = 0.1*(entrop(nt)*rhoi**(gamma-1.))/(gamma-1.)
+          else
+             vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
+          endif
        else
-          vxyzu(4,i) = yinterp(utherm,r,ri)
+          if (ri > rmax) then ! particle exceeds radial grid
+             vxyzu(4,i) = 0.1*utherm(nt)
+          else
+             vxyzu(4,i) = yinterp(utherm,r,ri)
+          endif
        endif
     endif
     rmserr = rmserr + (rhor - rhoi)**2
