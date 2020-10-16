@@ -70,7 +70,7 @@ module setup
  integer            :: need_iso, need_temp
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
- real               :: initialtemp
+ real               :: initialtemp, initialgmw, initialx, initialz
  real               :: mcore,hdens,hsoft
  logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,relax_star_in_setup,write_rho_to_file
@@ -176,6 +176,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iprofile    = 1
  EOSopt      = 1
  initialtemp = 1.0e7
+ initialgmw  = 2.381
+ initialx    = 0.74
+ initialz    = 0.02
  isoftcore   = 0
  isinkcore   = .false.
  mcore         = 0.
@@ -250,7 +253,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  calc_polyk = .true.
  if (ieos==9) call init_eos_9(EOSopt)
  !MESA
- if (ieos==10) call init_eos(ieos,ierr)
+ if (ieos==10) then
+    gmw = initialgmw
+    X_in = initialx
+    Z_in = initialz
+    print*, initialgmw, initialx, initialz
+    print*, gmw, X_in, Z_in
+    call init_eos(ieos,ierr) 
+ endif
  !
  ! setup tabulated density profile
  !
@@ -531,6 +541,10 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     if (input_polyk) call prompt('Enter polytropic constant',polyk,0.)
  case(1)
     call prompt('Enter polytropic constant (cs^2 if isothermal)',polyk,0.)
+ case(10)
+    call prompt('Enter mean molecular weight',initialgmw,0.0)
+    call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
+    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)    
  end select
  if (iprofile==ievrard) then
     call prompt('Enter the specific internal energy (units of GM/R) ',ui_coef,0.)
@@ -728,6 +742,10 @@ subroutine write_setupfile(filename,gamma,polyk)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
+ case(10)
+    call write_inopt(initialgmw,'mu','mean molecular weight',iunit)
+    call write_inopt(initialx,'X','hydrogen mass fraction',iunit)
+    call write_inopt(initialz,'Z','metallicity',iunit)
  end select
  if (iprofile==ievrard) then
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
@@ -825,6 +843,10 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(1)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
+ case(10)
+    call read_inopt(initialgmw,'mu',db,errcount=nerr)
+    call read_inopt(initialx,'X',db,errcount=nerr)
+    call read_inopt(initialz,'Z',db,errcount=nerr)    
  end select
  if (iprofile==ievrard) then
     call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
