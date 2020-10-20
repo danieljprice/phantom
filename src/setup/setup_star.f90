@@ -116,6 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
+ use sortutils,       only:indexxfunc,r2func
  use units,           only:set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only:hfact_default
  use rho_profile,     only:rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
@@ -144,13 +145,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr
+ integer                          :: i,j,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,presi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
-                                     enitab(ng_max)
+                                     enitab(ng_max),mtab(ng_max)
  real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
                                      Xfrac(:),Yfrac(:)
- real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in
+ integer, allocatable             :: iorder(:)
+ real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in,massri
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -327,7 +329,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
     endif
 
-    call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
+    call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,mtab,Mstar,ierr)
     rmin  = r(1)
     Rstar = r(npts)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
@@ -430,6 +432,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end select
     endif
  enddo
+
+ ! MIKE'S FIX: Interpolate in m instead of r when particles exceed stellar radius
+ allocate(iorder(npart))
+ call indexxfunc(npart,r2func,xyzh(1:3,:),iorder)
+ do j = 1,npart
+    i = iorder(j)
+    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    massri = Mstar * real(j) / real(npart)
+    if (maxvxyzu >= 4) then
+       vxyzu(4,i) = yinterp(enitab(1:npts),mtab(1:npts),massri)
+       if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),mtab(1:npts),massri)
+    endif
+ enddo
+ deallocate(iorder)
+ ! MIKE'S FIX
+
  call finish_eos(ieos,ierr)
  !
  ! Reset centre of mass (again)

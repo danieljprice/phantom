@@ -44,9 +44,9 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  ! msurf: Mass coordinate beyond which we perform the profile replacement
 
  ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .false.     ! Needs to be true if to be read by Phantom
+ isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
+ iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
  msurf = 9.8 * solarm !11.35 * solarm ! Mass coordinate beyond which we flatten the entropy
  call interpolator(m,msurf,surfidx) ! Find index closest to msurf
@@ -89,7 +89,7 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  !testentropy(surfidx:size(r)) = entropyorig(surfidx:size(r))
  ! TEST: SUPPLY ORIGINAL ENTROPY TO CHECK ORIGINAL RHO AND PRES RECOVERED
 
- call write_entropy('./profiles/12_0_RSG/entropy_mesa.dat', testentropy, entropyorig)
+ ! call write_entropy('./profiles/12_0_RSG/entropy_mesa.dat', testentropy, entropyorig)
  !stop
  ! TEST: OUTPUT ENTROPY TO DATA FILE
 

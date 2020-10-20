@@ -342,12 +342,12 @@ end subroutine rho_evrard
 !+
 !-----------------------------------------------------------------------
 subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut,rcut)
+                               enitab,mtab,totmass,ierr,mcut,rcut)
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only:find_phantom_datafile
  integer,          intent(in)  :: ng_max
  integer,          intent(out) :: ierr,n
- real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),totmass
+ real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),totmass
  real,             intent(out), optional :: rcut
  real,             intent(in), optional :: mcut
  character(len=*), intent(in)  :: filepath
@@ -416,6 +416,7 @@ subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  rhotab(1:n)      = stardata(1:n,5)
  !mass
  stardata(1:n,1)  = stardata(1:n,1)/umass
+ mtab(1:n)        = stardata(1:n,1)
  totmass          = stardata(n,1)
  !pressure
  stardata(1:n,2)  = stardata(1:n,2)/unit_pressure
