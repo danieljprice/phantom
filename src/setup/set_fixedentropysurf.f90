@@ -228,7 +228,7 @@ function entropy(rho,pres,ierr)
  use mesa_microphysics, only:getvalue_mesa
  real, intent(in)               :: rho,pres
  integer, intent(out), optional :: ierr
- real                           :: inv_mu,entropy,temp,eint
+ real                           :: inv_mu,entropy,logentropy,temp,eint
 
  if (present(ierr)) ierr=0
  inv_mu = 1/gmw
@@ -248,10 +248,11 @@ function entropy(rho,pres,ierr)
 
      ! Get entropy from rho and eint from MESA tables
      if (present(ierr)) then
-        call getvalue_mesa(rho,eint,9,entropy,ierr)
+        call getvalue_mesa(rho,eint,9,logentropy,ierr)
      else
-        call getvalue_mesa(rho,eint,9,entropy)
+        call getvalue_mesa(rho,eint,9,logentropy)
      endif
+     entropy = 10.d0**logentropy
 
  end select
   
