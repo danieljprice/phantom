@@ -40,9 +40,9 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  integer                    :: i,hidx,iSerr
 
  ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
+ isort_decreasing = .false.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
+ iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
 
  h       = hsoft * solarr      ! Convert to cm
  hphi_cm = hphi  * solarr      ! Convert to cm
