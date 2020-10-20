@@ -100,6 +100,7 @@ end subroutine set_fixedS_softened_core
 !+
 !-----------------------------------------------------------------------
 subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
+ use eos, only:entropy
  real, allocatable, dimension(:), intent(in)    :: r
  real, intent(in)                               :: mh
  real, intent(inout)                            :: mcore
@@ -196,42 +197,6 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
 
 end subroutine one_shot
 
-
-!-----------------------------------------------------------------------
-!+
-!  Calculates mass-specific entropy (gas + radiation) up to an additive
-!  integration constant, from density and pressure.
-!+
-!-----------------------------------------------------------------------
-function entropy(rho,pres)
- use physcon, only:radconst,kb_on_mh
- use eos,     only:gmw,ieos
- real, intent(in) :: rho,pres
- real :: inv_mu,entropy,temp
- real :: corr
- real, parameter :: eoserr=1d-10
-
- inv_mu = 1/gmw
- corr = huge(corr); temp = 1d3
-
- if (ieos == 2) then
-    temp = pres * gmw / (rho * kb_on_mh)
-    ! Include only gas entropy for adiabatic EoS
-    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
- else
-    ! Assume ideal gas plus radiation EoS, solve for temp using Newton-Raphson method
-    do while (abs(corr) > eoserr*temp)
-       corr = (pres - (radconst*temp**3/3.+ rho*kb_on_mh*inv_mu)* temp) &
-             / (-4.*radconst*temp**3/3. - rho*kb_on_mh*inv_mu)
-       temp = temp - corr
-    enddo
-    ! Include both gas and radiation entropy for MESA and gas plus rad. EoSs
-    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
- endif
-
-end function entropy
-
-
 !-----------------------------------------------------------------------
 !+
 !  Calculate density given pressure and entropy using Newton-Raphson
@@ -239,6 +204,7 @@ end function entropy
 !+
 !-----------------------------------------------------------------------
 subroutine get_rho_from_p_s(pres,S,rho)
+ use eos, only:entropy
  real, intent(in)  :: pres,S
  real, intent(out) :: rho
  real              :: corr,dSdrho,S_plus_dS,rho_plus_drho
