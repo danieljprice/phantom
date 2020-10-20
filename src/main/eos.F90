@@ -65,7 +65,7 @@ module eos
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
- public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy
  public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -1219,5 +1219,47 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
  end select
 
 end subroutine calc_temp_and_ene
+
+!-----------------------------------------------------------------------
+!+
+!  Calculates specific entropy (gas + radiation + recombination)
+!  up to an additive integration constant, from density and pressure.
+!+
+!-----------------------------------------------------------------------
+function entropy(rho,pres,ierr)
+   use physcon,           only:radconst,kb_on_mh
+   use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
+   use eos_mesa,          only:get_eos_eT_from_rhop_mesa
+   use mesa_microphysics, only:getvalue_mesa
+   real, intent(in)               :: rho,pres
+   integer, intent(out), optional :: ierr
+   real                           :: inv_mu,entropy,logentropy,temp,eint
+  
+   if (present(ierr)) ierr=0
+   inv_mu = 1/gmw
+  
+   select case(ieos)
+   case(2) ! Include only gas entropy for adiabatic EoS
+       temp = pres * gmw / (rho * kb_on_mh)
+       entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
+  
+   case(12) ! Include both gas and radiation entropy gas plus rad. EoS
+       temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
+       call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
+       entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+   
+   case(10) ! MESA EoS
+       call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+  
+       ! Get entropy from rho and eint from MESA tables
+       if (present(ierr)) then
+          call getvalue_mesa(rho,eint,9,logentropy,ierr)
+       else
+          call getvalue_mesa(rho,eint,9,logentropy)
+       endif
+       entropy = 10.d0**logentropy
+   end select
+    
+  end function entropy
 
 end module eos
