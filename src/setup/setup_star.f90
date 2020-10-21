@@ -262,7 +262,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Z_in = initialz
     print*, initialgmw, initialx, initialz
     print*, gmw, X_in, Z_in
-    call init_eos(ieos,ierr) 
+    call init_eos(ieos,ierr)
  endif
  !
  ! setup tabulated density profile
@@ -547,7 +547,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  case(10)
     call prompt('Enter mean molecular weight',initialgmw,0.0)
     call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
-    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)    
+    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
  end select
  if (iprofile==ievrard) then
     call prompt('Enter the specific internal energy (units of GM/R) ',ui_coef,0.)
@@ -849,7 +849,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  case(10)
     call read_inopt(initialgmw,'mu',db,errcount=nerr)
     call read_inopt(initialx,'X',db,errcount=nerr)
-    call read_inopt(initialz,'Z',db,errcount=nerr)    
+    call read_inopt(initialz,'Z',db,errcount=nerr)
  end select
  if (iprofile==ievrard) then
     call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
