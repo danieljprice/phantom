@@ -25,6 +25,7 @@ module setup
 !   - EOSopt             : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - Mstar              : *mass of star*
 !   - Rstar              : *radius of star*
+!   - X                  : *hydrogen mass fraction*
 !   - densityfile        : *File containing data for stellar profile*
 !   - dist_unit          : *distance unit (e.g. au)*
 !   - gamma              : *Adiabatic index*
@@ -37,6 +38,8 @@ module setup
 !   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
 !   - mass_unit          : *mass unit (e.g. solarm)*
 !   - mcore              : *Mass of sink particle stellar core*
+!   - metallicity        : *metallicity*
+!   - mu                 : *mean molecular weight*
 !   - np                 : *approx number of particles (in box of size 2R)*
 !   - outputfilename     : *Output path for softened MESA profile*
 !   - polyk              : *polytropic constant (cs^2 if isothermal)*
