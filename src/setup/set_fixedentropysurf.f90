@@ -238,21 +238,24 @@ function entropy(rho,pres,ierr)
      temp = pres * gmw / (rho * kb_on_mh)
      entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
 
- case(12) ! Include both gas and radiation entropy gas plus rad. EoS
+ !case(12) ! Include both gas and radiation entropy gas plus rad. EoS
+
+ ! Use gas+rad entropy for both MESA and gas+rad EoSs, since we don't want to include entropy due to ionisation.
+ case default
      temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
      call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
      entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
  
- case(10) ! MESA EoS
-     call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+!  case(10) ! MESA EoS
+!      call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
 
-     ! Get entropy from rho and eint from MESA tables
-     if (present(ierr)) then
-        call getvalue_mesa(rho,eint,9,logentropy,ierr)
-     else
-        call getvalue_mesa(rho,eint,9,logentropy)
-     endif
-     entropy = 10.d0**logentropy
+!      ! Get entropy from rho and eint from MESA tables
+!      if (present(ierr)) then
+!         call getvalue_mesa(rho,eint,9,logentropy,ierr)
+!      else
+!         call getvalue_mesa(rho,eint,9,logentropy)
+!      endif
+!      entropy = 10.d0**logentropy
 
  end select
   
