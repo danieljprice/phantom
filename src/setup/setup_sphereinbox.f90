@@ -15,7 +15,11 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - BE_concentration : *concentration parameter of the BE sphere (critical is 6.45)*
+!   - BEfac            : *over-density factor of the BE sphere [code units]*
+!   - BEmass           : *mass radius of the BE sphere [code units]*
+!   - BErad_norm       : *normalised radius of the BE sphere*
+!   - BErad_phys       : *physical radius of the BE sphere [code units]*
+!   - BErho_cen        : *central density of the BE sphere [code units]*
 !   - Bzero            : *Magnetic field strength in Gauss*
 !   - ang_Bomega       : *Angle (degrees) between B and rotation axis*
 !   - angvel           : *angular velocity in rad/s*
@@ -24,12 +28,17 @@ module setup
 !   - dist_unit        : *distance unit (e.g. au)*
 !   - dusttogas        : *dust-to-gas ratio*
 !   - form_binary      : *the intent is to form a central binary*
+!   - h_acc            : *accretion radius (code units)*
+!   - h_soft_sinksink  : *sink-sink softening radius (code units)*
+!   - iBE_options      : *The set of parameters to define the BE sphere*
+!   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
+!   - lbox             : *length of a box side in terms of spherical radii*
 !   - mass_unit        : *mass unit (e.g. solarm)*
 !   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
 !   - np               : *requested number of particles in sphere*
 !   - pmass_dusttogas  : *dust-to-gas particle mass ratio*
+!   - r_crit           : *critical radius (code units)*
 !   - r_sphere         : *radius of sphere in code units*
-!   - rho_cen_cgs      : *central density of the BE sphere (will override radius)*
 !   - rho_pert_amp     : *amplitude of density perturbation*
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
@@ -50,9 +59,10 @@ module setup
  real :: xmini(3), xmaxi(3)
  real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
  real :: angvel,Bzero_G,masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
- real :: rho_pert_amp,xi,rho_cen_cgs
+ real :: rho_pert_amp,lbox
+ real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
  real(kind=8)                 :: udist,umass
- integer                      :: np
+ integer                      :: np,iBEparam
  logical                      :: BEsphere,binary,mu_not_B,cs_in_code
  character(len=20)            :: dist_unit,mass_unit
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
@@ -70,11 +80,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use unifdis,      only:set_unifdis
  use spherical,    only:set_sphere
- use rho_profile,  only:rho_bonnorebert
+ use rho_profile,  only:rho_bonnorebert,prompt_BEparameters
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos
+ use eos,          only:polyk2,ieos,rhocrit0cgs
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
@@ -95,19 +105,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer            :: iBE
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
- real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit,r_sphere_in
- real               :: rxy2,rxyz2,phi,dphi,lbox,central_density,edge_density
+ real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
+ real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density
  real, allocatable  :: rtab(:),rhotab(:)
- logical            :: iexist,is_box,write_options
+ logical            :: iexist
  logical            :: make_sinks = .true.
  character(len=100) :: filename
  character(len=40)  :: fmt
- character(len=10)  :: string,h_acc_char
+ character(len=10)  :: h_acc_char
 
  npmax    = size(xyzh(1,:))
  filename = trim(fileprefix)//'.setup'
- write_options = .false.
- rho_cen_cgs   = 0. ! need to define here since this may or may not be read in
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
  inquire(file=filename,exist=iexist)
@@ -118,7 +126,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call write_setupfile(filename)
        stop
     endif
-    lbox = -2.0*xmini(1)/r_sphere
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     dist_unit = '1.0d16cm'
@@ -150,43 +157,42 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        np = 1000000
     endif
-    call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
-    np_in    = np
-    r_sphere = 4.
-    call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
-    lbox     = 4.
-    is_box   = .true.
-    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
-    do i=1,3
-       ! note that these values will be saved to the .setup file rather than lbox so user can convert
-       ! box to a rectangle if desired
-       xmini(i) = -0.5*(lbox*r_sphere)
-       xmaxi(i) = -xmini(i)
-    enddo
+    BEsphere = .false.
+    call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
+
+    if (.not. BEsphere) then
+       call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
+       np_in    = np
+       r_sphere = 4.
+       call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
+       lbox     = 4.
+       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+       do i=1,3
+          ! note that these values will be saved to the .setup file rather than lbox so user can convert
+          ! box to a rectangle if desired
+          xmini(i) = -0.5*(lbox*r_sphere)
+          xmaxi(i) = -xmini(i)
+       enddo
+
+       totmass_sphere = 1.0
+       call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
+    else
+       call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
+       lbox     = 4.
+       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+    endif
 
     density_contrast = 30.0
     call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
 
-    totmass_sphere = 1.0
-    call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
-
-    BEsphere = .false.
-    xi       = 7.45
-    call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
-    if (BEsphere) then
-       call prompt('Enter the concentration parameter (6.45 is critical): ',xi,0.)
-       call prompt('Enter the central density (or <= to use the above radius): ',rho_cen_cgs,0.)
-    endif
-
     binary = .false.
-    call prompt('Do you intend to form a binary system?',binary)
+    call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
 
     if (binary) then
-       cs_sphere_cgs = 0.1623*unit_velocity
+       cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
     else
-       cs_sphere_cgs = 0.1900*unit_velocity
+       cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
     endif
-    write(string,"(es10.3)") udist/utime
     call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
 
     if (binary) then
@@ -262,35 +268,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Bonnor-Ebert profile (if requested)
  !
  if (BEsphere) then
-    iBe = 1024
-    allocate(rtab(iBe),rhotab(iBe))
-    central_density = rho_cen_cgs/unit_density
-    r_sphere_in = r_sphere
-    call rho_bonnorebert(xi,r_sphere,totmass_sphere,iBE,iBElast,&
-                         rtab,rhotab,central_density,edge_density,ierr)
+    iBE = 8192
+    allocate(rtab(iBE),rhotab(iBE))
+    call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
+                         iBE,iBElast,rtab,rhotab,ierr)
+    central_density = BErho_cen
+    r_sphere        = BErad_phys
+    totmass_sphere  = BEmass
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
-    if (rho_cen_cgs > 0.) then
-       print*, "Radius has been overwritten to ",r_sphere," code units"
-       do i = 1,3
-          xmini(i) = -0.5*(lbox*r_sphere)
-          xmaxi(i) = -xmini(i)
-       enddo
-    endif
-    if (abs(r_sphere_in - r_sphere) > epsilon(r_sphere)) write_options = .true.
+    do i = 1,3
+       xmini(i) = -0.5*(lbox*r_sphere)
+       xmaxi(i) = -xmini(i)
+    enddo
  endif
  !
  ! boundaries
  !
  call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
- !
- ! write default input file
- ! (needs to be here since radius and box sizes may be modified by BEsphere)
- !
- if (write_options .and. id == master) then
-    call write_setupfile(filename)
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
-    stop
- endif
  !
  ! general parameters
  !
@@ -309,10 +303,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dens_sphere = rhozero
  if (BEsphere) then
     dens_medium = edge_density/density_contrast
+    cs_medium   = cs_sphere*central_density/edge_density
+    rhocrit0cgs = 2.0*dens_medium*unit_density
  else
     dens_medium = dens_sphere/density_contrast
+    cs_medium   = cs_sphere*sqrt(density_contrast)
  endif
- cs_medium   = cs_sphere*sqrt(density_contrast)
  totmass_box = (vol_box - vol_sphere)*dens_medium
  totmass     = totmass_box + totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
@@ -534,18 +530,35 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','requested number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# options for box'
- do i=1,3
-    call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
-    call write_inopt(xmaxi(i),labelx(i)//'max',labelx(i)//' max',iunit)
- enddo
+ if (.not. BEsphere) then
+    do i=1,3
+       call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
+       call write_inopt(xmaxi(i),labelx(i)//'max',labelx(i)//' max',iunit)
+    enddo
+ else
+    call write_inopt(lbox,'lbox','length of a box side in terms of spherical radii',iunit)
+ endif
  write(iunit,"(/,a)") '# intended result'
  call write_inopt(binary,'form_binary','the intent is to form a central binary',iunit)
  write(iunit,"(/,a)") '# options for sphere'
  call write_inopt(BEsphere,'use_BE_sphere','centrally condense as a BE sphere',iunit)
- call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
+ if (.not. BEsphere) then
+    call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
+    call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
+ else
+    call write_inopt(iBEparam,'iBE_options','The set of parameters to define the BE sphere',iunit)
+    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) &
+       call write_inopt(BErho_cen,'BErho_cen','central density of the BE sphere [code units]',iunit)
+    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) &
+        call write_inopt(BErad_phys,'BErad_phys','physical radius of the BE sphere [code units]',iunit)
+    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) &
+        call write_inopt(BErad_norm,'BErad_norm','normalised radius of the BE sphere',iunit)
+    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) &
+        call write_inopt(BEmass,'BEmass','mass radius of the BE sphere [code units]',iunit)
+    if (iBEparam==4 .or. iBEparam==5)                  &
+        call write_inopt(BEfac,'BEfac','over-density factor of the BE sphere [code units]',iunit)
+ endif
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
- call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
- if (rho_cen_cgs > 0.) call write_inopt(rho_cen_cgs,'rho_cen_cgs','central density of the BE sphere (will override radius)',iunit)
  call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
  call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  if (mhd) then
@@ -559,9 +572,6 @@ subroutine write_setupfile(filename)
  if (use_dust) then
     call write_inopt(dusttogas,'dusttogas','dust-to-gas ratio',iunit)
     call write_inopt(pmass_dusttogas,'pmass_dusttogas','dust-to-gas particle mass ratio',iunit)
- endif
- if (BEsphere) then
-    call write_inopt(xi,'BE_concentration','concentration parameter of the BE sphere (critical is 6.45)',iunit)
  endif
  if (binary) then
     call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
@@ -591,7 +601,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr,perr
+ integer                       :: i,nerr,jerr,kerr
  type(inopts), allocatable     :: db(:)
 
  !--Read values
@@ -602,14 +612,25 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(BEsphere,'use_BE_sphere',db,ierr)
  call read_inopt(binary,'form_binary',db,ierr)
  call read_inopt(np,'np',db,ierr)
- do i=1,3
-    call read_inopt(xmini(i),labelx(i)//'min',db,ierr)
-    call read_inopt(xmaxi(i),labelx(i)//'max',db,ierr)
- enddo
- call read_inopt(r_sphere,'r_sphere',db,ierr)
+ if (.not. BEsphere) then
+    do i=1,3
+       call read_inopt(xmini(i),labelx(i)//'min',db,ierr)
+       call read_inopt(xmaxi(i),labelx(i)//'max',db,ierr)
+    enddo
+    call read_inopt(r_sphere,'r_sphere',db,ierr)
+    call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
+    lbox = -2.0*xmini(1)/r_sphere
+ else
+    call read_inopt(lbox,'lbox',db,ierr)
+    call read_inopt(iBEparam,'iBE_options',db,ierr)
+    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) call read_inopt(BErho_cen,'BErho_cen',db,ierr)
+    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) call read_inopt(BErad_phys,'BErad_phys',db,ierr)
+    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) call read_inopt(BErad_norm,'BErad_norm',db,ierr)
+    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) call read_inopt(BEmass,'BEmass',db,ierr)
+    if (iBEparam==4 .or. iBEparam==5)                  call read_inopt(BEfac,'BEfac',db,ierr)
+ endif
+
  call read_inopt(density_contrast,'density_contrast',db,ierr)
- call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
- call read_inopt(rho_cen_cgs,'rho_cen_cgs',db,perr) ! completely optional
  call read_inopt(cs_sphere,'cs_sphere',db,jerr)
  call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
  cs_in_code = .false.  ! for backwards compatibility
@@ -637,9 +658,6 @@ subroutine read_setupfile(filename,ierr)
  if (use_dust) then
     call read_inopt(dusttogas,'dusttogas',db,ierr)
     call read_inopt(pmass_dusttogas,'pmass_dusttogas',db,ierr)
- endif
- if (BEsphere) then
-    call read_inopt(xi,'BE_concentration',db,ierr)
  endif
  if (binary) then
     call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
@@ -672,5 +690,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-
+!----------------------------------------------------------------
 end module setup
