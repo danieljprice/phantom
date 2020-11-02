@@ -13,13 +13,26 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - C_AD        : *Ambipolar diffusion coefficient*
+!   - C_HE        : *Hall effect coefficient*
+!   - C_OR        : *Ohmic resistivity coefficient*
+!   - C_nimhd     : *non-ideal MHD timestep coefficient*
+!   - K_code      : *Constant drag coefficient*
 !   - dtg         : *Dust to gas ratio*
+!   - dtmax       : *time between dumps*
 !   - dust_method : *1=one fluid, 2=two fluid*
 !   - gamma       : *Adiabatic index*
+!   - gmw         : *mean molecular weight*
+!   - ieos        : *equation of state option*
 !   - kappa       : *opacity in cm^2/g*
 !   - nx          : *resolution (number of particles in x) for -xleft < x < xshock*
 !   - polyk       : *square of the isothermal sound speed*
+!   - rho_i_cnst  : *constant ion density*
 !   - smooth_fac  : *smooth shock front over lengthscale smooth_fac*dxleft*
+!   - tmax        : *maximum runtime*
+!   - use_ambi    : *include ambipolar diffusion*
+!   - use_hall    : *include the Hall effect*
+!   - use_ohm     : *include Ohmic resistivity*
 !   - xleft       : *x min boundary*
 !   - xright      : *x max boundary*
 !
@@ -28,13 +41,12 @@ module setup
 !   set_dust, setshock, setup_params, timestep, unifdis, units
 !
  use dim,       only:maxvxyzu,use_dust,do_radiation
- use options,   only:nfulldump,alpha,alphamax,alphaB,alphau,use_dustfrac
+ use options,   only:use_dustfrac
  use timestep,  only:dtmax,tmax
  use dust,      only:K_code
  use eos,       only:ieos,gmw
 #ifdef NONIDEALMHD
- use nicil,       only:use_ohm,use_hall,use_ambi,eta_constant,eta_const_type, &
-                       C_OR,C_HE,C_AD,C_nimhd,icnstphys,icnstsemi,icnst,rho_i_cnst
+ use nicil,     only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,C_nimhd,rho_i_cnst
 #endif
 
  implicit none
@@ -42,7 +54,6 @@ module setup
  integer :: nx, icase, dust_method
  real    :: xleft, xright, yleft, yright, zleft, zright
  real    :: dxleft, kappa, smooth_fac
- character(len=100) :: shocktype
  character(len=100) :: latticetype = 'closepacked'
  integer :: nstates
  integer, parameter :: max_states = 8
@@ -74,24 +85,27 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use setup_params, only:rhozero,npart_total,ihavesetupB
- use io,           only:fatal,master,iprint,error
- use boundary,     only:ymin,zmin,ymax,zmax,set_boundary
- use mpiutils,     only:bcast_mpi
- use dim,          only:ndim,mhd
- use options,      only:use_dustfrac
- use part,         only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
-                        periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
- use part,         only:rad,radprop,iradxi,ikappa
- use kernel,       only:radkern,hfact_default
- use prompting,    only:prompt
- use set_dust,     only:set_dustfrac
- use units,        only:set_units,unit_opacity
- use dust,         only:idrag
- use unifdis,      only:is_closepacked,is_valid_lattice
+ use setup_params,    only:rhozero,npart_total,ihavesetupB
+ use io,              only:fatal,master,iprint,error
+ use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
+ use mpiutils,        only:bcast_mpi
+ use dim,             only:ndim,mhd
+ use options,         only:use_dustfrac
+ use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
+                           periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
+ use part,            only:rad,radprop,iradxi,ikappa
+ use kernel,          only:radkern,hfact_default
+ use prompting,       only:prompt
+ use set_dust,        only:set_dustfrac
+ use units,           only:set_units,unit_opacity
+ use dust,            only:idrag
+ use unifdis,         only:is_closepacked,is_valid_lattice
  use physcon,         only:au,solarm
+ use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
- use setshock,     only:set_shock,adjust_shock_boundaries,fsmooth
+#ifdef NONIDEALMHD
+ use nicil,           only:eta_constant,eta_const_type,icnstsemi
+#endif
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
  integer,           intent(inout) :: npart
@@ -291,11 +305,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr /= 0) call error('setup','could not set up dust particles')
  endif
  write(iprint,'(1x,a,es16.8)') 'Setup_shock: mass of gas & boundary particles   = ', massoftype(igas)
-
+ !
+ ! set remaining .in file properties
+ !
+ if (.not. iexist) then
 #ifdef NONIDEALMHD
- !Modify ion density from fraction to physical (for ambipolar diffusion)
- if (.not.iexist) rho_i_cnst = rho_i_cnst * rhozero
+    eta_constant   = .true.
+    eta_const_type = icnstsemi
+    rho_i_cnst     = rho_i_cnst * rhozero  ! Modify ion density from fraction to physical (for ambipolar diffusion)
 #endif
+ endif
 
 end subroutine setpart
 !-----------------------------------------------------------------------
@@ -383,16 +402,10 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (.not. iexist) then
     tmax       = 0.20
     dtmax      = 0.01
-    nfulldump  = 1
-    alpha      = 1.0
-    alphamax   = 1.0
-    alphaB     = 1.0
 #ifdef NONIDEALMHD
     use_ohm    = .false.
     use_hall   = .false.
     use_ambi   = .false.
-    eta_constant = .true.
-    eta_const_type = icnstsemi
 #endif
  endif
  nx     = 256
@@ -440,14 +453,12 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  select case (choice)
  case(1)
     !--Sod shock
-    shocktype = 'Sod shock'
     gamma      = 5./3.
     leftstate  = (/1.000,1.0,0.,0.,0.,0.,0.,0./)
     rightstate = (/0.125,0.1,0.,0.,0.,0.,0.,0./)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(2)
     !--Ryu et al. shock 1a
-    shocktype = 'Ryu et al. shock 1a'
     nx          = 128
     if (.not. iexist) then
        tmax      =   0.08
@@ -458,7 +469,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate = (/1.,1.,-10.,0.,0.,5./const,5./const,0./)
  case(3)
     !--Ryu et al. shock 1b
-    shocktype = 'Ryu et al. shock 1b'
     if (.not. iexist) then
        tmax      =   0.03
        dtmax     =   0.0015
@@ -468,13 +478,11 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate = (/0.1,10.,0.,0.,0.,5./const,2./const,0./)
  case(4)
     !--Ryu et al. shock 2a
-    shocktype  = "Ryu et al. shock 2a (with 7 discontinuities)"
     gamma      = 5./3.
     leftstate  = (/1.08,0.95,1.2,0.01,0.5,2./const,3.6/const,2./const/)
     rightstate = (/1.  ,1.  ,0. ,0.  ,0. ,2./const,4.0/const,2./const/)
  case(5)
     !--Ryu et al. shock 2b
-    shocktype = 'Ryu et al. shock 2b'
     if (.not. iexist) then
        tmax     =   0.035
        dtmax    =   0.00175
@@ -484,7 +492,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
  case(6)
     !--Brio-Wu shock
-    shocktype = 'Brio/Wu (Ryu/Jones shock 5a)'
     if (.not. iexist) then
        tmax    = 0.1
        dtmax   = 0.005
@@ -494,11 +501,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     rightstate = (/0.125,0.1,0.,0.,0.,0.75,-1.,0./)
  case(7)
     !--C-shock
-    shocktype = 'C-shock'
     if (.not. iexist) then
        tmax       = 4.0e6
        dtmax      = 1.0e4
-       alpha      = 0.0
 #ifdef NONIDEALMHD
        use_ambi   = .true.
        gamma_AD   = 1.0
@@ -516,23 +521,17 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  case(8)
     !--Steady shock (Falle 2003)
 #ifdef NONIDEALMHD
-    shocktype = 'Steady shock with large Hall Effect (Falle 2003; fig 3)'
     if (.not. iexist) then
-       use_ohm      = .true.
-       use_hall     = .true.
-       use_ambi     = .true.
-       C_OR         =  1.12d-9
-       C_HE         = -3.53d-2
-       C_AD         =  7.83d-3
+       use_ohm  = .true.
+       use_hall = .true.
+       use_ambi = .true.
+       C_OR     =  1.12d-9
+       C_HE     = -3.53d-2
+       C_AD     =  7.83d-3
     endif
-#else
-    shocktype = 'Steady shock (Falle 2003)'
 #endif
     if (.not. iexist) then
-       tmax     = 1.0
-       alpha    = 0.0
-       alphamax = 1.0
-       alphaB   = 1.0
+       tmax    = 1.0
     endif
     nx         = 512
     polyk      = 0.01
@@ -542,7 +541,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xleft      = -2.0
  case(9)
     ! if (.not.do_radiation) call fatal('setup','Radiation shock is only possible with "RADIATION=yes"')
-    shocktype = 'Radiation shock'
+    ! Radiation shock
     gamma = 5./3.
     gmw   = 2.38
     Tgas  = 1500.
@@ -569,11 +568,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xright = xright/udist
     xleft  = xleft/udist
  case(10)
-    !--Sod shock
+    !--mildly relativistic Sod shock
     relativistic_choice = 1
-    shocktype = "Mildly-Relativistic Sod shock"
     gamma      = 5./3.
-    alphau     = 0.1
     leftstate(1:iBz)  = (/10.0,40./3.,0.,0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/1.00,1.e-6 ,0.,0.,0.,0.,0.,0./)
     write(*,"(a5,i2,1x,a20)") 'Case ', 1, 'Mildly relativistic'
@@ -582,11 +579,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     call prompt('Enter relativistic shock choice',relativistic_choice,1,3)
     select case(relativistic_choice)
     case(2)
-       shocktype = "Ultra-Relativistic Sod shock"
        leftstate(1:iBz)  = (/1.,1000.,0.,0.,0.,0.,0.,0./)
        rightstate(1:iBz) = (/1.,0.01 ,0.,0.,0.,0.,0.,0./)
     case(3)
-       shocktype = "Isothermal relativistic shock"
        ieos        = 4
        soundspeed  = 0.1
        call prompt('Enter sound speed',soundspeed,0.,1.)
@@ -635,8 +630,8 @@ subroutine print_shock_params(nstates)
  integer, intent(in) :: nstates
  integer             :: i
 
- write(*,"(/,1x,'Setup_shock: ',a,/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
-    trim(shocktype),(trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
+ write(*,"(/,1x,'Setup_shock: ',/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
+     (trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
 
 end subroutine print_shock_params
 
@@ -679,9 +674,6 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
- write(lu,"(/,a)") '# shock tube name'
- call write_inopt(trim(shocktype),'name','',lu,ierr1)
-
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
     call write_inopt(leftstate(i), trim(var_label(i))//'left', trim(var_label(i))//' (left)', lu,ierr1)
@@ -719,24 +711,15 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
     call write_inopt(kappa,'kappa','opacity in cm^2/g',lu,ierr1)
  endif
 
- write(lu,"(/,a)") '# Additional properties for the dump & .in files'
- write(lu,"(  a)") '# (not all values are required for every shock option)'
- write(lu,"(  a)") '# (will overwrite values in .in file if present)'
+ write(lu,"(/,a)") '# runtime parameters (written to .in file)'
  call write_inopt(tmax,'tmax','maximum runtime',lu,ierr1)
  call write_inopt(dtmax,'dtmax','time between dumps',lu,ierr1)
- call write_inopt(nfulldump,'nfulldump','frequency of writing full dumps',lu,ierr1)
- call write_inopt(alpha,'alpha','minimum artificial viscosity coefficient',lu,ierr1)
- call write_inopt(alphamax,'alphamax','maximum artificial viscosity coefficient',lu,ierr1)
- call write_inopt(alphaB,'alphaB','artificial resistivity coefficient',lu,ierr1)
- call write_inopt(alphau,'alphau','artificial conductivity coefficient',lu,ierr1)
  call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
- call write_inopt(gmw,'gmw','mean molecular mass',lu,ierr1)
+ if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
 #ifdef NONIDEALMHD
  call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
  call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
  call write_inopt(use_ambi,'use_ambi','include ambipolar diffusion',lu,ierr1)
- call write_inopt(eta_constant,'eta_constant','use a constant physical resistivity',lu,ierr1)
- call write_inopt(eta_const_type,'eta_const_type','the type of constant physical resistivity',lu,ierr1)
  call write_inopt(rho_i_cnst,'rho_i_cnst','constant ion density',lu,ierr1)
  call write_inopt(C_OR,'C_OR','Ohmic resistivity coefficient',lu,ierr1)
  call write_inopt(C_HE,'C_HE','Hall effect coefficient',lu,ierr1)
@@ -768,8 +751,6 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
 
  nerr = 0
- shocktype = "Name not read from .setup"
- call read_inopt(shocktype,'name',db)
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)
@@ -794,18 +775,12 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
 
  call read_inopt(tmax,'tmax',db,errcount=nerr)
  call read_inopt(dtmax,'dtmax',db,errcount=nerr)
- call read_inopt(nfulldump,'nfulldump',db,errcount=nerr)
- call read_inopt(alphamax,'alphamax',db,errcount=nerr)
- call read_inopt(alphaB,'alphaB',db,errcount=nerr)
- call read_inopt(alphau,'alphau',db,errcount=nerr)
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- call read_inopt(gmw,'gmw',db,errcount=nerr)
+ if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
 #ifdef NONIDEALMHD
  call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
  call read_inopt(use_hall,'use_hall',db,errcount=nerr)
  call read_inopt(use_ambi,'use_ambi',db,errcount=nerr)
- call read_inopt(eta_constant,'eta_constant',db,errcount=nerr)
- call read_inopt(eta_const_type,'eta_const_type',db,errcount=nerr)
  call read_inopt(rho_i_cnst,'rho_i_cnst',db,errcount=nerr)
  call read_inopt(C_OR,'C_OR',db,errcount=nerr)
  call read_inopt(C_HE,'C_HE',db,errcount=nerr)

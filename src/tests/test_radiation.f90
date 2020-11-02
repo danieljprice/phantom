@@ -38,7 +38,7 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
- use dim,     only:do_radiation
+ use dim,     only:do_radiation,periodic
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -50,12 +50,11 @@ subroutine test_radiation(ntests,npass)
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass)
 
-#ifndef PERIODIC
- if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
-#else
-
- call test_uniform_derivs(ntests,npass)
-#endif
+ if (.not.periodic) then
+    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
+ else
+    call test_uniform_derivs(ntests,npass)
+ endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
 
