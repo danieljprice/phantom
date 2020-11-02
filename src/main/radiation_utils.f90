@@ -80,7 +80,7 @@ real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi
  use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
  real, intent(in) :: rho,u_gas,gamma,gmw
  real :: temp,cv1,a,Erad,steboltz_code,c_code
- 
+
  steboltz_code = get_steboltz_code()
  c_code        = get_c_code()
 
@@ -95,13 +95,13 @@ end function radiation_and_gas_temperature_equal
 
 !---------------------------------------------------------
 !+
-!  solve for the temperature for which Etot=Erad+ugas is 
+!  solve for the temperature for which Etot=Erad+ugas is
 !  satisfied assuming Tgas=Trad
 !+
 !---------------------------------------------------------
 real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  use physcon,   only:Rg
- use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
+ use units,     only:unit_ergg,get_steboltz_code,get_c_code
  real, intent(in)    :: rho,etot,gamma,gmw
  real                :: steboltz_code,c_code,a,cv1
  real                :: numerator,denominator,correction
@@ -113,9 +113,7 @@ real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  a   = 4.*steboltz_code/c_code
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
 
- if (temp <= 0.) then
-    temp = etot*cv1  ! Take gas temperature as initial guess
- endif
+ temp = etot*cv1  ! Take gas temperature as initial guess
 
  correction = huge(0.)
  do while (abs(correction) > tolerance*temp)
@@ -384,11 +382,11 @@ end subroutine solve_internal_energy_explicit_substeps
 !+
 !--------------------------------------------------------------------
 subroutine radiation_equation_of_state(radPi, Xii, rhoi)
-  real, intent(out) :: radPi
-  real, intent(in) :: Xii, rhoi
+ real, intent(out) :: radPi
+ real, intent(in) :: Xii, rhoi
 
-  radPi = 1. / 3. * Xii * rhoi
-   
+ radPi = 1. / 3. * Xii * rhoi
+
 end subroutine radiation_equation_of_state
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)

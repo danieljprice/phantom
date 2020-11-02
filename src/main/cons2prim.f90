@@ -10,11 +10,12 @@ module cons2prim
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Elisabeth Borchert
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, eos, io, part, utils_gr
+! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
+!   options, part, radiation_utils, utils_gr
 !
  use cons2primsolver, only:ien_entropy
  implicit none
@@ -228,21 +229,22 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (maxvxyzu >= 4) then
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
-             eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
           elseif (store_temperature) then
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=eos_vars(itemp,i))
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
           else
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
-             eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
           endif
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
-          eos_vars(itemp,i)     = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+          temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
        endif
 
-       eos_vars(igasP,i)     = p_on_rhogas*rhogas
-       eos_vars(ics,i)       = spsound
+       eos_vars(igasP,i)  = p_on_rhogas*rhogas
+       eos_vars(ics,i)    = spsound
+       eos_vars(itemp,i)  = temperaturei
 
        !
        !--Getting radiation pressure from the radiation energy
@@ -255,7 +257,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
        !
-       if (nalpha >= 2 .and. iamgasi) then
+       if (nalpha >= 2) then
           xi_limiteri = xi_limiter(dvdx(:,i))
           alphaind(2,i) = real4(get_alphaloc(real(alphaind(3,i)),spsound,hi,xi_limiteri,alpha,alphamax))
        endif
@@ -271,12 +273,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           Bxyz(1,i) = Bxi
           Bxyz(2,i) = Byi
           Bxyz(3,i) = Bzi
-
           !
-          !--calculate Z_grain, n_electron and non-ideal MHD coefficients
+          !--calculate species number densities & non-ideal MHD coefficients
           !
-          if (mhd_nonideal) then
-             Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+          if (mhd_nonideal .and. iactivei) then
+             Bi = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
              call nicil_get_ion_n(rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
              if (ierr/=0) then
                 call nicil_translate_error(ierr)

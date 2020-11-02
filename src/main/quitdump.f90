@@ -24,7 +24,7 @@ module quitdump
 contains
 
 subroutine quit
- use io,              only:iprint,ievfile,iscfile,ipafile,iskfile,die
+ use io,              only:iprint,ievfile,iscfile,iskfile,die
  use readwrite_dumps, only:write_fulldump
  use timestep,        only:time
  use io_summary,      only:summary_printout
@@ -49,7 +49,6 @@ subroutine quit
  close(unit=ievfile)
  close(unit=iprint)
  if (iscfile > 0) close(unit=iscfile)
- if (ipafile > 0) close(unit=ipafile)
  do i = 1,nptmass
     close(unit=iskfile+i)
  enddo

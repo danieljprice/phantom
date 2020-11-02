@@ -15,9 +15,9 @@ module densityforce
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, eos, fastmath, io, io_summary, kdtree,
-!   kernel, linklist, mpidens, mpiderivs, mpiutils, nicil, options, part,
-!   stack, timestep, timing, viscosity
+! :Dependencies: boundary, dim, fastmath, io, io_summary, kdtree, kernel,
+!   linklist, mpidens, mpiderivs, mpiutils, options, part, stack, timestep,
+!   timing, viscosity
 !
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge

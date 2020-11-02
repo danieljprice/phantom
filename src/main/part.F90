@@ -607,6 +607,8 @@ subroutine init_part
  ibin_wake(:)  = 0
 #endif
 
+ ideadhead = 0
+
 end subroutine init_part
 
 !----------------------------------------------------------------
@@ -784,30 +786,43 @@ end function isdead_or_accreted
 subroutine kill_particle(i,npoftype)
  integer, intent(in) :: i
  integer, intent(inout), optional :: npoftype(:)
- integer :: itype
 
+ if (i < 1 .or. i > npart) return ! do nothing
  !
  ! WARNING : this routine is *NOT THREAD SAFE *
  !
  ! do not kill particles that are already dead
  ! because this causes endless loop in shuffle_part
- if (abs(xyzh(4,i)) > 0.) then
+ if (.not.isdeadh(xyzh(4,i))) then
     xyzh(4,i) = 0.
-    if (present(npoftype)) then
-       ! get the type so we know how to decrement npartoftype
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npoftype(itype) = npoftype(itype) - 1
-    endif
+    if (present(npoftype)) call remove_particle_from_npartoftype(i,npoftype)
     ll(i) = ideadhead
     ideadhead = i
  endif
 
-
 end subroutine kill_particle
+
+!----------------------------------------------------------------
+!+
+!  decrement npartoftype when a particle is killed, according
+!  to the type of the particle that was destroyed
+!+
+!----------------------------------------------------------------
+subroutine remove_particle_from_npartoftype(i,npoftype)
+ integer, intent(in)    :: i
+ integer, intent(inout) :: npoftype(:)
+ integer :: itype
+
+ ! get the type so we know how to decrement npartoftype
+ if (maxphase==maxp) then
+    itype = iamtype(iphase(i))
+    if (itype <= 0) itype = igas ! safety check
+ else
+    itype = igas
+ endif
+ npoftype(itype) = npoftype(itype) - 1
+
+end subroutine remove_particle_from_npartoftype
 
 !----------------------------------------------
 !+
@@ -1219,7 +1234,6 @@ subroutine shuffle_part(np)
     if (np < 0) call fatal('shuffle','npart < 0')
  enddo
 
- return
 end subroutine shuffle_part
 
 integer function count_dead_particles()
@@ -1236,29 +1250,19 @@ end function count_dead_particles
 
 !-----------------------------------------------------------------------
 !+
-!  routine to remove dead or accreted particles
+!  routine to completely remove dead or accreted particles
 !  uses the routines above for efficiency
 !+
 !-----------------------------------------------------------------------
 subroutine delete_dead_or_accreted_particles(npart,npartoftype)
  integer, intent(inout) :: npart,npartoftype(:)
- integer :: i,itype
+ integer :: i
 
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,i))) then
-       ! get the type so we know how to decrement npartoftype
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npartoftype(itype) = npartoftype(itype) - 1
-       call kill_particle(i)
-    endif
+    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npartoftype)
  enddo
  call shuffle_part(npart)
 
- return
 end subroutine delete_dead_or_accreted_particles
 
 !----------------------------------------------------------------
@@ -1267,16 +1271,13 @@ end subroutine delete_dead_or_accreted_particles
 !
 !+
 !----------------------------------------------------------------
-
 subroutine change_status_pos(npart,x,y,z,h,vx,vy,vz)
-
  integer, intent(in) :: npart
  real, intent (in) :: x,y,z,h
  real, intent (in) :: vx,vy,vz
  integer  :: i,ix
 
  ix=0
-
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        ix=i
@@ -1291,8 +1292,6 @@ subroutine change_status_pos(npart,x,y,z,h,vx,vy,vz)
  vxyzu(1,ix)=vx
  vxyzu(2,ix)=vy
  vxyzu(3,ix)=vz
-
- return
 
 end subroutine change_status_pos
 
@@ -1555,7 +1554,7 @@ subroutine delete_particles_outside_sphere(center,radius,np)
  radius_squared = radius**2
  do i=1,np
     r = xyzh(1:3,i) - center
-    if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+    if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
  enddo
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
@@ -1569,20 +1568,17 @@ end subroutine delete_particles_outside_sphere
 !----------------------------------------------------------------
 subroutine delete_particles_outside_cylinder(center, radius, zmax)
  real, intent(in) :: center(3), radius, zmax
-
  integer :: i
- real :: x, y, z, rcil
+ real :: x, y, z, rcyl
 
  do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
-    rcil=sqrt((x-center(1))**2+(y-center(2))**2)
-
-    if (rcil>radius .or. abs(z)>zmax) then
-       call kill_particle(i)
-    endif
+    rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
+    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npartoftype)
  enddo
+
 end subroutine delete_particles_outside_cylinder
 
 !----------------------------------------------------------------
@@ -1597,18 +1593,16 @@ subroutine delete_dead_particles_inside_radius(center,radius,np)
  integer :: i
  real :: r(3), radius_squared
 
-
  radius_squared = radius**2
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        r = xyzh(1:3,i) - center
-       if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+       if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
     endif
  enddo
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_dead_part_outside_sphere','particles not conserved')
 
- return
 end subroutine delete_dead_particles_inside_radius
 
 !----------------------------------------------------------------
@@ -1619,8 +1613,7 @@ end subroutine delete_dead_particles_inside_radius
 subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
  real, intent(in) :: center(3), radius
  integer, intent(inout) :: npart,npartoftype(:)
-
- integer :: i,itype
+ integer :: i
  real :: x,y,z,r
 
  do i=1,npart
@@ -1628,20 +1621,10 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
     y = xyzh(2,i)
     z = xyzh(3,i)
     r=sqrt((x-center(1))**2+(y-center(2))**2+(z-center(3))**2)
-
-    if (r<radius) then
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npartoftype(itype) = npartoftype(itype) - 1
-       call kill_particle(i)
-    endif
+    if (r < radius) call kill_particle(i,npartoftype)
  enddo
  call shuffle_part(npart)
 
- return
 end subroutine delete_particles_inside_radius
 
 !----------------------------------------------------------------
@@ -1667,12 +1650,12 @@ subroutine accrete_particles_outside_sphere(radius)
 
 end subroutine
 
-
 !----------------------------------------------------------------
- !+
- !  Returns keplerian frequency of particle i
- !+
- !----------------------------------------------------------------
+!+
+!  Returns Keplerian frequency of particle i
+!  USE WITH EXTREME CAUTION
+!+
+!----------------------------------------------------------------
 real function Omega_k(i)
  integer, intent(in)  :: i
  real                 :: m_star,r
