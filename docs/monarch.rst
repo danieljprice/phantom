@@ -32,12 +32,6 @@ load intel compilers and recent git
    $ module load intel
    $ module load git/2.19.0
 
-initialise git-lfs
-
-::
-
-   $ git lfs install
-
 get phantom
 ~~~~~~~~~~~
 

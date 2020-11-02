@@ -1,0 +1,35 @@
+name: testcyl
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # do not run it if [skip ci] appears in the commit message
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    env:
+      SYSTEM: gfortran
+      OMP_STACKSIZE: 512M
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: Install gfortran
+      run: sudo apt-get install gfortran
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+
+    - name: compile SETUP=testcyl
+      run: make SETUP=testcyl phantomtest
+
+    - name: run testsuite
+      run: ./bin/phantomtest

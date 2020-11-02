@@ -16,7 +16,8 @@ module testsedov
 !
 ! :Dependencies: boundary, checkconserved, deriv, dim, domain, energies,
 !   eos, evolve, evwrite, io, io_summary, mpiutils, options, part, physcon,
-!   radiation_utils, testutils, timestep, unifdis, units, viscosity
+!   radiation_utils, readwrite_dumps, testutils, timestep, unifdis, units,
+!   viscosity
 !
  implicit none
 
@@ -114,7 +115,7 @@ subroutine test_sedov(ntests,npass)
     endif
     prblast  = gam1*ugas_from_Tgas(temp,gamma,gmw)/(4./3.*pi*rblast**3)
     npart    = 0
-    
+
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,hfact,&
                      npart,xyzh,periodic,mask=i_belong)
     npartoftype(:) = 0
@@ -125,7 +126,7 @@ subroutine test_sedov(ntests,npass)
     massoftype(:) = 0.
     massoftype(igas) = totmass/reduceall_mpi('+',npart)
     print*,' npart = ',npart,' particle mass = ',massoftype(igas)
-    
+
     do i=1,npart
        if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=.true.)
        vxyzu(:,i) = 0.

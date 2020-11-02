@@ -29,7 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(:), intent(inout)    :: massoftype
  real, dimension(:,:), intent(inout)  :: xyzh,vxyzu
  integer                              :: i,isinkpart
- real                                 :: racc,hsoft
+ real                                 :: racc,hsoft,mass,mass_old
 
  print*,'Sink particles in dump:'
  do i=1,nptmass
@@ -40,7 +40,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  isinkpart = 2
  call prompt('Enter the sink particle number to modify:',isinkpart,1,nptmass)
 
+ mass = xyzmh_ptmass(4,isinkpart)
+ mass_old = mass
+ call prompt('Enter new mass for the sink:',mass,0.)
+ print*,'Mass changed to ',mass
+ xyzmh_ptmass(4,isinkpart) = mass
+
  racc = xyzmh_ptmass(ihacc,isinkpart)
+ ! rescaling accretion radius for updated mass
+ racc = racc * (mass/mass_old)**(1./3)
  call prompt('Enter new accretion radius for the sink:',racc,0.)
  print*,'Accretion radius changed to ',racc
  xyzmh_ptmass(ihacc,isinkpart) = racc
@@ -49,8 +57,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Enter new softening length for the sink:',hsoft,0.)
  print*,'Softening length changed to ',hsoft
  xyzmh_ptmass(ihsoft,isinkpart) = hsoft
+
  return
+
 end subroutine modify_dump
 
 end module moddump
-
