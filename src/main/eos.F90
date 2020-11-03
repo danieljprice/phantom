@@ -72,6 +72,7 @@ module eos
  private
 
  integer, public :: ieos        = 1
+ integer, public :: iopacity_type = 0 ! used for radiation
  !--Default initial parameters for Barotropic Eos
  real,    public :: drhocrit0   = 0.50
  real,    public :: rhocrit0cgs = 1.e-18
@@ -534,7 +535,6 @@ subroutine init_eos(eos_type,ierr)
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
  use dim,      only:do_radiation
- use options,  only:iopacity_type
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
