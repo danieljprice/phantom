@@ -184,7 +184,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  iamtypei = igas
  iamgasi  = .true.
  iamdusti = .false.
- if (.not.done_init_eos) call init_eos(ieos,ierr)
+ if (.not.done_init_eos) then
+    call init_eos(ieos,ierr)
+    if (ierr /= 0) call fatal('eos','could not initialise equation of state')
+ endif
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
