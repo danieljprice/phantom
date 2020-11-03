@@ -313,7 +313,7 @@ subroutine test_uniform_derivs(ntests,npass)
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,i)*l0)*exp(-l0*l0*t*D0))
-          write (string,"(a,i2.2,a)") 'xi(t_', i, ')'
+          write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
           call checkvalbuf(rad(iradxi,i),exact_xi,tol_xi,trim(string),&
                            nerr_xi(1),ncheck_xi,errmax_xi)
        enddo

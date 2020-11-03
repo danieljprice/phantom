@@ -110,13 +110,15 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
  use io,              only:fatal
- use eos,             only:equationofstate,ieos,gamma
+ use eos,             only:equationofstate,ieos,gamma,done_init_eos,init_eos
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,pondens,spsound
+
+ if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
@@ -155,7 +157,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
                              iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa
- use eos,               only:equationofstate,ieos,gamma,get_temperature
+ use eos,               only:equationofstate,ieos,gamma,get_temperature,done_init_eos,init_eos
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
@@ -182,6 +184,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  iamtypei = igas
  iamgasi  = .true.
  iamdusti = .false.
+ if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
@@ -227,28 +230,31 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (maxvxyzu >= 4) then
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
           elseif (store_temperature) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
           else
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
           endif
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
-          temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
+          temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
        endif
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
 
-       !
-       !--Getting radiation pressure from the radiation energy
-       !
        if (do_radiation) then
-          radprop(ikappa,i) = get_opacity(iopacity_type,rhogas*unit_density,temperaturei)/unit_opacity
+          !
+          ! Get the opacity from the density and temperature if required
+          !
+          if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+          !
+          ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+          !
           call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
        endif
        !
