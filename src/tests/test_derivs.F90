@@ -68,7 +68,7 @@ subroutine test_derivs(ntests,npass,string)
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer           :: itest,ierr,ierr2,nptest
+ integer           :: itest,ierr2,nptest
  real              :: fracactive,speedup
  real(kind=4)      :: tallactive
  real, allocatable :: fxyzstore(:,:),dBdtstore(:,:)
@@ -84,7 +84,7 @@ subroutine test_derivs(ntests,npass,string)
  real              :: rcut
  real              :: rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
- integer           :: nfailed(21),i,j,npartblob,nparttest,m
+ integer           :: nfailed(21),i,j,npartblob,nparttest,m,ierr
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
@@ -95,6 +95,7 @@ subroutine test_derivs(ntests,npass,string)
  real              :: tolh_old
 #endif
  logical           :: checkmask(maxp)
+
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
