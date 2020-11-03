@@ -644,7 +644,7 @@ subroutine init_eos(eos_type,ierr)
     !--MESA EoS initialisation
     !
     call init_eos_mesa(X_in,Z_in,ierr)
-    if (do_radiation) then
+    if (do_radiation .and. ierr==0) then
        call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
        ierr=ierr_option_conflict !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
     endif
