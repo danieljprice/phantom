@@ -14,7 +14,7 @@ module radiation_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, io, part, physcon, units
+! :Dependencies: dim, eos, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
