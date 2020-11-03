@@ -395,9 +395,11 @@ end subroutine radiation_equation_of_state
 !  calculate opacities
 !+
 !--------------------------------------------------------------------
-real function get_opacity(opacity_type,density,temperature) result (kap)
+subroutine get_opacity(opacity_type,density,temperature,kappa)
  use mesa_microphysics, only:get_kappa_mesa
- real, intent(in) :: density, temperature
+ use units,             only:unit_density,unit_opacity
+ real, intent(in)  :: density, temperature
+ real, intent(out) :: kappa
  integer, intent(in) :: opacity_type
  real :: kapt, kapr
 
@@ -406,17 +408,12 @@ real function get_opacity(opacity_type,density,temperature) result (kap)
     !
     ! calculate opacity from the MESA tables
     !
-    call get_kappa_mesa(density,temperature,kap,kapt,kapr)
-
- case default
-    !
-    ! setting a default opacity when no other option is selected
-    !
-    kap = 0.5 * huge(10.)
+    call get_kappa_mesa(density*unit_density,temperature,kappa,kapt,kapr)
+    kappa = kappa/unit_opacity
 
  end select
 
-end function get_opacity
+end subroutine get_opacity
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
