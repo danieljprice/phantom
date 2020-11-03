@@ -18,7 +18,7 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
- use eos, only:ieos ! so this is available via options module
+ use eos, only:ieos,iopacity_type ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -52,10 +52,10 @@ module options
 
  ! radiation
  logical,public :: exchange_radiation_energy, limit_radiation_flux
- integer,public :: iopacity_type
 
  public :: set_default_options
  public :: ieos
+ public :: iopacity_type
 
  private
 
