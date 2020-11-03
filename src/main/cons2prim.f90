@@ -110,13 +110,15 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
  use io,              only:fatal
- use eos,             only:equationofstate,ieos,gamma
+ use eos,             only:equationofstate,ieos,gamma,done_init_eos,init_eos
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,pondens,spsound
+
+ if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
@@ -152,17 +154,18 @@ end subroutine cons2primall
 
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
-                           iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                           ndustsmall,itemp
- use eos,             only:equationofstate,ieos,gamma,get_temperature
- use radiation_utils, only:radiation_equation_of_state
- use dim,             only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                           do_radiation,nalpha,mhd_nonideal
- use nicil,           only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
- use io,              only:fatal,real4
- use cullendehnen,    only:get_alphaloc,xi_limiter
- use options,         only:alpha,alphamax,use_dustfrac
+ use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
+                             iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
+                             ndustsmall,itemp,ikappa
+ use eos,               only:equationofstate,ieos,gamma,get_temperature,done_init_eos,init_eos
+ use radiation_utils,   only:radiation_equation_of_state,get_opacity
+ use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
+                             do_radiation,nalpha,mhd_nonideal
+ use nicil,             only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
+ use io,                only:fatal,real4
+ use cullendehnen,      only:get_alphaloc,xi_limiter
+ use options,           only:alpha,alphamax,use_dustfrac,iopacity_type
+ use units,             only:unit_density,unit_opacity
 
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
@@ -181,12 +184,17 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  iamtypei = igas
  iamgasi  = .true.
  iamdusti = .false.
+ if (.not.done_init_eos) then
+    call init_eos(ieos,ierr)
+    if (ierr /= 0) call fatal('eos','could not initialise equation of state')
+ endif
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
 !$omp shared(ieos,gamma,gamma_chem,n_R,n_electronT,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
+!$omp shared(unit_density,unit_opacity,iopacity_type) &
 !$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
@@ -225,24 +233,33 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (maxvxyzu >= 4) then
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
           elseif (store_temperature) then
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=eos_vars(itemp,i))
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
           else
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
+             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
           endif
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
+          temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
        endif
 
-       eos_vars(igasP,i) = p_on_rhogas*rhogas
-       eos_vars(ics,i)   = spsound
+       eos_vars(igasP,i)  = p_on_rhogas*rhogas
+       eos_vars(ics,i)    = spsound
+       eos_vars(itemp,i)  = temperaturei
 
-       !
-       !--Getting radiation pressure from the radiation energy
-       !
-       if (do_radiation) call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
-
+       if (do_radiation) then
+          !
+          ! Get the opacity from the density and temperature if required
+          !
+          if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+          !
+          ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+          !
+          call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+       endif
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc
        !
@@ -266,8 +283,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !--calculate species number densities & non-ideal MHD coefficients
           !
           if (mhd_nonideal .and. iactivei) then
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhoi,vxyzu(:,i))
-             Bi           = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+             Bi = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
              call nicil_get_ion_n(rhoi,temperaturei,n_R(:,i),n_electronT(i),ierr)
              if (ierr/=0) then
                 call nicil_translate_error(ierr)

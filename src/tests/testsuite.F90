@@ -179,6 +179,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  case default
     if (.not.doany) testall = .true.
  end select
+ call set_default_options_testsuite(iverbose) ! set defaults
 
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
@@ -389,11 +390,12 @@ end subroutine testsuite
 !--Short subroutine to reset default options & iverbose
 !  (note: iverbose is not set in set_default_options)
 subroutine set_default_options_testsuite(iverbose)
- use options,        only:set_default_options
+ use options, only:set_default_options,iopacity_type
  integer, intent(inout) :: iverbose
 
  iverbose = max(iverbose,2)
  call set_default_options ! restore defaults
+ iopacity_type = 0 ! do not use opacity tables in test suite
 
 end subroutine set_default_options_testsuite
 
