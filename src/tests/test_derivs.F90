@@ -33,10 +33,10 @@ subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
                         maxdustsmall,periodic
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,          only:polyk,gamma,use_entropy
+ use eos,          only:polyk,gamma,use_entropy,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
- use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
+ use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac,iopacity_type
  use kernel,       only:radkern,kernelname
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
@@ -188,6 +188,10 @@ subroutine test_derivs(ntests,npass,string)
     ieos = 1
     gamma = 1.0
  endif
+ 
+ !For radiation need to make sure that mesa tables are initialised
+ iopacity_type = 0
+ call init_eos(ieos, ierr)
 
  testhydro: if (testhydroderivs .or. testall) then
 !

@@ -20,6 +20,7 @@ module eos_mesa
  use mesa_microphysics
 
  implicit none
+ logical,private :: mesa_initialised = .false.
 
 contains
 
@@ -37,6 +38,9 @@ subroutine init_eos_mesa(x,z,ierr)
     ierr=-1
     return
  endif
+ !to not initialise mesa multiple times. Otherwise could call finish_eos_mesa instead of return
+ if (mesa_initialised) return
+ mesa_initialised = .true.
 
  call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir)
  mesa_eos_prefix="output_DE_"
