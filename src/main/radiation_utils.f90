@@ -402,14 +402,18 @@ real function get_opacity(opacity_type,density,temperature) result (kap)
  real :: kapt, kapr
 
  select case(opacity_type)
-
- !calculating the opacity from the mesa tables
  case(1)
+    !
+    ! calculate opacity from the MESA tables
+    !
     call get_kappa_mesa(density,temperature,kap,kapt,kapr)
 
- !setting a default opacity when no other option is selected
  case default
+    !
+    ! setting a default opacity when no other option is selected
+    !
     kap = 0.5 * huge(10.)
+
  end select
 
 end function get_opacity
