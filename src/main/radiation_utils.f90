@@ -27,6 +27,7 @@ module radiation_utils
  public :: Trad_from_radE
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
+ public :: get_opacity
 
  private
 
@@ -388,6 +389,30 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
  radPi = 1. / 3. * Xii * rhoi
 
 end subroutine radiation_equation_of_state
+
+!--------------------------------------------------------------------
+!+
+!  calculate opacities
+!+
+!--------------------------------------------------------------------
+real function get_opacity(opacity_type,density,temperature) result (kap)
+ use mesa_microphysics, only:get_kappa_mesa
+ real, intent(in) :: density, temperature
+ integer, intent(in) :: opacity_type
+ real :: kapt, kapr
+
+ select case(opacity_type)
+
+ !calculating the opacity from the mesa tables
+ case(1)
+    call get_kappa_mesa(density,temperature,kap,kapt,kapr)
+
+ !setting a default opacity when no other option is selected
+ case default
+    kap = 0.5 * huge(10.)
+ end select
+
+end function get_opacity
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa

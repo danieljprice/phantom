@@ -52,6 +52,7 @@ module options
 
  ! radiation
  logical,public :: exchange_radiation_energy, limit_radiation_flux
+ integer,public :: iopacity_type
 
  public :: set_default_options
  public :: ieos
@@ -145,9 +146,11 @@ subroutine set_default_options
  if (do_radiation) then
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
+    iopacity_type = 1
  else
     exchange_radiation_energy = .false.
     limit_radiation_flux = .false.
+    iopacity_type = 0
  endif
 
 end subroutine set_default_options

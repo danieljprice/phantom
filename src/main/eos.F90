@@ -534,6 +534,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
  use dim,      only:do_radiation
+ use options,  only:iopacity_type
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -660,7 +661,7 @@ subroutine init_eos(eos_type,ierr)
  end select
  done_init_eos = .true.
 
- if (do_radiation) call init_eos_mesa(X_in,Z_in,ierr)
+ if (do_radiation .and. iopacity_type==1) call init_eos_mesa(X_in,Z_in,ierr)
 
 end subroutine init_eos
 

@@ -156,14 +156,13 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                              iohm,ihall,n_R,n_electronT,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa
  use eos,               only:equationofstate,ieos,gamma,get_temperature
- use radiation_utils,   only:radiation_equation_of_state
+ use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
  use nicil,             only:nicil_get_ion_n,nicil_get_eta,nicil_translate_error
  use io,                only:fatal,real4
  use cullendehnen,      only:get_alphaloc,xi_limiter
- use options,           only:alpha,alphamax,use_dustfrac
- use mesa_microphysics, only:get_kappa_mesa
+ use options,           only:alpha,alphamax,use_dustfrac,iopacity_type
  use units,             only:unit_density,unit_opacity
 
  integer,      intent(in)    :: npart
@@ -176,7 +175,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
  real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
  real         :: xi,yi,zi,hi
- real         :: kapt,kapr,kap
  integer      :: iamtypei
  logical      :: iactivei,iamgasi,iamdusti
 
@@ -190,10 +188,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma,gamma_chem,n_R,n_electronT,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(unit_density,unit_opacity) &
+!$omp shared(unit_density,unit_opacity,iopacity_type) &
 !$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
-!$omp private(xi,yi,zi,hi,kapt,kapr,kap) &
+!$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -250,8 +248,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !--Getting radiation pressure from the radiation energy
        !
        if (do_radiation) then
-          call get_kappa_mesa(rhogas*unit_density,eos_vars(itemp,i),kap,kapt,kapr)
-          radprop(ikappa,i) = kap/unit_opacity
+          radprop(ikappa,i) = get_opacity(iopacity_type,rhogas*unit_density,temperaturei)/unit_opacity
           call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
        endif
        !
