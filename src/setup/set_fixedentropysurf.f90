@@ -197,17 +197,17 @@ subroutine solve_fixedS_surface_rhoP(m,S,r,rho,pres,ierr)
     endif
 
     ! Step in r using continuity equation
-    r(i+1) =    ( dm(i+1)**2 * r(i-1) &
-                + dm(i) * dm(i+1) * sum(dm(i:i+1)) &
-                * one_on_4pi / (r(i)**2 * rho(i)) &
-                - ( dm(i+1)**2 - dm(i)**2 ) * r(i) ) &
-                / dm(i)**2    
-    !r(i+1) = (r(i)**3 + 3.*one_on_4pi * dm(i+1) / rho(i+1))**(1./3.) ! 1st-order finite differencing used in MESA
+   !  r(i+1) =    ( dm(i+1)**2 * r(i-1) &
+   !              + dm(i) * dm(i+1) * sum(dm(i:i+1)) &
+   !              * one_on_4pi / (r(i)**2 * rho(i)) &
+   !              - ( dm(i+1)**2 - dm(i)**2 ) * r(i) ) &
+   !              / dm(i)**2
+    r(i+1) = exp( log(r(i)**3 + 3.*one_on_4pi * dm(i+1) / rho(i+1) ) / 3.) ! 1st-order finite differencing used in MESA
 
     if (r(i+1) < 0) then
       print*,'r<0 at i = ',i
       stop
-   endif
+    endif
 
  enddo
 
@@ -228,7 +228,7 @@ function entropy(rho,pres,ierr)
  use mesa_microphysics, only:getvalue_mesa
  real, intent(in)               :: rho,pres
  integer, intent(out), optional :: ierr
- real                           :: inv_mu,entropy,logentropy,temp,eint
+ real                           :: inv_mu,entropy,temp
 
  if (present(ierr)) ierr=0
  inv_mu = 1/gmw
@@ -238,24 +238,10 @@ function entropy(rho,pres,ierr)
      temp = pres * gmw / (rho * kb_on_mh)
      entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
 
- !case(12) ! Include both gas and radiation entropy gas plus rad. EoS
-
- ! Use gas+rad entropy for both MESA and gas+rad EoSs, since we don't want to include entropy due to ionisation.
- case default
+ case default  ! Use gas+rad entropy for both MESA and gas+rad EoSs, since we don't want to include entropy due to ionisation.
      temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
      call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
      entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
- 
-!  case(10) ! MESA EoS
-!      call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
-
-!      ! Get entropy from rho and eint from MESA tables
-!      if (present(ierr)) then
-!         call getvalue_mesa(rho,eint,9,logentropy,ierr)
-!      else
-!         call getvalue_mesa(rho,eint,9,logentropy)
-!      endif
-!      entropy = 10.d0**logentropy
 
  end select
   
