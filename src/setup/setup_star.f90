@@ -123,15 +123,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
                            write_softened_profile
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in
+ use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,calc_temp_and_ene
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
- use part,            only:eos_vars,itemp,store_temperature
+ use part,            only:eos_vars,itemp,igasP,store_temperature
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
  use setfixedentropysurf, only: set_fixedS_surface
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
                            check_hsoft_and_mcore
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
  use relaxstar,       only:relax_star
  use domain,          only:i_belong
  integer,           intent(in)    :: id
@@ -145,14 +145,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,j,nx,npts,ierr
- real                             :: vol_sphere,psep,rmin,densi,ri,presi
+ integer                          :: i,nx,npts,ierr
+ real                             :: vol_sphere,psep,rmin,presi,hi
  real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
                                      enitab(ng_max),mtab(ng_max)
  real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
                                      Xfrac(:),Yfrac(:)
- integer, allocatable             :: iorder(:)
- real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in,massri
+ real                             :: pgas,eni,tempi,Y_in,rhoi
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -393,60 +392,56 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set the thermal energy / temperature profile of the star
  !
- do i=1,nstar
-    if (maxvxyzu==4) then
-       !
-       !  Interpolate density and pressure from table
-       !
-       ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-       densi = yinterp(den(1:npts),r(1:npts),ri)
-       presi = yinterp(pres(1:npts),r(1:npts),ri)
-       !
-       ! Set internal energy of particles given pressure and density depending on EoS
-       !
-       select case(ieos)
-       case(16) ! Shen EoS
-          vxyzu(4,i) = initialtemp
-       case(15) ! Helmholtz EoS
-          xi    = xyzh(1,i)
-          yi    = xyzh(2,i)
-          zi    = xyzh(3,i)
-          tempi = initialtemp
-          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
-          vxyzu(4,i) = eni
-          if (store_temperature) eos_vars(itemp,i) = initialtemp
-       case(12) ! Ideal gas plus radiation EoS
-          call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
-          call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
-          vxyzu(4,i) = eni / unit_ergg
-          if (store_temperature) eos_vars(itemp,i) = tempi
-       case(10) ! MESA EoS
-          vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-          if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),r(1:npts),ri)
-       case default
-          if (gamma < 1.00001) then
-             vxyzu(4,i) = polyk
-          else
-             vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-          endif
-       end select
-    endif
- enddo
+!  do i=1,nstar
+!     if (maxvxyzu==4) then
+!        !
+!        !  Interpolate density and pressure from table
+!        !
+!        ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+!        densi = yinterp(den(1:npts),r(1:npts),ri)
+!        presi = yinterp(pres(1:npts),r(1:npts),ri)
+!        !
+!        ! Set internal energy of particles given pressure and density depending on EoS
+!        !
+!        select case(ieos)
+!        case(16) ! Shen EoS
+!           vxyzu(4,i) = initialtemp
+!        case(15) ! Helmholtz EoS
+!           xi    = xyzh(1,i)
+!           yi    = xyzh(2,i)
+!           zi    = xyzh(3,i)
+!           tempi = initialtemp
+!           call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+!           vxyzu(4,i) = eni
+!           if (store_temperature) eos_vars(itemp,i) = initialtemp
+!        case(12) ! Ideal gas plus radiation EoS
+!           call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
+!           call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
+!           vxyzu(4,i) = eni / unit_ergg
+!           if (store_temperature) eos_vars(itemp,i) = tempi
+!        case(10) ! MESA EoS
+!           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
+!           if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),r(1:npts),ri)
+!        case default
+!           if (gamma < 1.00001) then
+!              vxyzu(4,i) = polyk
+!           else
+!              vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+!           endif
+!        end select
+!     endif
+!  enddo
 
- ! MIKE'S FIX: Interpolate in m instead of r when particles exceed stellar radius
- allocate(iorder(npart))
- call indexxfunc(npart,r2func,xyzh(1:3,:),iorder)
- do j = 1,npart
-    i = iorder(j)
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = Mstar * real(j) / real(npart)
-    if (maxvxyzu >= 4) then
-       vxyzu(4,i) = yinterp(enitab(1:npts),mtab(1:npts),massri)
-       if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),mtab(1:npts),massri)
-    endif
+ ! Recalculate eint and temp for each particle according to EoS
+ do i = 1,nstar
+    hi = xyzh(4,i)
+    rhoi = rhoh(hi,massoftype(igas))
+    ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
+    presi = vxyzu(4,i) * rhoi * (gamma-1.) ! utherm = pr/(rho*(gamma-1.))
+    call calc_temp_and_ene(rhoi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+    vxyzu(4,i) = eni / unit_ergg
+    if (store_temperature) eos_vars(itemp,i) = tempi
  enddo
- deallocate(iorder)
- ! MIKE'S FIX
 
  call finish_eos(ieos,ierr)
  !

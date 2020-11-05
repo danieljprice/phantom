@@ -63,6 +63,7 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  if (iSerr == 1) ierr = 2
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
+ write(*,'(1x,a,f12.5,a)') 'Amount of softened mass is ',m(hidx) - mcore,' Msun'
  rho(1:hidx)  = rho_alloc(1:hidx)
  pres(1:hidx) = pres_alloc(1:hidx)
 

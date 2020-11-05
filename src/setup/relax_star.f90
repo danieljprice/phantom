@@ -359,7 +359,7 @@ function get_mr(rho,r) result(mr)
 
  mr(1) = 0.
  do i=2,size(rho)
-    mr(i) = mr(i-1) + 4./3.*pi*rho(i)*(r(i)**3 - r(i-1)**3)
+    mr(i) = mr(i-1) + 4./3.*pi*rho(i) * (r(i) - r(i-1)) * (r(i)**2 + r(i)*r(i-1) + r(i-1)**2)
  enddo
 
 end function get_mr
