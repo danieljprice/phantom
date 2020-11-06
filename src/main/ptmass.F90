@@ -147,7 +147,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     dz     = zi - xyzmh_ptmass(3,j)
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
-    if (hsoft > 0.0)  hsoft = max(hsoft,hi)
+    if (hsoft > 0.0) hsoft = max(hsoft,hi)
 
     rr2    = dx*dx + dy*dy + dz*dz + epsilon(rr2)
 #ifdef FINVSQRT
@@ -218,7 +218,6 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  fyi = fyi + ftmpyi
  fzi = fzi + ftmpzi
 
- return
 end subroutine get_accel_sink_gas
 
 !----------------------------------------------------------------

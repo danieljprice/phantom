@@ -14,7 +14,7 @@ module testeos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+! :Dependencies: dim, eos, eos_helmholtz, io, mpiutils, physcon, testutils,
 !   units
 !
  implicit none
@@ -54,12 +54,14 @@ end subroutine test_eos
 !+
 !----------------------------------------------------------
 subroutine test_init(ntests, npass)
- use eos,       only:maxeos,init_eos,isink,polyk,polyk2
+ use eos,       only:maxeos,init_eos,isink,polyk,polyk2,&
+                     ierr_file_not_found,ierr_option_conflict
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores
+ use dim,       only:do_radiation
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(maxeos)
- integer :: ierr,ieos
+ integer :: ierr,ieos,correct_answer
  character(len=20) :: pdir
  logical :: got_phantom_dir
 
@@ -80,10 +82,12 @@ subroutine test_init(ntests, npass)
 
  do ieos=1,maxeos
     call init_eos(ieos,ierr)
-    if (ieos==10 .and. .not. got_phantom_dir) cycle ! skip mesa
-    if (ieos==15 .and. .not. got_phantom_dir) cycle ! skip helmholtz
-    if (ieos==16 .and. .not. got_phantom_dir) cycle ! skip Shen
-    call checkval(ierr,0,0,nfailed(ieos),'eos initialisation')
+    correct_answer = 0
+    if (ieos==10 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip mesa
+    if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
+    if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
+    if (do_radiation .and. (ieos==10 .or. ieos==12)) correct_answer = ierr_option_conflict
+    call checkval(ierr,correct_answer,0,nfailed(ieos),'eos initialisation')
  enddo
  call update_test_scores(ntests,nfailed,npass)
 

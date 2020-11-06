@@ -25,6 +25,7 @@ module setup
 !   - EOSopt             : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - Mstar              : *mass of star*
 !   - Rstar              : *radius of star*
+!   - X                  : *hydrogen mass fraction*
 !   - densityfile        : *File containing data for stellar profile*
 !   - dist_unit          : *distance unit (e.g. au)*
 !   - gamma              : *Adiabatic index*
@@ -37,6 +38,8 @@ module setup
 !   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
 !   - mass_unit          : *mass unit (e.g. solarm)*
 !   - mcore              : *Mass of sink particle stellar core*
+!   - metallicity        : *metallicity*
+!   - mu                 : *mean molecular weight*
 !   - np                 : *approx number of particles (in box of size 2R)*
 !   - outputfilename     : *Output path for softened MESA profile*
 !   - polyk              : *polytropic constant (cs^2 if isothermal)*
@@ -47,10 +50,10 @@ module setup
 !   - write_rho_to_file  : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, relaxstar, rho_profile, setfixedentropycore,
-!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
-!   timestep, units
+!   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
+!   options, part, physcon, prompting, relaxstar, rho_profile,
+!   setfixedentropycore, setsoftenedcore, setstellarcore, setup_params,
+!   spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -70,7 +73,7 @@ module setup
  integer            :: need_iso, need_temp
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
- real               :: initialtemp
+ real               :: initialtemp, initialgmw, initialx, initialz
  real               :: mcore,hdens,hsoft
  logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,relax_star_in_setup,write_rho_to_file
@@ -125,7 +128,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,calc_temp_and_ene
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
- use part,            only:eos_vars,itemp,igasP,store_temperature
+ use part,            only:eos_vars,itemp,store_temperature
+ use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
  use setfixedentropysurf, only: set_fixedS_surface
@@ -177,6 +181,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iprofile    = 1
  EOSopt      = 1
  initialtemp = 1.0e7
+ initialgmw  = 2.381
+ initialx    = 0.74
+ initialz    = 0.02
  isoftcore   = 0
  isinkcore   = .false.
  mcore         = 0.
@@ -245,6 +252,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total    = 0
  vxyzu          = 0.0
  !
+ ! where needed initialise the EoS
+ !
+ !polytropic
+ calc_polyk = .true.
+ if (ieos==9) call init_eos_9(EOSopt)
+ !MESA
+ if (ieos==10) then
+    gmw = initialgmw
+    X_in = initialx
+    Z_in = initialz
+    print*, initialgmw, initialx, initialz
+    print*, gmw, X_in, Z_in
+    call init_eos(ieos,ierr)
+ endif
+ !
  ! setup tabulated density profile
  !
  calc_polyk = .true.
@@ -310,7 +332,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
        ! are same as the original profile for r > hsoft
 
-       call init_eos(ieos,ierr)
        if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
@@ -385,6 +406,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (relax_star_in_setup) then
     if (nstar==npart) then
        call relax_star(npts,den,pres,r,npart,xyzh)
+
+        ! Recalculate eint and temp for each particle according to EoS
+        do i = 1,nstar
+           hi = xyzh(4,i)
+           rhoi = rhoh(hi,massoftype(igas))
+           ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
+           presi = vxyzu(4,i) * rhoi * (gamma-1.) ! utherm = pr/(rho*(gamma-1.))
+           call calc_temp_and_ene(rhoi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+           vxyzu(4,i) = eni / unit_ergg
+           if (store_temperature) eos_vars(itemp,i) = tempi
+        enddo
     else
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
@@ -392,56 +424,48 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set the thermal energy / temperature profile of the star
  !
-!  do i=1,nstar
-!     if (maxvxyzu==4) then
-!        !
-!        !  Interpolate density and pressure from table
-!        !
-!        ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-!        densi = yinterp(den(1:npts),r(1:npts),ri)
-!        presi = yinterp(pres(1:npts),r(1:npts),ri)
-!        !
-!        ! Set internal energy of particles given pressure and density depending on EoS
-!        !
-!        select case(ieos)
-!        case(16) ! Shen EoS
-!           vxyzu(4,i) = initialtemp
-!        case(15) ! Helmholtz EoS
-!           xi    = xyzh(1,i)
-!           yi    = xyzh(2,i)
-!           zi    = xyzh(3,i)
-!           tempi = initialtemp
-!           call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
-!           vxyzu(4,i) = eni
-!           if (store_temperature) eos_vars(itemp,i) = initialtemp
-!        case(12) ! Ideal gas plus radiation EoS
-!           call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
-!           call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
-!           vxyzu(4,i) = eni / unit_ergg
-!           if (store_temperature) eos_vars(itemp,i) = tempi
-!        case(10) ! MESA EoS
-!           vxyzu(4,i) = yinterp(enitab(1:npts),r(1:npts),ri)
-!           if (store_temperature) eos_vars(itemp,i) = yinterp(temp(1:npts),r(1:npts),ri)
-!        case default
-!           if (gamma < 1.00001) then
-!              vxyzu(4,i) = polyk
-!           else
-!              vxyzu(4,i) = presi / ((gamma - 1.) * densi)
-!           endif
-!        end select
-!     endif
-!  enddo
-
- ! Recalculate eint and temp for each particle according to EoS
- do i = 1,nstar
-    hi = xyzh(4,i)
-    rhoi = rhoh(hi,massoftype(igas))
-    ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
-    presi = vxyzu(4,i) * rhoi * (gamma-1.) ! utherm = pr/(rho*(gamma-1.))
-    call calc_temp_and_ene(rhoi*unit_density,presi*unit_pressure,eni,tempi,ierr)
-    vxyzu(4,i) = eni / unit_ergg
-    if (store_temperature) eos_vars(itemp,i) = tempi
- enddo
+ if (.not. relax_star_in_setup) then
+    do i=1,nstar
+       if (maxvxyzu==4) then
+          !
+          !  Interpolate density and pressure from table
+          !
+          ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+          densi = yinterp(den(1:npts),r(1:npts),ri)
+          presi = yinterp(pres(1:npts),r(1:npts),ri)
+          !
+          ! Set internal energy of particles given pressure and density depending on EoS
+          !
+          select case(ieos)
+          case(16) ! Shen EoS
+             vxyzu(4,i) = initialtemp
+          case(15) ! Helmholtz EoS
+             xi    = xyzh(1,i)
+             yi    = xyzh(2,i)
+             zi    = xyzh(3,i)
+             tempi = initialtemp
+             call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+             vxyzu(4,i) = eni
+             if (store_temperature) eos_vars(itemp,i) = initialtemp
+          case(12) ! Ideal gas plus radiation EoS
+             call get_idealgasplusrad_tempfrompres(presi*unit_pressure,densi*unit_density,gmw,tempi)
+             call get_idealplusrad_enfromtemp(densi*unit_density,tempi,gmw,eni)
+             vxyzu(4,i) = eni / unit_ergg
+             if (store_temperature) eos_vars(itemp,i) = tempi
+          case(10) ! MESA EoS
+             call get_eos_eT_from_rhop_mesa(densi*unit_density,presi*unit_pressure,eni,tempi) ! No initial guess for eint used
+             vxyzu(4,i) = eni / unit_ergg
+             if (store_temperature) eos_vars(itemp,i) = tempi
+          case default
+             if (gamma < 1.00001) then
+                vxyzu(4,i) = polyk
+             else
+                vxyzu(4,i) = presi / ((gamma - 1.) * densi)
+             endif
+          end select
+       endif
+     enddo
+  endif
 
  call finish_eos(ieos,ierr)
  !
@@ -538,6 +562,10 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     if (input_polyk) call prompt('Enter polytropic constant',polyk,0.)
  case(1)
     call prompt('Enter polytropic constant (cs^2 if isothermal)',polyk,0.)
+ case(10)
+    call prompt('Enter mean molecular weight',initialgmw,0.0)
+    call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
+    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
  end select
  if (iprofile==ievrard) then
     call prompt('Enter the specific internal energy (units of GM/R) ',ui_coef,0.)
@@ -735,6 +763,10 @@ subroutine write_setupfile(filename,gamma,polyk)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
+ case(10)
+    call write_inopt(initialgmw,'mu','mean molecular weight',iunit)
+    call write_inopt(initialx,'X','hydrogen mass fraction',iunit)
+    call write_inopt(initialz,'Z','metallicity',iunit)
  end select
  if (iprofile==ievrard) then
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
@@ -832,6 +864,10 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(1)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
+ case(10)
+    call read_inopt(initialgmw,'mu',db,errcount=nerr)
+    call read_inopt(initialx,'X',db,errcount=nerr)
+    call read_inopt(initialz,'Z',db,errcount=nerr)
  end select
  if (iprofile==ievrard) then
     call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
