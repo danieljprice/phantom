@@ -1217,7 +1217,7 @@ end subroutine calc_rec_ene
 !----------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
-!  pressure and density
+!  pressure and density, assuming inputs are in cgs units
 !+
 !----------------------------------------------------------------
 subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
