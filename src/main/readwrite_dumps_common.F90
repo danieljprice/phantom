@@ -334,7 +334,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  if (do_radiation) then
     if (.not.all(got_raden)) then
        if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
-       ierr = ierr + 1
+       !ierr = ierr + 1
     endif
     if (.not.got_kappa) then
        if (id==master .and. i1==1) write(*,*) 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
