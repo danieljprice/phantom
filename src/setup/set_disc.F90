@@ -22,9 +22,6 @@ module setdisc
 !   - R_out       : *outer disc boundary*
 !   - R_ref       : *reference radius*
 !   - R_warp      : *position of warp*
-!   - T_in        : *temperature (K) at R=R_in*
-!   - T_out       : *temperature (K) at R=R_out*
-!   - T_ref       : *temperature (K) at R=R_ref*
 !   - alphaSS_max : *maximum Shakura-Sunyaev alpha viscosity in disc*
 !   - alphaSS_min : *minimum Shakura-Sunyaev alpha viscosity in disc*
 !   - c           : *in code units*
@@ -897,16 +894,16 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
  if (itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
- call init_eos(ieos,ierr)
- if (itype == igas) then
-    vxyzutmp = 0.
-    T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
-    call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
-    T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
-    call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
-    T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
-    call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
- endif
+ !call init_eos(ieos,ierr)
+ !if (itype == igas) then
+ !   vxyzutmp = 0.
+ !   T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
+ !   call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
+ !   T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
+ !   call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
+ !   T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
+ !   call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ !endif
 
  call write_inopt(inclination,'inc.deg','disc inclination in degrees',iunit)
  call write_inopt(honH,'<h/H>','approx. mean smoothing length over disc scale height',iunit)

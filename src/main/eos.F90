@@ -61,7 +61,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
@@ -72,6 +72,7 @@ module eos
  private
 
  integer, public :: ieos        = 1
+ integer, public :: iopacity_type = 0 ! used for radiation
  !--Default initial parameters for Barotropic Eos
  real,    public :: drhocrit0   = 0.50
  real,    public :: rhocrit0cgs = 1.e-18
@@ -101,6 +102,14 @@ module eos
  real, public    :: temperature_coef
 
  logical, public :: done_init_eos = .false.
+ !
+ ! error codes for calls to init_eos
+ !
+ integer, public, parameter :: &
+    ierr_file_not_found  = 1, &
+    ierr_option_conflict = 2, &
+    ierr_units_not_set   = 3, &
+    ierr_isink_not_set   = 4
 
 contains
 
@@ -376,6 +385,23 @@ end subroutine equationofstate
 
 !----------------------------------------------------------------
 !+
+!  Query function to return whether an EoS is non-ideal
+!+
+!----------------------------------------------------------------
+logical function eos_is_non_ideal(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(10,12,15)
+    eos_is_non_ideal = .true.
+ case default
+    eos_is_non_ideal = .false.
+ end select
+
+end function eos_is_non_ideal
+
+!----------------------------------------------------------------
+!+
 !  query function to return the sound speed
 !  (called from step for decay timescale in alpha switches)
 !+
@@ -516,6 +542,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
+ use dim,      only:do_radiation
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -539,7 +566,7 @@ subroutine init_eos(eos_type,ierr)
     !
     if (isink==0) then
        call error('eos','ieos=6, but isink is not set')
-       ierr = 1
+       ierr = ierr_isink_not_set
        return
     endif
 
@@ -548,7 +575,7 @@ subroutine init_eos(eos_type,ierr)
     !--calculate initial variables for the barotropic equation of state
     !
     if (unit_density <= 0.) then
-       ierr = 1
+       ierr = ierr_units_not_set
        return
     endif
 
@@ -594,7 +621,7 @@ subroutine init_eos(eos_type,ierr)
     !--calculate initial variables for the piecewise polytrope equation of state
     !
     if (unit_density <= 0.0 .or. unit_pressure<=0.0) then
-       ierr = 1
+       ierr = ierr_units_not_set
        return
     endif
     rhocrit0pwp = rhocrit0pwpcgs/unit_density
@@ -617,6 +644,19 @@ subroutine init_eos(eos_type,ierr)
     !--MESA EoS initialisation
     !
     call init_eos_mesa(X_in,Z_in,ierr)
+    if (do_radiation .and. ierr==0) then
+       call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
+       ierr=ierr_option_conflict !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
+    endif
+
+ case(12)
+    !
+    ! ideal plus radiation
+    !
+    if (do_radiation) then
+       call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
+       ierr = ierr_option_conflict
+    endif
 
  case(15)
 
@@ -628,6 +668,8 @@ subroutine init_eos(eos_type,ierr)
 
  end select
  done_init_eos = .true.
+
+ if (do_radiation .and. iopacity_type==1) call init_eos_mesa(X_in,Z_in,ierr)
 
 end subroutine init_eos
 
