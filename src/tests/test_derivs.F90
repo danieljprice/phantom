@@ -189,7 +189,7 @@ subroutine test_derivs(ntests,npass,string)
     ieos = 1
     gamma = 1.0
  endif
- 
+
  !For radiation need to make sure that mesa tables are initialised
  iopacity_type = 0
  call init_eos(ieos, ierr)
