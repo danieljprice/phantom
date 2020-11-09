@@ -82,7 +82,7 @@ module setup
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf,rad,radprop,ikappa
+                            VrelVf,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -187,7 +187,7 @@ module setup
 
  !--other
  logical :: ichange_method
- real    :: iradkappa = -1.
+ real    :: iradkappa = huge(iradkappa)/10.
 contains
 
 !--------------------------------------------------------------------------
@@ -280,7 +280,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_tmax_dtmax()
 
  if (do_radiation) then
-    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    rad(iradxi,1:npart)=0.!call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     radprop(ikappa,1:npart) = iradkappa
  endif
 

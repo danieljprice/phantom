@@ -18,7 +18,7 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
- use eos, only:ieos ! so this is available via options module
+ use eos, only:ieos,iopacity_type ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -55,6 +55,7 @@ module options
 
  public :: set_default_options
  public :: ieos
+ public :: iopacity_type
 
  private
 
@@ -145,9 +146,11 @@ subroutine set_default_options
  if (do_radiation) then
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
+    iopacity_type = 1
  else
     exchange_radiation_energy = .false.
     limit_radiation_flux = .false.
+    iopacity_type = 0
  endif
 
 end subroutine set_default_options
