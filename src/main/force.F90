@@ -62,41 +62,42 @@ module forces
        irhoi       = 18, &
        irhogasi    = 19, &
        ispsoundi   = 20, &
-       isxxi       = 21, &
-       isxyi       = 22, &
-       isxzi       = 23, &
-       isyyi       = 24, &
-       isyzi       = 25, &
-       iszzi       = 26, &
-       ivisctermisoi   = 27, &
-       ivisctermanisoi = 28, &
-       ipri        = 29, &
-       ipro2i      = 30, &
-       ietaohmi    = 31, &
-       ietahalli   = 32, &
-       ietaambii   = 33, &
-       ijcbcbxi    = 34, &
-       ijcbcbyi    = 35, &
-       ijcbcbzi    = 36, &
-       ijcbxi      = 37, &
-       ijcbyi      = 38, &
-       ijcbzi      = 39, &
-       idivBi      = 40, &
-       icurlBxi    = 41, &
-       icurlByi    = 42, &
-       icurlBzi    = 43, &
-       igrainsizei = 44, &
-       igraindensi = 45, &
-       idvxdxi     = 46, &
-       idvzdzi     = 54, &
+       itempi      = 21, &
+       isxxi       = 22, &
+       isxyi       = 23, &
+       isxzi       = 24, &
+       isyyi       = 25, &
+       isyzi       = 26, &
+       iszzi       = 27, &
+       ivisctermisoi   = 28, &
+       ivisctermanisoi = 29, &
+       ipri        = 30, &
+       ipro2i      = 31, &
+       ietaohmi    = 32, &
+       ietahalli   = 33, &
+       ietaambii   = 34, &
+       ijcbcbxi    = 35, &
+       ijcbcbyi    = 36, &
+       ijcbcbzi    = 37, &
+       ijcbxi      = 38, &
+       ijcbyi      = 39, &
+       ijcbzi      = 40, &
+       idivBi      = 41, &
+       icurlBxi    = 42, &
+       icurlByi    = 43, &
+       icurlBzi    = 44, &
+       igrainsizei = 45, &
+       igraindensi = 46, &
+       idvxdxi     = 47, &
+       idvzdzi     = 55, &
        !--dust arrays initial index
-       idustfraci    = 55, &
+       idustfraci    = 56, &
        !--dust arrays final index
-       idustfraciend = 55 + (maxdusttypes - 1), &
-       itstop        = 56 + (maxdusttypes - 1), &
-       itstopend     = 56 + 2*(maxdusttypes - 1), &
+       idustfraciend = 56 + (maxdusttypes - 1), &
+       itstop        = 57 + (maxdusttypes - 1), &
+       itstopend     = 57 + 2*(maxdusttypes - 1), &
        !--final dust index
-       lastxpvdust   = 56 + 2*(maxdusttypes - 1), &
+       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
        iradxii        = lastxpvdust + 1, &
        iradfxi        = lastxpvdust + 2, &
        iradfyi        = lastxpvdust + 3, &
@@ -828,10 +829,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use kernel,      only:grkern,cnormk,radkern2
  use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
-                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP
+                       iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
+ use eos,         only:ieos,eos_is_non_ideal
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -839,7 +841,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,         only:use_dust,use_dustgrowth
+ use dim,         only:use_dust,use_dustgrowth,store_temperature
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
@@ -859,9 +861,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:overcleanfac,use_dustfrac
  use units,       only:get_c_code
 #ifdef GR
- use utils_gr,    only:get_bigv
  use metric_tools,only:imet_minkowski,imetric
 #endif
+ use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
@@ -905,7 +907,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dendissterm,dBdissterm,dudtresist,dpsiterm,pmassonrhoi
  real    :: gradpi,projsxi,projsyi,projszi
  real    :: gradp,projsx,projsy,projsz,Bxj,Byj,Bzj,Bj,Bj1,psij
- real    :: grkernj,grgrkernj,autermj,avBtermj,vsigj,spsoundj
+ real    :: grkernj,grgrkernj,autermj,avBtermj,vsigj,spsoundj,tempj
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
@@ -939,7 +941,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
  real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
  real    :: dustfracisum,dustfracjsum,rhogasj,epstsi!,rhogas1j
- real    :: vwavei,rhoi,rho1i,spsoundi
+ real    :: vwavei,rhoi,rho1i,spsoundi,tempi
  real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi
  real    :: visctermiso,visctermaniso
  real    :: pri,pro2i
@@ -971,6 +973,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  rhoi          = xpartveci(irhoi)
  rho1i         = 1./rhoi
  spsoundi      = xpartveci(ispsoundi)
+ tempi         = xpartveci(itempi)
  sxxi          = xpartveci(isxxi)
  sxyi          = xpartveci(isxyi)
  sxzi          = xpartveci(isxzi)
@@ -1277,7 +1280,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
-          denij = eni - enj
+          if (store_temperature .and. eos_is_non_ideal(ieos)) then
+             tempj = eos_vars(itemp,j)
+             denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
+          else
+             denij = eni - enj
+          endif
        else
           denij = 0.
        endif
@@ -1392,7 +1400,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              else
                 vsigj = max(vwavej - beta*projv,0.)
                 vsigavj = max(alphaj*vwavej - beta*projv,0.)
-             end if
+             endif
              if (vsigj > vsigmax) vsigmax = vsigj
           else
              vsigj = max(-projv,0.)
@@ -1994,7 +2002,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics
+                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
  use dust,      only:get_ts,idrag
@@ -2028,7 +2036,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
  real(kind=8) :: hi1
- real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi
+ real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi,tempi
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
 #ifdef DUST
  real         :: tstopi(maxdusttypes)
@@ -2111,6 +2119,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (gr) densi = dens(i)
        pri = eos_vars(igasP,i)
        spsoundi = eos_vars(ics,i)
+       tempi = eos_vars(itemp,i)
        radPi = 0.
        if (do_radiation) radPi = radprop(iradP,i)
        !
@@ -2217,6 +2226,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(irhogasi,cell%npcell)        = rhogasi
        cell%xpartvec(ipri,cell%npcell)            = pri
        cell%xpartvec(ispsoundi,cell%npcell)       = spsoundi
+       cell%xpartvec(itempi,cell%npcell)          = tempi
        cell%xpartvec(isxxi,cell%npcell)           = sxxi
        cell%xpartvec(isxyi,cell%npcell)           = sxyi
        cell%xpartvec(isxzi,cell%npcell)           = sxzi
