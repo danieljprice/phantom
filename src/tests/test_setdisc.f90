@@ -14,8 +14,8 @@ module testsetdisc
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!   testutils, timing, units
+! :Dependencies: checksetup, deriv, dim, eos, io, options, part, physcon,
+!   setdisc, testutils, timing, units
 !
  implicit none
  public :: test_setdisc
