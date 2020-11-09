@@ -41,6 +41,7 @@ subroutine test_setdisc(ntests,npass)
  use setdisc,    only:set_disc
  use checksetup, only:check_setup
  use units,      only:set_units
+ use physcon,    only:au,solarm
  integer, intent(inout) :: ntests,npass
  integer :: nparttot
  integer :: nfailed(3),ncheck
@@ -59,7 +60,7 @@ subroutine test_setdisc(ntests,npass)
  endif
 
  testall  = .true.
- call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+ call set_units(mass=solarm,dist=au,G=1.d0)
  call init_part()
 !
 !--test that centrifugal acceleration balances radial forces
