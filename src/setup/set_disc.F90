@@ -22,6 +22,9 @@ module setdisc
 !   - R_out       : *outer disc boundary*
 !   - R_ref       : *reference radius*
 !   - R_warp      : *position of warp*
+!   - T_in        : *temperature (K) at R=R_in*
+!   - T_out       : *temperature (K) at R=R_out*
+!   - T_ref       : *temperature (K) at R=R_ref*
 !   - alphaSS_max : *maximum Shakura-Sunyaev alpha viscosity in disc*
 !   - alphaSS_min : *minimum Shakura-Sunyaev alpha viscosity in disc*
 !   - c           : *in code units*
