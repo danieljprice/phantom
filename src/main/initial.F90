@@ -210,6 +210,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
@@ -566,6 +567,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
                 ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+
+    if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo
 
