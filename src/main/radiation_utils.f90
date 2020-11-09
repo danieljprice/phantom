@@ -401,14 +401,15 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
  real, intent(in)  :: density, temperature
  real, intent(out) :: kappa
  integer, intent(in) :: opacity_type
- real :: kapt, kapr
+ real :: kapt,kapr,rho_cgs
 
  select case(opacity_type)
  case(1)
     !
     ! calculate opacity from the MESA tables
     !
-    call get_kappa_mesa(density*unit_density,temperature,kappa,kapt,kapr)
+    rho_cgs = density*unit_density
+    call get_kappa_mesa(rho_cgs,temperature,kappa,kapt,kapr)
     kappa = kappa/unit_opacity
 
  end select
