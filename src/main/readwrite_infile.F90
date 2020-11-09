@@ -33,6 +33,7 @@ module readwrite_infile
 !   - flux_limiter       : *limit radiation flux*
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
