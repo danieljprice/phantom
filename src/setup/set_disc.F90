@@ -202,6 +202,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        if (.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) &
            .and. present(q_indexdust) .and. present(HoverRdust) .and. present(disc_massdust))) then
           call fatal('set_disc','setup for dusty disc in the mixture is not specified')
+          H_Rdust = 0. ! to prevent compiler warning
        else
           if (rmaxdust < rmindust) then
              if (id==master) call error('set_disc','dust outer radius < dust inner radius')
@@ -410,7 +411,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(phimax)) then
     print "(a)",'Setting up disc sector - not adjusting centre of mass'
  else
-    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
+   ! call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
@@ -530,7 +531,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i=npart_start_count,npart_tot
+ do i=npart_start_count,npart_tot,2
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
@@ -596,6 +597,16 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        xyzh(1,ipart) = R*cos(phi)
        xyzh(2,ipart) = R*sin(phi)
        xyzh(3,ipart) = zi
+       xyzh(4,ipart) = hpart
+       !--set particle type
+       call set_particle_type(ipart,itype)
+    endif
+    if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
+       ipart = ipart + 1
+       !--set positions -- move to origin below
+       xyzh(1,ipart) = -R*cos(phi)
+       xyzh(2,ipart) = -R*sin(phi)
+       xyzh(3,ipart) = -zi
        xyzh(4,ipart) = hpart
        !--set particle type
        call set_particle_type(ipart,itype)
@@ -853,9 +864,8 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
- integer :: ierr,i
+ integer :: i
  real    :: T0,T_ref,sig,dR,R
- real    :: vxyzutmp(maxvxyzu)
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
