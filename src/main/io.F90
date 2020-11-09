@@ -28,7 +28,7 @@ module io
  integer, public :: iprint, ievfile, idump, ireadin, iwritein, idisk1
  integer, public :: imflow, ivmflow, ibinpos, igpos
  integer, public :: ifile,ifdump,ifdumpread,ireadgrid,ireaddrv,ianalysis
- integer, public :: iscfile,ipafile,iskfile,igit,iuniteos
+ integer, public :: iscfile,iskfile,igit,iuniteos
 
  !--verboseness level is set to zero by default
  !  but can be changed by external routines (e.g. as input file option)
@@ -103,9 +103,7 @@ subroutine set_io_unit_numbers
  iuniteos   = 28 ! for printing the eos to file
  igit       = 29 ! for reading phantom_version
  iscfile    = 32 ! for writing details of sink creation
- ipafile    = 31 ! for writing details of particle accretion
- iskfile    =407 ! for writing details of the sink particles;
- ! note this actually opens files iskfile+1 to iskfile+nptmass
+ iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
  iverbose   = 0
 
 end subroutine set_io_unit_numbers

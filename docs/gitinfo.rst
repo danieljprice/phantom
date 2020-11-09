@@ -30,24 +30,6 @@ address are set, as follows:
 Please use your full name in the format above, as this is what appears
 in the commit logs (and in the AUTHORS file)
 
-Install git-lfs
----------------
-
-In order to read large datafiles stored in the phantom git repo, you
-will need git-lfs installed::
-
-   git lfs install
-
-If your git installation is too old, you will get an error message:
-
-::
-
-   git: 'lfs' is not a git command. See 'git --help'.
-
-In this case, please ask your system admin to update your copy of git.
-Most phantom calculations do not rely on external data files, so not
-having git-lfs installed is not a show-stopper. Keep calm and carry on.
-
 Receiving updates
 -----------------
 

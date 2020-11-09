@@ -38,7 +38,7 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
- use dim,     only:do_radiation
+ use dim,     only:do_radiation,periodic
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -50,12 +50,11 @@ subroutine test_radiation(ntests,npass)
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass)
 
-#ifndef PERIODIC
- if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
-#else
-
- call test_uniform_derivs(ntests,npass)
-#endif
+ if (.not.periodic) then
+    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
+ else
+    call test_uniform_derivs(ntests,npass)
+ endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
 
@@ -314,7 +313,7 @@ subroutine test_uniform_derivs(ntests,npass)
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,i)*l0)*exp(-l0*l0*t*D0))
-          write (string,"(a,i2.2,a)") 'xi(t_', i, ')'
+          write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
           call checkvalbuf(rad(iradxi,i),exact_xi,tol_xi,trim(string),&
                            nerr_xi(1),ncheck_xi,errmax_xi)
        enddo

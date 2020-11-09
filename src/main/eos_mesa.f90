@@ -20,6 +20,7 @@ module eos_mesa
  use mesa_microphysics
 
  implicit none
+ logical,private :: mesa_initialised = .false.
 
 contains
 
@@ -37,6 +38,9 @@ subroutine init_eos_mesa(x,z,ierr)
     ierr=-1
     return
  endif
+ !to not initialise mesa multiple times. Otherwise could call finish_eos_mesa instead of return
+ if (mesa_initialised) return
+ mesa_initialised = .true.
 
  call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir)
  mesa_eos_prefix="output_DE_"
@@ -73,19 +77,20 @@ end subroutine finish_eos_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/gamma1 as a function of
-!  density/internal energy
+!  subroutine returns pressure, temp, gamma1 as a function of
+!  density and internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1,ierr)
- real, intent(in) :: den, eint
- real, intent(out) :: pres, gam1
+subroutine get_eos_pressure_temp_gamma1_mesa(den,eint,pres,temp,gam1,ierr)
+ real, intent(in) :: den,eint
+ real, intent(out) :: pres,temp,gam1
  integer, intent(out) :: ierr
 
  call getvalue_mesa(den,eint,2,pres,ierr)
+ call getvalue_mesa(den,eint,4,temp)
  call getvalue_mesa(den,eint,11,gam1)
 
-end subroutine get_eos_pressure_gamma1_mesa
+end subroutine get_eos_pressure_temp_gamma1_mesa
 
 !----------------------------------------------------------------
 !+
