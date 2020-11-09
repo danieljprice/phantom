@@ -304,7 +304,16 @@ ifeq ($(SETUP), adiabaticdisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ISOTHERMAL=no
-    MULTIRUNFILE= multirun.f90
+endif
+
+ifeq ($(SETUP), raddisc)
+#   adiabatic disc with radiation
+    DISC_VISCOSITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    KNOWN_SETUP=yes
+    #IND_TIMESTEP=yes
+    RADIATION=yes
 endif
 
 ifeq ($(SETUP), lightcurvedisc)
