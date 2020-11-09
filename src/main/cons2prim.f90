@@ -15,7 +15,7 @@ module cons2prim
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
-!   options, part, radiation_utils, utils_gr
+!   options, part, radiation_utils, units, utils_gr
 !
  use cons2primsolver, only:ien_entropy
  implicit none
