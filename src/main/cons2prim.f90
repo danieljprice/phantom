@@ -232,18 +232,14 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        if (maxvxyzu >= 4) then
           if (store_gamma) then
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i))
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
-          elseif (store_temperature) then
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i),&
+                                  tempi=temperaturei)
           else
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i))
-             temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
           endif
        else
           !isothermal
-          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi)
-          temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei)
        endif
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas

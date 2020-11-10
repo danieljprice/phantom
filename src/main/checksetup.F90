@@ -784,7 +784,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
  do i=1, npart
     if (radprop(ithick, i) < 0.5) nthin=nthin + 1
     if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
-    if (radprop(ikappa, i) == 0.0) nkappa=nkappa + 1
+    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa=nkappa + 1
  enddo
 
  if (nthin > 0) then
@@ -801,7 +801,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
 
  if (nkappa > 0) then
     print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
-    ' particles have opacity 0.0'
+    ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
 end subroutine check_setup_radiation
