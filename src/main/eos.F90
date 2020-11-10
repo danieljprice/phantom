@@ -154,6 +154,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(2)
 !
@@ -191,6 +192,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi = sqrt(gamma*ponrhoi)
 #endif
 
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+
  case(3)
 !
 !--this is for a locally isothermal disc as in Lodato & Pringle (2007)
@@ -198,6 +201,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
 !
 !--GR isothermal
@@ -206,6 +210,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     uthermconst = polyk
     ponrhoi = (gamma-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(6)
 !
@@ -214,6 +219,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
                       (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(7)
 !
@@ -233,6 +239,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
     ponrhoi = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(8)
 !
@@ -264,6 +271,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = fac3*(rhoi/rhocrit3)**(gamma3-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(9)
 !
@@ -283,6 +291,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = k3pwp*rhoi**(gamma3pwp-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(10)
 !
@@ -304,6 +313,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(12)
 !
@@ -334,6 +344,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
     spsoundi=sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(15)
 !
@@ -358,6 +369,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        call fatal('eos','invoking KROME to calculate local gamma but variable '&
                         'not passed in equationofstate (bad value for eos?)')
     endif
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(16)
 !
@@ -370,6 +382,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi=cgsspsoundi / unit_velocity
     presi = cgspresi / unit_pressure
     ponrhoi = presi / rhoi
+    if (present(tempi)) tempi = eni
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
@@ -377,6 +390,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     call fatal('eos','unknown equation of state')
  end select
 
