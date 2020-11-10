@@ -834,6 +834,19 @@ ifeq ($(SETUP), star)
     STORE_TEMP=yes
 endif
 
+ifeq ($(SETUP), radstar)
+#   setup a star as in the star setup but with radiation
+    SETUPFILE= setup_star.f90
+    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    MAXP=10000000
+    GRAVITY=yes
+    RADIATION=yes
+    STORE_TEMP=yes
+endif
+
 ifeq ($(SETUP), isowind)
 #   isothermal spherical wind
     FPPFLAGS= -DWIND -DSINK_RADIATION
