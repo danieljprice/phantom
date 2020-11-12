@@ -110,6 +110,8 @@ subroutine init_cooling_type(h2chemistry,ierr)
  integer, intent(out) :: ierr
  logical, intent(in)  :: h2chemistry
 
+ cooling_implicit = .false.
+ cooling_explicit = .false.
  if (h2chemistry) then
     if (icooling > 0) cooling_implicit = .true.    ! cooling is calculated implicitly in step
  elseif (icooling > 0) then
