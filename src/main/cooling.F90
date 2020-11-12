@@ -9,6 +9,8 @@ module cooling
 ! Gas cooling
 !
 ! :References:
+!   Koyama & Inutsuka (2002), ApJL 564, 97-100
+!   Vazquez-Semadeni, et.al (2007), ApJ 657, 870-883
 !   Townsend (2009), ApJS 181, 391-397
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
@@ -37,29 +39,39 @@ module cooling
  implicit none
  character(len=*), parameter :: label = 'cooling'
 
- public :: init_cooling,calc_cooling_rate,energ_cooling
+ public :: init_cooling,init_cooling_type,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table
  logical, public :: calc_Teq
- real, public:: bowen_Cprime = 3.000d-5
+ logical, public :: cooling_implicit
+ logical, public :: cooling_explicit
+ real,    public :: bowen_Cprime = 3.000d-5
 
  private
  integer, parameter :: nTg = 64
  integer, parameter :: maxt = 1000
  real,    parameter :: Tref = 1.d5, T_floor = 10.
  integer :: nt
- real :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
- real :: beta_cool  = 3.
- real :: habund     = 0.7
- real :: temp_floor = 1.e4
- real :: Tgrid(nTg)
+ real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
+ real    :: beta_cool  = 3.
+ real    :: habund     = 0.7
+ real    :: temp_floor = 1.e4
+ real    :: Tgrid(nTg)
+ real    :: crate_coef
  integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
 
 
 contains
 
+!-----------------------------------------------------------------------
+!+
+!  Initialise cooling
+!+
+!-----------------------------------------------------------------------
 subroutine init_cooling(ierr)
+ use units,   only:utime,umass,udist
+ use physcon, only:mass_proton_cgs
  use io,  only:fatal
  integer, intent(out) :: ierr
 
@@ -83,15 +95,32 @@ subroutine init_cooling(ierr)
 #endif
  calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
 
-!initialize grid temperature
+ !--initialise remaining variables
  if (icooling == 2) then
     call init_cooltable(ierr)
+ elseif (icooling == 5) then
+    crate_coef = 2.0d-26*umass*utime**3/(mass_proton_cgs**2 * udist**5)
  elseif (icooling > 0) then
     call set_Tgrid
  endif
 
 end subroutine init_cooling
 
+subroutine init_cooling_type(h2chemistry,ierr)
+ integer, intent(out) :: ierr
+ logical, intent(in)  :: h2chemistry
+
+ if (h2chemistry) then
+    if (icooling > 0) cooling_implicit = .true.    ! cooling is calculated implicitly in step
+ elseif (icooling > 0) then
+    if (icooling == 3 .or. icooling == 5) then
+       cooling_explicit = .true.                   ! cooling is calculated explicitly in force
+    else
+       cooling_implicit = .true.                   ! cooling is calculated implicitly in step
+    endif
+ endif
+
+end subroutine init_cooling_type
 
 !-----------------------------------------------------------------------
 !+
@@ -297,17 +326,33 @@ end subroutine set_Tgrid
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Gammie(xi,yi,zi,ui,dudti)
- real, intent(in) :: ui,xi,yi,zi
+ real, intent(in)    :: ui,xi,yi,zi
  real, intent(inout) :: dudti
 
  real :: omegai,r2,tcool1
 
- r2 = xi*xi + yi*yi + zi*zi
+ r2     = xi*xi + yi*yi + zi*zi
  Omegai = r2**(-0.75)
  tcool1 = Omegai/beta_cool
  dudti  = dudti - ui*tcool1
 
 end subroutine cooling_Gammie
+
+!-----------------------------------------------------------------------
+!+
+!   Cooling rate as per Koyama & Inutuska (2002; eqns 4 & 5);
+!   typos corrected as per Vazquez-Semadeni+ (2007)
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_KoyamaInutuska(xi,yi,zi,rhoi,Tgas,dudti)
+ real, intent(in)    :: xi,yi,zi,rhoi,Tgas
+ real, intent(inout) :: dudti
+ real                :: crate
+
+ crate = crate_coef*(1.d7*exp(-118400./(Tgas+1000.))+0.014*sqrt(Tgas)*exp(-92./Tgas))
+ dudti = dudti - crate*rhoi
+
+end subroutine cooling_KoyamaInutuska
 
 !-----------------------------------------------------------------------
 !
@@ -396,20 +441,31 @@ end subroutine implicit_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling (xi, yi, zi, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
- real, intent(in) :: xi, yi, zi, u, rho, dt !in code unit
- real, intent(in), optional :: Trad, mu_in, K2, kappa ! in cgs!!!
- real, intent(inout) :: dudt
+subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,K2,kappa,Tgas)
+ use io, only: fatal
+ real, intent(in)           :: xi,yi,zi,ui,rho,dt         ! in code units
+ real, intent(in), optional :: Tgas,Trad,mu_in,K2,kappa   ! in cgs units
+ real, intent(inout)        :: dudt                       ! in code units
 
  select case (icooling)
  case (3)
-    call cooling_Gammie(xi, yi, zi, u, dudt)
+    call cooling_Gammie(xi,yi,zi,ui,dudt)
  case (2)
-    call exact_cooling_table(u, rho, dt, dudt)
+    call exact_cooling_table(ui,rho,dt,dudt)
+ case (5)
+    if (present(Tgas)) then
+       call cooling_KoyamaInutuska(xi,yi,zi,rho,Tgas,dudt)
+    else
+       call fatal('energ_cooling','Koyama & Inutuska cooling requires gas temperature')
+    endif
  case default
     !call exact_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
     !call implicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-    call explicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+    if (present(Trad) .and. present(mu_in) .and. present(K2) .and. present(kappa)) then
+       call explicit_cooling(ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
+    else
+       call fatal('energ_cooling','default requires optional arguments; change icooling or ask D Price or L Siess to patch')
+    endif
  end select
 
 end subroutine energ_cooling
@@ -594,14 +650,14 @@ subroutine write_options_cooling(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
+ call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  if (h2chemistry) then
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
     if (icooling > 0) then
-       call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
        call write_options_h2cooling(iunit)
     endif
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)',iunit)
     select case(icooling)
     case(1)
        call write_inopt(icool_radiation_H0,'icool_radiation_H0','H0 cooling on/off',iunit)
@@ -620,6 +676,11 @@ subroutine write_options_cooling(iunit)
 
 end subroutine write_options_cooling
 
+!-----------------------------------------------------------------------
+!+
+!  reads sink particle options from the input file
+!+
+!-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use part,         only:h2chemistry
  use h2cooling,    only:read_options_h2cooling

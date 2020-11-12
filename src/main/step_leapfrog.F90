@@ -97,7 +97,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
                           use_dustgrowth,use_krome,gr
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:idamp,iexternalforce,icooling,use_dustfrac
+ use options,        only:idamp,iexternalforce,use_dustfrac
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -105,6 +105,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
  use eos,            only:get_spsound
+ use cooling,        only:cooling_implicit
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -242,7 +243,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #else
- if (nptmass > 0 .or. iexternalforce > 0 .or. (h2chemistry .and. icooling > 0) .or. idamp > 0) then
+ if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_implicit .or. idamp > 0) then
     call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  else
@@ -386,6 +387,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
+ nwake      = 0
  iterations: do while (its < maxits .and. .not.converged .and. npart > 0)
     its     = its + 1
     errmax  = 0.
@@ -396,7 +398,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     pmassi  = massoftype(igas)
     ntypes  = get_ntypes(npartoftype)
     store_itype = (maxphase==maxp .and. ntypes > 1)
-    nwake   = 0
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(pxyzu,ppred) &
@@ -404,7 +405,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,icooling,ieos) &
+!$omp shared(dtsph,ieos) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -1028,7 +1029,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
                           summary_accrete,summary_accrete_fail
- use timestep,       only:bignumber,C_force
+ use timestep,       only:bignumber,C_force,C_cool
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
@@ -1129,6 +1130,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(fxyz_ptmass(:,1:nptmass))  !JHW: Added... was its exclusion intentional?
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
        dtextforcenew = min(dtextforcenew,C_force*dtf)
@@ -1144,7 +1146,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(eos_vars,dust_temp) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
-    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
+    !$omp shared(nptmass,f_acc,nsubsteps,C_force,C_cool,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
 #ifdef NUCLEATION
     !$omp shared(nucleation) &
@@ -1262,7 +1264,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! COOLING
              !
              if (icooling > 0) then
-!--Flag determines no cooling, just update abundances.
                 if (h2chemistry) then
                    !
                    ! Call cooling routine, requiring total density, some distance measure and
@@ -1286,8 +1287,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 endif
              endif
 #endif
-             !update internal energy
-             if (icooling > 0 .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+             ! update internal energy & cooling timestep
+             if (icooling > 0 .or. use_krome) then
+                vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+                if (abs(dudtcool) > 0.) dtextforcenew = min(dtextforcenew, C_cool*abs(vxyzu(4,i)/dudtcool))
+             endif
           endif
        endif
     enddo predictor
@@ -1447,6 +1451,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
            ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
     endif
+    ! It is no longer reasonable to distinguish between these since they are no longer mutually exclusive
     if (nptmass >  0 .and. iexternalforce <= 0) then
        call summary_variable('ext',iosumextsr,nsubsteps,dtsph/dtextforce_min)
        call summary_variable('ext',iosumextst,nsubsteps,dtextforce_min,1.0/dtextforce_min)
