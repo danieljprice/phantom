@@ -1130,7 +1130,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
-       call bcast_mpi(fxyz_ptmass(:,1:nptmass))  !JHW: Added... was its exclusion intentional?
        call bcast_mpi(epot_sinksink)
        call bcast_mpi(dtf)
        dtextforcenew = min(dtextforcenew,C_force*dtf)
