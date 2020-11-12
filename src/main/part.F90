@@ -1254,12 +1254,12 @@ end function count_dead_particles
 !  uses the routines above for efficiency
 !+
 !-----------------------------------------------------------------------
-subroutine delete_dead_or_accreted_particles(npart,npartoftype)
- integer, intent(inout) :: npart,npartoftype(:)
+subroutine delete_dead_or_accreted_particles(npart,npoftype)
+ integer, intent(inout) :: npart,npoftype(:)
  integer :: i
 
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npartoftype)
+    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 
@@ -1610,9 +1610,9 @@ end subroutine delete_dead_particles_inside_radius
 !  Delete particles within radius
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
+subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
  real, intent(in) :: center(3), radius
- integer, intent(inout) :: npart,npartoftype(:)
+ integer, intent(inout) :: npart,npoftype(:)
  integer :: i
  real :: x,y,z,r
 
@@ -1621,7 +1621,7 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
     y = xyzh(2,i)
     z = xyzh(3,i)
     r=sqrt((x-center(1))**2+(y-center(2))**2+(z-center(3))**2)
-    if (r < radius) call kill_particle(i,npartoftype)
+    if (r < radius) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 
