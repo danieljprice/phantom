@@ -17,8 +17,8 @@ module io_summary
 ! :Dependencies: None
 !
  implicit none
- integer, parameter :: maxrhomx = 32         ! Number of maximum possible rhomax' per set
- integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
+ integer, parameter :: maxrhomx = 32                ! Number of maximum possible rhomax' per set
+ integer, parameter :: maxisink =  5                ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
  !  Timesteps
  integer, parameter :: iosumdtf   =  1              ! dtforce (gas particles)
@@ -75,15 +75,15 @@ module io_summary
  integer, parameter :: maxiosum = iosum_nsts        ! Number of values to summarise
  !
  !  Reason sink particle was not created
- integer, parameter :: inosink_notgas = 1  ! not gas particles
- integer, parameter :: inosink_divv   = 2  ! div v > 0
- integer, parameter :: inosink_h      = 3  ! 2h > h_acc
- integer, parameter :: inosink_active = 4  ! not all particles are active
- integer, parameter :: inosink_therm  = 5  ! E_therm/E_grav > 0.5
- integer, parameter :: inosink_grav   = 6  ! a_grav+b_grav > 1
- integer, parameter :: inosink_Etot   = 7  ! E_tot > 0
- integer, parameter :: inosink_poten  = 8  ! Not minimum potential
- integer, parameter :: inosink_max    = 8  ! Number of failure reasons
+ integer, parameter :: inosink_notgas = 1           ! not gas particles
+ integer, parameter :: inosink_divv   = 2           ! div v > 0
+ integer, parameter :: inosink_h      = 3           ! 2h > h_acc
+ integer, parameter :: inosink_active = 4           ! not all particles are active
+ integer, parameter :: inosink_therm  = 5           ! E_therm/E_grav > 0.5
+ integer, parameter :: inosink_grav   = 6           ! a_grav+b_grav > 1
+ integer, parameter :: inosink_Etot   = 7           ! E_tot > 0
+ integer, parameter :: inosink_poten  = 8           ! Not minimum potential
+ integer, parameter :: inosink_max    = 8           ! Number of failure reasons
  !
  !  Frequency of output based number of steps; 0 to turn off; if < 0 then every 2**{-iosum_nprint} steps
  integer,         parameter :: iosum_nprint  = 0
