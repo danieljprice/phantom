@@ -346,8 +346,8 @@ end subroutine cooling_Gammie
 !   typos corrected as per Vazquez-Semadeni+ (2007)
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_KoyamaInutuska(xi,yi,zi,rhoi,Tgas,dudti)
- real, intent(in)    :: xi,yi,zi,rhoi,Tgas
+subroutine cooling_KoyamaInutuska(rhoi,Tgas,dudti)
+ real, intent(in)    :: rhoi,Tgas
  real, intent(inout) :: dudti
  real                :: crate
 
@@ -456,7 +456,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,K2,kappa,Tgas)
     call exact_cooling_table(ui,rho,dt,dudt)
  case (5)
     if (present(Tgas)) then
-       call cooling_KoyamaInutuska(xi,yi,zi,rho,Tgas,dudt)
+       call cooling_KoyamaInutuska(rho,Tgas,dudt)
     else
        call fatal('energ_cooling','Koyama & Inutuska cooling requires gas temperature')
     endif
