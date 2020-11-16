@@ -253,7 +253,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: ipass,k,l,i
+ integer            :: ipass,k,l
  integer            :: ierr,ierrs(28)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
