@@ -53,15 +53,11 @@ module io_summary
  integer, parameter :: iosumstsns = iosumdgr + 13   ! number of particles using Nsupersteps=Nreal for small Nreal
  integer, parameter :: iosumstsnl = iosumdgr + 14   ! number of particles using Nsupersteps=Nreal for large Nreal
  !  Substeps for dtextf < dthydro
- integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to external force .or. sink-sink
- integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to external force .or. sink-sink
- integer, parameter :: iosumexter = iosumstsnl + 3  ! ratio due to external force
- integer, parameter :: iosumextet = iosumstsnl + 4  ! dtmin due to external force
- integer, parameter :: iosumextsr = iosumstsnl + 5  ! ratio due to sink-sink
- integer, parameter :: iosumextst = iosumstsnl + 6  ! dtmin due to sink-sink
+ integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to sub-stepping
+ integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to sub-stepping
  !  restricted h jump
- integer, parameter :: iosumhup   = iosumextst + 1  ! jump up
- integer, parameter :: iosumhdn   = iosumextst + 2  ! jump down
+ integer, parameter :: iosumhup   = iosumextt + 1   ! jump up
+ integer, parameter :: iosumhdn   = iosumextt + 2   ! jump down
  !  velocity-dependent force iterations
  integer, parameter :: iosumtvi   = iosumhdn + 1    ! number of iterations
  integer, parameter :: iosumtve   = iosumhdn + 2    ! errmax
@@ -508,14 +504,6 @@ subroutine summary_printout(iprint,nptmass)
      '|         |',iosum_nstep(iosumextr ),'|',iosum_rpart(iosumextr ),'|' &
                                               ,iosum_ave(iosumextr   ),'|',    iosum_max(iosumextr ) ,'|' &
                                               ,iosum_ave(iosumextt   ),'|',1.0/iosum_max(iosumextt ) ,'|'
-    if (iosum_nstep(iosumexter)/=0) write(iprint,90) &
-     '|external |',iosum_nstep(iosumexter),'|',iosum_rpart(iosumexter),'|' &
-                                              ,iosum_ave(iosumexter),'|',    iosum_max(iosumexter) ,'|' &
-                                              ,iosum_ave(iosumextet),'|',1.0/iosum_max(iosumextet) ,'|'
-    if (iosum_nstep(iosumextsr)/=0) write(iprint,90) &
-     '|sink     |',iosum_nstep(iosumextsr),'|',iosum_rpart(iosumextsr),'|' &
-                                              ,iosum_ave(iosumextsr),'|',    iosum_max(iosumextsr) ,'|' &
-                                              ,iosum_ave(iosumextst),'|',1.0/iosum_max(iosumextst) ,'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 90 format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)
