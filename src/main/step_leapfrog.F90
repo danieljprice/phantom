@@ -709,8 +709,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
- use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
-                          summary_accrete,summary_accrete_fail
+ use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos,gamma
  use cons2primsolver,only:conservative2primitive,ien_entropy
@@ -1027,8 +1026,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           fxyz_ptmass_sinksink,dust_temp
  use chem,           only:update_abundances,get_dphot
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
- use io_summary,     only:summary_variable,iosumextsr,iosumextst,iosumexter,iosumextet,iosumextr,iosumextt, &
-                          summary_accrete,summary_accrete_fail
+ use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force,C_cool
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
@@ -1450,17 +1448,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
            ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
     endif
-    ! It is no longer reasonable to distinguish between these since they are no longer mutually exclusive
-    if (nptmass >  0 .and. iexternalforce <= 0) then
-       call summary_variable('ext',iosumextsr,nsubsteps,dtsph/dtextforce_min)
-       call summary_variable('ext',iosumextst,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-    elseif (nptmass <= 0 .and. iexternalforce >  0) then
-       call summary_variable('ext',iosumexter,nsubsteps,dtsph/dtextforce_min)
-       call summary_variable('ext',iosumextet,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-    else
-       call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
-       call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
-    endif
+    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
+    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
  endif
 
 end subroutine step_extern
