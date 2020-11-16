@@ -854,9 +854,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old,iamboundary
 #endif
-#ifdef KROME
- use part,        only:gamma_chem
-#endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
  use units,       only:get_c_code
@@ -951,21 +948,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical :: usej
  integer :: iamtypei
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
-            radDi,radDj,radeni,radenj,radlambdai,radlambdaj,radPi
+            radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
-
-
- real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
- real    :: enthi,enthj
  real    :: densj
- real    :: lorentzi,lorentzj
- real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: veli(3),velj(3),vij,metricj(0:3,0:3,2)
- real    :: enthdensav
-
+ real    :: bigvi(1:3),bigv2i,alphagri,lorentzi
+ real    :: veli(3),vij
+#ifdef GR
+ real    :: bigv2j,alphagrj,enthdensav,enthi,enthj,dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
+ real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2)
+#endif
  real    :: radPj
 
  ! unpack
@@ -1913,9 +1907,9 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
  real,    intent(in)    :: dvdx(9)
  real,    intent(in)    :: radPi
 
- real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
+ real :: Bro2i,Brhoxi,Brhoyi,Brhozi
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
- real :: shearvisc,etavisc,valfven2i,p_on_rhogas
+ real :: shearvisc,etavisc,valfven2i
 
  sxxi = 0.
  sxyi = 0.
@@ -2456,7 +2450,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
+#ifdef KROME
  use part,           only:gamma_chem
+#endif
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
