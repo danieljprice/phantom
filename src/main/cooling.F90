@@ -358,7 +358,7 @@ end subroutine cooling_KoyamaInutuska
 
 !-----------------------------------------------------------------------
 !
-!   explicit cooling cooling
+!   explicit cooling
 !
 !-----------------------------------------------------------------------
 subroutine explicit_cooling (ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
