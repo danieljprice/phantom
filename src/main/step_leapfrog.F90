@@ -1021,7 +1021,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
- use options,        only:iexternalforce,idamp,icooling
+ use options,        only:iexternalforce,idamp
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp
@@ -1034,7 +1034,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
- use cooling,        only:energ_cooling
+ use cooling,        only:energ_cooling,cooling_implicit
 #ifdef NUCLEATION
  use part,           only:nucleation
  use dust_formation, only:evolve_dust
@@ -1143,7 +1143,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(eos_vars,dust_temp) &
-    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,icooling) &
+    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_implicit) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,C_cool,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
@@ -1262,7 +1262,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !
              ! COOLING
              !
-             if (icooling > 0) then
+             if (cooling_implicit) then
                 if (h2chemistry) then
                    !
                    ! Call cooling routine, requiring total density, some distance measure and
@@ -1287,7 +1287,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              endif
 #endif
              ! update internal energy & cooling timestep
-             if (icooling > 0 .or. use_krome) then
+             if (cooling_implicit .or. use_krome) then
                 vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
                 if (abs(dudtcool) > 0.) dtextforcenew = min(dtextforcenew, C_cool*abs(vxyzu(4,i)/dudtcool))
              endif
