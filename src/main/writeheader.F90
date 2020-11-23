@@ -14,8 +14,8 @@ module writeheader
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, dust, eos, gitinfo, growth, io, kernel,
-!   metric_tools, options, part, physcon, readwrite_infile, units,
+! :Dependencies: boundary, cooling, dim, dust, eos, gitinfo, growth, io,
+!   kernel, metric_tools, options, part, physcon, readwrite_infile, units,
 !   viscosity
 !
  implicit none
