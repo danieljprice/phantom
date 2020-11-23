@@ -15,7 +15,7 @@ module spherical
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: random, stretchmap, unifdis
+! :Dependencies: physcon, random, stretchmap, unifdis
 !
  use unifdis, only:set_unifdis,mask_prototype,mask_true
  use physcon, only:pi

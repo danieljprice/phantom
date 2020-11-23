@@ -26,7 +26,7 @@ module cooling
 !   - icool_radiation_H0   : *H0 cooling on/off*
 !   - icool_relax_bowen    : *Bowen (diffusive) relaxation on/off*
 !   - icool_relax_stefan   : *radiative relaxation on/off*
-!   - icooling             : *cooling function (0=off, 1=physics, 2=cooling table, 3=gammie)*
+!   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
 !   - temp_floor           : *Minimum allowed temperature in K*
 !
 ! :Dependencies: datafiles, eos, h2cooling, infile_utils, io, options,
