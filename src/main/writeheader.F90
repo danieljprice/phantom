@@ -83,6 +83,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             labeltype,maxtypes
  use eos,              only:eosinfo
+ use cooling,          only:cooling_implicit,cooling_explicit
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
@@ -162,18 +163,19 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh
 50  format(6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
            6x,' Number of neighbours = ',i4)
-!
-!--MHD compile time options
-!
-    if (mhd) then
-       write(iprint,60) 'B/rho with cleaning'
-60     format(/,' Magnetic fields are ON, evolving ',a)
-    endif
-    if (gravity)     write(iprint,"(1x,a)") 'Self-gravity is ON'
-    if (h2chemistry) write(iprint,"(1x,a)") 'H2 Chemistry is ON'
-    if (use_dustfrac) write(iprint,"(1x,a)") 'One-fluid dust is ON'
-    if (use_dustgrowth) write(iprint,"(1x,a)") 'Dust growth is ON'
 
+    if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
+    if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
+    if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
+    if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
+    if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
+    if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+    if (cooling_implicit) then
+       write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
+       write(iprint,"(1x,a)") 'WARNING!  Implicit cooling timestep has not been properly initialised!!!'
+       ! The initial cooling timestep is an explicit timestep that neglects heating; all subsequent (non-restart)
+       ! cooling timesteps are correct.  JHW
+    endif
     call eosinfo(ieos,iprint)
 
     if (maxalpha==maxp) then

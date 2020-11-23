@@ -11,6 +11,7 @@ module eos
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)
+!     4 = GR isothermal
 !     6 = eos for a locally isothermal disc as in Lodato & Pringle (2007),
 !         centered on a sink particle
 !     7 = z-dependent locally isothermal eos
@@ -20,6 +21,9 @@ module eos
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
+!    15 = Helmholtz free energy eos
+!    16 = Shen eos
+!    19 = Variable gamma (requires KROME)
 !
 ! :References: None
 !
@@ -357,19 +361,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
-!
-!--variable gamma
-!
- case(19)
-
-    if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1.)*eni
-       spsoundi = sqrt(gamma_local*ponrhoi)
-    else
-       call fatal('eos','invoking KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate (bad value for eos?)')
-    endif
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(16)
 !
@@ -386,6 +377,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
+
+ case(19)
+!
+!--variable gamma
+!
+    if (present(gamma_local)) then
+       ponrhoi  = (gamma_local-1.)*eni
+       spsoundi = sqrt(gamma_local*ponrhoi)
+       if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    else
+       call fatal('eos','invoking KROME to calculate local gamma but variable '&
+                        'not passed in equationofstate (bad value for eos?)')
+    endif
 
  case default
     spsoundi = 0. ! avoids compiler warnings
