@@ -81,7 +81,7 @@ module setup
  character(len=120) :: unsoftened_profile,densityfile,dens_profile
  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'random'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -232,6 +232,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iexternalforce = iext_densprofile
     write_rho_to_file = .true.
  endif
+ !
+ ! set lattice, use closepacked unless relaxation is done automatically
+ !
+ lattice = 'closepacked'
+ if (relax_star) lattice='random'
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
@@ -359,14 +364,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rmin  = r(1)
     Rstar = r(npts)
  case(ievrard)
-    call rho_evrard(ng,Mstar,Rstar,r,den)
-    npts = ng
+    call rho_evrard(ng_max,Mstar,Rstar,r,den)
+    npts = ng_max
     polyk = ui_coef*Mstar/Rstar
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  case default  ! set up uniform sphere by default
-    call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
-    npts = ng
+    call rho_uniform(ng_max,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
+    npts = ng_max
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  end select
