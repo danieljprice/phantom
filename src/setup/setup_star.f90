@@ -236,7 +236,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set lattice, use closepacked unless relaxation is done automatically
  !
  lattice = 'closepacked'
- if (relax_star) lattice='random'
+ if (relax_star_in_setup) lattice='random'
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
