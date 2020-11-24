@@ -17,8 +17,8 @@ module io_summary
 ! :Dependencies: None
 !
  implicit none
- integer, parameter :: maxrhomx = 32         ! Number of maximum possible rhomax' per set
- integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
+ integer, parameter :: maxrhomx = 32                ! Number of maximum possible rhomax' per set
+ integer, parameter :: maxisink =  5                ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
  !  Timesteps
  integer, parameter :: iosumdtf   =  1              ! dtforce (gas particles)
@@ -53,15 +53,11 @@ module io_summary
  integer, parameter :: iosumstsns = iosumdgr + 13   ! number of particles using Nsupersteps=Nreal for small Nreal
  integer, parameter :: iosumstsnl = iosumdgr + 14   ! number of particles using Nsupersteps=Nreal for large Nreal
  !  Substeps for dtextf < dthydro
- integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to external force .or. sink-sink
- integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to external force .or. sink-sink
- integer, parameter :: iosumexter = iosumstsnl + 3  ! ratio due to external force
- integer, parameter :: iosumextet = iosumstsnl + 4  ! dtmin due to external force
- integer, parameter :: iosumextsr = iosumstsnl + 5  ! ratio due to sink-sink
- integer, parameter :: iosumextst = iosumstsnl + 6  ! dtmin due to sink-sink
+ integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to sub-stepping
+ integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to sub-stepping
  !  restricted h jump
- integer, parameter :: iosumhup   = iosumextst + 1  ! jump up
- integer, parameter :: iosumhdn   = iosumextst + 2  ! jump down
+ integer, parameter :: iosumhup   = iosumextt + 1   ! jump up
+ integer, parameter :: iosumhdn   = iosumextt + 2   ! jump down
  !  velocity-dependent force iterations
  integer, parameter :: iosumtvi   = iosumhdn + 1    ! number of iterations
  integer, parameter :: iosumtve   = iosumhdn + 2    ! errmax
@@ -75,15 +71,15 @@ module io_summary
  integer, parameter :: maxiosum = iosum_nsts        ! Number of values to summarise
  !
  !  Reason sink particle was not created
- integer, parameter :: inosink_notgas = 1  ! not gas particles
- integer, parameter :: inosink_divv   = 2  ! div v > 0
- integer, parameter :: inosink_h      = 3  ! 2h > h_acc
- integer, parameter :: inosink_active = 4  ! not all particles are active
- integer, parameter :: inosink_therm  = 5  ! E_therm/E_grav > 0.5
- integer, parameter :: inosink_grav   = 6  ! a_grav+b_grav > 1
- integer, parameter :: inosink_Etot   = 7  ! E_tot > 0
- integer, parameter :: inosink_poten  = 8  ! Not minimum potential
- integer, parameter :: inosink_max    = 8  ! Number of failure reasons
+ integer, parameter :: inosink_notgas = 1           ! not gas particles
+ integer, parameter :: inosink_divv   = 2           ! div v > 0
+ integer, parameter :: inosink_h      = 3           ! 2h > h_acc
+ integer, parameter :: inosink_active = 4           ! not all particles are active
+ integer, parameter :: inosink_therm  = 5           ! E_therm/E_grav > 0.5
+ integer, parameter :: inosink_grav   = 6           ! a_grav+b_grav > 1
+ integer, parameter :: inosink_Etot   = 7           ! E_tot > 0
+ integer, parameter :: inosink_poten  = 8           ! Not minimum potential
+ integer, parameter :: inosink_max    = 8           ! Number of failure reasons
  !
  !  Frequency of output based number of steps; 0 to turn off; if < 0 then every 2**{-iosum_nprint} steps
  integer,         parameter :: iosum_nprint  = 0
@@ -508,14 +504,6 @@ subroutine summary_printout(iprint,nptmass)
      '|         |',iosum_nstep(iosumextr ),'|',iosum_rpart(iosumextr ),'|' &
                                               ,iosum_ave(iosumextr   ),'|',    iosum_max(iosumextr ) ,'|' &
                                               ,iosum_ave(iosumextt   ),'|',1.0/iosum_max(iosumextt ) ,'|'
-    if (iosum_nstep(iosumexter)/=0) write(iprint,90) &
-     '|external |',iosum_nstep(iosumexter),'|',iosum_rpart(iosumexter),'|' &
-                                              ,iosum_ave(iosumexter),'|',    iosum_max(iosumexter) ,'|' &
-                                              ,iosum_ave(iosumextet),'|',1.0/iosum_max(iosumextet) ,'|'
-    if (iosum_nstep(iosumextsr)/=0) write(iprint,90) &
-     '|sink     |',iosum_nstep(iosumextsr),'|',iosum_rpart(iosumextsr),'|' &
-                                              ,iosum_ave(iosumextsr),'|',    iosum_max(iosumextsr) ,'|' &
-                                              ,iosum_ave(iosumextst),'|',1.0/iosum_max(iosumextst) ,'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 90 format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)

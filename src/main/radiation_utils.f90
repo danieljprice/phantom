@@ -14,7 +14,7 @@ module radiation_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, io, part, physcon, units
+! :Dependencies: dim, eos, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
@@ -27,6 +27,7 @@ module radiation_utils
  public :: Trad_from_radE
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
+ public :: get_opacity
 
  private
 
@@ -388,6 +389,32 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
  radPi = 1. / 3. * Xii * rhoi
 
 end subroutine radiation_equation_of_state
+
+!--------------------------------------------------------------------
+!+
+!  calculate opacities
+!+
+!--------------------------------------------------------------------
+subroutine get_opacity(opacity_type,density,temperature,kappa)
+ use mesa_microphysics, only:get_kappa_mesa
+ use units,             only:unit_density,unit_opacity
+ real, intent(in)  :: density, temperature
+ real, intent(out) :: kappa
+ integer, intent(in) :: opacity_type
+ real :: kapt,kapr,rho_cgs
+
+ select case(opacity_type)
+ case(1)
+    !
+    ! calculate opacity from the MESA tables
+    !
+    rho_cgs = density*unit_density
+    call get_kappa_mesa(rho_cgs,temperature,kappa,kapt,kapr)
+    kappa = kappa/unit_opacity
+
+ end select
+
+end subroutine get_opacity
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa

@@ -11,6 +11,7 @@ module eos
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)
+!     4 = GR isothermal
 !     6 = eos for a locally isothermal disc as in Lodato & Pringle (2007),
 !         centered on a sink particle
 !     7 = z-dependent locally isothermal eos
@@ -20,6 +21,9 @@ module eos
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
+!    15 = Helmholtz free energy eos
+!    16 = Shen eos
+!    19 = Variable gamma (requires KROME)
 !
 ! :References: None
 !
@@ -72,6 +76,7 @@ module eos
  private
 
  integer, public :: ieos        = 1
+ integer, public :: iopacity_type = 0 ! used for radiation
  !--Default initial parameters for Barotropic Eos
  real,    public :: drhocrit0   = 0.50
  real,    public :: rhocrit0cgs = 1.e-18
@@ -101,6 +106,14 @@ module eos
  real, public    :: temperature_coef
 
  logical, public :: done_init_eos = .false.
+ !
+ ! error codes for calls to init_eos
+ !
+ integer, public, parameter :: &
+    ierr_file_not_found  = 1, &
+    ierr_option_conflict = 2, &
+    ierr_units_not_set   = 3, &
+    ierr_isink_not_set   = 4
 
 contains
 
@@ -145,6 +158,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(2)
 !
@@ -182,6 +196,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi = sqrt(gamma*ponrhoi)
 #endif
 
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+
  case(3)
 !
 !--this is for a locally isothermal disc as in Lodato & Pringle (2007)
@@ -189,6 +205,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
 !
 !--GR isothermal
@@ -197,6 +214,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     uthermconst = polyk
     ponrhoi = (gamma-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(6)
 !
@@ -205,6 +223,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
                       (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(7)
 !
@@ -224,6 +243,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
     ponrhoi = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(8)
 !
@@ -255,6 +275,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = fac3*(rhoi/rhocrit3)**(gamma3-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(9)
 !
@@ -274,6 +295,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = k3pwp*rhoi**(gamma3pwp-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(10)
 !
@@ -295,6 +317,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(12)
 !
@@ -325,6 +348,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
     spsoundi=sqrt(ponrhoi)
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(15)
 !
@@ -336,18 +360,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi  = 0.
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
-    endif
-!
-!--variable gamma
-!
- case(19)
-
-    if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1.)*eni
-       spsoundi = sqrt(gamma_local*ponrhoi)
-    else
-       call fatal('eos','invoking KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate (bad value for eos?)')
     endif
 
  case(16)
@@ -361,13 +373,28 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi=cgsspsoundi / unit_velocity
     presi = cgspresi / unit_pressure
     ponrhoi = presi / rhoi
+    if (present(tempi)) tempi = eni
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
 
+ case(19)
+!
+!--variable gamma
+!
+    if (present(gamma_local)) then
+       ponrhoi  = (gamma_local-1.)*eni
+       spsoundi = sqrt(gamma_local*ponrhoi)
+       if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    else
+       call fatal('eos','invoking KROME to calculate local gamma but variable '&
+                        'not passed in equationofstate (bad value for eos?)')
+    endif
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     call fatal('eos','unknown equation of state')
  end select
 
@@ -533,6 +560,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
+ use dim,      only:do_radiation
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -556,7 +584,7 @@ subroutine init_eos(eos_type,ierr)
     !
     if (isink==0) then
        call error('eos','ieos=6, but isink is not set')
-       ierr = 1
+       ierr = ierr_isink_not_set
        return
     endif
 
@@ -565,7 +593,7 @@ subroutine init_eos(eos_type,ierr)
     !--calculate initial variables for the barotropic equation of state
     !
     if (unit_density <= 0.) then
-       ierr = 1
+       ierr = ierr_units_not_set
        return
     endif
 
@@ -611,7 +639,7 @@ subroutine init_eos(eos_type,ierr)
     !--calculate initial variables for the piecewise polytrope equation of state
     !
     if (unit_density <= 0.0 .or. unit_pressure<=0.0) then
-       ierr = 1
+       ierr = ierr_units_not_set
        return
     endif
     rhocrit0pwp = rhocrit0pwpcgs/unit_density
@@ -634,6 +662,19 @@ subroutine init_eos(eos_type,ierr)
     !--MESA EoS initialisation
     !
     call init_eos_mesa(X_in,Z_in,ierr)
+    if (do_radiation .and. ierr==0) then
+       call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
+       ierr=ierr_option_conflict !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
+    endif
+
+ case(12)
+    !
+    ! ideal plus radiation
+    !
+    if (do_radiation) then
+       call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
+       ierr = ierr_option_conflict
+    endif
 
  case(15)
 
@@ -645,6 +686,8 @@ subroutine init_eos(eos_type,ierr)
 
  end select
  done_init_eos = .true.
+
+ if (do_radiation .and. iopacity_type==1) call init_eos_mesa(X_in,Z_in,ierr)
 
 end subroutine init_eos
 
