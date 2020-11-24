@@ -231,18 +231,18 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use lumin_nsdisc, only:beta
 #endif
 #ifdef LIGHTCURVE
- use part,  only:luminosity
+ use part,       only:luminosity
 #endif
 #ifdef NONIDEALMHD
- use dim,  only:mhd_nonideal
- use part, only:eta_nimhd,eta_nimhd_label
+ use dim,        only:mhd_nonideal
+ use part,       only:eta_nimhd,eta_nimhd_label
 #endif
 #ifdef KROME
  use krome_user, only:krome_nmols
  use part,       only:gamma_chem,mu_chem,T_chem
 #endif
 #ifdef NUCLEATION
- use part,  only:nucleation,nucleation_label,n_nucleation
+ use part,       only:nucleation,nucleation_label,n_nucleation
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -257,7 +257,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer            :: ierr,ierrs(28)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
- logical            :: sphNGdump, write_itype, use_gas
+ logical            :: sphNGdump,write_itype,use_gas
  character(len=lenid)  :: fileid
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
@@ -400,8 +400,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef PRDRAG
        if (k==i_real) then
           if (.not.allocated(temparr)) allocate(temparr(npart))
-          do i=1,npart
-             temparr(i) = real4(beta(xyzh(1,i), xyzh(2,i), xyzh(3,i)))
+          do l=1,npart
+             temparr(l) = real4(beta(xyzh(1,l), xyzh(2,l), xyzh(3,l)))
           enddo
           call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
        endif
