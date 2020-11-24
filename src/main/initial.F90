@@ -338,7 +338,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
- call init_cooling_type(h2chemistry,ierr)
+ call init_cooling_type(h2chemistry)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
