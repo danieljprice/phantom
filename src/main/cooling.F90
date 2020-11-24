@@ -106,8 +106,7 @@ subroutine init_cooling(ierr)
 
 end subroutine init_cooling
 
-subroutine init_cooling_type(h2chemistry,ierr)
- integer, intent(out) :: ierr
+subroutine init_cooling_type(h2chemistry)
  logical, intent(in)  :: h2chemistry
 
  cooling_implicit = .false.
