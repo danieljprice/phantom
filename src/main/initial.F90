@@ -20,9 +20,9 @@ module initial
 !   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
 !   h2cooling, inject, io, io_summary, krome_interface, linklist,
 !   metric_tools, mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup,
-!   omputils, options, part, photoevap, ptmass, readwrite_dumps,
-!   readwrite_infile, sort_particles, stack, timestep, timestep_ind,
-!   timestep_sts, timing, units, writeheader
+!   omputils, options, part, photoevap, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, sort_particles, stack, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 #ifdef MPI
  use mpi
@@ -210,13 +210,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
- use h2cooling,        only:init_h2cooling
- use cooling,          only:init_cooling
+ use h2cooling,        only:init_h2cooling,energ_h2cooling
+ use cooling,          only:init_cooling,init_cooling_type
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -337,6 +338,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
+ call init_cooling_type(h2chemistry,ierr)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
@@ -566,6 +568,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
                 ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+
+    if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo
 

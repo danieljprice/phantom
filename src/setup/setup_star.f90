@@ -25,6 +25,7 @@ module setup
 !   - EOSopt             : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - Mstar              : *mass of star*
 !   - Rstar              : *radius of star*
+!   - X                  : *hydrogen mass fraction*
 !   - densityfile        : *File containing data for stellar profile*
 !   - dist_unit          : *distance unit (e.g. au)*
 !   - gamma              : *Adiabatic index*
@@ -37,6 +38,8 @@ module setup
 !   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
 !   - mass_unit          : *mass unit (e.g. solarm)*
 !   - mcore              : *Mass of sink particle stellar core*
+!   - metallicity        : *metallicity*
+!   - mu                 : *mean molecular weight*
 !   - np                 : *approx number of particles (in box of size 2R)*
 !   - outputfilename     : *Output path for softened MESA profile*
 !   - polyk              : *polytropic constant (cs^2 if isothermal)*
@@ -78,7 +81,7 @@ module setup
  character(len=120) :: unsoftened_profile,densityfile,dens_profile
  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'random'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -229,6 +232,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iexternalforce = iext_densprofile
     write_rho_to_file = .true.
  endif
+ !
+ ! set lattice, use closepacked unless relaxation is done automatically
+ !
+ lattice = 'closepacked'
+ if (relax_star_in_setup) lattice='random'
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
@@ -259,7 +267,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Z_in = initialz
     print*, initialgmw, initialx, initialz
     print*, gmw, X_in, Z_in
-    call init_eos(ieos,ierr) 
+    call init_eos(ieos,ierr)
  endif
  !
  ! setup tabulated density profile
@@ -356,14 +364,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rmin  = r(1)
     Rstar = r(npts)
  case(ievrard)
-    call rho_evrard(ng,Mstar,Rstar,r,den)
-    npts = ng
+    call rho_evrard(ng_max,Mstar,Rstar,r,den)
+    npts = ng_max
     polyk = ui_coef*Mstar/Rstar
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  case default  ! set up uniform sphere by default
-    call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
-    npts = ng
+    call rho_uniform(ng_max,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
+    npts = ng_max
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  end select
@@ -544,7 +552,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  case(10)
     call prompt('Enter mean molecular weight',initialgmw,0.0)
     call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
-    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)    
+    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
  end select
  if (iprofile==ievrard) then
     call prompt('Enter the specific internal energy (units of GM/R) ',ui_coef,0.)
@@ -846,7 +854,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  case(10)
     call read_inopt(initialgmw,'mu',db,errcount=nerr)
     call read_inopt(initialx,'X',db,errcount=nerr)
-    call read_inopt(initialz,'Z',db,errcount=nerr)    
+    call read_inopt(initialz,'Z',db,errcount=nerr)
  end select
  if (iprofile==ievrard) then
     call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
