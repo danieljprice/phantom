@@ -19,6 +19,7 @@ module setfixedentropycore
 ! :Dependencies: eos, kernel, physcon, table_utils
 !
  implicit none
+ integer :: ientropy
 
 contains
 
@@ -28,9 +29,10 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
- use eos,         only:calc_temp_and_ene
+ use eos,         only:calc_temp_and_ene,ieos
  use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils, only:interpolator,flip_array
+ use io,          only:fatal
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:),mcore
  real, allocatable          :: r_alloc(:),rho_alloc(:),pres_alloc(:)
  real, intent(in)           :: hsoft,hphi
@@ -50,6 +52,17 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  call interpolator(r,h,hidx)   ! Find index in r closest to h
  msoft = m(hidx) - mc
 
+ select case(ieos)
+ case(2)
+   ientropy = 1
+ case(12)
+   ientropy = 2
+ case(10)
+   ientropy = 2
+ case default
+   call fatal('setfixedentropycore','ieos not one of 2 (adiabatic), 12 (ideal plus rad.), or 10 (MESA)')
+ end select
+
  ! Make allocatable copies, see instructions of calc_rho_and_pres
  allocate(r_alloc(0:hidx+1))
  r_alloc(0) = 0.
@@ -58,11 +71,13 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  rho_alloc(hidx) = rho(hidx)
  allocate(pres_alloc(0:hidx+1))
  pres_alloc(hidx:hidx+1) = pres(hidx:hidx+1)
-
  call calc_rho_and_pres(r_alloc,mc,m(hidx),rho_alloc,pres_alloc,iSerr)
- if (iSerr == 1) ierr = 2
+ if (iSerr == 1) then
+    call fatal('setfixedentropycore','Choice of fixed entropy exceeds outer entropy. Try choosing a smaller core mass.')
+ endif
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
+ write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(hidx)/solarm-mcore,' Msun'
  rho(1:hidx)  = rho_alloc(1:hidx)
  pres(1:hidx) = pres_alloc(1:hidx)
 
@@ -70,6 +85,7 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  m(1:hidx) = m(1:hidx) + mc
 
  call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
+ if (ierr /= 0) call fatal('setfixedentropycore','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
  do i = 2,size(rho)-1
     eneguess = ene(i-1)
     call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
@@ -125,7 +141,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
  ierr  = 0
  msoft = mh - mcore
  Nmax  = size(rho)-1 ! Index corresponding to r = h
- Sedge = entropy(rho(Nmax),pres(Nmax))
+ Sedge = entropy(rho(Nmax),pres(Nmax),ientropy)
 
  ! Start shooting method
  fac  = 0.05
@@ -216,9 +232,9 @@ subroutine get_rho_from_p_s(pres,S,rho)
  do while (abs(corr) > eoserr*rho)
     ! First calculate dS/drho
     rho_plus_drho = rho * (1. + dfac)
-    S_plus_dS = entropy(rho_plus_drho, pres)
-    dSdrho = (S_plus_dS - entropy(rho,pres)) / (rho_plus_drho - rho)
-    corr = ( entropy(rho,pres) - S ) / dSdrho
+    S_plus_dS = entropy(rho_plus_drho, pres, ientropy)
+    dSdrho = (S_plus_dS - entropy(rho,pres,ientropy)) / (rho_plus_drho - rho)
+    corr = ( entropy(rho,pres,ientropy) - S ) / dSdrho
     rho = rho - corr
  enddo
 
