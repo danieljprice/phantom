@@ -661,6 +661,7 @@ subroutine init_eos(eos_type,ierr)
     !
     !--MESA EoS initialisation
     !
+    write(*,'(1x,a,f7.5,a,f7.5)') 'Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
     call init_eos_mesa(X_in,Z_in,ierr)
     if (do_radiation .and. ierr==0) then
        call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
