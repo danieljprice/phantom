@@ -296,6 +296,13 @@ ifeq ($(SETUP), grdisc)
     CONST_AV=yes
 endif
 
+ifeq ($(SETUP), firehose)
+#   injection of a stream of gas as a firehose
+    SRCINJECT= inject_firehose.f90
+    SETUPFILE= setup_firehose.f90
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), adiabaticdisc)
 #   adiabatic disc
     DISC_VISCOSITY=yes
