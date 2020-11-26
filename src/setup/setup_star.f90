@@ -81,7 +81,7 @@ module setup
  character(len=120) :: unsoftened_profile,densityfile,dens_profile
  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
  character(len=20)  :: dist_unit,mass_unit
- character(len=30)  :: lattice = 'random'  ! The lattice type if stretchmap is used
+ character(len=30)  :: lattice  ! The lattice type if stretchmap is used
  !
  ! Index of setup options
  !
@@ -234,6 +234,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iexternalforce = iext_densprofile
     write_rho_to_file = .true.
  endif
+ !
+ ! set lattice, use closepacked unless relaxation is done automatically
+ !
+ lattice = 'closepacked'
+ if (relax_star_in_setup) lattice='random'
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
@@ -251,21 +256,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart          = 0
  npart_total    = 0
  vxyzu          = 0.0
- !
- ! where needed initialise the EoS
- !
  !polytropic
  calc_polyk = .true.
- if (ieos==9) call init_eos_9(EOSopt)
- !MESA
- if (ieos==10) then
-    gmw = initialgmw
-    X_in = initialx
-    Z_in = initialz
-    print*, initialgmw, initialx, initialz
-    print*, gmw, X_in, Z_in
-    call init_eos(ieos,ierr)
- endif
  !
  ! setup tabulated density profile
  !
@@ -299,14 +291,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rmin  = r0(1)
        Rstar = r0(size(r0))
        !
-       ! Get mean molecular weight (temporary: Find gmw at R/2)
+       ! Get fixed mean molecular weight and X, Z mass fractions to be their values at R/2
        !
        call interpolator(r0, 0.5*Rstar, i)
        pgas = pres0(i) - radconst*temp0(i)**4/3. ! Assuming pressure due to ideal gas + radiation
        gmw = (rho0(i) * kb_on_mh * temp0(i)) / pgas
-       !
-       ! Get representative, fixed X and Z mass fractions (Taken to be at R/2)
-       !
        if ((ieos == 10) .or. (ieos == 12)) then
           X_in = Xfrac(i)
           Y_in = Yfrac(i)
@@ -329,20 +318,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
           endif
        endif
-       hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature
-       ! are same as the original profile for r > hsoft
+       hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature are same as the original profile for r > hsoft
 
+       call init_eos(ieos,ierr)
        if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
           call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
-          if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
+          if (ierr /= 0) call fatal('setup','could not set softened core')
        case(2)
           call set_fixedS_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
-          if (ierr==2) call fatal('setup','Choice of fixed entropy exceeds outer entropy. Try choosing a smaller core mass.')
-          if (ierr==1) call fatal('setup','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
-          call set_fixedS_surface(mcore,m0,rho0,r0,pres0,ene0,temp0,ierr)
-          if (ierr==2) call fatal('setup','Error encountered in set_fixedS_surface')
+          if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
        end select
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
@@ -363,14 +349,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     rmin  = r(1)
     Rstar = r(npts)
  case(ievrard)
-    call rho_evrard(ng,Mstar,Rstar,r,den)
-    npts = ng
+    call rho_evrard(ng_max,Mstar,Rstar,r,den)
+    npts = ng_max
     polyk = ui_coef*Mstar/Rstar
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  case default  ! set up uniform sphere by default
-    call rho_uniform(ng,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
-    npts = ng
+    call rho_uniform(ng_max,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
+    npts = ng_max
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  end select
@@ -562,10 +548,6 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     if (input_polyk) call prompt('Enter polytropic constant',polyk,0.)
  case(1)
     call prompt('Enter polytropic constant (cs^2 if isothermal)',polyk,0.)
- case(10)
-    call prompt('Enter mean molecular weight',initialgmw,0.0)
-    call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
-    call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
  end select
  if (iprofile==ievrard) then
     call prompt('Enter the specific internal energy (units of GM/R) ',ui_coef,0.)
@@ -593,6 +575,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
           call prompt('Enter softening length of the sink particle core',hsoft,0.)
        endif
+      if (ieos==10) then
+          call prompt('Enter mean molecular weight',initialgmw,0.0)
+          call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
+          call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
+      endif
     case(1)
        isinkcore = .true. ! Create sink particle core automatically
        unsoftened_profile = densityfile
@@ -764,9 +751,11 @@ subroutine write_setupfile(filename,gamma,polyk)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(10)
-    call write_inopt(initialgmw,'mu','mean molecular weight',iunit)
-    call write_inopt(initialx,'X','hydrogen mass fraction',iunit)
-    call write_inopt(initialz,'Z','metallicity',iunit)
+    if (isoftcore == 0) then
+       call write_inopt(initialgmw,'mu','mean molecular weight',iunit)
+       call write_inopt(initialx,'X','hydrogen mass fraction',iunit)
+       call write_inopt(initialz,'Z','metallicity',iunit)
+    endif
  end select
  if (iprofile==ievrard) then
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
@@ -852,6 +841,11 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  call read_inopt(use_exactN,'use_exactN',db,errcount=nerr)
  nstar = np
 
+ ! core softening
+ if (iprofile==imesa) then
+   call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+ endif
+
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
  select case(ieos)
@@ -865,17 +859,19 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  case(1)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(10)
-    call read_inopt(initialgmw,'mu',db,errcount=nerr)
-    call read_inopt(initialx,'X',db,errcount=nerr)
-    call read_inopt(initialz,'Z',db,errcount=nerr)
+    ! if softening stellar core, composition is automatically determined at R/2
+    if (isoftcore == 0) then
+       call read_inopt(initialgmw,'mu',db,errcount=nerr)
+       call read_inopt(initialx,'X',db,errcount=nerr)
+       call read_inopt(initialz,'Z',db,errcount=nerr)
+    endif
  end select
  if (iprofile==ievrard) then
     call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
  endif
 
- ! core softening
+ ! core softening options
  if (iprofile==imesa) then
-    call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
     select case(isoftcore)
     case(0) ! sink particle core without softening
        call read_inopt(isinkcore,'isinkcore',db,errcount=nerr)
