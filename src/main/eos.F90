@@ -69,7 +69,7 @@ module eos
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
- public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy
  public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -661,6 +661,7 @@ subroutine init_eos(eos_type,ierr)
     !
     !--MESA EoS initialisation
     !
+    write(*,'(1x,a,f7.5,a,f7.5)') 'Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
     call init_eos_mesa(X_in,Z_in,ierr)
     if (do_radiation .and. ierr==0) then
        call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
@@ -1262,5 +1263,52 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
  end select
 
 end subroutine calc_temp_and_ene
+
+!-----------------------------------------------------------------------
+!+
+!  Calculates specific entropy (gas + radiation + recombination)
+!  up to an additive integration constant, from density and pressure.
+!+
+!-----------------------------------------------------------------------
+function entropy(rho,pres,ientropy,ierr)
+   use io,                only:fatal
+   use physcon,           only:radconst,kb_on_mh
+   use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
+   use eos_mesa,          only:get_eos_eT_from_rhop_mesa
+   use mesa_microphysics, only:getvalue_mesa
+   real, intent(in)               :: rho,pres
+   integer, intent(out), optional :: ierr,ientropy
+   real                           :: inv_mu,entropy,logentropy,temp,eint
+  
+   if (present(ierr)) ierr=0
+   inv_mu = 1/gmw
+  
+   select case(ientropy)
+   case(1) ! Include only gas entropy (up to additive constants)
+       temp = pres * gmw / (rho * kb_on_mh)
+       entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
+  
+   case(2) ! Include both gas and radiation entropy (up to additive constants)
+       temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
+       call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
+       entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+   
+   case(3) ! Get entropy from MESA tables if using MESA EoS
+       if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+       call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+  
+       ! Get entropy from rho and eint from MESA tables
+       if (present(ierr)) then
+          call getvalue_mesa(rho,eint,9,logentropy,ierr)
+       else
+          call getvalue_mesa(rho,eint,9,logentropy)
+       endif
+       entropy = 10.d0**logentropy
+
+   case default
+       call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
+   end select
+    
+  end function entropy
 
 end module eos
