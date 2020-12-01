@@ -559,11 +559,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
           call prompt('Enter softening length of the sink particle core',hsoft,0.)
        endif
-      if (ieos==10) then
+       if (ieos==10) then
           call prompt('Enter mean molecular weight',initialgmw,0.0)
           call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
           call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
-      endif
+       endif
     case(1)
        isinkcore = .true. ! Create sink particle core automatically
        unsoftened_profile = densityfile
@@ -827,7 +827,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  ! core softening
  if (iprofile==imesa) then
-   call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+    call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
  endif
 
  ! equation of state
