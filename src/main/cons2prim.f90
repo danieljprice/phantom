@@ -174,7 +174,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  real(kind=4), intent(inout) :: alphaind(:,:)
  real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
  integer      :: i,ierr
- real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi,rhocgs,kappacgs,dum1,dum2
+ real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
  real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
  real         :: xi,yi,zi,hi
  integer      :: iamtypei
@@ -192,7 +192,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
 !$omp shared(ieos,gamma,gamma_chem,n_R,n_electronT,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,unit_opacity,unit_density) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(unit_density,unit_opacity,iopacity_type) &
 !$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
@@ -245,14 +245,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-
-      !  if (do_radiation) then
-      !     call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
-      !     temperaturei = get_temperature(ieos,xyzh(1:3,i),rhogas,vxyzu(:,i))
-      !     rhocgs = rhogas * unit_density
-      !     call get_kappa_mesa(rhocgs,temperaturei,kappacgs,dum1,dum2)
-      !     radprop(ikappa,i) = kappacgs / unit_opacity
-      !  endif
 
        if (do_radiation) then
           !
