@@ -69,7 +69,7 @@ module eos
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
- public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -1313,10 +1313,33 @@ function entropy(rho,pres,ientropy,ierr)
 end function entropy
 
 
-   case default
-       call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
-   end select
-    
-  end function entropy
+!-----------------------------------------------------------------------
+!+
+!  Calculate density given pressure and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
+ use physcon, only:kb_on_mh
+ real, intent(in)    :: pres,S,rhoguess
+ real, intent(inout) :: rho
+ real(kind=8)        :: corr,dSdsrho,S_plus_dS,srho_plus_dsrho,srho
+ real, parameter     :: eoserr=1d-9,dfac=1d-12
+ integer, intent(in) :: ientropy
+ ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
+ ! of rho since S(rho) cannot take a negative argument.
+ srho = sqrt(rhoguess) ! Initial guess
+ corr = huge(corr);
+ do while (abs(corr) > eoserr*abs(srho))
+    ! First calculate dS/dsrho
+    srho_plus_dsrho = srho * (1. + dfac)
+    S_plus_dS = entropy(srho_plus_dsrho**2, pres, ientropy)
+    dSdsrho = (S_plus_dS - entropy(srho**2,pres,ientropy)) / (srho_plus_dsrho - srho)
+    corr = ( entropy(srho**2,pres,ientropy) - S ) / dSdsrho
+    srho = srho - corr
+ enddo
+ rho = srho**2
+ return
+end subroutine get_rho_from_p_s
 
 end module eos
