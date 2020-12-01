@@ -52,7 +52,7 @@ module eos
 !   - rhocrit3    : *critical density 3 in g/cm^3 (barotropic eos)*
 !
 ! :Dependencies: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
-!   infile_utils, io, part, physcon, units
+!   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  integer, parameter, public :: maxeos = 19
