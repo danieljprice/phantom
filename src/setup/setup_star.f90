@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use setstellarcore,  only:set_stellar_core
  use setfixedentropycore, only:set_fixedS_softened_core
- use setfixedentropysurf, only: set_fixedS_surface
+ use setfixedentropysurf, only:set_fixedS_surface
  use setsoftenedcore, only:set_softened_core,find_hsoft_given_mcore,find_mcore_given_hsoft,&
                            check_hsoft_and_mcore
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
@@ -155,7 +155,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                                      enitab(ng_max),mtab(ng_max)
  real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
                                      Xfrac(:),Yfrac(:)
- real                             :: pgas,eni,tempi,Y_in,rhoi
+ real                             :: pgas,eni,tempi,Y_in,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -327,6 +327,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
           if (ierr /= 0) call fatal('setup','could not set softened core')
        case(2)
+          call set_fixedS_surface(mcore,m0,rho0,r0,pres0,ene0,temp0,ierr)
           call set_fixedS_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
           if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
        end select
@@ -396,10 +397,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
         ! Recalculate eint and temp for each particle according to EoS
         do i = 1,nstar
            hi = xyzh(4,i)
-           rhoi = rhoh(hi,massoftype(igas))
+           densi = rhoh(hi,massoftype(igas))
            ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
-           presi = vxyzu(4,i) * rhoi * (gamma-1.) ! utherm = pr/(rho*(gamma-1.))
-           call calc_temp_and_ene(rhoi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+           presi = vxyzu(4,i) * densi * (gamma-1.) ! utherm = pr/(rho*(gamma-1.))
+           call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
            vxyzu(4,i) = eni / unit_ergg
            if (store_temperature) eos_vars(itemp,i) = tempi
         enddo
