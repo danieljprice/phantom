@@ -39,12 +39,12 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  integer, intent(out)       :: ierr
  real                       :: mc,msoft,h,hphi_cm,eneguess
  logical                    :: isort_decreasing,iexclude_core_mass
- integer                    :: i,hidx,iSerr
+ integer                    :: i,hidx
 
  ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .false.     ! Needs to be true if to be read by Phantom
+ isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
+ iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
  h       = hsoft * solarr      ! Convert to cm
  hphi_cm = hphi  * solarr      ! Convert to cm
@@ -71,10 +71,7 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  rho_alloc(hidx) = rho(hidx)
  allocate(pres_alloc(0:hidx+1))
  pres_alloc(hidx:hidx+1) = pres(hidx:hidx+1)
- call calc_rho_and_pres(r_alloc,mc,m(hidx),rho_alloc,pres_alloc,iSerr)
- if (iSerr == 1) then
-    call fatal('setfixedentropycore','Choice of fixed entropy exceeds outer entropy. Try choosing a smaller core mass.')
- endif
+ call calc_rho_and_pres(r_alloc,mc,m(hidx),rho_alloc,pres_alloc)
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
  write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(hidx)/solarm-mcore,' Msun'
@@ -115,15 +112,14 @@ end subroutine set_fixedS_softened_core
 !  Returns softened core profile with fixed entropy
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
+subroutine calc_rho_and_pres(r,mcore,mh,rho,pres)
  use eos, only:entropy
  real, allocatable, dimension(:), intent(in)    :: r
  real, intent(in)                               :: mh
  real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres
- integer, intent(out)                           :: ierr
  integer                                        :: Nmax
- real                                           :: Sc,mass,mold,msoft,fac,Sedge
+ real                                           :: Sc,mass,mold,msoft,fac
 
 ! INSTRUCTIONS
 
@@ -135,18 +131,13 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
 ! rho(0:Nmax): Give rho(Nmax)=(rho at hsoft) as input. Outputs density profile.
 ! p(0:Nmax+1): Give p(Nmax:Nmax+1)=(p at r(Nmax:Nmax+1)) as input. Outputs pressure profile.
 
-! ierr: Is set to 1 when the fixed entropy value exceeds the outer entropy.
-!       Should choose a smaller core mass if this happens.
-
- ierr  = 0
  msoft = mh - mcore
  Nmax  = size(rho)-1 ! Index corresponding to r = h
- Sedge = entropy(rho(Nmax),pres(Nmax),ientropy)
+ Sc = entropy(rho(Nmax),pres(Nmax),ientropy)
 
  ! Start shooting method
  fac  = 0.05
  mass = msoft
- Sc   = Sedge
 
  do
     mold = mass
@@ -167,7 +158,6 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
     endif
  enddo
 
- if (Sedge < Sc) ierr = 1
  return
 
 end subroutine calc_rho_and_pres
@@ -179,13 +169,14 @@ end subroutine calc_rho_and_pres
 !+
 !-----------------------------------------------------------------------
 subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
- use physcon, only: gg,pi
+ use physcon, only:gg,pi
+ !use eos, only:get_rho_from_p_s
  real, intent(in)                               :: Sc,mcore,msoft
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  real, intent(out)                              :: mass
  integer                                        :: i,Nmax
- real                                           :: hsoft
+ real                                           :: hsoft,rhoguess
  real, allocatable, dimension(:)                :: dr,dvol
 
  Nmax = size(rho)-1
@@ -204,14 +195,20 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
                 * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),hsoft)) &
                 + dr(i)**2 * pres(i+1) &
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
+    if (i == Nmax) then
+       rhoguess = 1.e8
+    else 
+       rhoguess = rho(i)
+    endif
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
-    if (mass < 0.) return ! m(r) < 0 encountered, exit and increase Sc
+    if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
  enddo
 
  return
 
 end subroutine one_shot
+
 
 !-----------------------------------------------------------------------
 !+
