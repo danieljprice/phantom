@@ -54,13 +54,13 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
 
  select case(ieos)
  case(2)
-   ientropy = 1
+    ientropy = 1
  case(12)
-   ientropy = 2
+    ientropy = 2
  case(10)
-   ientropy = 2
+    ientropy = 2
  case default
-   call fatal('setfixedentropycore','ieos not one of 2 (adiabatic), 12 (ideal plus rad.), or 10 (MESA)')
+    call fatal('setfixedentropycore','ieos not one of 2 (adiabatic), 12 (ideal plus rad.), or 10 (MESA)')
  end select
 
  ! Make allocatable copies, see instructions of calc_rho_and_pres
