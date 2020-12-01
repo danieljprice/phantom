@@ -1279,24 +1279,24 @@ function entropy(rho,pres,ientropy,ierr)
    real, intent(in)               :: rho,pres
    integer, intent(out), optional :: ierr,ientropy
    real                           :: inv_mu,entropy,logentropy,temp,eint
-  
+
    if (present(ierr)) ierr=0
    inv_mu = 1/gmw
-  
+
    select case(ientropy)
    case(1) ! Include only gas entropy (up to additive constants)
        temp = pres * gmw / (rho * kb_on_mh)
        entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
-  
+
    case(2) ! Include both gas and radiation entropy (up to additive constants)
        temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
        call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
        entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
-   
+
    case(3) ! Get entropy from MESA tables if using MESA EoS
        if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
-  
+
        ! Get entropy from rho and eint from MESA tables
        if (present(ierr)) then
           call getvalue_mesa(rho,eint,9,logentropy,ierr)
@@ -1308,7 +1308,7 @@ function entropy(rho,pres,ientropy,ierr)
    case default
        call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
    end select
-    
+
   end function entropy
 
 end module eos
