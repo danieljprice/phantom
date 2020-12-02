@@ -1306,6 +1306,7 @@ function entropy(rho,pres,ientropy,ierr)
     entropy = 10.d0**logentropy
 
  case default
+    entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
 
