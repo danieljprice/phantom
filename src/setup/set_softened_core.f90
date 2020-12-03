@@ -17,7 +17,7 @@ module setsoftenedcore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, kernel, physcon, table_utils
+! :Dependencies: eos, io, kernel, physcon, table_utils
 !
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils,      only:interpolator,diff
@@ -46,6 +46,7 @@ contains
 subroutine set_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  use eos,         only:calc_temp_and_ene
  use table_utils, only:flip_array
+ use io,          only:fatal
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
  real, allocatable          :: phi(:)
  real, intent(in)           :: mcore,hsoft,hphi
@@ -71,6 +72,7 @@ subroutine set_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  call calc_pres(r, rho, phi, pres)
 
  call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
+ if (ierr /= 0) call fatal('set_softened_core','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
  do i = 2,size(rho)-1
     eneguess = ene(i-1)
     call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
