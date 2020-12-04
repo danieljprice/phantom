@@ -331,6 +331,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
+    else
+       call init_eos(ieos,ierr)
     endif
 
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
