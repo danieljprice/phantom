@@ -17,7 +17,7 @@ module setsoftenedcore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, kernel, physcon, table_utils
+! :Dependencies: eos, io, kernel, physcon, table_utils
 !
  use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils,      only:interpolator,diff
