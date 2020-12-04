@@ -55,7 +55,7 @@ contains
 subroutine allocate_linklist
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree
- use dim,        only:maxneigh
+ use dim,        only:maxp
 
  call allocate_array('cellatid', cellatid, ncellsmax+1)
  call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
@@ -64,7 +64,7 @@ subroutine allocate_linklist
  call allocate_array('nodemap', nodemap, ncellsmax+1)
  call allocate_kdtree()
 !$omp parallel
- call allocate_array('listneigh',listneigh,maxneigh)
+ call allocate_array('listneigh',listneigh,maxp)
 !$omp end parallel
 
 end subroutine allocate_linklist

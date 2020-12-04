@@ -334,6 +334,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
        call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
        densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
+    else
+       call init_eos(ieos,ierr)
     endif
 
     call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,mtab,Mstar,ierr)
@@ -576,11 +578,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
           call prompt('Enter softening length of the sink particle core',hsoft,0.)
        endif
-      if (ieos==10) then
+       if (ieos==10) then
           call prompt('Enter mean molecular weight',initialgmw,0.0)
           call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
           call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
-      endif
+       endif
     case(1)
        isinkcore = .true. ! Create sink particle core automatically
        unsoftened_profile = densityfile
@@ -844,7 +846,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  ! core softening
  if (iprofile==imesa) then
-   call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+    call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
  endif
 
  ! equation of state
