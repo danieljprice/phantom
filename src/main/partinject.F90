@@ -162,12 +162,12 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  integer(kind=1), intent(inout) :: nbinmax
  real,            intent(inout) :: dt
  real,            intent(in)    :: time,dtmax,dtinject
+ integer                        :: i
 #ifdef IND_TIMESTEPS
- integer(kind=1) :: nbinmaxprev
- integer :: i
+ integer(kind=1)                :: nbinmaxprev
 #endif
 #ifdef GR
- real :: dtext_dum
+ real                           :: dtext_dum
 #endif
 
  if (npartold==npart) return
