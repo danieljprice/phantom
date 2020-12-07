@@ -238,7 +238,7 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  ! duplicate relaxed star
  do i = npart+1, 2*npart
     ! copy all particle properties
-    call copy_particle(i-npart,i)
+    call copy_particle(i-npart,i,.true.)
     ! place star a distance rad away
     xyzh(1,i) = xyzh(1,i-npart) + sep
     xyzh(2,i) = xyzh(2,i-npart)
