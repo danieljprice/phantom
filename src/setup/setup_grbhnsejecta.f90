@@ -272,20 +272,21 @@ end subroutine read_setupfile
 !
 subroutine get_num_particles(npart)
  integer :: iostatus, i
+ integer, parameter :: iunit = 22
  integer, intent(out) :: npart
  real :: m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, densi
 
  print *, 'getting number of particles from '//trim(particle_file_name)
 
- open(1, file=particle_file_name, status='old', action='read')
+ open(iunit, file=particle_file_name, status='old', action='read')
 
  do i=1,13
-    read(1,*)
+    read(iunit,*)
  enddo
 
  i = 0
  do
-    read(1,*,IOSTAT=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, densi
+    read(iunit,*,iostat=iostatus) m, r, theta, phi, e, l, u_r, u_theta, y_e, s, T, densi
     ! read failed
     if (iostatus > 0) then
         print *, 'read failed, input data not in correct format'
@@ -300,7 +301,7 @@ subroutine get_num_particles(npart)
  enddo
  npart = i
 
- close(1)
+ close(iunit)
 
 end subroutine get_num_particles
 
@@ -309,20 +310,21 @@ end subroutine get_num_particles
 !
 subroutine read_particle_data(npart, m_array, r_array, theta_array, phi_array, e_array, l_array, u_r_array, u_theta_array, y_e_array, s_array, T_array, dens_array)
  integer :: iostatus, i
+ integer, parameter :: iunit = 23
  integer, intent(in) :: npart
  real, intent(out)    :: m_array(:), r_array(:), theta_array(:), phi_array(:), e_array(:), l_array(:), u_r_array(:), u_theta_array(:), y_e_array(:), s_array(:), T_array(:), dens_array(:)
 
  print *, 'reading particle data from '//trim(particle_file_name)
 
- open(1, file=particle_file_name, status='old', action='read')
+ open(iunit, file=particle_file_name, status='old', action='read')
 
  do i=1,13
-    read(1,*)
+    read(iunit,*)
  enddo
 
  i = 1
  do
-    read(1,*,IOSTAT=iostatus) m_array(i), r_array(i), theta_array(i), phi_array(i), e_array(i), l_array(i), u_r_array(i), u_theta_array(i), y_e_array(i), s_array(i), T_array(i), dens_array(i)
+    read(iunit,*,iostat=iostatus) m_array(i), r_array(i), theta_array(i), phi_array(i), e_array(i), l_array(i), u_r_array(i), u_theta_array(i), y_e_array(i), s_array(i), T_array(i), dens_array(i)
     ! read failed
     if (iostatus > 0) then
         print *, 'read failed, input data not in correct format'
@@ -336,7 +338,7 @@ subroutine read_particle_data(npart, m_array, r_array, theta_array, phi_array, e
     endif
  enddo
 
- close(1)
+ close(iunit)
 
 end subroutine read_particle_data
 
