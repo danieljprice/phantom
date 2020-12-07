@@ -52,10 +52,14 @@ module part
  real(kind=4), allocatable :: divcurlB(:,:)
  real,         allocatable :: Bevol(:,:)
  real,         allocatable :: Bxyz(:,:)
- integer,      allocatable :: iorig(:)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+!
+!--tracking particle IDs
+!
+ integer              :: norig
+ integer, allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
@@ -609,12 +613,13 @@ subroutine init_part
 !--Initialise particle id's
 !
 !$omp parallel do default(none) &
-!$omp shared(iorig) &
+!$omp shared(iorig,maxp) &
 !$omp private(i)
  do i = 1,maxp
     iorig(i) = i
  enddo
 !$omp end parallel do
+ norig = maxp
 
 end subroutine init_part
 
@@ -1076,7 +1081,8 @@ subroutine copy_particle(src,dst,new_part)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
  if (new_part) then
-    iorig(dst) = dst        ! we are creating a new particle; give it the new ID
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
@@ -1180,7 +1186,8 @@ subroutine copy_particle_all(src,dst,new_part)
  endif
 
  if (new_part) then
-    iorig(dst) = dst        ! we are creating a new particle; give it the new ID
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
