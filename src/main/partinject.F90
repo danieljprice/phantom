@@ -197,7 +197,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
 
  ! add particle ID
  do i=npartold+1,npart
-    norig = norig + 1
+    norig    = norig + 1
     iorig(i) = norig
  enddo
 
