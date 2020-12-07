@@ -36,6 +36,7 @@ module setup
  use dust,           only:grainsizecgs,graindenscgs
  use setup_params,   only:rhozero
  use externalforces, only:mass1
+ use dim,            only:use_dust,do_radiation
  implicit none
  public  :: setpart
 
@@ -58,9 +59,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
-                          grainsize,graindens,periodic
+                          grainsize,graindens,periodic,rad
  use physcon,        only:pi,au,solarm
- use dim,            only:maxvxyzu,use_dust,maxp,maxdustsmall
+ use dim,            only:maxvxyzu,maxp,maxdustsmall
  use prompting,      only:prompt
  use externalforces, only:Rdisc,iext_discgravity
  use options,        only:iexternalforce,use_dustfrac
@@ -70,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
  use domain,         only:i_belong
+ use radiation_utils,only:set_radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -167,20 +169,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           grainsize(1) = grainsizecgs/udist
           graindens(1) = graindenscgs/umass*udist**3
        endif
+       call bcast_mpi(dtg)
+       call bcast_mpi(ndustsmall)
+       call bcast_mpi(ndusttypes)
+       call bcast_mpi(smincgs)
+       call bcast_mpi(smaxcgs)
+       call bcast_mpi(sindex)
+       call bcast_mpi(grainsize)
+       call bcast_mpi(graindens)
+       call bcast_mpi(dustbinfrac)
+       call bcast_mpi(grainsizecgs)
+       call bcast_mpi(graindenscgs)
     endif
     call bcast_mpi(npartx)
     call bcast_mpi(rhozero)
-    call bcast_mpi(dtg)
-    call bcast_mpi(ndustsmall)
-    call bcast_mpi(ndusttypes)
-    call bcast_mpi(smincgs)
-    call bcast_mpi(smaxcgs)
-    call bcast_mpi(sindex)
-    call bcast_mpi(grainsize)
-    call bcast_mpi(graindens)
-    call bcast_mpi(dustbinfrac)
-    call bcast_mpi(grainsizecgs)
-    call bcast_mpi(graindenscgs)
  endif
 !
 !--set remaining parameters
@@ -203,11 +205,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--get stopping time information
 !
- call init_drag(ierr)
- do i=1,ndustsmall
-    call get_ts(idrag,i,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
-    print*,'s (cm) =',grainsize(i),'   ','St = ts * Omega =',ts(i)*omega
- enddo
+ if (use_dust) then
+    call init_drag(ierr)
+    do i=1,ndustsmall
+       call get_ts(idrag,i,grainsize(i),graindens(i),rhozero,0.0*rhozero,cs,0.,ts(i),iregime)
+       print*,'s (cm) =',grainsize(i),'   ','St = ts * Omega =',ts(i)*omega
+    enddo
+ endif
 !
 !--boundaries
 !
@@ -251,13 +255,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        else
           call set_dustfrac(dtg,dustfrac(:,i))
        endif
-    else
+    elseif (use_dust) then
        dustfrac(:,i) = 0.
     endif
  enddo
 
  npartoftype(itype) = npart - npart_previous
- massoftype(itype)  = totmass/npartoftype(itype)*(1. + dtg)
+ massoftype(itype)  = totmass/npartoftype(itype)
+ if (use_dust) massoftype(itype) = massoftype(itype)*(1. + dtg)
+
+ if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 
  if (id==master) then
     print*,' npart,npart_total     = ',npart,npart_total
@@ -311,17 +318,19 @@ subroutine write_setupfile(filename)
  call write_inopt(HonR,'HonR','ratio of H/R',iunit)
  call write_inopt(Rmax_au,'Rmax','Complete N revolutions at what radius? [au]',iunit)
  call write_inopt(norbit,'norbit','Number of orbits at Rmax',iunit)
- write(iunit,"(/,a)") '# Dust properties'
- call write_inopt(dtg,'dust_to_gas_ratio','dust-to-gas ratio',iunit)
- call write_inopt(ndusttypes,'ndusttypes','number of grain sizes',iunit)
- if (ndusttypes > 1) then
-    call write_inopt(smincgs,'smincgs','minimum grain size [cm]',iunit)
-    call write_inopt(smaxcgs,'smaxcgs','maximum grain size [cm]',iunit)
-    call write_inopt(sindex, 'sindex', 'power-law index, e.g. MRN',iunit)
-    call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
- else
-    call write_inopt(grainsizecgs,'grainsizecgs','grain size in [cm]',iunit)
-    call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
+ if (use_dust) then
+    write(iunit,"(/,a)") '# Dust properties'
+    call write_inopt(dtg,'dust_to_gas_ratio','dust-to-gas ratio',iunit)
+    call write_inopt(ndusttypes,'ndusttypes','number of grain sizes',iunit)
+    if (ndusttypes > 1) then
+       call write_inopt(smincgs,'smincgs','minimum grain size [cm]',iunit)
+       call write_inopt(smaxcgs,'smaxcgs','maximum grain size [cm]',iunit)
+       call write_inopt(sindex, 'sindex', 'power-law index, e.g. MRN',iunit)
+       call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
+    else
+       call write_inopt(grainsizecgs,'grainsizecgs','grain size in [cm]',iunit)
+       call write_inopt(graindenscgs,'graindenscgs','grain density [g/cm^3]',iunit)
+    endif
  endif
  close(iunit)
 
@@ -350,16 +359,18 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(HonR,'HonR',db,ierr)
  call read_inopt(Rmax_au,'Rmax',db,ierr)
  call read_inopt(norbit,'norbit',db,ierr)
- call read_inopt(dtg,'dust_to_gas_ratio',db,ierr)
- call read_inopt(ndusttypes,'ndusttypes',db,ierr)
- if (ndusttypes > 1) then
-    call read_inopt(smincgs,'smincgs',db,ierr)
-    call read_inopt(smaxcgs,'smaxcgs',db,ierr)
-    call read_inopt(sindex,'cs_sphere',db,ierr)
-    call read_inopt(graindenscgs,'graindenscgs',db,ierr)
- else
-    call read_inopt(grainsizecgs,'grainsizecgs',db,ierr)
-    call read_inopt(graindenscgs,'graindenscgs',     db,ierr)
+ if (use_dust) then
+    call read_inopt(dtg,'dust_to_gas_ratio',db,ierr)
+    call read_inopt(ndusttypes,'ndusttypes',db,ierr)
+    if (ndusttypes > 1) then
+       call read_inopt(smincgs,'smincgs',db,ierr)
+       call read_inopt(smaxcgs,'smaxcgs',db,ierr)
+       call read_inopt(sindex,'cs_sphere',db,ierr)
+       call read_inopt(graindenscgs,'graindenscgs',db,ierr)
+    else
+       call read_inopt(grainsizecgs,'grainsizecgs',db,ierr)
+       call read_inopt(graindenscgs,'graindenscgs',db,ierr)
+    endif
  endif
  call close_db(db)
 
@@ -368,5 +379,5 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module setup
