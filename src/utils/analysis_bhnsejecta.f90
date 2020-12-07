@@ -53,21 +53,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  particle_file_name = trim(dumpfile)//'.dat'
 
- open(1, file=particle_file_name, action='write', status='replace')
+ open(newunit=iunit, file=particle_file_name, action='write', status='replace')
 
- write(1,'(A)',IOSTAT=iostatus) '# Particle data'
- write(1,'(A)',IOSTAT=iostatus) '# [1] = Mass'
- write(1,'(A)',IOSTAT=iostatus) '# [2] = Radius'
- write(1,'(A)',IOSTAT=iostatus) '# [3] = Theta'
- write(1,'(A)',IOSTAT=iostatus) '# [4] = Phi'
- write(1,'(A)',IOSTAT=iostatus) '# [5] = e (-u_t)'
- write(1,'(A)',IOSTAT=iostatus) '# [6] = l (u_phi)'
- write(1,'(A)',IOSTAT=iostatus) '# [7] = u_r'
- write(1,'(A)',IOSTAT=iostatus) '# [8] = u_theta'
- write(1,'(A)',IOSTAT=iostatus) '# [9] = Y_e'
- write(1,'(A)',IOSTAT=iostatus) '# [10]= s'
- write(1,'(A)',IOSTAT=iostatus) '# [11]= T'
- write(1,'(A)',IOSTAT=iostatus) '# [12]= rho'
+ write(iunit,'(a)',iostat=iostatus) '# Particle data'
+ write(iunit,'(a)',iostat=iostatus) '# [1] = Mass'
+ write(iunit,'(a)',iostat=iostatus) '# [2] = Radius'
+ write(iunit,'(a)',iostat=iostatus) '# [3] = Theta'
+ write(iunit,'(a)',iostat=iostatus) '# [4] = Phi'
+ write(iunit,'(a)',iostat=iostatus) '# [5] = e (-u_t)'
+ write(iunit,'(a)',iostat=iostatus) '# [6] = l (u_phi)'
+ write(iunit,'(a)',iostat=iostatus) '# [7] = u_r'
+ write(iunit,'(a)',iostat=iostatus) '# [8] = u_theta'
+ write(iunit,'(a)',iostat=iostatus) '# [9] = Y_e'
+ write(iunit,'(a)',iostat=iostatus) '# [10]= s'
+ write(iunit,'(a)',iostat=iostatus) '# [11]= T'
+ write(iunit,'(a)',iostat=iostatus) '# [12]= rho'
 
  call init_metric(npart,xyzh,metrics,metricderivs)
 
@@ -140,22 +140,22 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 
 
-    write(1,'(ES11.4,1X)',advance='no',IOSTAT=iostatus) m
-    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) r
-    write(1,'(F9.5,1X)',advance='no',IOSTAT=iostatus) theta
-    write(1,'(F9.5,1X)',advance='no',IOSTAT=iostatus) phi
-    write(1,'(F10.5,1X)',advance='no',IOSTAT=iostatus) e
-    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) l
-    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) u_r
-    write(1,'(ES12.5,1X)',advance='no',IOSTAT=iostatus) u_theta
-    write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) y_e
-    write(1,'(F10.7,1X)',advance='no',IOSTAT=iostatus) s
-    write(1,'(ES12.4,1X)',advance='no',IOSTAT=iostatus) T
-    write(1,'(ES12.5)',IOSTAT=iostatus) densi
+    write(iunit,'(es11.4,1x)',advance='no',iostat=iostatus) m
+    write(iunit,'(es12.5,1x)',advance='no',iostat=iostatus) r
+    write(iunit,'(f9.5,1x)',advance='no',iostat=iostatus) theta
+    write(iunit,'(f9.5,1x)',advance='no',iostat=iostatus) phi
+    write(iunit,'(f10.5,1x)',advance='no',iostat=iostatus) e
+    write(iunit,'(es12.5,1x)',advance='no',iostat=iostatus) l
+    write(iunit,'(es12.5,1x)',advance='no',iostat=iostatus) u_r
+    write(iunit,'(es12.5,1x)',advance='no',iostat=iostatus) u_theta
+    write(iunit,'(f10.7,1x)',advance='no',iostat=iostatus) y_e
+    write(iunit,'(f10.7,1x)',advance='no',iostat=iostatus) s
+    write(iunit,'(es12.4,1x)',advance='no',iostat=iostatus) T
+    write(iunit,'(es12.5)',iostat=iostatus) densi
 
  enddo
 
- close(1)
+ close(iunit)
 
 
 
@@ -166,12 +166,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  info_file_name = trim(dumpfile)//'.info'
 
- open(2, file=info_file_name, action='write', status='replace')
+ open(newunit=iunit, file=info_file_name, action='write', status='replace')
 
- write(2,'(A,1X,ES10.3,1X,A)',IOSTAT=iostatus) 'time =', time_output, '[G = c = M_Sun = 1]'
- write(2,'(A,1X,ES10.3,1X,A)',IOSTAT=iostatus) 'time_seconds =', time_output_seconds, '[s]'
+ write(iunit,'(a,1x,es10.3,1x,a)',iostat=iostatus) 'time =', time_output, '[G = c = M_Sun = 1]'
+ write(iunit,'(a,1x,es10.3,1x,a)',iostat=iostatus) 'time_seconds =', time_output_seconds, '[s]'
 
- close(2)
+ close(iunit)
 
 
 
