@@ -36,7 +36,7 @@ subroutine test_rwdump(ntests,npass)
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
-                           iorig,copy_particle_all
+                           iorig,copy_particle_all,norig
  use dim,             only:maxp,maxdustsmall
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
@@ -122,6 +122,7 @@ subroutine test_rwdump(ntests,npass)
           dustfrac(:,i) = 0.16_4
        endif
     enddo
+    norig   = npart
     nptmass = 10
     do i=1,nptmass
        do j=1,nsinkproperties
@@ -153,7 +154,7 @@ subroutine test_rwdump(ntests,npass)
     endif
     polykwas = polyk
     call set_units(dist=au,mass=solarm,G=1.d0)
-    call copy_particle_all(ngas,2,.false.)   ! Move i=npart to i=2
+    call copy_particle_all(ngas,2,.false.)   ! Move i=ngas to i=2 (assumes i=2 was killed)
     call copy_particle_all(1,ngas,.true.)    ! Create new i=ngas based upon i=1
 !
 !--write to file
@@ -243,9 +244,9 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
     if (itest==1) then  ! iorig is not dumped to small dumps
-       call checkval(iorig(2),    ngas, 0,nfailed(65),'iorig(2)')
-       call checkval(iorig(ngas), ngas, 0,nfailed(66),'iorig(ngas)')
-       call checkval(iorig(npart),npart,0,nfailed(67),'iorig(N)')
+       call checkval(iorig(2),    ngas,    0,nfailed(65),'iorig(2)')
+       call checkval(iorig(ngas), npart+1, 0,nfailed(66),'iorig(ngas)')
+       call checkval(iorig(npart),npart,   0,nfailed(67),'iorig(N)')
     endif
 
     call update_test_scores(ntests,nfailed,npass)
