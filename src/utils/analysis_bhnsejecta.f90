@@ -53,7 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  particle_file_name = trim(dumpfile)//'.dat'
 
- open(newunit=iunit, file=particle_file_name, action='write', status='replace')
+ open(iunit, file=particle_file_name, action='write', status='replace')
 
  write(iunit,'(a)',iostat=iostatus) '# Particle data'
  write(iunit,'(a)',iostat=iostatus) '# [1] = Mass'
@@ -166,7 +166,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  info_file_name = trim(dumpfile)//'.info'
 
- open(newunit=iunit, file=info_file_name, action='write', status='replace')
+ open(iunit, file=info_file_name, action='write', status='replace')
 
  write(iunit,'(a,1x,es10.3,1x,a)',iostat=iostatus) 'time =', time_output, '[G = c = M_Sun = 1]'
  write(iunit,'(a,1x,es10.3,1x,a)',iostat=iostatus) 'time_seconds =', time_output_seconds, '[s]'
