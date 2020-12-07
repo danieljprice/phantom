@@ -39,7 +39,7 @@ Clone a copy of phantom into your home directory
 
 ::
 
-   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+   $ git clone https://github.com/danieljprice/phantom.git
 
 get splash
 ~~~~~~~~~~
