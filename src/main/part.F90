@@ -613,7 +613,7 @@ subroutine init_part
 !--Initialise particle id's
 !
 !$omp parallel do default(none) &
-!$omp shared(iorig) &
+!$omp shared(iorig,maxp) &
 !$omp private(i)
  do i = 1,maxp
     iorig(i) = i
