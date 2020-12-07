@@ -672,6 +672,7 @@ subroutine init_eos(eos_type,ierr)
     !
     ! ideal plus radiation
     !
+    write(*,'(1x,a,f7.5)') 'Initialising ideal plus radiation EoS with mu = ',gmw
     if (do_radiation) then
        call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
@@ -1306,6 +1307,7 @@ function entropy(rho,pres,ientropy,ierr)
     entropy = 10.d0**logentropy
 
  case default
+    entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
 
