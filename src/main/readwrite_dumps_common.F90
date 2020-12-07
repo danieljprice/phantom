@@ -128,7 +128,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
                 use_dustgrowth,gr,do_radiation,store_dust_temperature
  use eos,  only:polyk,gamma
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes
+                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
  use options,    only:alpha,use_dustfrac
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
@@ -372,7 +372,13 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     do i=i1,i2
        iorig(i) = i
     enddo
+    norig = i2
     if (id==master .and. i1==1) write(*,*) 'WARNING: Particle IDs not in dump; resetting IDs'
+ else
+    norig = 0
+    do i=i1,i2
+       norig = max(norig,iorig(i))
+    enddo
  endif
 
 end subroutine check_arrays
