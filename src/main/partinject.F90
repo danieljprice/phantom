@@ -149,7 +149,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
  use part,         only:twas,ibin
 #endif
- use part,         only:iorig
+ use part,         only:norig,iorig
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -197,7 +197,8 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
 
  ! add particle ID
  do i=npartold+1,npart
-    iorig(i) = i
+    norig = norig + 1
+    iorig(i) = norig
  enddo
 
 end subroutine update_injected_particles
