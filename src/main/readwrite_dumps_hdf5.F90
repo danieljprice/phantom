@@ -109,7 +109,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
                           ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_chem,      &
-                          dust_temp,rad,radprop,itemp,igasP,eos_vars
+                          dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig
 #ifdef NUCLEATION
  use part,           only:nucleation
 #endif
@@ -359,6 +359,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            divcurlB,     & !
                            divBsymm,     & !
                            eta_nimhd,    & !
+                           iorig,        & !
                            dustfrac,     & !
                            tstop,        & !
                            deltav,       & !
@@ -490,7 +491,7 @@ subroutine read_any_dump_hdf5(                                                  
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
                           dustgasprop,VrelVf,eos_vars,abundance,               &
                           periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_chem, &
-                          dust_temp,rad,radprop,igasP,itemp
+                          dust_temp,rad,radprop,igasP,itemp,iorig
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
 #endif
@@ -681,6 +682,7 @@ subroutine read_any_dump_hdf5(                                                  
                        poten,         &
                        Bxyz,          &
                        Bevol,         &
+                       iorig,         &
                        dustfrac,      &
                        deltav,        &
                        dustprop,      &
@@ -735,6 +737,7 @@ subroutine read_any_dump_hdf5(                                                  
                       got_arrays%got_raden,       &
                       got_arrays%got_kappa,       &
                       got_arrays%got_Tdust,       &
+                      got_arrays%got_iorig,       &
                       iphase,                     &
                       xyzh,                       &
                       vxyzu,                      &
@@ -742,6 +745,7 @@ subroutine read_any_dump_hdf5(                                                  
                       alphaind,                   &
                       xyzmh_ptmass,               &
                       Bevol,                      &
+                      iorig,                      &
                       iprint,                     &
                       ierr)
  endif

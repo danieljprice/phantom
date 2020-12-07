@@ -149,6 +149,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
  use part,         only:twas,ibin
 #endif
+ use part,         only:iorig
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -161,12 +162,12 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  integer(kind=1), intent(inout) :: nbinmax
  real,            intent(inout) :: dt
  real,            intent(in)    :: time,dtmax,dtinject
+ integer                        :: i
 #ifdef IND_TIMESTEPS
- integer(kind=1) :: nbinmaxprev
- integer :: i
+ integer(kind=1)                :: nbinmaxprev
 #endif
 #ifdef GR
- real :: dtext_dum
+ real                           :: dtext_dum
 #endif
 
  if (npartold==npart) return
@@ -193,6 +194,11 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
  enddo
 #endif
+
+ ! add particle ID
+ do i=npartold+1,npart
+    iorig(i) = i
+ enddo
 
 end subroutine update_injected_particles
 
