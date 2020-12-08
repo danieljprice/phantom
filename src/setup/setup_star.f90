@@ -29,13 +29,13 @@ module setup
 !   - densityfile        : *File containing data for stellar profile*
 !   - dist_unit          : *distance unit (e.g. au)*
 !   - gamma              : *Adiabatic index*
-!   - hdens              : *Radius of core softening*
+!   - rcore              : *Radius of core softening*
 !   - hsoft              : *Softening length of sink particle stellar core*
 !   - ieos               : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp        : *initial temperature of the star*
 !   - isinkcore          : *Add a sink particle stellar core*
 !   - isoftcore          : *0=no core softening, 1=cubic core, 2=constant entropy core*
-!   - isofteningopt      : *1=supply hsoft, 2=supply mcore, 3=supply both*
+!   - isofteningopt      : *1=supply rcore, 2=supply mcore, 3=supply both*
 !   - mass_unit          : *mass unit (e.g. solarm)*
 !   - mcore              : *Mass of sink particle stellar core*
 !   - metallicity        : *metallicity*
@@ -45,7 +45,7 @@ module setup
 !   - polyk              : *polytropic constant (cs^2 if isothermal)*
 !   - relax_star         : *relax star automatically during setup*
 !   - ui_coef            : *specific internal energy (units of GM/R)*
-!   - unsoftened_profile : *Path to MESA profile for softening*
+!   - unsoftened_profile : *path to MESA profile for softening*
 !   - use_exactN         : *find closest particle number to np*
 !   - write_rho_to_file  : *write density profile to file*
 !
@@ -74,7 +74,7 @@ module setup
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
  real               :: initialtemp, initialgmw, initialx, initialz
- real               :: mcore,hdens,hsoft
+ real               :: mcore,rcore,hsoft
  logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,relax_star_in_setup,write_rho_to_file
  logical            :: need_densityfile,need_rstar
@@ -186,8 +186,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  isinkcore   = .false.
  mcore         = 0.
  hsoft         = 0.
- hdens         = 0.
- isofteningopt = 1 ! By default, specify hdens
+ rcore         = 0.
+ isofteningopt = 1 ! By default, specify rcore
  outputfilename = 'mysoftenedstar.dat'
  densityfile  = 'ns-rdensity.tab'
  dens_profile = 'density-profile.tab'
@@ -304,28 +304,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        if (isoftcore == 1) then
           if (isofteningopt == 1) then ! Default
-             call find_mcore_given_hsoft(hdens,r0,rho0,m0,mcore,ierr)
+             call find_mcore_given_hsoft(rcore,r0,rho0,m0,mcore,ierr)
              if (ierr==1) call fatal('setup','Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)')
           elseif (isofteningopt == 2) then
-             call find_hsoft_given_mcore(mcore,r0,rho0,m0,hdens,ierr)
+             call find_hsoft_given_mcore(mcore,r0,rho0,m0,rcore,ierr)
              if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
-          else ! Both hdens and mcore are specified, check if values are sensible
-             call check_hsoft_and_mcore(hdens,mcore,r0,rho0,m0,ierr)
+          else ! Both rcore and mcore are specified, check if values are sensible
+             call check_hsoft_and_mcore(rcore,mcore,r0,rho0,m0,ierr)
              if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
              if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
              if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
           endif
        endif
-       hsoft = 0.5*hdens ! This is set by default so that the pressure, energy, and temperature are same as the original profile for r > hsoft
+       hsoft = 0.5*rcore ! This is set by default so that the pressure, energy, and temperature are same as the original profile for r > hsoft
 
        call init_eos(ieos,ierr)
        if (ierr /= 0) call fatal('setup','could not initialise equation of state')
        select case(isoftcore)
        case(1)
-          call set_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+          call set_softened_core(mcore,rcore,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
           if (ierr /= 0) call fatal('setup','could not set softened core')
        case(2)
-          call set_fixedS_softened_core(mcore,hdens,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
+          call set_fixedS_softened_core(mcore,rcore,hsoft,rho0,r0,pres0,m0,ene0,temp0,ierr)
           if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
        end select
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
@@ -579,12 +579,12 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
        select case (isofteningopt)
        case(1)
-          call prompt('Enter radius of density softening',hdens,0.)
+          call prompt('Enter radius of density softening',rcore,0.)
        case(2)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
        case(3)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
-          call prompt('Enter radius of density softening',hdens,0.)
+          call prompt('Enter radius of density softening',rcore,0.)
        end select
 
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
@@ -592,7 +592,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        isinkcore = .true. ! Create sink particle core automatically
        unsoftened_profile = densityfile
        print*,'Specify radius of density softening and initial guess for mass of sink particle core'
-       call prompt('Enter softening radius in Rsun : ',hdens,0.)
+       call prompt('Enter softening radius in Rsun : ',rcore,0.)
        call prompt('Enter guess for core mass in Msun : ',mcore,0.)
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
     end select
@@ -766,13 +766,13 @@ subroutine write_setupfile(filename,gamma,polyk)
        if (isoftcore == 1) then
           call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
           if ((isofteningopt == 1) .or. (isofteningopt == 3)) then
-             call write_inopt(hdens,'hdens','Radius of core softening',iunit)
+             call write_inopt(rcore,'rcore','Radius of core softening',iunit)
           endif
           if ((isofteningopt == 2) .or. (isofteningopt == 3)) then
              call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
           endif
        elseif (isoftcore == 2) then
-          call write_inopt(hdens,'hdens','Radius of core softening',iunit)
+          call write_inopt(rcore,'rcore','Radius of core softening',iunit)
           call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
        endif
     else
@@ -867,10 +867,10 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        endif
     case(1) ! cubic core density profile
        call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
-       if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(hdens,'hdens',db,errcount=nerr)
+       if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(rcore,'rcore',db,errcount=nerr)
        if ((isofteningopt==2) .or. (isofteningopt==3)) call read_inopt(mcore,'mcore',db,errcount=nerr)
     case(2) ! fixed entropy softened core
-       call read_inopt(hdens,'hdens',db,errcount=nerr)
+       call read_inopt(rcore,'rcore',db,errcount=nerr)
        call read_inopt(mcore,'mcore',db,errcount=nerr)
     end select
 
