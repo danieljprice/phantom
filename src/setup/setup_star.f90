@@ -147,11 +147,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,densi,ri,presi
- real                             :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),&
-                                     enitab(ng_max)
- real, allocatable                :: rho0(:),r0(:),pres0(:),m0(:),ene0(:),temp0(:),&
-                                     Xfrac(:),Yfrac(:)
- real                             :: xi,yi,zi,spsoundi,p_on_rhogas,pgas,eni,tempi,Y_in
+ real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)                                     
+ real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -260,6 +257,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  calc_polyk = .true.
  if (ieos==9) call init_eos_9(EOSopt)
+ allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
 
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
@@ -280,24 +278,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Rstar = r(npts)
     pres = polyk*den**gamma
  case(imesa)
+   deallocate(r,den,pres,temp,en,mtab)
+   call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+   if (ierr /= 0) call fatal('setup','error in reading mesa profile')
+   rmin  = r(1)
+   Rstar = r(size(r))
+
     if (isoftcore > 0) then
-       call read_mesa(unsoftened_profile,rho0,r0,pres0,m0,ene0,temp0,Xfrac,Yfrac)
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,ierr) ! sets mcore, hsoft
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft)
-       call write_softened_profile(outputfilename,m0,pres0,temp0,r0,rho0,ene0)
-       densityfile = outputfilename ! Have the read_mesa_file subroutine read the softened profile instead
+       call write_softened_profile(outputfilename,mtab,pres,temp,r,den,en)
+       densityfile = outputfilename ! Have the read_mesa subroutine read the softened profile instead
     else
        call init_eos(ieos,ierr)
     endif
 
-    call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
+    call read_mesa(densityfile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr)
+    npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
     if (ierr==2) call fatal('setup','insufficient data points read from file')
     if (ierr==3) call fatal('setup','too many data points; increase ng')
  case(ikepler)
-    call read_kepler_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr)
+    call read_kepler_file(trim(densityfile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(densityfile)//' does not exist')
     if (ierr==2) call fatal('setup','insufficient data points read from file')
     if (ierr==3) call fatal('setup','too many data points; increase ng')

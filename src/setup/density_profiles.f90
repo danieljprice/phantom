@@ -342,12 +342,12 @@ end subroutine rho_evrard
 !+
 !-----------------------------------------------------------------------
 subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut,rcut)
+                               enitab,mtab,totmass,ierr,mcut,rcut)
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only:find_phantom_datafile
  integer,          intent(in)  :: ng_max
  integer,          intent(out) :: ierr,n
- real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),totmass
+ real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),totmass
  real,             intent(out), optional :: rcut
  real,             intent(in), optional :: mcut
  character(len=*), intent(in)  :: filepath
@@ -416,6 +416,7 @@ subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  rhotab(1:n)      = stardata(1:n,5)
  !mass
  stardata(1:n,1)  = stardata(1:n,1)/umass
+ mtab(1:n)        = stardata(1:n,1)
  totmass          = stardata(n,1)
  !pressure
  stardata(1:n,2)  = stardata(1:n,2)/unit_pressure
@@ -434,36 +435,72 @@ subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
 end subroutine read_mesa_file
 
 !-----------------------------------------------------------------------
-!  Alternative subroutine to read MESA profile; used in star setup to
+!+
+!  Read quantities from MESA profile or from profile in the format of 
+!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data) 
+!+
 !-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
- use physcon, only:solarm
- integer                                           :: lines,rows=0,i
- character(len=120), intent(in)                    :: filepath
- character(len=10000)                              :: dumc
- character(len=24),allocatable                     :: header(:),dum(:)
- real(kind=8),allocatable,dimension(:,:)           :: dat
- real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp, &
-                                                        Xfrac,Yfrac
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
+ use physcon,   only:solarm
+ use eos,       only:X_in,Z_in
+ use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
+ use datafiles, only:find_phantom_datafile
+ use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
+ integer                                    :: lines,rows,i,ncols,nheaderlines
+ character(len=*), intent(in)               :: filepath
+ logical, intent(in), optional              :: cgsunits
+ integer, intent(out)                       :: ierr
+ character(len=10000)                       :: dumc
+ character(len=120)                         :: fullfilepath
+ character(len=24),allocatable              :: header(:),dum(:)
+ logical                                    :: iexist,usecgs
+ real,allocatable,dimension(:,:)            :: dat
+ real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
+ real, intent(out)                          :: Mstar
 
- ! reading data from datafile ! -----------------------------------------------
- open(unit=40,file=filepath,status='old')
- read(40,'()')
- read(40,'()')
- read(40,*) lines, lines
- read(40,'()')
- read(40,'()')
+ rows = 0
+ usecgs = .false.
+ if (present(cgsunits)) usecgs = cgsunits
+ !
+ !--Get path name
+ !
+ ierr = 0
+ fullfilepath = find_phantom_datafile(filepath,'star_data_files')
+ inquire(file=trim(fullfilepath),exist=iexist)
+ if (.not.iexist) then
+    ierr = 1
+    return
+ endif
+ lines = get_nlines(fullfilepath) ! total number of lines in file
+
+ open(unit=40,file=fullfilepath,status='old')
+ call get_ncolumns(40,ncols,nheaderlines)
+ if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones 
+    read(40,'()')
+    read(40,'()')
+    read(40,*) lines,lines
+    read(40,'()')
+    read(40,'()')
+ else
+    lines = lines - nheaderlines
+    do i=1,nheaderlines-1
+       read(40,'()')
+    enddo
+ endif
+
  read(40,'(a)') dumc! counting rows
+ call string_delete(dumc,'[')
+ call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
-101 do i = 1,500
+ 101 do i = 1,500
     if (dum(i)=='aaa') then
        rows = i-1
        exit
     endif
  enddo
 
- allocate(header(1:rows),dat(1:lines,1:rows))
+ allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
 
@@ -471,22 +508,44 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
     read(40,*) dat(lines-i+1,1:rows)
  enddo
 
- allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
-            temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
+ allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
+             temp(lines),Xfrac(lines),Yfrac(lines))
 
+ ! Set mass fractions to default in eos module if not in file
+ Xfrac = X_in
+ Yfrac = 1. - X_in - Z_in
  do i = 1, rows
-    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='mass') m(1:lines) = dat(1:lines,i) * solarm
-    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='density') rho(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='energy') ene(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='x_mass_fraction_H') Xfrac(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='y_mass_fraction_He') Yfrac(1:lines) = dat(1:lines,i)
+    select case(trim(lcase(header(i))))
+    case('mass_grams','mass')
+       m = dat(1:lines,i)
+    case('rho','density')
+       rho = dat(1:lines,i)
+    case('energy','e_int')
+       ene = dat(1:lines,i)
+    case('radius','radius_cm')
+       r = dat(1:lines,i)
+    case('pressure')
+       pres = dat(1:lines,i)
+    case('temperature')
+       temp = dat(1:lines,i)
+    case('x_mass_fraction_H')
+       Xfrac = dat(1:lines,i)
+    case('y_mass_fraction_He')
+       Yfrac = dat(1:lines,i)
+    end select
  enddo
+
+ if (nheaderlines == 6) m = m * solarm
+
+ if (.not. usecgs) then
+    m = m / umass
+    r = r / udist
+    pres = pres / unit_pressure
+    rho = rho / unit_density
+    ene = ene / unit_ergg
+ endif
+
+ Mstar = m(lines)
 end subroutine read_mesa
 
 !----------------------------------------------------------------
