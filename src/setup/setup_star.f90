@@ -521,8 +521,8 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
           call prompt('Enter softening length of the sink particle core',hsoft,0.)
        endif
+       if ( (ieos==12) .or. (ieos==2) ) call prompt('Enter mean molecular weight',gmw,0.0)
        if (ieos==10) then
-          call prompt('Enter mean molecular weight',gmw,0.0)
           call prompt('Enter hydrogen mass fraction (X)',X_in,0.0,1.0)
           call prompt('Enter metals mass fraction (Z)',Z_in,0.0,1.0)
        endif
@@ -694,21 +694,23 @@ subroutine write_setupfile(filename,gamma,polyk)
     call write_inopt(EOSopt,'EOSopt','EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)',iunit)
  case(2)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
+    if (isoftcore <= 0) call write_inopt(gmw,'mu','mean molecular weight',iunit)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(10)
-    if (isoftcore == 0) then
-       call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if (isoftcore <= 0) then
        call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
+ case(12)
+    if (isoftcore <= 0) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
  if (iprofile==ievrard) then
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
  endif
 
- if (isoftcore == 0) then
+ if (isoftcore <= 0) then
     write(iunit,"(/,a)") '# star properties'
     if (need_densityfile) then
        call write_inopt(densityfile,'densityfile','File containing data for stellar profile',iunit)
@@ -790,9 +792,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  nstar = np
 
  ! core softening
- if (iprofile==imesa) then
-    call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
- endif
+ if (iprofile==imesa) call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
 
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
@@ -808,15 +808,15 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(10)
     ! if softening stellar core, composition is automatically determined at R/2
-    if (isoftcore == 0) then
-       call read_inopt(gmw,'mu',db,errcount=nerr)
+    if (isoftcore <= 0) then
        call read_inopt(X_in,'X',db,errcount=nerr)
        call read_inopt(Z_in,'Z',db,errcount=nerr)
     endif
+ case(12)
+    ! if softening stellar core, mu is automatically determined at R/2
+    if (isoftcore <= 0) call read_inopt(gmw,'mu',db,errcount=nerr)
  end select
- if (iprofile==ievrard) then
-    call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
- endif
+ if (iprofile==ievrard) call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
 
  ! core softening options
  if (iprofile==imesa) then
@@ -839,12 +839,11 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     if (isoftcore > 0) then
        call read_inopt(input_profile,'input_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
-       if (ieos==2) call read_inopt(gamma,'gamma',db,errcount=nerr)
     endif
  endif
 
  ! star properties
- if (isoftcore == 0) then
+ if (isoftcore <= 0) then
     if (need_densityfile) then
        call read_inopt(densityfile,'densityfile',db,errcount=nerr)
     else
