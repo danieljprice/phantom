@@ -276,17 +276,13 @@ endif
 ifeq ($(SETUP), grbhnsejecta)
     SETUPFILE=setup_grbhnsejecta.f90
     ANALYSIS=analysis_bhnsejecta.f90
-#     SRCINJECT=inject_bhnsejecta_particles.f90
     GR=yes
     METRIC=schwarzschild
     GRAVITY=no
-#     GRAVITY=yes
     ISOTHERMAL=no
     IND_TIMESTEPS=no
     KNOWN_SETUP=yes
     KERNEL=cubic
-#     KERNEL=quintic
-#     KERNEL=WendlandC4
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -1247,21 +1243,16 @@ endif
 # Most importantly, I (SD) made the replacements ifort -> ftn and icc -> cc, and added CRAYPE_LINK_TYPE to tell Cori how to link
 ifeq ($(SYSTEM), cori)
 #Cori (NERSC machine)
+    include Makefile_defaults_ifort
     FC= ftn
 #     FFLAGS= -O3 -inline-factor=500 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn truncated_source
     FFLAGS= -O3 -inline-factor=500 -shared-intel -warn uninitialized -warn unused -warn truncated_source
-    DBLFLAG= -r8
-    DEBUGFLAG= -check all -WB -traceback -g -debug -all
-    ENDIANFLAGBIG= -convert big_endian
-    ENDIANFLAGLITTLE= -convert little_endian
     CC= cc
 #     CCFLAGS= -O3 -mcmodel=medium
     CCFLAGS= -O3
-    LIBCXX = -cxxlib
     QSYS= slurm
     OMPFLAGS= -qopenmp
     NOMP=64
-    KNOWN_SYSTEM=yes
 #     CRAYPE_LINK_TYPE=dynamic
     CRAYPE_LINK_TYPE=static
     MAXP=2000000
