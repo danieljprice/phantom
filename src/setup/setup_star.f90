@@ -73,7 +73,7 @@ module setup
  integer            :: need_iso, need_temp
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
- real               :: initialtemp, initialgmw, initialx, initialz
+ real               :: initialtemp
  real               :: mcore,rcore,hsoft
  logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,relax_star_in_setup,write_rho_to_file
@@ -179,9 +179,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iprofile    = 1
  EOSopt      = 1
  initialtemp = 1.0e7
- initialgmw  = 2.381
- initialx    = 0.74
- initialz    = 0.02
+ gmw         = 0.5988
+ X_in        = 0.74
+ Z_in        = 0.02
  isoftcore   = 0
  isinkcore   = .false.
  mcore         = 0.
@@ -247,7 +247,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
  !
- ! setup particles
+ ! set up particles
  !
  npartoftype(:) = 0
  nstar          = 0
@@ -257,7 +257,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !polytropic
  calc_polyk = .true.
  !
- ! setup tabulated density profile
+ ! set up tabulated density profile
  !
  calc_polyk = .true.
  if (ieos==9) call init_eos_9(EOSopt)
@@ -562,9 +562,9 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
           call prompt('Enter softening length of the sink particle core',hsoft,0.)
        endif
        if (ieos==10) then
-          call prompt('Enter mean molecular weight',initialgmw,0.0)
-          call prompt('Enter hydrogen mass fraction (X)',initialx,0.0,1.0)
-          call prompt('Enter metals mass fraction (Z)',initialz,0.0,1.0)
+          call prompt('Enter mean molecular weight',gmw,0.0)
+          call prompt('Enter hydrogen mass fraction (X)',X_in,0.0,1.0)
+          call prompt('Enter metals mass fraction (Z)',Z_in,0.0,1.0)
        endif
     case(1)
        isinkcore = .true. ! Create sink particle core automatically
@@ -738,9 +738,9 @@ subroutine write_setupfile(filename,gamma,polyk)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(10)
     if (isoftcore == 0) then
-       call write_inopt(initialgmw,'mu','mean molecular weight',iunit)
-       call write_inopt(initialx,'X','hydrogen mass fraction',iunit)
-       call write_inopt(initialz,'Z','metallicity',iunit)
+       call write_inopt(gmw,'mu','mean molecular weight',iunit)
+       call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
+       call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
  end select
  if (iprofile==ievrard) then
@@ -847,9 +847,9 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  case(10)
     ! if softening stellar core, composition is automatically determined at R/2
     if (isoftcore == 0) then
-       call read_inopt(initialgmw,'mu',db,errcount=nerr)
-       call read_inopt(initialx,'X',db,errcount=nerr)
-       call read_inopt(initialz,'Z',db,errcount=nerr)
+       call read_inopt(gmw,'mu',db,errcount=nerr)
+       call read_inopt(X_in,'X',db,errcount=nerr)
+       call read_inopt(Z_in,'Z',db,errcount=nerr)
     endif
  end select
  if (iprofile==ievrard) then
