@@ -199,11 +199,7 @@ end function basename
 
 !---------------------------------------------------------------------------
 !
-<<<<<<< Updated upstream
 ! function to count number of lines in a file
-=======
-! function count number of lines in a file
->>>>>>> Stashed changes
 !
 !---------------------------------------------------------------------------
 function get_nlines(string) result(n)
@@ -219,15 +215,9 @@ function get_nlines(string) result(n)
     if (ierr /= 0) n = n - 1
  enddo
  close(iunit)
-<<<<<<< Updated upstream
     
 end function get_nlines
   
-=======
-  
-end function get_nlines
-
->>>>>>> Stashed changes
 !---------------------------------------------------------------------------
 !
 ! routine to strip extension from a filename
@@ -444,10 +434,7 @@ pure subroutine string_delete(string,skey)
  character(len=*), intent(inout) :: string
  character(len=*), intent(in)    :: skey
  integer :: ipos,lensub
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
  ipos = index(string,skey)
  lensub = len(skey)
  do while(ipos > 0)
