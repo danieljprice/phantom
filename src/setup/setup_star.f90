@@ -51,8 +51,8 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
-!   options, part, physcon, prompting, relaxstar, rho_profile,
-!   setfixedentropycore, setsoftenedcore, setstellarcore, setup_params,
+!   options, part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
+!   setstellarcore, setup_params,
 !   spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
@@ -63,7 +63,7 @@ module setup
  use eos,            only:ieos, p1pwpcgs,gamma1pwp,gamma2pwp,gamma3pwp
  use externalforces, only:iext_densprofile
  use extern_densprofile, only:nrhotab
- use setsoftenedcore,only:rcore,mcore,hsoft
+ use setsoftenedcore,only:rcore,mcore
 
  implicit none
  !
@@ -73,7 +73,7 @@ module setup
  integer            :: nstar
  integer            :: need_iso, need_temp
  real(kind=8)       :: udist,umass
- real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef
+ real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef,hsoft
  real               :: initialtemp
  logical            :: iexist,input_polyk,isinkcore
  logical            :: use_exactN,relax_star_in_setup,write_rho_to_file
@@ -146,7 +146,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr
- real                             :: vol_sphere,psep,rmin,densi,ri,presi
+ real                             :: vol_sphere,psep,rmin,presi
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)                                     
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
  logical                          :: calc_polyk,setexists
@@ -179,8 +179,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Z_in        = 0.02
  isoftcore   = 0
  isinkcore   = .false.
- mcore         = 0.
  hsoft         = 0.
+ mcore         = 0.
  rcore         = 0.
  isofteningopt = 1 ! By default, specify rcore
  input_profile = 'P12_Phantom_Profile.data'
@@ -285,7 +285,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
    Rstar = r(size(r))
 
     if (isoftcore > 0) then
-       call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,ierr) ! sets mcore, hsoft
+       call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,rcore,mcore,ierr) ! sets mcore, rcore
+       hsoft = 0.5 * rcore
        call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft)
        call write_softened_profile(outputfilename,mtab,pres,temp,r,den,en)
        densityfile = outputfilename ! Have the read_mesa subroutine read the softened profile instead
@@ -727,7 +728,7 @@ subroutine write_setupfile(filename,gamma,polyk)
        call write_inopt(input_profile,'input_profile','Path to input MESA profile for softening',iunit)
        call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
        if (isoftcore == 1) then
-          call write_inopt(isofteningopt,'isofteningopt','1=supply hsoft, 2=supply mcore, 3=supply both',iunit)
+          call write_inopt(isofteningopt,'isofteningopt','1=supply rcore, 2=supply mcore, 3=supply both',iunit)
           if ((isofteningopt == 1) .or. (isofteningopt == 3)) then
              call write_inopt(rcore,'rcore','Radius of core softening',iunit)
           endif
