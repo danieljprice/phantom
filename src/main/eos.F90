@@ -172,7 +172,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
     if (gamma == 1.) then
-       call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
+       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gamma)
     elseif (gamma > 1.0001) then
        pondensi = (gamma-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
@@ -1308,7 +1308,8 @@ function entropy(rho,pres,ientropy,ierr)
      entropy = 10.d0**logentropy
 
  case default
-     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
+    entropy = 0.
+    call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
   
 end function entropy

@@ -2431,7 +2431,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,iamboundary
  use cooling,        only:energ_cooling,cooling_explicit
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -3031,18 +3031,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #else
     ! global timestep needs to be minimum over all particles
-
-    dtcourant = min(dtcourant,dtc)
-    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
-    dtvisc    = min(dtvisc,dtvisci)
-    if (mhd_nonideal .and. iamgasi) then
-       dtohm  = min(dtohm,  dtohmi  )
-       dthall = min(dthall, dthalli )
-       dtambi = min(dtambi, dtambii )
+    if (.not.iamboundary(iamtypei)) then
+       dtcourant = min(dtcourant,dtc)
+       dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
+       dtvisc    = min(dtvisc,dtvisci)
+       if (mhd_nonideal .and. iamgasi) then
+          dtohm  = min(dtohm,  dtohmi  )
+          dthall = min(dthall, dthalli )
+          dtambi = min(dtambi, dtambii )
+       endif
+       dtmini  = min(dtmini,dti)
+       dtmaxi  = max(dtmaxi,dti)
+       dtrad   = min(dtrad,dtradi)
     endif
-    dtmini  = min(dtmini,dti)
-    dtmaxi  = max(dtmaxi,dti)
-    dtrad   = min(dtrad,dtradi)
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results

@@ -38,7 +38,7 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  use table_utils, only:interpolator,flip_array
  real, intent(in)    :: mcore
  real, intent(inout) :: m(:),rho(:),r(:),pres(:),ene(:),temp(:)
- real                :: eneguess,mcore_cm,dum
+ real                :: eneguess,mcore_cm!,dum
  real                :: msurf,dm(-1:0),dS_by_dm
  real, allocatable   :: S(:),m_alloc(:),r_alloc(:),rho_alloc(:),pres_alloc(:),&
                         recalc_S(:),testentropy(:),entropyorig(:),idealplusradtemp(:),mesatemp(:)
@@ -47,9 +47,9 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  ! msurf: Mass coordinate beyond which we perform the profile replacement
 
  ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .false.     ! Needs to be true if to be read by Phantom
+ isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
+ iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
  msurf = 9.8 * solarm !11.35 * solarm ! Mass coordinate beyond which we flatten the entropy
  call interpolator(m,msurf,surfidx) ! Find index closest to msurf
@@ -82,13 +82,13 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
             / ( dm(-1) * dm(0) * (dm(-1) + dm(0)) )
 
  ! Fill up entropy grid using the entropy gradient   
- deallocate(S)     
- allocate(S(0:Nmax)) ! Repurpose variable name "S" for full surface entropy grid
- S(0) = entropy(rho(surfidx),pres(surfidx),ientropy)
- do i = 1,Nmax
-    S(i) = S(0) + dS_by_dm * (m(surfidx+i)-m(surfidx))
- enddo
-
+!  deallocate(S)     
+!  allocate(S(0:Nmax)) ! Repurpose variable name "S" for full surface entropy grid
+!  S(0) = entropy(rho(surfidx),pres(surfidx),ientropy)
+!  do i = 1,Nmax
+!     S(i) = S(0) + dS_by_dm * (m(surfidx+i)-m(surfidx))
+!  enddo
+ 
  ! TEST: OUTPUT ENTROPY TO DATA FILE
 !  allocate(testentropy(size(r)),entropyorig(size(r)))
 !  do i = 1,size(r)
@@ -96,6 +96,18 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
 !  enddo
 !  testentropy(1:surfidx-1) = entropyorig(1:surfidx-1)
 !  testentropy(surfidx:size(r)) = S(0:Nmax)
+
+ ! TEST: SUPPLY ORIGINAL ENTROPY TO CHECK ORIGINAL RHO AND PRES RECOVERED
+ !S = entropyorig(surfidx:size(r))
+ !testentropy(surfidx:size(r)) = entropyorig(surfidx:size(r))
+ ! TEST: SUPPLY ORIGINAL ENTROPY TO CHECK ORIGINAL RHO AND PRES RECOVERED
+!  allocate(recalc_S(size(r)))
+!  do i = 1,size(r)
+!    recalc_S(i) = entropy(rho(i),pres(i),ientropy)
+!  enddo
+ !call write_entropy('./entropy_mesa.dat', m, testentropy, entropyorig, testentropy)!recalc_S)
+
+ ! TEST: OUTPUT ENTROPY TO DATA FILE
  ! TEST
 
  ! Make allocatable copies (see instructions of solve_fixedS_surface_rhoP)
@@ -112,18 +124,6 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  rho(surfidx:size(rho))     = rho_alloc(0:Nmax)
  pres(surfidx-1:size(pres)) = pres_alloc(-1:Nmax)
  r(surfidx:size(r))         = r_alloc(0:Nmax)
-
- ! TEST: SUPPLY ORIGINAL ENTROPY TO CHECK ORIGINAL RHO AND PRES RECOVERED
- !S = entropyorig(surfidx:size(r))
- !testentropy(surfidx:size(r)) = entropyorig(surfidx:size(r))
- ! TEST: SUPPLY ORIGINAL ENTROPY TO CHECK ORIGINAL RHO AND PRES RECOVERED
-!  allocate(recalc_S(size(r)))
-!  do i = 1,size(r)
-!    recalc_S(i) = entropy(rho(i),pres(i),ientropy)
-!  enddo
-!  call write_entropy('./entropy_mesa.dat', m, testentropy, entropyorig, recalc_S)
- !stop
- ! TEST: OUTPUT ENTROPY TO DATA FILE
 
  ! TEST: PRINT RECALCULATED TEMPERATURES
 !  allocate(idealplusradtemp(size(r)),mesatemp(size(r)))

@@ -377,7 +377,7 @@ subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
     open(newunit=iunit, file=trim(fullfilepath), status='old',iostat=ierr)
     if (.not. n_too_big) then
        !--skip two header lines
-       read(iunit,*)
+       !read(iunit,*)
        read(iunit,*)
        if (iread==1) then
           !--first reading
@@ -457,7 +457,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  real,allocatable,dimension(:,:)            :: dat
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
+<<<<<<< Updated upstream
 
+=======
+ 
+>>>>>>> Stashed changes
  rows = 0
  usecgs = .false.
  if (present(cgsunits)) usecgs = cgsunits
@@ -487,7 +491,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        read(40,'()')
     enddo
  endif
+<<<<<<< Updated upstream
 
+=======
+ 
+>>>>>>> Stashed changes
  read(40,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
  call string_delete(dumc,']')
@@ -509,8 +517,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  enddo
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
+<<<<<<< Updated upstream
              temp(lines),Xfrac(lines),Yfrac(lines))
 
+=======
+            temp(lines),Xfrac(lines),Yfrac(lines))
+ 
+>>>>>>> Stashed changes
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
@@ -528,9 +541,15 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        pres = dat(1:lines,i)
     case('temperature')
        temp = dat(1:lines,i)
+<<<<<<< Updated upstream
     case('x_mass_fraction_h')
        Xfrac = dat(1:lines,i)
     case('y_mass_fraction_he')
+=======
+    case('x_mass_fraction_H')
+       Xfrac = dat(1:lines,i)
+    case('y_mass_fraction_He')
+>>>>>>> Stashed changes
        Yfrac = dat(1:lines,i)
     end select
  enddo
@@ -546,6 +565,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
 
  Mstar = m(lines)
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 end subroutine read_mesa
 
 !----------------------------------------------------------------

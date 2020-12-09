@@ -73,7 +73,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick,iphase
+ use boundarypart,   only:get_boundary_particle_forces
  use derivutils,     only:do_timing
 #ifdef GR
  use cons2prim,      only:cons2primall
@@ -171,7 +172,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
-
+ call get_boundary_particle_forces(npart,iphase,fxyzu)
 #ifdef DUSTGROWTH
  ! compute growth rate of dust particles
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
