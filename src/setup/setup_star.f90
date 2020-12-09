@@ -45,15 +45,14 @@ module setup
 !   - polyk              : *polytropic constant (cs^2 if isothermal)*
 !   - relax_star         : *relax star automatically during setup*
 !   - ui_coef            : *specific internal energy (units of GM/R)*
-!   - unsoftened_profile : *path to MESA profile for softening*
+!   - input_profile      : *path to input MESA profile*
 !   - use_exactN         : *find closest particle number to np*
 !   - write_rho_to_file  : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
 !   options, part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
-!   setstellarcore, setup_params,
-!   spherical, table_utils, timestep, units
+!   setstellarcore, setup_params, spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -115,7 +114,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
- use part,            only:igas,isetphase,iphase
+ use part,            only:igas,isetphase,iphase,iboundary
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
@@ -132,7 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type
  use relaxstar,       only:relax_star
  use domain,          only:i_belong
  integer,           intent(in)    :: id
@@ -146,8 +145,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr
- real                             :: vol_sphere,psep,rmin,presi,hi
+ integer                          :: i,nx,npts,ierr,nboundarypart
+ real                             :: vol_sphere,psep,rmin,presi,hi,rboundary
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)                                     
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
  logical                          :: calc_polyk,setexists
@@ -181,8 +180,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  isoftcore   = 0
  isinkcore   = .false.
  hsoft         = 0.
- mcore         = 0.
  rcore         = 0.
+ mcore         = 0.
  isofteningopt = 1 ! By default, specify rcore
  input_profile = 'P12_Phantom_Profile.data'
  outputfilename = 'mysoftenedstar.dat'
@@ -448,6 +447,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  write(*,"(70('='))")
 
+ ! Set boundary particles
+ rboundary = 18.9
+ if (isoftcore < 0) then
+    nboundarypart = 0
+    do i=1,npart
+       if (dot_product(xyzh(1:3,i),xyzh(1:3,i)) < rboundary**2) then
+          call set_particle_type(i,iboundary)
+          nboundarypart = nboundarypart + 1
+       endif
+    enddo
+    npartoftype(iboundary) = nboundarypart
+    npartoftype(igas) = npartoftype(igas) - nboundarypart
+    massoftype(iboundary) = massoftype(igas)
+ endif
+ 
 end subroutine setpart
 
 !-----------------------------------------------------------------------

@@ -545,7 +545,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  rhomaxnow = rhomax
 
  !--boundary particles are no longer treated as active
- set_boundaries_to_active = .false.
+ set_boundaries_to_active = .true.
 
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
