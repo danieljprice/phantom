@@ -21,7 +21,7 @@ module fileutils
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
  public :: strip_extension,is_digit,files_are_sequential
- public :: ucase,lcase,make_tags_unique
+ public :: ucase,lcase,make_tags_unique,get_nlines,string_delete
 
  private
 
@@ -197,6 +197,27 @@ function basename(string)
 
 end function basename
 
+!---------------------------------------------------------------------------
+!
+! function to count number of lines in a file
+!
+!---------------------------------------------------------------------------
+function get_nlines(string) result(n)
+ character(len=*), intent(in) :: string
+ integer :: n,iunit,ierr
+
+ open(newunit=iunit, file=string,status='old',iostat=ierr)
+ !--first reading
+ n = 0
+ do while (ierr==0)
+    n = n + 1
+    read(iunit,*,iostat=ierr)
+    if (ierr /= 0) n = n - 1
+ enddo
+ close(iunit)
+    
+end function get_nlines
+  
 !---------------------------------------------------------------------------
 !
 ! routine to strip extension from a filename
@@ -408,5 +429,18 @@ subroutine make_tags_unique(ntags,tags)
  enddo
 
 end subroutine make_tags_unique
+
+pure subroutine string_delete(string,skey)
+ character(len=*), intent(inout) :: string
+ character(len=*), intent(in)    :: skey
+ integer :: ipos,lensub
+
+ ipos = index(string,skey)
+ lensub = len(skey)
+ do while(ipos > 0)
+    string = string(1:ipos-1)//string(ipos+lensub:len_trim(string))
+    ipos = index(trim(string),skey)
+ enddo
+end subroutine string_delete
 
 end module fileutils
