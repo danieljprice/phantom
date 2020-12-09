@@ -128,7 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa, get_eos_pressure_temp_mesa
- use part,            only:eos_vars,itemp,store_temperature
+ use part,            only:eos_vars,itemp,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
@@ -287,7 +287,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (isoftcore > 0) then
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,rcore,mcore,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore
-       call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft)
+       call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
        call write_softened_profile(outputfilename,mtab,pres,temp,r,den,en)
        densityfile = outputfilename ! Have the read_mesa subroutine read the softened profile instead
     else
@@ -332,7 +332,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! add sink particle stellar core
  !
- if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft)
+ if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
 
  nstar = int(npart_total,kind=(kind(nstar)))
  massoftype(igas) = Mstar/nstar
