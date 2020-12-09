@@ -528,9 +528,9 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        pres = dat(1:lines,i)
     case('temperature')
        temp = dat(1:lines,i)
-    case('x_mass_fraction_H')
+    case('x_mass_fraction_h')
        Xfrac = dat(1:lines,i)
-    case('y_mass_fraction_He')
+    case('y_mass_fraction_he')
        Yfrac = dat(1:lines,i)
     end select
  enddo
