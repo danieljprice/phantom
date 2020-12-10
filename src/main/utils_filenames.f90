@@ -430,6 +430,9 @@ subroutine make_tags_unique(ntags,tags)
 
 end subroutine make_tags_unique
 
+!----------------------------------------------------------------------
+! Delete a symbol from a string
+!----------------------------------------------------------------------
 pure subroutine string_delete(string,skey)
  character(len=*), intent(inout) :: string
  character(len=*), intent(in)    :: skey
