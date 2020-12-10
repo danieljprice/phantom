@@ -27,7 +27,7 @@ module rho_profile
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+            rho_evrard,read_mesa,read_kepler_file, &
             rho_bonnorebert,prompt_BEparameters
  public  :: write_softened_profile,calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
@@ -337,105 +337,6 @@ end subroutine rho_evrard
 
 !-----------------------------------------------------------------------
 !+
-!  Option 5:
-!  Read in data output by the MESA stellar evolution code
-!+
-!-----------------------------------------------------------------------
-subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
-                               enitab,mtab,totmass,ierr,mcut,rcut)
- use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- use datafiles, only:find_phantom_datafile
- integer,          intent(in)  :: ng_max
- integer,          intent(out) :: ierr,n
- real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),mtab(:),totmass
- real,             intent(out), optional :: rcut
- real,             intent(in), optional :: mcut
- character(len=*), intent(in)  :: filepath
- character(len=120)            :: fullfilepath
- integer                       :: i,iread,aloc,iunit
- integer, parameter            :: maxstardatacols = 6
- real                          :: stardata(ng_max,maxstardatacols)
- logical                       :: iexist,n_too_big
- !
- !--Get path name
- !
- ierr = 0
- fullfilepath = find_phantom_datafile(filepath,'star_data_files')
- inquire(file=trim(fullfilepath),exist=iexist)
- if (.not.iexist) then
-    ierr = 1
-    return
- endif
- !
- !--Read data from file
- !
- n = 0
- stardata(:,:) = 0.
- n_too_big = .false.
- do iread=1,2
-    !--open
-    open(newunit=iunit, file=trim(fullfilepath), status='old',iostat=ierr)
-    if (.not. n_too_big) then
-       !--skip two header lines
-       read(iunit,*)
-       read(iunit,*)
-       if (iread==1) then
-          !--first reading
-          n = 0
-          do while (ierr==0 .and. n < size(stardata(:,1)))
-             n = n + 1
-             read(iunit,*,iostat=ierr)
-             if (ierr /= 0) n = n - 1
-          enddo
-          if (n >= size(stardata(:,1))) n_too_big = .true.
-       else
-          !--Second reading
-          do i=1,n
-             read(iunit,*,iostat=ierr) stardata(n-i+1,:)
-          enddo
-       endif
-    endif
-    close(iunit)
- enddo
- if (n < 1) then
-    ierr = 2
-    return
- endif
- if (n_too_big) then
-    ierr = 3
-    return
- endif
- !
- !--convert relevant data from CGS to code units
- !
- !radius
- stardata(1:n,4)  = stardata(1:n,4)/udist
- rtab(1:n)        = stardata(1:n,4)
- !density
- stardata(1:n,5)  = stardata(1:n,5)/unit_density
- rhotab(1:n)      = stardata(1:n,5)
- !mass
- stardata(1:n,1)  = stardata(1:n,1)/umass
- mtab(1:n)        = stardata(1:n,1)
- totmass          = stardata(n,1)
- !pressure
- stardata(1:n,2)  = stardata(1:n,2)/unit_pressure
- ptab(1:n)        = stardata(1:n,2)
- !temp
- temperature(1:n) = stardata(1:n,3)
- !specific internal energy
- stardata(1:n,6)  = stardata(1:n,6)/unit_ergg
- enitab(1:n)      = stardata(1:n,6)
-
- if (present(rcut) .and. present(mcut)) then
-    aloc = minloc(abs(stardata(1:n,1) - mcut),1)
-    rcut = rtab(aloc)
-    print*, 'rcut = ', rcut
- endif
-end subroutine read_mesa_file
-
-!-----------------------------------------------------------------------
-!+
 !  Read quantities from MESA profile or from profile in the format of 
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data) 
 !+
@@ -549,7 +450,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
 end subroutine read_mesa
 
 !----------------------------------------------------------------
-!  Write stellar profile in format readable by read_mesa_file;
+!  Write stellar profile in format readable by read_mesa;
 !  used in star setup to write softened stellar profile.
 !----------------------------------------------------------------
 subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)

@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,           only:set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only:hfact_default
  use rho_profile,     only:rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-                           rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+                           rho_evrard,read_mesa,read_kepler_file, &
                            write_softened_profile
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in
