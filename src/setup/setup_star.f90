@@ -22,38 +22,38 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - EOSopt             : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
-!   - Mstar              : *mass of star*
-!   - Rstar              : *radius of star*
-!   - X                  : *hydrogen mass fraction*
-!   - densityfile        : *File containing data for stellar profile*
-!   - dist_unit          : *distance unit (e.g. au)*
-!   - gamma              : *Adiabatic index*
-!   - rcore              : *Radius of core softening*
-!   - hsoft              : *Softening length of sink particle stellar core*
-!   - ieos               : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
-!   - initialtemp        : *initial temperature of the star*
-!   - isinkcore          : *Add a sink particle stellar core*
-!   - isoftcore          : *0=no core softening, 1=cubic core, 2=constant entropy core*
-!   - isofteningopt      : *1=supply rcore, 2=supply mcore, 3=supply both*
-!   - mass_unit          : *mass unit (e.g. solarm)*
-!   - mcore              : *Mass of sink particle stellar core*
-!   - metallicity        : *metallicity*
-!   - mu                 : *mean molecular weight*
-!   - np                 : *approx number of particles (in box of size 2R)*
-!   - outputfilename     : *Output path for softened MESA profile*
-!   - polyk              : *polytropic constant (cs^2 if isothermal)*
-!   - relax_star         : *relax star automatically during setup*
-!   - ui_coef            : *specific internal energy (units of GM/R)*
-!   - unsoftened_profile : *path to MESA profile for softening*
-!   - use_exactN         : *find closest particle number to np*
-!   - write_rho_to_file  : *write density profile to file*
+!   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
+!   - Mstar             : *mass of star*
+!   - Rstar             : *radius of star*
+!   - X                 : *hydrogen mass fraction*
+!   - densityfile       : *File containing data for stellar profile*
+!   - dist_unit         : *distance unit (e.g. au)*
+!   - gamma             : *Adiabatic index*
+!   - hsoft             : *Softening length of sink particle stellar core*
+!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
+!   - initialtemp       : *initial temperature of the star*
+!   - input_profile     : *Path to input MESA profile for softening*
+!   - isinkcore         : *Add a sink particle stellar core*
+!   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
+!   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*
+!   - mass_unit         : *mass unit (e.g. solarm)*
+!   - mcore             : *Mass of sink particle stellar core*
+!   - metallicity       : *metallicity*
+!   - mu                : *mean molecular weight*
+!   - np                : *approx number of particles (in box of size 2R)*
+!   - outputfilename    : *Output path for softened MESA profile*
+!   - polyk             : *polytropic constant (cs^2 if isothermal)*
+!   - rcore             : *Radius of core softening*
+!   - relax_star        : *relax star automatically during setup*
+!   - ui_coef           : *specific internal energy (units of GM/R)*
+!   - use_exactN        : *find closest particle number to np*
+!   - write_rho_to_file : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
-!   options, part, physcon, prompting, relaxstar, rho_profile, setsoftenedcore,
-!   setstellarcore, setup_params,
-!   spherical, table_utils, timestep, units
+!   options, part, physcon, prompting, relaxstar, rho_profile,
+!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
+!   timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity

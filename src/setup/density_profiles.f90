@@ -21,7 +21,7 @@ module rho_profile
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, physcon, prompting, units
+! :Dependencies: datafiles, eos, fileutils, physcon, prompting, units
 !
  use physcon, only: pi,fourpi
  implicit none
