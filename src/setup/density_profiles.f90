@@ -337,8 +337,8 @@ end subroutine rho_evrard
 
 !-----------------------------------------------------------------------
 !+
-!  Read quantities from MESA profile or from profile in the format of 
-!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data) 
+!  Read quantities from MESA profile or from profile in the format of
+!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
@@ -376,7 +376,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
 
  open(unit=40,file=fullfilepath,status='old')
  call get_ncolumns(40,ncols,nheaderlines)
- if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones 
+ if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
     read(40,'()')
     read(40,'()')
     read(40,*) lines,lines

@@ -195,7 +195,7 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
     if (i == Nmax) then
        rhoguess = 1.e8
-    else 
+    else
        rhoguess = rho(i)
     endif
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))

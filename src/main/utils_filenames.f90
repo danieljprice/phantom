@@ -215,9 +215,9 @@ function get_nlines(string) result(n)
     if (ierr /= 0) n = n - 1
  enddo
  close(iunit)
-    
+
 end function get_nlines
-  
+
 !---------------------------------------------------------------------------
 !
 ! routine to strip extension from a filename
