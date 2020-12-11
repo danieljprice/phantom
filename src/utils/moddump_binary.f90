@@ -16,7 +16,7 @@ module moddump
 !
 ! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
 !   infile_utils, io, options, part, physcon, prompting, rho_profile,
-!   setbinary, timestep, units
+!   setbinary, table_utils, timestep, units
 !
  implicit none
 
