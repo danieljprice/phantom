@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,presi
- real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)                                     
+ real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
