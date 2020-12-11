@@ -278,11 +278,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Rstar = r(npts)
     pres = polyk*den**gamma
  case(imesa)
-   deallocate(r,den,pres,temp,en,mtab)
-   call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
-   if (ierr /= 0) call fatal('setup','error in reading mesa profile')
-   rmin  = r(1)
-   Rstar = r(size(r))
+    deallocate(r,den,pres,temp,en,mtab)
+    call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+    if (ierr /= 0) call fatal('setup','error in reading mesa profile')
+    rmin  = r(1)
+    Rstar = r(size(r))
 
     if (isoftcore > 0) then
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,rcore,mcore,ierr) ! sets mcore, rcore
