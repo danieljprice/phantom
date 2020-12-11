@@ -394,7 +394,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
- 101 do i = 1,500
+101 do i = 1,500
     if (dum(i)=='aaa') then
        rows = i-1
        exit
