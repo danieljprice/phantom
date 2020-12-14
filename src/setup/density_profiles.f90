@@ -388,6 +388,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        read(40,'()')
     enddo
  endif
+ if (lines <= 0) then ! file not found
+   ierr = 1
+   return
+ endif
 
  read(40,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
@@ -411,6 +415,8 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
              temp(lines),Xfrac(lines),Yfrac(lines))
+
+ close(40)
 
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
