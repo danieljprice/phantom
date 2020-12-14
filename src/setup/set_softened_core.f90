@@ -15,7 +15,8 @@ module setsoftenedcore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, setcubiccore, setfixedentropycore, table_utils, physcon
+! :Dependencies: eos, io, physcon, setcubiccore, setfixedentropycore,
+!   table_utils
 !
  implicit none
  real :: rcore,mcore
