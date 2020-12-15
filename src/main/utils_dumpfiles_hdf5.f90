@@ -144,6 +144,7 @@ module utils_dumpfiles_hdf5
                got_raden(maxirad),                   &
                got_kappa,                            &
                got_Tdust,                            &
+               got_iorig,                            &
                got_krome_mols(max_krome_nmols_hdf5), &
                got_krome_gamma,                      &
                got_krome_mu,                         &
@@ -315,6 +316,7 @@ subroutine write_hdf5_arrays( &
    divcurlB,                  &
    divBsymm,                  &
    eta_nimhd,                 &
+   iorig,                     &
    dustfrac,                  &
    tstop,                     &
    deltav,                    &
@@ -373,6 +375,7 @@ subroutine write_hdf5_arrays( &
                                 divcurlv(:,:),     &
                                 divcurlB(:,:)
  integer(kind=1), intent(in) :: iphase(:)
+ integer,         intent(in) :: iorig(:)
  type (arrays_options_hdf5), intent(in) :: array_options
 
  integer(HID_T) :: group_id
@@ -511,6 +514,9 @@ subroutine write_hdf5_arrays( &
        call write_to_hdf5(divcurlv(2:4,1:npart), 'curlvxyz', group_id, error)
     endif
  endif
+
+ ! Particle IDs
+ call write_to_hdf5(iorig(1:npart), 'iorig', group_id, error)
 
  ! Close the particles group
  call close_hdf5group(group_id, error)
@@ -770,6 +776,7 @@ subroutine read_hdf5_arrays( &
    poten,                    &
    Bxyz,                     &
    Bevol,                    &
+   iorig,                    &
    dustfrac,                 &
    deltav,                   &
    dustprop,                 &
@@ -792,6 +799,7 @@ subroutine read_hdf5_arrays( &
  type (arrays_options_hdf5), intent(in)  :: array_options
  type (got_arrays_hdf5),     intent(out) :: got_arrays
  integer(kind=1), intent(out) :: iphase(:)
+ integer,         intent(out) :: iorig(:)
  real,            intent(out) :: xyzh(:,:),         &
                                  vxyzu(:,:),        &
                                  xyzmh_ptmass(:,:), &
@@ -847,6 +855,7 @@ subroutine read_hdf5_arrays( &
  got_arrays%got_raden       = .false.
  got_arrays%got_kappa       = .false.
  got_arrays%got_Tdust       = .false.
+ got_arrays%got_iorig       = .false.
  got_arrays%got_krome_mols  = .false.
  got_arrays%got_krome_gamma = .false.
  got_arrays%got_krome_mu    = .false.
@@ -961,6 +970,9 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(radprop(6,1:npart), 'radiation_numph', group_id, got, error)
     call read_from_hdf5(radprop(7,1:npart), 'radiation_vorcl', group_id, got, error)
  endif
+
+ call read_from_hdf5(iorig, 'iorig', group_id, got, error)
+ if (got) got_arrays%got_orig = .true
 
  ! Close the particles group
  call close_hdf5group(group_id, error)

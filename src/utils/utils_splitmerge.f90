@@ -49,7 +49,7 @@ subroutine split_a_particle(nchild,iparent,xyzh,vxyzu, &
  do j=0,nchild-2
     ichild = ichild + 1
     ! copy properties
-    call copy_particle(iparent,ichildren+ichild)
+    call copy_particle(iparent,ichildren+ichild,.true.)
 
     ! adjust the position
     if (lattice_type == 0) then
@@ -150,7 +150,7 @@ subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
  real    :: qij,rij,wchild,grkernchild,rho_parent
 
  !-- copy properties from first child
- call copy_particle(ichildren(1),iparent)
+ call copy_particle(ichildren(1),iparent,.true.)
 
  !-- positions and velocities from centre of mass
  xyzh(1:3,iparent) = 0.
@@ -206,7 +206,7 @@ subroutine fast_merge_into_a_particle(nchild,ichildren,mchild,npart, &
  integer :: i
 
  ! use first child to be parent
- call copy_particle(ichildren(1),iparent)
+ call copy_particle(ichildren(1),iparent,.true.)
  xyzh(4,iparent) = xyzh(4,ichildren(1)) * (nchild)**(1./3.)
 
  ! discard the rest
