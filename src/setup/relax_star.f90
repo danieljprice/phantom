@@ -375,13 +375,14 @@ subroutine restore_original_options
  use eos,     only:ieos,gamma
  use damping, only:damp
  use options, only:idamp
- use part,    only:hfact
+ use part,    only:hfact,vxyzu,npart
 
  gamma = gammaprev
  hfact = hfactprev
  ieos  = ieos_prev
  idamp = 0
  damp = 0.
+ vxyzu(1:3,1:npart) = 0.
 
 end subroutine restore_original_options
 
