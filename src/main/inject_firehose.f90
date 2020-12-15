@@ -1,30 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!  Injection module for "firehose" simulations, used for numerical experiments
+! Injection module for "firehose" simulations, used for numerical experiments
 !  in Liptai et al. paper on tidal disruption events
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - mach         : *Mach number of injected stream*
+!   - mdot_func    : *functional form of dM/dt(t) (0=const)*
+!   - stream_width : *width of injected stream in Rsun*
 !
-!  RUNTIME PARAMETERS:
-!    Mdot -- mass injection rate at L1, in Msun/yr
+! :Dependencies: eos, infile_utils, io, part, partinject, physcon, units
 !
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, setbinary,
-!    units
-!+
-!--------------------------------------------------------------------------
-module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'firehose'
 
