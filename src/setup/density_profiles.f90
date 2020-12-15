@@ -389,8 +389,8 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     enddo
  endif
  if (lines <= 0) then ! file not found
-   ierr = 1
-   return
+    ierr = 1
+    return
  endif
 
  read(40,'(a)') dumc! counting rows
