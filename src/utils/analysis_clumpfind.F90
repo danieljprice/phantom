@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine which runs the CLUMPFIND algorithm
+! Analysis routine which runs the CLUMPFIND algorithm
 !
 !  This uses local potential minima (and neighbour lists)
 !  to identify objects/clumps in the gas distribution
 !  Clumps are matched across timesteps using standard merger tree algorithms
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, getneighbours, part, prompting, ptmass,
+!   readwrite_dumps, sortutils, units
 !
-!  DEPENDENCIES: boundary, dim, getneigbours, part, prompting, ptmass,
-!    readwrite_dumps, sortutils, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use dim,             only:maxp
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
@@ -96,6 +90,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write_neighbour_list = .false.
 ! Read in input parameters from file (if it exists)
  call read_analysis_options(dumpfile)
+
+! Print warning
+ if (checkbound) then
+    print*, '*************************************************************'
+    print*, '*                                                           *'
+    print*, '*                         WARNING!!!                        *'
+    print*, '*                                                           *'
+    print*, '*     Potential energy of a clump is the sum of poten,      *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Npart Gm_jm_i/r_ij         *'
+    print*, '*     rather than being the potential of just the clump,    *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Nclump Gm_jm_i/r_ij        *'
+    print*, '*     Therefore the potential energy is much too large!     *'
+    print*, '*     Consider using analysis_clumpfindTD.F90               *'
+    print*, '*                                                           *'
+    print*, '*************************************************************'
+ endif
 
 ! Skip small dumps (as they do not include velocity data)
  if (skipsmalldumps .and. .not.opened_full_dump) then
@@ -411,7 +421,7 @@ subroutine read_analysis_options(dumpfile)
     write(10,*) trim(dumpfile), "    Previous SPH dump analysed"
     close(10)
     previousdumpfile = ""
-    runningclumpmax  = ""
+    runningclumpmax  = 0
  endif
 
  if (checkbound) then

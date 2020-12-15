@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: struct2struct
-!
-!  DESCRIPTION: program to convert between structure function file formats
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: struct2struct [outformat] infiles(*.sfn,*.struct,*_sf_*.dat)
-!
-!  DEPENDENCIES: io_structurefn
-!+
-!--------------------------------------------------------------------------
 program struct2struct
+!
+! program to convert between structure function file formats
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: struct2struct [outformat] infiles(*.sfn,*.struct,*_sf_*.dat)
+!
+! :Dependencies: io_structurefn
+!
  use io_structurefn, only:get_sfn_format,nformats,labelformat,&
      write_structurefn,read_structurefn
  implicit none

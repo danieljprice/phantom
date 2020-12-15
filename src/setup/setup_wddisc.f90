@@ -4,33 +4,28 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup of an asteroid being tidally disrupted by a white dwarf
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dumpsperorbit -- number of dumps per orbit
-!    hacc1         -- white dwarf (sink) accretion radius (solar radii)
-!    m1            -- mass of white dwarf (solar mass)
-!    m2            -- mass of asteroid (ceres mass)
-!    norbits       -- number of orbits
-!    nr            -- particles per asteroid radius (i.e. resolution)
-!    rasteroid     -- radius of asteroid (km)
-!    rp            -- pericentre distance (solar radii)
-!    semia         -- semi-major axis (solar radii)
-!
-!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of an asteroid being tidally disrupted by a white dwarf
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - hacc1         : *white dwarf (sink) accretion radius (solar radii)*
+!   - m1            : *mass of white dwarf (solar mass)*
+!   - m2            : *mass of asteroid (ceres mass)*
+!   - norbits       : *number of orbits*
+!   - nr            : *particles per asteroid radius (i.e. resolution)*
+!   - rasteroid     : *radius of asteroid (km)*
+!   - rp            : *pericentre distance (solar radii)*
+!   - semia         : *semi-major axis (solar radii)*
+!
+! :Dependencies: infile_utils, io, part, physcon, setbinary, spherical,
+!   timestep, units
+!
  implicit none
  public :: setpart
 

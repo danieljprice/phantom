@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testsmol
-!
-!  DESCRIPTION:
-!  Unit tests of the equation of state module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, growth_smol, io, part, physcon, set_dust, testutils,
-!    units
-!+
-!--------------------------------------------------------------------------
 module testsmol
+!
+! Unit tests of the equation of state module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, growth_smol, io, part, physcon, set_dust, testutils,
+!   units
+!
  implicit none
  public :: test_smol
 

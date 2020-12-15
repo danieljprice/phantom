@@ -4,31 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!    Setup of two sink particles in a binary
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    a            -- semi-major axis (+ve) or period (-ve)
-!    eccentricity -- eccentricity
-!    hacc1        -- primary accretion radius
-!    hacc2        -- secondary accretion radius
-!    m1           -- mass of primary
-!    m2           -- mass of secondary
-!
-!  DEPENDENCIES: externalforces, infile_utils, io, options, part, physcon,
-!    setbinary, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of two sink particles in a binary
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - a            : *semi-major axis (+ve) or period (-ve)*
+!   - eccentricity : *eccentricity*
+!   - hacc1        : *primary accretion radius*
+!   - hacc2        : *secondary accretion radius*
+!   - m1           : *mass of primary*
+!   - m2           : *mass of secondary*
+!
+! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
+!   setbinary, units
+!
  implicit none
  public :: setpart
 

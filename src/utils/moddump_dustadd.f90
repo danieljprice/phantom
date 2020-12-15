@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  adds dust particles to pre-existing gas particle dump
-!
-!  REFERENCES: None
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, dust, growth, options, part, prompting, set_dust,
-!    table_utils
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! adds dust particles to pre-existing gas particle dump
+!
+! :References: None
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
+!   table_utils
+!
  implicit none
 
 contains

@@ -4,28 +4,22 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: fs_data
+module fs_data
 !
-!  DESCRIPTION:
-!  Atomic data (transition probabilities, energies) required
+! Atomic data (transition probabilities, energies) required
 !  for computing the fine structure cooling rates.
 !
 !  Written by S. Glover, AMNH, 2004-2005
 !  Adapted for use in Phantom by D. Price, MoCA, 2011
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon
 !
-!  DEPENDENCIES: physcon
-!+
-!--------------------------------------------------------------------------
-module fs_data
  use physcon, only:kb=>kboltz
  implicit none
 

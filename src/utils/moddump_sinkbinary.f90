@@ -4,25 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  default moddump routine: does not make any modifications
-!
-!  REFERENCES: None
-!
-!  OWNER: Mike Lau
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, part, physcon, prompting, setbinary,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! default moddump routine: does not make any modifications
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, part, physcon, prompting, setbinary,
+!   timestep, units
+!
  implicit none
 
 contains

@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: grid2pdf
+program grid2pdf
 !
-!  DESCRIPTION: This program is a utility for calculating volume-weighted
+! This program is a utility for calculating volume-weighted
 ! PDFs (similar to phantom2pdf, but from already gridded data)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: grid2pdf format filename(s)
 !
-!  USAGE: grid2pdf format filename(s)
+! :Dependencies: io, io_grid, pdfs, rhomach
 !
-!  DEPENDENCIES: io, io_grid, pdfs, rhomach
-!+
-!--------------------------------------------------------------------------
-program grid2pdf
  use io,               only:set_io_unit_numbers,iprint,real4
  use pdfs,             only:pdf_calc,pdf_write
  use rhomach,          only:get_rhomach_grid,write_rhomach

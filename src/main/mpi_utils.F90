@@ -4,10 +4,8 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiutils
+module mpiutils
 !
-!  DESCRIPTION:
 ! This module contains MPI-related quantities and utilities
 ! though most can be called safely from non-MPI code
 ! (but obviously do nothing).
@@ -43,18 +41,14 @@
 !
 !   calls MPI_BARRIER, no-op if called from non-MPI code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, mpi
 !
-!  DEPENDENCIES: io, mpi
-!+
-!--------------------------------------------------------------------------
-module mpiutils
 #ifdef MPI
  use mpi
  implicit none

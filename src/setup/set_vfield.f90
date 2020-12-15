@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setvfield
+module setvfield
 !
-!  DESCRIPTION:
 ! this module contains utilities for setting up velocity fields
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: energies, io, mpiutils
 !
-!  DEPENDENCIES: energies, io, mpiutils
-!+
-!--------------------------------------------------------------------------
-module setvfield
  implicit none
  public :: set_vfield,normalise_vfield
 

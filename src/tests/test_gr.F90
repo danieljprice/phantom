@@ -4,25 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgr
-!
-!  DESCRIPTION: Unit tests of General Relativity
-!
-!  REFERENCES: Liptai & Price (2019), MNRAS
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!    io, metric, metric_tools, part, physcon, step_lf_global, testutils,
-!    utils_gr, vectorutils
-!+
-!--------------------------------------------------------------------------
 module testgr
+!
+! Unit tests of General Relativity
+!
+! :References: Liptai & Price (2019), MNRAS
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
+!   io, metric, metric_tools, part, physcon, step_lf_global, testutils,
+!   utils_gr, vectorutils
+!
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
 

@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: get_struct_slope
-!
-!  DESCRIPTION: program to calculate structure function slopes
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: get_struct_slope infile(*.sfn,*.struct,*_sf_*.dat)
-!
-!  DEPENDENCIES: io_structurefn, leastsquares
-!+
-!--------------------------------------------------------------------------
 program get_struct_slope
+!
+! program to calculate structure function slopes
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: get_struct_slope infile(*.sfn,*.struct,*_sf_*.dat)
+!
+! :Dependencies: io_structurefn, leastsquares
+!
  use io_structurefn, only:read_structurefn,sftype
  use leastsquares,   only:fit_slope
  implicit none

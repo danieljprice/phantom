@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  rndisc moddump routine: adds a warp in the disc/adds magnetic field
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, physcon, setdisc, setup_params
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! rndisc moddump routine: adds a warp in the disc/adds magnetic field
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, physcon, setdisc, setup_params
+!
  implicit none
 
 contains

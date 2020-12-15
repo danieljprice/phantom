@@ -4,19 +4,15 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: [generated automatically]
+! PROGRAM: [generated automatically]
 !
-!  DESCRIPTION: [Say what this program is for]
+! :DESCRIPTION: [Say what this program is for]
 !
-!  REFERENCES: [Add refs here, and add to phantom.bib file]
+! :References: [Add refs here, and add to phantom.bib file]
 !
-!  OWNER: [generated automatically from git blame]
+! :Owner: [generated automatically from git blame]
 !
-!  $Id$
+! :Usage: [generated automatically from print statement with Usage:]
 !
-!  USAGE: [generated automatically from print statement with Usage:]
+! :Dependencies: [generated automatically from use statements]
 !
-!  DEPENDENCIES: [generated automatically from use statements]
-!+
-!--------------------------------------------------------------------------

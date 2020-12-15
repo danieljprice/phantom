@@ -4,41 +4,35 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!  this module does an accretion disc setup in general relativity
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accrad  -- accretion radius   (GM/c^2, code units)
-!    alpha   -- artificial viscosity
-!    gamma   -- adiabatic gamma
-!    honr    -- scale height H/R of disc (at r_ref)
-!    ismooth -- smooth inner edge of the disc (logical)
-!    mdisc   -- mass of disc       (solar mass)
-!    mhole   -- mass of black hole (solar mass)
-!    np      -- number of particles in disc
-!    p_index -- power law index of surface density profile
-!    q_index -- power law index of sound speed profile
-!    r_in    -- inner edge of disc (GM/c^2, code units)
-!    r_out   -- outer edge of disc (GM/c^2, code units)
-!    r_ref   -- reference radius   (GM/c^2, code units)
-!    spin    -- spin parameter of black hole |a|<1
-!    theta   -- inclination of disc (degrees)
-!
-!  DEPENDENCIES: eos, extern_lensethirring, externalforces, infile_utils,
-!    io, kernel, metric, options, part, physcon, prompting, setdisc,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! this module does an accretion disc setup in general relativity
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - accrad  : *accretion radius   (GM/c^2, code units)*
+!   - alpha   : *artificial viscosity*
+!   - gamma   : *adiabatic gamma*
+!   - honr    : *scale height H/R of disc (at r_ref)*
+!   - ismooth : *smooth inner edge of the disc (logical)*
+!   - mdisc   : *mass of disc       (solar mass)*
+!   - mhole   : *mass of black hole (solar mass)*
+!   - np      : *number of particles in disc*
+!   - p_index : *power law index of surface density profile*
+!   - q_index : *power law index of sound speed profile*
+!   - r_in    : *inner edge of disc (GM/c^2, code units)*
+!   - r_out   : *outer edge of disc (GM/c^2, code units)*
+!   - r_ref   : *reference radius   (GM/c^2, code units)*
+!   - spin    : *spin parameter of black hole |a|<1*
+!   - theta   : *inclination of disc (degrees)*
+!
+! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
+!   io, kernel, metric, options, part, physcon, prompting, setdisc,
+!   timestep, units
+!
  use options, only:alpha
  implicit none
  public :: setpart

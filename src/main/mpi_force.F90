@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiforce
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Conrad Chan
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, mpi, mpiutils
-!+
-!--------------------------------------------------------------------------
 module mpiforce
+!
+! None
+!
+! :References: None
+!
+! :Owner: Conrad Chan
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, mpi, mpiutils
+!
  use io,       only:nprocs,fatal
  use dim,      only:minpart,maxfsum,maxprocs,stacksize,maxxpartveciforce
 #ifdef MPI

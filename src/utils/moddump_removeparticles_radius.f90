@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Mentiplay
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, prompting
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! None
+!
+! :References: None
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, prompting
+!
 
  use part,         only:delete_particles_outside_sphere
  use prompting,    only:prompt

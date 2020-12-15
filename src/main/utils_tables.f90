@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: table_utils
-!
-!  DESCRIPTION:
-!   This module contains low-level utilities related to tabulated data
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module table_utils
+!
+! This module contains low-level utilities related to tabulated data
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
 
  public :: yinterp, linspace, logspace, diff, flip_array, interpolator

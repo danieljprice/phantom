@@ -4,29 +4,23 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!    Setup for simulations of the Galactic Centre
+! Setup for simulations of the Galactic Centre
 !    Adapted by Daniel Price in collaboration with Jorge Cuadra
 !
-!  REFERENCES: Paumard et al. (2006)
+! :References: Paumard et al. (2006)
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - datafile : *filename for star data (m,x,y,z,vx,vy,vz)*
+!   - h_sink   : *sink particle radii in arcsec at 8kpc*
+!   - m_gas    : *gas mass resolution in solar masses*
 !
-!  RUNTIME PARAMETERS:
-!    datafile -- filename for star data (m,x,y,z,vx,vy,vz)
-!    h_sink   -- sink particle radii in arcsec at 8kpc
-!    m_gas    -- gas mass resolution in solar masses
+! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
+!   prompting, spherical, timestep, units
 !
-!  DEPENDENCIES: datafiles, dim, eos, infile_utils, io, part, physcon,
-!    prompting, spherical, timestep, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

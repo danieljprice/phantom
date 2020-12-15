@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testindtstep
-!
-!  DESCRIPTION:
-!  test module for individual timestepping utilities
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, testutils, timestep_ind
-!+
-!--------------------------------------------------------------------------
 module testindtstep
+!
+! test module for individual timestepping utilities
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, testutils, timestep_ind
+!
  implicit none
  public :: test_indtstep
 

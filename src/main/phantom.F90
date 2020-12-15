@@ -4,10 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom
+program phantom
 !
-!  DESCRIPTION: The Phantom SPH code, by Daniel Price.
+! The Phantom SPH code, by Daniel Price.
 !
 !  This code is designed to be an ultra-sleek, ultra-low-memory,
 !  code for high resolution SPH simulations
@@ -16,31 +15,24 @@
 !  (aim is to be able to run 10^7 particles in under 1Gb)
 !  and to use the fastest possible implementation
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: phantom infilename
 !
-!  USAGE: phantom infilename
+! :Dependencies: dim, evolve, initial, io, mpiutils
 !
-!  DEPENDENCIES: dim, evolve, initial, io, mpiutils
-!+
-!--------------------------------------------------------------------------
-program phantom
  use dim,             only:tagline
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use evolve,          only:evol
  implicit none
- integer :: nargs,i,ntests,npass,nfail
+ integer            :: nargs
  character(len=120) :: infile,logfile,evfile,dumpfile
 
  id = 0
- ntests = 0
- npass  = 0
- nfail  = 0
 
  call init_mpi(id,nprocs)
  call set_io_unit_numbers

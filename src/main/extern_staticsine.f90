@@ -4,30 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_staticsine
+module extern_staticsine
 !
-!  DESCRIPTION:
 ! This module contains routines relating to the computation
 ! of a static sinusoid potential (in 1D), i.e.
 ! phi = A cos(k(x+B))
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - amplitude   : *Amplitude of sine perturbation*
+!   - inclination : *Orientation angle of perturbation (rad, 0.0=aligned with x axis)*
+!   - phase       : *Phase of perturbation*
+!   - wavek       : *Wavenumber of perturbation*
 !
-!  RUNTIME PARAMETERS:
-!    amplitude   -- Amplitude of sine perturbation
-!    inclination -- Orientation angle of perturbation (rad, 0.0=aligned with x axis)
-!    phase       -- Phase of perturbation
-!    wavek       -- Wavenumber of perturbation
+! :Dependencies: infile_utils, io, physcon
 !
-!  DEPENDENCIES: infile_utils, io, physcon
-!+
-!--------------------------------------------------------------------------
-module extern_staticsine
  use physcon,   only: pi,twopi
  implicit none
  !

@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine to calculate the mass weighted density PDF
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, part, pdfs, readwrite_dumps
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine to calculate the mass weighted density PDF
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, part, pdfs, readwrite_dumps
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'MWpdf'
  public :: do_analysis
@@ -45,8 +39,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real :: vx2,vy2,vz2,rhoi,rmsv
  real :: rhomean, rho(maxp), hi, pmassi
 
- rhomin = huge(rhomin)
- rhomax = 0.
+ rho     = 0.
+ rhomin  = huge(rhomin)
+ rhomax  = 0.
  rhomean = 0.
  totmass = 0.
  print*,'hfact = ',hfact
@@ -116,4 +111,4 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-end module
+end module analysis
