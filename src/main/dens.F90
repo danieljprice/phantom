@@ -22,7 +22,7 @@ module densityforce
  use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
                    maxdusttypes,maxdustlarge
  use part,    only:mhd
- use kdtree,      only:inodeparts,inoderange
+ use kdtree,  only:iorder,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -124,7 +124,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
                      mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use linklist,  only:ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_list,&
+ use linklist,  only:ifirstincell,get_neighbour_list,get_hmaxcell,get_cell_list,listneigh,&
                      get_cell_location,set_hmaxcell,sync_hmax_mpi,update_hmax_remote,node_is_active
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
                      ll,get_partinfo,iactive,&
@@ -1500,7 +1500,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,get_partinfo,iamgas,&
-                       maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
+                       maxphase,massoftype,igas,ndustlarge,ndustsmall,&
                        maxgradh,idust,ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,&
