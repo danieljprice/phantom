@@ -271,7 +271,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst)
   use binaryutils, only:get_E
-  use io,   only:warning,fatal
+!  use io,   only:warning,fatal
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -315,12 +315,12 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        end do
        close(1)
     else
+       print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
        ierr = ierr_HIER2
-       call fatal('set_multiple','there is no HIERARCHY file, cannot perform subtitution.')
     endif
  else
     if (iexist) then
-       call warning('set_multiple','deleting an existing HIERARCHY file.')
+       print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
        open(1, file='HIERARCHY', status='old')
        close(1, status='delete')
     endif
@@ -352,8 +352,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     do i=1,lines
        if(data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
           if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
+             print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
              ierr = ierr_subststar
-             call fatal('set_multiple','set_triple: star '//trim(hier_prefix)//' substituted yet.')
           endif
           subst_index = int(data(i,1))
           data(i,1) = 0
@@ -362,8 +362,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              rel_posang_ascnode = data(i, 10)
              
              if (rel_posang_ascnode /= 0) then
+                print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
                 ierr = ierr_Omegasubst
-                call fatal('set_multiple','at the moment phantom can subst only Omega=0 binaries.')
              endif
              
              rel_arg_peri= data(i, 9)
@@ -388,7 +388,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)          
 
           if (criterion > period_ratio) then
-             call warning('set_multiple','triple orbital parameters does not satisfy Mardling and Aarseth stability criterion.')
+             print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
           endif
 
           q2=m2/m1
@@ -401,8 +401,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     enddo
     
     if(io == 0) then
+       print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
        ierr = ierr_missstar
-       call fatal('set_multiple','star '//trim(hier_prefix)//' not present in HIERARCHY file.')
     endif
 
     x_subst(:)=xyzmh_ptmass(1:3, subst_index)
