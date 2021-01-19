@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiderivs
+module mpiderivs
 !
-!  DESCRIPTION:
-!   This module handles the MPI exchange of information during the
+! This module handles the MPI exchange of information during the
 !   density and force routines
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
+!   stack
 !
-!  DEPENDENCIES: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
-!    stack
-!+
-!--------------------------------------------------------------------------
 #ifdef MPI
-module mpiderivs
  use mpi
  use io,             only:id,nprocs
  use dim,            only:maxprocs
@@ -406,7 +400,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
-             target_stack%cells(iwait)%dtdrag(k) = min(target_stack%cells(iwait)%dtdrag(k), xbuf(iproc)%dtdrag(k))
+             target_stack%cells(iwait)%tsmin(k) = min(target_stack%cells(iwait)%tsmin(k), xbuf(iproc)%tsmin(k))
              target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
           enddo
 #ifdef GRAVITY
@@ -719,5 +713,5 @@ subroutine reset_cell_counters
  enddo
 end subroutine reset_cell_counters
 
-end module mpiderivs
 #endif
+end module mpiderivs

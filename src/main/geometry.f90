@@ -1,25 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: geometry
+module geometry
 !
-!  DESCRIPTION: None
+! None
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 
 !-----------------------------------------------------------------
 ! Standalone module containing subroutines to transform between
@@ -44,7 +40,6 @@
 ! written by Daniel Price 2004-2018
 ! as part of the SPLASH SPH visualisation package
 !-----------------------------------------------------------------
-module geometry
  implicit none
  integer, parameter, public :: maxcoordsys = 7
  integer, parameter, public :: igeom_cartesian   = 1

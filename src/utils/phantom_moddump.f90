@@ -1,42 +1,38 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantommoddump
-!
-!  DESCRIPTION: This program is a simple utility for modifying a dump file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: moddump dumpfilein dumpfileout [time] [outformat]
-!
-!  DEPENDENCIES: checksetup, dim, eos, initial_params, io, moddump,
-!    options, part, prompting, readwrite_dumps, readwrite_infile,
-!    setBfield, setup_params
-!+
-!--------------------------------------------------------------------------
 program phantommoddump
- use dim,             only:tagline
+!
+! This program is a simple utility for modifying a dump file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+!
+! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
+!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
+!   setup_params
+!
+ use dim,             only:tagline,maxp_hard
  use eos,             only:polyk
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
+ use readwrite_dumps, only:init_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump
  use readwrite_infile,only:write_infile,read_infile
- use options,         only:set_default_options,use_moddump
+ use options,         only:set_default_options
  use setup_params,    only:ihavesetupB
  use prompting,       only:prompt
  use checksetup,      only:check_setup
- use initial_params,  only:get_conserv
+ use checkconserved,  only:get_conserv
+ use memory,          only:allocate_memory
  implicit none
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
@@ -47,8 +43,6 @@ program phantommoddump
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
-
- use_moddump = .true.
 
  call set_io_unit_numbers
  iprint = 6
@@ -113,14 +107,26 @@ program phantommoddump
     ihavesetupB = .false.
  endif
 !
+!--allocate memory BEFORE reading the first file
+!  will be reallocated automatically if npart > maxp_hard
+!  but allows user to manually preset array sizes if necessary
+!
+ call allocate_memory(maxp_hard)
+!
 !--read particle setup from dumpfile
 !
+ call init_readwrite_dumps()
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.
  elseif (ierr /= 0) then
     stop 'error reading dumpfile'
  endif
+ call check_setup(nerr,nwarn,restart=.true.)
+ if (nwarn > 0) call warning('moddump','warnings from original setup',var='warnings',ival=nwarn)
+ if (nerr > 0) call warning('moddump','ERRORS in original setup',var='errors',ival=nerr)
+!
+!--modify the dump file
 !
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  get_conserv = 1.

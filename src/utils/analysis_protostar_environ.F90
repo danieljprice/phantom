@@ -1,31 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine calculating the mass and radius of a disc
+! Analysis routine calculating the mass and radius of a disc
 !  As per Price & Bate (2007), Wurster, Price & Bate (2016), disc particles
 !  are those with rho > 1e-13 g cm^-3 & the radius contains 99% of this mass.
 !  Generalised for gas, dust and stellar discs.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, dim, eos, infile_utils, io, kernel, nicil,
+!   options, part, physcon, sortutils, units
 !
-!  DEPENDENCIES: centreofmass, dim, eos, infile_utils, io, kernel, nicil,
-!    options, part, physcon, sortutils, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use dim,         only: maxp,maxvxyzu,mhd_nonideal
  use options,     only: alphaB
  use part,        only: maxptmass,n_R,n_electronT
@@ -569,6 +563,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  real                 :: discmass
  !
  i        = 1
+ j        = 1
  discmass = msink
  do while (i <= npart .and. discmass < discmasslim)
     j = indx(i)
@@ -1348,7 +1343,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                                      fracrotVol,float(volN(iVNrhoh))/float(volN(iVN))
  endif
  !
-end subroutine
+end subroutine doanalysisRPZ
 !----------------------------------------------------------------
 !+
 !  Resets the particle origin and velocities to that of a given location
@@ -1617,4 +1612,4 @@ subroutine write_header_file7(inunit)
 end subroutine write_header_file7
 !-----------------------------------------------------------------------
 !
-end module
+end module analysis

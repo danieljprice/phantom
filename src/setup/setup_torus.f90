@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
 ! this module does setup
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, part, physcon, setup_params, units
 !
-!  DEPENDENCIES: dim, part, physcon, setup_params, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 
@@ -31,7 +25,7 @@ contains
 
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,         only:Bxyz,rhoh,hrho,mhd
- use part,         only:iphase,iamtype,igas,maxphase,get_partinfo
+ use part,         only:iphase,iamtype,igas,maxphase
  use dim,          only:maxp,maxvxyzu
  use setup_params, only:ihavesetupB
  use physcon,      only:pi,au,solarm,solarr
@@ -47,13 +41,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)  :: fileprefix
  integer :: i,nrings,nlayers,iring,iz,ipart,npartphi,ii,iamtypei
  real :: Rtorus,dfac,Mstar,Mtorus,zmax,deltaz,bigG
- real :: massp,r_in,r_out,deltar,polyn,sumA,np
+ real :: massp,r_in,r_out,deltar,polyn,np
  real :: ri,zi,rhofac,deltaphi,densi,pri
  real :: deltartemp,denstemp,rtemp,deltar0,dens0
  real :: omegai,v2onr,rcyl2,rcyl,rsph,rhosum,pmassi,pmassii
  real :: beta,Bzi,dbeta,densmax,densmin
  real, parameter :: dndim = 1./3.
- logical :: iactivei,iamdusti
 
 ! call set_units(dist=au,mass=solarm,G=1.d0)
  bigG = 1.d0
@@ -264,7 +257,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iamtypei = igas
  do i=1,npart
     if (maxphase==maxp) then
-       call get_partinfo(iphase(i),iactivei,iamdusti,iamtypei)
+       iamtypei = iamtype(iphase(i))
        pmassi = massoftype(iamtypei)
     endif
     densi = rhoh(xyzh(4,i),pmassi)

@@ -168,7 +168,7 @@ case $component in
  *)
    text='build';
    listofsetups=$allsetups;
-   listoftargets='phantom setup analysis moddump';;
+   listoftargets='phantom setup analysis moddump phantomtest';;
 esac
 #
 # write html header

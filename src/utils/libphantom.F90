@@ -441,7 +441,7 @@ subroutine inject_or_update_particle(particle_number, mass, position, velocity, 
  call add_or_update_particle(itype,position(:)/udist,velocity(:)/(udist/utime),&
      h/udist,u/(udist**2/utime**2),particle_number,npart,npartoftype,xyzh,vxyzu)
 
-end subroutine
+end subroutine inject_or_update_particle
 
 !
 ! Inject gas or boundary particles
@@ -466,7 +466,7 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
     call add_or_update_particle(itype,position(:,i)/udist,velocity(:,i)/(udist/utime),&
      h(i)/udist,u(i)/(udist**2/utime**2),ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
  enddo
-end subroutine
+end subroutine inject_or_update_particles
 
 !
 ! Inject sink particle
@@ -479,7 +479,7 @@ subroutine inject_or_update_sink_particle(sink_number, position, velocity, mass,
  double precision, intent(in) :: position(3), velocity(3), mass, radius
 
  call add_or_update_sink(position/udist,velocity/(udist/utime),radius/udist,mass/umass,sink_number)
-end subroutine
+end subroutine inject_or_update_sink_particle
 
 !
 ! Inject sphere
@@ -543,7 +543,7 @@ subroutine inject_or_update_sphere(ifirst, resolution, center, radius, center_ve
 
  ! Inject particles
  call inject_or_update_particles(ifirst, N, particles, velocities, h_part, u_part, boundary)
-end subroutine
+end subroutine inject_or_update_sphere
 
 !
 ! Plot density cross section
@@ -565,7 +565,7 @@ subroutine plot_rho_xysec(z, xmin, ymin, npx, npy, dx, dy, npart, massofgas, hfa
  call interpolate3D_fastxsec(xyzh,1.,w,npart,&
      xmin,ymin,z,datsmooth,npx,npy,dx,dy,.false.)
  pixmap = dble(datsmooth)
-end subroutine
+end subroutine plot_rho_xysec
 
 !
 ! Plot log density cross section
@@ -608,7 +608,7 @@ subroutine plot_log_rho_xysec(z, xmin, ymin, npx, npy, dx, dy, npart, massofgas,
        endif
     enddo
  enddo
-end subroutine
+end subroutine plot_log_rho_xysec
 
 
 !
@@ -649,7 +649,7 @@ subroutine get_boundaries(xmin, xmax, ymin, ymax, zmin, zmax)
  ymax = ymax*udist
  zmin = zmin*udist
  zmax = zmax*udist
-end subroutine
+end subroutine get_boundaries
 
 !
 ! Initialize Phantom
@@ -660,8 +660,7 @@ subroutine code_init()
  implicit none
 
  call initialise()
- call set_defaults_timestep()
-end subroutine
+end subroutine code_init
 
 !
 ! Set default parameters
@@ -671,7 +670,7 @@ subroutine set_defaults()
  implicit none
 
  call set_default_options()
-end subroutine
+end subroutine set_defaults
 
 
 !
@@ -700,7 +699,8 @@ subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in
  tmax = tmax_in/utime
  dtmax = dtmax_in/utime
  dt = dtmax
-end subroutine
+ call evol_init()
+end subroutine init
 
 !
 ! Overrides tmax and dtmax
@@ -714,8 +714,8 @@ subroutine override_tmax_dtmax(tmax_in, dtmax_in)
 
  tmax = tmax_in/utime
  dtmax = dtmax_in/utime
- !call evol_init()
-end subroutine
+ call evol_init()
+end subroutine override_tmax_dtmax
 
 !
 ! Set dt
@@ -727,7 +727,7 @@ subroutine set_dt(dt_in)
  double precision, intent(in) :: dt_in
 
  dt = dt_in/utime
-end subroutine
+end subroutine set_dt
 
 !
 ! Finalize a simulation
@@ -737,7 +737,7 @@ subroutine finalize()
  implicit none
 
  call endrun()
-end subroutine
+end subroutine finalize
 
 !
 ! Initialize a timestep
@@ -746,7 +746,7 @@ subroutine init_step_wrapper()
  use evolvesplit, only:init_step
  implicit none
  call init_step()
-end subroutine
+end subroutine init_step_wrapper
 
 !
 ! Finalize a timestep
@@ -762,21 +762,7 @@ subroutine finalize_step_wrapper(len_infile, infile, len_logfile, logfile, &
  character(len=len_dumpfile), intent(inout) :: dumpfile
 
  call finalize_step(infile, logfile, evfile, dumpfile)
-end subroutine
-
-!
-! Calculate new timestep
-!
-subroutine calculate_timestep()
- use timestep, only:time,tmax,dtmax,dt,dtforce,dtcourant,dterr
- implicit none
- real :: dtexact
- dtexact = tmax - time + epsilon(dtmax)
- if (dtexact <= epsilon(dtmax)) then
-     dtexact = dtmax + epsilon(dtmax)
- endif
- dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtexact)
-end subroutine
+end subroutine finalize_step_wrapper
 
 !
 ! Get stepping and timing information
@@ -793,7 +779,7 @@ subroutine get_time_info(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
  nsteps_out = nsteps
  nmax_out = nmax
  dt_out = dble(dt*utime)
-end subroutine
+end subroutine get_time
 
 !
 ! Advance the simulation in time
@@ -814,7 +800,7 @@ subroutine step_wrapper()
 #endif
 
  call step(npart,nactive,time,dt,dtextforce,dtnew)
-end subroutine
+end subroutine step_wrapper
 
 !
 ! Call inject particles routine
@@ -828,7 +814,7 @@ subroutine inject_particles_wrapper()
 
  call inject_particles(time,dtlast)
 #endif
-end subroutine
+end subroutine inject_particles_wrapper
 
 !
 ! Read a dump file
@@ -854,7 +840,7 @@ subroutine read_dump_wrapper(len_dumpfile, dumpfile, headeronly, time_dp, hfact_
  time_dp = dble(time)
  hfact_dp = dble(hfact)
  massofgas_dp = dble(massoftype(igas)*umass)
-end subroutine
+end subroutine read_dump_wrapper
 
 !
 ! Get the mass of gas particles
@@ -866,18 +852,18 @@ subroutine get_massofgas(massofgas)
  double precision, intent(out) :: massofgas
 
  massofgas = dble(massoftype(igas)*umass)
-end subroutine
+end subroutine get_massofgas
 
 !
 ! Get hfact
 !
-!subroutine get_hfact(hfact_out)
-! use part, only:hfact
-! implicit none
-! double precision, intent(out) :: hfact_out
-!
-! hfact_out = dble(hfact)
-!end subroutine
+subroutine get_hfact(hfact_out)
+ use part, only:hfact
+ implicit none
+ double precision, intent(out) :: hfact_out
+
+ hfact_out = dble(hfact)
+end subroutine get_hfact
 
 !
 ! Get npart
@@ -900,7 +886,24 @@ subroutine get_npart(npart_out, nodisabled)
  else
     npart_out = npart
  endif
-end subroutine
+end subroutine get_npart
+
+!
+! Get specific xyzh
+!
+subroutine get_specific_xyzh(n, part_xyzh)
+ use part, only:npart,xyzh
+ use units, only:udist
+ implicit none
+ double precision, dimension(4), intent(out) :: part_xyzh
+ integer :: i, n
+
+ do i=1,4
+    part_xyzh(i) = dble(xyzh(i,n)*udist)
+ enddo
+
+end subroutine get_specific_xyzh
+
 
 !
 ! Get xyzh
@@ -942,8 +945,22 @@ subroutine get_part_xyzh(npart_in, part_xyzh, nodisabled, ierr)
        ierr = 1
     endif
  endif
-end subroutine
+end subroutine get_part_xyzh
 
+!
+! Get specific vxyz
+!
+subroutine get_specific_vxyz(n, part_vxyz)
+ use part, only:npart,vxyzu
+ use units, only:udist,utime
+ implicit none
+ double precision, dimension(4), intent(out) :: part_vxyz
+ integer :: n,i
+
+ do i=1,3
+    part_vxyz(i) = dble(vxyzu(i,n)*udist/utime)
+ enddo
+end subroutine get_specific_vxyz
 
 !
 ! Get vxyz
@@ -979,7 +996,7 @@ subroutine get_part_vxyz(npart_in, part_vxyz, nodisabled, ierr)
        ierr = 1
     endif
  endif
-end subroutine
+end subroutine get_part_vxyz
 
 !
 ! Get magnetic field, if possible
@@ -1018,7 +1035,7 @@ subroutine get_part_bxyz(npart_in, part_bxyz, nodisabled, ierr)
  else
     ierr = 2
  endif
-end subroutine
+end subroutine get_part_bxyz
 
 !
 ! Get u, if possible
@@ -1056,7 +1073,7 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
  else
     ierr = 2
  endif
-end subroutine
+end subroutine get_part_u
 
 !
 ! Get temperature, if stored
@@ -1093,7 +1110,7 @@ subroutine get_part_temp(npart_in, part_temp, nodisabled, ierr)
  else
     ierr = 2
  endif
-end subroutine
+end subroutine get_part_temp
 
 !
 ! Get nptmass
@@ -1104,7 +1121,7 @@ subroutine get_nptmass(nptmass_out)
  integer, intent(out) :: nptmass_out
 
  nptmass_out = nptmass
-end subroutine
+end subroutine get_nptmass
 
 !
 ! Get ptmass properties: location, accretion radius, mass
@@ -1126,7 +1143,7 @@ subroutine get_ptmass_xyzmh(nptmass_in, ptmass_xyzmh_out, ierr)
  else
     ierr = 1
  endif
-end subroutine
+end subroutine get_ptmass_xyzmh
 
 !
 ! Get ptmass velocities
@@ -1144,7 +1161,7 @@ subroutine get_ptmass_vxyz(nptmass_in, ptmass_vxyz_out, ierr)
  else
     ierr = 1
  endif
-end subroutine
+end subroutine get_ptmass_vxyz
 
 !
 ! Get ptmass spin
@@ -1168,7 +1185,7 @@ subroutine get_ptmass_spinxyz(nptmass_in, ptmass_spinxyz, ierr)
  else
     ierr = 1
  endif
-end subroutine
+end subroutine get_ptmass_spinxyz
 
 !
 ! Set the mass of particles
@@ -1186,7 +1203,7 @@ subroutine set_part_mass(newmass, ierr)
  else
     ierr = 1 ! Can only set mass of particles if there is no particle in the simulation
  endif
-end subroutine
+end subroutine set_part_mass
 
 !
 ! Get the units of the simulation
@@ -1201,7 +1218,7 @@ subroutine get_units(udist_out, umass_out, utime_out, udens_out, umagfd_out)
  utime_out = utime
  udens_out = unit_density
  umagfd_out = unit_Bfield
-end subroutine
+end subroutine get_units
 
 !
 ! Disable particles that lie outside a box
@@ -1220,7 +1237,7 @@ subroutine delete_particles_outside_box_wrapper(xmin_in, xmax_in, ymin_in, ymax_
  zmin = zmin_in/udist
  zmax = zmax_in/udist
  call delete_particles_outside_box(xmin, xmax, ymin, ymax, zmin, zmax)
-end subroutine
+end subroutine delete_particles_outside_box_wrapper
 
 !
 ! Disable particles that lie outside a sphere
@@ -1232,7 +1249,7 @@ subroutine delete_particles_outside_sphere_wrapper(center, radius)
  double precision, intent(in) :: center(3), radius
 
  call delete_particles_outside_sphere(center/udist, radius/udist)
-end subroutine
+end subroutine delete_particles_outside_sphere_wrapper
 
 !!
 !! Below this are AMUSE helper subroutines

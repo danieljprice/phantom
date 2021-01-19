@@ -1,58 +1,52 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setdisc
-!
-!  DESCRIPTION:
-!  This module contains utility routines for accretion disc setups
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Mentiplay
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    G           -- in code units
-!    M_disc      -- disc mass
-!    M_star      -- mass of central star
-!    Qmin        -- minimum Toomre Q parameter
-!    R_c         -- characteristic radius of the exponential taper
-!    R_in        -- inner disc boundary
-!    R_out       -- outer disc boundary
-!    R_ref       -- reference radius
-!    R_warp      -- position of warp
-!    T_in        -- temperature (K) at R=R_in
-!    T_out       -- temperature (K) at R=R_out
-!    T_ref       -- temperature (K) at R=R_ref
-!    alphaSS_max -- maximum Shakura-Sunyaev alpha viscosity in disc
-!    alphaSS_min -- minimum Shakura-Sunyaev alpha viscosity in disc
-!    c           -- in code units
-!    cs0         -- sound speed at R=1
-!    n           -- number of particles in the disc
-!    p_index     -- power law index of surface density profile
-!    psi_max     -- maximum warp amplitude
-!    q_index     -- power law index of sound speed profile
-!    sig_in      -- surface density (g/cm^2) at R=R_in
-!    sig_max     -- maximum surface density (g/cm^2)
-!    sig_out     -- surface density (g/cm^2) at R=R_out
-!    sig_ref     -- surface density (g/cm^2) at R=R_ref
-!    udist       -- distance units (cgs)
-!    umass       -- mass units (cgs)
-!    utime       -- time units (cgs)
-!
-!  DEPENDENCIES: centreofmass, dim, domain, eos, externalforces,
-!    infile_utils, io, mpiutils, options, part, physcon, random, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
 module setdisc
+!
+! This module contains utility routines for accretion disc setups
+!
+! :References: None
+!
+! :Owner: Daniel Mentiplay
+!
+! :Runtime parameters:
+!   - G           : *in code units*
+!   - M_disc      : *disc mass*
+!   - M_star      : *mass of central star*
+!   - Qmin        : *minimum Toomre Q parameter*
+!   - R_c         : *characteristic radius of the exponential taper*
+!   - R_in        : *inner disc boundary*
+!   - R_out       : *outer disc boundary*
+!   - R_ref       : *reference radius*
+!   - R_warp      : *position of warp*
+!   - T_in        : *temperature (K) at R=R_in*
+!   - T_out       : *temperature (K) at R=R_out*
+!   - T_ref       : *temperature (K) at R=R_ref*
+!   - alphaSS_max : *maximum Shakura-Sunyaev alpha viscosity in disc*
+!   - alphaSS_min : *minimum Shakura-Sunyaev alpha viscosity in disc*
+!   - c           : *in code units*
+!   - cs0         : *sound speed at R=1*
+!   - n           : *number of particles in the disc*
+!   - p_index     : *power law index of surface density profile*
+!   - psi_max     : *maximum warp amplitude*
+!   - q_index     : *power law index of sound speed profile*
+!   - sig_in      : *surface density (g/cm^2) at R=R_in*
+!   - sig_max     : *maximum surface density (g/cm^2)*
+!   - sig_out     : *surface density (g/cm^2) at R=R_out*
+!   - sig_ref     : *surface density (g/cm^2) at R=R_ref*
+!   - udist       : *distance units (cgs)*
+!   - umass       : *mass units (cgs)*
+!   - utime       : *time units (cgs)*
+!
+! :Dependencies: centreofmass, dim, domain, eos, externalforces,
+!   infile_utils, io, mpiutils, options, part, physcon, random, units,
+!   vectorutils
+!
  use dim,      only:maxvxyzu
- use domain,   only:i_belong
+ use domain,   only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
@@ -78,7 +72,6 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
                     bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
- use dim,  only:maxalpha
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
@@ -212,6 +205,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
        if (.not.(present(rmindust) .and. present(rmaxdust) .and. present(p_indexdust) &
            .and. present(q_indexdust) .and. present(HoverRdust) .and. present(disc_massdust))) then
           call fatal('set_disc','setup for dusty disc in the mixture is not specified')
+          H_Rdust = 0. ! to prevent compiler warning
        else
           if (rmaxdust < rmindust) then
              if (id==master) call error('set_disc','dust outer radius < dust inner radius')
@@ -333,7 +327,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(nparttot)) then
     npart = 0
     do i=1,npart_set
-       if (i_belong(i)) npart = npart + 1
+       if (i_belong_i4(i)) npart = npart + 1
     enddo
  endif
  !
@@ -349,9 +343,14 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--set particle velocities
  !
+ if (present(inclination)) then
+    incl = inclination
+ else
+    incl = 0.
+ endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl)
  !
  !--inclines and warps
  !
@@ -382,30 +381,32 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     call set_incline_or_warp(xyzh,vxyzu,npart_tot,npart_start_count,posangl,incl,&
                              R_warp,H_warp,psimax)
  endif
- if (maxalpha==0) then
-    !
-    !--if disc viscosity is used, set the artificial viscosity parameter
-    !  in the input file so as to give the desired alpha_SS
-    !
-    if (present(alpha)) then
-       if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
-       alpha = alpha/(honH/10.0)
-       !--and the min and max alphaSS present
-       alphaSS_min = alpha*honHmin/10.
-       alphaSS_max = alpha*honHmax/10.
-       if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
-    else
-       alphaSS_min = honHmin/10.
-       alphaSS_max = honHmax/10.
-    endif
+
+#ifdef DISC_VISCOSITY
+ !
+ !--if disc viscosity is used, set the artificial viscosity parameter
+ !  in the input file so as to give the desired alpha_SS
+ !
+ if (present(alpha)) then
+    if (do_verbose) print "(a,g11.4)", ' alphaSS requested = ', alpha
+    alpha = alpha/(honH/10.0)
+    !--and the min and max alphaSS present
+    alphaSS_min = alpha*honHmin/10.
+    alphaSS_max = alpha*honHmax/10.
+    if (do_verbose) print "(a,g11.4,a)", ' Setting alpha_AV  = ',alpha,' to give alphaSS as requested'
  else
-    !
-    !--if disc viscosity is not used, simply return the range of alphaSS
-    !  implied in the disc by the chosen artificial viscosity parameter
-    !
-    alphaSS_min = honHmin*(31./525.)
-    alphaSS_max = honHmax*(31./525.)
+    alphaSS_min = honHmin/10.
+    alphaSS_max = honHmax/10.
  endif
+#else
+ !
+ !--if disc viscosity is not used, simply return the range of alphaSS
+ !  implied in the disc by the chosen artificial viscosity parameter
+ !  see Meru & Bate (2010)
+ !
+ alphaSS_min = honHmin*(31./525.)
+ alphaSS_max = honHmax*(31./525.)
+#endif
  !
  !--adjust positions and velocities so the centre of mass is at the origin
  !  also shift particles to new origin if this is not at (0,0,0)
@@ -413,7 +414,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(phimax)) then
     print "(a)",'Setting up disc sector - not adjusting centre of mass'
  else
-    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
+    ! call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
@@ -533,7 +534,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i=npart_start_count,npart_tot
+ do i=npart_start_count,npart_tot,2
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
@@ -593,12 +594,22 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !--set positions -- move to origin below
        xyzh(1,ipart) = R*cos(phi)
        xyzh(2,ipart) = R*sin(phi)
        xyzh(3,ipart) = zi
+       xyzh(4,ipart) = hpart
+       !--set particle type
+       call set_particle_type(ipart,itype)
+    endif
+    if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
+       ipart = ipart + 1
+       !--set positions -- move to origin below
+       xyzh(1,ipart) = -R*cos(phi)
+       xyzh(2,ipart) = -R*sin(phi)
+       xyzh(3,ipart) = -zi
        xyzh(4,ipart) = hpart
        !--set particle type
        call set_particle_type(ipart,itype)
@@ -623,23 +634,25 @@ end subroutine set_disc_positions
 !----------------------------------------------------------------
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
-                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu)
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
+ use dim,            only:gr
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),inclination
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
  integer :: i,itable,ipart,ierr
+ real :: rg,vkep
 
  ierr = 0
  ipart = npart_start_count - 1
  do i=npart_start_count,npart_tot
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        !
        !--set velocities to give centrifugal balance:
@@ -695,7 +708,14 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !--now solve quadratic equation for vphi
        !
        det = term_bh**2 + 4.*(term + term_pr)
-       vphi = 0.5*(term_bh + sqrt(det))
+       Rg   = G*star_m/clight**2
+       vkep = sqrt(G*star_m/R)
+       if (gr) then
+          ! Pure post-Newtonian velocity i.e. no pressure corrections
+          vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
+       else
+          vphi = 0.5*(term_bh + sqrt(det))
+       endif
        !
        !--radial velocities (zero in general)
        !
@@ -747,7 +767,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  totmass       = 0.
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
@@ -765,7 +785,7 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
 
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        xyzh(1:3,ipart)  = xyzh(1:3,ipart)  - xcentreofmass + x0
        vxyzu(1:3,ipart) = vxyzu(1:3,ipart) - vcentreofmass + v0
@@ -839,15 +859,16 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
                           R_c,p_index,q_index,star_m,disc_m,sigma_norm, &
                           inclination,honH,cs0,alphaSS_min,alphaSS_max, &
                           R_warp,psimax,L_tot_mag,itype)
- use eos,          only:get_temperature,init_eos,ieos
+ use eos,          only:gmw
  use infile_utils, only:write_inopt
- use part, only:igas
+ use part,         only:igas
+ use physcon,      only:kb_on_mh
+ use units,        only:unit_velocity
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
- integer :: ierr,i
+ integer :: i
  real    :: T0,T_ref,sig,dR,R
- real    :: vxyzutmp(maxvxyzu)
 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
@@ -888,15 +909,15 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  call write_inopt(disc_m/star_m,'M_disc/M_star','relative disc mass',iunit)
  if (itype == igas) call write_inopt(cs0,'cs0','sound speed at R=1',iunit)
 
- call init_eos(ieos,ierr)
  if (itype == igas) then
-    vxyzutmp = 0.
-    T0 = get_temperature(ieos,(/R_in,0.,0./),1.,vxyzutmp)
+    T0 = (cs_func(cs0,R_in,q_index)*unit_velocity)**2*gmw/kb_on_mh
     call write_inopt(T0,'T_in','temperature (K) at R=R_in',iunit)
-    T_ref = get_temperature(ieos,(/R_ref,0.,0./),1.,vxyzutmp)
+    T_ref = (cs_func(cs0,R_ref,q_index)*unit_velocity)**2*gmw/kb_on_mh
     call write_inopt(T_ref,'T_ref','temperature (K) at R=R_ref',iunit)
-    T0 = get_temperature(ieos,(/R_out,0.,0./),1.,vxyzutmp)
+    T0 = (cs_func(cs0,R_out,q_index)*unit_velocity)**2*gmw/kb_on_mh
     call write_inopt(T0,'T_out','temperature (K) at R=R_out',iunit)
+ else
+    T_ref = 0
  endif
 
  call write_inopt(inclination,'inc.deg','disc inclination in degrees',iunit)
@@ -1000,7 +1021,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  !--loop over particles putting properties into the correct bin
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong(i)) then
+    if (i_belong_i4(i)) then
        ipart = ipart + 1
        if (xyzh(4,ipart) > tiny(xyzh)) then ! IF ACTIVE
           ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))

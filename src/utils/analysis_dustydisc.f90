@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for dustydisc
-!
-!  REFERENCES: None
-!
-!  OWNER: Mark Hutchison
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, dust, infile_utils, io, leastsquares, options, part,
-!    physcon, solvelinearsystem, units
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for dustydisc
+!
+! :References: None
+!
+! :Owner: Mark Hutchison
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, dust, infile_utils, io, leastsquares, options, part,
+!   physcon, solvelinearsystem, units
+!
  use dim,  only:maxdusttypes
  use dust, only:grainsizecgs
  use part, only:ndusttypes
@@ -51,7 +45,7 @@ module analysis
           ivK        = 14, &
           ics        = 15, &
           ivrgas     = 16, &
-          ! initial index for arrays
+ ! initial index for arrays
           ivrdust    = 17, &
           iSt        = 18 +   (maxdusttypes-1), &
           itstop     = 19 + 2*(maxdusttypes-1), &
@@ -59,7 +53,7 @@ module analysis
           irhod      = 21 + 4*(maxdusttypes-1), &
           isigmadust = 22 + 5*(maxdusttypes-1), &
           iHdust_R   = 23 + 6*(maxdusttypes-1), &
-          ! ending index for arrays
+ ! ending index for arrays
           ivrdustend    = iSt-1,        &
           iStend        = itstop-1,     &
           itstopend     = ivrsigma-1,   &

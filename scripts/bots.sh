@@ -54,6 +54,20 @@ cd $codedir;
 if [[ $docommit == 1 ]]; then
    git pull;
 fi
+get_only_files_in_git()
+{
+   mylist='';
+   for file in $1; do
+       git ls-files --error-unmatch $file >& /dev/null; giterr=$?;
+       if [ $giterr == 0 ]; then
+          mylist+="$file ";
+       fi
+   done
+   # skip case where no f90 files present, bash returns literal '*.*90'
+   if [[ "$mylist" != '*.*90 ' ]]; then
+      echo $mylist
+   fi
+}
 allfiles='';
 bots_to_run='tabs gt shout header whitespace authors endif indent';
 #bots_to_run='shout';
@@ -72,8 +86,8 @@ for edittype in $bots_to_run; do
     for dir in $dirlist; do
         if [ -d $dir ]; then
            cd $dir;
-           #echo $srcdir;
-           for file in $listoffiles; do
+           myfiles=`get_only_files_in_git "$listoffiles"`
+           for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
@@ -153,7 +167,7 @@ for edittype in $bots_to_run; do
                      cat $file > $out;
                   fi;;
                'indent' )
-                  if type -p findent; then
+                  if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
                   fi;;
                esac

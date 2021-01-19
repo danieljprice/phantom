@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: physcon
-!
-!  DESCRIPTION:
-!  Physical and mathematical constants (as in sphNG)
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module physcon
+!
+! Physical and mathematical constants (as in sphNG)
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
 !
 !--Mathematical constants
@@ -39,7 +33,7 @@ module physcon
  real(kind=8), parameter :: gg = 6.672041d-8                    !Gravitational constant    dyn cm^2 g^-2
  !                          cm^3 s^-2 g^-1
 
- real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              ergs mole^-1 K^-1
+ real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              erg/K/g
  real(kind=8), parameter :: cgsmu0 = 4.*pi
  real(kind=8), parameter :: mass_electron_cgs = 9.10938291d-28  !Electron mass             g
  real(kind=8), parameter :: mass_proton_cgs = 1.67262158d-24    !Proton mass               g
@@ -72,6 +66,7 @@ module physcon
  real(kind=8), parameter :: earthr = 6.371315d8                 !Radius of the Earth       cm
  real(kind=8), parameter :: jupiterm = 1.89813d30               !Mass of Jupiter           g
  real(kind=8), parameter :: ceresm = 8.958d23                   !Mass of Ceres             g
+ real(kind=8), parameter :: gram = 1.d0
 !
 !--Distance scale
 !
@@ -79,8 +74,13 @@ module physcon
  real(kind=8), parameter :: ly = 9.4605d17                      !Light year                cm
  real(kind=8), parameter :: pc = 3.086d18                       !Parsec                    cm
  real(kind=8), parameter :: kpc = 3.086d21                      !Kiloparsec                cm
- real(kind=8), parameter :: mpc = 3.086d24                      !Megaparsec                cm
+ real(kind=8), parameter :: Mpc = 3.086d24                      !Megaparsec                cm
  real(kind=8), parameter :: km = 1.d5                           !Kilometer                 cm
+ real(kind=8), parameter :: cm = 1.d0                           !Centimetre                cm
+ real(kind=8), parameter :: mm = 0.1d0                          !Millimetre                cm
+ real(kind=8), parameter :: micron = 1.d-4                      !Micron                    cm
+ real(kind=8), parameter :: nm = 1.d-7                          !Nanometre                 cm
+ real(kind=8), parameter :: angstrom = 1.d-8                    !Angstrom                  cm
 !
 !--Time scale
 !

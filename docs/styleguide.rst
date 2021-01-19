@@ -27,12 +27,12 @@ specific command used to indent the code is:
    findent -r1 -m1 -c3 -Rr -C- -k- -j1 < file.f90
 
 Use modern Fortran
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Do not use SHOUT CASE. THERE IS NO NEED FOR SHOUTING.
 
 endif, enddo
-------------
+~~~~~~~~~~~~
 
 Use endif and enddo, not end if or end do
 
@@ -99,6 +99,33 @@ not
    real::x
    real ::x
    real:: x
+
+Do not use spaces in variable declaration lists:
+
+::
+
+   real :: xmin,xmax,ymin,ymax
+
+not
+
+::
+
+   real :: xmin, xmax, ymin, ymax
+
+No spaces after only statements and put a single space between comma and only:
+
+::
+
+   use part, only:xyzmh_ptmass,vxyz_ptmass
+
+not
+
+::
+
+   use part, only: xyzmh_ptmass, vxyz_ptmass
+   use part, only : xyzmh_ptmass, vxyz_ptmass
+   use part, only: xyzmh_ptmass,vxyz_ptmass
+   use part,only:xyzmh_ptmass,vxyz_ptmass
 
 Line continuation
 ~~~~~~~~~~~~~~~~~

@@ -9,9 +9,10 @@ Contents
 .. toctree::
    :maxdepth: 1
 
+   clusters
    ozstar
    monarch
    pawsey
-   raijin
+   nci
    DiAL
    g2

@@ -13,6 +13,8 @@ What Phantom should be
 -  Few options
 -  Fast
 -  Low-memory
+-  Modular
+-  No repeated code
 
 Developer guidelines
 ~~~~~~~~~~~~~~~~~~~~
@@ -25,6 +27,12 @@ Developer guidelines
 -  Add unit tests for important modules.
 -  Automate testing as much as possible.
 -  Please follow the :doc:`house style <styleguide>` in your coding
+-  Try to write subroutines and modules with minimal dependencies. Send
+   options as arguments rather than bringing phantom-specific
+   modules as dependencies.
+-  Write PURE subroutines and functions as much as possible.
+-  Write your code so it can be made into a library.
+-  Subroutines ideally should not be longer than a few hundred lines of code.
 
 Much of what I try to follow comes from Joel on Software:
 

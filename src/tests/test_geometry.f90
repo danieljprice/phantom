@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgeometry
-!
-!  DESCRIPTION:
-!   Unit tests of the geometry module
-!
-!  REFERENCES:
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: geometry, io, testutils
-!+
-!--------------------------------------------------------------------------
 module testgeometry
+!
+! Unit tests of the geometry module
+!
+! :References:
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: geometry, io, testutils
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
@@ -30,10 +24,9 @@ module testgeometry
  private
 
 contains
-
 !--------------------------------------------
 !+
-!  Various tests of the cooling module
+!  Unit tests of the geometry module
 !+
 !--------------------------------------------
 subroutine test_geometry(ntests,npass)
