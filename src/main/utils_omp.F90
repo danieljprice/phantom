@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -99,6 +99,8 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
  integer, intent(out) :: i1,i2,iskip
  real, intent(in) :: work(n2)
  integer, intent(in) :: mask(n2)
+
+#ifdef _OPENMP
  integer :: omp_get_num_threads, omp_get_thread_num, num_threads,id
  real :: chunk,my_chunk
  integer :: my_thread,i
@@ -109,7 +111,8 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
 
  chunk = sum(work,mask=(mask>0))/num_threads
  if (chunk < epsilon(0.)) then
-    ! default to interleaved static scheduling
+    ! default to static scheduling
+    !call limits_omp(n1,n2,i1,i2)
     i1 = 1 + id
     i2 = n2
     iskip = num_threads
@@ -133,6 +136,11 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
     endif
  enddo
  if (id==num_threads-1) i2 = n2
+#else
+ i1 = max(1,n1)
+ i2 = n2
+ iskip = 1
+#endif
  !print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
 
 end subroutine limits_omp_work
