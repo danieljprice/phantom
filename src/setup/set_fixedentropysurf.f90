@@ -21,6 +21,7 @@ module setfixedentropysurf
 !
  implicit none
  integer :: ientropy
+ logical :: ifixedSstar
 
 contains
 
@@ -47,11 +48,15 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  ! msurf: Mass coordinate beyond which we perform the profile replacement
 
  ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
+ isort_decreasing = .false.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
+ iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
 
- msurf = 9.8 * solarm !11.35 * solarm ! Mass coordinate beyond which we flatten the entropy
+ if (ifixedSstar) then
+    msurf = 3.84048 * solarm
+ else
+    msurf = 9.8 * solarm ! Mass coordinate beyond which we flatten the entropy
+ endif
  call interpolator(m,msurf,surfidx) ! Find index closest to msurf
  Nmax = size(r) - surfidx
 
@@ -80,6 +85,8 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
             + ( dm(0)**2 - dm(-1)**2 ) * S(-1) &
             - dm(0)**2 * S(-2) ) &
             / ( dm(-1) * dm(0) * (dm(-1) + dm(0)) )
+
+ if (ifixedSstar) dS_by_dm = 0.
 
  ! Fill up entropy grid using the entropy gradient   
 !  deallocate(S)     
