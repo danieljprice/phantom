@@ -373,7 +373,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     return
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
-
  open(unit=40,file=fullfilepath,status='old')
  call get_ncolumns(40,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
@@ -387,6 +386,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     do i=1,nheaderlines-1
        read(40,'()')
     enddo
+ endif
+ if (lines <= 0) then
+    ierr = 1
+    return
  endif
  read(40,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
@@ -407,6 +410,8 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  do i = 1,lines
     read(40,*) dat(lines-i+1,1:rows)
  enddo
+
+ close(40)
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
          temp(lines),Xfrac(lines),Yfrac(lines))
