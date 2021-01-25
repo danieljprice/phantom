@@ -1,13 +1,13 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module setfixedentropycore
 !
 ! This module softens the core of a MESA stellar profile with a constant
-!   entropy profile, given a softening length and core mass, in preparation
+!   entropy profile, given a core radius and mass, in preparation
 !   for adding a sink particle core.
 !
 ! :References:
@@ -28,29 +28,28 @@ contains
 !  Main subroutine that calculates the constant entropy softened profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
+subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
  use eos,         only:calc_temp_and_ene,ieos
  use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
  use table_utils, only:interpolator,flip_array
  use io,          only:fatal
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:),mcore
  real, allocatable          :: r_alloc(:),rho_alloc(:),pres_alloc(:)
- real, intent(in)           :: hsoft,hphi
+ real, intent(in)           :: rcore
  integer, intent(out)       :: ierr
- real                       :: mc,msoft,h,hphi_cm,eneguess
+ real                       :: mc,msoft,rc,eneguess
  logical                    :: isort_decreasing,iexclude_core_mass
- integer                    :: i,hidx,iSerr
+ integer                    :: i,icore
 
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
  ! Exclude core mass in output mass coordinate?
  iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
 
- h       = hsoft * solarr      ! Convert to cm
- hphi_cm = hphi  * solarr      ! Convert to cm
- mc      = mcore * solarm      ! Convert to g
- call interpolator(r,h,hidx)   ! Find index in r closest to h
- msoft = m(hidx) - mc
+ rc = rcore * solarr     ! Convert to cm
+ mc = mcore * solarm     ! Convert to g
+ call interpolator(r,rc,icore)   ! Find index in r closest to rc
+ msoft = m(icore) - mc
 
  select case(ieos)
  case(2)
@@ -64,25 +63,22 @@ subroutine set_fixedS_softened_core(mcore,hsoft,hphi,rho,r,pres,m,ene,temp,ierr)
  end select
 
  ! Make allocatable copies, see instructions of calc_rho_and_pres
- allocate(r_alloc(0:hidx+1))
+ allocate(r_alloc(0:icore+1))
  r_alloc(0) = 0.
- r_alloc(1:hidx+1) = r(1:hidx+1)
- allocate(rho_alloc(0:hidx))
- rho_alloc(hidx) = rho(hidx)
- allocate(pres_alloc(0:hidx+1))
- pres_alloc(hidx:hidx+1) = pres(hidx:hidx+1)
- call calc_rho_and_pres(r_alloc,mc,m(hidx),rho_alloc,pres_alloc,iSerr)
- if (iSerr == 1) then
-    call fatal('setfixedentropycore','Choice of fixed entropy exceeds outer entropy. Try choosing a smaller core mass.')
- endif
+ r_alloc(1:icore+1) = r(1:icore+1)
+ allocate(rho_alloc(0:icore))
+ rho_alloc(icore) = rho(icore)
+ allocate(pres_alloc(0:icore+1))
+ pres_alloc(icore:icore+1) = pres(icore:icore+1)
+ call calc_rho_and_pres(r_alloc,mc,m(icore),rho_alloc,pres_alloc)
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
- write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(hidx)/solarm-mcore,' Msun'
- rho(1:hidx)  = rho_alloc(1:hidx)
- pres(1:hidx) = pres_alloc(1:hidx)
+ write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
+ rho(1:icore)  = rho_alloc(1:icore)
+ pres(1:icore) = pres_alloc(1:icore)
 
- call calc_mass_from_rho(r(1:hidx),rho(1:hidx),m(1:hidx))
- m(1:hidx) = m(1:hidx) + mc
+ call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
+ m(1:icore) = m(1:icore) + mc
 
  call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
  if (ierr /= 0) call fatal('setfixedentropycore','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
@@ -115,38 +111,32 @@ end subroutine set_fixedS_softened_core
 !  Returns softened core profile with fixed entropy
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
+subroutine calc_rho_and_pres(r,mcore,mh,rho,pres)
  use eos, only:entropy
  real, allocatable, dimension(:), intent(in)    :: r
  real, intent(in)                               :: mh
  real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres
- integer, intent(out)                           :: ierr
  integer                                        :: Nmax
- real                                           :: Sc,mass,mold,msoft,fac,Sedge
+ real                                           :: Sc,mass,mold,msoft,fac
 
-! Instructions
+! INSTRUCTIONS
 
-! input variables should be given in the following format
+! Input variables should be given in the following format:
 
-! r(0:Nmax+1): Array of radial grid to be softened, satisfying r(0)=0 and r(Nmax)=hsoft
+! r(0:Nmax+1): Array of radial grid to be softened, satisfying r(0)=0 and r(Nmax)=rcore
 ! mcore:       Core particle mass, need to provide initial guess
-! mh:          Mass coordinate at hsoft, m(r=h)
-! rho(0:Nmax): Give rho(Nmax)=(rho at hsoft) as input. Outputs density profile.
+! mh:          Mass coordinate at rcore, m(r=rcore)
+! rho(0:Nmax): Give rho(Nmax)=(rho at rcore) as input. Outputs density profile.
 ! p(0:Nmax+1): Give p(Nmax:Nmax+1)=(p at r(Nmax:Nmax+1)) as input. Outputs pressure profile.
 
-! ierr: Is set to 1 when the fixed entropy value exceeds the outer entropy.
-!       Should choose a smaller core mass if this happens.
-
- ierr  = 0
  msoft = mh - mcore
  Nmax  = size(rho)-1 ! Index corresponding to r = h
- Sedge = entropy(rho(Nmax),pres(Nmax),ientropy)
+ Sc = entropy(rho(Nmax),pres(Nmax),ientropy)
 
  ! Start shooting method
  fac  = 0.05
  mass = msoft
- Sc   = Sedge
 
  do
     mold = mass
@@ -167,7 +157,6 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,ierr)
     endif
  enddo
 
- if (Sedge < Sc) ierr = 1
  return
 
 end subroutine calc_rho_and_pres
@@ -179,13 +168,13 @@ end subroutine calc_rho_and_pres
 !+
 !-----------------------------------------------------------------------
 subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
- use physcon, only: gg,pi
+ use physcon, only:gg,pi
  real, intent(in)                               :: Sc,mcore,msoft
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  real, intent(out)                              :: mass
  integer                                        :: i,Nmax
- real                                           :: hsoft
+ real                                           :: rcore,rhoguess
  real, allocatable, dimension(:)                :: dr,dvol
 
  Nmax = size(rho)-1
@@ -196,22 +185,28 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
     dvol(i) = 4.*pi/3. * (r(i)**3 - r(i-1)**3)
  enddo
 
- hsoft = r(Nmax)
+ rcore = r(Nmax)
  mass  = msoft
 
  do i = Nmax, 1, -1
     pres(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
-                * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),hsoft)) &
+                * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),rcore)) &
                 + dr(i)**2 * pres(i+1) &
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
+    if (i == Nmax) then
+       rhoguess = 1.e8
+    else
+       rhoguess = rho(i)
+    endif
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
-    if (mass < 0.) return ! m(r) < 0 encountered, exit and increase Sc
+    if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
  enddo
 
  return
 
 end subroutine one_shot
+
 
 !-----------------------------------------------------------------------
 !+
@@ -248,16 +243,16 @@ end subroutine get_rho_from_p_s
 !  Acceleration from softened potential of stellar core
 !+
 !-----------------------------------------------------------------------
-function gcore(r,hsoft)
+function gcore(r,rcore)
  use kernel, only:kernel_softening
- real, intent(in) :: r,hsoft
+ real, intent(in) :: r,rcore
  real             :: gcore,dum
- real             :: hphi,q
+ real             :: hsoft,q
 
- hphi = 0.5 * hsoft
- q = r / hphi
+ hsoft = 0.5 * rcore
+ q = r / hsoft
  call kernel_softening(q**2,q,dum,gcore)
- gcore = gcore / hphi**2 ! Note: gcore is not multiplied by G or mcore yet.
+ gcore = gcore / hsoft**2 ! Note: gcore is not multiplied by G or mcore yet.
 
 end function gcore
 

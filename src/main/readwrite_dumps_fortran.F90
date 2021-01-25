@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -218,7 +218,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,iorig
  use options,    only:use_dustfrac
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -254,7 +254,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: ipass,k,l
- integer            :: ierr,ierrs(28)
+ integer            :: ierr,ierrs(29)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
  logical            :: sphNGdump,write_itype,use_gas
@@ -397,6 +397,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        temparr(1:npart) = dtmax/2**ibin(1:npart)
        call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
 #endif
+       call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,ierrs(29))
+
 #ifdef PRDRAG
        if (k==i_real) then
           if (.not.allocated(temparr)) allocate(temparr(npart))
@@ -1097,7 +1099,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,&
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick,itemp
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick,itemp,iorig
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1126,7 +1128,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_nucleation(n_nucleation)
  logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
-                          got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4)
+                          got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
 
@@ -1158,6 +1160,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_raden       = .false.
  got_kappa       = .false.
  got_pxyzu       = .false.
+ got_iorig       = .false.
 
  ndustfraci = 0
  over_arraylengths: do iarr=1,narraylengths
@@ -1225,6 +1228,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              !
              call read_array(dt_in,'dt',dt_read_in_fortran,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
+             ! read particle ID's
+             call read_array(iorig,'iorig',got_iorig,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+
              if (do_radiation) then
                 call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ikappa,:),radprop_label(ikappa),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1252,8 +1258,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,iphase,&
-                   xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iprint,ierr)
+                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
+                   xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
 
  return
 100 continue

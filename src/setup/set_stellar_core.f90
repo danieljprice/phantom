@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -23,12 +23,11 @@ contains
 !  Add a sink particle as a stellar core
 !+
 !-----------------------------------------------------------------------
-subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,mcore,hsoft,ihsoft)
+subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
  integer, intent(out) :: nptmass
- integer, intent(in)  :: ihsoft
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(in)     :: mcore,hsoft
- integer              :: n
+ integer              :: n,ihsoft
  nptmass                = 1
  n                      = nptmass
  xyzmh_ptmass(:,n)      = 0. ! zero all quantities by default

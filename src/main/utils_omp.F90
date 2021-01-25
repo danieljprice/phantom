@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -136,12 +136,12 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
     endif
  enddo
  if (id==num_threads-1) i2 = n2
- print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
 #else
  i1 = max(1,n1)
  i2 = n2
  iskip = 1
 #endif
+ !print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
 
 end subroutine limits_omp_work
 
