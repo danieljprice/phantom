@@ -3030,8 +3030,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
 #else
-    ! global timestep needs to be minimum over all particles
-    if (.not.iamboundary(iamtypei)) then
+    ! global timestep needs to be minimum over all non-boundary particles
+    if (.not.iamboundary(int(cell%iphase(ip)))) then
        dtcourant = min(dtcourant,dtc)
        dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
        dtvisc    = min(dtvisc,dtvisci)
