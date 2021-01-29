@@ -215,7 +215,6 @@ function get_nlines(string) result(n)
     if (ierr /= 0) n = n - 1
  enddo
  close(iunit)
-
 end function get_nlines
 
 !---------------------------------------------------------------------------
@@ -437,7 +436,6 @@ pure subroutine string_delete(string,skey)
  character(len=*), intent(inout) :: string
  character(len=*), intent(in)    :: skey
  integer :: ipos,lensub
-
  ipos = index(string,skey)
  lensub = len(skey)
  do while(ipos > 0)

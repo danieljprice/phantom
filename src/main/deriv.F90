@@ -172,11 +172,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
- call get_boundary_particle_forces(npart,iphase,fxyzu)
 #ifdef DUSTGROWTH
  ! compute growth rate of dust particles
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
+call get_boundary_particle_forces(npart,iphase,fxyzu,dBevol,drad,ddustprop,ddustevol)
 
 #ifdef SINK_RADIATION
  !compute dust temperature

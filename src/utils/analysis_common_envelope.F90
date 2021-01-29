@@ -1774,9 +1774,9 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
  integer                         :: i,j,k
 
  ! Get order of particles by distance from CoM of point masses
- com_xyz(1) = sum(xyzmh_ptmass(1,:))/nptmass
- com_xyz(2) = sum(xyzmh_ptmass(2,:))/nptmass
- com_xyz(3) = sum(xyzmh_ptmass(3,:))/nptmass
+ com_xyz(1) = sum(xyzmh_ptmass(1,:)*xyzmh_ptmass(4,:))/nptmass
+ com_xyz(2) = sum(xyzmh_ptmass(2,:)*xyzmh_ptmass(4,:))/nptmass
+ com_xyz(3) = sum(xyzmh_ptmass(3,:)*xyzmh_ptmass(4,:))/nptmass
  call set_r2func_origin(com_xyz(1),com_xyz(2),com_xyz(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  ! Displacement of donor core from the CoM of point masses
