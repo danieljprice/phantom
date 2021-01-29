@@ -37,6 +37,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,ene,temp,X,Y,r
  use io,          only:fatal
  use setcubiccore,only:set_cubic_core,find_mcore_given_rcore,find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore,only:set_fixedS_softened_core
+ use setfixedentropysurf,only:set_fixedS_surface
  integer, intent(in)        :: isoftcore,isofteningopt
  real, intent(inout)        :: r(:),den(:),m(:),pres(:),ene(:),temp(:),X(:),Y(:),rcore,mcore
  integer                    :: ierr
@@ -70,6 +71,10 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,ene,temp,X,Y,r
     call set_cubic_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
     if (ierr /= 0) call fatal('setup','could not set softened core')
  case(2)
+    call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
+    if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
+ case(3)
+    call set_fixedS_surface(mcore,m,den,r,pres,ene,temp,ierr)
     call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  end select
