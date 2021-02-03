@@ -130,7 +130,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only:eos_vars,itemp,igasP,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
  use relaxstar,       only:relax_star
  use domain,          only:i_belong
  integer,           intent(in)    :: id
@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin,presi
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
- real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi
+ real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -824,6 +824,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
        if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(rcore,'rcore',db,errcount=nerr)
        if ((isofteningopt==2) .or. (isofteningopt==3)) call read_inopt(mcore,'mcore',db,errcount=nerr)
     case(2) ! fixed entropy softened core
+       isofteningopt = 1
        call read_inopt(rcore,'rcore',db,errcount=nerr)
        call read_inopt(mcore,'mcore',db,errcount=nerr)
     end select
