@@ -206,10 +206,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! unfake some things
  !
  call restore_original_options()
- !
- ! get density and force with original options
- !
- call get_derivs_global
 
 end subroutine relax_star
 
