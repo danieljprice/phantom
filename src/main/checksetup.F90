@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -440,9 +440,9 @@ subroutine check_setup(nerror,nwarn,restart)
  if (id==master) &
     write(*,"(a,2(es10.3,', '),es10.3,a)") ' Centre of mass is at (x,y,z) = (',xcom,')'
 
- if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling >= 1 .and. iexternalforce/=iext_corotate) then
+ if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
     if (dot_product(xcom,xcom) >  1.e-2) then
-       print*,'Error in setup: Gammie (2001) cooling (icooling=1) assumes Omega = 1./r^1.5'
+       print*,'Error in setup: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
        print*,'                but the centre of mass is not at the origin!'
        nerror = nerror + 1
     endif

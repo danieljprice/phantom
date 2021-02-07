@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,13 +21,13 @@ module rho_profile
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, physcon, prompting, units
+! :Dependencies: datafiles, eos, fileutils, physcon, prompting, units
 !
  use physcon, only: pi,fourpi
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
-            rho_evrard,read_mesa_file,read_mesa,read_kepler_file, &
+            rho_evrard,read_mesa,read_kepler_file, &
             rho_bonnorebert,prompt_BEparameters
  public  :: write_softened_profile,calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
@@ -337,25 +337,31 @@ end subroutine rho_evrard
 
 !-----------------------------------------------------------------------
 !+
-!  Option 5:
-!  Read in data output by the MESA stellar evolution code
+!  Read quantities from MESA profile or from profile in the format of
+!  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
-subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut,rcut)
- use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
+ use physcon,   only:solarm
+ use eos,       only:X_in,Z_in
+ use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
  use datafiles, only:find_phantom_datafile
- integer,          intent(in)  :: ng_max
- integer,          intent(out) :: ierr,n
- real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:),totmass
- real,             intent(out), optional :: rcut
- real,             intent(in), optional :: mcut
- character(len=*), intent(in)  :: filepath
- character(len=120)            :: fullfilepath
- integer                       :: i,iread,aloc,iunit
- integer, parameter            :: maxstardatacols = 6
- real                          :: stardata(ng_max,maxstardatacols)
- logical                       :: iexist,n_too_big
+ use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
+ integer                                    :: lines,rows,i,ncols,nheaderlines
+ character(len=*), intent(in)               :: filepath
+ logical, intent(in), optional              :: cgsunits
+ integer, intent(out)                       :: ierr
+ character(len=10000)                       :: dumc
+ character(len=120)                         :: fullfilepath
+ character(len=24),allocatable              :: header(:),dum(:)
+ logical                                    :: iexist,usecgs
+ real,allocatable,dimension(:,:)            :: dat
+ real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
+ real, intent(out)                          :: Mstar
+
+ rows = 0
+ usecgs = .false.
+ if (present(cgsunits)) usecgs = cgsunits
  !
  !--Get path name
  !
@@ -366,94 +372,30 @@ subroutine read_mesa_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
     ierr = 1
     return
  endif
- !
- !--Read data from file
- !
- n = 0
- stardata(:,:) = 0.
- n_too_big = .false.
- do iread=1,2
-    !--open
-    open(newunit=iunit, file=trim(fullfilepath), status='old',iostat=ierr)
-    if (.not. n_too_big) then
-       !--skip two header lines
-       read(iunit,*)
-       read(iunit,*)
-       if (iread==1) then
-          !--first reading
-          n = 0
-          do while (ierr==0 .and. n < size(stardata(:,1)))
-             n = n + 1
-             read(iunit,*,iostat=ierr)
-             if (ierr /= 0) n = n - 1
-          enddo
-          if (n >= size(stardata(:,1))) n_too_big = .true.
-       else
-          !--Second reading
-          do i=1,n
-             read(iunit,*,iostat=ierr) stardata(n-i+1,:)
-          enddo
-       endif
-    endif
-    close(iunit)
- enddo
- if (n < 1) then
-    ierr = 2
+ lines = get_nlines(fullfilepath) ! total number of lines in file
+
+ open(unit=40,file=fullfilepath,status='old')
+ call get_ncolumns(40,ncols,nheaderlines)
+ if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
+    read(40,'()')
+    read(40,'()')
+    read(40,*) lines,lines
+    read(40,'()')
+    read(40,'()')
+ else
+    lines = lines - nheaderlines
+    do i=1,nheaderlines-1
+       read(40,'()')
+    enddo
+ endif
+ if (lines <= 0) then ! file not found
+    ierr = 1
     return
  endif
- if (n_too_big) then
-    ierr = 3
-    return
- endif
- !
- !--convert relevant data from CGS to code units
- !
- !radius
- stardata(1:n,4)  = stardata(1:n,4)/udist
- rtab(1:n)        = stardata(1:n,4)
- !density
- stardata(1:n,5)  = stardata(1:n,5)/unit_density
- rhotab(1:n)      = stardata(1:n,5)
- !mass
- stardata(1:n,1)  = stardata(1:n,1)/umass
- totmass          = stardata(n,1)
- !pressure
- stardata(1:n,2)  = stardata(1:n,2)/unit_pressure
- ptab(1:n)        = stardata(1:n,2)
- !temp
- temperature(1:n) = stardata(1:n,3)
- !specific internal energy
- stardata(1:n,6)  = stardata(1:n,6)/unit_ergg
- enitab(1:n)      = stardata(1:n,6)
 
- if (present(rcut) .and. present(mcut)) then
-    aloc = minloc(abs(stardata(1:n,1) - mcut),1)
-    rcut = rtab(aloc)
-    print*, 'rcut = ', rcut
- endif
-end subroutine read_mesa_file
-
-!-----------------------------------------------------------------------
-!  Alternative subroutine to read MESA profile; used in star setup to
-!-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
- use physcon, only:solarm
- integer                                           :: lines,rows=0,i
- character(len=120), intent(in)                    :: filepath
- character(len=10000)                              :: dumc
- character(len=24),allocatable                     :: header(:),dum(:)
- real(kind=8),allocatable,dimension(:,:)           :: dat
- real(kind=8),allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp, &
-                                                        Xfrac,Yfrac
-
- ! reading data from datafile ! -----------------------------------------------
- open(unit=40,file=filepath,status='old')
- read(40,'()')
- read(40,'()')
- read(40,*) lines, lines
- read(40,'()')
- read(40,'()')
  read(40,'(a)') dumc! counting rows
+ call string_delete(dumc,'[')
+ call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
 101 do i = 1,500
@@ -463,7 +405,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
     endif
  enddo
 
- allocate(header(1:rows),dat(1:lines,1:rows))
+ allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
 
@@ -471,26 +413,50 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac)
     read(40,*) dat(lines-i+1,1:rows)
  enddo
 
- allocate(m(1:lines),r(1:lines),pres(1:lines),rho(1:lines),ene(1:lines), &
-            temp(1:lines),Xfrac(1:lines),Yfrac(1:lines))
+ allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
+             temp(lines),Xfrac(lines),Yfrac(lines))
 
+ close(40)
+
+ ! Set mass fractions to default in eos module if not in file
+ Xfrac = X_in
+ Yfrac = 1. - X_in - Z_in
  do i = 1, rows
-    if (trim(header(i))=='mass_grams') m(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='mass') m(1:lines) = dat(1:lines,i) * solarm
-    if (trim(header(i))=='rho') rho(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='density') rho(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='cell_specific_IE') ene(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='energy') ene(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='radius_cm') r(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='pressure') pres(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='temperature') temp(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='x_mass_fraction_H') Xfrac(1:lines) = dat(1:lines,i)
-    if (trim(header(i))=='y_mass_fraction_He') Yfrac(1:lines) = dat(1:lines,i)
+    select case(trim(lcase(header(i))))
+    case('mass_grams','mass')
+       m = dat(1:lines,i)
+    case('rho','density')
+       rho = dat(1:lines,i)
+    case('energy','e_int')
+       ene = dat(1:lines,i)
+    case('radius','radius_cm')
+       r = dat(1:lines,i)
+    case('pressure')
+       pres = dat(1:lines,i)
+    case('temperature')
+       temp = dat(1:lines,i)
+    case('x_mass_fraction_h')
+       Xfrac = dat(1:lines,i)
+    case('y_mass_fraction_he')
+       Yfrac = dat(1:lines,i)
+    end select
  enddo
+
+ if (nheaderlines == 6) m = m * solarm
+
+ if (.not. usecgs) then
+    m = m / umass
+    r = r / udist
+    pres = pres / unit_pressure
+    rho = rho / unit_density
+    ene = ene / unit_ergg
+ endif
+
+ Mstar = m(lines)
 end subroutine read_mesa
 
 !----------------------------------------------------------------
-!  Write stellar profile in format readable by read_mesa_file;
+!  Write stellar profile in format readable by read_mesa;
 !  used in star setup to write softened stellar profile.
 !----------------------------------------------------------------
 subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)
