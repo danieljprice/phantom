@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -140,7 +140,7 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
     !-- quick stochastic merging
     do i = 1,npart,nchild
        iparent = iparent + 1
-       call copy_particle(i,npart+iparent)
+       call copy_particle(i,npart+iparent,.true.)
        xyzh(4,npart+iparent) = xyzh(4,i) * (nchild)**(1./3.)
     enddo
  else
@@ -224,7 +224,7 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
 
  !-- move the new parents
  do i = 1,nparent
-    call copy_particle(npart+i,i)
+    call copy_particle(npart+i,i,.true.)
  enddo
 
  !-- kill all the useless children

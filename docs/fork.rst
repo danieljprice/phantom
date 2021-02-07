@@ -1,6 +1,12 @@
 Forking Phantom
 ===============
 
+Warning
+-------
+
+This instructions on this page are out of date.
+
+
 Why fork?
 ---------
 
