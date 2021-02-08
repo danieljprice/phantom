@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -38,10 +38,15 @@ contains
 !+
 !  This subroutine positions particles on a uniform lattice
 !  in three dimensions, either cubic or close packed.
+!  Optional inputs permit the creation of
+!  -spheres, cylinders & ellipses
+!  -spherical & cylindrical shells
+!  -spherical, cylindrical & elliptical voids
 !+
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                       zmin,zmax,delta,hfact,np,xyzh,periodic,rmin,rmax,rcylmin,rcylmax,&
+                       zmin,zmax,delta,hfact,np,xyzh,periodic, &
+                       rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
                        nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
@@ -55,11 +60,12 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
  real,             intent(in),    optional :: rmin,rmax
  real,             intent(in),    optional :: rcylmin,rcylmax
+ real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose,centre
+ logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: i_belong
@@ -71,7 +77,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
  real               :: xcentre,ycentre,zcentre
- real               :: rmin2,rmax2,rcylmin2,rcylmax2
+ real               :: rmin2,rmax2,rcylmin2,rcylmax2,rellipsoid21(3),rellmin,rellmax,rell2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
  logical            :: is_verbose,centre_lattice
@@ -117,6 +123,20 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     rcylmax2 = rcylmax*rcylmax
  else
     rcylmax2 = huge(0.)
+ endif
+ if (present(rellipsoid) .and. present(in_ellipsoid) ) then
+    rellipsoid21 = 1.0/(rellipsoid*rellipsoid)
+    if (in_ellipsoid) then
+       rellmin = 0.
+       rellmax = 1.
+    else
+       rellmin = 1.
+       rellmax = huge(0.)
+    endif
+ else
+    rellipsoid21 = 0.
+    rellmin      = 0.
+    rellmax      = huge(0.)
  endif
  if (present(nptot)) then
     iparttot = nptot
@@ -174,7 +194,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
-             if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+             rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+             if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
                 iparttot = iparttot + 1
                 if (i_belong(iparttot)) then
                    ipart = ipart + 1
@@ -285,7 +306,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -450,7 +472,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -504,7 +527,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 !--do not use if not within radial cuts
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -572,7 +596,7 @@ end subroutine set_unifdis
 pure logical function in_range(x,xmin,xmax)
  real, intent(in) :: x,xmin,xmax
 
- in_range = (x >= xmin .and. x <= xmax)
+ in_range = (xmin <= x .and. x <= xmax)
 
 end function in_range
 

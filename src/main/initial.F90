@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -216,8 +216,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use eos,              only:ieos,init_eos
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
- use h2cooling,        only:init_h2cooling
- use cooling,          only:init_cooling
+ use h2cooling,        only:init_h2cooling,energ_h2cooling
+ use cooling,          only:init_cooling,init_cooling_type
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -338,6 +338,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
+ call init_cooling_type(h2chemistry)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')

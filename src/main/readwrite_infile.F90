@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -320,7 +320,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,only:read_options_ptmass_radiation
+#ifdef WIND
+ use ptmass_radiation,only:isink_radiation,alpha_rad
+#endif
  use damping,         only:read_options_damping
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile

@@ -1,8 +1,8 @@
 Release notes
 =============
 
-Current development version - v2.x.x
--------------------------------------
+v2021.0.0 - 25th Jan 2021
+-------------------------
 
 Physics
 ~~~~~~~

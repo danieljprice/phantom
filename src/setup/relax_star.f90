@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -375,13 +375,14 @@ subroutine restore_original_options
  use eos,     only:ieos,gamma
  use damping, only:damp
  use options, only:idamp
- use part,    only:hfact
+ use part,    only:hfact,vxyzu,npart
 
  gamma = gammaprev
  hfact = hfactprev
  ieos  = ieos_prev
  idamp = 0
  damp = 0.
+ vxyzu(1:3,1:npart) = 0.
 
 end subroutine restore_original_options
 
