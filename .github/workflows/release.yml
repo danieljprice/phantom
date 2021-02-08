@@ -1,0 +1,106 @@
+name: release
+# a general github action to generate a release whenever a version tag is pushed
+# generates and uploads a tarball of the source code
+# in a way that plays nicely with git submodules
+# could be easily adapted to produce binaries for each OS
+# Daniel Price, Aug 2020
+on:
+  push:
+    tags:
+    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: checkout code
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Get version
+      id: get_version
+      env:
+          vernum: ${{ github.ref }}
+          repo: ${{ github.repository }}
+      run: |
+          echo ::set-output name=version::${vernum/refs\/tags\//}
+          echo ::set-output name=repo::`basename ${repo}`
+          echo ::set-output name=tarfile::`basename ${repo}`-${vernum/refs\/tags\//}.tar.gz
+
+#    - name: build tarball mac
+#      if: matrix.os == 'macos-latest'
+#      env:
+#          tarfile: ${{ steps.get_version.outputs.tarfile }}
+#          repo: ${{ steps.get_version.outputs.repo }}
+#      run: |
+#          tar cfz /tmp/$tarfile --exclude ".git*" -s "/./${repo}/" .
+
+    - name: build tarball
+      if: matrix.os == 'ubuntu-latest'
+      env:
+          tarfile: ${{ steps.get_version.outputs.tarfile }}
+          repo: ${{ steps.get_version.outputs.repo }}
+      run: |
+          env
+          echo "tarfile is $tarfile, repo is $repo"
+          tar cfz /tmp/$tarfile --exclude ".git*" \
+              --transform "s,.,${repo}," .
+
+    - name: check tarball and get SHA
+      env:
+          tarfile: ${{ steps.get_version.outputs.tarfile }}
+      id: shasum
+      run: |
+          mv /tmp/$tarfile .
+          tar tfz $tarfile
+          echo ::set-output name=sha::"$(shasum -a 256 $tarfile | awk '{printf $1}')"
+
+    - name: get release notes
+      run: |
+        grep -m 2 -B 1000 '^v' docs/releasenotes.rst | sed '$d' > latest.rst
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.version }}
+        release_name: ${{ steps.get_version.outputs.version }}
+        body_path: latest.rst
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.get_version.outputs.tarfile }}
+        asset_name: ${{ steps.get_version.outputs.tarfile }}
+        asset_content_type: application/gzip
+
+#    - name: Bump Brew
+#      env:
+#        HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.BREW_TOKEN }}
+#        version: ${{ steps.get_version.outputs.version }}
+#        brewtap: danieljprice/all
+#        formula: ${{ steps.get_version.outputs.repo }} # formula name same as repo name
+#      run: |
+#        git config --global user.email "daniel.price@monash.edu"
+#        git config --global user.name "Daniel Price"
+#        brew install pipgrip
+#        brew tap $brewtap
+#        brew bump-formula-pr -f --version=${version/v/} --no-browse --no-audit \
+#        --sha256=${{ steps.shasum.outputs.sha }} \
+#        --url="https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.version }}/${{ steps.get_version.outputs.tarfile }}" \
+#        $brewtap/$formula
