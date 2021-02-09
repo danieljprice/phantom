@@ -2109,6 +2109,26 @@ libphantom: libphantom.a
 cleanlibphantom:
 	rm -f $(BINDIR)/libphantom.so $(LIBPHANTOM)
 
+.PHONY: libphantom-amuse
+# extra files used in libphantom that are not in OBJECTS
+SRCLIB= libphantom-amuse.F90
+OBJLIB1=${SRCLIB:.f90=.o}
+OBJLIB=${OBJLIB1:.F90=.o}
+
+LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
+
+libphantom-amuse.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
+	ar rc $(LIBPHANTOMAMUSE) $(OBJLIB) $(OBJECTS)
+
+libphantom-amuse.so: checksystem checkparams phantom ${OBJLIB}
+	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom-amuse.so
+
+libphantom-amuse: libphantom-amuse.a
+
+cleanlibphantom:
+	rm -f $(BINDIR)/libphantom-amuse.so $(LIBPHANTOMAMUSE)
+
+
 .PHONY: pyanalysis
 pyanalysis: libphantom.so
 
