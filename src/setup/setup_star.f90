@@ -533,19 +533,19 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
        select case (isofteningopt)
        case(1)
-          call prompt('Enter radius of density softening',rcore,0.)
+          call prompt('Enter core radius',rcore,0.)
        case(2)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
        case(3)
           call prompt('Enter mass of the created sink particle core',mcore,0.)
-          call prompt('Enter radius of density softening',rcore,0.)
+          call prompt('Enter core radius',rcore,0.)
        end select
 
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
     case(2)
        isinkcore = .true. ! Create sink particle core automatically
-       print*,'Specify radius of density softening and initial guess for mass of sink particle core'
-       call prompt('Enter softening radius in Rsun : ',rcore,0.)
+       print*,'Specify core radius and initial guess for mass of sink particle core'
+       call prompt('Enter core radius in Rsun : ',rcore,0.)
        call prompt('Enter guess for core mass in Msun : ',mcore,0.)
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
     end select
