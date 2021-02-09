@@ -2872,7 +2872,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        ! cooling timestep dt < fac*u/(du/dt)
        ! Note: Why is this not used for *all* energy changes?  Regrettably, Sedov will crash if this timestep is included since eni0 = 0
-       if (maxvxyzu >= 4 .and. cooling_explicit) then
+       if (maxvxyzu >= 4) then
           if (abs(fxyzu(4,i)) > 0.) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 

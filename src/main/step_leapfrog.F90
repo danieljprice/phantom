@@ -1067,7 +1067,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 !
 ! determine whether or not to use substepping
 !
- if ((iexternalforce > 0 .or. nptmass > 0) .and. dtextforce < dtsph) then
+ if (dtextforce < dtsph) then
     dt = dtextforce
     last_step = .false.
  else
