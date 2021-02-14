@@ -121,11 +121,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        gamma = 1.6667
        call prompt('Enter gamma for adiabatic EoS:',gamma,0.)
     case(12)
-       gmw = 0.641304087
+       gmw = 0.618212823
        call prompt('Enter mean molecular weight for ieos 12:',gmw,0.)
     case(10)
-       X_in = 0.653061631
-       Z_in = 0.0200640711083
+       X_in = 0.69843
+       Z_in = 0.01426
        call prompt('Enter hydrogen mass fraction:',X_in,0.)
        call prompt('Enter metallicity:',Z_in,0.)
     end select
@@ -276,7 +276,7 @@ subroutine separation_vs_time(time,num)
     write(columns((i*4)-3), '(A11,I1)') '    x sep. ', i
     write(columns((i*4)-2), '(A11,I1)') '    y sep. ', i
     write(columns((i*4)-1), '(A11,I1)') '    z sep. ', i
-    write(columns((i*4)), '(A11,I1)')   '      sep. ', i
+    write(columns((i*4)),   '(A11,I1)') '      sep. ', i
  enddo
 
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
@@ -290,10 +290,11 @@ end subroutine separation_vs_time
 !+
 !----------------------------------------------------------------
 subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
+ use part, only:eos_vars,itemp
  integer, intent(in)            :: npart,num
  real, intent(in)               :: time,particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
- real                           :: etoti,ekini,einti,epoti,phii
+ real                           :: etoti,ekini,epoti,phii,einti,ethi
  real                           :: E_H2,E_HI,E_HeI,E_HeII,Zfrac
  real, save                     :: Xfrac,Yfrac
  real                           :: rhopart,ponrhoi,spsoundi
@@ -336,13 +337,17 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
              '    He+HI bm', & ! Bound mass including ionisation energy of HeII, HeI, HI
              ' He+HI+H2 bm'/)  ! Bound mass including ionisation energy of HeII, HeI, HI, H2
 
- if (dump_number == 1) then
-    Xfrac = 0.653061631
-    Zfrac = 0.0200640711083
-    call prompt('Enter hydrogen mass fraction:',Xfrac,0.,1.)
-    call prompt('Enter metallicity:',Zfrac,0.,1.)
-    Yfrac = 1 - Xfrac - Zfrac
+ if (dump_number == 0) then
+    Xfrac = 0.69843
+    Zfrac = 0.01426
+    if (ieos /= 10) then ! For MESA EoS, just use X_in and Z_in from eos module
+       call prompt('Enter hydrogen mass fraction to assume for recombination:',Xfrac,0.,1.)
+       call prompt('Enter metallicity to assume for recombination:',Zfrac,0.,1.)
+       Yfrac = 1. - Xfrac - Zfrac
+    endif
  endif
+
+ Yfrac = 1 - Xfrac - Zfrac
 
  ! Ionisation energies per particle (in code units)
  E_H2   = 0.5*Xfrac*0.0022866 * particlemass
@@ -356,12 +361,15 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
        rhopart = rhoh(xyzh(4,i), particlemass)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
+       call calc_thermal_energy(particlemass,10,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+       etoti = ekini + epoti + ethi ! Overwrite etoti outputted by calc_gas_energies to use ethi instead of einti
     else
        ! How to get quantities for accreted particles? Set to 0 for now
        etoti   = 0.
        epoti   = 0.
        ekini   = 0.
        einti   = 0.
+       ethi    = 0.
        phii    = 0.
        ponrhoi = 0.
        rcrossmv = (/ 0., 0., 0. /)
@@ -380,7 +388,7 @@ subroutine bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
     bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
 
-    ! Bound criterion INCLUDING internal energy
+    ! Bound criterion INCLUDING thermal energy
     if ((etoti < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = ibt
     else
@@ -1823,8 +1831,13 @@ subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,omega)
 end subroutine get_gas_omega
 
 
+!----------------------------------------------------------------
+!+
+!  Calculate kinetic, gravitational potential (gas-gas and sink-gas),
+!  and internal energy of a gas particle.
+!+
+!----------------------------------------------------------------
 subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
- ! Calculates kinetic, potential and internal energy of a gas particle
  ! Warning: Do not sum epoti or etoti as it is to obtain a total energy; this would not give the correct
  !          total energy due to complications related to double-counting.
  use ptmass, only:get_accel_sink_gas
@@ -1840,11 +1853,44 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
 
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
 
- epoti = poten*2. + particlemass * phii ! For individual particles, need to multiply 2 to poten to get GmM/r
+ epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get GmM/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
  etoti = epoti + ekini + einti
 end subroutine calc_gas_energies
+
+
+!----------------------------------------------------------------
+!+
+!  Calculate thermal (gas + radiation internal energy) energy of a 
+!  gas particle. Inputs and outputs in code units
+!+
+!----------------------------------------------------------------
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
+ use part,             only:rhoh
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use physcon,          only:radconst
+ integer, intent(in) :: ieos
+ real, intent(in)    :: particlemass,presi,tempi
+ real, intent(in)    :: xyzh(4),vxyzu(4)
+ real, intent(out)   :: ethi
+ real                :: hi,densi,mui
+
+ select case (ieos)
+ case (2,12) ! Ideal gas or ideal gas plus radiation
+    ethi = particlemass * vxyzu(4) ! This includes both gas and radiation internal energy
+ case (10) ! We want just the gas + radiation internal energy
+    hi = xyzh(4)
+    densi = rhoh(hi,particlemass)
+    
+    ! Get mu from pres and temp
+    mui = densi*unit_density * kb_on_mh * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.)
+
+    call get_idealplusrad_enfromtemp(densi*unit_density,tempi,mui,ethi)
+    ethi = particlemass * ethi / unit_ergg
+ end select
+
+end subroutine calc_thermal_energy
 
 
 subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_c,dump_number)
