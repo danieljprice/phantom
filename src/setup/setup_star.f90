@@ -392,7 +392,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
 
- call get_derivs_global
  call finish_eos(ieos,ierr)
  !
  ! Reset centre of mass (again)
