@@ -423,8 +423,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  Yfrac = 1. - X_in - Z_in
  do i = 1, rows
     select case(trim(lcase(header(i))))
-    case('mass_grams','mass')
+    case('mass_grams')
        m = dat(1:lines,i)
+    case('mass')
+       m = dat(1:lines,i)
+       if (nheaderlines == 6) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
     case('energy','e_int')
@@ -441,8 +444,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        Yfrac = dat(1:lines,i)
     end select
  enddo
-
- if (nheaderlines == 6) m = m * solarm
 
  if (.not. usecgs) then
     m = m / umass
