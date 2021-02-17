@@ -1305,7 +1305,7 @@ function entropy(rho,pres,ientropy,ierr)
     else
        call getvalue_mesa(rho,eint,9,logentropy)
     endif
-    entropy = 10.d0**logentropy
+    entropy = 10.**logentropy
 
  case default
     entropy = 0.
@@ -1325,7 +1325,8 @@ subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
  use physcon, only:kb_on_mh
  real, intent(in)    :: pres,S,rhoguess
  real, intent(inout) :: rho
- real(kind=8)        :: corr,dSdsrho,S_plus_dS,srho_plus_dsrho,srho
+ real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
+ real(kind=8)        :: corr
  real, parameter     :: eoserr=1d-9,dfac=1d-12
  integer, intent(in) :: ientropy
  ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
