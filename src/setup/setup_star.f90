@@ -131,7 +131,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,            only:eos_vars,itemp,igasP,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type
  use relaxstar,       only:relax_star
  use domain,          only:i_belong
  integer,           intent(in)    :: id
@@ -341,7 +341,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npart             = nstar
  npartoftype(igas) = npart
- iphase(1:npart)   = isetphase(igas,iactive=.true.)
+ do i=1,npart
+    call set_particle_type(i,igas)
+ enddo
  !
  ! Write the desired profile to file (do this before relaxation)
  !

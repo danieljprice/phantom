@@ -425,7 +425,7 @@ subroutine get_mass_tab_r(masstab,rhotab,rtab)
 !
  real, intent(in)  :: rhotab(:),rtab(:)
  real, intent(out) :: masstab(size(rhotab))
- real :: dmi,ri
+ real :: dmi
  integer :: i
 
  masstab(1) = 0.
