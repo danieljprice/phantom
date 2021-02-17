@@ -278,15 +278,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     pres = polyk*den**gamma
  case(imesa)
     deallocate(r,den,pres,temp,en,mtab)
-    call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
-    if (ierr /= 0) call fatal('setup','error in reading mesa profile')
-    rmin  = r(1)
-    Rstar = r(size(r))
 
     if (isoftcore > 0) then
+       call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+       if (ierr /= 0) call fatal('setup','error in reading mesa profile')
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,en,temp,Xfrac,Yfrac,rcore,mcore,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore
-       call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
        call write_softened_profile(outputfilename,mtab,pres,temp,r,den,en)
        input_profile = outputfilename ! Have the read_mesa subroutine read the softened profile instead
     else
