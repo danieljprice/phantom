@@ -25,6 +25,7 @@ Mine has::
    export OMP_STACKSIZE=512M
    export PATH=$PATH:/scratch/fu7/splash/bin
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/apps/hdf5/1.10.5/lib
    export MAXP=2000000
    ulimit -s unlimited
    source ~/.modules
@@ -38,6 +39,7 @@ If you are using phantom+mcfost, you will need the following lines::
    export MCFOST_NO_XGBOOST=1
    export MCFOST_LIBS=/scratch/fu7/mcfost
    export MCFOST_UTILS=/scratch/fu7/mcfost/utils
+   export HDF5ROOT=/apps/hdf5/1.10.5/lib
 
 Then relevant modules in your .modules file::
 
@@ -48,6 +50,7 @@ Mine contains::
    module load intel-compiler
    module load intel-mpi
    module load git
+   module load hdf5
 
 where the last line is needed for git's large file storage (LFS) to work.
 
