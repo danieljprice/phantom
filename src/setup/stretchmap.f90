@@ -425,21 +425,14 @@ subroutine get_mass_tab_r(masstab,rhotab,rtab)
 !
  real, intent(in)  :: rhotab(:),rtab(:)
  real, intent(out) :: masstab(size(rhotab))
- real :: dr,ri,dmi,dmprev,rprev
+ real :: dmi
  integer :: i
 
  masstab(1) = 0.
- dmprev     = 0.
- rprev      = rtab(1)
  do i=2,size(rhotab)
-    ri     = rtab(i)
-    dr     = ri - rprev
-    dmi    = ri*ri*rhotab(i)*dr
-    masstab(i) = masstab(i-1) + 0.5*(dmi + dmprev) ! trapezoidal rule
-    dmprev = dmi
-    rprev  = ri
+    dmi = 4./3. * pi * (rtab(i)**3 - rtab(i-1)**3) * rhotab(i)
+    masstab(i) = masstab(i-1) + dmi
  enddo
- masstab(:) = 4.*pi*masstab(:)
 
 end subroutine get_mass_tab_r
 
