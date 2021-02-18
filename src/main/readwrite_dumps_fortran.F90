@@ -209,7 +209,7 @@ end subroutine get_dump_size
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
- use eos,   only:ieos
+ use eos,   only:ieos,eos_is_non_ideal
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
@@ -377,7 +377,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
-       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) .and. k==i_real) then
+       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
           call write_array(1,eos_vars(igasP,:),eos_vars_label(igasP),npart,k,ipass,idump,nums,ierrs(13))
        endif
 
