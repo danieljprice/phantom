@@ -217,7 +217,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling,energ_h2cooling
- use cooling,          only:init_cooling,init_cooling_type
+ use cooling,          only:init_cooling,init_cooling_type,cooling_implicit
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -339,6 +339,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
  call init_cooling_type(h2chemistry)
+ if (h2chemistry .or. cooling_implicit) dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
@@ -548,6 +549,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !
 #ifdef KROME
  call initialise_krome()
+ dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
 #endif
 !
 !--calculate (all) derivatives the first time around
