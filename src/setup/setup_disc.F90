@@ -1515,10 +1515,10 @@ subroutine set_planets(npart,massoftype,xyzh)
        endif
 
        !--set sink particles
-       Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*mcentral))**(1./3.) * rplanet(i)
+       Hill(i) = (mplanet(i)*jupiterm/umass/(3.*mcentral))**(1./3.) * rplanet(i)
        if (nsinks == 2) then
           dist_bt_sinks = sqrt(dot_product(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)))
-          if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/solarm/(3.*m1))**(1./3.) * rplanet(i)
+          if (rplanet(i) > dist_bt_sinks) Hill(i) = (mplanet(i)*jupiterm/umass/(3.*m1))**(1./3.) * rplanet(i)
        endif
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
