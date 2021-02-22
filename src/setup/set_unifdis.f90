@@ -54,7 +54,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
- real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
+ real,             intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ real,             intent(in)    :: delta,hfact
  real,             intent(out)   :: xyzh(:,:)
  logical,          intent(in)    :: periodic ! true or false
 
@@ -161,13 +162,21 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  endif
 
  select case(trim(lattice))
- case('cubic')
+ case('cubic','cubic_equal')
     nx = nint(dxbound/delta)
     ny = nint(dybound/delta)
     nz = nint(dzbound/delta)
     deltaz = dzbound/nz
     deltay = dybound/ny
     deltax = dxbound/nx
+    if (trim(lattice)=='cubic_equal') then
+       deltaz = delta
+       deltay = delta
+       deltax = delta
+       xmin = xmax - nx*deltax
+       ymin = ymax - ny*deltay
+       zmin = zmax - nz*deltaz
+    endif
     if (id==master .and. is_verbose) then
        if (max(nx,ny,nz) < 1e3) then
           print fmt1,nx,ny,nz,trim(lattice)
@@ -520,7 +529,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
 
-    do i=1,npnew
+    do while (ipart < np+npnew)
        xi = xmin + ran2(iseed)*dxbound
        yi = ymin + ran2(iseed)*dybound
        zi = zmin + ran2(iseed)*dzbound
@@ -638,7 +647,7 @@ pure logical function is_valid_lattice(latticetype)
  character(len=*), intent(in) :: latticetype
 
  select case(trim(latticetype))
- case ('random','cubic','closepacked','hcp')
+ case ('random','cubic','closepacked','hcp','hexagonal','cubic_equal')
     is_valid_lattice = .true.
  case default
     is_valid_lattice = .false.

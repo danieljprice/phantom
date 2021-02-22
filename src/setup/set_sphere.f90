@@ -230,7 +230,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: npart
  integer,          intent(in)    :: nps_requested
- real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,hfact,v_sphere
+ real,             intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ real,             intent(in)    :: hfact,v_sphere
  real,             intent(out)   :: psep,xyzh(:,:)
  real,   optional, intent(in)    :: r_sphere,r_ellipsoid(3)
  integer(kind=8),  intent(inout) :: npart_total
@@ -407,19 +408,22 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
  integer                         :: ierr
- real                            :: xi,yi,zi,vol_ellipse
+ real                            :: xmin,xmax,ymin,ymax,zmin,zmax,vol_ellipse
 
  if (present(mask)) then
     my_mask => mask
  else
     my_mask => mask_true
  endif
+ xmin = -1.5*r_ellipsoid(1)
+ xmax =  1.5*r_ellipsoid(1)
+ ymin = -1.5*r_ellipsoid(2)
+ ymax =  1.5*r_ellipsoid(2)
+ zmin = -1.5*r_ellipsoid(3)
+ zmax =  1.5*r_ellipsoid(3)
 
- xi = 1.5*r_ellipsoid(1)
- yi = 1.5*r_ellipsoid(2)
- zi = 1.5*r_ellipsoid(3)
  vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
- call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
+ call set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact,np,np_requested,xyzh, &
                           vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
 
 end subroutine set_ellipse
