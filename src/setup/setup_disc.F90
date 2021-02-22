@@ -610,11 +610,12 @@ subroutine equation_of_state(gamma)
              if (iuse_disc(i)) isink = i-1
           enddo
           !--locally isothermal
-          if (isink /= 0) then
+          if (isink /= 0 .and. isink /= 3) then ! isink == 3 special case, to be generalised
              ieos = 6
              print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
              ieos = 3
+             isink = 0 ! In the case isink==3, to be generalized
              print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
           qfacdisc = qindex(onlydisc)
