@@ -64,6 +64,7 @@ end subroutine set_vfield
 !------------------------------------------------------------------
 subroutine normalise_vfield(npart,vxyzu,ierr,rms,ke,rmsmach_in)
  use io,       only:fatal,id,master
+ use eos,      only:init_eos,ieos
  use energies, only:compute_energies,rmsmach,vrms,ekin
  use mpiutils, only:bcast_mpi
  integer, intent(in)    :: npart
@@ -75,6 +76,7 @@ subroutine normalise_vfield(npart,vxyzu,ierr,rms,ke,rmsmach_in)
 !
 !--compute the total kinetic energy, RMS Mach number and RMS velocity
 !
+ call init_eos(ieos,ierr)
  call compute_energies(0.)
  if (id==master) write(*,"(1x,3(a,es10.3))") &
     'Values from original   v-field: Ekin = ',ekin,' rms v = ',vrms,' rms mach = ',rmsmach
