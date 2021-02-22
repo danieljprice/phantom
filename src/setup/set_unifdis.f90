@@ -529,7 +529,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
 
-    do while (ipart < np+npnew)
+    do while (iparttot < np+npnew)
        xi = xmin + ran2(iseed)*dxbound
        yi = ymin + ran2(iseed)*dybound
        zi = zmin + ran2(iseed)*dzbound
