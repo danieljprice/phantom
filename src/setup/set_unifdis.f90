@@ -17,7 +17,7 @@ module unifdis
 ! :Dependencies: random, stretchmap
 !
  implicit none
- public :: set_unifdis, get_ny_nz_closepacked
+ public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
  public :: is_valid_lattice, is_closepacked
 
  ! following lines of code allow an optional mask= argument
@@ -54,8 +54,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
- real,             intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
- real,             intent(in)    :: delta,hfact
+ real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
  real,             intent(out)   :: xyzh(:,:)
  logical,          intent(in)    :: periodic ! true or false
 
@@ -162,21 +161,13 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  endif
 
  select case(trim(lattice))
- case('cubic','cubic_equal')
+ case('cubic')
     nx = nint(dxbound/delta)
     ny = nint(dybound/delta)
     nz = nint(dzbound/delta)
     deltaz = dzbound/nz
     deltay = dybound/ny
     deltax = dxbound/nx
-    if (trim(lattice)=='cubic_equal') then
-       deltaz = delta
-       deltay = delta
-       deltax = delta
-       xmin = xmax - nx*deltax
-       ymin = ymax - ny*deltay
-       zmin = zmax - nz*deltaz
-    endif
     if (id==master .and. is_verbose) then
        if (max(nx,ny,nz) < 1e3) then
           print fmt1,nx,ny,nz,trim(lattice)
@@ -638,6 +629,72 @@ pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
+!-------------------------------------------------------------
+!+
+!  helper routine to figure to adjust boundaries so particle spacing
+!  is exact for periodicity
+!+
+!-------------------------------------------------------------
+pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,delta_in,nx_in)
+ use io, only: fatal
+ real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ real,    optional, intent(in)    :: delta_in
+ integer, optional, intent(in)    :: nx_in
+ character(len=*),  intent(in)    :: latticetype
+ integer                          :: nx,ny,nz
+ real                             :: delta,deltax,deltay,deltaz,boxx,boxy,boxz,exact_width,dbounds
+
+ ! set box width
+ boxx = xmax - xmin
+ boxy = ymax - ymin
+ boxz = zmax - zmin
+
+ ! determine delta_x or nx, depending on input
+ if (present(delta_in)) then
+    delta = delta_in
+    nx    = nint(boxx/delta)
+ elseif (present(nx_in)) then
+    nx    = nx_in
+    delta = boxx/nx
+ else
+    return
+ endif
+
+ ! calculate remaining delta's
+ select case(trim(latticetype))
+ case ('cubic')
+    deltax = delta
+    deltay = delta
+    deltaz = delta
+ case ('closepacked','hcp','hexagonal')
+    deltax = delta
+    deltay = delta*sqrt(3./4.)
+    deltaz = delta*sqrt(6.)/3.
+ case default
+    return
+ end select
+
+ ! update number of particles in remaining directions
+ ny = nint(boxy/deltay)
+ nz = nint(boxz/deltaz)
+
+ ! adjust boundaries as required
+ exact_width = nx*deltax
+ dbounds     = abs(boxx - exact_width)
+ xmin = xmin - 0.5*dbounds
+ xmax = xmax + 0.5*dbounds
+
+ exact_width = ny*deltay
+ dbounds     = abs(boxy - exact_width)
+ ymin = ymin - 0.5*dbounds
+ ymax = ymax + 0.5*dbounds
+
+ exact_width = nz*deltaz
+ dbounds     = abs(boxz - exact_width)
+ zmin = zmin - 0.5*dbounds
+ zmax = zmax + 0.5*dbounds
+
+end subroutine get_xyzmin_xyzmax_exact
 !---------------------------------------------------------------
 !+
 !  helper routine to sanity check that the latticetype is valid
@@ -647,7 +704,7 @@ pure logical function is_valid_lattice(latticetype)
  character(len=*), intent(in) :: latticetype
 
  select case(trim(latticetype))
- case ('random','cubic','closepacked','hcp','hexagonal','cubic_equal')
+ case ('random','cubic','closepacked','hcp','hexagonal')
     is_valid_lattice = .true.
  case default
     is_valid_lattice = .false.
