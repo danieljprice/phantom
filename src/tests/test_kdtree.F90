@@ -44,15 +44,13 @@ subroutine test_kdtree(ntests,npass)
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12)
- real    :: psep,tol,half_p,half_n,errmax(12)
+ real    :: psep,tol,errmax(12)
  real(4) :: t2,t1
  type(kdnode), allocatable :: old_tree(:)
 
  test_all = .false.
  test_revtree = .false.
  iverbose = 2
- half_p   =  0.5
- half_n   = -0.5
 
  if (id==master) write(*,"(a,/)") '--> TESTING KDTREE'
 
@@ -64,7 +62,7 @@ subroutine test_kdtree(ntests,npass)
     psep = 1./64.
     hfact = hfact_default
     npart = 0
-    call set_unifdis('random',id,master,half_n,half_p,half_n,half_p,half_n,half_p,&
+    call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
                      psep,hfact,npart,xyzh,periodic,mask=i_belong)
     massoftype(igas) = 1000./npart
     if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)

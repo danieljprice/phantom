@@ -294,7 +294,7 @@ subroutine test_standingshock(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,ny,nz,nsteps,ierr,idr,npts,itype
  integer                :: nerr(6)
- real                   :: volume,totmass,fac,xleft,xright,dxleft,dxright,yleft,yright,zleft,zright,rhoi,zero
+ real                   :: volume,totmass,fac,xleft,xright,dxleft,dxright,yleft,yright,zleft,zright,rhoi
  real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
@@ -330,7 +330,6 @@ subroutine test_standingshock(ntests,npass)
  yright         = -yleft
  zright         = -zleft
  use_sts        = .false.
- zero           = 0.0
  call set_boundary(xleft-1000.*dxleft,xright+1000.*dxright,yleft,yright,zleft,zright) ! false periodicity in x
  !
  ! set particles on the left half of the shock
@@ -348,7 +347,7 @@ subroutine test_standingshock(ntests,npass)
  volume  = xright*dybound*dzbound
  totmass = volume*rightstate(1)
  dxright = xright/((totmass/massoftype(igas))/(ny*nz))
- call set_unifdis('closepacked',id,master,zero,xright,ymin,ymax,zmin,zmax,dxright,&
+ call set_unifdis('closepacked',id,master,0.,xright,ymin,ymax,zmin,zmax,dxright,&
                 hfact_default,npart,xyzh,periodic,npy=ny,npz=nz,mask=i_belong)
  !
  ! set boundary particles, and set properties of the particles
