@@ -334,7 +334,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! set particles on the left half of the shock
  !
- call set_unifdis('closepacked',id,master,xleft,zero,ymin,ymax,zmin,zmax,dxleft,&
+ call set_unifdis('closepacked',id,master,xleft,0.,ymin,ymax,zmin,zmax,dxleft,&
                   hfact_default,npart,xyzh,periodic,mask=i_belong)
  volume                = -xleft*dybound*dzbound
  totmass               = volume*leftstate(1)
