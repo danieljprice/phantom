@@ -635,9 +635,9 @@ end subroutine get_ny_nz_closepacked
 !  is exact for periodicity
 !+
 !-------------------------------------------------------------
-pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,delta_in,nx_in)
- use io, only: fatal
+pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,ierr,delta_in,nx_in)
  real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ integer,           intent(out)   :: ierr
  real,    optional, intent(in)    :: delta_in
  integer, optional, intent(in)    :: nx_in
  character(len=*),  intent(in)    :: latticetype
@@ -648,6 +648,7 @@ pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zma
  boxx = xmax - xmin
  boxy = ymax - ymin
  boxz = zmax - zmin
+ ierr = 0
 
  ! determine delta_x or nx, depending on input
  if (present(delta_in)) then
@@ -657,6 +658,7 @@ pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zma
     nx    = nx_in
     delta = boxx/nx
  else
+    ierr = 1 ! Incomplete inputs
     return
  endif
 
@@ -671,6 +673,7 @@ pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zma
     deltay = delta*sqrt(3./4.)
     deltaz = delta*sqrt(6.)/3.
  case default
+    ierr = 2 ! not an included lattice
     return
  end select
 
