@@ -24,18 +24,26 @@ module setup
 ! :Runtime parameters:
 !   - Ratm_in       : *inner atmosphere radius (planet radii)*
 !   - Ratm_out      : *outer atmosphere radius (planet radii)*
-!   - accr1         : *central star accretion radius*
+!   - accr1         : *single star accretion radius*
 !   - accr2         : *perturber accretion radius*
+!   - accr2a        : *tight binary primary accretion radius*
+!   - accr2b        : *tight binary secondary accretion radius*
 !   - alphaSS       : *desired alphaSS*
 !   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
 !   - bhspin        : *black hole spin*
 !   - bhspinangle   : *black hole spin angle (deg)*
-!   - binary_O      : *Omega, PA of ascending node (deg)*
-!   - binary_a      : *binary semi-major axis*
-!   - binary_e      : *binary eccentricity*
-!   - binary_f      : *f, initial true anomaly (deg,180=apastron)*
-!   - binary_i      : *i, inclination (deg)*
-!   - binary_w      : *w, argument of periapsis (deg)*
+!   - binary2_O     : *tight binary Omega, PA of ascending node (deg)*
+!   - binary2_a     : *tight binary semi-major axis*
+!   - binary2_e     : *tight binary eccentricity*
+!   - binary2_f     : *tight binary f, initial true anomaly (deg,180=apastron)*
+!   - binary2_i     : *tight binary i, inclination (deg)*
+!   - binary2_w     : *tight binary w, argument of periapsis (deg)*
+!   - binary_O      : *wide binary Omega, PA of ascending node (deg)*
+!   - binary_a      : *wide binary semi-major axis*
+!   - binary_e      : *wide binary eccentricity*
+!   - binary_f      : *wide binary f, initial true anomaly (deg,180=apastron)*
+!   - binary_i      : *wide binary i, inclination (deg)*
+!   - binary_w      : *wide binary w, argument of periapsis (deg)*
 !   - deltat        : *output interval as fraction of orbital period*
 !   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
 !   - einst_prec    : *include Einstein precession*
@@ -45,17 +53,19 @@ module setup
 !   - flyby_i       : *inclination (deg)*
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
-!   - m1            : *central star mass*
-!   - m2            : *perturber mass*
+!   - m1            : *first hierarchical level primary mass*
+!   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
 !   - norbits       : *maximum number of orbits at outer disc*
 !   - np            : *number of gas particles*
 !   - nplanets      : *number of planets*
 !   - nsinks        : *number of sinks*
+!   - q2            : *tight binary mass ratio*
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
 !   - setplanets    : *add planets? (0=no,1=yes)*
+!   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - use_mcfost    : *use the mcfost library*
 !
