@@ -270,7 +270,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst)
-  use binaryutils, only:get_E
+ use binaryutils, only:get_E
 !  use io,   only:warning,fatal
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
@@ -302,7 +302,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  if (present(verbose)) do_verbose = verbose
 
 
-  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
+ !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file='HIERARCHY', exist=iexist)
  if (present(subst)) then
     if (iexist) then
