@@ -312,7 +312,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           read(1, *, iostat=io) data(lines+1,:)
           if (io/=0) exit
           lines = lines + 1
-       end do
+       enddo
        close(1)
     else
        print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
@@ -350,7 +350,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     write(hier_prefix, *) subst
     io=0
     do i=1,lines
-       if(data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
+       if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
           if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
              print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
              ierr = ierr_subststar
@@ -400,7 +400,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        endif
     enddo
 
-    if(io == 0) then
+    if (io == 0) then
        print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
        ierr = ierr_missstar
     endif
@@ -623,15 +623,15 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           sign_alpha=-1
           if (inc<=pi) then
              sign_gamma=1
-          else if (inc>pi) then
+          elseif (inc>pi) then
              sign_gamma=-1
           endif
-       else if (omega>pi/2) then
+       elseif (omega>pi/2) then
           beta_y = 2*pi-omega
           sign_alpha=1
           if (inc<=pi) then
              sign_gamma=-1
-          else if (inc>pi) then
+          elseif (inc>pi) then
              sign_gamma=1
           endif
        endif
@@ -644,14 +644,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           gamma_z=inc
           if (inc <= pi/2) then
              alpha_z=pi/2-inc
-          else if (inc>pi/2) then
+          elseif (inc>pi/2) then
              alpha_z=inc-pi/2
           endif
-       else if (inc<2*pi .and. inc>pi) then
+       elseif (inc<2*pi .and. inc>pi) then
           gamma_z=2*pi-inc
           if (inc <= 3*pi/2) then
              alpha_z=inc-pi/2
-          else if (inc>3*pi/2) then
+          elseif (inc>3*pi/2) then
              alpha_z=5*pi/2-inc
           endif
        endif

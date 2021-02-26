@@ -1685,12 +1685,12 @@ subroutine set_tmax_dtmax()
  elseif (period > 0. .and. nsinks==3) then
     if (deltat > 0.) then
        dtmax = deltat*period
-    else if (deltat < 0.) then
+    elseif (deltat < 0.) then
        dtmax = -deltat*period2
     endif
     if (norbits >= 0) then
        tmax = norbits*period
-    else if (norbits < 0) then
+    elseif (norbits < 0) then
        tmax = -norbits*period2
     endif
  endif
