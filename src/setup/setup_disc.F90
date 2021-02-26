@@ -816,9 +816,9 @@ subroutine setup_central_objects()
        else
           print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
        endif
-          
-       
-       
+
+
+
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
@@ -828,8 +828,8 @@ subroutine setup_central_objects()
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
-       
-       
+
+
        mcentral = m1 + m2
     end select
  end select
@@ -1682,7 +1682,7 @@ subroutine set_tmax_dtmax()
  if (period > 0. .and. nsinks<3) then
     if (deltat > 0.) dtmax = deltat*period
     if (norbits >= 0) tmax = norbits*period
- elseif (period > 0. .and. nsinks==3) then 
+ elseif (period > 0. .and. nsinks==3) then
     if (deltat > 0.) then
        dtmax = deltat*period
     else if (deltat < 0.) then
@@ -1808,7 +1808,7 @@ subroutine setup_interactive()
        print "(a)",  '+++   HIERARCHICAL TRIPLE    +++'
        print "(a)",  '================================'
        ibinary = 0
-       
+
        !-- Wide binary
        m1       = 1.
        m2       = 0.2
@@ -1819,7 +1819,7 @@ subroutine setup_interactive()
        binary_w = 270.
        binary_f = 180.
        accr1    = 1.
-       
+
        !-- Tight binary
        subst    = 12
        q2       = 1
@@ -1831,9 +1831,9 @@ subroutine setup_interactive()
        binary2_O = 0.
        binary2_w = 270.
        binary2_f = 180.
-       accr2a    = 0.1  
-       accr2b    = 0.1  
-       
+       accr2a    = 0.1
+       accr2b    = 0.1
+
     end select
  end select
 
@@ -2193,13 +2193,13 @@ subroutine write_setupfile(filename)
     case (3)
        !-- hierarchical triple
        write(iunit,"(/,a)") '# options for hierarchical triple'
-       
+
        !-- masses
        call write_inopt(m1,'m1','first hierarchical level primary mass',iunit)
        call write_inopt(m2,'m2','first hierarchical level secondary mass',iunit)
        call write_inopt(q2,'q2','tight binary mass ratio',iunit)
        call write_inopt(subst,'subst','star to substitute',iunit)
-       
+
        !-- wide binary parameters
        call write_inopt(binary_a,'binary_a','wide binary semi-major axis',iunit)
        call write_inopt(binary_e,'binary_e','wide binary eccentricity',iunit)
@@ -2207,7 +2207,7 @@ subroutine write_setupfile(filename)
        call write_inopt(binary_O,'binary_O','wide binary Omega, PA of ascending node (deg)',iunit)
        call write_inopt(binary_w,'binary_w','wide binary w, argument of periapsis (deg)',iunit)
        call write_inopt(binary_f,'binary_f','wide binary f, initial true anomaly (deg,180=apastron)',iunit)
-       
+
        !-- tight parameters
        call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
        call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
@@ -2215,7 +2215,7 @@ subroutine write_setupfile(filename)
        call write_inopt(binary2_O,'binary2_O','tight binary Omega, PA of ascending node (deg)',iunit)
        call write_inopt(binary2_w,'binary2_w','tight binary w, argument of periapsis (deg)',iunit)
        call write_inopt(binary2_f,'binary2_f','tight binary f, initial true anomaly (deg,180=apastron)',iunit)
-       
+
        !-- accretion radii
        call write_inopt(accr1,'accr1','single star accretion radius',iunit)
        call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
@@ -2489,13 +2489,13 @@ subroutine read_setupfile(filename,ierr)
        end select
     case (3)
        !-- hierarchical triple
-       
+
        !-- masses
        call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
        call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
        call read_inopt(q2,'q2',db,min=0.,max=1.,errcount=nerr)
        call read_inopt(subst,'subst',db,errcount=nerr)
-       
+
        !-- wide binary parameters
        call read_inopt(binary_a,'binary_a',db,errcount=nerr)
        call read_inopt(binary_e,'binary_e',db,errcount=nerr)
@@ -2503,7 +2503,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(binary_O,'binary_O',db,errcount=nerr)
        call read_inopt(binary_w,'binary_w',db,errcount=nerr)
        call read_inopt(binary_f,'binary_f',db,errcount=nerr)
-       
+
        !-- tight parameters
        call read_inopt(binary2_a,'binary2_a',db,errcount=nerr)
        call read_inopt(binary2_e,'binary2_e',db,errcount=nerr)
@@ -2511,7 +2511,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(binary2_O,'binary2_O',db,errcount=nerr)
        call read_inopt(binary2_w,'binary2_w',db,errcount=nerr)
        call read_inopt(binary2_f,'binary2_f',db,errcount=nerr)
-       
+
        !-- accretion radii
        call read_inopt(accr1,'accr1',db,errcount=nerr)
        call read_inopt(accr2a,'accr2a',db,errcount=nerr)
