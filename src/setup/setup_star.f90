@@ -115,7 +115,6 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
  use part,            only:igas,isetphase
- use deriv,           only:get_derivs_global
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
