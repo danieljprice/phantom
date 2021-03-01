@@ -829,6 +829,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     end select
 
     if (isoftcore > 0) then
+       isinkcore = .true.
        call read_inopt(input_profile,'input_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
     endif
