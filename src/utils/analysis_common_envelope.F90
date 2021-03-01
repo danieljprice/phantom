@@ -1531,13 +1531,12 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     iavgopt = 2
     call prompt('Select option above : ',iavgopt,1,6)
     icentreonCM = .false.
-    if ( (iavgopt == 2) .or. (iavgopt == 3) .or. (iavgopt == 4) .or. (iavgopt == 5) .or. (iavgopt == 6) ) then
-       if ((iavgopt == 3) .or. (iavgopt == 4)) then
-          call prompt('Centre annulus on the CM (otherwise, centre on primary core)?: ',icentreonCM)
-       else
-          call prompt('Centre averaging sphere on the CM (otherwise, centre on primary core)?: ',icentreonCM)
-       endif
-    endif
+    select case (iavgopt)
+    case(2,5,6)
+       call prompt('Centre averaging sphere on the CM (otherwise, centre on primary core)?: ',icentreonCM)
+    case(3,4)
+       call prompt('Centre annulus on the CM (otherwise, centre on primary core)?: ',icentreonCM)
+    end select
 
     write(*,"(a,i2)") 'Using ieos = ',ieos
     if ( xyzmh_ptmass(ihacc,2) > 0 ) then
@@ -1586,7 +1585,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
  do i = 1,2
     ! Note: The analysis below is performed for both the companion (i=2) and the donor core (i=1). We
-    !       comment for the case of the companion only for clarity.
+    !       comment on the case of the companion only for clarity.
     fxyz_ptmass      = 0.
     vel_in_sphere    = 0.
     rot_in_sphere    = 0.
@@ -1603,6 +1602,10 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     racc             = 0.
     cs               = 0.
     avg_rot          = 0.
+    Rsphere          = 0.
+    Rsinksink        = 0.
+    dz               = 0.
+    dR               = 0.
 
     ! Calculate directions
     call unit_vector(vxyz_ptmass(1:3,i), unit_vel(1:3)) ! Direction along sink velocity
@@ -1636,7 +1639,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        orbit_centre_vel = vxyz_ptmass(1:3,3-i)
     endif
 
-    ! If averaging over a sphere, get order of particles from closest to farthest sphere centre
+    ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
     if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
        select case (iavgopt)
        case(1) ! Use companion position
@@ -1699,17 +1702,24 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
        vel_contrast      = distance(vel_contrast_vec)
        avg_rot           = rot_in_sphere / float(npart_insphere)
        cs                = cs_in_sphere / float(npart_insphere)
-       if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
+
+       select case (iavgopt) ! Calculate averaging volume based on averaging option
+       case (1,2,5,6) ! Spheres
           avging_volume = 4./3.*pi*Rsphere**3
-       elseif (iavgopt == 3) then
-          avging_volume  = 2.*pi * Rsinksink * dR * dz ! annulus
-       elseif (iavgopt == 4) then
-          avging_volume  = 2.*pi * Rsinksink * dR * dz ! annulus
-          avging_volume  = avging_volume - 0.4*dR*dz*Rsinksink !  subtract sphere volume
-       endif
+       case(3) ! Annulus
+          avging_volume  = 2.*pi * Rsinksink * dR * dz
+       case(4) ! Annulus with sphere subtracted
+          avging_volume  = 2.*pi * Rsinksink * dR * dz
+          avging_volume  = avging_volume - 0.4*dR*dz*Rsinksink
+       case default
+          avging_volume = 0.
+          print*,'Unknown averaging option'
+          stop
+       end select
+
        rho_avg           = mass_in_sphere / avging_volume
        racc              = 2. * xyzmh_ptmass(4,i) / (vel_contrast**2 + cs**2) ! Accretion radius
-       mdot              = 4.*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! Bondi mass accretion rate
+       mdot              = 4.*pi * xyzmh_ptmass(4,i)**2 * rho_avg / (cs**2 + vel_contrast**2)**1.5 ! BHL mass accretion rate
     endif
 
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
@@ -1719,8 +1729,8 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
     call logspace(Rcut,0.4,2.5)
-    !Rcut = Rcut * racc
-    Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) )
+    !Rcut = Rcut * racc ! Bin by fraction of accretion radius
+    Rcut = Rcut * separation( xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2) ) ! Bin by fraction of sink-sink separation
 
     !do k = 1,sizeRcut
     !   if (Rcut(k) > 1.) force_cut_vec(:,:,k) = fxyz_ptmass(:,:) ! Include force due to other sink if R > separation
@@ -1729,11 +1739,11 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     do j = 1,npart
        if (.not. isdead_or_accreted(xyzh(4,j))) then
           call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                                    fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
+                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
           do k = 1,sizeRcut
              if ( separation(xyzh(1:3,j), xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
                 call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                                            fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
+                                        fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
              endif
           enddo
        endif
@@ -1756,7 +1766,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     select case(iavgopt)
     case(5) ! Calculate mass interior to R/2
        maxsep = 2.*sinksinksep
-    case(6) ! Calculate mass interior to 2R
+    case(6) ! Calculate mass interior to 2*R
        maxsep = 0.5*sinksinksep
     case default ! Calculate mass interior to R
        maxsep = sinksinksep
