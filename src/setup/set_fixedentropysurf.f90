@@ -44,7 +44,7 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  real, allocatable   :: S(:),m_alloc(:),r_alloc(:),rho_alloc(:),pres_alloc(:),&
                         recalc_S(:),testentropy(:),entropyorig(:),idealplusradtemp(:),mesatemp(:)
  integer             :: j,i,surfidx,Nmax,ierr
- logical             :: isort_decreasing,iexclude_core_mass
+ logical             :: isort_decreasing,iexclude_core_mass,ifixedSstar
  ! msurf: Mass coordinate beyond which we perform the profile replacement
 
  ! Output data to be sorted from stellar surface to interior?
@@ -52,6 +52,7 @@ subroutine set_fixedS_surface(mcore,m,rho,r,pres,ene,temp,ierr)
  ! Exclude core mass in output mass coordinate?
  iexclude_core_mass = .false.   ! Needs to be true if to be read by Phantom
 
+ ifixedSstar = .true.
  if (ifixedSstar) then
     msurf = 3.84048 * solarm
  else
@@ -210,12 +211,13 @@ subroutine solve_fixedS_surface_rhoP(m,S,r,rho,pres,ierr)
 
  do i = 0,Nmax-1
     ! Step forward in pres using hydrostatic equilibrium condition
-    pres(i+1) = ( dm(i+1)**2 * pres(i-1) &
-                - dm(i) * dm(i+1) * sum(dm(i:i+1)) &
-                * gg * m(i) * one_on_4pi / r(i)**4 &
-                - ( dm(i+1)**2 - dm(i)**2 ) * pres(i) ) &
-                / dm(i)**2
-    !pres(i+1) = pres(i) - 0.5*sum(dm(i:i+1)) * gg*m(i)*one_on_4pi/r(i)**4 ! 1st-order finite differencing used in MESA
+   !  pres(i+1) = ( dm(i+1)**2 * pres(i-1) &
+   !              - dm(i) * dm(i+1) * sum(dm(i:i+1)) &
+   !              * gg * m(i) * one_on_4pi / r(i)**4 &
+   !              - ( dm(i+1)**2 - dm(i)**2 ) * pres(i) ) &
+   !              / dm(i)**2
+    pres(i+1) = pres(i) - 0.5*sum(dm(i:i+1)) * gg*m(i)*one_on_4pi/r(i)**4 ! 1st-order finite differencing used in MESA
+    print*,i,r(i),m(i),pres(i)
     if (pres(i+1) < 0) call fatal('setfixedentropysurf','pres < 0 found')
 
     call get_rho_from_p_s(pres(i+1),S(i+1),rho(i+1),rho(i),ientropy) ! Newton-Raphson solver

@@ -367,7 +367,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set the thermal energy / temperature profile of the star
  !
- ! call init_eos(ieos,ierr)
+ !call init_eos(2,ierr)
  if (maxvxyzu==4) then
     do i = 1,nstar
       if (relax_star_in_setup) then
