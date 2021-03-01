@@ -71,6 +71,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,ene,temp,X,Y,r
     call set_cubic_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
     if (ierr /= 0) call fatal('setup','could not set softened core')
  case(2)
+    call set_fixedS_surface(mcore,m,den,r,pres,ene,temp,ierr)
     call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  case(3)
