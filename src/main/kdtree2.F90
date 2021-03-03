@@ -233,7 +233,7 @@ subroutine build_tree_index1(np,node,xyzh,xmin,xmax,ifirstincell,iorder,iorder_w
  npdone = 0
  mymum = 0
 
- over_stack: do while(any(istack_local > 0) .or. istack_global > 0 .or. ndone < min_per_thread)
+ over_stack: do while(any(istack_local > 0) .or. istack_global > 0 .or. (npdone < min_per_thread .and. nfinished==0))
 
     ! pop off stack
     if (istack_local(i) > 0) then ! pop off local stack
