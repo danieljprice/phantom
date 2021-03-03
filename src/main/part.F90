@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,17 +44,22 @@ module part
 !--basic storage needed for read/write of particle data
 !
 
- real, allocatable :: xyzh(:,:)
- real, allocatable :: xyzh_soa(:,:)
- real, allocatable :: vxyzu(:,:)
+ real,         allocatable :: xyzh(:,:)
+ real,         allocatable :: xyzh_soa(:,:)
+ real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
  real(kind=4), allocatable :: divcurlv(:,:)
  real(kind=4), allocatable :: divcurlB(:,:)
- real, allocatable :: Bevol(:,:)
- real, allocatable :: Bxyz(:,:)
+ real,         allocatable :: Bevol(:,:)
+ real,         allocatable :: Bxyz(:,:)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+!
+!--tracking particle IDs
+!
+ integer              :: norig
+ integer, allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
@@ -114,9 +119,16 @@ module part
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 #endif
 !
-!--storage of temperature
+!--eos_variables
 !
- real, allocatable :: temperature(:)
+ real, allocatable  :: eos_vars(:,:)
+ integer, parameter :: igasP = 1, &
+                       ics   = 2, &
+                       itemp = 3, &
+                       imu   = 4, &
+                       maxeosvars = 4
+ character(len=*), parameter :: eos_vars_label(maxeosvars) = &
+    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
 !
 !--one-fluid dust (small grains)
 !
@@ -135,7 +147,6 @@ module part
  real, allocatable :: dens(:) !dens(maxgr)
  real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
-
 !
 !--sink particles
 !
@@ -150,6 +161,8 @@ module part
  integer, parameter :: iTeff  = 13 ! effective temperature
  integer, parameter :: iReff  = 14 ! effective radius
  integer, parameter :: imloss = 15 ! mass loss rate
+ integer, parameter :: imdotav = 16 ! accretion rate average
+ integer, parameter :: i_mlast = 17 ! accreted mass of last time
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -158,7 +171,8 @@ module part
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
-    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
+    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
+    'mdotav   ','mprev    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -211,9 +225,10 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       maxradprop = 7
+                       iradP = 8, &
+                       maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl'/)
+    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
 !
 !--lightcurves
 !
@@ -260,18 +275,15 @@ module part
 !
  integer, allocatable :: ll(:)
  real    :: dxi(ndim) ! to track the extent of the particles
-
 !
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
-
 !
 !--super time stepping
 !
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
-
 !
 !--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
 !  information between MPI threads
@@ -323,11 +335,9 @@ module part
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
 #endif
+   +maxeosvars                          &  ! eos_vars
 #ifdef GRAVITY
  +1                                   &  ! poten
-#endif
-#ifdef STORE_TEMPERATURE
- +1                                   &  ! temperature
 #endif
 #ifdef SINK_RADIATION
  +1                                   &  ! dust temperature
@@ -397,10 +407,11 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+ call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
- call allocate_array('temperature', temperature, maxtemp)
+ call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
@@ -475,11 +486,12 @@ subroutine deallocate_part
  if (allocated(divcurlB)) deallocate(divcurlB)
  if (allocated(Bevol))    deallocate(Bevol)
  if (allocated(Bxyz))     deallocate(Bxyz)
+ if (allocated(iorig))    deallocate(iorig)
  if (allocated(dustprop)) deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
- if (allocated(temperature))  deallocate(temperature)
+ if (allocated(eos_vars))     deallocate(eos_vars)
  if (allocated(dustfrac))     deallocate(dustfrac)
  if (allocated(dustevol))     deallocate(dustevol)
  if (allocated(ddustevol))    deallocate(ddustevol)
@@ -541,6 +553,7 @@ end subroutine deallocate_part
 !+
 !----------------------------------------------------------------
 subroutine init_part
+ integer :: i
 
  npart = 0
  nptmass = 0
@@ -592,6 +605,24 @@ subroutine init_part
  dustgasprop(:,:) = 0.
  VrelVf(:)        = 0.
 #endif
+#ifdef IND_TIMESTEPS
+ ibin(:)       = 0
+ ibin_old(:)   = 0
+ ibin_wake(:)  = 0
+#endif
+
+ ideadhead = 0
+!
+!--Initialise particle id's
+!
+!$omp parallel do default(none) &
+!$omp shared(iorig,maxp) &
+!$omp private(i)
+ do i = 1,maxp
+    iorig(i) = i
+ enddo
+!$omp end parallel do
+ norig = maxp
 
 end subroutine init_part
 
@@ -770,30 +801,43 @@ end function isdead_or_accreted
 subroutine kill_particle(i,npoftype)
  integer, intent(in) :: i
  integer, intent(inout), optional :: npoftype(:)
- integer :: itype
 
+ if (i < 1 .or. i > npart) return ! do nothing
  !
  ! WARNING : this routine is *NOT THREAD SAFE *
  !
  ! do not kill particles that are already dead
  ! because this causes endless loop in shuffle_part
- if (abs(xyzh(4,i)) > 0.) then
+ if (.not.isdeadh(xyzh(4,i))) then
     xyzh(4,i) = 0.
-    if (present(npoftype)) then
-       ! get the type so we know how to decrement npartoftype
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npoftype(itype) = npoftype(itype) - 1
-    endif
+    if (present(npoftype)) call remove_particle_from_npartoftype(i,npoftype)
     ll(i) = ideadhead
     ideadhead = i
  endif
 
-
 end subroutine kill_particle
+
+!----------------------------------------------------------------
+!+
+!  decrement npartoftype when a particle is killed, according
+!  to the type of the particle that was destroyed
+!+
+!----------------------------------------------------------------
+subroutine remove_particle_from_npartoftype(i,npoftype)
+ integer, intent(in)    :: i
+ integer, intent(inout) :: npoftype(:)
+ integer :: itype
+
+ ! get the type so we know how to decrement npartoftype
+ if (maxphase==maxp) then
+    itype = iamtype(iphase(i))
+    if (itype <= 0) itype = igas ! safety check
+ else
+    itype = igas
+ endif
+ npoftype(itype) = npoftype(itype) - 1
+
+end subroutine remove_particle_from_npartoftype
 
 !----------------------------------------------
 !+
@@ -806,8 +850,8 @@ pure integer(kind=1) function isetphase(itype,iactive)
  integer, intent(in) :: itype
  logical, intent(in) :: iactive
 
- if ((set_boundaries_to_active .and. itype==iboundary)   .or. &
-     (iactive                  .and. itype/=iboundary) ) then
+ if ((set_boundaries_to_active .and.      iamboundary(itype))   .or. &
+     (iactive                  .and. .not.iamboundary(itype)) ) then
     isetphase = int(itype,kind=1)
  else
     isetphase = -int(abs(itype),kind=1)
@@ -1003,8 +1047,9 @@ end function strain_from_dvdx
 ! (prior to a derivs evaluation - so no derivs required)
 !+
 !----------------------------------------------------------------
-subroutine copy_particle(src, dst)
+subroutine copy_particle(src,dst,new_part)
  integer, intent(in) :: src, dst
+ logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
@@ -1035,8 +1080,15 @@ subroutine copy_particle(src, dst)
     dustevol(:,dst) = dustevol(:,src)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
- if (store_temperature) temperature(dst) = temperature(src)
+ eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
+
+ if (new_part) then
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+ else
+    iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
+ endif
 
  return
 end subroutine copy_particle
@@ -1050,8 +1102,9 @@ end subroutine copy_particle
 ! must be rebuilt after a copy operation.
 !+
 !----------------------------------------------------------------
-subroutine copy_particle_all(src,dst)
+subroutine copy_particle_all(src,dst,new_part)
  integer, intent(in) :: src,dst
+ logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
  xyzh_soa(dst,:)  = xyzh_soa(src,:)
@@ -1118,7 +1171,7 @@ subroutine copy_particle_all(src,dst)
     endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
- if (store_temperature) temperature(dst) = temperature(src)
+ eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 #ifdef NUCLEATION
  nucleation(:,dst) = nucleation(:,src)
@@ -1133,6 +1186,13 @@ subroutine copy_particle_all(src,dst)
  if (maxsts==maxp) then
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
+ endif
+
+ if (new_part) then
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+ else
+    iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
 
  return
@@ -1190,7 +1250,7 @@ subroutine shuffle_part(np)
     if (newpart <= np) then
        if (.not.isdead(np)) then
           ! move particle to new position
-          call copy_particle_all(np,newpart)
+          call copy_particle_all(np,newpart,.false.)
           ! move ibelong to new position
 #ifdef MPI
           ibelong(newpart) = ibelong(np)
@@ -1205,7 +1265,6 @@ subroutine shuffle_part(np)
     if (np < 0) call fatal('shuffle','npart < 0')
  enddo
 
- return
 end subroutine shuffle_part
 
 integer function count_dead_particles()
@@ -1222,29 +1281,19 @@ end function count_dead_particles
 
 !-----------------------------------------------------------------------
 !+
-!  routine to remove dead or accreted particles
+!  routine to completely remove dead or accreted particles
 !  uses the routines above for efficiency
 !+
 !-----------------------------------------------------------------------
-subroutine delete_dead_or_accreted_particles(npart,npartoftype)
- integer, intent(inout) :: npart,npartoftype(:)
- integer :: i,itype
+subroutine delete_dead_or_accreted_particles(npart,npoftype)
+ integer, intent(inout) :: npart,npoftype(:)
+ integer :: i
 
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,i))) then
-       ! get the type so we know how to decrement npartoftype
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npartoftype(itype) = npartoftype(itype) - 1
-       call kill_particle(i)
-    endif
+    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 
- return
 end subroutine delete_dead_or_accreted_particles
 
 !----------------------------------------------------------------
@@ -1253,16 +1302,13 @@ end subroutine delete_dead_or_accreted_particles
 !
 !+
 !----------------------------------------------------------------
-
 subroutine change_status_pos(npart,x,y,z,h,vx,vy,vz)
-
  integer, intent(in) :: npart
  real, intent (in) :: x,y,z,h
  real, intent (in) :: vx,vy,vz
  integer  :: i,ix
 
  ix=0
-
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        ix=i
@@ -1277,8 +1323,6 @@ subroutine change_status_pos(npart,x,y,z,h,vx,vy,vz)
  vxyzu(1,ix)=vx
  vxyzu(2,ix)=vy
  vxyzu(3,ix)=vz
-
- return
 
 end subroutine change_status_pos
 
@@ -1335,9 +1379,7 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
-    if (store_temperature) then
-       call fill_buffer(xtemp, temperature(i),nbuf)
-    endif
+    call fill_buffer(xtemp, eos_vars(:,i),nbuf)
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1405,9 +1447,7 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
- if (store_temperature) then
-    temperature(ipart)  = unfill_buf(xbuf,j)
- endif
+ eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
@@ -1545,7 +1585,7 @@ subroutine delete_particles_outside_sphere(center,radius,np)
  radius_squared = radius**2
  do i=1,np
     r = xyzh(1:3,i) - center
-    if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+    if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
  enddo
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
@@ -1559,20 +1599,17 @@ end subroutine delete_particles_outside_sphere
 !----------------------------------------------------------------
 subroutine delete_particles_outside_cylinder(center, radius, zmax)
  real, intent(in) :: center(3), radius, zmax
-
  integer :: i
- real :: x, y, z, rcil
+ real :: x, y, z, rcyl
 
  do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
-    rcil=sqrt((x-center(1))**2+(y-center(2))**2)
-
-    if (rcil>radius .or. abs(z)>zmax) then
-       call kill_particle(i)
-    endif
+    rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
+    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npartoftype)
  enddo
+
 end subroutine delete_particles_outside_cylinder
 
 !----------------------------------------------------------------
@@ -1587,18 +1624,16 @@ subroutine delete_dead_particles_inside_radius(center,radius,np)
  integer :: i
  real :: r(3), radius_squared
 
-
  radius_squared = radius**2
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        r = xyzh(1:3,i) - center
-       if (dot_product(r,r)  >  radius_squared) call kill_particle(i,npartoftype)
+       if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
     endif
  enddo
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_dead_part_outside_sphere','particles not conserved')
 
- return
 end subroutine delete_dead_particles_inside_radius
 
 !----------------------------------------------------------------
@@ -1606,11 +1641,10 @@ end subroutine delete_dead_particles_inside_radius
 !  Delete particles within radius
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
+subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
  real, intent(in) :: center(3), radius
- integer, intent(inout) :: npart,npartoftype(:)
-
- integer :: i,itype
+ integer, intent(inout) :: npart,npoftype(:)
+ integer :: i
  real :: x,y,z,r
 
  do i=1,npart
@@ -1618,20 +1652,10 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
     y = xyzh(2,i)
     z = xyzh(3,i)
     r=sqrt((x-center(1))**2+(y-center(2))**2+(z-center(3))**2)
-
-    if (r<radius) then
-       if (maxphase==maxp) then
-          itype = iamtype(iphase(i))
-       else
-          itype = igas
-       endif
-       npartoftype(itype) = npartoftype(itype) - 1
-       call kill_particle(i)
-    endif
+    if (r < radius) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 
- return
 end subroutine delete_particles_inside_radius
 
 !----------------------------------------------------------------
@@ -1657,12 +1681,12 @@ subroutine accrete_particles_outside_sphere(radius)
 
 end subroutine
 
-
 !----------------------------------------------------------------
- !+
- !  Returns keplerian frequency of particle i
- !+
- !----------------------------------------------------------------
+!+
+!  Returns Keplerian frequency of particle i
+!  USE WITH EXTREME CAUTION
+!+
+!----------------------------------------------------------------
 real function Omega_k(i)
  integer, intent(in)  :: i
  real                 :: m_star,r

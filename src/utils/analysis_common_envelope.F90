@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ module analysis
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
  use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,get_spsound
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
-                        get_eos_various_mesa,get_eos_pressure_gamma1_mesa
+                        get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
  use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
  use table_utils,  only:logspace
@@ -987,6 +987,7 @@ subroutine eos_surfaces
  real    :: kappa_array(1000,400)
  real    :: gam1_array(1000,1000)
  real    :: pres_array(1000,1000)
+ real    :: dum(1000,1000)
  real    :: kappat, kappar, temp
 
 
@@ -995,7 +996,7 @@ subroutine eos_surfaces
        if (j < size(temp_array) + 1) then
           call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
        endif
-       call get_eos_pressure_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),gam1_array(i,j),ierr)
+       call get_eos_pressure_temp_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),dum(i,j),gam1_array(i,j),ierr)
        !call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
        !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
     enddo

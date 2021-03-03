@@ -1,10 +1,10 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module getneigbours
+module getneighbours
 !
 ! A set of routines generate neighbour lists for all particles, and
 !  read/write the list to file
@@ -162,7 +162,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           print*, 'Neighbour finding: Keeping the ',neighmax,' closest neighbours.'
           neighcount(i) = neighmax
           do p = 1,neighmax
-             j = minloc(rneigh_all,1)
+             j = minloc(rneigh_all(1:neighcount(i)),1)
              neighb(i,p) = ineigh_all(j)
              rneigh_all(j) = huge(rij2)
           enddo

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ subroutine test_step(ntests,npass)
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,periodic
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,      only:polyk,gamma,use_entropy
+ use eos,      only:polyk,gamma,use_entropy,init_eos
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
@@ -61,7 +61,7 @@ subroutine test_step(ntests,npass)
 #ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
  real                   :: rhozero
- integer                :: i,j,nsteps,nerror,nwarn
+ integer                :: i,nsteps,nerror,nwarn,ierr
  integer :: nfailed(9)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING STEP MODULE / boundary crossing'
@@ -108,6 +108,7 @@ subroutine test_step(ntests,npass)
     ieos = 1
     gamma = 1.0
  endif
+ call init_eos(ieos,ierr)
 
  nsteps  = 10
  dt      = 2.0/(nsteps)

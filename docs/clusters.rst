@@ -126,18 +126,6 @@ where mine currently contains::
 If you use the "make qscript" functionality in phantom, then your
 job submission script will automatically load the relevant modules.
 
-Initialising git-lfs
----------------------
-
-Phantom uses git's "Large File Storage" to store large data files in the repository. So to retrieve data files correctly, you will need to initialise git-lfs on the remote machine::
-
-   $ git lfs install
-
-On some machines you need to update the copy of git for this to work, usually by loading a more recent git version via the module command, e.g.::
-
-   $ module load git
-   $ git lfs install
-
 Configuring git on your cluster
 -------------------------------
 The first time you use git on a particular machine, you need to specify your name and email address::
