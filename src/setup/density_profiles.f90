@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -387,10 +387,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        read(40,'()')
     enddo
  endif
- if (lines <= 0) then
+ if (lines <= 0) then ! file not found
     ierr = 1
     return
  endif
+
  read(40,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
  call string_delete(dumc,']')
@@ -416,13 +417,18 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
          temp(lines),Xfrac(lines),Yfrac(lines))
 
+ close(40)
+
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1, rows
     select case(trim(lcase(header(i))))
-    case('mass_grams','mass')
+    case('mass_grams')
        m = dat(1:lines,i)
+    case('mass')
+       m = dat(1:lines,i)
+       if (nheaderlines == 6) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
     case('energy','e_int')
@@ -439,8 +445,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        Yfrac = dat(1:lines,i)
     end select
  enddo
-
- if (nheaderlines == 6) m = m * solarm
 
  if (.not. usecgs) then
     m = m / umass

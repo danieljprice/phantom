@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -124,11 +124,11 @@ subroutine find_mcore_given_rcore(rcore,r,rho0,m0,mcore,ierr)
     call calc_rho_and_m(rho, m, r, mc, rc)
     call diff(rho,drho)
     if (all(rho/rho0 < tolerance) .and. all(drho(1:icore) < 0)) exit
-    if (mc > 0.98*m0(icore)) then
+    if (mc > 0.999*m0(icore)) then
        ierr = 1
        exit
     endif
-    mc = mc + 0.01*m0(icore) ! Increase mcore/m(rc) by 1 percent
+    mc = mc + 0.0001*m0(icore) ! Increase mcore/m(rc) by 1 percent
     counter = counter+1
  enddo
  ! Output mcore in solar masses
