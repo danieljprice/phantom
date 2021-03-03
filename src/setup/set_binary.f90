@@ -285,7 +285,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  real    :: omega,inc
  !logical :: do_verbose
 
- real, dimension(24,10) :: data  
+ real, dimension(24,10) :: data
  character(len=20)      :: hier_prefix
  logical                :: iexist
  integer                :: io, lines
@@ -416,7 +416,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     if (present(posang_ascnode)) rel_posang_ascnode = posang_ascnode
     if (present(arg_peri)) rel_arg_peri= arg_peri
     if (present(incl)) rel_incl = incl
-   
+
  endif
  !---
 
@@ -426,26 +426,26 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
  !---
- 
+
  if (present(subst)) then
-    
+
     !--- lower nptmass, copy one of the new sinks to the subst star
     nptmass = nptmass-1
     i1 = subst_index
     i2 = nptmass
-    
+
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
-    
+
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 
 
     !---
-   
+
     ! Rotate the substituting binary with orientational parameters
     ! referring to the substituted star's orbital plane
-    if (subst>0) then 
+    if (subst>0) then
 
        omega     = rel_arg_peri*pi/180.
        !big_omega = rel_posang_ascnode*pi/180.! + 0.5*pi
@@ -529,8 +529,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     close(1)
  endif
 
-end subroutine set_multiple  
-  
+end subroutine set_multiple
+
 
 !------------------------------------
 ! Rotate an (x,y,z) point by theta
