@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testkernel
-!
-!  DESCRIPTION:
-!  This module performs unit tests of the kernel routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, kernel, testutils
-!+
-!--------------------------------------------------------------------------
 module testkernel
+!
+! This module performs unit tests of the kernel routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, kernel, testutils
+!
  implicit none
  public :: test_kernel
 

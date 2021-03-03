@@ -1,25 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: libsetup
-!
-!  DESCRIPTION:
-!   This module contains the public API for setup library routines
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  DEPENDENCIES: stretchmap
-!+
-!--------------------------------------------------------------------------
 module libsetup
+!
+! This module contains the public API for setup library routines
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: stretchmap, unifdis
+!
  use stretchmap, only:set_density_profile
  use unifdis,    only:set_unifdis, get_ny_nz_closepacked
  public

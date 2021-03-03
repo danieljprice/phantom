@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: plot_kernel
+program plot_kernel
 !
-!  DESCRIPTION: Plots the kernel functions
+! Plots the kernel functions
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: plot_kernel [no arguments]
 !
-!  USAGE: plot_kernel [no arguments]
+! :Dependencies: giza, kernel, plotk
 !
-!  DEPENDENCIES: giza, kernel, plotk
-!+
-!--------------------------------------------------------------------------
-module plotk
  implicit none
 
 contains

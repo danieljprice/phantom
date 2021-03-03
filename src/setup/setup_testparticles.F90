@@ -4,24 +4,19 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, externalforces, metric, options, part, physcon,
-!    prompting, timestep, units, vectorutils
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, externalforces, metric, options, part, physcon,
+!   prompting, timestep, units, vectorutils
+!
  implicit none
  public :: setpart
 

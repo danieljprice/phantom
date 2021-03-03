@@ -4,27 +4,21 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: options
+module options
 !
-!  DESCRIPTION:
-!  Sets default values of input parameters
+! Sets default values of input parameters
 !  these are overwritten by reading from the input file or
 !  by setting them in the setup routine
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
-!  DEPENDENCIES: dim, eos, kernel, part, timestep, units, viscosity
-!+
-!--------------------------------------------------------------------------
-module options
- use eos, only:ieos ! so that this is available via options
+ use eos, only:ieos,iopacity_type ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -61,6 +55,7 @@ module options
 
  public :: set_default_options
  public :: ieos
+ public :: iopacity_type
 
  private
 
@@ -70,7 +65,7 @@ subroutine set_default_options
  use timestep,  only:set_defaults_timestep
  use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
  use viscosity, only:set_defaults_viscosity
- use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
+ use dim,       only:maxp,maxvxyzu,nalpha,gr,use_krome,do_radiation
  use kernel,    only:hfact_default
  use eos,       only:polyk2
  use units,     only:set_units
@@ -97,7 +92,9 @@ subroutine set_default_options
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
  ! equation of state
- if (maxvxyzu==4) then
+ if (use_krome) then
+    ieos = 19
+ elseif (maxvxyzu==4) then
     ieos = 2
  else
     ieos = 1
@@ -149,9 +146,11 @@ subroutine set_default_options
  if (do_radiation) then
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
+    iopacity_type = 1
  else
     exchange_radiation_energy = .false.
     limit_radiation_flux = .false.
+    iopacity_type = 0
  endif
 
 end subroutine set_default_options

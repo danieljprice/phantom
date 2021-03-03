@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgeometry
-!
-!  DESCRIPTION:
-!   Unit tests of the geometry module
-!
-!  REFERENCES:
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: geometry, io, testutils
-!+
-!--------------------------------------------------------------------------
 module testgeometry
+!
+! Unit tests of the geometry module
+!
+! :References:
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: geometry, io, testutils
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none

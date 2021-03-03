@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: domain
+module domain
 !
-!  DESCRIPTION:
-!   This module performs the MPI domain decomposition
+! This module performs the MPI domain decomposition
 !   Since we now do the decomposition using the tree all this
 !   module does is store the ibelong array for the particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, part
 !
-!  DEPENDENCIES: dim, io, part
-!+
-!--------------------------------------------------------------------------
-module domain
  use dim, only:maxp
  use io,  only:nprocs
  use part, only:ibelong

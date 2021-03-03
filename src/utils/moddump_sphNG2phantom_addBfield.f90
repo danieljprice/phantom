@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  Reads in sphNG data without B-fields, spits out phantom data with B-fields
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, setup_params
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! Reads in sphNG data without B-fields, spits out phantom data with B-fields
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, setup_params
+!
  implicit none
 
 contains

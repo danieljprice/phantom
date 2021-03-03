@@ -4,52 +4,46 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: nicil_sup
-!
-!  DESCRIPTION:
-!  Contains wrapper routines so that NICIL can be used in Phantom
-!
-!  REFERENCES: Wurster (2016)
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    C_AD           -- constant coefficient for ambipolar diffusion
-!    C_HE           -- constant coefficient for the Hall effect (incl. sign)
-!    C_OR           -- constant coefficient for ohmic resistivity
-!    C_nimhd        -- coefficient to control the non-ideal MHD timestep
-!    a0_grain       -- grain radius (cm)
-!    alpha_AD       -- power law exponent for ambipolar diffusion
-!    an_grain       -- minimum grain radius (cm)
-!    ax_grain       -- maximum grain radius (cm)
-!    eta_const_type -- Coefficient type: phys.cnst+B+rho (1), C_NI+B+rho (2), C_NI (3)
-!    eta_constant   -- Use constant coefficients for all non-ideal MHD terms
-!    fdg            -- dust-to-gas mass ratio
-!    g_cnst         -- Use constant (T) / MRN (F) grain distribution
-!    gamma_AD       -- ion-neutral coupling coefficient for ambipolar diffusion
-!    hall_lt_zero   -- sign of the hall coefficient (<0 if T)
-!    ion_rays       -- Include ionisation from cosmic
-!    ion_thermal    -- Include thermal ionisation
-!    mass_MionR_mp  -- metallic ion mass (m_proton)
-!    massfrac_X     -- Hydrogen mass fraction
-!    massfrac_Y     -- Helium mass fraction
-!    n_e_cnst       -- constant electron number density
-!    rho_bulk       -- bulk grain density (g/cm^3)
-!    rho_i_cnst     -- ionisation density for ambipolar diffusion
-!    rho_n_cnst     -- neutral density for ambipolar diffusion
-!    use_ambi       -- Calculate the coefficient for ambipolar diffusion
-!    use_hall       -- Calculate the coefficient for the Hall effect
-!    use_massfrac   -- Use mass fraction (T) /abundance (F)
-!    use_ohm        -- Calculate the coefficient for Ohmic resistivity
-!    zeta           -- cosmic ray ionisation rate (s^-1)
-!
-!  DEPENDENCIES: eos, infile_utils, nicil, physcon
-!+
-!--------------------------------------------------------------------------
 module nicil_sup
+!
+! Contains wrapper routines so that NICIL can be used in Phantom
+!
+! :References: Wurster (2016)
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - C_AD           : *constant coefficient for ambipolar diffusion*
+!   - C_HE           : *constant coefficient for the Hall effect (incl. sign)*
+!   - C_OR           : *constant coefficient for ohmic resistivity*
+!   - C_nimhd        : *coefficient to control the non-ideal MHD timestep*
+!   - a0_grain       : *grain radius (cm)*
+!   - alpha_AD       : *power law exponent for ambipolar diffusion*
+!   - an_grain       : *minimum grain radius (cm)*
+!   - ax_grain       : *maximum grain radius (cm)*
+!   - eta_const_type : *Coefficient type: phys.cnst+B+rho (1), C_NI+B+rho (2), C_NI (3)*
+!   - eta_constant   : *Use constant coefficients for all non-ideal MHD terms*
+!   - fdg            : *dust-to-gas mass ratio*
+!   - g_cnst         : *Use constant (T) / MRN (F) grain distribution*
+!   - gamma_AD       : *ion-neutral coupling coefficient for ambipolar diffusion*
+!   - hall_lt_zero   : *sign of the hall coefficient (<0 if T)*
+!   - ion_rays       : *Include ionisation from cosmic*
+!   - ion_thermal    : *Include thermal ionisation*
+!   - mass_MionR_mp  : *metallic ion mass (m_proton)*
+!   - massfrac_X     : *Hydrogen mass fraction*
+!   - massfrac_Y     : *Helium mass fraction*
+!   - n_e_cnst       : *constant electron number density*
+!   - rho_bulk       : *bulk grain density (g/cm^3)*
+!   - rho_i_cnst     : *ionisation density for ambipolar diffusion*
+!   - rho_n_cnst     : *neutral density for ambipolar diffusion*
+!   - use_ambi       : *Calculate the coefficient for ambipolar diffusion*
+!   - use_hall       : *Calculate the coefficient for the Hall effect*
+!   - use_massfrac   : *Use mass fraction (T) /abundance (F)*
+!   - use_ohm        : *Calculate the coefficient for Ohmic resistivity*
+!   - zeta           : *cosmic ray ionisation rate (s^-1)*
+!
+! :Dependencies: eos, infile_utils, nicil, physcon
+!
  use nicil, only: use_ohm,use_hall,use_ambi, &
                   ion_rays,ion_thermal,use_massfrac,massfrac_X,massfrac_Y, &
                   g_cnst,fdg,rho_bulk,a0_grain,an_grain,ax_grain, &

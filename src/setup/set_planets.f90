@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setplanets
+module setplanets
 !
-!  DESCRIPTION:
 ! this module is a setup utility for adding planets
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: part, physcon
 !
-!  DEPENDENCIES: part, physcon
-!+
-!--------------------------------------------------------------------------
-module setplanets
  implicit none
  public :: set_planets
 

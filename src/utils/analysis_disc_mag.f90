@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for discs by RN, adapted from a routine by CJN
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for discs by RN, adapted from a routine by CJN
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, infile_utils, io, part, physcon
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'MRI'
  public :: do_analysis

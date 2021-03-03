@@ -4,36 +4,30 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: relaxstar
+module relaxstar
 !
-!  DESCRIPTION:
-!   Automated relaxation of stellar density profile,
+! Automated relaxation of stellar density profile,
 !   iterating towards hydrostatic equilibrium
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - maxits   : *maximum number of relaxation iterations*
+!   - tol_dens : *% error in density to stop relaxation*
+!   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-!  RUNTIME PARAMETERS:
-!    maxits   -- maximum number of relaxation iterations
-!    tol_dens -- % error in density to stop relaxation
-!    tol_ekin -- tolerance on ekin/epot to stop relaxation
+! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
+!   infile_utils, initial, io, io_summary, memory, options, part, physcon,
+!   ptmass, readwrite_dumps, step_lf_global, table_utils, units
 !
-!  DEPENDENCIES: checksetup, damping, deriv, energies, eos, fileutils,
-!    infile_utils, initial, io, memory, options, part, physcon, ptmass,
-!    readwrite_dumps, step_lf_global, table_utils, units
-!+
-!--------------------------------------------------------------------------
-module relaxstar
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
  real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
- integer, private :: maxits = 500
+ integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev
  integer, private :: ieos_prev
@@ -60,7 +54,7 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use table_utils, only:yinterp
  use deriv,       only:get_derivs_global
- use part,        only:vxyzu,nptmass
+ use part,        only:vxyzu
  use step_lf_global, only:init_step,step
  use initial,       only:initialise
  use memory,      only:allocate_memory
@@ -68,10 +62,11 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use checksetup,  only:check_setup
  use io,          only:error,warning
  use fileutils,   only:getnextfilename
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
  use eos, only:gamma
  use physcon,     only:pi
  use options,     only:iexternalforce
+ use io_summary,  only:summary_initialise
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -80,7 +75,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),rmax,dtext,dtnew
  logical :: converged,use_step
- logical, parameter :: fix_entrop = .false. ! fix entropy instead of thermal energy
+ logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical, parameter :: write_files = .true.
  character(len=20) :: filename
  !
@@ -91,6 +86,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
  call set_options_for_relaxation(tdyn)
+ call summary_initialise()
  !
  ! check particle setup is sensible
  !
@@ -101,10 +97,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     return
  endif
  use_step = .false.
- !if (nptmass > 0 .or. iexternalforce > 0) then
- !   call warning('relax_star','asynchronous shifting not implemented with sink particles: evolving in time instead')
- !   use_step = .true.
- !endif
+ if (iexternalforce > 0) then
+    call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
+    use_step = .true.
+ endif
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
@@ -140,6 +136,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
 
  filename = 'relax_00000'
  if (write_files) then
+    call init_readwrite_dumps()
     call write_fulldump(t,filename)
     open(newunit=iunit,file='relax.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
@@ -151,9 +148,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     dtmax = tdyn
     call init_step(npart,t,dtmax)
  endif
- nits = maxits
+ nits = 0
  do while (.not. converged)
-    nits = nits - 1
+    nits = nits + 1
     !
     ! reset thermal energy and calculate information
     !
@@ -173,7 +170,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     !
     call compute_energies(t)
     converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. &
-                 rmserr < 0.01*tol_dens .and. nits < maxits-1) .or. nits <= 0)
+                 rmserr < 0.01*tol_dens) .or. nits >= maxits)
     !
     ! print information to screen
     !
@@ -181,8 +178,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
        print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     else
-       print "(a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,', dens error:',rmserr,'%, R*:',rmax, &
-        ' Ekin/Epot:',ekin/abs(epot)
+       print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,'/',maxits, &
+             ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
     endif
     !
     ! additional diagnostic output, mainly for debugging/checking
@@ -223,14 +220,15 @@ end subroutine relax_star
 !----------------------------------------------------------------
 subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  use deriv, only:get_derivs_global
- use part,  only:fxyzu,fext,xyzmh_ptmass,nptmass
+ use part,  only:fxyzu,fext,xyzmh_ptmass,nptmass,rhoh,massoftype,igas
  use ptmass,only:get_accel_sink_gas
- use eos,   only:gamma
+ use eos,   only:get_spsound
+ use options, only:ieos
  integer, intent(in) :: npart
  real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real, intent(out)   :: dtmin
- real :: dx(3),dti,phi
- integer :: i
+ real :: dx(3),dti,phi,rhoi,cs,hi
+ integer :: i,nlargeshift
 !
 ! get forces on particles
 !
@@ -239,23 +237,33 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
 ! shift particles asynchronously
 !
  dtmin = huge(dtmin)
+ nlargeshift = 0
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,gamma,xyzmh_ptmass,nptmass) &
- !$omp private(i,dx,dti,phi) &
- !$omp reduction(min:dtmin)
+ !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,massoftype,ieos) &
+ !$omp private(i,dx,dti,phi,cs,rhoi,hi) &
+ !$omp reduction(min:dtmin) &
+ !$omp reduction(+:nlargeshift)
  do i=1,npart
     fext(1:3,i) = 0.
     if (nptmass > 0) then
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fext(1,i),fext(2,i),fext(3,i),phi)
     endif
-    dti = 0.3*xyzh(4,i)/sqrt(gamma*(gamma-1.)*vxyzu(4,i))   ! h/cs
+    hi = xyzh(4,i)
+    rhoi = rhoh(hi,massoftype(igas))
+    cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+    dti = 0.3*hi/cs   ! h/cs
     dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
+    if (dot_product(dx,dx) > hi**2) then
+       dx = dx / sqrt(dot_product(dx,dx)) * hi  ! Avoid large shift in particle position
+       nlargeshift = nlargeshift + 1
+    endif
     xyzh(1:3,i) = xyzh(1:3,i) + dx(:)
     vxyzu(1:3,i) = dx(:)/dti ! fake velocities, so we can measure kinetic energy
     dtmin = min(dtmin,dti)   ! used to print a "time" in the output (but it is fake)
  enddo
  !$omp end parallel do
+ if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
 
 end subroutine shift_particles
 
@@ -268,7 +276,7 @@ end subroutine shift_particles
 !----------------------------------------------------------------
 subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
- use part,        only:rhoh,massoftype,igas
+ use part,        only:rhoh,massoftype,igas,maxvxyzu
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
  real, intent(in)    :: xyzh(:,:),r(nt),rho(nt),utherm(nt),entrop(nt)
@@ -285,10 +293,12 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_en
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     rhor = yinterp(rho,r,ri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
-    if (fix_entrop) then
-       vxyzu(4,i) = (yinterp(entrop,r,ri)*rhor**(gamma-1.))/(gamma-1.)
-    else
-       vxyzu(4,i) = yinterp(utherm,r,ri)
+    if (maxvxyzu >= 4) then
+       if (fix_entrop) then
+          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
+       else
+          vxyzu(4,i) = yinterp(utherm,r,ri)
+       endif
     endif
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
@@ -304,7 +314,7 @@ end subroutine reset_u_and_get_errors
 !----------------------------------------------------------------
 subroutine set_options_for_relaxation(tdyn)
  use eos,  only:ieos,gamma
- use part, only:hfact
+ use part, only:hfact,maxvxyzu
  use damping, only:damp,tdyn_s
  use options, only:idamp
  use units,   only:utime
@@ -318,7 +328,7 @@ subroutine set_options_for_relaxation(tdyn)
  !
  !gamma = 2.
  !hfact = 0.8 !0.7
- ieos = 2
+ if (maxvxyzu >= 4) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime
@@ -365,13 +375,14 @@ subroutine restore_original_options
  use eos,     only:ieos,gamma
  use damping, only:damp
  use options, only:idamp
- use part,    only:hfact
+ use part,    only:hfact,vxyzu,npart
 
  gamma = gammaprev
  hfact = hfactprev
  ieos  = ieos_prev
  idamp = 0
  damp = 0.
+ vxyzu(1:3,1:npart) = 0.
 
 end subroutine restore_original_options
 

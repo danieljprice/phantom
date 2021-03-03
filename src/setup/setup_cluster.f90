@@ -4,34 +4,28 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for star cluster formation calculations following
+! Setup for star cluster formation calculations following
 !   Bate, Bonnell & Bromm (2003). Requires pre-calculated velocity cubes.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - M_cloud     : *mass of cloud in solar masses*
+!   - R_cloud     : *radius of cloud in pc*
+!   - Temperature : *Temperature*
+!   - dist_fac    : *distance unit in pc*
+!   - mass_fac    : *mass unit in pc*
+!   - mu          : *mean molecular mass*
+!   - n_particles : *number of particles in sphere*
 !
-!  RUNTIME PARAMETERS:
-!    M_cloud     -- mass of cloud in solar masses
-!    R_cloud     -- radius of cloud in pc
-!    Temperature -- Temperature
-!    dist_fac    -- distance unit in pc
-!    mass_fac    -- mass unit in pc
-!    mu          -- mean molecular mass
-!    n_particles -- number of particles in sphere
+! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
+!   kernel, part, physcon, prompting, ptmass, random, setup_params,
+!   setvfield, timestep, units, velfield
 !
-!  DEPENDENCIES: centreofmass, datafiles, dim, eos, infile_utils, io,
-!    kernel, part, physcon, prompting, ptmass, random, setup_params,
-!    setvfield, timestep, units, velfield
-!+
-!--------------------------------------------------------------------------
-module setup
  use dim, only: maxvxyzu
  implicit none
  public :: setpart

@@ -3,7 +3,7 @@
 # @(#) writes a quick makefile for remaking the executable in the current
 # @(#) directory and recompiling the plotting program
 #
-phantomdir=~/phantom
+myphantomdir=${0/scripts\/writemake.sh/}
 splashdir=~/splash
 echo '#'
 echo '#--Makefile to remake the executable and copy to this directory'
@@ -16,7 +16,7 @@ if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
    echo 'endif';
-   makeflags='SETUP=${SETUP} RUNDIR=${PWD}';
+   makeflags='SETUP=${SETUP} RUNDIR=${PWD} KROME='$2;
 else
    makeflags='RUNDIR=${PWD}';
 fi
@@ -33,11 +33,16 @@ echo 'phantom2power   : power'
 echo 'phantom2grid    : grid'
 echo 'phantomanalysis : analysis'
 echo 'phantomevcompare: evcompare'
+echo 'phantomsinks    : sinks'
 echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-echo '	cd ${PHANTOMDIR}; make clean'
+if [ $# -ge 1 ]; then
+    echo '	cd ${PHANTOMDIR}; make clean KROME=krome'
+else
+    echo '	cd ${PHANTOMDIR}; make clean'
+fi
 echo 'setup:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' setup; cd -; cp ${PHANTOMDIR}/bin/phantomsetup .'
 echo 'moddump:'
@@ -54,6 +59,8 @@ echo 'grid:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' phantom2grid; cd -; cp ${PHANTOMDIR}/bin/phantom2grid .'
 echo 'evcompare:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' phantomevcompare; cd -; cp ${PHANTOMDIR}/bin/phantomevcompare .'
+echo 'sinks:'
+echo '	cd ${PHANTOMDIR}; make '$makeflags' phantomsinks; cd -; cp ${PHANTOMDIR}/bin/phantomsinks .'
 echo 'mflow:'
 echo '	cd ${PHANTOMDIR}; make '$makeflags' mflow; cd -; cp ${PHANTOMDIR}/bin/mflow .; cp ${PHANTOMDIR}/bin/ev2mdot .; cp ${PHANTOMDIR}/bin/lombperiod .'
 echo 'make:'

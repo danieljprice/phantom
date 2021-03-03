@@ -4,34 +4,29 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup GR TDE
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    beta          -- penetration factor
-!    dumpsperorbit -- number of dumps per orbit
-!    ecc           -- eccentricity (1 for parabolic)
-!    mhole         -- mass of black hole (solar mass)
-!    mstar         -- mass of star       (solar mass)
-!    norbits       -- number of orbits
-!    nr            -- particles per star radius (i.e. resolution)
-!    rstar         -- radius of star     (solar radii)
-!    theta         -- inclination of orbit (degrees)
-!
-!  DEPENDENCIES: eos, externalforces, infile_utils, io, metric, part,
-!    physcon, rho_profile, setbinary, spherical, timestep, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup GR TDE
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - beta          : *penetration factor*
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - ecc           : *eccentricity (1 for parabolic)*
+!   - mhole         : *mass of black hole (solar mass)*
+!   - mstar         : *mass of star       (solar mass)*
+!   - norbits       : *number of orbits*
+!   - nr            : *particles per star radius (i.e. resolution)*
+!   - rstar         : *radius of star     (solar radii)*
+!   - theta         : *inclination of orbit (degrees)*
+!
+! :Dependencies: eos, externalforces, infile_utils, io, metric, part,
+!   physcon, rho_profile, setbinary, spherical, timestep, units,
+!   vectorutils
+!
  implicit none
  public :: setpart
 

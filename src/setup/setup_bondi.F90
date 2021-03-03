@@ -4,32 +4,25 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!
-!
-!  REFERENCES:
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    isol   -- (1 = geodesic flow  |  2 = sonic point flow)
-!    iswind -- wind option (logical)
-!    np     -- desired number of particles (stretch-mapping will only give this approx.)
-!    rmax   -- outer edge
-!    rmin   -- inner edge
-!
-!  DEPENDENCIES: bondiexact, centreofmass, dim, externalforces,
-!    infile_utils, io, kernel, metric, metric_tools, options, part,
-!    physcon, prompting, setup_params, spherical, stretchmap, timestep,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+!
+!
+! :References:
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - isol   : *(1 = geodesic flow  |  2 = sonic point flow)*
+!   - iswind : *wind option (logical)*
+!   - np     : *desired number of particles (stretch-mapping will only give this approx.)*
+!   - rmax   : *outer edge*
+!   - rmin   : *inner edge*
+!
+! :Dependencies: bondiexact, centreofmass, dim, externalforces,
+!   infile_utils, io, kernel, metric, metric_tools, options, part, physcon,
+!   prompting, setup_params, spherical, stretchmap, timestep, units
+!
  use physcon,        only:pi
  use externalforces, only:accradius1,accradius1_hard
  use dim,            only:gr

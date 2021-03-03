@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setbinary
+module setbinary
 !
-!  DESCRIPTION:
-!   This module is contains utilities for setting up binaries
+! This module is contains utilities for setting up binaries
 !   Our conventions for binary orbital parameters are consistent with
 !   those produced by the imorbel code (Pearce, Wyatt & Kennedy 2015)
 !   which can be used to produce orbits matching observed orbital
 !   arcs of binary companions on the sky
 !
-!  REFERENCES:
+! :References:
 !   Eggleton (1983) ApJ 268, 368-369 (ref:eggleton83)
 !   Lucy (2014), A&A 563, A126
 !   Pearce, Wyatt & Kennedy (2015), MNRAS 448, 3679
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: binaryutils
 !
-!  DEPENDENCIES: io, part, physcon
-!+
-!--------------------------------------------------------------------------
-module setbinary
  implicit none
  public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
  public :: get_mean_angmom_vector,get_eccentricity_vector
@@ -57,6 +51,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose)
+ use binaryutils, only:get_E
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -152,7 +147,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
        tperi = 0.5*period ! time since periastron: half period = apastron
 
        ! Solve Kepler equation for eccentric anomaly
-       E = get_E(period,eccentricity,tperi)
+       call get_E(period,eccentricity,tperi,E)
     endif
 
     ! Positions in plane (Thiele-Innes elements)
@@ -272,36 +267,6 @@ pure subroutine rotate(xyz,cosi,sini)
  xyz(3) = -xi*sini + zi*cosi
 
 end subroutine rotate
-
-!--------------------------------
-! Solve Kepler's equation for the
-! Eccentric anomaly by iteration
-!--------------------------------
-real function get_E(period,ecc,deltat)
- real, intent(in) :: period,ecc,deltat
- real :: mu,M,E0,M0,E
- real, parameter :: tol = 1.e-10
-
- mu = 2.*pi/period
- M = mu*deltat ! mean anomaly
- ! first guess
- if (M > tiny(M)) then
-    E = M + ecc*sin(M) + ecc**2/M*sin(2.*M)
- else
-    E = M
- endif
- E0 = E + 2.*tol
-
- do while (abs(E - E0) > tol)
-    E0 = E
-    M0 = M
-    M = E - ecc*sin(E)
-    E = E + (M - M0)/(1. - ecc*cos(E))
- enddo
-
- get_E = E
-
-end function get_E
 
 !------------------------------------
 ! Compute estimate of the Roche Lobe

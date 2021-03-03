@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: datafiles
+module datafiles
 !
-!  DESCRIPTION:
-!   Interface to routine to search for external data files
+! Interface to routine to search for external data files
 !   This module just provides the url and environment variable
 !   settings that are specific to Phantom
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: datautils, io, mpiutils
 !
-!  DEPENDENCIES: datautils, io, mpiutils
-!+
-!--------------------------------------------------------------------------
-module datafiles
  implicit none
  character(len=*), parameter :: data_url = &
   'http://users.monash.edu.au/~dprice/phantom/'

@@ -4,24 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testcorotate
-!
-!  DESCRIPTION:
-!   Unit tests of the coriolis & centrifugal force module
-!
-!  REFERENCES: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: extern_corotate, io, testutils
-!+
-!--------------------------------------------------------------------------
 module testcorotate
+!
+! Unit tests of the coriolis & centrifugal force module
+!
+! :References: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: extern_corotate, io, testutils
+!
  implicit none
  public :: test_corotate
 

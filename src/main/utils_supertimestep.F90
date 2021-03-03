@@ -4,10 +4,9 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: timestep_sts
+module timestep_sts
 !
-!  DESCRIPTION: This module contains the subroutines to control super-
+! This module contains the subroutines to control super-
 !               timestepping; the primary control routine, step_STS, is
 !               in step_supertimestep.f.  The control routine is in a
 !               different file due to dependencies and hence compiling
@@ -15,18 +14,14 @@
 !               For independent timesteps, all particles requiring
 !               super-timestepping will be in the largest bin.
 !
-!  REFERENCES: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
+! :References: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, part, timestep_ind
 !
-!  DEPENDENCIES: dim, io, part, timestep_ind
-!+
-!--------------------------------------------------------------------------
-module timestep_sts
  use dim, only: maxsts
  use part, only: istsactive,ibin_sts
  implicit none

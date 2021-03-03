@@ -4,26 +4,20 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: leastsquares
+module leastsquares
 !
-!  DESCRIPTION:
-!  module containing routine(s)
+! module containing routine(s)
 !  to compute least squares fit of a linear function
 !  for arbitrary data, optionally in log-space
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module leastsquares
  implicit none
 
 contains

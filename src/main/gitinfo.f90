@@ -4,23 +4,18 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: gitinfo
-!
-!  DESCRIPTION: writes the git information to the logfile
-!
-!  REFERENCES: None
-!
-!  OWNER: James Wurster
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io
-!+
-!--------------------------------------------------------------------------
 module gitinfo
+!
+! writes the git information to the logfile
+!
+! :References: None
+!
+! :Owner: James Wurster
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io
+!
  implicit none
  public :: get_and_print_gitinfo
  character(len=7), public :: gitsha = ''

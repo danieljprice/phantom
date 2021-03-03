@@ -4,32 +4,26 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_binary
+module extern_binary
 !
-!  DESCRIPTION:
-!    This module contains routines relating to the computation
+! This module contains routines relating to the computation
 !    of a gravitational force/potential from a central binary system
 !    (adapted from a routine by Graham Wynn)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - accradius1  : *accretion radius of primary*
+!   - accradius2  : *accretion radius of secondary (if iexternalforce=binary)*
+!   - binarymassr : *m1/(m1+m2) of central binary system (if iexternalforce=binary)*
+!   - eps_soft1   : *Plummer softening of primary*
+!   - eps_soft2   : *Plummer softening of secondary*
+!   - ramp        : *ramp up mass of secondary over first 5 orbits?*
 !
-!  RUNTIME PARAMETERS:
-!    accradius1  -- accretion radius of primary
-!    accradius2  -- accretion radius of secondary (if iexternalforce=binary)
-!    binarymassr -- m1/(m1+m2) of central binary system (if iexternalforce=binary)
-!    eps_soft1   -- Plummer softening of primary
-!    eps_soft2   -- Plummer softening of secondary
-!    ramp        -- ramp up mass of secondary over first 5 orbits?
+! :Dependencies: dump_utils, infile_utils, io, physcon
 !
-!  DEPENDENCIES: dump_utils, infile_utils, io, physcon
-!+
-!--------------------------------------------------------------------------
-module extern_binary
  implicit none
  !
  !--code input parameters: these are the default values
