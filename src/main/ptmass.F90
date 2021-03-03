@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ module ptmass
 !
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
- use io,   only:iscfile,ipafile,iskfile
+ use io,   only:iscfile,iskfile
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -48,6 +48,7 @@ module ptmass
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+ public :: calculate_mdot
 #ifdef PERIODIC
  public :: ptmass_boundary_crossing
 #endif
@@ -73,9 +74,9 @@ module ptmass
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
- logical, private, parameter :: record_accreted = .false.  ! verbose tracking of particle accretion
+ logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
  character(len=50), private  :: pt_prefix = 'Sink'
- character(len=50), private  :: pt_suffix = '00.ev'
+ character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
 
  integer, public, parameter :: ndptmass = 13
  integer, public, parameter :: &
@@ -147,7 +148,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     dz     = zi - xyzmh_ptmass(3,j)
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
-    if (hsoft > 0.0)  hsoft = max(hsoft,hi)
+    if (hsoft > 0.0) hsoft = max(hsoft,hi)
 
     rr2    = dx*dx + dy*dy + dz*dz + epsilon(rr2)
 #ifdef FINVSQRT
@@ -218,7 +219,6 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  fyi = fyi + ftmpyi
  fzi = fzi + ftmpzi
 
- return
 end subroutine get_accel_sink_gas
 
 !----------------------------------------------------------------
@@ -242,25 +242,37 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    intent(in)  :: ti
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,dr3,f1,f2
- real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
+ real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
- real    :: fterm, pterm
+ real    :: fterm,pterm,potensoft0
  integer :: i,j
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
  phitot = 0.
  !
+ !--get self-contribution to the potential if sink-sink softening is used
+ !
+ if (h_soft_sinksink > 0.) then
+    hsoft1 = 1.0/h_soft_sinksink
+    hsoft21= hsoft1**2
+    call kernel_softening(0.,0.,potensoft0,fterm)
+ else
+    hsoft1 = 0.  ! to avoid compiler warnings
+    hsoft21 = 0.
+    potensoft0 = 0.
+ endif
+ !
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
- !$omp shared(iexternalforce,ti,h_soft_sinksink) &
+ !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii) &
  !$omp private(fextx,fexty,fextz,phiext) &
- !$omp private(hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft) &
+ !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot)
@@ -295,8 +307,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           ! if the sink particle is given a softening length, soften the
           ! force and potential if r < radkern*h_soft_sinksink
           !
-          hsoft1 = 1.0/h_soft_sinksink
-          hsoft21= hsoft1**2
           q2i    = rr2*hsoft21
           qi     = sqrt(q2i)
           call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
@@ -336,15 +346,23 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        phii   = phii + phiext
        phitot = phitot + phiext
     endif
-
+    !
+    !--self-contribution to the potential if sink-sink softening is used
+    !  Note: we do NOT add this for sink-sink interactions because the
+    !  positions are assumed to be UNCORRELATED, hence the self-contribution
+    !  is not important. Other particles (e.g. gas) are assumed to have
+    !  correlated positions, so the self-contribution is important
+    !
+    !pterm = 0.5*pmassi*pmassi*potensoft0*hsoft1
+    !phii = phii + pterm
+    !phitot = phitot + pterm
     !
     !--store sink-sink forces (only)
     !
     fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii ! Note: No self contribution to the potential for sink-sink softening.
-
+    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
  enddo
  !$omp end parallel do
 
@@ -709,15 +727,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
 
 !$     call omp_unset_lock(ipart_omp_lock(i))
        hi = -abs(hi)
-
-       if (record_accreted) then
-          !$omp critical(trackacc)
-          call fatal('ptmass', 'track_accreted has been deprecated because it relied on OpenMP-unsafe code')
-          call track_accreted(time,i,dx,dy,dz,dvx,dvy,dvz,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
-            xyzmh_ptmass(3,i),xyzmh_ptmass(4,i),pmassi,vxyz_ptmass(1:3,i),xyzmh_ptmass(1,i), &
-            xyzmh_ptmass(2,i),xyzmh_ptmass(3,i),vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i))
-          !$omp end critical(trackacc)
-       endif
 
 ! avoid possibility that two sink particles try to accrete the same gas particle by exiting the loop
        exit sinkloop
@@ -1301,6 +1310,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
+    fxyz_ptmass(:,nptmass) = 0.0
+    fxyz_ptmass_sinksink(:,nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     if (id==id_rhomax) then
@@ -1312,9 +1323,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! open new file to track new sink particle details & and update all sink-tracking files;
     ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
     !
-    fxyz_ptmass = 0.0
-    fxyz_ptmass_sinksink = 0.0
-    call pt_open_sinkev(nptmass)
+    if (write_one_ptfile) then
+       if (nptmass==1) call pt_open_sinkev(0)  ! otherwise file is already open
+    else
+       call pt_open_sinkev(nptmass)
+    endif
     call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
  else
     !
@@ -1342,22 +1355,26 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  integer                      :: i,idot,idash
  character(len=150)           :: filename
  !
- !--Extract prefix
+ !--Extract prefix & suffix
  !
  idash = index(dumpfile,'_')
  write(pt_prefix,"(a)") dumpfile(1:idash-1)
- !
- !--Extract suffix
- !
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
- write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".ev"
  !
- !--Open file for each sink particle
+ !--Define file name components and finalise suffix & open files
  !
- do i = 1,nptmass
-    call pt_open_sinkev(i)
- enddo
+ if (icreate_sinks > 0) then
+    write_one_ptfile = .true.
+    write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".sink"
+    if (nptmass > 0) call pt_open_sinkev(0)
+ else
+    write_one_ptfile = .false.
+    write(pt_suffix,'(2a)') logfile(len(trim(pt_prefix))+1:idot-1),".ev"
+    do i = 1,nptmass
+       call pt_open_sinkev(i)
+    enddo
+ endif
  !
  !--Open file for tracking sink creation (if required)
  !
@@ -1386,46 +1403,8 @@ subroutine init_ptmass(nptmass,logfile,dumpfile)
  else
     iscfile = -abs(iscfile)
  endif
- !
- !--Open file for tracking particle accretion (if required)
- !
- if (record_accreted) then
-    filename = trim(pt_prefix)//"ParticleAccretion"//trim(pt_suffix)
-    open(unit=ipafile,file=trim(filename),form='formatted',status='replace')
-    write(ipafile,'("# Data of accreted particles")')
-    write(ipafile,"('#',26(1x,'[',i2.2,1x,a11,']',2x))") &
-           1,'time', &
-           2,'sinki',&
-           3,'angx', &
-           4,'angy', &
-           5,'angz', &
-           6,'mpart',&
-           7,'msink',&
-           8,'mu',   &
-           9,'dx',   &
-          10,'dy',   &
-          11,'dz',   &
-          12,'dvx',  &
-          13,'dvy',  &
-          14,'dvz',  &
-          15,'xsink_new', &
-          16,'ysink_new', &
-          17,'zsink_new', &
-          18,'xsink_old', &
-          19,'ysink_old', &
-          20,'zsink_old', &
-          21,'vxsink_new',&
-          22,'vysink_new',&
-          23,'vzsink_new',&
-          24,'vxsink_old',&
-          25,'vysink_old',&
-          26,'vzsink_old'
- else
-    ipafile = -abs(ipafile)
- endif
 
 end subroutine init_ptmass
-
 !-----------------------------------------------------------------------
 !+
 !  finalise ptmass stuff, free memory, close files
@@ -1437,7 +1416,6 @@ subroutine finish_ptmass(nptmass)
  call pt_close_sinkev(nptmass)
 
 end subroutine finish_ptmass
-
 !-----------------------------------------------------------------------
 !+
 !  write open sink data files
@@ -1448,31 +1426,39 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
- write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
+ if (write_one_ptfile) then
+    write(filename,'(2a)') trim(pt_prefix),trim(pt_suffix)
+ else
+    write(filename,'(2a,I4.4,2a)') trim(pt_prefix),"Sink",num,"N",trim(pt_suffix)
+ endif
  iunit = iskfile+num
  open(unit=iunit,file=trim(filename),form='formatted',status='replace')
- write(iunit,"('#',18(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'time',  &
-          2,'x',     &
-          3,'y',     &
-          4,'z',     &
-          5,'mass',  &
-          6,'vx',    &
-          7,'vy',    &
-          8,'vz',    &
-          9,'spinx', &
-         10,'spiny', &
-         11,'spinz', &
-         12,'macc',  &
-         13,'fx',    &
-         14,'fy',    &
-         15,'fz',    &
-         16,'fssx',  &
-         17,'fssy',  &
-         18,'fssz'
+ if (write_one_ptfile) then
+    write(iunit,'(a)') 'To extract one file per sink: make sinks; ./phantomsinks '
+ endif
+ write(iunit,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
+          1,'time',    &
+          2,'x',       &
+          3,'y',       &
+          4,'z',       &
+          5,'mass',    &
+          6,'vx',      &
+          7,'vy',      &
+          8,'vz',      &
+          9,'spinx',   &
+         10,'spiny',   &
+         11,'spinz',   &
+         12,'macc',    &
+         13,'fx',      &
+         14,'fy',      &
+         15,'fz',      &
+         16,'fssx',    &
+         17,'fssy',    &
+         18,'fssz',    &
+         19,'sink ID', &
+         20,'nptmass'
 
 end subroutine pt_open_sinkev
-
 !-----------------------------------------------------------------------
 !+
 !  close sink data files
@@ -1481,14 +1467,16 @@ end subroutine pt_open_sinkev
 subroutine pt_close_sinkev(nptmass)
  integer, intent(in) :: nptmass
  integer             :: i,iunit
-
- do i = 1,nptmass
-    iunit = iskfile+i
-    close(iunit)
- enddo
+ if (write_one_ptfile) then
+    close(iskfile)
+ else
+    do i = 1,nptmass
+       iunit = iskfile+i
+       close(iunit)
+    enddo
+ endif
 
 end subroutine pt_close_sinkev
-
 !-----------------------------------------------------------------------
 !+
 !  write sink data to files
@@ -1500,49 +1488,38 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit
 
+ iunit = iskfile
  do i = 1,nptmass
-    iunit = iskfile+i
-    write(iunit,"(18(1pe18.9,1x))") &
+    if (.not. write_one_ptfile) iunit = iskfile+i
+    write(iunit,"(18(1pe18.9,1x),2(I18,1x))") &
     time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
     xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i)
-    call flush(iunit)
+    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),i,nptmass
+    if (i==nptmass .or. (.not. write_one_ptfile)) call flush(iunit)
  enddo
 
 end subroutine pt_write_sinkev
-
 !-----------------------------------------------------------------------
 !+
-! writes accreted particle properties to file
-! Author: CJN.  Modified: JHW (July 2015)
+!  compute mass accretion rate
 !+
 !-----------------------------------------------------------------------
-subroutine track_accreted(time,sinki,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart,v_new,xs,ys,zs,vxs,vys,vzs)
- integer, intent(in) :: sinki
- real,    intent(in) :: time,dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,msink,mpart
- real,    intent(in) :: v_new(3),xs,ys,zs, vxs,vys,vzs
- real                :: spinm
- real                :: pos(3),vel(3),ang(3)
+subroutine calculate_mdot(nptmass,time,xyzmh_ptmass)
+ use part,        only: imdotav,imacc,i_tlast,i_mlast
+ integer, intent(in) :: nptmass
+ real,    intent(in) :: time
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ integer             :: i
+ real                :: dt
 
- pos(1) = dx
- pos(2) = dy
- pos(3) = dz
+ do i=1,nptmass
+    dt = time - xyzmh_ptmass(i_tlast,i)
+    xyzmh_ptmass(imdotav,i) = (xyzmh_ptmass(imacc,i) - xyzmh_ptmass(i_mlast,i))/dt
+    xyzmh_ptmass(i_mlast,i) = xyzmh_ptmass(imacc,i)
+    xyzmh_ptmass(i_tlast,i) = time
+ enddo
+end subroutine calculate_mdot
 
- vel(1) = dvx
- vel(2) = dvy
- vel(3) = dvz
-
- spinm  = msink*mpart/(msink+mpart)
- ang(1) = (pos(2)*vel(3) - pos(3)*vel(2))
- ang(2) = (pos(3)*vel(1) - pos(1)*vel(3))
- ang(3) = (pos(1)*vel(2) - pos(2)*vel(1))
- ang(:) = spinm*ang(:)
-
- write(ipafile,'(es18.10,1x,i18,1x,24(es18.10,1x))') time,sinki,ang(1),ang(2),ang(3),mpart,msink,spinm, &
-      dx,dy,dz,dvx,dvy,dvz,xsink,ysink,zsink,xs,ys,zs, v_new,vxs,vys,vzs
- call flush(ipafile)
-
-end subroutine track_accreted
 
 !-----------------------------------------------------------------------
 !+
