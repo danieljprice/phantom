@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,9 +20,9 @@ module initial
 !   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
 !   h2cooling, inject, io, io_summary, krome_interface, linklist,
 !   metric_tools, mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup,
-!   omputils, options, part, photoevap, ptmass, readwrite_dumps,
-!   readwrite_infile, sort_particles, stack, timestep, timestep_ind,
-!   timestep_sts, timing, units, writeheader
+!   omputils, options, part, photoevap, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, sort_particles, stack, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 #ifdef MPI
  use mpi
@@ -59,6 +59,7 @@ subroutine initialise()
  use mpiderivs,        only:init_tree_comms
  use stack,            only:init_mpi_memory
 #endif
+ use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -107,6 +108,8 @@ subroutine initialise()
  call init_mpi_memory()
 #endif
 
+ call init_readwrite_dumps()
+
  return
 end subroutine initialise
 
@@ -133,7 +136,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             n_R,n_electronT,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,temperature,dustprop,ddustprop,ndustsmall,iboundary
+                            Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -207,13 +210,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:igas
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
+ use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
- use h2cooling,        only:init_h2cooling
- use cooling,          only:init_cooling
+ use h2cooling,        only:init_h2cooling,energ_h2cooling
+ use cooling,          only:init_cooling,init_cooling_type
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -334,6 +338,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
+ call init_cooling_type(h2chemistry)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
@@ -344,12 +349,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !  So we now convert our primitive variable read, B, to the conservative B/rho
 !  This necessitates computing the density sum.
 !
- if (mhd) then
+ if (mhd .or. use_dustfrac) then
     if (npart > 0) then
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
     endif
 
     ! now convert to B/rho
@@ -358,9 +363,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        hi         = xyzh(4,i)
        pmassi     = massoftype(itype)
        rhoi1      = 1.0/rhoh(hi,pmassi)
-       Bevol(1,i) = Bxyz(1,i) * rhoi1
-       Bevol(2,i) = Bxyz(2,i) * rhoi1
-       Bevol(3,i) = Bxyz(3,i) * rhoi1
+       if (mhd) then
+          Bevol(1,i) = Bxyz(1,i) * rhoi1
+          Bevol(2,i) = Bxyz(2,i) * rhoi1
+          Bevol(3,i) = Bxyz(3,i) * rhoi1
+       endif
+       if (use_dustfrac) then
+          !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+          dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+       endif
     enddo
  endif
 
@@ -424,7 +435,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -549,31 +560,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,&
-                              temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
-    if (use_dustfrac) then
-       ! set grainsize parameterisation from the initial dustfrac setting now we know rho
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             dustevol(:,i) = sqrt(rhoh(xyzh(4,i),pmassi)*dustfrac(1:ndustsmall,i))
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-             dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             dustevol(:,i) = asin(sqrt(dustfrac(1:ndustsmall,i)))
-!------------------------------------------------
-          endif
-       enddo
-    endif
+                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
+                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
-                ddustevol,temperature,time,0.,dtnew_first,pxyzu,dens,metrics)
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
+                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+
+    if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif
  enddo
 
@@ -769,7 +765,7 @@ end subroutine finalise
 !----------------------------------------------------------------
 
 subroutine endrun
- use io,       only:iprint,ievfile,iscfile,ipafile,imflow,ivmflow,ibinpos,igpos
+ use io,       only:iprint,ievfile,iscfile,imflow,ivmflow,ibinpos,igpos
  use timing,   only:printused
  use part,     only:nptmass
  use eos,      only:ieos,finish_eos
@@ -812,7 +808,6 @@ subroutine endrun
  close(unit=igpos)
 
  if (iscfile > 0) close(unit=iscfile)
- if (ipafile > 0) close(unit=ipafile)
 
  call finish_ptmass(nptmass)
 

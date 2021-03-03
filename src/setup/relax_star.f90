@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module relaxstar
 !
 ! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
 !   infile_utils, initial, io, io_summary, memory, options, part, physcon,
-!   ptmass, readwrite_dumps, step_lf_global, table_utils, units
+!   ptmass, readwrite_dumps, sortutils, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -62,7 +62,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use checksetup,  only:check_setup
  use io,          only:error,warning
  use fileutils,   only:getnextfilename
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
  use eos, only:gamma
  use physcon,     only:pi
  use options,     only:iexternalforce
@@ -73,7 +73,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  real,    intent(inout) :: xyzh(:,:)
  integer :: nits,nerr,nwarn,iunit
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
- real    :: entrop(nt),utherm(nt),rmax,dtext,dtnew
+ real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical, parameter :: write_files = .true.
@@ -82,7 +82,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! save settings and set a bunch of options
  !
  rstar = maxval(r)
- mstar = get_mstar(rho,r)
+ mr = get_mr(rho,r)
+ mstar = mr(nt)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
  call set_options_for_relaxation(tdyn)
@@ -112,13 +113,14 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     call restore_original_options()
     return
  endif
- call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  !
  ! compute derivatives the first time around (needed if using actual step routine)
  !
  t = 0.
  call allocate_memory(2*npart)
  call get_derivs_global()
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)
  !
  ! perform sanity checks
@@ -136,6 +138,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
 
  filename = 'relax_00000'
  if (write_files) then
+    call init_readwrite_dumps()
     call write_fulldump(t,filename)
     open(newunit=iunit,file='relax.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
@@ -151,10 +154,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  do while (.not. converged)
     nits = nits + 1
     !
-    ! reset thermal energy and calculate information
-    !
-    call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_entrop,rmax,rmserr)
-    !
     ! shift particles by one "timestep"
     !
     t = t + dt
@@ -164,6 +163,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     else
        call shift_particles(npart,xyzh,vxyzu,dt)
     endif
+    !
+    ! reset thermal energy and calculate information
+    !
+    call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
     !
     ! compute energies and check for convergence
     !
@@ -203,10 +206,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! unfake some things
  !
  call restore_original_options()
- !
- ! get density and force with original options
- !
- call get_derivs_global
 
 end subroutine relax_star
 
@@ -228,10 +227,6 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  real, intent(out)   :: dtmin
  real :: dx(3),dti,phi,rhoi,cs,hi
  integer :: i,nlargeshift
-!
-! get forces on particles
-!
- call get_derivs_global()
 !
 ! shift particles asynchronously
 !
@@ -263,6 +258,10 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  enddo
  !$omp end parallel do
  if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
+ !
+ ! get forces on particles
+ !
+ call get_derivs_global()
 
 end subroutine shift_particles
 
@@ -273,30 +272,35 @@ end subroutine shift_particles
 !  also compute error between true rho(r) and desired rho(r)
 !+
 !----------------------------------------------------------------
-subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,r,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
- use part,        only:rhoh,massoftype,igas,maxvxyzu
+ use sortutils,   only:indexxfunc,r2func
+ use part,        only:rhoh,massoftype,igas,maxvxyzu,iorder=>ll
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
- real, intent(in)    :: xyzh(:,:),r(nt),rho(nt),utherm(nt),entrop(nt)
+ real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
- real :: ri,rhor,rhoi,rho1
- integer :: i
+ real :: ri,rhor,rhoi,rho1,mstar,massri
+ integer :: i,j
 
- rho1 = yinterp(rho,r,0.)
+ rho1 = yinterp(rho,mr,0.)
  rmax = 0.
  rmserr = 0.
- do i=1,npart
+ call indexxfunc(npart,r2func,xyzh(1:3,:),iorder)
+ mstar = mr(nt)
+ do j = 1,npart
+    i = iorder(j)
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    rhor = yinterp(rho,r,ri) ! analytic rho(r)
+    massri = mstar * real(j) / real(npart)
+    rhor = yinterp(rho,mr,massri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,i) = (yinterp(entrop,r,ri)*rhoi**(gamma-1.))/(gamma-1.)
+          vxyzu(4,i) = (yinterp(entrop,mr,massri)*rhoi**(gamma-1.))/(gamma-1.)
        else
-          vxyzu(4,i) = yinterp(utherm,r,ri)
+          vxyzu(4,i) = yinterp(utherm,mr,massri)
        endif
     endif
     rmserr = rmserr + (rhor - rhoi)**2
@@ -340,30 +344,21 @@ end subroutine set_options_for_relaxation
 
 !--------------------------------------------------
 !+
-!  get total mass of star = \int 4.*pi*rho*r^2 dr
-!  using trapezoidal rule
+!  get mass coordinate m(r) = \int 4.*pi*rho*r^2 dr
 !+
 !--------------------------------------------------
-real function get_mstar(rho,r)
+function get_mr(rho,r) result(mr)
  use physcon, only:pi
  real, intent(in)  :: rho(:),r(:)
- real :: dr,ri,dmi,dmprev,rprev
+ real :: mr(size(r))
  integer :: i
 
- get_mstar = 0.
- dmprev     = 0.
- rprev      = r(1)
+ mr(1) = 0.
  do i=2,size(rho)
-    ri = r(i)
-    dr = ri - rprev
-    dmi = ri*ri*rho(i)*abs(dr)
-    get_mstar = get_mstar + 0.5*(dmi + dmprev) ! trapezoidal rule
-    dmprev = dmi
-    rprev  = ri
+    mr(i) = mr(i-1) + 4./3.*pi*rho(i) * (r(i) - r(i-1)) * (r(i)**2 + r(i)*r(i-1) + r(i-1)**2)
  enddo
- get_mstar = 4.*pi*get_mstar
 
-end function get_mstar
+end function get_mr
 
 !----------------------------------------------------------------
 !+
@@ -374,13 +369,14 @@ subroutine restore_original_options
  use eos,     only:ieos,gamma
  use damping, only:damp
  use options, only:idamp
- use part,    only:hfact
+ use part,    only:hfact,vxyzu,npart
 
  gamma = gammaprev
  hfact = hfactprev
  ieos  = ieos_prev
  idamp = 0
  damp = 0.
+ vxyzu(1:3,1:npart) = 0.
 
 end subroutine restore_original_options
 

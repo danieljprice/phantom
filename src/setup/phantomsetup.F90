@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ program phantomsetup
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup,           only:setpart
@@ -173,6 +173,7 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
+    call init_readwrite_dumps()
     call write_fulldump(time,dumpfile,ntotal)
 !
 !--write an input file if it doesn't already exist

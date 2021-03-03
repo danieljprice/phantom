@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -37,14 +37,14 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                  dustfrac,ddustevol,temperature,time,dt,dtnew,pxyzu,dens,metrics)
+                  dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
- use part,           only:dustgasprop
+ use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -78,6 +78,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef GR
  use cons2prim,      only:cons2primall
 #endif
+ use cons2prim,      only:cons2prim_everything
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -90,12 +91,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
  real,         intent(in)    :: rad(:,:)
+ real,         intent(out)   :: eos_vars(:,:)
  real,         intent(out)   :: drad(:,:)
  real,         intent(inout) :: radprop(:,:)
- real,         intent(in)    :: dustfrac(:,:)
+ real,         intent(in)    :: dustevol(:,:)
  real,         intent(inout) :: dustprop(:,:)
+ real,         intent(out)   :: dustfrac(:,:)
  real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
- real,         intent(inout) :: temperature(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
@@ -146,12 +148,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
     call do_timing('dens',tlast,tcpulast)
  endif
 
 #ifdef GR
- call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens)
+ call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+#else
+ call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
 #endif
 
 !
@@ -165,7 +169,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  stressmax = 0.
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
-            ipart_rhomax,dt,stressmax,temperature,dens,metrics)
+            ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 
 #ifdef DUSTGROWTH
@@ -207,7 +211,7 @@ end subroutine derivs
 subroutine get_derivs_global(tused,dt_new)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                dustfrac,ddustevol,temperature,pxyzu,dens,metrics
+                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
@@ -220,7 +224,7 @@ subroutine get_derivs_global(tused,dt_new)
  dt = 0.
  call getused(t1)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-             rad,drad,radprop,dustprop,ddustprop,dustfrac,ddustevol,temperature,&
+             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,eos_vars,&
              time,dt,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)

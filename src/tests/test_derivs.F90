@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,9 +14,9 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, densityforce, deriv, dim, domain, dust, eos, io,
-!   kernel, linklist, mpiutils, nicil, options, part, physcon, testutils,
-!   timestep_ind, timing, unifdis, units, viscosity
+! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, domain,
+!   dust, eos, io, kernel, linklist, mpiutils, nicil, options, part,
+!   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
  use part, only:massoftype
  implicit none
@@ -33,15 +33,15 @@ subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
                         maxdustsmall,periodic
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,          only:polyk,gamma,use_entropy
+ use eos,          only:polyk,gamma,use_entropy,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
- use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac
+ use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac,iopacity_type
  use kernel,       only:radkern,kernelname
  use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,fext,init_part,&
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
-                        maxBevol,ndivcurlB,dvdx,dustfrac,ddustevol,&
+                        maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
                         idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
@@ -68,7 +68,7 @@ subroutine test_derivs(ntests,npass,string)
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass
 #ifdef IND_TIMESTEPS
- integer           :: itest,ierr,ierr2,nptest
+ integer           :: itest,ierr2,nptest
  real              :: fracactive,speedup
  real(kind=4)      :: tallactive
  real, allocatable :: fxyzstore(:,:),dBdtstore(:,:)
@@ -84,17 +84,18 @@ subroutine test_derivs(ntests,npass,string)
  real              :: rcut
  real              :: rho1i,deint,demag,dekin,dedust,dmdust(maxdustsmall),dustfraci(maxdustsmall),tol
  real(kind=4)      :: tused
- integer           :: nfailed(21),i,j,npartblob,nparttest,m
+ integer           :: nfailed(21),i,j,npartblob,nparttest,m,ierr
  integer           :: np,ieosprev,icurlvxi,icurlvyi,icurlvzi,ialphaloc,iu
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs,testgradh
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
- real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,ddustevoli(maxdustsmall)
+ real              :: stressmax,rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
  real, allocatable :: dummy(:)
 #ifdef IND_TIMESTEPS
  real              :: tolh_old
 #endif
  logical           :: checkmask(maxp)
+
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
 
@@ -188,6 +189,10 @@ subroutine test_derivs(ntests,npass,string)
     ieos = 1
     gamma = 1.0
  endif
+
+ !For radiation need to make sure that mesa tables are initialised
+ iopacity_type = 0
+ call init_eos(ieos, ierr)
 
  testhydro: if (testhydroderivs .or. testall) then
 !
@@ -353,7 +358,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop)
+                           rad,radprop,dvdx)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0
@@ -485,7 +490,8 @@ subroutine test_derivs(ntests,npass,string)
        call set_velocity_and_energy
        do i=1,npart
           do j=1,ndustsmall
-             dustfrac(j,i) = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfrac))
+             dustfracj = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfracj))
+             dustevol(j,i) = sqrt(dustfracj/(1.-dustfracj))
           enddo
        enddo
 
@@ -514,26 +520,16 @@ subroutine test_derivs(ntests,npass,string)
           dedust = 0.
           dmdust(:) = 0.
           do i=1,npart
-             dustfraci(:)  = dustfrac(1:maxdustsmall,i)
+             dustfraci(:)  = dustfrac(1:ndustsmall,i)
              rhoi          = rhoh(xyzh(4,i),massoftype(igas))
              drhodti       = -rhoi*divcurlv(1,i)
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!             sonrhoi(:)    = sqrt(dustfrac(1:maxdustsmall,i)/rhoi)
-!             ddustevoli(:) = 2.*sonrhoi(:)*ddustevol(:,i) - sonrhoi(:)**2*drhodti
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+             !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
              sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
-             ddustevoli(:) = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!             sonrhoi(:)    = asin(sqrt(dustfrac(1:maxdustsmall,i)))
-!             ddustevoli(:) = 2.*cos(sonrhoi(:))*sin(sonrhoi(:))*ddustevol(:,i)
-!------------------------------------------------
-             dmdust(:)     = dmdust(:) + ddustevoli(:)
+             depsdti(:)    = 2.*sonrhoi(:)*(1.-dustfraci(:))*ddustevol(:,i)
+             dmdust(:)     = dmdust(:) + depsdti(:)
              dekin  = dekin  + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
              deint  = deint  + (1. - sum(dustfraci))*fxyzu(iu,i)
-             dedust = dedust - vxyzu(iu,i)*sum(ddustevoli)
+             dedust = dedust - vxyzu(iu,i)*sum(depsdti)
           enddo
           dmdust  = reduceall_mpi('+',dmdust)
           dekin   = reduceall_mpi('+',dekin)
@@ -552,6 +548,7 @@ subroutine test_derivs(ntests,npass,string)
        ! reset dustfrac to zero for subsequent tests
        !
        dustfrac(:,:) = 0.
+       dustevol(:,:) = 0.
 
     else
        if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'
@@ -1492,7 +1489,7 @@ end function ddivvdtfunc
 real function alphalocfunc(xyzhi)
  use options,      only:alpha,alphamax
  use eos,          only:gamma,polyk
- use densityforce, only:get_alphaloc
+ use cullendehnen, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 

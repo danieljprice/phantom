@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,17 +14,16 @@ program phantom2hdf5
 !
 ! :Usage: phantom2hdf5 dumpfile(s)
 !
-! :Dependencies: dim, eos, externalforces, io, part, readwrite_dumps,
-!   readwrite_dumps_hdf5
+! :Dependencies: dim, eos, externalforces, io, part,
+!   readwrite_dumps_fortran, readwrite_dumps_hdf5
 !
- use dim,                  only:tagline
- use part,                 only:hfact
- use io,                   only:set_io_unit_numbers,iprint,idisk1
- use readwrite_dumps,      only:read_dump,read_smalldump,write_fulldump
- use readwrite_dumps_hdf5, only:read_dump_hdf5=>read_dump, write_fulldump_hdf5=>write_fulldump
- use readwrite_dumps_hdf5, only:write_smalldump_hdf5=>write_smalldump
- use eos,                  only:extract_eos_from_hdr
- use externalforces,       only:extract_iextern_from_hdr
+ use dim,                     only:tagline
+ use part,                    only:hfact,dt_in
+ use io,                      only:set_io_unit_numbers,iprint,idisk1
+ use readwrite_dumps_fortran, only:read_dump_fortran,read_smalldump_fortran,write_fulldump_fortran
+ use readwrite_dumps_hdf5,    only:read_dump_hdf5,write_dump_hdf5
+ use eos,                     only:extract_eos_from_hdr
+ use externalforces,          only:extract_iextern_from_hdr
  implicit none
  integer :: nargs,iarg
  character(len=120) :: dumpfile
@@ -55,12 +54,12 @@ program phantom2hdf5
     !--read particle setup from dumpfile
     !
     fulldump = .true.
-    call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+    call read_dump_fortran(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
 
     ! Try opening small dump if there is an error opening full dump
     if (ierr /= 0) then
        fulldump = .false.
-       call read_smalldump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
+       call read_smalldump_fortran(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
     endif
 
     ! If there is still an error, skip to the next file
@@ -70,11 +69,7 @@ program phantom2hdf5
        cycle over_args
     endif
 
-    if (fulldump) then
-       call write_fulldump_hdf5(time,trim(dumpfile))
-    else
-       call write_smalldump_hdf5(time,trim(dumpfile))
-    endif
+    call write_dump_hdf5(time,trim(dumpfile),fulldump=fulldump,dtind=dt_in)
 
  enddo over_args
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -43,12 +43,13 @@ module externalforces
 
  ! (the following for compatibility with non-relativistic code)
  integer, parameter, public :: iext_lensethirring = -1
- integer, parameter, public :: iext_einsteinprec = -1
- integer, parameter, public :: iext_binary = -1
- integer, parameter, public :: iext_spiral = -1
- integer, parameter, public :: iext_star = -1
- integer, parameter, public :: iext_corotate = -1
- integer, parameter, public :: iext_corot_binary = -1
+ integer, parameter, public :: iext_einsteinprec = -2
+ integer, parameter, public :: iext_binary = -3
+ integer, parameter, public :: iext_spiral = -4
+ integer, parameter, public :: iext_star = -5
+ integer, parameter, public :: iext_corotate = -6
+ integer, parameter, public :: iext_corot_binary = -7
+ integer, parameter, public :: iext_gwinspiral = -8
 
  !
  ! Human-readable labels for these

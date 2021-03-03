@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -64,7 +64,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use partinject,    only:add_or_update_particle
  use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
  use random,        only:get_random_pos_on_sphere
- use units,         only:udist, umass, utime
+ use units,         only:umass, utime
  use options,       only:iexternalforce
  use externalforces,only:mass1
  use binaryutils,   only:get_orbit_bits
@@ -75,10 +75,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
  integer :: i,ipart,npinject,seed,pt
- real    :: dmdt,dndt,rasteroid,h,u,speed,inject_this_step
+ real    :: dmdt,rasteroid,h,u,speed,inject_this_step
  real    :: m1,m2,r
  real    :: dt
-
  real, save :: have_injected,t_old
  real, save :: semia
 
@@ -130,6 +129,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
 !-- Randomly inject particles around the asteroids outer 'radius'
+!-- Only inject them on the side that is facing the central sink
 !
  do i=1,npinject
     xyz       = r2 + rasteroid*get_random_pos_on_sphere(seed)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,11 +18,11 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, getneigbours, part, prompting, ptmass,
+! :Dependencies: boundary, dim, getneighbours, part, prompting, ptmass,
 !   readwrite_dumps, sortutils, units
 !
  use dim,             only:maxp
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
@@ -90,6 +90,22 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write_neighbour_list = .false.
 ! Read in input parameters from file (if it exists)
  call read_analysis_options(dumpfile)
+
+! Print warning
+ if (checkbound) then
+    print*, '*************************************************************'
+    print*, '*                                                           *'
+    print*, '*                         WARNING!!!                        *'
+    print*, '*                                                           *'
+    print*, '*     Potential energy of a clump is the sum of poten,      *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Npart Gm_jm_i/r_ij         *'
+    print*, '*     rather than being the potential of just the clump,    *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Nclump Gm_jm_i/r_ij        *'
+    print*, '*     Therefore the potential energy is much too large!     *'
+    print*, '*     Consider using analysis_clumpfindTD.F90               *'
+    print*, '*                                                           *'
+    print*, '*************************************************************'
+ endif
 
 ! Skip small dumps (as they do not include velocity data)
  if (skipsmalldumps .and. .not.opened_full_dump) then
