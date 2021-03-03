@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module relaxstar
 !
 ! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
 !   infile_utils, initial, io, io_summary, memory, options, part, physcon,
-!   ptmass, readwrite_dumps, step_lf_global, table_utils, units
+!   ptmass, readwrite_dumps, sortutils, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -83,7 +83,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  !
  rstar = maxval(r)
  mr = get_mr(rho,r)
- mstar = mr(nt) 
+ mstar = mr(nt)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
  call set_options_for_relaxation(tdyn)
@@ -206,10 +206,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! unfake some things
  !
  call restore_original_options()
- !
- ! get density and force with original options
- !
- call get_derivs_global
 
 end subroutine relax_star
 

@@ -21,8 +21,8 @@
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=1
-PHANTOM_VERSION_MINOR=4
+PHANTOM_VERSION_MAJOR=2021
+PHANTOM_VERSION_MINOR=0
 PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
@@ -294,6 +294,13 @@ ifeq ($(SETUP), grdisc)
     IND_TIMESTEPS=yes
     NCELLSMAX=2*maxp
     CONST_AV=yes
+endif
+
+ifeq ($(SETUP), firehose)
+#   injection of a stream of gas as a firehose
+    SRCINJECT= inject_firehose.f90
+    SETUPFILE= setup_firehose.f90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), adiabaticdisc)
@@ -1151,7 +1158,7 @@ ifeq ($(MCFOST), yes)
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 #-lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
+	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 -lz #-lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
 
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -1082,7 +1082,9 @@ subroutine eos_surfaces
  real    :: kappa_array(1000,400)
  real    :: gam1_array(1000,1000)
  real    :: pres_array(1000,1000)
- real    :: kappat,kappar,dum
+ real    :: dum(1000,1000)
+ real    :: kappat, kappar
+
 
  do i=1,size(rho_array)
     do j=1,size(eni_array)
