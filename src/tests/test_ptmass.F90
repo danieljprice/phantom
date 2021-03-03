@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -118,6 +118,7 @@ subroutine test_ptmass(ntests,npass)
 #endif
     iverbose = 0
     tree_accuracy = 0.
+    h_soft_sinksink = 0.
 
     binary_tests: do itest = 1,nbinary_tests
        select case(itest)
@@ -602,14 +603,12 @@ subroutine test_ptmass(ntests,npass)
 
  ! clean up temporary files
  itmp = 201
- do i=iskfile+1,iskfile+2    ! we used 2 point masses in tests above
-    close(i,iostat=ierr)     ! close file unit numbers if they are already open
-    write(filename,"(i3)") i
-    filename = 'fort.'//trim(adjustl(filename))
-    open(unit=itmp,file=filename,status='old',iostat=ierr)
-    close(itmp,status='delete',iostat=ierr)
- enddo
- open(unit=itmp,file='SinkSink0001N00.ev',status='old',iostat=ierr)
+ close(iskfile,iostat=ierr)
+ write(filename,"(i3)") iskfile
+ filename = 'fort.'//trim(adjustl(filename))
+ open(unit=itmp,file=filename,status='old',iostat=ierr)
+ close(itmp,status='delete',iostat=ierr)
+ open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'

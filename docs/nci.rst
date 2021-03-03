@@ -5,7 +5,7 @@ Apply for an account at http://nci.org.au
 
 If you are in Daniel Price’s research group, request to join project “fu7”
 
-Log in 
+Log in
 -------
 
 ::
@@ -25,12 +25,13 @@ Mine has::
    export OMP_STACKSIZE=512M
    export PATH=$PATH:/scratch/fu7/splash/bin
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/apps/hdf5/1.10.5/lib
    export MAXP=2000000
    ulimit -s unlimited
    source ~/.modules
-  
+
 If you are using phantom+mcfost, you will need the following lines::
-   
+
    export MCFOST_DIR=/scratch/fu7/mcfost-src/
    export MCFOST_AUTO_UPDATE=0
    export MCFOST_INSTALL=/scratch/fu7/mcfost/
@@ -38,6 +39,7 @@ If you are using phantom+mcfost, you will need the following lines::
    export MCFOST_NO_XGBOOST=1
    export MCFOST_LIBS=/scratch/fu7/mcfost
    export MCFOST_UTILS=/scratch/fu7/mcfost/utils
+   export HDF5ROOT=/apps/hdf5/1.10.5/lib
 
 Then relevant modules in your .modules file::
 
@@ -48,6 +50,7 @@ Mine contains::
    module load intel-compiler
    module load intel-mpi
    module load git
+   module load hdf5
 
 where the last line is needed for git's large file storage (LFS) to work.
 
@@ -63,16 +66,15 @@ Finally, make a shortcut to the /scratch filesystem::
 Get phantom
 -----------
 
-Clone a copy of phantom into your home directory and install git-lfs::
+Clone a copy of phantom into your home directory::
 
    $ cd $HOME
    $ git clone https://github.com/danieljprice/phantom.git
    $ cd phantom
-   $ git lfs install
 
 Run a calculation
 ------------------
-   
+
 then make a subdirectory for the name of the calculation you want to run
 (e.g. tde)::
 

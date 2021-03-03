@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -220,8 +220,7 @@ end subroutine modify_dump
 ! This assumes the dump file only has one star.
 !
 subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,         only: igas,set_particle_type,temperature
- use dim,          only: store_temperature
+ use part,         only: igas,set_particle_type,copy_particle
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -238,6 +237,8 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
 
  ! duplicate relaxed star
  do i = npart+1, 2*npart
+    ! copy all particle properties
+    call copy_particle(i-npart,i,.true.)
     ! place star a distance rad away
     xyzh(1,i) = xyzh(1,i-npart) + sep
     xyzh(2,i) = xyzh(2,i-npart)
@@ -247,10 +248,6 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
     vxyzu(2,i) = vxyzu(2,i-npart)
     vxyzu(3,i) = vxyzu(3,i-npart)
     vxyzu(4,i) = vxyzu(4,i-npart)
-    if (store_temperature) then
-       temperature(i) = temperature(i-npart)
-    endif
-    call set_particle_type(i,igas)
  enddo
 
  Nstar1 = npart
@@ -266,7 +263,7 @@ end subroutine duplicate_star
 ! Place a star that is read from another dumpfile
 !
 subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,            only: igas,set_particle_type,temperature,alphaind
+ use part,            only: igas,set_particle_type,eos_vars,alphaind,maxeosvars
  use prompting,       only: prompt
  use dim,             only: maxp,maxvxyzu,nalpha,maxalpha,store_temperature
  use readwrite_dumps, only: read_dump
@@ -278,13 +275,17 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  character(len=120) :: fn
  real, allocatable :: xyzh2(:,:)
  real, allocatable :: vxyzu2(:,:)
- real, allocatable :: temperature2(:)
+ real, allocatable :: eos_vars2(:,:)
  real, allocatable :: alphaind2(:,:)
  integer :: i,ierr
  real    :: time2,hfact2,sep
 
  print *, 'Adding a new star read from another dumpfile'
- print *, ''
+ print *, 'WARNING: This subroutine is DANGEROUS and may not save all particle properties'
+ print *,' It needs a re-write...'
+ ! DJP: the problem with this routine is that it saves only some of the arrays
+ ! To save all particle properties the only way is to use the "copy_particles" routine
+ ! to copy particles into a temporary buffer
 
  fn = ''
  call prompt('Name of second dumpfile',fn)
@@ -295,7 +296,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  allocate(vxyzu2(maxvxyzu,maxp),stat=ierr)  ! velocity + thermal energy
  if (ierr /= 0) stop ' error allocating memory to store velocity'
  if (store_temperature) then        ! temperature
-    allocate(temperature2(maxp),stat=ierr)
+    allocate(eos_vars2(maxeosvars,maxp),stat=ierr)
     if (ierr /= 0) stop ' error allocating memory to store temperature'
  endif
  if (maxalpha == maxp) then         ! artificial viscosity alpha
@@ -307,7 +308,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  xyzh2  = xyzh
  vxyzu2 = vxyzu
  if (store_temperature) then
-    temperature2 = temperature
+    eos_vars2 = eos_vars
  endif
  if (maxalpha == maxp) then
     alphaind2 = alphaind
@@ -334,7 +335,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
     vxyzu(3,i) = vxyzu2(3,i-npart)
     vxyzu(4,i) = vxyzu2(4,i-npart)
     if (store_temperature) then
-       temperature(i) = temperature2(i-npart)
+       eos_vars(:,i) = eos_vars2(:,i-npart)
     endif
     if (maxalpha == maxp) then
        alphaind(1,i) = real(alphaind2(1,i-npart),kind=4)
