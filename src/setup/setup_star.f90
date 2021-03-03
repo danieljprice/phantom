@@ -115,7 +115,6 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
  use part,            only:igas,isetphase
- use deriv,           only:get_derivs_global
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
@@ -830,6 +829,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     end select
 
     if (isoftcore > 0) then
+       isinkcore = .true.
        call read_inopt(input_profile,'input_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
     endif
