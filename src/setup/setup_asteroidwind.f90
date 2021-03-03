@@ -21,14 +21,13 @@ module setup
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
 !   - norbits       : *number of orbits*
+!   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   inject, io, options, part, physcon, setbinary, spherical, timestep,
-!   units
+!   io, options, part, physcon, setbinary, spherical, timestep, units
 !
- !use inject, only:mdot
  implicit none
  public :: setpart
 
