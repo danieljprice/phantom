@@ -18,7 +18,7 @@ module setbinary
 !   Pearce, Wyatt & Kennedy (2015), MNRAS 448, 3679
 !   https://en.wikipedia.org/wiki/Orbital_elements
 !
-! :Owner: Simone Ceppi
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

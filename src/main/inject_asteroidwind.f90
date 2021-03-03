@@ -10,11 +10,11 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Bec Nealon
+! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - mdot_type     : *injection rate (0=const, 2=r^(-2))*
 !   - mdot          : *mass injection rate in grams/second*
+!   - mdot_type     : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
 !   - npartperorbit : *particle injection rate in particles/binary orbit*
 !   - vlag          : *percentage lag in velocity of wind*
 !
