@@ -30,7 +30,7 @@ module analysis
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
  use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
-                        get_eos_various_mesa,get_eos_pressure_gamma1_mesa
+                        get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
  use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
  use table_utils,  only:logspace
@@ -1091,7 +1091,7 @@ subroutine eos_surfaces
        if (j < size(temp_array) + 1) then
           call get_eos_kappa_mesa(rho_array(i),temp_array(j),kappa_array(i,j),kappat,kappar)
        endif
-       call get_eos_pressure_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),gam1_array(i,j),ierr)
+       call get_eos_pressure_temp_gamma1_mesa(rho_array(i),eni_array(j),pres_array(i,j),dum(i,j),gam1_array(i,j),ierr)
        !call get_eos_pressure_temp_mesa(rho_array(i),eni_array(j),pres_array(i,j),temp)
        !pres_array(i,j) = eni_array(j)*rho_array(i)*0.66667 / pres_array(i,j)
     enddo
@@ -1779,7 +1779,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     enddo
     vKep = sqrt(interior_mass / sinksinksep)
 
-    drag_force(1,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep_perp) * xyzmh_ptmass(4,i)
+    drag_force(1,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep_perp) * xyzmh_ptmass(4,i) ! unit_sep_perp = z x (r2-r1)
     drag_force(2,i)  = - dot_product(fxyz_ptmass(1:3,i),unit_sep)      * xyzmh_ptmass(4,i)
     drag_force(3,i)  = Jdot / R2
     drag_force(4,i)  = mdot * vel_contrast
