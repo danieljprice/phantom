@@ -425,11 +425,7 @@ subroutine get_mass_tab_r(masstab,rhotab,rtab)
 !
  real, intent(in)  :: rhotab(:),rtab(:)
  real, intent(out) :: masstab(size(rhotab))
-<<<<<<< HEAD
- real :: dmi,ri
-=======
  real :: dmi
->>>>>>> 2c7ca5dd2f208c82f1d992005a8afec259fd7924
  integer :: i
 
  masstab(1) = 0.
