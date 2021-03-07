@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(16(a,/))", &
+    print "(17(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -101,7 +101,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '13) MESA EoS compute total entropy and other average td quantities', &
             '14) MESA EoS save on file thermodynamical quantities for all particles', &
             '15) Gravitational drag on sinks', &
-            '16) Miscellaneous'
+            '16) CoM of gas around primary core', &
+            '17) Miscellaneous'
 
     analysis_to_perform = 1
 
@@ -134,50 +135,35 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !analysis
  select case(analysis_to_perform)
-
  case(1) !sink separation
     call separation_vs_time(time,num)
-
  case(2) !bound and unbound quantities
     call bound_mass(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(3) !Energies and bound mass
     call calculate_energies(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(4) !Profile from COM (can be used for stellar profile)
     call create_profile(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(5) !Mass within roche lobes
     call roche_lobe_values(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(6) !Star stabilisation suite 
     call star_stabilisation_suite(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(7) !Units
     call print_simulation_parameters(num, npart, particlemass)
-
  case(8) !Output .divv
     call output_divv_files(time, dumpfile, num, npart, particlemass, xyzh, vxyzu)
-
  case(9) !EoS testing
     call eos_surfaces
-
  case(10) !Ion fraction profiles in time
     call ion_profiles(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(11) !New unbound particle profiles in time
     !If you want to use this, remove the "/ real(n)" in the histogram_setup routine
     !This case can be somewhat tidied up
     call unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(12) !sink properties
     call sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
     call bound_unbound_thermo(time, num, npart, particlemass, xyzh, vxyzu)
-
  case(14) !MESA EoS save on file thermodynamical quantities for all particles
-
     do i=1,npart
 
        !particle radius
@@ -212,9 +198,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     unitnum = unitnum + 1
 
  case(15) !Gravitational drag on sinks
-    call gravitational_drag(time, num, npart, particlemass, xyzh, vxyzu)
+    call gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
 
- case(16)
+ case(16) 
+    call get_core_gas_com(time,num,npart,particlemass,xyzh,vxyzu)
+
+ case(17)
     ncols = 6
     allocate(columns(ncols))
     columns = (/'           x', &
@@ -1812,6 +1801,74 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  deallocate(columns)
 
 end subroutine gravitational_drag
+
+
+subroutine get_core_gas_com(time,num,npart,particlemass,xyzh,vxyzu)
+ use sortutils, only:set_r2func_origin,r2func_origin,indexxfunc
+ integer, intent(in)                   :: npart,num
+ real,    intent(in)                   :: time,particlemass
+ real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
+ real                                  :: sep,maxsep,core_gas_com(3),core_gas_vcom(3),xyz_gas(4,npart),vxyz_gas(3,npart)
+ real, allocatable                     :: mytable(:)
+ character(len=17), allocatable        :: columns(:)
+ character(len=17)                     :: filename
+ integer, save                         :: ngas
+ integer, allocatable, save            :: iorder(:)
+ integer                               :: ncols,j,k
+
+ mytable = 0.
+ ncols = 12
+ allocate(columns(ncols))
+ allocate(mytable(ncols))
+ columns = (/'   gas_com_x', &
+             '   gas_com_y', &
+             '   gas_com_z', &
+             '  gas_com_vx', &
+             '  gas_com_vy', &
+             '  gas_com_vz', &
+             '      core_x', &
+             '      core_y', &
+             '      core_z', &
+             '     core_vx', &
+             '     core_vy', &
+             '     core_vz' /)
+
+
+ ! Record particles that are closest to primary core
+ if (dump_number == 0) then
+    allocate(iorder(npart))
+    maxsep = 10. ! 10 Rsun
+    ngas = 0
+    call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from donor core
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+    
+    do j=1,npart
+       k = iorder(j)
+       if (j < 10) print*,k
+       sep = separation(xyzmh_ptmass(1:3,1), xyzh(1:3,k))
+       if (sep > maxsep) exit
+       ngas = ngas + 1
+   enddo
+ endif
+
+ print*,'ngas=',ngas
+
+ do j=1,ngas
+    k = iorder(j)
+    xyz_gas(1:4,j)  = xyzh(1:4,k)
+    vxyz_gas(1:3,j) = vxyzu(1:3,k)
+ enddo
+
+ call get_centreofmass(core_gas_com,core_gas_vcom,ngas,xyz_gas,vxyz_gas) ! Do not include sinks
+
+ mytable(1:3)   = core_gas_com(1:3)
+ mytable(4:6)   = core_gas_vcom(1:3)
+ mytable(7:9)   = xyzmh_ptmass(1:3,1)
+ mytable(10:12) = vxyz_ptmass(1:3,1)
+
+ write (filename, "(A16,I0)") "core_gas_com"
+ call write_time_file(trim(adjustl(filename)),columns,time,mytable,ncols,dump_number)
+end subroutine get_core_gas_com
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
