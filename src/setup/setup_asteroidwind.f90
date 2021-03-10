@@ -21,18 +21,18 @@ module setup
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
 !   - norbits       : *number of orbits*
+!   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   inject, io, options, part, physcon, setbinary, spherical, timestep,
-!   units
+!   io, options, part, physcon, setbinary, spherical, timestep, units
 !
  implicit none
  public :: setpart
 
- real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp
- integer :: dumpsperorbit,ipot
+ real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp,gastemp0
+ integer :: npart_at_end,dumpsperorbit,ipot
 
  private
 
@@ -42,13 +42,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,unit_velocity
+ use units,     only:set_units,umass,udist,utime,unit_velocity
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
                             mass1,accradius1
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
- use inject,    only:inject_particles
+ !use inject,    only:inject_particles
  use eos,       only:gmw
  use options,   only:iexternalforce
  use extern_lensethirring, only:blackhole_spin
@@ -67,18 +67,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: period,hacc2,temperature_coef,dtinj
  real    :: rp
 !
-!--Default runtime parameters
+!--Default runtime parameters (values for SDSS J1228+1040)
 !
  ipot          = 1         ! (0=sink or 1=externalforce)
- m1            = 0.7       ! (solar masses)
+ m1            = 0.705     ! (solar masses)
  m2            = 0.1       ! (ceres masses)
- ecc           = 0.4       ! (eccentricity)
- semia         = 0.7       ! (solar radii)
- hacc1         = 0.02      ! (solar radii)
- rasteroid     = 100.      ! (km)
- gastemp       = 3000.     ! (K)
- norbits       = 1.
- dumpsperorbit = 100
+ ecc           = 0.54      ! (eccentricity)
+ semia         = 0.73      ! (solar radii)
+ hacc1         = 0.1679    ! (solar radii)
+ rasteroid     = 2338.3      ! (km)
+ gastemp       = 5000.     ! (K)
+ norbits       = 1000.
+ !mdot          = 5.e8      ! Mass injection rate (g/s)
+ npart_at_end  = 1.0e6       ! Number of particles after norbits
+ dumpsperorbit = 1
 
 !
 !--Read runtime parameters from setup file
@@ -172,9 +174,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  ! both        of these are reset in the first        call to        inject_particles
- massoftype(igas) = 1.0
+ !massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
+ massoftype(igas) = 1.e-12
  hfact = 1.2
- call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
+ !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
 
 !
 !-- check for silly parameter choices
@@ -183,7 +186,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (rp < hacc1)   call fatal('setup','periapsis is within racc of central sink')
  if (ipot > 1)     call fatal('setup','choice of potential not recognised, try 1')
  if (nptmass == 0) call fatal('setup','no sink particles setup')
- if (npart == 0)   call fatal('setup','no hydro particles setup')
+ !if (npart == 0)   call fatal('setup','no hydro particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
 
 end subroutine setpart
@@ -196,7 +199,6 @@ subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
-
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
@@ -210,6 +212,8 @@ subroutine write_setupfile(filename)
  call write_inopt(gastemp,      'gastemp',      'gas temperature in K',                             iunit)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
+ call write_inopt(npart_at_end,'npart_at_end','number of particles injected after norbits',iunit)
+ !call write_inopt(mdot,'mdot','mass injection rate (g/s)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -237,6 +241,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(gastemp,      'gastemp',      db,min=0.,errcount=nerr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
+ call read_inopt(npart_at_end, 'npart_at_end', db,min=0 ,errcount=nerr)
+ !call read_inopt(mdot,         'mdot',         db,min=0.,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

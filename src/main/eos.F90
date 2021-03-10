@@ -69,7 +69,7 @@ module eos
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
- public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -172,7 +172,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
     if (gamma == 1.) then
-       call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
+       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gamma)
     elseif (gamma > 1.0001) then
        pondensi = (gamma-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
@@ -1237,7 +1237,7 @@ end subroutine calc_rec_ene
 !----------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
-!  pressure and density
+!  pressure and density, assuming inputs are in cgs units
 !+
 !----------------------------------------------------------------
 subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
@@ -1278,7 +1278,8 @@ function entropy(rho,pres,ientropy,ierr)
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
  real, intent(in)               :: rho,pres
- integer, intent(out), optional :: ierr,ientropy
+ integer, intent(in)            :: ientropy
+ integer, intent(out), optional :: ierr
  real                           :: inv_mu,entropy,logentropy,temp,eint
 
  if (present(ierr)) ierr=0
@@ -1304,7 +1305,7 @@ function entropy(rho,pres,ientropy,ierr)
     else
        call getvalue_mesa(rho,eint,9,logentropy)
     endif
-    entropy = 10.d0**logentropy
+    entropy = 10.**logentropy
 
  case default
     entropy = 0.
@@ -1312,5 +1313,36 @@ function entropy(rho,pres,ientropy,ierr)
  end select
 
 end function entropy
+
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate density given pressure and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
+ use physcon, only:kb_on_mh
+ real, intent(in)    :: pres,S,rhoguess
+ real, intent(inout) :: rho
+ real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
+ real(kind=8)        :: corr
+ real, parameter     :: eoserr=1d-9,dfac=1d-12
+ integer, intent(in) :: ientropy
+ ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
+ ! of rho since S(rho) cannot take a negative argument.
+ srho = sqrt(rhoguess) ! Initial guess
+ corr = huge(corr);
+ do while (abs(corr) > eoserr*abs(srho))
+    ! First calculate dS/dsrho
+    srho_plus_dsrho = srho * (1. + dfac)
+    S_plus_dS = entropy(srho_plus_dsrho**2, pres, ientropy)
+    dSdsrho = (S_plus_dS - entropy(srho**2,pres,ientropy)) / (srho_plus_dsrho - srho)
+    corr = ( entropy(srho**2,pres,ientropy) - S ) / dSdsrho
+    srho = srho - corr
+ enddo
+ rho = srho**2
+ return
+end subroutine get_rho_from_p_s
 
 end module eos
