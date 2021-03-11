@@ -23,6 +23,7 @@ Mine has::
 
    export SYSTEM=nci
    export OMP_STACKSIZE=512M
+   export OMP_NUM_THREADS=32
    export PATH=$PATH:/scratch/fu7/splash/bin
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/apps/hdf5/1.10.5/lib
