@@ -194,7 +194,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef DUST
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
- use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
+ use nicil,        only:nimhd_get_jcbcb
 #ifdef LIGHTCURVE
  use part,         only:luminosity
 #endif
@@ -2002,7 +2002,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dust,      only:get_ts,idrag
  use part,      only:grainsize,graindens
 #endif
- use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
+ use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -2395,7 +2395,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
                          .true.,realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
-                         divcurlB,eta_nimhd, eos_vars, &
+                         divcurlB,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
@@ -2442,7 +2442,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use kernel,         only:kernel_softening
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
- use nicil,          only:nimhd_get_dudt,nimhd_get_dt
+ use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density
@@ -2785,7 +2785,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
 #endif
              if (mhd_nonideal) then
-                call nimhd_get_dudt(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi(1:3))
+                call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi(1:3))
                 fxyz4 = fxyz4 + fac*dudtnonideal
              endif
              !--add conductivity and resistive heating
@@ -2878,7 +2878,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
-          call nimhd_get_dt(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
+          call nicil_get_dt_nimhd(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
           if ( use_STS ) then
              dtdiffi = min(dtohmi,dtambii)
              dtdiff  = min(dtdiff,dtdiffi)

@@ -320,17 +320,6 @@ module dim
 #endif
 
 !--------------------
-! Electron number densities .or. ionisation fractions
-!--------------------
- integer :: maxne = 0
-
-#ifdef CMACIONIZE
- logical, parameter :: use_CMacIonize = .true.
-#else
- logical, parameter :: use_CMacIonize = .false.
-#endif
-
-!--------------------
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
@@ -426,14 +415,6 @@ subroutine update_max_sizes(n)
 
 #if LIGHTCURVE
  maxlum = maxp
-#endif
-
-#ifdef NONIDEALMHD
- maxne = maxp
-#else
-#ifdef CMACIONIZE
- maxne = maxp
-#endif
 #endif
 
 #ifndef ANALYSIS
