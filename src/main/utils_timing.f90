@@ -42,7 +42,7 @@ contains
 !+
 !--------------------------------------
 subroutine reset_timer(my_timer,label,wall,cpu)
- type(timer),      intent(out) :: my_timer
+ type(timer),      intent(inout)        :: my_timer
  real(kind=4),     intent(in), optional :: wall, cpu
  character(len=*), intent(in), optional :: label
 
