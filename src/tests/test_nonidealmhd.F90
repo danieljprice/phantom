@@ -15,6 +15,7 @@ module testnimhd
 !   Wurster, Price & Ayliffe (2014),  MNRAS 444, 1104
 !   Wurster, Price & Bate (2016), MNRAS 457, 1037
 !   Wurster (2016), PASA 33, e041
+!   Wurster (2021), MNRAS, 501, 5873
 !
 ! :Owner: James Wurster
 !
@@ -49,9 +50,8 @@ subroutine test_nonidealmhd(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  character(len=*), intent(in) :: string
  logical :: testdamp,testshock,testeta,testall
- !
+
  ! skip if not compiled with non-ideal MHD
- !
  if (.not.mhd_nonideal) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING NON-IDEAL MHD TEST (REQUIRES -DNONIDEALMHD)'
     return
@@ -127,7 +127,7 @@ subroutine test_wavedamp(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
- real, parameter        :: toltime = 4.00d-4
+ real, parameter        :: toltime = 6.00d-5
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
 
@@ -257,7 +257,7 @@ subroutine test_wavedamp(ntests,npass)
  write(*,'(1x,a,3Es18.11)') 'dtcourant, dtforce, dtdiff: ',dtcourant,dtforce,dtdiff
  call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'initial courant dt')
  call checkval(dtforce,  4.51922587536d-3,toltime,nerr(3),'initial force dt')
- call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
+ call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(4),'initial dissipation dt from sts')
 #endif
 
  call update_test_scores(ntests,nerr,npass)
@@ -298,9 +298,9 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
+ real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=3.1d-2
  logical                :: valid_dt
- logical, parameter     :: print_output = .false.
+ logical, parameter     :: print_output = .true.
  logical                :: valid_bdy_rho,valid_bdy_v
 
 #ifndef ISOTHERMAL
@@ -394,8 +394,8 @@ subroutine test_standingshock(ntests,npass)
  fext     =  0.0
  polyk    =  0.01
  gamma    =  1.0
- dt       =  2.0d-3
- nsteps   =  500
+ dt       =  1.0d-3
+ nsteps   =  1000
  t        =  0.
  iverbose =  0
  tmax     = nsteps*dt
@@ -525,7 +525,7 @@ subroutine test_etaval(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          Bevol,igas,alphaind,n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -533,8 +533,7 @@ subroutine test_etaval(ntests,npass)
  use unifdis,        only:set_unifdis
  use dim,            only:periodic
  use io,             only:iverbose
- use nicil,          only:nicil_initialise,nicil_get_eta,eta_constant,use_ohm,use_hall,use_ambi,&
-                          ion_rays,ion_thermal,unit_eta
+ use nicil,          only:nicil_initialise,nicil_update_nimhd,eta_constant,use_ohm,use_hall,use_ambi,unit_eta
  use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
@@ -543,7 +542,7 @@ subroutine test_etaval(ntests,npass)
  real                   :: deltax,x_min,y_min,z_min,totmass,cs_sphere,cs_medium
  real                   :: Bi,rhoi,tempi
  real                   :: rho0(2),Bz0(2),eta_act(3,kmax)
- real, parameter        :: tol = 6.3e-5  ! 1.0e-7 (The higher tolerance is needed for some compilers during certain phases of the moon)
+ real, parameter        :: tol = 1.0d-8
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta (nimhdeta)'
@@ -562,16 +561,16 @@ subroutine test_etaval(ntests,npass)
  !          correct.
  !
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
- rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
- Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) = 1.14780101430d10          ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 2.29652793254d14          ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.36861857791d17          ! [cm^2/s] expected eta_ambi
- rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
- Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 5.90833378647d8           ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.08660930790d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.24522340318d-3          ! [cm^2/s] expected eta_ambi
+ rho0(1)      =  7.420d-18 /unit_density   ! [g/cm^3]
+ Bz0(1)       =  8.130d-5  /unit_Bfield    ! [G]
+ eta_act(1,1) =  9.5267772328d10           ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = -1.1642052571d17           ! [cm^2/s] expected eta_hall
+ eta_act(3,1) =  3.2301843483d18           ! [cm^2/s] expected eta_ambi
+ rho0(2)      =  4.6d-3    /unit_density   ! [g/cm^3]
+ Bz0(2)       =  1.92d2    /unit_Bfield    ! [G]
+ eta_act(1,2) =  1.9073987505d9            ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) =  2.3797926640d5            ! [cm^2/s] expected eta_hall
+ eta_act(3,2) =  1.1443044356d-2           ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -601,8 +600,6 @@ subroutine test_etaval(ntests,npass)
  use_ohm      = .true.
  use_hall     = .true.
  use_ambi     = .true.
- ion_rays     = .true.
- ion_thermal  = .true.
  use_sts      = .false.
  itmp         = 1 ! avoids compiler warning
 
@@ -614,8 +611,7 @@ subroutine test_etaval(ntests,npass)
  !
  do k = 1,kmax
     totmass      = rho0(k)*dxbound*dybound*dzbound
-    n_R          = 0.0
-    n_electronT  = 0.0
+    nden_nimhd   = 0.0
     !
     ! set particles
     !
