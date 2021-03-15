@@ -23,6 +23,7 @@ Mine has::
 
    export SYSTEM=nci
    export OMP_STACKSIZE=512M
+   export OMP_NUM_THREADS=32
    export PATH=$PATH:/scratch/fu7/splash/bin
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/apps/hdf5/1.10.5/lib
@@ -93,11 +94,11 @@ then run phantomsetup to create your initial conditions::
 To run the code, you need to write a pbs script. You can get an
 example by typing “make qscript”::
 
-   $ make qscript INFILE=tde.in JOBNAME=myrun > run.qscript
+   $ make qscript INFILE=tde.in JOBNAME=myrun > run.q
 
 should produce something like::
 
-  $ cat run.qscript
+  $ cat run.q
   #!/bin/bash
   ## PBS Job Submission Script, created by "make qscript" Tue Mar 31 12:32:08 AEDT 2020
   #PBS -l ncpus=48
@@ -136,12 +137,47 @@ should produce something like::
 
 You can then proceed to submit the job to the queue using::
 
-  qsub run.qscript
+  qsub run.q
 
 Check the status using::
 
   qstat -u $USER
 
+How to keep your job running for more than 48 hours
+---------------------------------------------------
+
+Often you will want to keep your calculation going for longer than the 48-hour maximum queue limit. 
+To achieve this you can just submit another job with the same script
+that depends on completion of the previous job
+
+First find out the job id of the job you have already submitted::
+
+  $ qstat
+  Job id                 Name             User              Time Use S Queue
+  ---------------------  ---------------- ----------------  -------- - -----
+  18780261.gadi-pbs      croc             abc123            402:48:0 R normal-exec   
+  
+Then submit another job that depends on this one::
+
+   qsub -W depend=afterany:18780261 run.q
+
+The job will remain in the queue until the previous job completes. Then
+when the new job starts phantom will just carry on where it left off.
+
+A more sophisticated version of the above can be achieved by generating your 
+PBS script with PBSRESUBMIT=yes::
+
+  make qscript INFILE=tde.in PBSRESUBMIT=yes > run.q
+  
+you can check the details of this using::
+
+  cat run.q
+  
+and submit your script using::
+
+  qsub -v NJOBS=10 run.q
+  
+which will automagically submit 10 jobs to the queue, each depending on completion of the previous job.
 
 more info
 ---------

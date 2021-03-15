@@ -162,6 +162,8 @@ module part
  integer, parameter :: iTeff  = 13 ! effective temperature
  integer, parameter :: iReff  = 14 ! effective radius
  integer, parameter :: imloss = 15 ! mass loss rate
+ integer, parameter :: imdotav = 16 ! accretion rate average
+ integer, parameter :: i_mlast = 17 ! accreted mass of last time
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -170,7 +172,8 @@ module part
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
-    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
+    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
+    'mdotav   ','mprev    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity

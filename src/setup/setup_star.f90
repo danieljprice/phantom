@@ -31,7 +31,7 @@ module setup
 !   - hsoft             : *Softening length of sink particle stellar core*
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp       : *initial temperature of the star*
-!   - input_profile     : *File containing data for stellar profile*
+!   - input_profile     : *Path to input profile*
 !   - isinkcore         : *Add a sink particle stellar core*
 !   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
 !   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*
@@ -115,7 +115,6 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
  use part,            only:igas,isetphase
- use deriv,           only:get_derivs_global
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
@@ -360,34 +359,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (maxvxyzu==4) then
     do i = 1,nstar
-      if (relax_star_in_setup) then
-         hi = xyzh(4,i)
-         densi = rhoh(hi,massoftype(igas))
-         ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
-         presi = eos_vars(igasP,i)
-      else
-         !  Interpolate density and pressure from table
-         ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-         densi = yinterp(den(1:npts),r(1:npts),ri)
-         presi = yinterp(pres(1:npts),r(1:npts),ri)
-      endif
+       if (relax_star_in_setup) then
+          hi = xyzh(4,i)
+          densi = rhoh(hi,massoftype(igas))
+          ! Retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
+          presi = eos_vars(igasP,i)
+       else
+          !  Interpolate density and pressure from table
+          ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+          densi = yinterp(den(1:npts),r(1:npts),ri)
+          presi = yinterp(pres(1:npts),r(1:npts),ri)
+       endif
 
-      select case(ieos)
-      case(16) ! Shen EoS
-         vxyzu(4,i) = initialtemp
-      case(15) ! Helmholtz EoS
-         xi    = xyzh(1,i)
-         yi    = xyzh(2,i)
-         zi    = xyzh(3,i)
-         tempi = initialtemp
-         call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
-         vxyzu(4,i) = eni
-         if (store_temperature) eos_vars(itemp,i) = initialtemp
-      case default ! Recalculate eint and temp for each particle according to EoS
-         call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
-         vxyzu(4,i) = eni / unit_ergg
-         if (store_temperature) eos_vars(itemp,i) = tempi
-      end select
+       select case(ieos)
+       case(16) ! Shen EoS
+          vxyzu(4,i) = initialtemp
+       case(15) ! Helmholtz EoS
+          xi    = xyzh(1,i)
+          yi    = xyzh(2,i)
+          zi    = xyzh(3,i)
+          tempi = initialtemp
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          vxyzu(4,i) = eni
+          if (store_temperature) eos_vars(itemp,i) = initialtemp
+       case default ! Recalculate eint and temp for each particle according to EoS
+          call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+          vxyzu(4,i) = eni / unit_ergg
+          if (store_temperature) eos_vars(itemp,i) = tempi
+       end select
     enddo
  endif
 
@@ -830,6 +829,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     end select
 
     if (isoftcore > 0) then
+       isinkcore = .true.
        call read_inopt(input_profile,'input_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
     endif
