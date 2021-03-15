@@ -237,11 +237,14 @@ module dim
 #ifdef MHD
 #ifdef NONIDEALMHD
  logical, parameter :: mhd_nonideal = .true.
+ integer, parameter :: n_nden_phantom  = 13  ! number density of chemical species, electrons & n_grains; defined in nicil == 11+2*na
 #else
  logical, parameter :: mhd_nonideal = .false.
+ integer, parameter :: n_nden_phantom  = 0
 #endif
 #else
  logical, parameter :: mhd_nonideal = .false.
+ integer, parameter :: n_nden_phantom  = 0
 #endif
 
 !--------------------
