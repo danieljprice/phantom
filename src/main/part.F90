@@ -32,12 +32,11 @@ module part
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
 #endif
- use nicil, only: n_nden
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -426,7 +425,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
- call allocate_array('nden_nimhd', nden_nimhd, n_nden, maxmhdni)
+ call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)

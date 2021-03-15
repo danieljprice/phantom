@@ -631,7 +631,7 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  real                           :: dloga,abundance_sum,rhog_sum
  real                           :: a_grain_sum,mass_grain_red
  real                           :: a_grain_cgs(na),rho_grain(na)
- real                           :: rdummy(4)
+ real                           :: rdummy(6)
 
  !--Initialise species properties
  call nicil_initialise_species
@@ -875,7 +875,9 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  if (present(nden_nimhd0)) then
     ierrlist    = 0
     nden_nimhd0 = 0.
-    call nicil_update_nimhd(1,rdummy(1),rdummy(2),rdummy(3),rdummy(4),1.0d-12/unit_density,100.0,nden_nimhd0,ierrlist)
+    rdummy(5)   = 1.0d-12/unit_density
+    rdummy(6)   = 100.0
+    call nicil_update_nimhd(1,rdummy(1),rdummy(2),rdummy(3),rdummy(4),rdummy(5),rdummy(6),nden_nimhd0,ierrlist)
  endif
 
  !--Print Statements to summarise conditions used
