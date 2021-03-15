@@ -48,6 +48,7 @@ module ptmass
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
+ public :: calculate_mdot
 #ifdef PERIODIC
  public :: ptmass_boundary_crossing
 #endif
@@ -1498,6 +1499,27 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
  enddo
 
 end subroutine pt_write_sinkev
+!-----------------------------------------------------------------------
+!+
+!  compute mass accretion rate
+!+
+!-----------------------------------------------------------------------
+subroutine calculate_mdot(nptmass,time,xyzmh_ptmass)
+ use part,        only: imdotav,imacc,i_tlast,i_mlast
+ integer, intent(in) :: nptmass
+ real,    intent(in) :: time
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ integer             :: i
+ real                :: dt
+
+ do i=1,nptmass
+    dt = time - xyzmh_ptmass(i_tlast,i)
+    xyzmh_ptmass(imdotav,i) = (xyzmh_ptmass(imacc,i) - xyzmh_ptmass(i_mlast,i))/dt
+    xyzmh_ptmass(i_mlast,i) = xyzmh_ptmass(imacc,i)
+    xyzmh_ptmass(i_tlast,i) = time
+ enddo
+end subroutine calculate_mdot
+
 
 !-----------------------------------------------------------------------
 !+
