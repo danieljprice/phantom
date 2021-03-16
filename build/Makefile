@@ -1130,7 +1130,11 @@ ifndef SETUPFILE
 endif
 
 ifndef SRCNIMHD
-    SRCNIMHD = nicil.F90 nicil_supplement.F90
+    ifeq ($(DOUBLEPRECISION), yes)
+        SRCNIMHD = nicil.F90 nicil_supplement.F90
+    else
+        SRCNIMHD = nicil_real4.F90 nicil_supplement.F90
+    endif
 endif
 
 ifndef SRCDUST
