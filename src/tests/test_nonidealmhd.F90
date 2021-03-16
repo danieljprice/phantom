@@ -121,13 +121,13 @@ subroutine test_wavedamp(ntests,npass)
 #endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr,itmp
- integer                :: nerr(4)
+ integer                :: nerr(5)
  integer(kind=8)        :: nptot
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
- real, parameter        :: toltime = 6.00d-5
+ real, parameter        :: toltime = 7.50d-5
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
 
@@ -259,12 +259,12 @@ subroutine test_wavedamp(ntests,npass)
  write(*,'(1x,a,3Es18.11)') 'dtcourant, dtforce, dtdiff: ',dtcourant,dtforce,dtdiff
 #ifdef MPI
  ! not sure why the value is different for MPI vs non-MPI; likely an indication of a larger bug
- call checkval(dtcourant,9.00607946550d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtcourant,9.00607946550d-3,toltime,nerr(3),'final courant dt')
 #else
- call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'initial courant dt')
+ call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'final courant dt')
 #endif
- call checkval(dtforce,  4.51922587536d-3,toltime,nerr(3),'initial force dt')
- call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(4),'initial dissipation dt from sts')
+ call checkval(dtforce,  4.51922587536d-3,toltime,nerr(4),'final force dt')
+ call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(5),'final dissipation dt from sts')
 #endif
 
  call update_test_scores(ntests,nerr,npass)
@@ -618,15 +618,15 @@ subroutine test_etaval(ntests,npass)
  !--Loop over both sets of calculations
  !
  do k = 1,kmax
-    totmass      = rho0(k)*dxbound*dybound*dzbound
-    nden_nimhd   = 0.0
+    totmass    = rho0(k)*dxbound*dybound*dzbound
+    nden_nimhd = 0.0
     !
     ! set particles
     !
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                       deltax,hfact_default,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     vxyzu = 0.0
-    Bxyz  = 0.
+    Bxyz  = 0.0
     do i=1,npart
        call set_particle_type(i,igas)
        Bxyz(3,i) = Bz0(k)
@@ -649,6 +649,7 @@ subroutine test_etaval(ntests,npass)
     print*, ' '
     write(*,'(1x,a,3Es18.10)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
     write(*,'(1x,a,3Es18.10)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
+    write(*,'(1x,a, Es18.10)') 'unit_eta: ', unit_eta
     call checkval(eta_nimhd(iohm, itmp)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
     call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
