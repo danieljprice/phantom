@@ -1106,8 +1106,7 @@ end subroutine nicil_translate_error
 ! icall = 2: calculate eta only
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,nden_save, &
-                                   ierrlist,data_out,fdg_in)
+pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,nden_save,ierrlist,data_out,fdg_in)
  integer,          intent(in)    :: icall
  integer,          intent(inout) :: ierrlist(n_warn)
  real,             intent(out)   :: eta_ohm,eta_hall,eta_ambi
@@ -2259,8 +2258,7 @@ end subroutine nimhd_get_jcbcb
 !  Calculates the non-ideal MHD contributions to the magnetic field in SPH
 !+
 !-----------------------------------------------------------------------
-pure subroutine nimhd_get_dBdt(dBnonideal,eta_ohm,eta_hall,eta_ambi &
-                              ,jcurrent,jcb,jcbcb,dxr1,dyr1,dzr1)
+pure subroutine nimhd_get_dBdt(dBnonideal,eta_ohm,eta_hall,eta_ambi,jcurrent,jcb,jcbcb,dxr1,dyr1,dzr1)
  real, intent(out) :: dBnonideal(3)
  real, intent(in)  :: jcurrent(3),jcb(3),jcbcb(3)
  real, intent(in)  :: eta_ohm,eta_hall,eta_ambi,dxr1,dyr1,dzr1
