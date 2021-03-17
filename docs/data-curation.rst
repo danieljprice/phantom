@@ -10,9 +10,9 @@ For calculations with phantom that have been published in a paper,
 best practice is to upload the **entire calculation including .in and
 .setup files, .ev files and all dump files in a public repository**.
 
-See for example a dataset from Mentiplay et al. (2020) using figshare: `https://doi.org/10.6084/m9.figshare.11595369.v1`_
+See for example a dataset from Mentiplay et al. (2020) using figshare: `<https://doi.org/10.6084/m9.figshare.11595369.v1>`_
 
-Or this example from Wurster, Bate & Price (2018) in the University of Exeter repository: `https://doi.org/10.24378/exe.607`_
+Or this example from Wurster, Bate & Price (2018) in the University of Exeter repository: `<https://doi.org/10.24378/exe.607>`_
 
 Archiving your data to Google Drive using rclone
 ------------------------------------------------
