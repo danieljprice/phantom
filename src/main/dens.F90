@@ -19,10 +19,8 @@ module densityforce
 !   linklist, mpidens, mpiderivs, mpiutils, options, part, stack, timestep,
 !   timing, viscosity
 !
- use dim,     only:maxdvdx,maxvxyzu,maxp,minpart,maxxpartvecidens,maxrhosum,&
-                   maxdusttypes,maxdustlarge
- use part,    only:mhd
- use kdtree,      only:inodeparts,inoderange
+ use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
+ use kdtree,  only:inodeparts,inoderange
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
@@ -121,19 +119,12 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
- use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha, &
-                     mhd_nonideal,nalpha,use_dust
+ use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,use_dust
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
- use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,&
-                     ll,get_partinfo,iactive,&
-                     hrho,iphase,igas,idust,iamgas,periodic,&
-                     all_active,dustfrac,Bxyz,set_boundaries_to_active
-#ifdef FINVSQRT
- use fastmath,  only:finvsqrt
-#endif
-
+ use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
+                     hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use stack,     only:reserve_stack,swap_stacks
@@ -244,7 +235,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(divcurlB) &
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
-!$omp shared(Bxyz) &
 !$omp shared(dvdx) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
@@ -544,9 +534,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  rhomax    = reduceall_mpi('max',rhomax)
  rhomaxnow = rhomax
 
- !--boundary particles are no longer treated as active
- set_boundaries_to_active = .false.
-
  if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
     call warning('force','applying negative stress correction',var='max',val=-stressmax)
  endif
@@ -576,17 +563,13 @@ end subroutine densityiterate
 pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
-                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,&
-                                 rad)
+                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
- use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
+ use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,mhd_racecondition
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -791,7 +774,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 endif
              endif
 
-             if (getdB .and. gas_gas) then
+             if (getdB .and. gas_gas .and. mhd_racecondition) then
                 ! we need B instead of B/rho, so used our estimated h here
                 ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
@@ -1188,8 +1171,7 @@ end subroutine reduce_and_print_neighbour_stats
 !--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
                              xyzcache,rad)
- use dim,         only:maxvxyzu
- use part,        only:get_partinfo,iamgas,mhd,igas,maxphase
+ use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
 #ifdef MPI
  use io,          only:id
@@ -1488,11 +1470,11 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,get_partinfo,iamgas,&
-                       maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
+                       mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
                        maxgradh,idust,ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,&
-                       do_radiation
+                       do_radiation,mhd_racecondition
  use options,     only:use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
@@ -1608,7 +1590,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     !
     ! store div B, curl B and related quantities
     !
-    if (mhd .and. iamgasi) then
+    if (mhd .and. iamgasi .and. mhd_racecondition) then
        if (getdB) then
           term = cnormk*pmassi*gradhi*rho1i*hi41
           call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,ndivcurlB)
