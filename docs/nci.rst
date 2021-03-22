@@ -185,6 +185,30 @@ Do not fill the disk quota! Use a mix of small and full dumps where possible and
 
 For how to move the results of your calculations off gadi see :doc:`here <data-curation>`
 
+how to use splash to make movies without your job getting killed
+-----------------------------------------------------------------
+If you try to make a sequence of images using splash on the login node
+(e.g. by typing /png or file.png at the device prompt), your job will get killed
+due to the runtime limits::
+
+  Graphics device/type (? to see list, default /xw):/png
+  ...
+  Killed
+  
+A simple workaround for this is to launch N instances of splash using a bash loop::
+
+  $ for x in dump_0*; do echo $x; done
+  
+Then replace "echo $x" with the relevant splash command::
+
+  $ for x in dump_0*; do splash -r 6 -dev $x.png $x; done
+
+If you still get prompts that need answers you can follow the procedure `here <https://splash-viz.readthedocs.io/en/latest/other.html#reading-processing-data-into-images-without-having-to-answer-prompts>`, or simply list the answers to the prompts in a file (here called answers.txt) and use::
+
+  $ for x in dump_0*; do splash -r 6 -dev $x.png $x < answers.txt; done
+
+this way each process is short and your movie-making can proceed without getting killed.
+
 more info
 ---------
 See :doc:`<running-clusters>`
