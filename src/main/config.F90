@@ -229,6 +229,7 @@ module dim
 #else
  logical, parameter :: mhd = .false.
 #endif
+ logical, parameter :: mhd_racecondition = .false. ! true/false: will calculate divcurlB in/after densityiterate permitting/preventing a race condition
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
