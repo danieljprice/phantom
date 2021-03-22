@@ -123,7 +123,6 @@ subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
  real, optional, intent(in) :: rho,B,T
 
  return
-
 end subroutine nicil_translate_error
 !----------------------------------------------------------------------!
 pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,nden_save, &
@@ -136,8 +135,12 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
  real,   optional, intent(in)    :: fdg_in(:)
  real,   optional, intent(out)   :: data_out(n_data_out)
 
- return
+ eta_ohm  = 0.
+ eta_hall = 0.
+ eta_ambi = 0.
+ if (present(data_out)) data_out = 0.
 
+ return
 end subroutine nicil_update_nimhd
 !-----------------------------------------------------------------------
 pure subroutine nicil_get_dudt_nimhd(dudtnonideal,eta_ohm,eta_ambi,rho,J,B)
@@ -145,32 +148,38 @@ pure subroutine nicil_get_dudt_nimhd(dudtnonideal,eta_ohm,eta_ambi,rho,J,B)
  real, intent(in)  :: J(3),B(3)
  real, intent(in)  :: eta_ohm,eta_ambi,rho
 
- return
+ dudtnonideal = 0.
 
+ return
 end subroutine nicil_get_dudt_nimhd
 !-----------------------------------------------------------------------
 pure subroutine nicil_get_dt_nimhd(dtohm,dthall,dtambi,h,eta_ohm,eta_hall,eta_ambi)
  real, intent(in)  :: h,eta_ohm,eta_hall,eta_ambi
  real, intent(out) :: dtohm,dthall,dtambi
 
- return
+ dtohm  = huge(dtohm)
+ dthall = huge(dthall)
+ dtambi = huge(dtambi)
 
+ return
 end subroutine nicil_get_dt_nimhd
 !-----------------------------------------------------------------------
 pure subroutine nicil_get_halldrift(eta_hall,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_hall,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
 
- return
+ vdrift = 0.
 
+ return
 end subroutine nicil_get_halldrift
 !-----------------------------------------------------------------------
 pure subroutine nicil_get_ambidrift(eta_ambi,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_ambi,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
 
- return
+ vdrift = 0.
 
+ return
 end subroutine nicil_get_ambidrift
 !-----------------------------------------------------------------------
 pure subroutine nicil_get_vion(eta_hall,eta_ambi,vx,vy,vz,Bx,By,Bz,jcurrent,vion,ierrlist,vdrift_out)
@@ -179,8 +188,10 @@ pure subroutine nicil_get_vion(eta_hall,eta_ambi,vx,vy,vz,Bx,By,Bz,jcurrent,vion
  real,              intent(out)   :: vion(3)
  real,    optional, intent(out)   :: vdrift_out(3)
 
- return
+ vion = 0.
+ if (present(vdrift_out)) vdrift_out = 0.
 
+ return
 end subroutine nicil_get_vion
 !-----------------------------------------------------------------------
 pure subroutine nimhd_get_jcbcb(jcbcb,jcb,jcurrent,Bx,By,Bz,B1)
@@ -188,8 +199,10 @@ pure subroutine nimhd_get_jcbcb(jcbcb,jcb,jcurrent,Bx,By,Bz,B1)
  real, intent(in)  :: jcurrent(3)
  real, intent(in)  :: Bx, By, Bz, B1
 
- return
+ jcb   = 0.
+ jcbcb = 0.
 
+ return
 end subroutine nimhd_get_jcbcb
 !-----------------------------------------------------------------------
 pure subroutine nimhd_get_dBdt(dBnonideal,eta_ohm,eta_hall,eta_ambi,jcurrent,jcb,jcbcb,dxr1,dyr1,dzr1)
@@ -197,8 +210,9 @@ pure subroutine nimhd_get_dBdt(dBnonideal,eta_ohm,eta_hall,eta_ambi,jcurrent,jcb
  real, intent(in)  :: jcurrent(3),jcb(3),jcbcb(3)
  real, intent(in)  :: eta_ohm,eta_hall,eta_ambi,dxr1,dyr1,dzr1
 
- return
+ dBnonideal = 0.
 
+ return
 end subroutine nimhd_get_dBdt
 !-----------------------------------------------------------------------
 pure subroutine nimhd_get_DcrossR(DcrossR,D_in,dx,dy,dz,eta)
@@ -206,8 +220,9 @@ pure subroutine nimhd_get_DcrossR(DcrossR,D_in,dx,dy,dz,eta)
  real, intent (out) :: DcrossR(3)
  real, intent (in)  :: dx, dy, dz, eta
 
- return
+ DcrossR = 0.
 
+ return
 end subroutine nimhd_get_DcrossR
 !----------------------------------------------------------------------!
 end module nicil
