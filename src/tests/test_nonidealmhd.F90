@@ -127,7 +127,7 @@ subroutine test_wavedamp(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
- real, parameter        :: toltime = 7.50d-5
+ real, parameter        :: toltime = 1.00d-7
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
 
@@ -226,7 +226,6 @@ subroutine test_wavedamp(ntests,npass)
  valid_dt = .true.
  call init_step(npart,t,dtmax)
  do while (valid_dt .and. t <= tmax)
-    if (id==master .and. mod(nsteps,25)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
     t      = t + dt
     nsteps = nsteps + 1
     dtext  = dt
@@ -241,6 +240,7 @@ subroutine test_wavedamp(ntests,npass)
     Bzrms_ana = h0*abs(sin(omegaR*t))*exp(omegaI*t)
     L2        = L2 + (Bzrms_ana - Bzrms_num)**2
     if (dtnew < dt) valid_dt = .false.
+    if (id==master .and. mod(nsteps,25)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
  enddo
  ! For printing outputs if further debugging is required.
  ! will only print half the data if MPI=yes since npart = nptot/2, and xyzh is unique to each processor
@@ -251,22 +251,15 @@ subroutine test_wavedamp(ntests,npass)
     enddo
     close(111)
  endif
-
  L2 = sqrt(L2/nsteps)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- write(*,'(1x,a,3Es18.11)') 'dtcourant, dtforce, dtdiff: ',dtcourant,dtforce,dtdiff
-#ifdef MPI
- ! not sure why the value is different for MPI vs non-MPI; likely an indication of a larger bug
- call checkval(dtcourant,9.00607946550d-3,toltime,nerr(3),'final courant dt')
-#else
- call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'final courant dt')
-#endif
- call checkval(dtforce,  4.51922587536d-3,toltime,nerr(4),'final force dt')
+ call checkval(dtcourant,9.01203939699d-3,toltime,nerr(3),'final courant dt')
+ call checkval(dtforce,  4.52058233876d-3,toltime,nerr(4),'final force dt')
  call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(5),'final dissipation dt from sts')
 #endif
-
+eter     :: print_output = .true
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_wavedamp
@@ -296,7 +289,7 @@ subroutine test_standingshock(ntests,npass)
  use timestep,       only:dtmax,tmax
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
-                          use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD
+                          use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,Cdt_diff,Cdt_hall
  use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,ny,nz,nsteps,ierr,idr,npts,itype
@@ -401,8 +394,10 @@ subroutine test_standingshock(ntests,npass)
  fext     =  0.0
  polyk    =  0.01
  gamma    =  1.0
- dt       =  1.0d-3
- nsteps   =  1000
+ dt       =  2.0d-3
+ nsteps   =  500
+ Cdt_diff =  0.159154943 ! = 1/(2pi) larger than default, but all that's required for this test
+ Cdt_hall =  0.159154943 ! = 1/(2pi) larger than default, but all that's required for this test
  t        =  0.
  iverbose =  0
  tmax     = nsteps*dt
@@ -424,12 +419,12 @@ subroutine test_standingshock(ntests,npass)
  valid_dt = .true.
  call init_step(npart,t,dtmax)
  do while (valid_dt .and. t <= tmax)
-    if (id==master .and. mod(nsteps,100)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
     t      = t + dt
     nsteps = nsteps + 1
     dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
     if (dtnew < dt) valid_dt = .false.
+    if (id==master .and. mod(nsteps,100)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
  enddo
  !
  ! Compare to exact solution
@@ -646,10 +641,12 @@ subroutine test_etaval(ntests,npass)
     Bi    = sqrt(dot_product(Bevol(1:3,itmp),Bevol(1:3,itmp)))*rhoi
     tempi = get_temperature(ieos,xyzh(1:3,itmp),rhoi,vxyzu(:,itmp))
 
-    print*, ' '
-    write(*,'(1x,a,3Es18.10)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
-    write(*,'(1x,a,3Es18.10)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
-    write(*,'(1x,a, Es18.10)') 'unit_eta: ', unit_eta
+    if (id==master) then
+       write(*,*) ' '
+       write(*,'(1x,a,3Es18.10)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
+       write(*,'(1x,a,3Es18.10)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
+       write(*,'(1x,a, Es18.10)') 'unit_eta: ', unit_eta
+    endif
     call checkval(eta_nimhd(iohm, itmp)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
     call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
