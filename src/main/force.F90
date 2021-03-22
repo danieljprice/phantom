@@ -469,7 +469,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
-                      iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
+                      iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                       dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                       rad,radprop,dens,metrics)
 
@@ -2035,7 +2035,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #ifdef DUST
  real         :: tstopi(maxdusttypes)
 #endif
- real         :: Bxi,Byi,Bzi,Bi,B2i,Bi1
+ real         :: Bxi,Byi,Bzi,B2i,Bi1
  real         :: vwavei,alphai
  integer      :: i,j,iamtypei,ip,ii,ia,ib,ic
  real         :: densi
@@ -2108,6 +2108,16 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           Bxi = Bevol(1,i) * rhoi ! B/rho -> B (conservative to primitive)
           Byi = Bevol(2,i) * rhoi
           Bzi = Bevol(3,i) * rhoi
+          if (mhd_nonideal) then
+             B2i = Bxi**2 + Byi**2 + Bzi**2
+             if (B2i > 0.0) then
+                Bi1 = 1.0/sqrt(B2i)
+             else
+                Bi1 = 0.0
+             endif
+             curlBi = divcurlB(2:4,i)
+             call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
+          endif
        endif
 
        if (gr) densi = dens(i)
@@ -2143,18 +2153,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           enddo
        endif
 #endif
-
-       if (mhd_nonideal) then
-          B2i = Bxi**2 + Byi**2 + Bzi**2
-          Bi  = sqrt(B2i)
-          if (Bi > 0.0) then
-             Bi1 = 1.0/Bi
-          else
-             Bi1 = 0.0
-          endif
-          curlBi = divcurlB(2:4,i)
-          call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
-       endif
 
     else ! not a gas particle
        vwavei = 0.
@@ -2427,7 +2425,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr,use_krome
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
@@ -2501,7 +2499,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi
- real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
+ real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau,hdivbbmax
@@ -2785,7 +2783,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
 #endif
              if (mhd_nonideal) then
-                call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi(1:3))
+                call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi)
                 fxyz4 = fxyz4 + fac*dudtnonideal
              endif
              !--add conductivity and resistive heating
