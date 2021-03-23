@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -11,6 +11,7 @@ module eos
 !     1 = isothermal eos
 !     2 = adiabatic/polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)
+!     4 = GR isothermal
 !     6 = eos for a locally isothermal disc as in Lodato & Pringle (2007),
 !         centered on a sink particle
 !     7 = z-dependent locally isothermal eos
@@ -20,6 +21,9 @@ module eos
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
+!    15 = Helmholtz free energy eos
+!    16 = Shen eos
+!    19 = Variable gamma (requires KROME)
 !
 ! :References: None
 !
@@ -48,7 +52,7 @@ module eos
 !   - rhocrit3    : *critical density 3 in g/cm^3 (barotropic eos)*
 !
 ! :Dependencies: dim, eos_helmholtz, eos_idealplusrad, eos_mesa, eos_shen,
-!   infile_utils, io, part, physcon, units
+!   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  integer, parameter, public :: maxeos = 19
@@ -65,7 +69,7 @@ module eos
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
- public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene
+ public  :: gamma_pwp,calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos, init_eos_9, finish_eos, write_options_eos, read_options_eos
  public  :: print_eos_to_file
 
@@ -168,7 +172,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
     if (gamma == 1.) then
-       call fatal('eos','GR not compatible with isorthermal equation of state, yet...',var='gamma',val=gamma)
+       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gamma)
     elseif (gamma > 1.0001) then
        pondensi = (gamma-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
@@ -357,19 +361,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = 0.
        call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
     endif
-!
-!--variable gamma
-!
- case(19)
-
-    if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1.)*eni
-       spsoundi = sqrt(gamma_local*ponrhoi)
-    else
-       call fatal('eos','invoking KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate (bad value for eos?)')
-    endif
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(16)
 !
@@ -386,6 +377,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
+
+ case(19)
+!
+!--variable gamma
+!
+    if (present(gamma_local)) then
+       ponrhoi  = (gamma_local-1.)*eni
+       spsoundi = sqrt(gamma_local*ponrhoi)
+       if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    else
+       call fatal('eos','invoking KROME to calculate local gamma but variable '&
+                        'not passed in equationofstate (bad value for eos?)')
+    endif
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -657,6 +661,7 @@ subroutine init_eos(eos_type,ierr)
     !
     !--MESA EoS initialisation
     !
+    write(*,'(1x,a,f7.5,a,f7.5)') 'Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
     call init_eos_mesa(X_in,Z_in,ierr)
     if (do_radiation .and. ierr==0) then
        call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
@@ -667,6 +672,7 @@ subroutine init_eos(eos_type,ierr)
     !
     ! ideal plus radiation
     !
+    write(*,'(1x,a,f7.5)') 'Initialising ideal plus radiation EoS with mu = ',gmw
     if (do_radiation) then
        call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
@@ -1231,7 +1237,7 @@ end subroutine calc_rec_ene
 !----------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
-!  pressure and density
+!  pressure and density, assuming inputs are in cgs units
 !+
 !----------------------------------------------------------------
 subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
@@ -1258,5 +1264,85 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
  end select
 
 end subroutine calc_temp_and_ene
+
+!-----------------------------------------------------------------------
+!+
+!  Calculates specific entropy (gas + radiation + recombination)
+!  up to an additive integration constant, from density and pressure.
+!+
+!-----------------------------------------------------------------------
+function entropy(rho,pres,ientropy,ierr)
+ use io,                only:fatal
+ use physcon,           only:radconst,kb_on_mh
+ use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
+ use eos_mesa,          only:get_eos_eT_from_rhop_mesa
+ use mesa_microphysics, only:getvalue_mesa
+ real, intent(in)               :: rho,pres
+ integer, intent(in)            :: ientropy
+ integer, intent(out), optional :: ierr
+ real                           :: inv_mu,entropy,logentropy,temp,eint
+
+ if (present(ierr)) ierr=0
+ inv_mu = 1/gmw
+
+ select case(ientropy)
+ case(1) ! Include only gas entropy (up to additive constants)
+    temp = pres * gmw / (rho * kb_on_mh)
+    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
+
+ case(2) ! Include both gas and radiation entropy (up to additive constants)
+    temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
+    call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
+    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+
+ case(3) ! Get entropy from MESA tables if using MESA EoS
+    if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+    call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+
+    ! Get entropy from rho and eint from MESA tables
+    if (present(ierr)) then
+       call getvalue_mesa(rho,eint,9,logentropy,ierr)
+    else
+       call getvalue_mesa(rho,eint,9,logentropy)
+    endif
+    entropy = 10.**logentropy
+
+ case default
+    entropy = 0.
+    call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
+ end select
+
+end function entropy
+
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate density given pressure and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
+ use physcon, only:kb_on_mh
+ real, intent(in)    :: pres,S,rhoguess
+ real, intent(inout) :: rho
+ real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
+ real(kind=8)        :: corr
+ real, parameter     :: eoserr=1d-9,dfac=1d-12
+ integer, intent(in) :: ientropy
+ ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
+ ! of rho since S(rho) cannot take a negative argument.
+ srho = sqrt(rhoguess) ! Initial guess
+ corr = huge(corr);
+ do while (abs(corr) > eoserr*abs(srho))
+    ! First calculate dS/dsrho
+    srho_plus_dsrho = srho * (1. + dfac)
+    S_plus_dS = entropy(srho_plus_dsrho**2, pres, ientropy)
+    dSdsrho = (S_plus_dS - entropy(srho**2,pres,ientropy)) / (srho_plus_dsrho - srho)
+    corr = ( entropy(srho**2,pres,ientropy) - S ) / dSdsrho
+    srho = srho - corr
+ enddo
+ rho = srho**2
+ return
+end subroutine get_rho_from_p_s
 
 end module eos

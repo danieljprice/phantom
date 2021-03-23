@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -90,7 +90,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
 #ifdef MFLOW
@@ -479,6 +479,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--write dump file
 !
        if (rkill > 0) call accrete_particles_outside_sphere(rkill)
+#ifndef INJECT_PARTICLES
+       call calculate_mdot(nptmass,time,xyzmh_ptmass)     
+#endif
        call get_timings(t1,tcpu1)
        if (fulldump) then
           call write_fulldump(time,dumpfile)
