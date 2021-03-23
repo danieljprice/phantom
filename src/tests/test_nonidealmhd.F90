@@ -256,7 +256,7 @@ subroutine test_wavedamp(ntests,npass)
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
  call checkval(dtcourant,9.01203939699d-3,toltime,nerr(3),'final courant dt')
- call checkval(dtforce,  4.52058233876d-3,toltime,nerr(4),'final force dt')
+ call checkval(dtforce,  9.04116467752d-3,toltime,nerr(4),'final force dt')
  call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(5),'final dissipation dt from sts')
 #endif
  call update_test_scores(ntests,nerr,npass)
