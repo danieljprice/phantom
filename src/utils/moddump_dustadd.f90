@@ -15,7 +15,7 @@ module moddump
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
-!   table_utils
+!   table_utils, units
 !
  implicit none
 
