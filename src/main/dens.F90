@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -896,7 +896,6 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
- real :: fac,traceS,txy,txz,tyz,txx,tyy,tzz!,Ri
  logical, parameter :: use_exact_linear = .true.
 
  !--divergence of the velocity field
@@ -1489,14 +1488,12 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,get_partinfo,iamgas,&
-                       maxphase,massoftype,igas,n_R,n_electronT,&
-                       eta_nimhd,iambi,ndustlarge,ndustsmall,xyzh_soa,&
-                       maxgradh,idust,&
-                       ifluxx,ifluxz,ithick
+                       maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
+                       maxgradh,idust,ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,&
                        do_radiation
- use options,     only:ieos,alpha,alphamax,use_dustfrac
+ use options,     only:use_dustfrac
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
@@ -1527,7 +1524,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
  real         :: rhosum(maxrhosum)
 
- integer      :: iamtypei,i,lli,ierr,l
+ integer      :: iamtypei,i,lli,l
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
