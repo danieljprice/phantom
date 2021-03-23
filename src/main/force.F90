@@ -2836,14 +2836,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             !***MPI BUG!!
-             !   We would prefer to use lines 2, however, the MPI testsuite fails when
-             !   they are used.  Commits from other users pass, which suggests the
-             !   stability has something to do with the extra factor of two, since
-             !   in hydro, dtclean = 0.5*dtcourant
-             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
-             ! if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax               ! line 2a
-             ! dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))     ! line 2b
+             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax
+             dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))
           endif
        endif
 
