@@ -193,7 +193,7 @@ userguide <https://supercomputing.swin.edu.au>`__
 getting your job to run quickly
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/>__, click on "Future" and check for available nodes with the largest number of cpus available (typically either 16 or 32). The "skylake" queue is the default. If you notice spare nodes on other queues, e.g. sstar or gstar you can request this queue via your job submission script, e.g.::
+first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/>`__, click on "Future" and check for available nodes with the largest number of cpus available (typically either 16 or 32). The "skylake" queue is the default. If you notice spare nodes on other queues, e.g. sstar or gstar you can request this queue via your job submission script, e.g.::
 
      #SBATCH --nodes=1 --ntasks=16
      ...
