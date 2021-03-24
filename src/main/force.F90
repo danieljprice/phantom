@@ -2983,7 +2983,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !-- The new timestep for particle i
     dtitmp = min(dtf,dtcool,dtclean,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti,dtradi)
 
-    if (dtitmp < dti .and. dtitmp < dtmax) then
+    if (dtitmp < dti + tiny(dtitmp) .and. dtitmp < dtmax) then
        dti     = dtitmp
        if (dti < tiny(dti) .or. dti > huge(dti)) call fatal('force','invalid dti',var='dti',val=dti) ! sanity check
        dtcheck = .true.
