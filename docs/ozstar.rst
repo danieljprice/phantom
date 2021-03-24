@@ -199,7 +199,7 @@ first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/
      ...
      #SBATCH --partition=sstar
      ...
-     export OMP_NUM_THREADS=32
+     export OMP_NUM_THREADS=16
 
 where as above you also need to adjust the number of cpus you are requesting to fit the node size.
 
