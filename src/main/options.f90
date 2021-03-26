@@ -47,7 +47,7 @@ module options
  logical, public :: use_dustfrac, use_hybrid
 
 ! mcfost
- logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters
+ logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
@@ -141,6 +141,7 @@ subroutine set_default_options
  ! mcfost
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
+ mcfost_computes_Lacc = .false.
 
  ! radiation
  if (do_radiation) then
