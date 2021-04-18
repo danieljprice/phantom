@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(17(a,/))", &
+    print "(18(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -102,11 +102,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '14) MESA EoS save on file thermodynamical quantities for all particles', &
             '15) Gravitational drag on sinks', &
             '16) CoM of gas around primary core', &
-            '17) Miscellaneous'
+            '17) Miscellaneous', &
+            '18) J-E plane'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,16)
+    call prompt('Choose analysis type ',analysis_to_perform,1,18)
 
  endif
 
@@ -238,6 +239,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
 
     call write_file('specific_energy_particles', 'histogram', columns, histogram_data, size(histogram_data(1,:)), ncols, num)
+
+   case(18)
+       call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  end select
  !increase dump number counter
  dump_number = dump_number + 1
@@ -1737,6 +1741,43 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  deallocate(columns)
 
 end subroutine gravitational_drag
+
+
+subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
+ integer, intent(in) :: npart,num
+ real,    intent(in) :: particlemass,xyzh(:,:),vxyzu(:,:)
+ character(len=17), allocatable :: columns(:)
+ integer :: ncols,i
+ real :: com_xyz(3),com_vxyz(3),dum,etoti,angmom_com(3),angmom_core(3)
+ real, allocatable :: data(:,:)
+
+ ncols = 7
+ allocate(columns(ncols),data(ncols,npart))
+ columns = (/'          E',&
+             '      Jxcom',&
+             '      Jycom',&
+             '      Jzcom',&
+             '     Jxcore',&
+             '     Jycore',&
+             '     Jzcore'/)
+
+ call get_centreofmass(com_xyz,com_vxyz,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ do i=1,npart
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,dum,dum,dum,dum,etoti)
+    data(1,i) = etoti
+    call cross(xyzh(1:3,i)-xyzmh_ptmass(1:3,1), vxyzu(1:3,i)-vxyz_ptmass(1:3,1), angmom_core)
+    data(5:7,i) = angmom_core
+    call cross(xyzh(1:3,i)-com_xyz(1:3), vxyz_ptmass(1:3,i)-com_vxyz(1:3), angmom_com)
+    data(2:4,i) = angmom_com
+ enddo
+
+ data(1,:) = data(1,:) / particlemass ! specific energy
+
+ call write_file('JEplane','JEplane',columns,data,size(data(1,:)),ncols,num)
+ deallocate(columns)
+
+end subroutine J_E_plane
 
 
 subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
