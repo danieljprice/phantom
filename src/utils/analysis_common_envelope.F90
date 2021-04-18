@@ -1190,24 +1190,33 @@ end subroutine ion_profiles
 !  Unbound profiles
 !+
 !----------------------------------------------------------------
-subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
+subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
  integer, intent(in)                          :: npart,num
  real,    intent(in)                          :: time,particlemass
  real,    intent(inout)                       :: xyzh(:,:),vxyzu(:,:)
  integer, dimension(4)                        :: npart_hist
  real,    dimension(5,npart)                  :: dist_part,rad_part
  real,    dimension(:), allocatable           :: hist_var
- real                                         :: etoti,ekini,einti,epoti,phii
+ real                                         :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,maxloga,minloga
  character(len=17), dimension(:), allocatable :: grid_file
  character(len=40)                            :: data_formatter
  logical, allocatable, save                   :: prev_unbound(:,:),prev_bound(:,:)
  integer                                      :: i,unitnum,nbins
 
  call compute_energies(time)
- npart_hist = 0
+ npart_hist = 0     ! Stores number of particles fulfilling each of the four bound/unbound criterion
  nbins      = 300
- rad_part   = 0.
+ rad_part   = 0.    ! (4,npart_hist)-array storing separations of particles
  dist_part  = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+
+ allocate(hist_var(nbins))
+ grid_file = (/ 'gridpkiunbound.ev', &
+                ' gridpkunbound.ev', &
+                '  gridpkibound.ev', &
+                '   gridpkbound.ev' /)
 
  if (dump_number == 0) then
     allocate(prev_bound(2,npart))
@@ -1218,20 +1227,24 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
 
 
  do i = 1,npart
-    if (xyzh(4,i)  >=  0) then ! Mike: replace with .not. isdead_or_accreted(xyzh(4,i))?
+    if (.not. isdead_or_accreted(xyzh(4,i))) then
+       rhopart = rhoh(xyzh(4,i), particlemass)
+       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+       etoti = ekini + epoti + ethi 
 
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
-
+       ! Ekin + Epot + Eth > 0
        if ((etoti > 0.) .and. (.not. prev_unbound(1,i))) then
-          npart_hist(1) = npart_hist(1) + 1
+          npart_hist(1) = npart_hist(1) + 1 ! Keeps track of number of particles that have become newly unbound in this dump
           rad_part(1,npart_hist(1)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          dist_part(1,npart_hist(1)) = 1.
+          dist_part(1,npart_hist(1)) = 1. ! Array of ones with size of npart_hist(1)?
           prev_unbound(1,i) = .true.
        elseif (etoti < 0.) then
           prev_unbound(1,i) = .false.
        endif
 
-
+       ! Ekin + Epot > 0
        if ((ekini + epoti > 0.) .and. (.not. prev_unbound(2,i))) then
           npart_hist(2) = npart_hist(2) + 1
           rad_part(2,npart_hist(2)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
@@ -1241,6 +1254,7 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
           prev_unbound(2,i) = .false.
        endif
 
+       ! Ekin + Epot + Eth < 0
        if ((etoti < 0.) .and. (.not. prev_bound(1,i))) then
           npart_hist(3) = npart_hist(3) + 1
           rad_part(3,npart_hist(3)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
@@ -1250,6 +1264,7 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
           prev_bound(1,i) = .false.
        endif
 
+       ! Ekin + Epot < 0
        if ((ekini + epoti < 0.) .and. (.not. prev_bound(2,i))) then
           npart_hist(4) = npart_hist(4) + 1
           rad_part(4,npart_hist(4)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
@@ -1260,20 +1275,14 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
        endif
     endif
  enddo
- allocate(hist_var(nbins))
- grid_file = (/ 'gridpkiunbound.ev', &
-                ' gridpkunbound.ev', &
-                '  gridpkibound.ev', &
-                '   gridpkbound.ev' /)
 
  do i=1,4
-    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),3.,0.5,nbins,.false.)
+    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,.false.)
 
-    write(data_formatter, "(a,I5,a)") "(", nbins, "(3x,es18.10e3,1x))"
+    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
 
-    if (num == 0) then
+    if (num == 0) then ! Write header line
        unitnum = 1000
-
        open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
        write(unitnum, "(a)") '# Newly bound/unbound particles'
        close(unit=unitnum)
@@ -1282,8 +1291,9 @@ subroutine unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
     unitnum=1001+i
 
     open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
-
-    write(unitnum,data_formatter) hist_var(:)
+    
+    write(unitnum,"()")
+    write(unitnum,data_formatter) time,hist_var(:)
 
     close(unit=unitnum)
  enddo
@@ -2290,32 +2300,32 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
 end subroutine ionisation_fraction
 
 subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins,average)
- !returns a radial histogram of a given distribution variable
+ ! Returns a radial histogram of a given variable dist_var
  integer, intent(in)                :: npart,nbins
  real, dimension(npart), intent(in) :: dist_var, avg_var
  real, dimension(nbins), intent(out) :: hist_var
  real, intent(in)                   :: max_value, min_value
  logical, intent(in)                :: average
  real                               :: bins(nbins)
- integer                            :: i,j,n
+ integer                            :: i,j,bincount
 
- bins = (/ (10**(min_value + (i-1) * (max_value-min_value)/real(nbins)), i=1,nbins) /)
- !bins = (/ (min_value + (i-1) * (max_value-min_value)/real(nbins), i=1,nbins) /)
+ bins = (/ (10**(min_value + (i-1) * (max_value-min_value)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ !bins = (/ (min_value + (i-1) * (max_value-min_value)/real(nbins), i=1,nbins) /) ! Create linear bins
  hist_var(:) = 0.
 
  do i=1,nbins-1
-    n = 0
+    bincount = 0
     do j=1,npart
        if (dist_var(j) >= bins(i) .and. dist_var(j) < bins(i+1)) then
-          n = n + 1
+          bincount = bincount + 1
           hist_var(i) = hist_var(i) + avg_var(j)
        endif
     enddo
-    if (n>0) then
-       if (average) then
-          hist_var(i) = hist_var(i) / real(n)
-       endif
-    endif
+   !  if (n>0) then
+   !     if (average) then
+   !        hist_var(i) = hist_var(i) !/ real(bincount)
+   !     endif
+   !  endif
  enddo
 
 end subroutine histogram_setup
