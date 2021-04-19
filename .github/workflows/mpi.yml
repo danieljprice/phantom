@@ -32,4 +32,4 @@ jobs:
       run: make SETUP=testkd MPI=yes OPENMP=no phantomtest
 
     - name: test with MPI
-      run: mpirun --allow-run-as-root --mca btl self,sm -np 2 ./bin/phantomtest
+      run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest

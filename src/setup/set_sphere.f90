@@ -414,10 +414,10 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  else
     my_mask => mask_true
  endif
-
  xi = 1.5*r_ellipsoid(1)
  yi = 1.5*r_ellipsoid(2)
  zi = 1.5*r_ellipsoid(3)
+
  vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
  call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
                           vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
