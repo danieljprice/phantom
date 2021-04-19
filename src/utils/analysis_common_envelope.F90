@@ -1119,39 +1119,32 @@ subroutine eos_surfaces
 end subroutine eos_surfaces
 
 
-!!!!! Ion profiles !!!!!
-subroutine ion_profiles(time, num, npart, particlemass, xyzh, vxyzu)
- integer, intent(in)          :: npart, num
- real, intent(in)             :: time, particlemass
+!----------------------------------------------------------------
+!+
+!  Ion profiles
+!+
+!----------------------------------------------------------------
+subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
+ integer, intent(in)          :: npart,num
+ real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- integer                      :: npart_hist, nbins
- real, dimension(5,npart)     :: dist_part, rad_part
- real, dimension(:), allocatable :: hist_var
- real                         :: xh0, xh1, xhe0, xhe1, xhe2
- real                         :: pressure, temperature, rhopart
- character(len=17), dimension(:), allocatable :: grid_file
+ integer                      :: npart_hist,nbins
+ real, dimension(5,npart)     :: dist_part,rad_part
+ real, allocatable            :: hist_var(:)
+ real                         :: minloga,maxloga,xh0,xh1,xhe0,xhe1,xhe2
+ real                         :: pressure,temperature,rhopart
+ character(len=17), allocatable :: grid_file(:)
  character(len=40)            :: data_formatter
- integer                      :: i, unitnum
+ integer                      :: i,unitnum
 
  call compute_energies(time)
-
  npart_hist = 0
  nbins = 300
  rad_part = 0.
  dist_part = 0.
+ minloga = 0.5
+ maxloga = 4.3
 
- do i=1,npart
-    rhopart = rhoh(xyzh(4,i), particlemass)
-    npart_hist = npart_hist + 1
-    rad_part(1,npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure,temperature)
-    call ionisation_fraction(rhopart * unit_density, temperature, X_in, 1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-    dist_part(1,npart_hist) = xh0
-    dist_part(2,npart_hist) = xh1
-    dist_part(3,npart_hist) = xhe0
-    dist_part(4,npart_hist) = xhe1
-    dist_part(5,npart_hist) = xhe2
- enddo
  allocate(hist_var(nbins))
  grid_file = (/ '   grid_HIfrac.ev', &
                 '  grid_HIIfrac.ev', &
@@ -1159,26 +1152,32 @@ subroutine ion_profiles(time, num, npart, particlemass, xyzh, vxyzu)
                 ' grid_HeIIfrac.ev', &
                 'grid_HeIIIfrac.ev' /)
 
+ do i=1,npart
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    npart_hist = npart_hist + 1
+    rad_part(1,npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1)) ! Mike: What is the difference between npart_hist and i?
+    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
+    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    dist_part(1,npart_hist) = xh0
+    dist_part(2,npart_hist) = xh1
+    dist_part(3,npart_hist) = xhe0
+    dist_part(4,npart_hist) = xhe1
+    dist_part(5,npart_hist) = xhe2
+ enddo
+
 
  do i=1,5
-    call histogram_setup(rad_part(1,1:npart_hist),dist_part(i,1:npart_hist),hist_var,npart_hist,3.,0.5,nbins,.true.)
-
-    write(data_formatter, "(a,I5,a)") "(", nbins, "(3x,es18.10e3,1x))"
-
+    call histogram_setup(rad_part(1,1:npart_hist),dist_part(i,1:npart_hist),hist_var,npart_hist,maxloga,minloga,nbins,.true.)
+    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
     if (num == 0) then
        unitnum = 1000
-
        open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
        write(unitnum, "(a)") '# Ion fraction - look at the name of the file'
        close(unit=unitnum)
     endif
-
     unitnum=1001+i
-
     open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
-
-    write(unitnum,data_formatter) hist_var(:)
-
+    write(unitnum,data_formatter) time,hist_var(:)
     close(unit=unitnum)
  enddo
 
@@ -1226,7 +1225,7 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  endif
 
 
- do i = 1,npart
+ do i=1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        rhopart = rhoh(xyzh(4,i), particlemass)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
@@ -2068,7 +2067,7 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
 
              call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
 
-             call ionisation_fraction(rhopart * unit_density, temp, X_in, 1.-X_in-Z_in,xh0, xh1, xhe0, xhe1, xhe2)
+             call ionisation_fraction(rhopart*unit_density,temp,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
              temp_profile(9,iprofile)  = vxyzu(4,i) * unit_ergg
              temp_profile(10,iprofile) = ponrhoi * rhopart * unit_pressure
@@ -2246,8 +2245,14 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
   
 end subroutine average_in_vol
 
-subroutine ionisation_fraction(dens,temp,X,Y,xh0, xh1, xhe0, xhe1, xhe2)
- !solves three Saha equations simultaneously to return ion fractions of hydrogen and helium
+
+!----------------------------------------------------------------
+!+
+!  Solves three Saha equations simultaneously to return ion
+!  fractions of hydrogen and helium. Assumes inputs in cgs units
+!+
+!----------------------------------------------------------------
+subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
  use physcon, only:twopi, kboltz, eV, planckh, mass_electron_cgs, mass_proton_cgs
  real, intent(in) :: dens, temp, X, Y
  real, intent(out):: xh0, xh1, xhe0, xhe1, xhe2
@@ -2321,11 +2326,11 @@ subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,n
           hist_var(i) = hist_var(i) + avg_var(j)
        endif
     enddo
-   !  if (n>0) then
-   !     if (average) then
-   !        hist_var(i) = hist_var(i) !/ real(bincount)
-   !     endif
-   !  endif
+    if (bincount > 0) then
+       if (average) then
+          hist_var(i) = hist_var(i) / real(bincount)
+       endif
+    endif
  enddo
 
 end subroutine histogram_setup
