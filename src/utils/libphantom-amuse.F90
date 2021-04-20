@@ -19,6 +19,7 @@ subroutine amuse_initialize_code()
 #endif
     implicit none
     call allocate_memory(maxp_hard)
+    call initialise()
     call amuse_set_defaults()
     call amuse_set_polyk(0.)
     !print*, "maxvxyzu: ", maxvxyzu
@@ -27,7 +28,6 @@ subroutine amuse_initialize_code()
     !call set_units(dist=1.d20,mass=1.d40,G=1.)
     !call set_units(dist=1.*pc,mass=1.*solarm,G=1.)
     ! call set_units(dist=1.,mass=1.,time=1.)
-    call initialise()
 
     umass = 1.98892d33 * gram  ! AMUSE MSun
     utime = 60 * 60 * 24 * 365.25 * 1d6 * seconds  ! 10 Julian Kyr
@@ -136,6 +136,10 @@ subroutine amuse_set_defaults()
     implicit none
 
    call set_default_options()
+   ! A few changes to Phantom's defaults
+   call amuse_set_gamma(1.)
+   call amuse_set_ieos(1)
+
 end subroutine amuse_set_defaults
 
 ! This initialises things. This really should only be called once, before the first step.
