@@ -14,7 +14,7 @@ module cooling
 !   Townsend (2009), ApJS 181, 391-397
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-! :Owner: Lionel Siess
+! :Owner: Lionel Siess, Ward Homan, Dion Donne
 !
 ! :Runtime parameters:
 !   - C_cool               : *factor controlling cooling timestep*
@@ -22,12 +22,16 @@ module cooling
 !   - bowen_Cprime         : *radiative cooling rate (g.s/cm³)*
 !   - cooltable            : *data file containing cooling function*
 !   - habund               : *Hydrogen abundance assumed in cooling function*
-!   - icool_dust_collision : *dust collision on/off*
-!   - icool_radiation_H0   : *H0 cooling on/off*
-!   - icool_relax_bowen    : *Bowen (diffusive) relaxation on/off*
-!   - icool_relax_stefan   : *radiative relaxation on/off*
+!   - dust_collision       : *dust collision [1=on/0=off]*
+!   - excitation_HI        : *H0 cooling [1=on/0=off]*
+!   - relax_bowen          : *Bowen (diffusive) relaxation [1=on/0=off]*
+!   - relax_stefan         : *radiative relaxation [1=on/0=off]*
 !   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
 !   - temp_floor           : *Minimum allowed temperature in K*
+!   - CO_abun              : *mean CO abundance*
+!   - HCN_abun             : *mean HCN abundance*
+!   - H2O_abun             : *mean H2O abundance*
+!   - OH_abun              : *mean OH abundance*
 !
 ! :Dependencies: datafiles, eos, h2cooling, infile_utils, io, options,
 !   part, physcon, timestep, units
@@ -58,8 +62,12 @@ module cooling
  real    :: temp_floor = 1.e4
  real    :: Tgrid(nTg)
  real    :: crate_coef
- integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
+ integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
+ real    :: CO_abun  = 1.e-4
+ real    :: HCN_abun = 1.e-7
+ real    :: H2O_abun = 5.e-5
+ real    :: OH_abun  = 1.e-12
 
 
 contains
@@ -76,24 +84,24 @@ subroutine init_cooling(ierr)
  integer, intent(out) :: ierr
 
  !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
- if (icool_relax_bowen == 1 .and. icool_relax_stefan == 1) then
+ if (relax_bowen == 1 .and. relax_stefan == 1) then
     call fatal(label,'you can"t have bowen and stefan cooling at the same time')
  endif
 
 #ifdef KROME
  !krome calculates its own cooling rate
- icool_radiation_H0 = 0
- icool_dust_collision = 0
+ excitation_HI = 0
+ dust_collision = 0
 #else
  !if no cooling flag activated, disable cooling
- if (icooling == 1 .and. (icool_radiation_H0+icool_relax_Bowen+icool_dust_collision+&
-       icool_relax_Stefan == 0)) then
+ if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+&
+       relax_Stefan == 0)) then
     icooling = 0
     calc_Teq = .false.
     return
  endif
 #endif
- calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
+ calc_Teq = (relax_Bowen == 1) .or. (relax_Stefan == 1) .or. (dust_collision == 1)
 
  !--initialise remaining variables
  if (icooling == 2) then
@@ -122,6 +130,24 @@ subroutine init_cooling_type(h2chemistry)
  endif
 
 end subroutine init_cooling_type
+
+!-----------------------------------------------------------------------
+!+
+!  Molecular cooling tables: commit tables to memory
+!+
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
+!+
+!  Molecular cooling tables: interpolation routine
+!+
+!-----------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
+!+
+!  Molecular cooling tables: determine column density
+!+
+!-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
 !+
@@ -190,18 +216,18 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan
 
  rho_cgs = rho*unit_density
- Q_H0 = 0.
- Q_relax_Bowen = 0.
- Q_col_dust = 0.
- Q_relax_Stefan = 0.
- dlnQ_H0 = 0.
- dlnQ_relax_Bowen = 0.
- dlnQ_col_dust = 0.
+ Q_H0              = 0.
+ Q_relax_Bowen     = 0.
+ Q_col_dust        = 0.
+ Q_relax_Stefan    = 0.
+ dlnQ_H0           = 0.
+ dlnQ_relax_Bowen  = 0.
+ dlnQ_col_dust     = 0.
  dlnQ_relax_Stefan = 0.
- if (icool_radiation_H0 == 1)   call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
- if (icool_relax_Bowen == 1)    call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
- if (icool_dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
- if (icool_relax_Stefan == 1)   call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
+ if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
+ if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
  Q_cgs = Q_H0 + Q_relax_Bowen+ Q_col_dust+ Q_relax_Stefan
  dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen+ Q_col_dust*dlnQ_col_dust+ Q_relax_Stefan*dlnQ_relax_Stefan)/Q_cgs
  !limit exponent to prevent overflow
@@ -222,7 +248,7 @@ subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, Q, dlnQ_dlnT)
  real, intent(in) :: T, Teq, rho, mu
  real, intent(out) :: Q,dlnQ_dlnT
 
- Q = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
+ Q         = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
  dlnQ_dlnT = -T/(Teq-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
@@ -263,14 +289,14 @@ subroutine cooling_radiative_relaxation(T, Teq, kappa, Q, dlnQ_dlnT)
  real, intent(in) :: T, Teq, kappa
  real, intent(out) :: Q,dlnQ_dlnT
 
- Q = 4.*steboltz*(Teq**4-T**4)*kappa
+ Q         = 4.*steboltz*(Teq**4-T**4)*kappa
  dlnQ_dlnT = -4.*T**4/(Teq**4-T**4+1.d-10)
 
 end subroutine cooling_radiative_relaxation
 
 !-----------------------------------------------------------------------
 !+
-!  Cooling due to neutral H (Spitzer)
+!  Cooling due to electron excitation of neutral H (Spitzer)
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
@@ -661,10 +687,18 @@ subroutine write_options_cooling(iunit)
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)',iunit)
     select case(icooling)
     case(1)
-       call write_inopt(icool_radiation_H0,'icool_radiation_H0','H0 cooling on/off',iunit)
-       call write_inopt(icool_relax_bowen,'icool_relax_bowen','Bowen (diffusive) relaxation on/off',iunit)
-       call write_inopt(icool_relax_stefan,'icool_relax_stefan','radiative relaxation on/off',iunit)
-       call write_inopt(icool_dust_collision,'icool_dust_collision','dust collision on/off',iunit)
+       call write_inopt(excitation_HI,'excitation_HI','cooling via electron excitation of HI [1=on/0=off]',iunit)
+       call write_inopt(CO_abun, 'CO_abun', 'set to value>0 to activate CO radiative cooling &
+                                               & (typical value O-rich AGB star=1.0e-4)',iunit)
+       call write_inopt(HCN_abun,'HCN_abun','set to value>0 to activate HCN radiative cooling &
+                                               & (typical value O-rich AGB star=1.0e-7)',iunit)
+       call write_inopt(H2O_abun,'H2O_abun','set to value>0 to activate H2O radiative cooling &
+                                               & (typical value O-rich AGB star=5.0e-5)',iunit)
+       call write_inopt(OH_abun, 'OH_abun', 'set to value>0 to activate OH radiative cooling &
+                                               & (typical value O-rich AGB star=1.0e-12)',iunit)
+       call write_inopt(relax_bowen,'relax_bowen','Bowen (diffusive) relaxation [1=on/0=off]',iunit)
+       call write_inopt(relax_stefan,'relax_stefan','radiative relaxation [1=on/0=off]',iunit)
+       call write_inopt(dust_collision,'dust_collision','dust collision [1=on/0=off]',iunit)
        call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
     case(2)
        call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
@@ -700,17 +734,17 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case('icooling')
     read(valstring,*,iostat=ierr) icooling
     ngot = ngot + 1
- case('icool_radiation_H0')
-    read(valstring,*,iostat=ierr) icool_radiation_H0
+ case('excitation_HI')
+    read(valstring,*,iostat=ierr) excitation_HI
     ngot = ngot + 1
- case('icool_relax_bowen')
-    read(valstring,*,iostat=ierr) icool_relax_bowen
+ case('relax_bowen')
+    read(valstring,*,iostat=ierr) relax_bowen
     ngot = ngot + 1
- case('icool_relax_stefan')
-    read(valstring,*,iostat=ierr) icool_relax_stefan
+ case('relax_stefan')
+    read(valstring,*,iostat=ierr) relax_stefan
     ngot = ngot + 1
- case('icool_dust_collision')
-    read(valstring,*,iostat=ierr) icool_dust_collision
+ case('dust_collision')
+    read(valstring,*,iostat=ierr) dust_collision
     ngot = ngot + 1
  case('C_cool')
     read(valstring,*,iostat=ierr) C_cool
@@ -731,6 +765,22 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) beta_cool
     ngot = ngot + 1
     if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
+ case('CO_abun')
+    read(valstring,*,iostat=ierr) CO_abun
+    ngot = ngot + 1
+    if (CO_abun < 0.) call fatal('read_options','CO_abun must be >= 0')
+ case('HCN_abun')
+    read(valstring,*,iostat=ierr) HCN_abun
+    ngot = ngot + 1
+    if (HCN_abun < 0.) call fatal('read_options','HCN_abun must be >= 0')
+ case('H2O_abun')
+    read(valstring,*,iostat=ierr) H2O_abun
+    ngot = ngot + 1
+    if (H2O_abun < 0.) call fatal('read_options','H2O_abun must be >= 0')
+ case('OH_abun')
+    read(valstring,*,iostat=ierr) OH_abun
+    ngot = ngot + 1
+    if (OH_abun < 0.) call fatal('read_options','OH_abun must be >= 0')
  case default
     imatch = .false.
     if (h2chemistry) then
@@ -739,7 +789,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  end select
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
- if (icooling == 1 .and. ngot >= 5) igotall = .true.
+ if (icooling == 1 .and. ngot >= 9) igotall = .true.
  if (igotallh2 .and. ngot >= 1) igotall = .true.
 
 end subroutine read_options_cooling
