@@ -146,7 +146,7 @@ Check the status using::
 How to keep your job running for more than 48 hours
 ---------------------------------------------------
 
-Often you will want to keep your calculation going for longer than the 48-hour maximum queue limit. 
+Often you will want to keep your calculation going for longer than the 48-hour maximum queue limit.
 To achieve this you can just submit another job with the same script
 that depends on completion of the previous job
 
@@ -155,8 +155,8 @@ First find out the job id of the job you have already submitted::
   $ qstat
   Job id                 Name             User              Time Use S Queue
   ---------------------  ---------------- ----------------  -------- - -----
-  18780261.gadi-pbs      croc             abc123            402:48:0 R normal-exec   
-  
+  18780261.gadi-pbs      croc             abc123            402:48:0 R normal-exec
+
 Then submit another job that depends on this one::
 
    qsub -W depend=afterany:18780261 run.q
@@ -164,23 +164,54 @@ Then submit another job that depends on this one::
 The job will remain in the queue until the previous job completes. Then
 when the new job starts phantom will just carry on where it left off.
 
-A more sophisticated version of the above can be achieved by generating your 
+A more sophisticated version of the above can be achieved by generating your
 PBS script with PBSRESUBMIT=yes::
 
   make qscript INFILE=tde.in PBSRESUBMIT=yes > run.q
-  
+
 you can check the details of this using::
 
   cat run.q
-  
+
 and submit your script using::
 
   qsub -v NJOBS=10 run.q
-  
+
 which will automagically submit 10 jobs to the queue, each depending on completion of the previous job.
+
+how to not annoy everybody else
+-----------------------------------
+Do not fill the disk quota! Use a mix of small and full dumps where possible and set dtmax to a reasonable value to avoid generating large numbers of unnecessary large files.
+
+For how to move the results of your calculations off gadi see :doc:`here <data-curation>`
+
+how to use splash to make movies without your job getting killed
+-----------------------------------------------------------------
+If you try to make a sequence of images using splash on the login node
+(e.g. by typing /png or file.png at the device prompt), your job will get killed
+due to the runtime limits::
+
+  Graphics device/type (? to see list, default /xw):/png
+  ...
+  Killed
+  
+A simple workaround for this is to launch N instances of splash using a bash loop::
+
+  $ for x in dump_0*; do echo $x; done
+  
+Then replace "echo $x" with the relevant splash command::
+
+  $ for x in dump_0*; do splash -r 6 -dev $x.png $x; done
+
+If you still get prompts that need answers you can follow the procedure `here <https://splash-viz.readthedocs.io/en/latest/other.html#reading-processing-data-into-images-without-having-to-answer-prompts>`, or simply list the answers to the prompts in a file (here called answers.txt) and use::
+
+  $ for x in dump_0*; do splash -r 6 -dev $x.png $x < answers.txt; done
+
+this way each process is short and your movie-making can proceed without getting killed.
 
 more info
 ---------
+See :doc:`<running-clusters>`
 
 For more information on the actual machine `read the
 userguide <https://opus.nci.org.au/display/Help/Preparing+for+Gadi>`__
