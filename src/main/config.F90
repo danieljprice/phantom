@@ -226,10 +226,13 @@ module dim
  integer :: maxmhd = 0
 #ifdef MHD
  logical, parameter :: mhd = .true.
+ logical, parameter :: fast_divcurlB      = .false. ! true/false: will calculate divcurlB in/after densityiterate permitting/preventing a race condition
 #else
  logical, parameter :: mhd = .false.
+ logical, parameter :: fast_divcurlB      = .true.  ! do not toggle; multiple calculations controlled by this flag, and this is faster when excluding MHD
 #endif
- logical, parameter :: mhd_racecondition = .false. ! true/false: will calculate divcurlB in/after densityiterate permitting/preventing a race condition
+ logical            :: calculate_density  = .true.  ! do not toggle; initialised for efficiency
+ logical            :: calculate_divcurlB = .true.  ! do not toggle; initialised for efficiency
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
