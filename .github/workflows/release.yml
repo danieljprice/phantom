@@ -65,6 +65,8 @@ jobs:
     - name: get release notes
       run: |
         grep -m 2 -B 1000 '^v' docs/releasenotes.rst | sed '$d' > latest.rst
+        sudo apt-get install pandoc
+        pandoc --wrap=none -o latest.md latest.rst
 
     - name: Create Release
       id: create_release
@@ -74,7 +76,7 @@ jobs:
       with:
         tag_name: ${{ steps.get_version.outputs.version }}
         release_name: ${{ steps.get_version.outputs.version }}
-        body_path: latest.rst
+        body_path: latest.md
         draft: false
         prerelease: false
 

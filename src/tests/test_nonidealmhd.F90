@@ -334,7 +334,7 @@ subroutine test_standingshock(ntests,npass)
  !
  ! set particles on the left half of the shock
  !
- call set_unifdis('closepacked',id,master,xleft,0.0,ymin,ymax,zmin,zmax,dxleft,&
+ call set_unifdis('closepacked',id,master,xleft,0.,ymin,ymax,zmin,zmax,dxleft,&
                   hfact_default,npart,xyzh,periodic,mask=i_belong)
  volume                = -xleft*dybound*dzbound
  totmass               = volume*leftstate(1)
@@ -347,7 +347,7 @@ subroutine test_standingshock(ntests,npass)
  volume  = xright*dybound*dzbound
  totmass = volume*rightstate(1)
  dxright = xright/((totmass/massoftype(igas))/(ny*nz))
- call set_unifdis('closepacked',id,master,0.0,xright,ymin,ymax,zmin,zmax,dxright,&
+ call set_unifdis('closepacked',id,master,0.,xright,ymin,ymax,zmin,zmax,dxright,&
                 hfact_default,npart,xyzh,periodic,npy=ny,npz=nz,mask=i_belong)
  !
  ! set boundary particles, and set properties of the particles

@@ -1426,7 +1426,7 @@ subroutine finish_cell(cell,cell_converged)
        write(iprint,*) 'error = ',abs(hnew-hi)/hi_old,' tolh = ',tolh
        write(iprint,*) 'itype = ',iamtypei
        write(iprint,*) 'x,y,z = ',xyzh(1:3)
-       write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ixi:izi,i)
+       write(iprint,*) 'vx,vy,vz = ',cell%xpartvec(ivxi:ivzi,i)
        call fatal('densityiterate','could not converge in density',inodeparts(cell%arr_index(i)),'error',abs(hnew-hi)/hi_old)
     endif
 

@@ -2382,12 +2382,14 @@ subroutine print_arrays_in_file(iunit,filename)
  real            :: x(ndisplay)
  real(kind=4)    :: x4(ndisplay)
  integer(kind=1) :: i1(ndisplay)
+ logical         :: singleprec
 
  ! open file for read
  call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)
  if (ierr == ierr_realsize) then
     close(iunit)
-    call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec=.true.,id=fileid)
+    singleprec = .true.
+    call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,singleprec=singleprec,id=fileid)
  endif
  if (ierr /= 0) return
 
@@ -2408,8 +2410,13 @@ subroutine print_arrays_in_file(iunit,filename)
                 read(iunit, iostat=ierr) i1(1:nread)
                 print*,mytag,datatype_label(i),' [',i1(1:nread),str
              case(i_real)
-                read(iunit, iostat=ierr) x(1:nread)
-                print*,mytag,datatype_label(i),' [',x(1:nread),str
+                if (singleprec) then
+                   read(iunit, iostat=ierr) x4(1:nread)
+                   print*,mytag,datatype_label(i),' [',x4(1:nread),str
+                else
+                   read(iunit, iostat=ierr) x(1:nread)
+                   print*,mytag,datatype_label(i),' [',x(1:nread),str
+                endif
              case(i_real4)
                 read(iunit, iostat=ierr) x4(1:nread)
                 print*,mytag,datatype_label(i),' [',x4(1:nread),str
