@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(18(a,/))", &
+    print "(19(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -103,11 +103,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '15) Gravitational drag on sinks', &
             '16) CoM of gas around primary core', &
             '17) Miscellaneous', &
-            '18) J-E plane'
+            '18) J-E plane', &
+            '19) Rotation profile'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,18)
+    call prompt('Choose analysis type ',analysis_to_perform,1,19)
 
  endif
 
@@ -155,11 +156,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(9) !EoS testing
     call eos_surfaces
  case(10) !Ion fraction profiles in time
-    call ion_profiles(time, num, npart, particlemass, xyzh, vxyzu)
+    call ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(11) !New unbound particle profiles in time
-    !If you want to use this, remove the "/ real(n)" in the histogram_setup routine
-    !This case can be somewhat tidied up
-    call unbound_profiles(time, num, npart, particlemass, xyzh, vxyzu)
+    call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
+ case(19) ! Rotation profile
+    call rotation_profile(time,num,npart,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1186,6 +1187,72 @@ end subroutine ion_profiles
 
 !----------------------------------------------------------------
 !+
+!  Rotation profiles
+!+
+!----------------------------------------------------------------
+subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
+ integer, intent(in)          :: npart,num
+ real, intent(in)             :: time
+ real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer                      :: nbins
+ real, dimension(npart)       :: rad_part
+ real, allocatable            :: hist_var(:),dist_part(:,:)
+ real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),interior_mass,omegaz
+ character(len=17), allocatable :: grid_file(:)
+ character(len=40)            :: data_formatter
+ integer                      :: i,unitnum,nfiles,iradius
+
+ nbins = 300
+ rad_part = 0.
+ dist_part = 0.
+ minloga = 0.5
+ maxloga = 4.3
+ iradius = 1 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius in z=0 cross section
+
+ nfiles = 2
+ allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart))
+ grid_file = (/ '    grid_omega.ev', &
+                '       grid_Jz.ev' /)
+
+ do i=1,npart
+    select case (iradius)
+    case(1) ! Bin by cylindrical radius
+       rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyzmh_ptmass(1:2,1), xyzh(1:2,i) - xyzmh_ptmass(1:2,1)) )
+    case(2) ! Bin by spherical radius
+       rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    !case(3) ! Bin by cylindrical radius in z=0 cross-section
+    !   if ( abs(xyzh(3,i) - xyzmh_ptmass(3,1)) > 50. ) cycle
+    end select
+
+    call get_gas_omega(xyzmh_ptmass(1:3,1),vxyz_ptmass(1:3,1),xyzh(1:3,i),vxyzu(1:3,i),omegaz)
+    dist_part(1,i) = omegaz
+
+    sep_vector = xyzh(1:3,i) - xyzmh_ptmass(1:3,1)
+    vel_vector = vxyzu(1:3,i) - vxyz_ptmass(1:3,1)
+    call cross(vel_vector, sep_vector, J_vector)
+    dist_part(2,i) = dot_product(J_vector, (/0.,0.,1./))
+ enddo
+
+
+ do i=1,nfiles
+    call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.)
+    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+    if (num == 0) then
+       unitnum = 1000
+       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+       write(unitnum, "(a)") '# z-component of angular velocity'
+       close(unit=unitnum)
+    endif
+    unitnum=1001+i
+    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+    write(unitnum,data_formatter) time,hist_var(:)
+    close(unit=unitnum)
+ enddo
+  
+end subroutine rotation_profile
+
+!----------------------------------------------------------------
+!+
 !  Unbound profiles
 !+
 !----------------------------------------------------------------
@@ -1868,15 +1935,17 @@ end subroutine get_core_gas_com
 !+
 !----------------------------------------------------------------
 subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,omega)
- real, intent(in)  :: xyz_centre(1:3),vxyz_centre(1:3),xyzi(1:3),vxyzi(1:3)
+ real, intent(in)  :: xyz_centre(3),vxyz_centre(3),xyzi(3),vxyzi(3)
  real, intent(out) :: omega
- real              :: vphi,Rmag,R(1:2),phi_unitvec(1:3),R_unitvec(1:3)
+ real              :: vphi,Rmag,R(3),phi_unitvec(3),R_unitvec(3)
  
  ! xyz_centre: Position vector of reference point
  ! vxyz_centre: Velocity vector of reference point
- R = xyzi(1:2) - xyz_centre(1:2) ! Separation projected onto z = 0 plane
+ ! R: Cylindrical radius vector
+ R(1:2) = xyzi(1:2) - xyz_centre(1:2) ! Separation in x-y plane
+ R(3) = 0.
  Rmag = sqrt(dot_product(R,R))
- R_unitvec = (/ R/Rmag, 0. /)
+ R_unitvec = R / Rmag
  call cross((/0.,0.,1./), R_unitvec, phi_unitvec) ! phi = z x R
  vphi = dot_product(vxyzi - vxyz_centre, phi_unitvec)
  omega = vphi / Rmag
@@ -2097,6 +2166,40 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
  print*, "Profile completed"
 
 end subroutine stellar_profile
+
+!----------------------------------------------------------------
+!+
+!  Calculate mass interior to companion
+!+
+!----------------------------------------------------------------
+subroutine get_interior_mass(xyzh,donor_xyzm,companion_xyzm,particlemass,npart,iavgopt,interior_mass)
+ real, intent(in) :: xyzh(:,:),donor_xyzm(4),companion_xyzm(4),particlemass
+ real, intent(out) :: interior_mass
+ integer, intent(in) :: npart,iavgopt
+ real :: sinksinksep,maxsep,sep
+ integer :: j,k,iorder(npart)
+
+ ! Calculate mass interior to companion
+ call set_r2func_origin(donor_xyzm(1),donor_xyzm(2),donor_xyzm(3)) ! Order particles by distance from donor core
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ sinksinksep = separation(donor_xyzm(1:3), companion_xyzm(1:3))
+ interior_mass = donor_xyzm(4) ! Include mass of donor core
+ select case(iavgopt)
+ case(5)       ! Calculate mass interior to R/2
+    maxsep = 2.*sinksinksep
+ case(6)       ! Calculate mass interior to 2*R
+    maxsep = 0.5*sinksinksep
+ case default  ! Calculate mass interior to R
+    maxsep = sinksinksep
+ end select
+ do j = 1,npart
+    k = iorder(j)
+    sep = separation(donor_xyzm(1:3), xyzh(1:3,k))
+    if (sep > maxsep) exit
+    interior_mass = interior_mass + particlemass
+ enddo
+
+end subroutine get_interior_mass
 
 !----------------------------------------------------------------
 !+
@@ -2326,10 +2429,8 @@ subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,n
           hist_var(i) = hist_var(i) + avg_var(j)
        endif
     enddo
-    if (bincount > 0) then
-       if (average) then
-          hist_var(i) = hist_var(i) / real(bincount)
-       endif
+    if ( (bincount > 0) .and. average) then
+       hist_var(i) = hist_var(i) / real(bincount)
     endif
  enddo
 
