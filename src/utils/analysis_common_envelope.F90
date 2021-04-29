@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(19(a,/))", &
+    print "(21(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -104,18 +104,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '16) CoM of gas around primary core', &
             '17) Miscellaneous', &
             '18) J-E plane', &
-            '19) Rotation profile'
+            '19) Rotation profile', &
+            '20) Energy profile', &
+            '21) Recombination statistics'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,19)
+    call prompt('Choose analysis type ',analysis_to_perform,1,21)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/ 2, 3, 4, 6, 8, 9, 10, 11, 13, 14, 15/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -161,6 +163,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(19) ! Rotation profile
     call rotation_profile(time,num,npart,xyzh,vxyzu)
+ case(20) ! Energy profile
+    call energy_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(21) ! Recombination statistics
+    call recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1187,6 +1193,63 @@ end subroutine ion_profiles
 
 !----------------------------------------------------------------
 !+
+!  Energy profile
+!+
+!----------------------------------------------------------------
+subroutine energy_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)          :: npart,num
+ real, intent(in)             :: time,particlemass
+ real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer                      :: nbins
+ real                         :: dist_part(2,npart),rad_part(npart)
+ real, allocatable            :: hist_var(:)
+ real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,maxloga,minloga
+ character(len=17), allocatable :: grid_file(:)
+ character(len=40)            :: data_formatter
+ integer                      :: i,unitnum
+
+ call compute_energies(time)
+ nbins      = 300
+ rad_part   = 0.
+ dist_part  = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+
+ allocate(hist_var(nbins))
+ grid_file = (/ '     grid_Etot.ev', &
+                '     grid_Eint.ev' /)
+
+ do i=1,npart
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+
+    dist_part(1,i) = ekini + epoti + ethi
+    dist_part(2,i) = einti
+ enddo
+
+ do i=1,2
+    call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.)
+    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+    if (num == 0) then
+       unitnum = 1000
+       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+       write(unitnum, "(a)") '# Energy profile - look at the name of the file'
+       close(unit=unitnum)
+    endif
+    unitnum=1001+i
+    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+    write(unitnum,data_formatter) time,hist_var(:)
+    close(unit=unitnum)
+ enddo
+end subroutine energy_profile
+
+
+!----------------------------------------------------------------
+!+
 !  Rotation profiles
 !+
 !----------------------------------------------------------------
@@ -1197,7 +1260,7 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  integer                      :: nbins
  real, dimension(npart)       :: rad_part
  real, allocatable            :: hist_var(:),dist_part(:,:)
- real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),interior_mass,omegaz
+ real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),omegaz
  character(len=17), allocatable :: grid_file(:)
  character(len=40)            :: data_formatter
  integer                      :: i,unitnum,nfiles,iradius
@@ -1364,6 +1427,95 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
     close(unit=unitnum)
  enddo
 end subroutine unbound_profiles
+
+
+!----------------------------------------------------------------
+!+
+!  Recombination statistics
+!+
+!----------------------------------------------------------------
+subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)       :: npart,num
+ real,    intent(in)       :: time,particlemass
+ real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ real                      :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,&
+                              ponrhoi,spsoundi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
+ character(len=40)         :: data_formatter,logical_format
+ logical, dimension(npart) :: isbound
+ integer, dimension(npart) :: H_state,He_state
+ integer                   :: i
+ real, parameter           :: recomb_th=0.5
+
+ call compute_energies(time)
+ do i=1,npart
+    ! Calculate total energy
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    etoti = ekini + epoti + ethi
+
+    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
+    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+
+    ! Is unbound?
+    if (etoti > 0.) then
+       isbound(i) = .false.
+    else
+       isbound(i) = .true.
+    endif
+
+    ! H ionisation state
+    if (xh0 > recomb_th) then
+       H_state(i) = 1
+    elseif (xh1 > recomb_th) then
+       H_state(i) = 2
+    else
+       H_state(i) = 0 ! This should not happen
+    endif
+
+    ! H ionisation state
+    if (xhe0 > recomb_th) then
+        He_state(i) = 1
+     elseif (xhe1 > recomb_th) then
+        He_state(i) = 2
+     elseif (xhe2 > recomb_th) then
+        He_state(i) = 3
+     else
+        He_state(i) = 0 ! This should not happen
+     endif
+ enddo
+
+ write(data_formatter, "(a,I5,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
+ write(logical_format, "(a,I5,a)") "(es18.10e3,", npart, "(1x,L))" ! Time column plus npart columns
+
+ if (num == 0) then ! Write header line
+    open(unit=1000, file="H_state.ev", status='replace')
+    write(1000, "(a)") '# Ion fraction statistics'
+    close(unit=1000)
+    open(unit=1001, file="He_state.ev", status='replace')
+    write(1001, "(a)") '# Ion fraction statistics'
+    close(unit=1001)
+    open(unit=1002, file="isbound.ev", status='replace')
+    write(1002, "(a)") '# Ion fraction statistics'
+    close(unit=1002)
+ endif
+
+ open(unit=1000, file="H_state.ev", position='append') 
+ write(1000,data_formatter) time,H_state(:)
+ close(unit=1000)
+
+ open(unit=1000, file="He_state.ev", position='append') 
+ write(1000,data_formatter) time,He_state(:)
+ close(unit=1000)
+
+ open(unit=1000, file="isbound.ev", position='append') 
+ write(1000,logical_format) time,isbound(:)
+ close(unit=1000)
+
+end subroutine recombination_stats
+
 
 
 !----------------------------------------------------------------
