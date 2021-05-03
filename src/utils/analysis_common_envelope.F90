@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(21(a,/))", &
+    print "(22(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -106,18 +106,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '18) J-E plane', &
             '19) Rotation profile', &
             '20) Energy profile', &
-            '21) Recombination statistics'
+            '21) Recombination statistics', &
+            '22) Optical depth profile'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,21)
+    call prompt('Choose analysis type ',analysis_to_perform,1,22)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -167,6 +168,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(21) ! Recombination statistics
     call recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
+ case(22) ! Optical depth profile
+    call tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1009,66 +1012,42 @@ subroutine print_simulation_parameters(npart,particlemass)
 end subroutine print_simulation_parameters
 
 
-!!!!! Output .divv files !!!!!
+!----------------------------------------------------------------
+!+
+!  Output divv file
+!+
+!----------------------------------------------------------------
 subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
- integer, intent(in)            :: npart
- character(len=*), intent(in)   :: dumpfile
- real, intent(in)               :: time, particlemass
- real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
- integer                        :: i
- real                           :: etoti, ekini, einti, epoti, phii
- real                           :: rhopart, ponrhoi, spsoundi, kappat, kappar
- real, dimension(npart)         :: bound_energy, mach_number, omega_ratio, kappa, temp, pressure
- !real, dimension(3)             :: xyz_a, vxyz_a, com_xyz, com_vxyz
- real                           :: ang_vel
+ use part, only:eos_vars,itemp
+ integer, intent(in)          :: npart
+ character(len=*), intent(in) :: dumpfile
+ real, intent(in)             :: time,particlemass
+ real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+ integer                      :: i
+ real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,omegazi,xHIIi,xHeIIi
+ real, dimension(npart)       :: etot,mach_number,omega,xHII,xHeII
 
  call compute_energies(time)
-
- !call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
-
- ang_vel = 0.
-
- !do i=1,nptmass
- !   xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
- !   vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
- !   ang_vel = ang_vel + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
- !enddo
-
  do i=1,npart
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
-
-    bound_energy(i) = etoti/particlemass
     rhopart = rhoh(xyzh(4,i), particlemass)
-
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    etot(i) = (ekini + epoti + ethi) / particlemass ! Specific energy
     mach_number(i) = distance(vxyzu(1:3,i)) / spsoundi
-
-    !xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
-    !vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
-
-    !omega_ratio(i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-    !omega_ratio(i) = (omega_ratio(i) - ang_vel) / ang_vel
-
-    !pressure(i) = ponrhoi * rhopart * unit_pressure
-
-    if (ieos==10) then
-       call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg,pressure(i),temp(i))
-       call get_eos_kappa_mesa(rhopart*unit_density,temp(i),kappa(i),kappat,kappar)
-       !call ionisation_fraction(rhopart * unit_density, temp(i), X_in, 1.-X_in-Z_in, &
-       !                         ions(1,i),ions(2,i),ions(3,i),ions(4,i),ions(5,i))
-       !else
-       !   kappa(i) = 1
-    endif
+    call get_gas_omega(xyzmh_ptmass(1:3,1),vxyz_ptmass(1:3,1),xyzh(1:3,i),vxyzu(1:3,i),omegazi)
+    omega(i) = omegazi
+    call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,xHIIi,dum,xHeIIi,dum)
+    xHII(i) = xHIIi
+    xHeII(i) = xHeIIi
  enddo
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
- write(26) (real(bound_energy(i),kind=4),i=1,npart)
- write(26) (real(kappa(i),kind=4),i=1,npart)
- write(26) (real(omega_ratio(i),kind=4),i=1,npart)
- write(26) (real(mach_number(i),kind=4),i=1,npart)
-
+ write(26) (omega(i),i=1,npart)
+ write(26) (xHeII(i),i=1,npart)
+ write(26) (xHII(i),i=1,npart)
+ write(26) (etot(i),i=1,npart)
  close(26)
-
 end subroutine output_divv_files
 
 
@@ -1189,6 +1168,72 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  enddo
 
 end subroutine ion_profiles
+
+
+!----------------------------------------------------------------
+!+
+!  Optical depth profile
+!+
+!----------------------------------------------------------------
+subroutine tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)    :: npart,num
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: rad_part,kappa_part,rho_part
+ real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:)
+ real                   :: maxloga,minloga,kappa,kappat,kappar
+ character(len=17)      :: filename
+ character(len=40)      :: data_formatter
+ integer                :: i,unitnum
+
+ call compute_energies(time)
+ nbins      = 300
+ rad_part   = 0.
+ kappa_part = 0.
+ rho_part   = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+
+ allocate(rho_hist(nbins),kappa_hist(nbins),sepbins(nbins),tau_r(nbins))
+ filename = '      grid_tau.ev'
+
+ do i=1,npart
+    rho_part(i) = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    call get_eos_kappa_mesa(rho_part(i)*unit_density,eos_vars(itemp,i),kappa,kappat,kappar)
+    kappa_part(i) = kappa ! In cgs units?
+ enddo
+
+ call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.)
+ call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.)
+
+
+ ! Integrate optical depth inwards
+ sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ ! Convert to cgs units (kappa has already been outputted in cgs)
+ rho_hist = rho_hist * unit_density
+ sepbins = sepbins * udist ! udist should be Rsun in g
+ 
+ tau_r(nbins) = 0.
+ do i=nbins,2,-1
+    tau_r(i-1) = tau_r(i) + kappa_hist(i) * rho_hist(i) * (sepbins(i+1) - sepbins(i))
+ enddo
+
+ ! Write data row
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    unitnum = 1000
+    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    write(unitnum, "(a)") '# Optical depth profile'
+    close(unit=unitnum)
+ endif
+ unitnum=1002
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,tau_r
+ close(unit=unitnum)
+end subroutine tau_profile
 
 
 !----------------------------------------------------------------
