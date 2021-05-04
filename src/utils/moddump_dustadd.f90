@@ -15,7 +15,7 @@ module moddump
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
-!   table_utils
+!   table_utils, units
 !
  implicit none
 
@@ -32,18 +32,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs
  use table_utils,  only:logspace
+ use units,   only:umass,udist
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
- real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes)
+ real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
     stop
  endif
-
+ udens = umass/(udist**3)
  dust_method = 1
  np_ratio = 5
  dust_to_gas = 0.01
@@ -88,10 +89,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter maximum grain size in cm',smaxcgs,0.)
        !--mass distribution
        call prompt('Enter power-law index, e.g. MRN',sindex)
-       call set_dustbinfrac(smincgs,smaxcgs,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
+       call set_dustbinfrac(smincgs/udist,smaxcgs/udist,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
        !--grain density
        call prompt('Enter grain density in g/cm^3',graindens(1),0.)
-       graindens = graindens(1)
+       graindens = graindens(1)/udens
     else
        if (use_dustgrowth) then
           call prompt('Enter initial grain size in cm',grainsizecgs,0.)
@@ -99,8 +100,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Enter grain size in cm',grainsizecgs,0.)
        endif
        call prompt('Enter grain density in g/cm^3',graindenscgs,0.)
-       grainsize(1) = grainsizecgs
-       graindens(1) = graindenscgs
+       grainsize(1) = grainsizecgs/udist
+       graindens(1) = graindenscgs/udens
     endif
 
     np_gas = npartoftype(igas)
