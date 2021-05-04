@@ -32,3 +32,4 @@ Contents
    pawsey
    running-mac
    stable
+   data-curation

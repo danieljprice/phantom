@@ -57,7 +57,7 @@ subroutine get_and_print_gitinfo(iunit)
     do i = 1,9
        read(igit,'(a)',iostat=io_local) gitinfo
        write(iunit,'(1x,a)') trim(gitinfo)
-       if (index(gitinfo,'ID:')> 0) gitsha = gitinfo(20:26)
+       if (index(gitinfo,'ID:') > 0) gitsha = gitinfo(20:26)
     enddo
     i     = 0
     lfile = 0
@@ -66,13 +66,16 @@ subroutine get_and_print_gitinfo(iunit)
     do while (io_local==0 .and. i < nfiles)
        read(igit,'(a)',iostat=io_local) gitinfo
        if (io_local==0) then
-          i = i + 1
-          if (len(trim(gitinfo))>38) then
-             write(updatedfiles(i),"(2a)") gitinfo(1:35),"..."
-          else
-             updatedfiles(i) = gitinfo
+          ! do not list data, docs or hidden files
+          if (index(gitinfo,'data/') /=1 .and. index(gitinfo,'docs/') /=1 .and. index(gitinfo,'.')/=1) then
+             i = i + 1
+             if (len(trim(gitinfo))>38) then
+                write(updatedfiles(i),"(2a)") gitinfo(1:35),"..."
+             else
+                updatedfiles(i) = gitinfo
+             endif
+             lfile = max(lfile,len(trim(updatedfiles(i))))
           endif
-          lfile = max(lfile,len(trim(updatedfiles(i))))
        endif
     enddo
     close(igit)
