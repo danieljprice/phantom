@@ -480,7 +480,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
        if (rkill > 0) call accrete_particles_outside_sphere(rkill)
 #ifndef INJECT_PARTICLES
-       call calculate_mdot(nptmass,time,xyzmh_ptmass)     
+       call calculate_mdot(nptmass,time,xyzmh_ptmass)
 #endif
        call get_timings(t1,tcpu1)
        if (fulldump) then
