@@ -44,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc
+                             use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_dust_sublimation
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -80,7 +80,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
          Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
-         turn_on_Lacc = mcfost_computes_Lacc)
+         turn_on_Lacc = mcfost_computes_Lacc, turn_on_dust_subl = mcfost_dust_sublimation)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif

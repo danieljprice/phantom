@@ -68,7 +68,8 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost, use_Voronoi_limits_file, Voronoi_limits_file, use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type, mcfost_computes_Lacc
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type, mcfost_computes_Lacc,&
+                     mcfost_dust_sublimation
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -226,6 +227,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
  call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
       'Should mcfost compute the accretion luminosity',iwritein)
+ call write_inopt(mcfost_dust_sublimation,'mcfost_dust_sublimation',&
+      'Should mcfost do dust sublimation',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -483,6 +486,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
     case('mcfost_computes_Lacc')
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
+    case('mcfost_dust_sublimation')
+       read(valstring,*,iostat=ierr) mcfost_dust_sublimation
 #endif
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
