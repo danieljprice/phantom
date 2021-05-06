@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -244,7 +244,7 @@ subroutine back_to_growth(npart)
  use part,     only:ndusttypes,ndustlarge,idust,massoftype,&
                     npartoftype,iamtype,iphase,idust,&
                     set_particle_type
- use energies, only:mdust_in
+ use energies, only:mdust
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
 
@@ -262,12 +262,12 @@ subroutine back_to_growth(npart)
  do j=2,ndusttypes
     if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
     massoftype(idust+j-1)      = 0.
-    mdust_in(idust+j-1)        = 0.
+    mdust(idust+j-1)           = 0.
  enddo
 
  ndusttypes                    = 1
  ndustlarge                    = 1
- mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
+ mdust(idust)                  = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

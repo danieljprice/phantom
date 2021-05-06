@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -43,7 +43,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
                 remove_particle_from_npartoftype
- use eos,             only:gamma,polyk
+ use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
@@ -111,7 +111,7 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( (ieos == 10 .or. ieos == 12) .and. .not. store_temperature) then
+ if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
     print*,'WARNING! Using non-ideal EoS but not storing temperature'
     nwarn = nwarn + 1
  endif
@@ -440,9 +440,9 @@ subroutine check_setup(nerror,nwarn,restart)
  if (id==master) &
     write(*,"(a,2(es10.3,', '),es10.3,a)") ' Centre of mass is at (x,y,z) = (',xcom,')'
 
- if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling >= 1 .and. iexternalforce/=iext_corotate) then
+ if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
     if (dot_product(xcom,xcom) >  1.e-2) then
-       print*,'Error in setup: Gammie (2001) cooling (icooling=1) assumes Omega = 1./r^1.5'
+       print*,'Error in setup: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
        print*,'                but the centre of mass is not at the origin!'
        nerror = nerror + 1
     endif
@@ -784,7 +784,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
  do i=1, npart
     if (radprop(ithick, i) < 0.5) nthin=nthin + 1
     if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
-    if (radprop(ikappa, i) == 0.0) nkappa=nkappa + 1
+    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa=nkappa + 1
  enddo
 
  if (nthin > 0) then
@@ -801,7 +801,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
 
  if (nkappa > 0) then
     print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
-    ' particles have opacity 0.0'
+    ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
 end subroutine check_setup_radiation

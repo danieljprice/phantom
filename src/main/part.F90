@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,17 +44,22 @@ module part
 !--basic storage needed for read/write of particle data
 !
 
- real, allocatable :: xyzh(:,:)
- real, allocatable :: xyzh_soa(:,:)
- real, allocatable :: vxyzu(:,:)
+ real,         allocatable :: xyzh(:,:)
+ real,         allocatable :: xyzh_soa(:,:)
+ real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
  real(kind=4), allocatable :: divcurlv(:,:)
  real(kind=4), allocatable :: divcurlB(:,:)
- real, allocatable :: Bevol(:,:)
- real, allocatable :: Bxyz(:,:)
+ real,         allocatable :: Bevol(:,:)
+ real,         allocatable :: Bxyz(:,:)
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+!
+!--tracking particle IDs
+!
+ integer              :: norig
+ integer, allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
@@ -113,7 +118,6 @@ module part
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 #endif
-
 !
 !--eos_variables
 !
@@ -125,8 +129,6 @@ module part
                        maxeosvars = 4
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
     (/'pressure   ','sound speed', 'temperature', 'mu         '/)
-
-!
 !
 !--one-fluid dust (small grains)
 !
@@ -145,7 +147,6 @@ module part
  real, allocatable :: dens(:) !dens(maxgr)
  real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
-
 !
 !--sink particles
 !
@@ -160,6 +161,8 @@ module part
  integer, parameter :: iTeff  = 13 ! effective temperature
  integer, parameter :: iReff  = 14 ! effective radius
  integer, parameter :: imloss = 15 ! mass loss rate
+ integer, parameter :: imdotav = 16 ! accretion rate average
+ integer, parameter :: i_mlast = 17 ! accreted mass of last time
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -168,7 +171,8 @@ module part
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
-    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss '/)
+    'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
+    'mdotav   ','mprev    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -271,18 +275,15 @@ module part
 !
  integer, allocatable :: ll(:)
  real    :: dxi(ndim) ! to track the extent of the particles
-
 !
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
-
 !
 !--super time stepping
 !
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
-
 !
 !--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
 !  information between MPI threads
@@ -406,6 +407,7 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+ call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('VrelVf', VrelVf, maxp_growth)
@@ -484,6 +486,7 @@ subroutine deallocate_part
  if (allocated(divcurlB)) deallocate(divcurlB)
  if (allocated(Bevol))    deallocate(Bevol)
  if (allocated(Bxyz))     deallocate(Bxyz)
+ if (allocated(iorig))    deallocate(iorig)
  if (allocated(dustprop)) deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
  if (allocated(VrelVf))       deallocate(VrelVf)
@@ -550,6 +553,7 @@ end subroutine deallocate_part
 !+
 !----------------------------------------------------------------
 subroutine init_part
+ integer :: i
 
  npart = 0
  nptmass = 0
@@ -608,6 +612,17 @@ subroutine init_part
 #endif
 
  ideadhead = 0
+!
+!--Initialise particle id's
+!
+!$omp parallel do default(none) &
+!$omp shared(iorig,maxp) &
+!$omp private(i)
+ do i = 1,maxp
+    iorig(i) = i
+ enddo
+!$omp end parallel do
+ norig = maxp
 
 end subroutine init_part
 
@@ -1032,8 +1047,9 @@ end function strain_from_dvdx
 ! (prior to a derivs evaluation - so no derivs required)
 !+
 !----------------------------------------------------------------
-subroutine copy_particle(src, dst)
+subroutine copy_particle(src,dst,new_part)
  integer, intent(in) :: src, dst
+ logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
@@ -1067,6 +1083,13 @@ subroutine copy_particle(src, dst)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
 
+ if (new_part) then
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+ else
+    iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
+ endif
+
  return
 end subroutine copy_particle
 
@@ -1079,8 +1102,9 @@ end subroutine copy_particle
 ! must be rebuilt after a copy operation.
 !+
 !----------------------------------------------------------------
-subroutine copy_particle_all(src,dst)
+subroutine copy_particle_all(src,dst,new_part)
  integer, intent(in) :: src,dst
+ logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
  xyzh_soa(dst,:)  = xyzh_soa(src,:)
@@ -1164,6 +1188,13 @@ subroutine copy_particle_all(src,dst)
     ibin_sts(dst) = ibin_sts(src)
  endif
 
+ if (new_part) then
+    norig      = norig + 1
+    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+ else
+    iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
+ endif
+
  return
 end subroutine copy_particle_all
 
@@ -1219,7 +1250,7 @@ subroutine shuffle_part(np)
     if (newpart <= np) then
        if (.not.isdead(np)) then
           ! move particle to new position
-          call copy_particle_all(np,newpart)
+          call copy_particle_all(np,newpart,.false.)
           ! move ibelong to new position
 #ifdef MPI
           ibelong(newpart) = ibelong(np)
@@ -1254,12 +1285,12 @@ end function count_dead_particles
 !  uses the routines above for efficiency
 !+
 !-----------------------------------------------------------------------
-subroutine delete_dead_or_accreted_particles(npart,npartoftype)
- integer, intent(inout) :: npart,npartoftype(:)
+subroutine delete_dead_or_accreted_particles(npart,npoftype)
+ integer, intent(inout) :: npart,npoftype(:)
  integer :: i
 
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npartoftype)
+    if (isdead_or_accreted(xyzh(4,i))) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 
@@ -1610,9 +1641,9 @@ end subroutine delete_dead_particles_inside_radius
 !  Delete particles within radius
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
+subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
  real, intent(in) :: center(3), radius
- integer, intent(inout) :: npart,npartoftype(:)
+ integer, intent(inout) :: npart,npoftype(:)
  integer :: i
  real :: x,y,z,r
 
@@ -1621,7 +1652,7 @@ subroutine delete_particles_inside_radius(center,radius,npart,npartoftype)
     y = xyzh(2,i)
     z = xyzh(3,i)
     r=sqrt((x-center(1))**2+(y-center(2))**2+(z-center(3))**2)
-    if (r < radius) call kill_particle(i,npartoftype)
+    if (r < radius) call kill_particle(i,npoftype)
  enddo
  call shuffle_part(npart)
 

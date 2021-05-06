@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -238,7 +238,7 @@ subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  ! duplicate relaxed star
  do i = npart+1, 2*npart
     ! copy all particle properties
-    call copy_particle(i-npart,i)
+    call copy_particle(i-npart,i,.true.)
     ! place star a distance rad away
     xyzh(1,i) = xyzh(1,i-npart) + sep
     xyzh(2,i) = xyzh(2,i-npart)

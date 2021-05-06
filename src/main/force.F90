@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,9 +19,9 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, dust, eos, eos_shen, fastmath, growth, io,
-!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
-!   mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
+!   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
+!   mpiderivs, mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
 !   radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
 !   utils_gr, viscosity
 !
@@ -833,6 +833,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
+ use eos,         only:ieos,eos_is_non_ideal
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -852,9 +853,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old,iamboundary
-#endif
-#ifdef KROME
- use part,        only:gamma_chem
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac
@@ -950,21 +948,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical :: usej
  integer :: iamtypei
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
-            radDi,radDj,radeni,radenj,radlambdai,radlambdaj,radPi
+            radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
-
-
- real    :: projbigvi,projbigvj,lorentzi_star,lorentzj_star,dlorentzv
- real    :: enthi,enthj
  real    :: densj
- real    :: lorentzi,lorentzj
- real    :: bigvi(1:3),bigvj(1:3),bigv2i,bigv2j,alphagri,alphagrj
- real    :: veli(3),velj(3),vij,metricj(0:3,0:3,2)
- real    :: enthdensav
-
+ real    :: bigvi(1:3),bigv2i,alphagri,lorentzi
+ real    :: veli(3),vij
+#ifdef GR
+ real    :: bigv2j,alphagrj,enthdensav,enthi,enthj,dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
+ real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2)
+#endif
  real    :: radPj
 
  ! unpack
@@ -1279,7 +1274,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        if (iamgasj .and. maxvxyzu >= 4) then
           enj   = vxyzu(4,j)
-          if (store_temperature) then
+          if (store_temperature .and. eos_is_non_ideal(ieos)) then
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
           else
@@ -1912,9 +1907,9 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
  real,    intent(in)    :: dvdx(9)
  real,    intent(in)    :: radPi
 
- real :: Bro2i,Brhoxi,Brhoyi,Brhozi,rhogasi,gasfrac
+ real :: Bro2i,Brhoxi,Brhoyi,Brhozi
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
- real :: shearvisc,etavisc,valfven2i,p_on_rhogas
+ real :: shearvisc,etavisc,valfven2i
 
  sxxi = 0.
  sxyi = 0.
@@ -2434,9 +2429,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos
- use options,        only:alpha,icooling,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
+ use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,iamboundary
+ use cooling,        only:energ_cooling,cooling_explicit
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
@@ -2454,7 +2450,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
+#ifdef KROME
  use part,           only:gamma_chem
+#endif
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
@@ -2502,7 +2500,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: drad(:,:),dtrad
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
- real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi
+ real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi
  real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
@@ -2533,7 +2531,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  integer :: ireg
 #endif
  integer               :: ip,i
- real                  :: densi, vxi,vyi,vzi,u0i
+ real                  :: densi, vxi,vyi,vzi,u0i,dudtcool
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
 
@@ -2584,6 +2582,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     hi         = xpartveci(ihi)
     hi1        = 1./hi
     spsoundi   = xpartveci(ispsoundi)
+    tempi      = xpartveci(itempi)
     vsigmax    = cell%vsigmax(ip)
     ts_min     = cell%tsmin(ip)
     tstopi     = 0.
@@ -2791,6 +2790,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
+             if (cooling_explicit) then
+                dudtcool = 0.
+                call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
+                fxyz4 = fxyz4 + fac*dudtcool
+             endif
              ! extra terms in du/dt from one fluid dust
              if (use_dustfrac) then
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
@@ -2867,8 +2871,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
-       if (maxvxyzu >= 4 .and. (icooling > 0 .or. use_krome)) then
-          dtcool = C_cool*abs(eni/fxyzu(4,i))
+       ! Note: Why is this not used for *all* energy changes?  Regrettably, Sedov will crash if this timestep is included since eni0 = 0
+       if (maxvxyzu >= 4 .and. cooling_explicit) then
+          if (abs(fxyzu(4,i)) > 0.) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
        ! timestep based on non-ideal MHD
@@ -3025,19 +3030,20 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
 #else
-    ! global timestep needs to be minimum over all particles
-
-    dtcourant = min(dtcourant,dtc)
-    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
-    dtvisc    = min(dtvisc,dtvisci)
-    if (mhd_nonideal .and. iamgasi) then
-       dtohm  = min(dtohm,  dtohmi  )
-       dthall = min(dthall, dthalli )
-       dtambi = min(dtambi, dtambii )
+    ! global timestep needs to be minimum over all non-boundary particles
+    if (.not.iamboundary(int(cell%iphase(ip)))) then
+       dtcourant = min(dtcourant,dtc)
+       dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
+       dtvisc    = min(dtvisc,dtvisci)
+       if (mhd_nonideal .and. iamgasi) then
+          dtohm  = min(dtohm,  dtohmi  )
+          dthall = min(dthall, dthalli )
+          dtambi = min(dtambi, dtambii )
+       endif
+       dtmini  = min(dtmini,dti)
+       dtmaxi  = max(dtmaxi,dti)
+       dtrad   = min(dtrad,dtradi)
     endif
-    dtmini  = min(dtmini,dti)
-    dtmaxi  = max(dtmaxi,dti)
-    dtrad   = min(dtrad,dtradi)
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
