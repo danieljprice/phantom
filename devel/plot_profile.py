@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # python3 script
 from pylab import *
-from readPhantomDump3 import *
+from readPhantomDump import *
 from PhysicalConstantsCGS import k, amu, au
 from sys import argv
 from os import path
