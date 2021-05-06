@@ -5,7 +5,7 @@ Apply for an account
 --------------------
 
 Follow the instructions for how to apply for an account:
-https://confluence.apps.monash.edu/display/monarch/How+to+Access+MonARCH
+https://docs.monarch.erc.monash.edu/MonARCH/requesting-an-account.html
 
 If you are in Daniel Price’s research group, click on “Join existing
 project” and use the “pMona0001” project
@@ -39,7 +39,7 @@ Clone a copy of phantom into your home directory
 
 ::
 
-   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+   $ git clone https://github.com/danieljprice/phantom.git
 
 get splash
 ~~~~~~~~~~

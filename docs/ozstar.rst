@@ -29,8 +29,8 @@ load intel compilers, git and splash
 
 ::
 
-   $ module load ifort/2016.2.181-gcc-6.4.0
-   $ module load git/2.16.0
+   $ module load ifort/2018.1.163-gcc-6.4.0
+   $ module load git/2.18.0
 
 Get phantom
 ~~~~~~~~~~~

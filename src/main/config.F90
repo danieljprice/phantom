@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,7 +44,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 15
+ integer, parameter :: nsinkproperties = 17
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL

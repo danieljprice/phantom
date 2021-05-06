@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -287,7 +287,7 @@ subroutine test_uniform_derivs(ntests,npass)
  !print*,' GOT ',pmassi*dekin,pmassi*degas,pmassi*derad
  de = pmassi*(dekin + degas + derad)
  de = reduceall_mpi('+',de)
- call checkval(de,0.,2.5e-9,nerr_e(1),'dE/dt = 0')
+ call checkval(de,0.,2.6e-9,nerr_e(1),'dE/dt = 0')
  call update_test_scores(ntests,nerr_e,npass)
  !
  ! now solve diffusion as a function of time
@@ -313,7 +313,7 @@ subroutine test_uniform_derivs(ntests,npass)
           rhoi = rhoh(xyzh(4,i),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,i)*l0)*exp(-l0*l0*t*D0))
-          write (string,"(a,i2.2,a)") 'xi(t_', i, ')'
+          write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
           call checkvalbuf(rad(iradxi,i),exact_xi,tol_xi,trim(string),&
                            nerr_xi(1),ncheck_xi,errmax_xi)
        enddo
