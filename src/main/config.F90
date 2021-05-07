@@ -228,7 +228,6 @@ module dim
  logical, parameter :: mhd = .true.
 #else
  logical, parameter :: mhd = .false.
- logical, parameter :: fast_divcurlB      = .true.  ! do not toggle; multiple calculations controlled by this flag, and this is faster when excluding MHD
 #endif
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
