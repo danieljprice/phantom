@@ -148,17 +148,17 @@ module nicil
  real,            parameter :: vrms_max_kms      = 500              ! Maximum rms velocity above which rate coefficients become unreliable [km/s] (Pinto & Galli, 2008)
 
  !--Physical Constants (CGS)
- real,            parameter :: pi                =  3.1415926536d0  !  pi
- real,            parameter :: twopi             =  6.2831853072d0  ! 2pi
- real,            parameter :: fourpi            = 12.5663706144d0  ! 4pi
- real,            parameter :: c                 =  2.997924d10     ! Speed of light [cm/s]
- real,            parameter :: qe                =  4.8032068d-10   ! charge on electron [esu == statC == (cm^3 g)^0.5 s^-1]
- real,            parameter :: mass_electron_cgs =  9.10938291d-28  ! Electron mass [g]
- real,            parameter :: eV                =  1.60217657d-12  ! Electron volts [ergs]
- real,            parameter :: mass_proton_cgs   =  1.67262158d-24  ! Proton mass [g]
- real,            parameter :: kboltz            =  1.38066d-16     ! Boltzmann constant  [erg/K]
- real,            parameter :: Ggrav             =  6.67408d-8      ! Gravitational constant [cm^3 g^-1 s^-2]
- real,            parameter :: planckh           =  6.6260755d-27   ! Planck's Constant [erg s]
+ real(kind=8),    parameter :: pi                =  3.1415926536d0  !  pi
+ real(kind=8),    parameter :: twopi             =  6.2831853072d0  ! 2pi
+ real(kind=8),    parameter :: fourpi            = 12.5663706144d0  ! 4pi
+ real(kind=8),    parameter :: c                 =  2.997924d10     ! Speed of light [cm/s]
+ real(kind=8),    parameter :: qe                =  4.8032068d-10   ! charge on electron [esu == statC == (cm^3 g)^0.5 s^-1]
+ real(kind=8),    parameter :: mass_electron_cgs =  9.10938291d-28  ! Electron mass [g]
+ real(kind=8),    parameter :: eV                =  1.60217657d-12  ! Electron volts [ergs]
+ real(kind=8),    parameter :: mass_proton_cgs   =  1.67262158d-24  ! Proton mass [g]
+ real(kind=8),    parameter :: kboltz            =  1.38066d-16     ! Boltzmann constant  [erg/K]
+ real(kind=8),    parameter :: Ggrav             =  6.67408d-8      ! Gravitational constant [cm^3 g^-1 s^-2]
+ real(kind=8),    parameter :: planckh           =  6.6260755d-27   ! Planck's Constant [erg s]
 
  !--Indicies for warnings
  integer,         parameter :: ierr_neTconv      =  1               ! fatal error code if n_electronT did not converge
@@ -374,7 +374,7 @@ pure subroutine nicil_version(version)
  version = "Version 1.3: 20 September 2019"  ! commit 5178486
            ! 23 Jan  2020: Rewrote the chemistry for cosmic ray ionisation
            !               Number of grains is now controlled by hardcoding na
-           ! 27 Jan  2020: Restructured density calculations: calculates thermal ionisation, then the CR ionisation with the remaining neutrals  
+           ! 27 Jan  2020: Restructured density calculations: calculates thermal ionisation, then the CR ionisation with the remaining neutrals
            !  9 Feb  2020: Modified the grain reactions to match Kunz & Mouschovias (2009)
            !               Added dust evaporation between 725 < T/K < 1700; above 1700K, there is no dust
            !               Modified cosmic ray chemistry for stability and to exit with nden_ionR = 0 if it cannot converge
@@ -876,7 +876,7 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
     ierrlist    = 0
     nden_nimhd0 = 0.
     rdummy(5)   = 1.0d-12/unit_density
-    rdummy(6)   = 100.0
+    rdummy(6)   = 100.
     call nicil_update_nimhd(1,rdummy(1),rdummy(2),rdummy(3),rdummy(4),rdummy(5),rdummy(6),nden_nimhd0,ierrlist)
  endif
 
@@ -1183,7 +1183,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
                                 T,zeta,ierrlist)
        else
           nden_electronR = nicil_ionR_get_ne(nden_save(1:iire))  ! in this case, need to calculate electron density from ions
-          n_g_tot        = 0. ! to prevent compiler warnings 
+          n_g_tot        = 0. ! to prevent compiler warnings
        endif
 
        !--Sum the ion populations from thermal and cosmic ray ionisation
@@ -1224,8 +1224,8 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
              enddo
              data_out(22+3*na) = zeta                       ! cosmic ray ionisation rate (only useful for density dependent zeta)
           endif
-      endif
-   else
+       endif
+    else
        !--Exit with error message if T = 0 or B = 0
        if ( T      <=small2 ) ierrlist(ierr_T) = ierrlist(ierr_T) - 1
        if ( Bfield <=small2 .and. icall/=1) ierrlist(ierr_B) = ierrlist(ierr_B) - 1
@@ -1300,7 +1300,7 @@ pure subroutine nicil_ion_get_sigma(Bmag,rho_gas,nden_ion,mass_neutral_mp,T,sigm
     !--Temperature-dependent momentum transfer coefficients (CGS: cm^3 s^-1)
     sigmav_local         = sigmav
     sigmav_local(iH3p)   =     1.d-9*      (2.693 - (1.238 - (0.664 - 0.089 *logT)*logT)*logT)
-    sigmav_local(iHCOp)  = max(1.d-9*sqrtT*(1.476 - (1.409 - (0.555 - 0.0775*logT)*logT)*logT),0.0)
+    sigmav_local(iHCOp)  = max(1.d-9*sqrtT*(1.476 - (1.409 - (0.555 - 0.0775*logT)*logT)*logT),0.0d0)
     sigmav_local(iHp)    =     1.d-9*      (1.003 + (0.050 + (0.136 - 0.014 *logT)*logT)*logT)
     sigmav_local(ie)     =     1.d-9*sqrtT*(0.535 + (0.203 - (0.163 - 0.050 *logT)*logT)*logT)
 
