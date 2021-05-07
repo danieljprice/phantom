@@ -2,9 +2,9 @@ Phantom AGB
 ===========
 
 
-+++++ Git instructions:
+**+++++ Git instructions +++++**
 
-1) Commit locally:
+**1) Commit locally:**
 --------------------
 
 - git status
@@ -12,12 +12,12 @@ Phantom AGB
 - git add .
 - git commit -m "<comment>"
 
-2) Push to remote repository:
+**2) Push to remote repository:**
 -----------------------------
 
 - git push phantom Laboratory_AGB
 
-3) Sync branch with original master:
+**3) Sync branch with original master:**
 -------------------------------------
 
 - git checkout master
