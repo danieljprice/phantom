@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(22(a,/))", &
+    print "(23(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -107,18 +107,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '19) Rotation profile', &
             '20) Energy profile', &
             '21) Recombination statistics', &
-            '22) Optical depth profile'
+            '22) Optical depth profile', &
+            '23) Particle tracker'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,22)
+    call prompt('Choose analysis type ',analysis_to_perform,1,23)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -170,6 +171,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  case(22) ! Optical depth profile
     call tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(23) ! Particle tracker
+    call track_particle(time,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -365,6 +368,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
        call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
        etoti = ekini + epoti + ethi ! Overwrite etoti outputted by calc_gas_energies to use ethi instead of einti
+       !etoti = ekini + epoti
     else
        ! How to get quantities for accreted particles? Set to 0 for now
        etoti   = 0.
@@ -388,10 +392,10 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
+    bound(bound_i + 3) = bound(bound_i + 3) + etoti
 
     ! Bound criterion INCLUDING thermal energy
-    if ((etoti < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi < 0.) .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = ibt
     else
        bound_i = ibt + 4
@@ -400,10 +404,10 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
+    bound(bound_i + 3) = bound(bound_i + 3) + etoti
 
     ! Bound criterion using enthalpy
-    if ((etoti + ponrhoi*particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi + ponrhoi*particlemass < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound_i = ibe
     else
        bound_i = ibe + 4
@@ -412,25 +416,25 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
     bound(bound_i)     = bound(bound_i)     + 1
     bound(bound_i + 1) = bound(bound_i + 1) + particlemass
     bound(bound_i + 2) = bound(bound_i + 2) + distance(rcrossmv)
-    bound(bound_i + 3) = bound(bound_i + 3) + ekini + einti + poten(i) + particlemass*phii
+    bound(bound_i + 3) = bound(bound_i + 3) + etoti
 
     ! Bound criterion including HeI + HeII ionisation energy
-    if ((etoti + E_HeII < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi + E_HeII < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound(25) = bound(25) + particlemass
     endif
 
     ! Bound criterion including HeI + HeII ionisation energy
-    if ((etoti + E_HeII + E_HeI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi + E_HeII + E_HeI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
        bound(26) = bound(26) + particlemass
     endif
 
     ! Bound criterion including HeI + HeII + HI ionisation energy
-    if ((etoti + E_HeII + E_HeI + E_HI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi + E_HeII + E_HeI + E_HI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
       bound(27) = bound(27) + particlemass
     endif
 
     ! Bound criterion including HeI + HeII + HI + H2 ionisation energy
-    if ((etoti + E_HeII + E_HeI + E_HI + E_H2 < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
+    if ((epoti + ekini + ethi + E_HeII + E_HeI + E_HI + E_H2 < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
       bound(28) = bound(28) + particlemass
    endif
  enddo
@@ -1103,6 +1107,80 @@ subroutine eos_surfaces
  close(unit=1001)
 
 end subroutine eos_surfaces
+
+
+!----------------------------------------------------------------
+!+
+!  Particle tracker: Paint the life of a particle
+!+
+!----------------------------------------------------------------
+subroutine track_particle(time,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ use eos,  only:entropy
+ real, intent(in)        :: time,particlemass
+ real, intent(inout)     :: xyzh(:,:),vxyzu(:,:)
+ integer, parameter      :: nparttotrack=3,ncols=17
+ real                    :: r,v,rhopart,ponrhoi,Si,spsoundi,machi,xh0,xh1,xhe0,xhe1,xhe2,&
+                            ekini,einti,epoti,ethi,etoti,dum,phii
+ real, dimension(ncols)  :: datatable
+ character(len=17)       :: filenames(nparttotrack),columns(ncols)
+ integer                 :: i,k,partID(nparttotrack),ientropy,ierr
+
+ partID = (/ 1, 2, 3 /)
+ columns = (/ '      r',&
+              '      v',&
+              '    rho',&
+              '   temp',&
+              'entropy',&
+              'spsound',&
+              '   mach',&
+              '   ekin',&
+              '   epot',&
+              '    eth',&
+              '   eint',&
+              '   etot',&
+              '    xHI',&
+              '   xHII',&
+              '   xHeI',&
+              '  xHeII',&
+              ' xHeIII' /)
+
+ call compute_energies(time)
+
+ do i=1,nparttotrack
+    write (filenames(i),"(A1,I7.7)") "p", partID(i)
+ enddo
+ 
+ do k=1,nparttotrack
+    i = partID(k)
+    r = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    v = separation(vxyzu(1:3,i),vxyz_ptmass(1:3,1))
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    machi = v / spsoundi
+    select case(ieos)
+    case(2)
+       ientropy = 1
+    case(12)
+       ientropy = 2
+    case(10)
+       ientropy = 3
+    case default
+       ientropy = -1
+    end select
+    Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,ientropy,ierr)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    etoti = ekini + epoti + ethi
+    call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+
+    ! Write file
+    datatable = (/ r,v,rhopart,eos_vars(itemp,i),Si,spsoundi,machi,ekini,epoti,ethi,einti,etoti,xh0,xh1,xhe0,xhe1,xhe2 /)
+    call write_time_file(trim(adjustl(filenames(i))),columns,time,datatable,ncols,dump_number)
+ enddo
+
+
+end subroutine track_particle
 
 
 !----------------------------------------------------------------
