@@ -232,17 +232,22 @@ module dim
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
-! non-ideal MHD
+! Non-ideal MHD
+! if fast_divcurlB=true, then divcurlB is calculated simultaneous with density which leads to a race condition and errors (typically less than a percent)
+! divcurlB is only used as diagnostics & divergence cleaning in ideal MHD, so fast_divcurlB=true is reasonable
+! divcurlB is used to update the non-ideal terms, so fast_divcurlB=false is required for accuracy (especially if there will be jumps in density)
  integer :: maxmhdni = 0
-#ifdef MHD
 #ifdef NONIDEALMHD
- logical, parameter :: mhd_nonideal = .true.
+ logical, parameter :: mhd_nonideal    = .true.
+ logical, parameter :: fast_divcurlB   = .false.
+ integer, parameter :: n_nden_phantom  = 13      ! number density of chemical species, electrons & n_grains; defined in nicil == 11+2*na
 #else
- logical, parameter :: mhd_nonideal = .false.
+ logical, parameter :: mhd_nonideal    = .false.
+ logical, parameter :: fast_divcurlB   = .true.
+ integer, parameter :: n_nden_phantom  = 0
 #endif
-#else
- logical, parameter :: mhd_nonideal = .false.
-#endif
+ logical            :: calculate_density  = .true.  ! do not toggle; initialised for efficiency
+ logical            :: calculate_divcurlB = .true.  ! do not toggle; initialised for efficiency
 
 !--------------------
 ! H2 Chemistry
@@ -317,17 +322,6 @@ module dim
  logical, parameter :: lightcurve = .true.
 #else
  logical, parameter :: lightcurve = .false.
-#endif
-
-!--------------------
-! Electron number densities .or. ionisation fractions
-!--------------------
- integer :: maxne = 0
-
-#ifdef CMACIONIZE
- logical, parameter :: use_CMacIonize = .true.
-#else
- logical, parameter :: use_CMacIonize = .false.
 #endif
 
 !--------------------
@@ -426,14 +420,6 @@ subroutine update_max_sizes(n)
 
 #if LIGHTCURVE
  maxlum = maxp
-#endif
-
-#ifdef NONIDEALMHD
- maxne = maxp
-#else
-#ifdef CMACIONIZE
- maxne = maxp
-#endif
 #endif
 
 #ifndef ANALYSIS

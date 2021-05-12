@@ -36,7 +36,7 @@ module setup
 !   units
 !
  use part,    only:mhd
- use nicil,   only:use_ohm,use_ohm,use_hall,use_ambi
+ use nicil,   only:use_ohm,use_hall,use_ambi
  use nicil,   only:eta_constant,eta_const_type,C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst
  use nicil,   only:n_e_cnst,rho_i_cnst,rho_n_cnst,gamma_AD,alpha_AD,hall_lt_zero
  !

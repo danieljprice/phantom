@@ -194,7 +194,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef DUST
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
- use nicil,        only:nimhd_get_jcbcb,nimhd_get_dt,nimhd_get_dBdt,nimhd_get_dudt
+ use nicil,        only:nimhd_get_jcbcb
 #ifdef LIGHTCURVE
  use part,         only:luminosity
 #endif
@@ -469,7 +469,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
-                      iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
+                      iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                       dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                       rad,radprop,dens,metrics)
 
@@ -2002,7 +2002,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dust,      only:get_ts,idrag
  use part,      only:grainsize,graindens
 #endif
- use nicil,     only:nimhd_get_dt,nimhd_get_jcbcb
+ use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
@@ -2035,7 +2035,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #ifdef DUST
  real         :: tstopi(maxdusttypes)
 #endif
- real         :: Bxi,Byi,Bzi,Bi,B2i,Bi1
+ real         :: Bxi,Byi,Bzi,B2i,Bi1
  real         :: vwavei,alphai
  integer      :: i,j,iamtypei,ip,ii,ia,ib,ic
  real         :: densi
@@ -2108,6 +2108,16 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           Bxi = Bevol(1,i) * rhoi ! B/rho -> B (conservative to primitive)
           Byi = Bevol(2,i) * rhoi
           Bzi = Bevol(3,i) * rhoi
+          if (mhd_nonideal) then
+             B2i = Bxi**2 + Byi**2 + Bzi**2
+             if (B2i > 0.0) then
+                Bi1 = 1.0/sqrt(B2i)
+             else
+                Bi1 = 0.0
+             endif
+             curlBi = divcurlB(2:4,i)
+             call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
+          endif
        endif
 
        if (gr) densi = dens(i)
@@ -2143,18 +2153,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           enddo
        endif
 #endif
-
-       if (mhd_nonideal) then
-          B2i = Bxi**2 + Byi**2 + Bzi**2
-          Bi  = sqrt(B2i)
-          if (Bi > 0.0) then
-             Bi1 = 1.0/Bi
-          else
-             Bi1 = 0.0
-          endif
-          curlBi = divcurlB(2:4,i)
-          call nimhd_get_jcbcb(jcbcbi,jcbi,curlBi,Bxi,Byi,Bzi,Bi1)
-       endif
 
     else ! not a gas particle
        vwavei = 0.
@@ -2395,7 +2393,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
                          .true.,realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
-                         divcurlB,eta_nimhd, eos_vars, &
+                         divcurlB,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
@@ -2427,7 +2425,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,maxBevol,use_dustgrowth,gr,use_krome
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
@@ -2442,7 +2440,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use kernel,         only:kernel_softening
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
- use nicil,          only:nimhd_get_dudt,nimhd_get_dt
+ use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density
@@ -2501,7 +2499,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi
- real    :: Bxyzi(maxBevol),curlBi(3),dvdxi(9),straini(6)
+ real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau,hdivbbmax
@@ -2785,7 +2783,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
 #endif
              if (mhd_nonideal) then
-                call nimhd_get_dudt(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi(1:3))
+                call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi)
                 fxyz4 = fxyz4 + fac*dudtnonideal
              endif
              !--add conductivity and resistive heating
@@ -2838,14 +2836,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             !***MPI BUG!!
-             !   We would prefer to use lines 2, however, the MPI testsuite fails when
-             !   they are used.  Commits from other users pass, which suggests the
-             !   stability has something to do with the extra factor of two, since
-             !   in hydro, dtclean = 0.5*dtcourant
-             dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
-             ! if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax               ! line 2a
-             ! dtclean   = C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))     ! line 2b
+             ! Line 1 is the original line, however in the hydro limit,
+             !   dtclean = 0.5*dtcourant, which is not reasonable.  The
+             !   coefficient of 0.5 was empirically determined, but may be required
+             !   for all MHD simulations, not just those with hdivbbmax > 1.0
+             !dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
+             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax                 ! line 2a
+             dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))          ! line 2b
           endif
        endif
 
@@ -2878,7 +2875,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
-          call nimhd_get_dt(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
+          call nicil_get_dt_nimhd(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
           if ( use_STS ) then
              dtdiffi = min(dtohmi,dtambii)
              dtdiff  = min(dtdiff,dtdiffi)
@@ -2986,7 +2983,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !-- The new timestep for particle i
     dtitmp = min(dtf,dtcool,dtclean,dtvisci,dtdrag,dtohmi,dthalli,dtambii,dtdusti,dtradi)
 
-    if (dtitmp < dti .and. dtitmp < dtmax) then
+    if (dtitmp < dti + tiny(dtitmp) .and. dtitmp < dtmax) then
        dti     = dtitmp
        if (dti < tiny(dti) .or. dti > huge(dti)) call fatal('force','invalid dti',var='dti',val=dti) ! sanity check
        dtcheck = .true.

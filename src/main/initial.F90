@@ -135,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            n_R,n_electronT,dustevol,rhoh,gradh, &
+                            nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -213,7 +213,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
  use writeheader,      only:write_codeinfo,write_header
- use eos,              only:ieos,init_eos
+ use eos,              only:ieos,init_eos,gmw
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling,energ_h2cooling
@@ -235,7 +235,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
 #ifdef NONIDEALMHD
- real            :: gmw_old,gmw_new
+ real            :: gmw_nicil
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
@@ -281,11 +281,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef NONIDEALMHD
  call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint,iprint)
  if (ierr/=0) call fatal('initial','error initialising nicil (the non-ideal MHD library)')
- call use_consistent_gmw(ierr,gmw_old,gmw_new)
- if (ierr/=0) write(iprint,'(2(a,Es18.7))')' initial: Modifying mean molecular mass from ',gmw_old,' to ',gmw_new
+ call use_consistent_gmw(ierr,gmw,gmw_nicil)
+ if (ierr/=0) write(iprint,'(2(a,Es18.7))')' initial: Modifying mean molecular mass from ',gmw,' to ',gmw_nicil
 #endif
- n_R         = 0.0
- n_electronT = 0.0
+ nden_nimhd = 0.0
 !
 !--Initialise and verify parameters for super-timestepping
 !
