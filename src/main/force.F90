@@ -2834,7 +2834,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              else
                 hdivbbmax = 0.0
              endif
-             hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum (ihdivBBmax) )
+             hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
              if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax
              dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))
