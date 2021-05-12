@@ -29,10 +29,10 @@ module part
                maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-               maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
+               maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -181,8 +181,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real, allocatable :: n_R(:,:)
- real, allocatable :: n_electronT(:)
+ real, allocatable :: nden_nimhd(:,:)
  real, allocatable :: eta_nimhd(:,:)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
@@ -426,8 +425,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
- call allocate_array('n_R', n_R, 4, maxmhdni)
- call allocate_array('n_electronT', n_electronT, maxne)
+ call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
@@ -506,8 +504,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
- if (allocated(n_R))          deallocate(n_R)
- if (allocated(n_electronT))  deallocate(n_electronT)
+ if (allocated(nden_nimhd))   deallocate(nden_nimhd)
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
@@ -1123,9 +1120,8 @@ subroutine copy_particle_all(src,dst,new_part)
     endif
     Bxyz(:,dst)   = Bxyz(:,src)
     if (maxmhdni==maxp) then
-       n_R(:,dst)       = n_R(:,src)
-       n_electronT(dst) = n_electronT(src)
-       eta_nimhd(:,dst) = eta_nimhd(:,src)
+       nden_nimhd(:,dst) = nden_nimhd(:,src)
+       eta_nimhd(:,dst)  = eta_nimhd(:,src)
     endif
  endif
  if (do_radiation) then
