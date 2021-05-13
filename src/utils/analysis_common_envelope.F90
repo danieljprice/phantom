@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(23(a,/))", &
+    print "(24(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -108,18 +108,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '20) Energy profile', &
             '21) Recombination statistics', &
             '22) Optical depth profile', &
-            '23) Particle tracker'
+            '23) Particle tracker', &
+            '24) Unbound ion fraction'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,23)
+    call prompt('Choose analysis type ',analysis_to_perform,1,24)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23,24/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -173,6 +174,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(23) ! Particle tracker
     call track_particle(time,particlemass,xyzh,vxyzu)
+ case(24) ! Unbound ion fractions
+    call unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1554,6 +1557,68 @@ end subroutine unbound_profiles
 
 !----------------------------------------------------------------
 !+
+!  Unbound ion fractions: Look at distribution of ion fraction when given particle is unbound
+!+
+!----------------------------------------------------------------
+subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)       :: npart
+ real,    intent(in)       :: time,particlemass
+ real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ character(len=17)         :: columns(5)
+ integer                   :: i
+ real                      :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,&
+                              ponrhoi,spsoundi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
+ logical, allocatable, save :: prev_unbound(:),prev_bound(:)
+ real, allocatable, save :: ionfrac(:,:)
+
+ columns = (/'          xHI', &
+             '         xHII', &
+             '         xHeI', &
+             '        xHeII', &
+             '       xHeIII' /)
+
+ if (dump_number == 0) then
+    allocate(prev_unbound(npart),prev_bound(npart))
+    prev_bound   = .false.
+    prev_unbound = .false.
+    allocate(ionfrac(npart,5))
+    ionfrac = -1. ! Initialise ion states to -1
+ endif
+
+ call compute_energies(time)
+ do i=1,npart
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    etoti = ekini + epoti + ethi 
+    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
+    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+
+    if ((etoti > 0.) .and. (.not. prev_unbound(i))) then
+       ionfrac(i,1) = xh0
+       ionfrac(i,2) = xh1
+       ionfrac(i,3) = xhe0
+       ionfrac(i,4) = xhe1
+       ionfrac(i,5) = xhe2
+       prev_unbound(i) = .true.
+    elseif (etoti < 0.) then
+       prev_unbound(i) = .false.
+    endif
+ enddo
+ 
+ ! Trick write_time_file into writing my data table
+ if (dump_number == 320) then
+    do i=1,npart
+       call write_time_file("unbound_ionfrac",columns,-1.,ionfrac(i,1:5),5,i-1) ! Set num = i-1 so that header will be written for particle 1 and particle 1 only
+    enddo
+ endif
+
+end subroutine unbound_ionfrac
+
+!----------------------------------------------------------------
+!+
 !  Recombination statistics
 !+
 !----------------------------------------------------------------
@@ -1568,7 +1633,7 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  logical, dimension(npart) :: isbound
  integer, dimension(npart) :: H_state,He_state
  integer                   :: i
- real, parameter           :: recomb_th=0.5
+ real, parameter           :: recomb_th=0.05
 
  call compute_energies(time)
  do i=1,npart
