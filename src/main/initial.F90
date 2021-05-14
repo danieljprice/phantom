@@ -521,6 +521,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  endif
  call init_ptmass(nptmass,logfile,dumpfile)
  if (gravity .and. icreate_sinks > 0) then
+    if (icreate_sinks==1) then
+       write(iprint,*) 'Sink will be created if particles within h_acc meet formation criteria.'
+    elseif (icreate_sinks==2) then
+       write(iprint,*) 'Sink will be created if particles within 2h meet formation criteria.'
+    endif
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
