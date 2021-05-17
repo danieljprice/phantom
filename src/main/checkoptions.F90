@@ -55,10 +55,6 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
-#ifdef USE_CMAC_IONISE
- if (id==master) call error(string,'can not use both -DNONIDEALMHD and -DUSE_CMAC_IONISE')
- ierr = 1
-#endif
 #endif
 !
 !--check additional dimension settings are OK

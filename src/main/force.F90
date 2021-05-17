@@ -2836,13 +2836,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
              hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             ! Line 1 is the original line, however in the hydro limit,
-             !   dtclean = 0.5*dtcourant, which is not reasonable.  The
-             !   coefficient of 0.5 was empirically determined, but may be required
-             !   for all MHD simulations, not just those with hdivbbmax > 1.0
-             !dtclean   = 0.5*C_cour*hi/(hdivbbmax * vwavei + epsilon(0.))  ! line 1
-             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax                 ! line 2a
-             dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))          ! line 2b
+             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax
+             dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))
           endif
        endif
 
