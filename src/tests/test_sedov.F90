@@ -64,7 +64,7 @@ subroutine test_sedov(ntests,npass)
  integer :: i,itmp,ierr,iu
  real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotin,momtotin,etotend,momtotend
- real    :: rhoi,temp
+ real    :: temp
  character(len=20) :: logfile,evfile,dumpfile
 
 #ifndef PERIODIC

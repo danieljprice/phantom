@@ -152,6 +152,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef NONIDEALMHD
  use units,            only:utime,umass,unit_Bfield
+ use eos,              only:gmw
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
 #endif
@@ -213,11 +214,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
  use writeheader,      only:write_codeinfo,write_header
- use eos,              only:ieos,init_eos,gmw
+ use eos,              only:ieos,init_eos
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling,energ_h2cooling
- use cooling,          only:init_cooling,init_cooling_type,cooling_implicit
+ use cooling,          only:init_cooling,init_cooling_type
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -337,8 +338,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
+ ! determine if this is implicit (step_leapfrog) or explicit (force) cooling
  call init_cooling_type(h2chemistry)
- if (h2chemistry .or. cooling_implicit) dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
