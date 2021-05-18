@@ -1053,7 +1053,7 @@ subroutine copy_particle(src,dst,new_part)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
-    Bxyz(:,dst)  = Bxyz(:,dst)
+    Bxyz(:,dst)  = Bxyz(:,src)
  endif
  if (do_radiation) then
     rad(:,dst) = rad(:,src)
