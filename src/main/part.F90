@@ -973,6 +973,17 @@ pure elemental logical function iamdust(iphasei)
 
 end function iamdust
 
+pure elemental integer function idusttype(iphasei)
+ integer(kind=1), intent(in) :: iphasei
+
+ if (iamdust(iphasei)) then
+    idusttype = iamtype(iphasei) - idust + 1
+ else
+    idusttype = 1
+ endif
+
+end function idusttype
+
 pure integer function get_ntypes(noftype)
  integer, intent(in) :: noftype(:)
  integer :: i

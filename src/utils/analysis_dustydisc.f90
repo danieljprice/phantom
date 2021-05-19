@@ -75,7 +75,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
                         rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                        isdead_or_accreted,graindens
+                        isdead_or_accreted,graindens,iamgas,iamdust,idusttype
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
  use leastsquares, only:fit_slope
@@ -91,6 +91,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(maxdusttypes,nr),iwarp,nptmassinit
  integer :: icutgas(nr),icutdust(maxdusttypes,nr),find_ii(1),irealvisc
  integer :: itype,lu,nondustcols,dustcols,numcols
+ integer(kind=1) :: itypei
  real, allocatable :: deltavsum(:,:),dustfracisuma(:)
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
@@ -146,6 +147,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: isol    = 34
  integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
+
+ print*,' GOT ',ndusttypes,' DUST SPECIES'
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -204,7 +207,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if (use_dustfrac) then
     write(*,'("one-fluid model")')
  else
-    write(*,'("two-fluid model")')
+    write(*,'("two-fluid model with",i3,"dust types")') ndusttypes
  endif
 
  iline = index(dumpfile,'_')
@@ -214,7 +217,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if (.not.ifile) write(filename,"(a)") 'discparams.list'
  call read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_ref, &
                            p_index,R_c,q_index,G,M_star,M_disc,iparams,ierr,cs0,Sig0)
- if (ierr /= 0) call fatal('analysis','could not open/read '//trim(filename))
+ if (ierr /= 0) call fatal('analysis','could not open/read '//trim(discprefix)//'.discparams')
 
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
@@ -257,6 +260,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*)
  write(*,*)
 
+ R_in_dust = R_in
+ R_out_dust = R_out
  write(filename,"(a)") trim(discprefix)//'-'//trim(labeltype(idust))//'.discparams'
  inquire(file=filename, exist=ifile)
  if (ifile) then
@@ -319,6 +324,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        rad(i) = rmin + real(i-1)*dreven
     enddo
  endif
+ print *,' radial grid min,max = ',rmin,rmax
  rad = rad*au/udist
 
 ! Initialise arrays to zero
@@ -418,16 +424,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  rhoeff = graindens*sqrt(pi/8.)
  dustfracisum = 0.
  dustfraci(:) = 0.
+ itypei = igas
 
  do i = 1,npart
     hi = xyzh(4,i)
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
        pmassi = massoftype(itype)
+       itypei = int(itype,kind=1)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itype==igas) then
+       if (iamgas(itypei)) then
           if (use_dustfrac) then
              dustfraci = dustfrac(:,i)
              pdustmass = pmassi*dustfraci
@@ -439,10 +447,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           pgasmass     = pmassi*(1. - dustfracisum)
           Mgas  = Mgas  + pgasmass
           Mdust = Mdust + pmassi*dustfracisum
-       elseif (itype==idust) then
+       elseif (iamdust(itypei)) then
           Mdust = Mdust + pmassi
+          pdustmass(idusttype(itypei)) = pmassi
        endif
     else
+       pgasmass = 0.
        Macc  = Macc + pmassi
     endif
 
@@ -485,7 +495,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        vrdust(j,i) = 0.5*(2*xyzh(1,i)*vdust(1,j) + 2*xyzh(2,i)*vdust(2,j))/ri_mid
     enddo
 
-    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
        !Hi_part = cs0*ri**(-q_index)/(sqrt(G*M_star/ri**3))
        if (use_log_r) then
@@ -550,7 +560,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           else
              icutgas(ii) = icutgas(ii) + 1
           endif
-       elseif (iphase(i) == idust) then
+       elseif (iamdust(iphase(i))) then
           do j=1,ndusttypes
              sigmadust(j,ii) = sigmadust(j,ii) + pdustmass(j)/area
 
