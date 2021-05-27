@@ -54,7 +54,7 @@ module ptmass
 #endif
 
  ! settings affecting routines in module (read from/written to input file)
- integer, public :: icreate_sinks = 0  ! 0 = do not create sinks; 1 (2) = create sink if particles with hacc (2h) meet criteria
+ integer, public :: icreate_sinks = 0
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
@@ -919,17 +919,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  !
  ! determine radius in which to check the criteria
  !
- if (icreate_sinks==2) then
-    ! the sphNG radius
-    hcheck      = radkern*hi ! will fail a check and exit if hcheck > h_acc
-    f_acc_local = max(f_acc,hcheck/h_acc)
- else
-    ! the default (original Phantom radius)
-    hcheck      = h_acc
-    f_acc_local = 1.0
- endif
- hcheck2 = hcheck*hcheck
-
+ hcheck      = radkern*hi               ! = h_acc in previous versions of Phantom; current method is faster
+ f_acc_local = max(f_acc,hcheck/h_acc)  ! = 1.0   in previous versions of Phantom; current method is faster
+ hcheck2     = hcheck*hcheck
+ !
+ ! initialise variables
+ !
  hi1  = 1.0/hi
  hi21 = hi1**2
  if (maxphase==maxp) then
@@ -986,7 +981,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  epot_rad  = 0.
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
- ! find neighbours within the checking radius of h_acc or 2h
+ ! find neighbours within the checking radius of hcheck
  call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.

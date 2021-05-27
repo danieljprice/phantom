@@ -62,7 +62,7 @@ subroutine test_ptmass(ntests,npass)
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  integer, intent(inout) :: ntests,npass
- integer                :: i,nsteps,nbinary_tests,itest,jtest,nerr,nwarn,itestp
+ integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  integer                :: nparttot
  logical                :: test_binary,test_accretion,test_createsink, test_softening
  logical                :: accreted
@@ -473,23 +473,12 @@ subroutine test_ptmass(ntests,npass)
 !  Test sink particle creation
 !
  testcreatesink: if (test_createsink) then
-    do jtest=1,2
-    select case(jtest)
-    case(1)
-       icreate_sinks = 1
-    case default
-       icreate_sinks = 2
-    end select
     do itest=1,2
        select case(itest)
        case(2)
-          if (id==master) then
-             write(*,"(/,a,I1)") '--> testing sink particle creation (sin) for icreate_sinks = ',icreate_sinks
-          endif
+          if (id==master) write(*,"(/,a)") '--> testing sink particle creation (sin)'
        case default
-          if (id==master) then
-             write(*,"(/,a,I1)") '--> testing sink particle creation (uniform density) for icreate_sinks = ',icreate_sinks
-          endif
+          if (id==master) write(*,"(/,a)") '--> testing sink particle creation (uniform density)'
        end select
        xyzmh_ptmass(:,:) = 0.
        vxyz_ptmass(:,:) = 0.
@@ -541,6 +530,7 @@ subroutine test_ptmass(ntests,npass)
        ! and make sure that gravitational potential energy has been computed
        !
        tree_accuracy = 0.
+       icreate_sinks = 1
        iverbose = 1
        call get_derivs_global()
        !
@@ -605,7 +595,6 @@ subroutine test_ptmass(ntests,npass)
 
        iverbose = 0
        call finish_ptmass(nptmass)
-    enddo
     enddo
  endif testcreatesink
 
