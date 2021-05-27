@@ -177,7 +177,7 @@ subroutine test_sedov(ntests,npass)
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etotin,1.3e-4,nfailed(1),'total energy')
+    call checkval(etotend,etotin,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
     call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files

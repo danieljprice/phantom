@@ -247,6 +247,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--compute number of discs based on setup options
  call number_of_discs()
+ iuse_disc(1) = .false.
+ iuse_disc(2) = .true.
+ iuse_disc(3) = .true.
 
  !--setup equation of state
  call equation_of_state(gamma)

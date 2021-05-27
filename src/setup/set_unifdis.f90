@@ -72,7 +72,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
  integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
- integer(kind=8)    :: iparttot
+ integer(kind=8)    :: iparttot,iparttot0
  real               :: delx,dely
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
@@ -143,6 +143,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  else
     iparttot = 0
  endif
+ iparttot0 = iparttot
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
  is_verbose = .true.
@@ -520,7 +521,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
 
-    do while (iparttot < np+npnew)
+    do while (iparttot < iparttot0+npnew)
        xi = xmin + ran2(iseed)*dxbound
        yi = ymin + ran2(iseed)*dybound
        zi = zmin + ran2(iseed)*dzbound
