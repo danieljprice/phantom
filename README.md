@@ -21,6 +21,13 @@ Phantom AGB
 -------------------------------------
 
 - git checkout master
+- git fetch upstream
+- git merge upstream/master
+
+  **4) Sync branch with master:**
+  ----------------------------
+  
+- git checkout master
 - git pull
 - git checkout AGBlab
 - git merge master
