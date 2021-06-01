@@ -620,9 +620,9 @@ subroutine filewrite_header(iunit)
  endif
 #else
  if (icooling > 0) then
-    write(iunit,'("#",11x,a1,10(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+    write(iunit,'("#",11x,a1,12(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
  else
-    write(iunit,'("#",11x,a1,9(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    write(iunit,'("#",11x,a1,11(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
