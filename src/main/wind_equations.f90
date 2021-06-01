@@ -131,12 +131,12 @@ subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  if (ieos == 6) then
     T0 = Tstar*(Rstar_cgs/r)**expT
     c2 = gamma*Rg*T0/mu
-    denominator = 1.-c2/v**2
+    denominator = 1.-(c2/v**2)
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
        AA = 2.*c2/v**3
-       BB = expT*c2/(r*v)
-       CC = ((2.+expT)*(1.+expT)*r*v*c2-Gg*Mstar_cgs*v*(2.-2.*alpha+r*dalpha_dr))/(r**3)
+       BB = (expT*c2+c2*(2.+expT)-Gg*Mstar_cgs*(1.-alpha)/r)/(r*v**2)
+       CC = ((2.+expT)*(1.+expT)*c2-Gg*Mstar_cgs*(2.*(1.-alpha)/r+dalpha_dr))/(v*r**2)
        dv_dr = solve_q(AA, BB, CC)
     else
        dv_dr = numerator/denominator
