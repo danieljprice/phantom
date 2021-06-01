@@ -15,12 +15,12 @@ Phantom AGB
 **2) Push to remote repository:**
 -----------------------------
 
-- git push phantom Laboratory_AGB
+- git push phantom AGBlab
 
 **3) Sync branch with original master:**
 -------------------------------------
 
 - git checkout master
 - git pull
-- git checkout Laboratory_AGB
+- git checkout AGBlab
 - git merge master
