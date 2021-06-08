@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for the Agertz et al. (2007) evaporating blob problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, io, kernel, physcon, prompting, setup_params,
-!    timestep, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the Agertz et al. (2007) evaporating blob problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, kernel, part, physcon, prompting,
+!   setup_params, timestep, unifdis
+!
  implicit none
  public :: setpart
 
@@ -44,6 +38,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use kernel,       only:hfact_default
  use timestep,     only:dtmax,tmax
+ use domain,       only:i_belong
+ use part,         only:periodic
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -105,7 +101,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(*,*) 'psep in cloud = ',deltaxcloud,' psep/Rcl = ',deltax/rcloud
 
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                  hfact,npart,xyzh,rmin=rcloud,nptot=npart_total)
+                  hfact,npart,xyzh,periodic,rmin=rcloud,nptot=npart_total,mask=i_belong)
  npartmed = npart
  totvol   = dxbound*dybound*dzbound - 4./3.*pi*rcloud**3
  totmass  = denszero*totvol
@@ -113,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print*,' particle mass = ',massoftype(1),totmass,totvol
 
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltaxcloud, &
-                  hfact,npart,xyzh,rmax=rcloud,nptot=npart_total)
+                  hfact,npart,xyzh,periodic,rmax=rcloud,nptot=npart_total,mask=i_belong)
  print*,'-------------------------------------------------------------'
  print*,' number of particles in surrounding medium = ',npartmed
  print*,'               number of particles in blob = ',npart-npartmed
@@ -144,4 +140,3 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 end module setup
-

@@ -1,40 +1,34 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Set up for the de Val Borro et al. planet-disc comparison problem
-!
-!  REFERENCES: de Val Borro et al. (2006), MNRAS 370, 529
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    HoverRinput  -- H/R at R_in
-!    R_in         -- inner radius
-!    R_out        -- outer radius
-!    accradius1   -- primary accretion radius
-!    accradius2   -- secondary accretion radius
-!    alphaSS      -- desired alpha_SS
-!    mplanet      -- m1/(m1+m2)
-!    norbits      -- number of orbits
-!    np           -- number of particles
-!    p_indexinput -- surface density profile
-!    q_indexinput -- temperature profile
-!    sig0         -- disc surface density
-!
-!  DEPENDENCIES: extern_binary, externalforces, infile_utils, io, options,
-!    physcon, prompting, setdisc, timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Set up for the de Val Borro et al. planet-disc comparison problem
+!
+! :References: de Val Borro et al. (2006), MNRAS 370, 529
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - HoverRinput  : *H/R at R_in*
+!   - R_in         : *inner radius*
+!   - R_out        : *outer radius*
+!   - accradius1   : *primary accretion radius*
+!   - accradius2   : *secondary accretion radius*
+!   - alphaSS      : *desired alpha_SS*
+!   - mplanet      : *m1/(m1+m2)*
+!   - norbits      : *number of orbits*
+!   - np           : *number of particles*
+!   - p_indexinput : *surface density profile*
+!   - q_indexinput : *temperature profile*
+!   - sig0         : *disc surface density*
+!
+! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
+!   physcon, prompting, setdisc, timestep, units
+!
  implicit none
  public :: setpart
 

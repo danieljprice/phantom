@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_gwinspiral
+module extern_gwinspiral
 !
-!  DESCRIPTION:
-!   Simulates the inspiral of two stars in a circular orbit caused by gravitational wave
+! Simulates the inspiral of two stars in a circular orbit caused by gravitational wave
 !   radiation.
 !   Author: Bernard Field (supervisor: James Wurster & Paul Lasky)
 !
-!  REFERENCES: e.g. Tong (2015) classical dynamics lecture notes
+! :References: e.g. Tong (2015) classical dynamics lecture notes
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - stop_ratio : *ratio of particles crossing CoM to indicate a merger*
 !
-!  RUNTIME PARAMETERS:
-!    stop_ratio -- ratio of particles crossing CoM to indicate a merger
+! :Dependencies: centreofmass, dump_utils, infile_utils, io, physcon, units
 !
-!  DEPENDENCIES: centreofmass, dump_utils, infile_utils, io, physcon, units
-!+
-!--------------------------------------------------------------------------
-module extern_gwinspiral
  implicit none
  !
  ! Runtime parameters

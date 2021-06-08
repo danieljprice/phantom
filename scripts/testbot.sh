@@ -97,10 +97,10 @@ for setup in $listofsetups; do
     else
        arg="";
     fi
-    make SETUP=$setup $debugflag >& $errorlog; err=$?;
+    make SETUP=$setup $debugflag phantomtest >& $errorlog; err=$?;
     if [ $err -eq 0 ]; then
        # build was OK, proceed to run test suite
-       ./bin/phantom test $arg >& $errorlog;
+       ./bin/phantomtest $arg >& $errorlog;
        if [ -s $errorlog ]; then
           grep 'TEST SUITE PASSED' $errorlog >& /dev/null; pass=$?;
           passes=`grep 'PASSED:' $errorlog`;

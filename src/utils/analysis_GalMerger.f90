@@ -1,30 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION: Traces the centre of (stellar) mass each galaxy that
+! Traces the centre of (stellar) mass each galaxy that
 !  that is part of a major merger.  Stars initially assigned to each
 !  galaxy are assumed to remain in that galaxy for all time.
 !  Also output max and average densities for gas, stars and dark matter
 !
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: part, physcon, units
 !
-!  DEPENDENCIES: part, physcon, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'GalMerger'
  logical, private :: firstcall = .true.
@@ -168,4 +163,4 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
 end subroutine do_analysis
 
-end module
+end module analysis

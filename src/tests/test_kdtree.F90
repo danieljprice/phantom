@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testkdtree
+module testkdtree
 !
-!  DESCRIPTION:
-!   This module performs unit tests of the kdtree module
+! This module performs unit tests of the kdtree module
 !   The tests here are specific to the tree, some general
 !   tests of neighbour finding are done in test_link
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, domain, io, kdtree, kernel, linklist, part,
+!   testutils, timing, unifdis
 !
-!  DEPENDENCIES: dim, io, kdtree, kernel, linklist, part, testutils,
-!    timing, unifdis
-!+
-!--------------------------------------------------------------------------
-module testkdtree
  implicit none
  public :: test_kdtree
 
@@ -37,7 +31,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
- use dim,       only:maxp
+ use dim,       only:maxp,periodic
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
  use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
@@ -46,6 +40,7 @@ subroutine test_kdtree(ntests,npass)
  use unifdis,   only:set_unifdis
  use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
  use timing,    only:print_time,getused
+ use domain,    only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12)
@@ -67,7 +62,8 @@ subroutine test_kdtree(ntests,npass)
     psep = 1./64.
     hfact = hfact_default
     npart = 0
-    call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,psep,hfact,npart,xyzh)
+    call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
+                     psep,hfact,npart,xyzh,periodic,mask=i_belong)
     massoftype(igas) = 1000./npart
     if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
 

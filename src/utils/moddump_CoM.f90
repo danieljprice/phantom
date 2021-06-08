@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
+module moddump
 !
-!  DESCRIPTION:
-!  This will reset the particles to the centre of mass; required for
+! This will reset the particles to the centre of mass; required for
 !  some plotting/analysis
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, centreofmass, dim, part
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, part
-!+
-!--------------------------------------------------------------------------
-module moddump
  implicit none
 
 contains

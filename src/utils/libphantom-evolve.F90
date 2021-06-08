@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: evolvesplit
+module evolvesplit
 !
-!  DESCRIPTION:
-!  evolves the simulation through all timesteps
+! evolves the simulation through all timesteps
 !  this subroutine contains the main timestepping loop and calls
 !  the output routines at the appropriate times
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, energies, evwrite, fileutils, forcing,
+!   inject, io, mpiutils, options, part, quitdump, readwrite_dumps,
+!   readwrite_infile, sort_particles, step_lf_global, timestep,
+!   timestep_ind, timing
 !
-!  DEPENDENCIES: centreofmass, energies, evwrite, fileutils, forcing,
-!    inject, io, mpiutils, options, part, quitdump, readwrite_dumps,
-!    readwrite_infile, sort_particles, step_lf_global, timestep,
-!    timestep_ind, timing
-!+
-!--------------------------------------------------------------------------
-module evolvesplit
 #if IND_TIMESTEPS
  use timestep_ind, only:maxbins
 #endif

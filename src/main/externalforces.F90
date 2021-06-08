@@ -1,34 +1,28 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: externalforces
-!
-!  DESCRIPTION:
-!  Routines dealing with external forces/ potentials
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accradius1      -- soft accretion radius of central object
-!    accradius1_hard -- hard accretion radius of central object
-!    eps_soft        -- softening length (Plummer) for central potential in code units
-!    mass1           -- mass of central object in code units
-!
-!  DEPENDENCIES: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!    extern_gnewton, extern_gwinspiral, extern_lensethirring,
-!    extern_neutronstar, extern_prdrag, extern_spiral, extern_staticsine,
-!    fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
-!+
-!--------------------------------------------------------------------------
 module externalforces
+!
+! Routines dealing with external forces/ potentials
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - accradius1      : *soft accretion radius of central object*
+!   - accradius1_hard : *hard accretion radius of central object*
+!   - eps_soft        : *softening length (Plummer) for central potential in code units*
+!   - mass1           : *mass of central object in code units*
+!
+! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
+!   extern_densprofile, extern_gnewton, extern_gwinspiral,
+!   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
+!   fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
+!
  use extern_binary,   only:accradius1
  use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none
@@ -66,7 +60,7 @@ module externalforces
    iext_externB       = 7, &
    iext_spiral        = 8, &
    iext_lensethirring = 9, &
-   iext_neutronstar   = 10, &
+   iext_densprofile   = 10, &
    iext_einsteinprec  = 11, &
    iext_gnewton       = 12, &
    iext_staticsine    = 13, &
@@ -88,7 +82,7 @@ module externalforces
     'external B field     ', &
     'spiral               ', &
     'Lense-Thirring       ', &
-    'neutronstar          ', &
+    'density profile      ', &
     'Einstein-prec        ', &
     'generalised Newtonian', &
     'static sinusoid      ', &
@@ -106,7 +100,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 #ifdef FINVSQRT
  use fastmath,         only:finvsqrt
 #endif
- use extern_corotate,  only:get_centrifugal_force,get_companion_force,add_companion_grav
+ use extern_corotate,  only:get_centrifugal_force,get_companion_force,icompanion_grav
  use extern_binary,    only:binary_force
  use extern_prdrag,    only:get_prdrag_spatial_force
  use extern_gnewton,   only:get_gnewton_spatial_force
@@ -115,7 +109,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
   MNDisc,KFDiscSp,PlumBul,HernBul,HubbBul,COhalo,Flathalo,AMhalo,KBhalo,LMXbar,&
   LMTbar,Orthog_basisbar,DehnenBar,VogtSbar,BINReadPot3D,NFWhalo,&
   ibar,idisk,ihalo,ibulg,iarms,iread,Wadabar
- use extern_neutronstar, only:neutronstar_force
+ use extern_densprofile, only:densityprofile_force
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
  use extern_gwinspiral,  only:get_gw_force_i
@@ -170,7 +164,9 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 !
     pos = (/xi,yi,zi/)
     call get_centrifugal_force(pos,fextxi,fextyi,fextzi,phi)
-    if (add_companion_grav) call get_companion_force(pos,fextxi,fextyi,fextzi,phi)
+    if ( (icompanion_grav == 1) .or. (icompanion_grav == 2) ) then
+       call get_companion_force(pos,fextxi,fextyi,fextzi,phi)
+    endif
 
  case(iext_binary)
 !
@@ -337,9 +333,9 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
     !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
- case(iext_neutronstar)
-    ! neutron star gravitational potential
-    call neutronstar_force(xi,yi,zi,fextxi,fextyi,fextzi,phi)
+ case(iext_densprofile)
+    ! gravitational potential from tabulated density vs r profile
+    call densityprofile_force(xi,yi,zi,fextxi,fextyi,fextzi,phi)
 
  case(iext_einsteinprec)
 !
@@ -581,7 +577,8 @@ end subroutine update_externalforce
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use extern_binary, only:binary_accreted,accradius1
- use part,          only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
+ use part,          only:set_particle_type,iboundary,maxphase,maxp,igas
+ !use part,          only:npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -850,7 +847,7 @@ subroutine initialise_externalforces(iexternalforce,ierr)
  use io,                   only:error
  use extern_lensethirring, only:check_lense_thirring_settings
  use extern_spiral,        only:initialise_spiral
- use extern_neutronstar,   only:load_extern_neutronstar
+ use extern_densprofile,   only:load_extern_densityprofile
  use extern_Bfield,        only:check_externB_settings
  use extern_gwinspiral,    only:initialise_gwinspiral
  use units,                only:G_is_unity,c_is_unity,get_G_code,get_c_code
@@ -866,8 +863,8 @@ subroutine initialise_externalforces(iexternalforce,ierr)
     call check_externB_settings(ierr)
  case(iext_spiral)
     call initialise_spiral(ierr)
- case(iext_neutronstar)
-    call load_extern_neutronstar(ierr)
+ case(iext_densprofile)
+    call load_extern_densityprofile(ierr)
  case (iext_gwinspiral)
     call initialise_gwinspiral(npart,nptmass,ierr)
     if (ierr > 0) then

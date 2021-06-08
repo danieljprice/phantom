@@ -1,35 +1,30 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testnimhd
+module testnimhd
 !
-!  DESCRIPTION:
-!   Unit tests of the non-ideal MHD algorithms; this requires the NICIL
+! Unit tests of the non-ideal MHD algorithms; this requires the NICIL
 !   module, but does not test its inner workings
 !   Note that this module should also test super-timestepping, but that
 !   is less straight forward
 !
-!  REFERENCES:
+! :References:
 !   Wurster, Price & Ayliffe (2014),  MNRAS 444, 1104
 !   Wurster, Price & Bate (2016), MNRAS 457, 1037
 !   Wurster (2016), PASA 33, e041
+!   Wurster (2021), MNRAS, 501, 5873
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
+!   nicil, options, part, physcon, step_lf_global, testutils, timestep,
+!   timestep_sts, unifdis, units
 !
-!  DEPENDENCIES: boundary, deriv, dim, eos, io, kernel, mpiutils, nicil,
-!    options, part, physcon, step_lf_global, testutils, timestep,
-!    timestep_sts, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module testnimhd
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  use mpiutils,  only:reduceall_mpi
@@ -55,9 +50,8 @@ subroutine test_nonidealmhd(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  character(len=*), intent(in) :: string
  logical :: testdamp,testshock,testeta,testall
- !
+
  ! skip if not compiled with non-ideal MHD
- !
  if (.not.mhd_nonideal) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING NON-IDEAL MHD TEST (REQUIRES -DNONIDEALMHD)'
     return
@@ -120,19 +114,20 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
+ use domain,         only:i_belong
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:sts_initialise
  use timestep,       only:dtdiff,dtcourant,dtforce
 #endif
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,nsteps,ierr,itmp
- integer                :: nerr(4)
+ integer                :: nerr(5)
  integer(kind=8)        :: nptot
  real                   :: deltax,x_min,y_min,z_min,kx,rhozero,Bx0,vA,vcoef,totmass
  real                   :: t,dt,dtext,dtnew
  real                   :: L2,h0,quada,quadb,quadc,omegaI,omegaR,Bzrms_num,Bzrms_ana
  real, parameter        :: tol     = 7.15d-5
- real, parameter        :: toltime = 4.00d-4
+ real, parameter        :: toltime = 1.00d-7
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
 
@@ -172,7 +167,7 @@ subroutine test_wavedamp(ntests,npass)
  ! set particles
  !
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                   deltax,hfact_default,npart,xyzh,verbose=.false.)
+                   deltax,hfact_default,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  vxyzu = 0.0
  Bxyz  = 0.0
  Bevol = 0.0
@@ -245,8 +240,10 @@ subroutine test_wavedamp(ntests,npass)
     Bzrms_ana = h0*abs(sin(omegaR*t))*exp(omegaI*t)
     L2        = L2 + (Bzrms_ana - Bzrms_num)**2
     if (dtnew < dt) valid_dt = .false.
+    if (id==master .and. mod(nsteps,25)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
  enddo
  ! For printing outputs if further debugging is required.
+ ! will only print half the data if MPI=yes since npart = nptot/2, and xyzh is unique to each processor
  if (print_output) then
     open(unit=111,file='nimhd_wavedamp.dat')
     do i = 1,npart
@@ -254,17 +251,14 @@ subroutine test_wavedamp(ntests,npass)
     enddo
     close(111)
  endif
-
  L2 = sqrt(L2/nsteps)
  call checkval(L2,0.0,tol,nerr(1),'L2 error on wave damp test')
  call checkval(valid_dt,.true.,nerr(2),'dt to ensure above valid default')
 #ifdef STS_TIMESTEPS
- write(*,'(1x,a,3Es18.11)') 'dtcourant, dtforce, dtdiff: ',dtcourant,dtforce,dtdiff
- call checkval(dtcourant,9.00428861870d-3,toltime,nerr(3),'initial courant dt')
- call checkval(dtforce,  4.51922587536d-3,toltime,nerr(3),'initial force dt')
- call checkval(dtdiff,   2.88824049903d-2,toltime,nerr(4),'initial dissipation dt from sts')
+ call checkval(dtcourant,9.01203939699d-3,toltime,nerr(3),'final courant dt')
+ call checkval(dtforce,  9.04116467752d-3,toltime,nerr(4),'final force dt')
+ call checkval(dtdiff,   2.17768262167d-2,toltime,nerr(5),'final dissipation dt from sts')
 #endif
-
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_wavedamp
@@ -294,7 +288,8 @@ subroutine test_standingshock(ntests,npass)
  use timestep,       only:dtmax,tmax
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
-                          use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD
+                          use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,Cdt_diff,Cdt_hall
+ use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,ny,nz,nsteps,ierr,idr,npts,itype
  integer                :: nerr(6)
@@ -302,7 +297,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.05d-2, tolb=1.1d-1
+ real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=3.1d-2
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
  logical                :: valid_bdy_rho,valid_bdy_v
@@ -338,7 +333,8 @@ subroutine test_standingshock(ntests,npass)
  !
  ! set particles on the left half of the shock
  !
- call set_unifdis('closepacked',id,master,xleft,0.0,ymin,ymax,zmin,zmax,dxleft,hfact_default,npart,xyzh)
+ call set_unifdis('closepacked',id,master,xleft,0.,ymin,ymax,zmin,zmax,dxleft,&
+                  hfact_default,npart,xyzh,periodic,mask=i_belong)
  volume                = -xleft*dybound*dzbound
  totmass               = volume*leftstate(1)
  massoftype(igas)      = totmass/reduceall_mpi('+',npart)
@@ -350,7 +346,8 @@ subroutine test_standingshock(ntests,npass)
  volume  = xright*dybound*dzbound
  totmass = volume*rightstate(1)
  dxright = xright/((totmass/massoftype(igas))/(ny*nz))
- call set_unifdis('closepacked',id,master,0.0,xright,ymin,ymax,zmin,zmax,dxright,hfact_default,npart,xyzh,npy=ny,npz=nz)
+ call set_unifdis('closepacked',id,master,0.,xright,ymin,ymax,zmin,zmax,dxright,&
+                hfact_default,npart,xyzh,periodic,npy=ny,npz=nz,mask=i_belong)
  !
  ! set boundary particles, and set properties of the particles
  !
@@ -398,7 +395,9 @@ subroutine test_standingshock(ntests,npass)
  gamma    =  1.0
  dt       =  2.0d-3
  nsteps   =  500
- t        =  0
+ Cdt_diff =  0.159154943 ! = 1/(2pi) larger than default, but all that's required for this test
+ Cdt_hall =  0.159154943 ! = 1/(2pi) larger than default, but all that's required for this test
+ t        =  0.
  iverbose =  0
  tmax     = nsteps*dt
  eta_const_type           = icnstsemi
@@ -424,6 +423,7 @@ subroutine test_standingshock(ntests,npass)
     dtext  = dt
     call step(npart,npart,t,dt,dtext,dtnew)
     if (dtnew < dt) valid_dt = .false.
+    if (id==master .and. mod(nsteps,100)==0) write(*,"(a,f4.2,a,f4.2)") ' Time t=',t,' of t_max=',tmax
  enddo
  !
  ! Compare to exact solution
@@ -527,7 +527,7 @@ subroutine test_etaval(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          Bevol,igas,alphaind,n_R,n_electronT,rhoh,eta_nimhd,iohm,ihall,iambi
+                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
@@ -535,8 +535,8 @@ subroutine test_etaval(ntests,npass)
  use unifdis,        only:set_unifdis
  use dim,            only:periodic
  use io,             only:iverbose
- use nicil,          only:nicil_initialise,nicil_get_eta,eta_constant,use_ohm,use_hall,use_ambi,&
-                          ion_rays,ion_thermal,unit_eta
+ use nicil,          only:nicil_initialise,nicil_update_nimhd,eta_constant,use_ohm,use_hall,use_ambi,unit_eta
+ use domain,         only:i_belong
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
  integer                :: i,k,nx,ierr,itmp
@@ -544,7 +544,7 @@ subroutine test_etaval(ntests,npass)
  real                   :: deltax,x_min,y_min,z_min,totmass,cs_sphere,cs_medium
  real                   :: Bi,rhoi,tempi
  real                   :: rho0(2),Bz0(2),eta_act(3,kmax)
- real, parameter        :: tol = 6.3e-5  ! 1.0e-7 (The higher tolerance is needed for some compilers during certain phases of the moon)
+ real, parameter        :: tol = 1.0d-8
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta (nimhdeta)'
@@ -563,16 +563,16 @@ subroutine test_etaval(ntests,npass)
  !          correct.
  !
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
- rho0(1)      = 7.420d-18 /unit_density   ! [g/cm^3]
- Bz0(1)       = 8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) = 1.14780101430d10          ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = 2.29652793254d14          ! [cm^2/s] expected eta_hall
- eta_act(3,1) = 5.36861857791d17          ! [cm^2/s] expected eta_ambi
- rho0(2)      = 4.6d-3    /unit_density   ! [g/cm^3]
- Bz0(2)       = 1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) = 5.90833378647d8           ! [cm^2/s] expected eta_ohm
- eta_act(2,2) = 1.08660930790d4           ! [cm^2/s] expected eta_hall
- eta_act(3,2) = 4.24522340318d-3          ! [cm^2/s] expected eta_ambi
+ rho0(1)      =  7.420d-18 /unit_density   ! [g/cm^3]
+ Bz0(1)       =  8.130d-5  /unit_Bfield    ! [G]
+ eta_act(1,1) =  9.5267772328d10           ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = -1.1642052571d17           ! [cm^2/s] expected eta_hall
+ eta_act(3,1) =  3.2301843483d18           ! [cm^2/s] expected eta_ambi
+ rho0(2)      =  4.6d-3    /unit_density   ! [g/cm^3]
+ Bz0(2)       =  1.92d2    /unit_Bfield    ! [G]
+ eta_act(1,2) =  1.9073987505d9            ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) =  2.3797926640d5            ! [cm^2/s] expected eta_hall
+ eta_act(3,2) =  1.1443044356d-2           ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !
@@ -602,28 +602,25 @@ subroutine test_etaval(ntests,npass)
  use_ohm      = .true.
  use_hall     = .true.
  use_ambi     = .true.
- ion_rays     = .true.
- ion_thermal  = .true.
  use_sts      = .false.
- itmp  = 1 ! avoids compiler warning
+ itmp         = 1 ! avoids compiler warning
 
  ! initialise eos, & the Nicil library
- call init_eos(8,ierr)
+ call init_eos(ieos,ierr)
  call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr)
  !
  !--Loop over both sets of calculations
  !
  do k = 1,kmax
-    totmass      = rho0(k)*dxbound*dybound*dzbound
-    n_R          = 0.0
-    n_electronT  = 0.0
+    totmass    = rho0(k)*dxbound*dybound*dzbound
+    nden_nimhd = 0.0
     !
     ! set particles
     !
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                      deltax,hfact_default,npart,xyzh,verbose=.false.)
+                      deltax,hfact_default,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     vxyzu = 0.0
-    Bxyz  = 0.
+    Bxyz  = 0.0
     do i=1,npart
        call set_particle_type(i,igas)
        Bxyz(3,i) = Bz0(k)
@@ -643,9 +640,12 @@ subroutine test_etaval(ntests,npass)
     Bi    = sqrt(dot_product(Bevol(1:3,itmp),Bevol(1:3,itmp)))*rhoi
     tempi = get_temperature(ieos,xyzh(1:3,itmp),rhoi,vxyzu(:,itmp))
 
-    print*, ' '
-    write(*,'(1x,a,3Es18.11)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
-    write(*,'(1x,a,3Es18.11)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
+    if (id==master) then
+       write(*,*) ' '
+       write(*,'(1x,a,3Es18.10)') 'Used   rho,B_z,temp (cgs): ',rhoi*unit_density,Bi*unit_Bfield,tempi
+       write(*,'(1x,a,3Es18.10)') 'eta_ohm, eta_hall, eta_ambi (cgs): ', eta_nimhd(1:3,itmp)*unit_eta
+       write(*,'(1x,a, Es18.10)') 'unit_eta: ', unit_eta
+    endif
     call checkval(eta_nimhd(iohm, itmp)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
     call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')

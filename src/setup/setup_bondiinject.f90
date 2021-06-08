@@ -1,29 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    filldomain -- filldomain to accretion radius (logical)
-!    pmassi     -- particle mass
-!
-!  DEPENDENCIES: bondiexact, eos, externalforces, infile_utils, inject, io,
-!    metric_tools, options, part, prompting, timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - filldomain : *filldomain to accretion radius (logical)*
+!   - pmassi     : *particle mass*
+!
+! :Dependencies: bondiexact, eos, externalforces, infile_utils, inject, io,
+!   metric_tools, options, part, prompting, timestep, units
+!
  implicit none
  public :: setpart
 
@@ -41,13 +36,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use part,           only:igas,gr,xyzmh_ptmass,vxyz_ptmass
  use options,        only:iexternalforce
  use units,          only:set_units
- use inject,         only:init_inject,inject_particles,dtsphere,rin,inject_interactive
+ use inject,         only:init_inject,inject_particles,dtsphere,rin,drdp,iboundspheres
  use timestep,       only:tmax
  use io,             only:iprint
  use eos,            only:gamma
  use prompting,      only:prompt
  use metric_tools,   only:imet_schwarzschild,imetric
  use externalforces, only:accradius1,accradius1_hard
+ use bondiexact,     only:isol
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -79,7 +75,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     accradius1_hard = accradius1
     write(iprint,'(/,a,/)') trim(fileprefix)//'.in not found'
     write(iprint,'(a,/)') 'Using interactive setup to set injection parameters:'
-    call inject_interactive()
+    call prompt('Enter solution type (1=geodesic | 2=sonic point)',isol,1,2)
+    call prompt('Enter injection radius',rin,0.)
+    call prompt('Enter drdp -- the relative spacing between shells and between particles on shells',drdp,0.)
+    call prompt('Enter the number of boundary shells/spheres',iboundspheres,0)
     call prompt('Enter tmax',tmax,0.)
     call prompt('Enter accretion radius',accradius1,0.)
  endif

@@ -1,37 +1,31 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!  This module initialises two galaxies.  It reads in
+! This module initialises two galaxies.  It reads in
 !  data from a run made using Hydra (Couchman, Thomas & Pearce 1995;
 !  Thacker & Couchman 2006).  Units being read in are 1e5M_sun, kpc, 1e5yr
 !  and converted to more reasonable units.
 !
-!  REFERENCES:
+! :References:
 !    Kuijken K., Dubinski J., 1995, MNRAS, 277, 1341
 !    Widrow L. M., Dubinski J., 2005, ApJ, 631, 838
 !    Widrow L. M., Pym B., Dubinski J., 2008, ApJ, 679, 1239
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 2513
 !    Wurster J. & Thacker R., 2013, MNRAS, 431, 539
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - lowres : *Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)*
 !
-!  RUNTIME PARAMETERS:
-!    lowres -- Resolution: T = low res (N~3.4e5), F = fiducial res (N~2.5e6)
+! :Dependencies: boundary, datafiles, dim, infile_utils, io, mpiutils,
+!   part, physcon, prompting, timestep, units
 !
-!  DEPENDENCIES: boundary, datafiles, dim, infile_utils, io, mpiutils,
-!    part, physcon, prompting, timestep, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

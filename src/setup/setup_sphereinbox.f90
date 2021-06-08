@@ -1,47 +1,54 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module sets up a sphere-in-a-box: a cold, dense sphere placed in
+! This module sets up a sphere-in-a-box: a cold, dense sphere placed in
 !   a warm medium; the two media are in pressure-equilibrium.
 !   This currently works for gas-only and two-fluid dust.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - BEfac            : *over-density factor of the BE sphere [code units]*
+!   - BEmass           : *mass radius of the BE sphere [code units]*
+!   - BErad_norm       : *normalised radius of the BE sphere*
+!   - BErad_phys       : *physical radius of the BE sphere [code units]*
+!   - BErho_cen        : *central density of the BE sphere [code units]*
+!   - Bzero            : *Magnetic field strength in Gauss*
+!   - ang_Bomega       : *Angle (degrees) between B and rotation axis*
+!   - angvel           : *angular velocity in rad/s*
+!   - cs_sphere_cgs    : *sound speed in sphere in cm/s*
+!   - density_contrast : *density contrast in code units*
+!   - dist_unit        : *distance unit (e.g. au)*
+!   - dusttogas        : *dust-to-gas ratio*
+!   - form_binary      : *the intent is to form a central binary*
+!   - h_acc            : *accretion radius (code units)*
+!   - h_soft_sinksink  : *sink-sink softening radius (code units)*
+!   - iBE_options      : *The set of parameters to define the BE sphere*
+!   - icreate_sinks    : *1: create sinks.  0: do not create sinks*
+!   - lbox             : *length of a box side in terms of spherical radii*
+!   - mass_unit        : *mass unit (e.g. solarm)*
+!   - masstoflux       : *mass-to-magnetic flux ratio in units of critical value*
+!   - np               : *requested number of particles in sphere*
+!   - pmass_dusttogas  : *dust-to-gas particle mass ratio*
+!   - r_crit           : *critical radius (code units)*
+!   - r_sphere         : *radius of sphere in code units*
+!   - rho_pert_amp     : *amplitude of density perturbation*
+!   - totmass_sphere   : *mass of sphere in code units*
+!   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-!  RUNTIME PARAMETERS:
-!    ang_Bomega       -- Angle (degrees) between B and rotation axis
-!    angvel           -- angular velocity in rad/s
-!    cs_sphere        -- sound speed in sphere in code units
-!    density_contrast -- density contrast in code units
-!    dist_unit        -- distance unit (e.g. au)
-!    dusttogas        -- dust-to-gas ratio
-!    form_binary      -- the intent is to form a central binary
-!    mass_unit        -- mass unit (e.g. solarm)
-!    masstoflux       -- mass-to-magnetic flux ratio in units of critical value
-!    np               -- actual number of particles in sphere
-!    pmass_dusttogas  -- dust-to-gas particle mass ratio
-!    r_sphere         -- radius of sphere in code units
-!    rho_pert_amp     -- amplitude of density perturbation
-!    totmass_sphere   -- mass of sphere in code units
+! :Dependencies: boundary, centreofmass, dim, domain, eos, infile_utils,
+!   io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
+!   setup_params, spherical, timestep, unifdis, units
 !
-!  DEPENDENCIES: boundary, centreofmass, dim, eos, infile_utils, io,
-!    kernel, options, part, physcon, prompting, ptmass, setup_params,
-!    spherical, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
- use part,    only:mhd
- use dim,     only:use_dust,maxvxyzu
+ use part,    only:mhd,periodic
+ use dim,     only:use_dust,maxvxyzu,periodic
  use options, only:calc_erot
  implicit none
  public :: setpart
@@ -49,12 +56,14 @@ module setup
  private
  !--private module variables
  real :: xmini(3), xmaxi(3)
- real :: density_contrast,totmass_sphere,r_sphere,cs_sphere
- real :: angvel, masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
- real :: rho_pert_amp
+ real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
+ real :: angvel,Bzero_G,masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
+ real :: rho_pert_amp,lbox
+ real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
+ real :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup
  real(kind=8)                 :: udist,umass
- integer                      :: np
- logical                      :: binary
+ integer                      :: np,iBEparam,icreate_sinks_setup
+ logical                      :: BEsphere,binary,mu_not_B,cs_in_code
  character(len=20)            :: dist_unit,mass_unit
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
 
@@ -68,19 +77,21 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use physcon,      only:pi,solarm,hours,years,au
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
- use io,           only:master
+ use io,           only:master,fatal
  use unifdis,      only:set_unifdis
- use spherical,    only:set_unifdis_sphereN
+ use spherical,    only:set_sphere
+ use rho_profile,  only:rho_bonnorebert,prompt_BEparameters
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield
- use eos,          only:polyk2,ieos
+ use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
+ use eos,          only:polyk2,ieos,rhocrit0cgs
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
- use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
+ use domain,       only:i_belong
+ use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -91,19 +102,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real(kind=8)       :: h_acc_in
+ integer            :: i,nx,np_in,npartsphere,npmax,iBElast,ierr
+ integer            :: iBE
  real               :: totmass,vol_box,psep,psep_box
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
  real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
- real               :: rxy2,rxyz2,phi,dphi,lbox
- integer            :: i,nx,np_in,npartsphere,npmax,ierr
- logical            :: iexist,is_box
+ real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density
+ real, allocatable  :: rtab(:),rhotab(:)
+ logical            :: iexist
  logical            :: make_sinks = .true.
  character(len=100) :: filename
  character(len=40)  :: fmt
- character(len=10)  :: string,h_acc_char
+ character(len=10)  :: h_acc_char
 
- npmax = size(xyzh(1,:))
- filename=trim(fileprefix)//'.setup'
+ npmax    = size(xyzh(1,:))
+ filename = trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
    '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
  inquire(file=filename,exist=iexist)
@@ -145,36 +158,43 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        np = 1000000
     endif
-    call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
-    np_in    = np
-    r_sphere = 4.
-    call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
-    lbox     = 4.
-    is_box   = .true.
-    call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
-    do i=1,3
-       ! note that these values will be saved to the .setup file rather than lbox so user can convert
-       ! box to a rectangle if desired
-       xmini(i) = -0.5*(lbox*r_sphere)
-       xmaxi(i) = -xmini(i)
-    enddo
+    BEsphere = .false.
+    call prompt('Centrally condense the sphere as a BE sphere?',BEsphere)
+
+    if (.not. BEsphere) then
+       call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
+       np_in    = np
+       r_sphere = 4.
+       call prompt('Enter radius of sphere in units of '//dist_unit,r_sphere,0.)
+       lbox     = 4.
+       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+       do i=1,3
+          ! note that these values will be saved to the .setup file rather than lbox so user can convert
+          ! box to a rectangle if desired
+          xmini(i) = -0.5*(lbox*r_sphere)
+          xmaxi(i) = -xmini(i)
+       enddo
+
+       totmass_sphere = 1.0
+       call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
+    else
+       call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
+       lbox     = 4.
+       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+    endif
 
     density_contrast = 30.0
     call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
 
-    totmass_sphere = 1.0
-    call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
-
     binary = .false.
-    call prompt('Do you intend to form a binary system?',binary)
+    call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
 
     if (binary) then
-       cs_sphere = 0.1623
+       cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
     else
-       cs_sphere = 0.19
+       cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
     endif
-    write(string,"(es10.3)") udist/utime
-    call prompt('Enter sound speed in sphere in units of '//trim(adjustl(string))//' cm/s',cs_sphere,0.)
+    call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
 
     if (binary) then
        angvel = 1.006d-12
@@ -184,9 +204,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call prompt('Enter angular rotation speed in rad/s ',angvel,0.)
 
     if (mhd) then
+       Bzero_G    = 1.0d-4 ! G
        masstoflux =   5.0
        ang_Bomega = 180.0
-       call prompt('Enter mass-to-flux ratio in units of critical value ',masstoflux,0.)
+       mu_not_B   = .true.
+       call prompt('Input the mass-to-flux ratio (true); else input the magnetic field strength ',mu_not_B)
+       if (mu_not_B) then
+          call prompt('Enter mass-to-flux ratio in units of critical value ',masstoflux,0.)
+       else
+          call prompt('Enter magnetic field strength in Gauss ',Bzero_G,0.)
+       endif
        call prompt('Enter the angle (degrees) between B and the rotation axis? ',ang_Bomega)
     endif
 
@@ -201,8 +228,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rho_pert_amp = 0.1
        call prompt('Enter the amplitute of the density perturbation ',rho_pert_amp,0.0,0.4)
     endif
-    !
+
     ! ask about sink particle details; these will not be saved to the .setup file since they exist in the .in file
+    !
     call prompt('Do you wish to dynamically create sink particles? ',make_sinks)
     if (make_sinks) then
        if (binary) then
@@ -212,27 +240,48 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
        call select_unit(h_acc_char,h_acc_in,ierr)
-       h_acc = h_acc_in
-       print*, h_acc_in,h_acc, h_acc_char
+       h_acc_setup = h_acc_in
        if (ierr==0 ) h_acc = h_acc/udist
-       r_crit        = 5.0*h_acc
-       icreate_sinks = 1
-       if (binary) h_soft_sinksink = 0.4*h_acc
+       r_crit_setup        = 5.0*h_acc_setup
+       icreate_sinks_setup = 1
+       if (binary) h_soft_sinksink_setup = 0.4*h_acc_setup
     else
-       icreate_sinks = 0
+       icreate_sinks_setup = 0
     endif
-    !
-    ! write default input file
-    !
-    call write_setupfile(filename)
-    print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
+    if (id==master) call write_setupfile(filename)
+    stop 'please edit .setup file and rerun phantomsetup'
  else
-    stop
+    stop ! MPI, stop on other threads, interactive on master
  endif
  !
  ! units
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
+ !
+ ! convert units of sound speed
+ !
+ if (cs_in_code) then
+    cs_sphere_cgs = cs_sphere*unit_velocity
+ else
+    cs_sphere     = cs_sphere_cgs/unit_velocity
+ endif
+ !
+ ! Bonnor-Ebert profile (if requested)
+ !
+ if (BEsphere) then
+    iBE = 8192
+    allocate(rtab(iBE),rhotab(iBE))
+    call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
+                         iBE,iBElast,rtab,rhotab,ierr)
+    central_density = BErho_cen
+    r_sphere        = BErad_phys
+    totmass_sphere  = BEmass
+    if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
+    do i = 1,3
+       xmini(i) = -0.5*(lbox*r_sphere)
+       xmaxi(i) = -xmini(i)
+    enddo
+ endif
  !
  ! boundaries
  !
@@ -253,21 +302,32 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
- dens_medium = dens_sphere/density_contrast
- cs_medium   = cs_sphere*sqrt(density_contrast)
+ if (BEsphere) then
+    dens_medium = edge_density/density_contrast
+    cs_medium   = cs_sphere*central_density/edge_density
+    rhocrit0cgs = 2.0*dens_medium*unit_density
+ else
+    dens_medium = dens_sphere/density_contrast
+    cs_medium   = cs_sphere*sqrt(density_contrast)
+ endif
  totmass_box = (vol_box - vol_sphere)*dens_medium
  totmass     = totmass_box + totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
  !
  ! magnetic field
  !
- rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi)
+ rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi) ! code units *see derivation at the end of the file*
  if (mhd) then
     area = pi*r_sphere**2
-    if (masstoflux > tiny(masstoflux)) then
-       Bzero = totmass_sphere/(area*masstoflux*rmasstoflux_crit)
+    if (mu_not_B) then
+       if (masstoflux > tiny(masstoflux)) then
+          Bzero = totmass_sphere/(area*masstoflux*rmasstoflux_crit)
+       else
+          Bzero = 0.
+       endif
     else
-       Bzero = 0.
+       Bzero      = Bzero_G/unit_Bfield
+       masstoflux = totmass_sphere/(area*Bzero*rmasstoflux_crit)
     endif
     ihavesetupB = .true.
  else
@@ -277,49 +337,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Bexty  = 0.
  Bextz  = Bzero
  przero = cs_sphere**2*dens_sphere
-
- print "(a,i10)",' Input npart_sphere = ',np
- print "(1x,50('-'))"
- print "(a)",'  Quantity         (code units)  (physical units)'
- print "(1x,50('-'))"
- fmt = "((a,1pg10.3,3x,1pg10.3),a)"
- print fmt,' Total mass       : ',totmass,totmass*umass,' g'
- print fmt,' Mass in sphere   : ',totmass_sphere,totmass_sphere*umass,' g'
- print fmt,' Radius of sphere : ',r_sphere,r_sphere*udist,' cm'
- print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
- print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
- print fmt,' cs in sphere     : ',cs_sphere,cs_sphere*udist/utime,' cm/s'
- print fmt,' cs in medium     : ',cs_medium,cs_medium*udist/utime,' cm/s'
- print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
- print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
- print fmt,' Omega*t_ff       : ',angvel_code*t_ff
- if (mhd) then
-    print fmt,' B field (z)      : ',Bzero,Bzero*unit_Bfield*1.d6,' micro-G'
-    print fmt,' Alfven speed     : ',Bzero/sqrt(dens_sphere),Bzero/sqrt(dens_sphere)*udist/utime,' cm/s'
-    if (Bzero > 0.) then
-       print fmt,' plasma beta      : ',przero/(0.5*Bzero*Bzero)
-       print fmt,' mass-to-flux     : ',totmass_sphere/(area*Bzero)/rmasstoflux_crit
-    endif
- endif
- if (use_dust) then
-    print fmt,' dust-to-gas ratio: ',dusttogas,' '
-    print fmt,' dust-to-gas particle mass ratio: ',pmass_dusttogas,' '
- endif
- print "(1x,50('-'))"
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !
- call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
- print "(a,es10.3)",' Particle separation in sphere = ',psep
+ if (BEsphere) then
+    call set_sphere('closepacked',id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
+                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
+    deallocate(rtab,rhotab)
+ else
+    call set_sphere('closepacked',id,master,0.,r_sphere,psep,&
+                    hfact,npart,xyzh,nptot=npart_total,&
+                    exactN=.true.,np_requested=np,mask=i_belong)
+    print "(a,es10.3)",' Particle separation in sphere = ',psep
+ endif
+
  npartsphere = npart
- if (np_in/=npartsphere) np = npartsphere
+ if (np_in /= npartsphere) np = npartsphere
  !
  ! setup surrounding low density medium
  !
- psep_box = psep*(density_contrast)**(1./3.)  ! calculate psep in box
+ if (BEsphere) then
+    massoftype(igas) = totmass_sphere/npartsphere
+    psep_box = dxbound/(vol_box*dens_medium/massoftype(igas))**(1./3.)
+ else
+    psep_box = psep*(density_contrast)**(1./3.)  ! calculate psep in box
+ endif
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
-                   hfact,npart,xyzh,rmin=r_sphere,nptot=npart_total)
+                   hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
  print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
  print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
  print*, ""
@@ -328,7 +373,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npartoftype(:)    = 0
  npartoftype(igas) = npart
- massoftype(igas)  = totmass/npart_total
+ if (.not. BEsphere) massoftype(igas)  = totmass/npart_total
  do i = 1,npartoftype(igas)
     call set_particle_type(i,igas)
  enddo
@@ -338,19 +383,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu)
  !
  ! Set dust
+ !
  if (use_dust) then
     ! particle separation in dust sphere & sdjust for close-packed lattice
     psep = (vol_sphere/pmass_dusttogas)**(1./3.)/real(nx)
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total)
+                    hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
     npartoftype(idust) = npart_total - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
-    !
+
     do i = npartoftype(igas)+1,npart
        call set_particle_type(i,idust)
     enddo
-    !
+
     print "(a,4(i10,1x))", ' particle numbers: (gas_total, gas_sphere, dust, total): ' &
                         , npartoftype(igas),npartsphere,npartoftype(idust),npart
     print "(a,2es10.3)"  , ' particle masses: (gas,dust): ',massoftype(igas),massoftype(idust)
@@ -417,13 +463,55 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump    = 1
     calc_erot    = .true.
     dtmax_dratio = 1.258
-    if (make_sinks) then
+    icreate_sinks   = icreate_sinks_setup
+    r_crit          = r_crit_setup
+    h_acc           = h_acc_setup
+    h_soft_sinksink = h_soft_sinksink_setup
+    if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
        dtmax_min = 0.0
        rhofinal_cgs = 0.15
     endif
  endif
+ !
+ !--Summarise the sphere
+ !
+ print "(a,i10)",' Input npart_sphere = ',np
+ print "(1x,50('-'))"
+ print "(a)",'  Quantity         (code units)  (physical units)'
+ print "(1x,50('-'))"
+ fmt = "((a,1pg10.3,3x,1pg10.3),a)"
+ print fmt,' Total mass       : ',totmass,totmass*umass,' g'
+ print fmt,' Mass in sphere   : ',totmass_sphere,totmass_sphere*umass,' g'
+ print fmt,' Radius of sphere : ',r_sphere,r_sphere*udist,' cm'
+ if (BEsphere) then
+    print fmt,' Mean rho sphere  : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
+    print fmt,' central density  : ',central_density,central_density*unit_density,' g/cm^3'
+    print fmt,' edge density     : ',edge_density,edge_density*unit_density,' g/cm^3'
+    print fmt,' Mean rho medium  : ',dens_medium,dens_medium*unit_density,' g/cm^3'
+ else
+    print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
+    print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
+ endif
+ print fmt,' cs in sphere     : ',cs_sphere,cs_sphere_cgs,' cm/s'
+ print fmt,' cs in medium     : ',cs_medium,cs_medium*unit_velocity,' cm/s'
+ print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
+ print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
+ print fmt,' Omega*t_ff       : ',angvel_code*t_ff
+ if (mhd) then
+    print fmt,' B field (z)      : ',Bzero,Bzero*unit_Bfield*1.d6,' micro-G'
+    print fmt,' Alfven speed     : ',Bzero/sqrt(dens_sphere),Bzero/sqrt(dens_sphere)*udist/utime,' cm/s'
+    if (Bzero > 0.) then
+       print fmt,' plasma beta      : ',przero/(0.5*Bzero*Bzero)
+       print fmt,' mass-to-flux     : ',totmass_sphere/(area*Bzero)/rmasstoflux_crit
+    endif
+ endif
+ if (use_dust) then
+    print fmt,' dust-to-gas ratio: ',dusttogas,' '
+    print fmt,' dust-to-gas particle mass ratio: ',pmass_dusttogas,' '
+ endif
+ print "(1x,50('-'))"
 
 end subroutine setpart
 
@@ -445,22 +533,45 @@ subroutine write_setupfile(filename)
  call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
  call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
  write(iunit,"(/,a)") '# resolution'
- call write_inopt(np,'np','actual number of particles in sphere',iunit)
+ call write_inopt(np,'np','requested number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# options for box'
- do i=1,3
-    call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
-    call write_inopt(xmaxi(i),labelx(i)//'max',labelx(i)//' max',iunit)
- enddo
+ if (.not. BEsphere) then
+    do i=1,3
+       call write_inopt(xmini(i),labelx(i)//'min',labelx(i)//' min',iunit)
+       call write_inopt(xmaxi(i),labelx(i)//'max',labelx(i)//' max',iunit)
+    enddo
+ else
+    call write_inopt(lbox,'lbox','length of a box side in terms of spherical radii',iunit)
+ endif
  write(iunit,"(/,a)") '# intended result'
  call write_inopt(binary,'form_binary','the intent is to form a central binary',iunit)
  write(iunit,"(/,a)") '# options for sphere'
- call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
+ call write_inopt(BEsphere,'use_BE_sphere','centrally condense as a BE sphere',iunit)
+ if (.not. BEsphere) then
+    call write_inopt(r_sphere,'r_sphere','radius of sphere in code units',iunit)
+    call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
+ else
+    call write_inopt(iBEparam,'iBE_options','The set of parameters to define the BE sphere',iunit)
+    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) &
+       call write_inopt(BErho_cen,'BErho_cen','central density of the BE sphere [code units]',iunit)
+    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) &
+        call write_inopt(BErad_phys,'BErad_phys','physical radius of the BE sphere [code units]',iunit)
+    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) &
+        call write_inopt(BErad_norm,'BErad_norm','normalised radius of the BE sphere',iunit)
+    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) &
+        call write_inopt(BEmass,'BEmass','mass radius of the BE sphere [code units]',iunit)
+    if (iBEparam==4 .or. iBEparam==5)                  &
+        call write_inopt(BEfac,'BEfac','over-density factor of the BE sphere [code units]',iunit)
+ endif
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
- call write_inopt(totmass_sphere,'totmass_sphere','mass of sphere in code units',iunit)
- call write_inopt(cs_sphere,'cs_sphere','sound speed in sphere in code units',iunit)
+ call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
  call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  if (mhd) then
-    call write_inopt(masstoflux,'masstoflux','mass-to-magnetic flux ratio in units of critical value',iunit)
+    if (mu_not_B) then
+       call write_inopt(masstoflux,'masstoflux','mass-to-magnetic flux ratio in units of critical value',iunit)
+    else
+       call write_inopt(Bzero_G,'Bzero','Magnetic field strength in Gauss',iunit)
+    endif
     call write_inopt(ang_Bomega,'ang_Bomega','Angle (degrees) between B and rotation axis',iunit)
  endif
  if (use_dust) then
@@ -469,6 +580,15 @@ subroutine write_setupfile(filename)
  endif
  if (binary) then
     call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
+ endif
+ write(iunit,"(/,a)") '# Sink properties (values in .in file, if present, will take precedence)'
+ call write_inopt(icreate_sinks_setup,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
+ if (icreate_sinks_setup==1) then
+    call write_inopt(h_acc_setup,'h_acc','accretion radius (code units)',iunit)
+    call write_inopt(r_crit_setup,'r_crit','critical radius (code units)',iunit)
+    if (binary) then
+       call write_inopt(h_soft_sinksink_setup,'h_soft_sinksink','sink-sink softening radius (code units)',iunit)
+    endif
  endif
  close(iunit)
 
@@ -486,27 +606,59 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr
+ integer                       :: i,nerr,jerr,kerr
  type(inopts), allocatable     :: db(:)
 
+ !--Read values
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(mass_unit,'mass_unit',db,ierr)
  call read_inopt(dist_unit,'dist_unit',db,ierr)
+ call read_inopt(BEsphere,'use_BE_sphere',db,ierr)
  call read_inopt(binary,'form_binary',db,ierr)
  call read_inopt(np,'np',db,ierr)
- do i=1,3
-    call read_inopt(xmini(i),labelx(i)//'min',db,ierr)
-    call read_inopt(xmaxi(i),labelx(i)//'max',db,ierr)
- enddo
- call read_inopt(r_sphere,'r_sphere',db,ierr)
+ if (.not. BEsphere) then
+    do i=1,3
+       call read_inopt(xmini(i),labelx(i)//'min',db,ierr)
+       call read_inopt(xmaxi(i),labelx(i)//'max',db,ierr)
+    enddo
+    call read_inopt(r_sphere,'r_sphere',db,ierr)
+    call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
+    lbox = -2.0*xmini(1)/r_sphere
+ else
+    call read_inopt(lbox,'lbox',db,ierr)
+    call read_inopt(iBEparam,'iBE_options',db,ierr)
+    if (iBEparam==1 .or. iBEparam==2 .or. iBEparam==3) call read_inopt(BErho_cen,'BErho_cen',db,ierr)
+    if (iBEparam==1 .or. iBEparam==4 .or. iBEparam==6) call read_inopt(BErad_phys,'BErad_phys',db,ierr)
+    if (iBEparam==2 .or. iBEparam==4 .or. iBEparam==5) call read_inopt(BErad_norm,'BErad_norm',db,ierr)
+    if (iBEparam==3 .or. iBEparam==5 .or. iBEparam==6) call read_inopt(BEmass,'BEmass',db,ierr)
+    if (iBEparam==4 .or. iBEparam==5)                  call read_inopt(BEfac,'BEfac',db,ierr)
+ endif
+
  call read_inopt(density_contrast,'density_contrast',db,ierr)
- call read_inopt(totmass_sphere,'totmass_sphere',db,ierr)
- call read_inopt(cs_sphere,'cs_sphere',db,ierr)
+ call read_inopt(cs_sphere,'cs_sphere',db,jerr)
+ call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
+ cs_in_code = .false.  ! for backwards compatibility
+ if (jerr /= 0 .and. kerr == 0) then
+    cs_in_code = .false.
+ elseif (jerr == 0 .and. kerr /= 0) then
+    cs_in_code = .true.
+ else
+    ierr = ierr + 1
+ endif
  call read_inopt(angvel,'angvel',db,ierr)
+ mu_not_B = .true.
  if (mhd) then
-    call read_inopt(masstoflux,'masstoflux',db,ierr)
+    call read_inopt(masstoflux,'masstoflux',db,jerr)
+    call read_inopt(Bzero_G,   'Bzero',     db,kerr)
     call read_inopt(ang_Bomega,'ang_Bomega',db,ierr)
+    if (jerr /= 0 .and. kerr == 0) then
+       mu_not_B = .false.
+    elseif (jerr == 0 .and. kerr /= 0) then
+       mu_not_B = .true.
+    else
+       ierr = ierr + 1
+    endif
  endif
  if (use_dust) then
     call read_inopt(dusttogas,'dusttogas',db,ierr)
@@ -515,9 +667,18 @@ subroutine read_setupfile(filename,ierr)
  if (binary) then
     call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
  endif
+ call read_inopt(icreate_sinks_setup,'icreate_sinks',db,ierr)
+ if (icreate_sinks_setup==1) then
+    call read_inopt(h_acc_setup,'h_acc',db,ierr)
+    call read_inopt(r_crit_setup,'r_crit',db,ierr)
+    if (binary) then
+       call read_inopt(h_soft_sinksink_setup,'h_soft_sinksink',db,ierr)
+    endif
+ endif
  call close_db(db)
  !
  ! parse units
+ !
  call select_unit(mass_unit,umass,nerr)
  if (nerr /= 0) then
     call error('setup_sphereinbox','mass unit not recognised')
@@ -528,12 +689,31 @@ subroutine read_setupfile(filename,ierr)
     call error('setup_sphereinbox','length unit not recognised')
     ierr = ierr + 1
  endif
- !
+
  if (ierr > 0) then
     print "(1x,a,i2,a)",'Setup_sphereinbox: ',nerr,' error(s) during read of setup file.  Re-writing.'
  endif
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
-end module setup
+ !--Magnetic flux justification
+ !  This shows how the critical mass-to-flux values translates from CGS to code units.
+ !
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)                                ! cgs units of g G^-1 cm^-2
+ ! convert base units from cgs to code:
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *unit_Bfield*udist**2/umass
+ ! where
+ ! unit_Bfield   = umass/(utime*sqrt(umass*udist/4*pi)) = sqrt(4.*pi*umass)/(utime*sqrt(udist))
+ ! therefore
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *sqrt(4.*pi*umass)*udist**2/(utime*sqrt(udist)*umass)
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*sqrt(umass)*udist**2/(utime*sqrt(udist)*umass)
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*udist**1.5/ (sqrt(umass)*utime)
+ ! where
+ ! G [cgs] = 1 * udist**3/(umass*utime**2)
+ ! therefore
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)    *udist**1.5/ (sqrt(umass)*utime) / sqrt(udist**3/(umass*utime**2))
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)                                ! code units
 
+!----------------------------------------------------------------
+
+end module setup

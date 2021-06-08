@@ -1,28 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup for the Sedov blast wave problem
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    npartx -- number of particles in x-direction
-!
-!  DEPENDENCIES: boundary, infile_utils, io, kernel, mpiutils, options,
-!    part, physcon, prompting, setup_params, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the Sedov blast wave problem
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - npartx : *number of particles in x-direction*
+!
+! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
 
@@ -47,8 +43,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:alphau
  use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:igas
+ use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -105,7 +102,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma   = 5./3.
  gam1    = gamma - 1.
 
- call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+                  npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(igas) = npart
@@ -184,4 +182,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-

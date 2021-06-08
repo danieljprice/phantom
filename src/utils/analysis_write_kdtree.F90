@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine which computes 3D kd-tree and writes to file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: kdtree, linklist, part
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine which computes 3D kd-tree and writes to file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: kdtree, linklist, part
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'write_kdtree'
 
@@ -173,4 +167,4 @@ subroutine read_kdtree_file(dumpfile)
 
 end subroutine read_kdtree_file
 
-end module
+end module analysis

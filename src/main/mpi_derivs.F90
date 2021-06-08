@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiderivs
+module mpiderivs
 !
-!  DESCRIPTION:
-!   This module handles the MPI exchange of information during the
+! This module handles the MPI exchange of information during the
 !   density and force routines
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Conrad Chan
+! :Owner: Conrad Chan
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
+!   stack
 !
-!  DEPENDENCIES: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
-!    stack
-!+
-!--------------------------------------------------------------------------
 #ifdef MPI
-module mpiderivs
  use mpi
  use io,             only:id,nprocs
  use dim,            only:maxprocs
@@ -719,5 +713,5 @@ subroutine reset_cell_counters
  enddo
 end subroutine reset_cell_counters
 
-end module mpiderivs
 #endif
+end module mpiderivs

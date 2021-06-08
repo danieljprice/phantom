@@ -1,29 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgrowth
-!
-!  DESCRIPTION:
-!   Unit tests of the growth module
-!
-!  REFERENCES:
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, deriv, dim, dust, energies, eos, growth, io,
-!    kernel, mpiutils, options, part, physcon, step_lf_global, testdust,
-!    testutils, timestep, unifdis, units, viscosity
-!+
-!--------------------------------------------------------------------------
 module testgrowth
+!
+! Unit tests of the growth module
+!
+! :References:
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, checksetup, deriv, dim, domain, dust, energies,
+!   eos, growth, io, kernel, mpiutils, options, part, physcon,
+!   step_lf_global, testdust, testutils, timestep, unifdis, units,
+!   viscosity
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
 #ifdef DUST
@@ -108,11 +103,11 @@ end subroutine test_growth
 subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
+ use part,           only:init_part,igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test
+                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use energies,       only:compute_energies
@@ -129,46 +124,26 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use physcon,        only:au,solarm,Ro,pi
  use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
+ use domain,         only:i_belong
+ use checksetup,     only:check_setup
 
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: frag,onefluid
 
  integer(kind=8) :: npartoftypetot(maxtypes)
 
- integer              :: nx
- integer              :: itype
- integer              :: npart_previous
- integer              :: i
- integer              :: j
- integer              :: nsteps
- integer              :: modu
- integer              :: noutputs
- integer, allocatable :: ncheck(:)
- integer, allocatable :: nerr(:)
- real, allocatable    :: errmax(:)
- integer              :: ierr
- integer              :: iam
+ integer :: nx,nerror,nwarn
+ integer :: itype,npart_previous,i,j,nsteps,modu,noutputs
+ integer :: ncheck(4),nerr(4)
+ real    :: errmax(4)
+ integer :: ierr,iam
 
- logical         :: do_output = .false.
- real            :: deltax
- real            :: dz
- real            :: hfact
- real            :: totmass
- real            :: rhozero
- real            :: Stcomp(20000),Stini(20000)
- real            :: cscomp(20000),tau(20000)
- real            :: s(20000),time,timelim(20000)
- real            :: sinit
- real            :: dens
- real            :: t
- real            :: tmax
- real            :: dt
- real            :: dtext
- real            :: dtnew
- real            :: guillaume
- real            :: dtgratio
- real            :: rhog
- real            :: rhod
+ logical :: do_output = .false.
+ real    :: deltax,dz,hfact,totmass,rhozero
+ real    :: Stcomp(20000),Stini(20000)
+ real    :: cscomp(20000),tau(20000)
+ real    :: s(20000),time,timelim(20000)
+ real    :: sinit,dens,t,tmax,dt,dtext,dtnew,guillaume,dtgratio,rhog,rhod
 
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
@@ -177,6 +152,9 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
  character(len=15) :: stringfrag
  character(len=15) :: stringmethod
+
+ ! initialise particle arrays to zero
+ call init_part()
 
  if (frag) then
     sinit       = 1./udist
@@ -194,16 +172,13 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     stringmethod = "one fluid"
     ndustsmall   = 1
     ndustlarge   = 0
-    allocate(ncheck(2),nerr(2),errmax(2))
     dtgratio     = 1.e-1
  else
     use_dustfrac = .false.
     stringmethod = "two fluid"
     ndustsmall   = 0
     ndustlarge   = 1
-    allocate(ncheck(4),nerr(4),errmax(4))
  endif
-
  dens  = 1./unit_density
 
  write(*,*)'--> testing FARMINGBOX using: ',trim(stringfrag),' and ',trim(stringmethod), ' dust method'
@@ -244,7 +219,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  itype = igas
  npart_previous = npart
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                  deltax,hfact,npart,xyzh,verbose=.false.)
+                  deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
  do i=npart_previous+1,npart
     vxyzu(:,i)       = 0.
     fext(:,i)        = 0.
@@ -275,7 +250,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     itype = idust
     npart_previous = npart
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     deltax,hfact,npart,xyzh,verbose=.false.)
+                     deltax,hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
     do i=npart_previous+1,npart
        vxyzu(:,i)       = 0.
        fext(:,i)        = 0.
@@ -294,6 +269,11 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
     massoftype(itype)     = dtgratio*totmass/npartoftypetot(itype)
  endif
+
+ !
+ ! check that particle setup is sensible
+ !
+ call check_setup(nerror,nwarn)
 
  !
  ! runtime parameters
@@ -397,8 +377,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  endif
 
  call update_test_scores(ntests,nerr,npass)
-
- deallocate(ncheck,nerr,errmax)
 
 end subroutine test_farmingbox
 

@@ -1,38 +1,32 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for the Orszag-Tang Vortex problem in 3D
+! Setup for the Orszag-Tang Vortex problem in 3D
 !
-!  REFERENCES:
+! :References:
 !    Orszag S. A., Tang C.-M., 1979, J. Fluid Mech., 90, 129
 !    Dahlburg R. B., Picone J. M., 1989, Physics of Fluids B, 1, 2153
 !    Picone J. M., Dahlburg R. B., 1991, Physics of Fluids B, 3, 29
 !    Price D. J., Monaghan J. J., 2005, MNRAS, 364, 384
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - betazero : *plasma beta*
+!   - bzero    : *magnetic field amplitude*
+!   - machzero : *Mach number*
+!   - nx       : *number of particles in the x-direction*
+!   - vzero    : *velocity amplitude*
+!   - xymin    : *xmin ~ ymin*
 !
-!  RUNTIME PARAMETERS:
-!    betazero -- plasma beta
-!    bzero    -- magnetic field amplitude
-!    machzero -- Mach number
-!    nx       -- number of particles in the x-direction
-!    vzero    -- velocity amplitude
-!    xymin    -- xmin ~ ymin
+! :Dependencies: boundary, domain, infile_utils, io, mpiutils, part,
+!   physcon, prompting, setup_params, timestep, unifdis, units
 !
-!  DEPENDENCIES: boundary, infile_utils, io, mpiutils, part, physcon,
-!    prompting, setup_params, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 
@@ -52,12 +46,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd
+ use part,         only:Bxyz,mhd,periodic
  use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -154,9 +149,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--set particle lattice
 !
  if (use_closepacked) then
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     deltax,hfact,npart,xyzh,periodic,mask=i_belong)
  else
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                     hfact,npart,xyzh,periodic,mask=i_belong)
  endif
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -242,4 +239,3 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 !----------------------------------------------------------------
 end module setup
-

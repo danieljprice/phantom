@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: units
+module units
 !
-!  DESCRIPTION:
-!  This module contains information about physical units
+! This module contains information about physical units
 !   (irrelevant if simulations are scale free except that
 !   the units are printed in the dump file header
 !   and log output is scaled in these units)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon
 !
-!  DEPENDENCIES: io, physcon
-!+
-!--------------------------------------------------------------------------
-module units
  implicit none
 !
 ! Default units (note that values below are overwritten by the call to set_units
@@ -63,7 +57,6 @@ contains
 !------------------------------------------------------------------------------------
 subroutine set_units(dist,mass,time,G,c)
  use physcon, only:gg,clight=>c
- use io,      only:warning
  real(kind=8), intent(in), optional :: dist,mass,time,G,c
 
  if (present(dist)) then
@@ -86,11 +79,11 @@ subroutine set_units(dist,mass,time,G,c)
     if (present(mass)) then
        udist = gg*umass/clight**2
        utime = udist/clight
-       if (present(dist)) call warning('set_units','over-riding distance unit with c=1 assumption')
+       if (present(dist)) print "(a)",' WARNING: over-riding length unit with c=1 assumption'
     elseif (present(dist)) then
        utime = udist/clight
        umass = clight*clight*udist/gg
-       if (present(time)) call warning('set_units','over-riding time unit with c=1 assumption')
+       if (present(time)) print "(a)",' WARNING: over-riding time unit with c=1 assumption'
     elseif (present(time)) then
        udist = utime*clight
        umass = clight*clight*udist/gg
@@ -101,13 +94,13 @@ subroutine set_units(dist,mass,time,G,c)
  elseif (present(G)) then
     if (present(mass) .and. present(dist)) then
        utime = sqrt(udist**3/(gg*umass))
-       if (present(time)) call warning('set_units','over-riding time unit with G=1 assumption')
+       if (present(time)) print "(a)",' WARNING: over-riding time unit with G=1 assumption'
     elseif (present(dist) .and. present(time)) then
        umass = udist**2/(gg*utime**2)
-       if (present(mass)) call warning('set_units','over-riding mass unit with G=1 assumption')
+       if (present(mass)) print "(a)",' WARNING: over-riding mass unit with G=1 assumption'
     elseif (present(mass) .and. present(time)) then
        udist = (utime**2*(gg*umass))**(1.d0/3.d0)
-       if (present(dist)) call warning('set_units','over-riding length unit with G=1 assumption')
+       if (present(dist)) print "(a)",' WARNING: over-riding length unit with G=1 assumption'
     elseif (present(time)) then
        umass = udist**2/(gg*utime**2)     ! udist is 1
     else

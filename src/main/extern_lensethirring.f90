@@ -1,31 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_lensethirring
+module extern_lensethirring
 !
-!  DESCRIPTION:
 ! This module contains routines relating to the computation
 ! of a Lense--Thirring precession torque on the gas particles
 ! (See Lodato & Pringle 2006 and references therein)
 ! CJN 22/06/11
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - blackhole_spin : *spin of central black hole (-1 to 1)*
 !
-!  RUNTIME PARAMETERS:
-!    blackhole_spin -- spin of central black hole (-1 to 1)
+! :Dependencies: infile_utils, io, physcon, units, vectorutils
 !
-!  DEPENDENCIES: infile_utils, io, physcon, units, vectorutils
-!+
-!--------------------------------------------------------------------------
-module extern_lensethirring
  implicit none
  real, parameter, private :: clight = 1.0
  real, parameter, private :: bigG   = 1.0

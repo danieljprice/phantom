@@ -1,42 +1,36 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: forcing
+module forcing
 !
-!  DESCRIPTION:
-!  This module is from Christoph Federrath => applies
+! This module is from Christoph Federrath => applies
 !  turbulent driving via an Ornstein-Uhlenbeck process.
 !
 !  Designed to be a drop-in replacement for forcing.F90
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - istir        : *switch to turn stirring on or off at runtime*
+!   - st_amplfac   : *amplitude factor for stirring of turbulence*
+!   - st_decay     : *correlation time for driving*
+!   - st_dtfreq    : *frequency of stirring*
+!   - st_energy    : *energy input/mode*
+!   - st_seed      : *random number generator seed*
+!   - st_solweight : *solenoidal weight*
+!   - st_spectform : *spectral form of stirring*
+!   - st_stirmax   : *maximum stirring wavenumber*
+!   - st_stirmin   : *minimum stirring wavenumber*
 !
-!  RUNTIME PARAMETERS:
-!    istir        -- switch to turn stirring on or off at runtime
-!    st_amplfac   -- amplitude factor for stirring of turbulence
-!    st_decay     -- correlation time for driving
-!    st_dtfreq    -- frequency of stirring
-!    st_energy    -- energy input/mode
-!    st_seed      -- random number generator seed
-!    st_solweight -- solenoidal weight
-!    st_spectform -- spectral form of stirring
-!    st_stirmax   -- maximum stirring wavenumber
-!    st_stirmin   -- minimum stirring wavenumber
+! :Dependencies: boundary, datafiles, fileutils, infile_utils, io,
+!   mpiutils, part
 !
-!  DEPENDENCIES: boundary, datafiles, fileutils, infile_utils, io,
-!    mpiutils, part
-!+
-!--------------------------------------------------------------------------
 
-module forcing
 
  public :: forceit,init_forcing,write_forcingdump,write_options_forcing,read_options_forcing
 

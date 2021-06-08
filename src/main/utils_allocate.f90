@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: allocutils
-!
-!  DESCRIPTION: Utilities related to memory allocation
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dtypekdtree, io
-!+
-!--------------------------------------------------------------------------
 module allocutils
+!
+! Utilities related to memory allocation
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dtypekdtree, io
+!
  use io,           only:fatal,error,iprint,id,master,iverbose
  use dtypekdtree,  only:kdnode,kdnode_bytes
 
@@ -40,6 +35,7 @@ module allocutils
       allocate_array_real4_2d, &
       allocate_array_real4_3d, &
       allocate_array_real4_4d, &
+      allocate_array_integer8_1d, &
       allocate_array_integer4_1d, &
       allocate_array_integer4_2d, &
       allocate_array_integer4_3d, &
@@ -62,7 +58,7 @@ subroutine allocate_array_real8_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'real(4)')
+ call print_allocation_stats(name, (/n1/), 'real(8)')
 
 end subroutine allocate_array_real8_1d
 
@@ -149,6 +145,17 @@ subroutine allocate_array_real4_4d(name, x, n1, n2, n3, n4)
  call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(4)')
 
 end subroutine allocate_array_real4_4d
+
+subroutine allocate_array_integer8_1d(name, x, n1)
+ character(len=*),               intent(in)     :: name
+ integer(kind=8), allocatable,   intent(inout)  :: x(:)
+ integer,                        intent(in)     :: n1
+ integer                                        :: allocstat
+
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1/), 'integer(8)')
+end subroutine allocate_array_integer8_1d
 
 subroutine allocate_array_integer4_1d(name, x, n1)
  character(len=*),               intent(in)     :: name
@@ -270,6 +277,8 @@ subroutine print_allocation_stats(name, xdim, type)
     databytes = 8
  elseif (type == 'real(4)') then
     databytes = 4
+ elseif (type == 'integer(8)') then
+    databytes = 8
  elseif (type == 'integer(4)') then
     databytes = 4
  elseif (type == 'integer(1)') then

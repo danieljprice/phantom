@@ -1,34 +1,28 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_Bfield
+module extern_Bfield
 !
-!  DESCRIPTION:
-!   This routine implements external forces related to various external
+! This routine implements external forces related to various external
 !   magnetic field configurations
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - Bphi          : *toroidal magnetic field*
+!   - Rtorus        : *radius of Torus containing tokamak B field*
+!   - a_on_R        : *aspect ratio (a/R) of Torus containing tokamak B field*
+!   - currJ0        : *normalisation of magnetic current at R=0*
+!   - itype_externB : *type of external B field (0=none,1=Wesson torus,2=Gaussian torus)*
+!   - nutorus       : *winding number of Torus (for itype_externB = 1)*
 !
-!  RUNTIME PARAMETERS:
-!    Bphi          -- toroidal magnetic field
-!    Rtorus        -- radius of Torus containing tokamak B field
-!    a_on_R        -- aspect ratio (a/R) of Torus containing tokamak B field
-!    currJ0        -- normalisation of magnetic current at R=0
-!    itype_externB -- type of external B field (0=none,1=Wesson torus,2=Gaussian torus)
-!    nutorus       -- winding number of Torus (for itype_externB = 1)
+! :Dependencies: infile_utils, io, physcon
 !
-!  DEPENDENCIES: infile_utils, io, physcon
-!+
-!--------------------------------------------------------------------------
-module extern_Bfield
  implicit none
  private
 

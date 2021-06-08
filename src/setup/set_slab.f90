@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: slab
+module slab
 !
-!  DESCRIPTION:
-!   This module sets up particles in a thin slab, i.e. 3D box but with
+! This module sets up particles in a thin slab, i.e. 3D box but with
 !   small aspect ratio in the z direction. Useful for performing 2D
 !   test problems in 3D
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, domain, unifdis
 !
-!  DEPENDENCIES: boundary, unifdis
-!+
-!--------------------------------------------------------------------------
-module slab
  implicit none
 
 contains
@@ -36,6 +30,7 @@ contains
 subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,lattice)
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
  use unifdis,      only:set_unifdis
+ use domain,       only:i_belong
  integer,          intent(in)    :: id,master,nx
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmini,xmaxi,ymini,ymaxi,hfact
@@ -67,7 +62,8 @@ subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,la
 !
 ! set particle lattice
 !
- call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,np,xyzh)
+ call set_unifdis(mylattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                  hfact,np,xyzh,.true.,mask=i_belong)
 
 end subroutine set_slab
 

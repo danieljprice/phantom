@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: domain
+module domain
 !
-!  DESCRIPTION:
-!   This module performs the MPI domain decomposition
+! This module performs the MPI domain decomposition
 !   Since we now do the decomposition using the tree all this
 !   module does is store the ibelong array for the particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, part
 !
-!  DEPENDENCIES: dim, io, part
-!+
-!--------------------------------------------------------------------------
-module domain
  use dim, only:maxp
  use io,  only:nprocs
  use part, only:ibelong
@@ -43,11 +37,12 @@ module domain
  logical, dimension(ndim), public :: isperiodic = .false.
 #endif
 
- public :: init_domains, assign_to_domain, i_belong
+ public :: init_domains, assign_to_domain
+ public :: i_belong, i_belong_i4
 
- interface i_belong
-  module procedure i_belong_r4, i_belong_r8
- end interface
+! interface i_belong
+!  module procedure i_belong_i4, i_belong
+! end interface
 
  private
 
@@ -81,18 +76,19 @@ integer function assign_to_domain(i,id)
 
 end function assign_to_domain
 
-logical function i_belong_r4(iparttot)
+logical function i_belong_i4(iparttot)
  use io, only:nprocs,id
  integer(kind=4), intent(in) :: iparttot
 
- i_belong_r4 = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
-end function i_belong_r4
+ i_belong_i4 = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
+end function i_belong_i4
 
-logical function i_belong_r8(iparttot)
+logical function i_belong(iparttot)
  use io, only:nprocs,id
  integer(kind=8), intent(in) :: iparttot
 
- i_belong_r8 = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
-end function i_belong_r8
+ i_belong = (id == int(mod(iparttot, int(nprocs, kind=kind(iparttot))), kind=kind(nprocs)) )
+
+end function i_belong
 
 end module domain

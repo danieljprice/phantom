@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testbinary
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: physcon, setbinary
-!+
-!--------------------------------------------------------------------------
 module testbinary
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon, setbinary
+!
  implicit none
  real, parameter :: pi = 4.*atan(1.)
 
@@ -39,17 +34,16 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  real, intent(in) :: m1,m2,a,e,inc,o,w,f
  integer, intent(in) :: jfile,itex
  real :: xyz(3,2), vxyz(3,2), fxyz(3,2), xyzmh(6,2)
- real :: mrat,h1,h2
+ real :: h1,h2
  real :: t,dt,period,period_yrs,proj_max,tsep,dx_proj(2),r_proj
  real(8) :: utime,udist,umass
- integer :: i,n,nsteps,lu
+ integer :: i,n,nsteps,lu,ierr
  character(len=48) :: filename
 
- mrat = m2/m1
  h1 = 0.01
  h2 = 0.01
  n = 0
- call set_binary(m1,mrat,a,e,h1,h2,xyzmh,vxyz,n,posang_ascnode=o,arg_peri=w,incl=inc,f=f,verbose=.false.)
+ call set_binary(m1,m2,a,e,h1,h2,xyzmh,vxyz,n,ierr,posang_ascnode=o,arg_peri=w,incl=inc,f=f,verbose=.false.)
  xyz(1:3,1) = xyzmh(1:3,1)
  xyz(1:3,2) = xyzmh(1:3,2)
  print*,'initial position of primary=',xyz(1:3,1)
@@ -75,7 +69,7 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  write(lu,"('#',3(3x,a))") 'x','y','z'
  write(lu,*) xyz(1:3,2) - xyz(1:3,1)
 
- write(*,"(6(a,'=',1pg8.3,1x),a,'=',1pg8.3,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs
+ write(*,"(8(a,'=',1pg8.3,1x),a,'=',1pg8.3,1x)") 'a',a,'e',e,'i',inc,'o',o,'w',w,'f',f,'P',period_yrs,'m1',m1,' m2',m2
  !print*,'period = ',period
  call get_f(m1,m2,xyz,fxyz)
  tsep = 0.

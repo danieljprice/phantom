@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testexternf
-!
-!  DESCRIPTION:
-!  Unit tests of the externalforces module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: extern_corotate, externalforces, io, part, physcon,
-!    testutils, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module testexternf
+!
+! Unit tests of the externalforces module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: domain, extern_corotate, externalforces, io, part,
+!   physcon, testutils, unifdis, units
+!
  implicit none
  public :: test_externf
 
@@ -36,18 +30,19 @@ contains
 !----------------------------------------------------------
 subroutine test_externf(ntests,npass)
  use io,       only:id,master
- use part,     only:npart,xyzh,hfact,massoftype,igas
+ use part,     only:npart,xyzh,hfact,massoftype,igas,periodic
  use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use externalforces, only:externalforcetype,externalforce,accrete_particles, &
                           was_accreted,iexternalforce_max,initialise_externalforces,&
                           accradius1,update_externalforce,is_velocity_dependent,&
                           externalforce_vdependent,update_vdependent_extforce_leapfrog,&
                           iext_lensethirring,iext_prdrag,iext_einsteinprec,iext_spiral,&
-                          iext_neutronstar,iext_staticsine,iext_gwinspiral
+                          iext_densprofile,iext_staticsine,iext_gwinspiral
  use extern_corotate, only:omega_corotate
  use unifdis,  only:set_unifdis
  use units,    only:set_units
  use physcon,  only:pc,solarm
+ use domain,   only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,iextf,nfail1,ierr
  logical                :: dotest1,dotest2,dotest3,accreted
@@ -75,7 +70,7 @@ subroutine test_externf(ntests,npass)
  psep  = (xmaxi(1) - xmini(1))/10.
  npart = 0
  call set_unifdis('random',id,master,xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3),&
-                  psep,hfact,npart,xyzh)
+                  psep,hfact,npart,xyzh,periodic,mask=i_belong)
  !dhi   = 0.001*hfact*psep
  dhi   = 1.e-8*psep
  massoftype(igas) = 1./real(npart)
@@ -101,7 +96,7 @@ subroutine test_externf(ntests,npass)
           call initialise_externalforces(iextf,ierr)
 
           select case(iextf)
-          case(iext_neutronstar,iext_gwinspiral)
+          case(iext_densprofile,iext_gwinspiral)
              !--OK to fail initialisation due to not finding file
              call checkval(ierr,ierr,0,nfailed(1),trim(externalforcetype(iextf))//' external force initialisation')
           case default

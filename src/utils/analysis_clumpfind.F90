@@ -1,40 +1,35 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine which runs the CLUMPFIND algorithm
+! Analysis routine which runs the CLUMPFIND algorithm
 !
 !  This uses local potential minima (and neighbour lists)
 !  to identify objects/clumps in the gas distribution
 !  Clumps are matched across timesteps using standard merger tree algorithms
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, getneighbours, part, prompting, ptmass,
+!   readwrite_dumps, sortutils, units
 !
-!  DEPENDENCIES: boundary, dim, getneigbours, part, prompting, ptmass,
-!    readwrite_dumps, sortutils
-!+
-!--------------------------------------------------------------------------
-module analysis
  use dim,             only:maxp
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
 
  real,    parameter :: sinkclumprad = 1.0    ! particles within sinkclumprad*hacc are automatically part of the clump
- integer, parameter :: nclumpmax    = 1000
+ real,    parameter :: rhomin_cgs   = 0.0    ! particles with rho < rhomin will not be considered for the lead particle in a clumps
+ integer, parameter :: nclumpmax    = 1000   ! maximum number of clumps that can be analysed
 
  integer            :: runningclumpmax
  logical            :: checkbound, sinkpotential,skipsmalldumps, firstdump
@@ -64,8 +59,9 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten
+ use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten,rhoh
  use readwrite_dumps, only:opened_full_dump
+ use units,           only:unit_density
  use sortutils,       only:indexx
 
  character(len=*), intent(in) :: dumpfile
@@ -76,13 +72,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, dimension(1)             :: maxclump
  integer, allocatable,dimension(:) :: neighclump, ipotensort
  integer            :: k,l,iclump,ipart,jpart,iamtypei,deletedclumps
- real               :: percent,percentcount
+ real               :: percent,percentcount,rhomin
  logical            :: existneigh,iactivei,iamdusti,iamgasi
  logical            :: write_raw_data,write_neighbour_list,fexists
  character(len=100) :: neighbourfile
  character(len=100) :: fmt
 
-! Read in input parameters from file (if it exists)
+! Initialise variables
+ rhomin         = rhomin_cgs/unit_density
  rawtag         = 'raw'
  proctag        = 'proc'
  checkbound     = .false.
@@ -91,7 +88,24 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  firstdump      = .false.
  write_raw_data = .false.
  write_neighbour_list = .false.
+! Read in input parameters from file (if it exists)
  call read_analysis_options(dumpfile)
+
+! Print warning
+ if (checkbound) then
+    print*, '*************************************************************'
+    print*, '*                                                           *'
+    print*, '*                         WARNING!!!                        *'
+    print*, '*                                                           *'
+    print*, '*     Potential energy of a clump is the sum of poten,      *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Npart Gm_jm_i/r_ij         *'
+    print*, '*     rather than being the potential of just the clump,    *'
+    print*, '*        Sum_i=1^Nclump  Sum_j=1^Nclump Gm_jm_i/r_ij        *'
+    print*, '*     Therefore the potential energy is much too large!     *'
+    print*, '*     Consider using analysis_clumpfindTD.F90               *'
+    print*, '*                                                           *'
+    print*, '*************************************************************'
+ endif
 
 ! Skip small dumps (as they do not include velocity data)
  if (skipsmalldumps .and. .not.opened_full_dump) then
@@ -213,11 +227,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ENDif
 
     ! Pick next particle in order of descending potential
-
     ipart = ipotensort(npart-l+1)
 
-    ! Only calculate for gas particles
+    ! skip particle if not dense enough
+    if (rhoh(xyzh(4,ipart),particlemass) < rhomin) cycle over_parts
 
+    ! Only calculate for gas particles
     if (maxphase==maxp) then
        call get_partinfo(iphase(ipart),iactivei,iamgasi,iamdusti,iamtypei)
        ! If particle isn't a gas particle, skip it
@@ -405,6 +420,8 @@ subroutine read_analysis_options(dumpfile)
     write(10,*) trim(dumpfile), "    First SPH dump to be analysed"
     write(10,*) trim(dumpfile), "    Previous SPH dump analysed"
     close(10)
+    previousdumpfile = ""
+    runningclumpmax  = 0
  endif
 
  if (checkbound) then

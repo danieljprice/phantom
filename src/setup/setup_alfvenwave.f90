@@ -1,35 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for MHD wave tests in 3D
+! Setup for MHD wave tests in 3D
 !
-!  REFERENCES:
+! :References:
 !    Toth G., 2000, J. Comp. Phys., 161, 605
 !    Stone J. M., et al., 2008, ApJS, 178, 137
 !    Gardiner T. A., Stone J. M., 2008, J. Comp. Phys., 227, 4123
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - gamma   : *adiabatic index*
+!   - iselect : * which wave test to run*
+!   - nx      : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - rotated : * rotate wave vector?*
 !
-!  RUNTIME PARAMETERS:
-!    gamma   -- adiabatic index
-!    iselect --  which wave test to run
-!    nx      -- resolution (number of particles in x) for -xleft < x < xshock
-!    rotated --  rotate wave vector?
+! :Dependencies: boundary, dim, domain, geometry, infile_utils, io,
+!   mpiutils, part, physcon, prompting, setup_params, timestep, unifdis
 !
-!  DEPENDENCIES: boundary, dim, geometry, infile_utils, io, mpiutils, part,
-!    physcon, prompting, setup_params, timestep, unifdis
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 !
@@ -62,13 +56,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd
+ use part,         only:Bxyz,mhd,periodic
  use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use geometry,     only:igeom_rotated,igeom_cartesian,set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -183,9 +178,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (rvec(1) > 0.) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,&
-                     rhofunc=rhofunc,geom=igeom)
+                     periodic,rhofunc=rhofunc,geom=igeom,mask=i_belong)
  else
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     deltax,hfact,npart,xyzh,periodic,mask=i_belong)
  endif
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -524,4 +520,3 @@ subroutine read_setupfile(filename,gamma,ierr)
 end subroutine read_setupfile
 
 end module setup
-

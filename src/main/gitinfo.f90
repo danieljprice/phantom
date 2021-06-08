@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: gitinfo
-!
-!  DESCRIPTION: writes the git information to the logfile
-!
-!  REFERENCES: None
-!
-!  OWNER: James Wurster
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io
-!+
-!--------------------------------------------------------------------------
 module gitinfo
+!
+! writes the git information to the logfile
+!
+! :References: None
+!
+! :Owner: James Wurster
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io
+!
  implicit none
  public :: get_and_print_gitinfo
  character(len=7), public :: gitsha = ''
@@ -62,7 +57,7 @@ subroutine get_and_print_gitinfo(iunit)
     do i = 1,9
        read(igit,'(a)',iostat=io_local) gitinfo
        write(iunit,'(1x,a)') trim(gitinfo)
-       if (index(gitinfo,'ID:')> 0) gitsha = gitinfo(20:26)
+       if (index(gitinfo,'ID:') > 0) gitsha = gitinfo(20:26)
     enddo
     i     = 0
     lfile = 0
@@ -71,13 +66,16 @@ subroutine get_and_print_gitinfo(iunit)
     do while (io_local==0 .and. i < nfiles)
        read(igit,'(a)',iostat=io_local) gitinfo
        if (io_local==0) then
-          i = i + 1
-          if (len(trim(gitinfo))>38) then
-             write(updatedfiles(i),"(2a)") gitinfo(1:35),"..."
-          else
-             updatedfiles(i) = gitinfo
+          ! do not list data, docs or hidden files
+          if (index(gitinfo,'data/') /=1 .and. index(gitinfo,'docs/') /=1 .and. index(gitinfo,'.')/=1) then
+             i = i + 1
+             if (len(trim(gitinfo))>38) then
+                write(updatedfiles(i),"(2a)") gitinfo(1:35),"..."
+             else
+                updatedfiles(i) = gitinfo
+             endif
+             lfile = max(lfile,len(trim(updatedfiles(i))))
           endif
-          lfile = max(lfile,len(trim(updatedfiles(i))))
        endif
     enddo
     close(igit)

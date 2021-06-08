@@ -1,39 +1,41 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    mdot          -- mass injection rate in grams/second
-!    npartperorbit -- particle injection rate in particles/binary orbit
-!    vlag          -- percentage lag in velocity of wind
-!
-!  DEPENDENCIES: infile_utils, io, part, partinject, physcon, random, units
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - mdot          : *mass injection rate in grams/second*
+!   - mdot_type     : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
+!   - npartperorbit : *particle injection rate in particles/binary orbit*
+!   - vlag          : *percentage lag in velocity of wind*
+!
+! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
+!   part, partinject, physcon, random, units
+!
+ use io, only:error
+ use physcon, only:pi
  implicit none
  character(len=*), parameter, public :: inject_type = 'asteroidwind'
+ real, public          :: mdot        = 5.e8     ! mass injection rate in grams/second
+ real,save    :: dndt_scaling             ! scaling to get ninject correct
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
  private
 
- real :: mdot          = 5.e8       ! mass injection rate in grams/second
- real :: npartperorbit = 100.       ! particle injection rate in particles per orbit
- real :: vlag          = 0.1        ! percentage lag in velocity of wind
+ real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
+ real         :: vlag          = 0.0      ! percentage lag in velocity of wind
+ integer      :: mdot_type     = 2        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
+ logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
 !-----------------------------------------------------------------------
@@ -42,10 +44,10 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
- integer, intent(out) :: ierr
- !
- ! return without error
- !
+ integer, intent(inout) :: ierr
+
+ scaling_set = .false.
+
  ierr = 0
 
 end subroutine init_inject
@@ -57,78 +59,113 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
- use io,        only:fatal
- use part,      only:nptmass,massoftype,igas,hfact,ihsoft
- use partinject,only:add_or_update_particle
- use physcon,   only:pi,twopi,gg,kboltz,mass_proton_cgs
- use random,    only:ran2
- use units,     only:udist, umass, utime
+ use io,            only:fatal
+ use part,          only:nptmass,massoftype,igas,hfact,ihsoft
+ use partinject,    only:add_or_update_particle
+ use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
+ use random,        only:get_random_pos_on_sphere
+ use units,         only:umass, utime
+ use options,       only:iexternalforce
+ use externalforces,only:mass1
+ use binaryutils,   only:get_orbit_bits
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat
- integer :: i,ipart,npinject,seed
- real    :: dmdt,dndt,rasteroid,h,u,speed
- real    :: m1,m2,mu,period,r,q
- real    :: phi,theta
+ real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
+ integer :: i,ipart,npinject,seed,pt
+ real    :: dmdt,rasteroid,h,u,speed,inject_this_step
+ real    :: m1,m2,r
+ real    :: dt
+ real, save :: have_injected,t_old
+ real, save :: semia
 
- if (nptmass < 2) call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
+ if (nptmass < 2 .and. iexternalforce == 0) call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
  if (nptmass > 2) call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
 
- r1        = xyzmh_ptmass(1:3,1)
- r2        = xyzmh_ptmass(1:3,2)
- rasteroid = xyzmh_ptmass(ihsoft,2)
- m1        = xyzmh_ptmass(4,1)
- m2        = xyzmh_ptmass(4,2)
- v2        = vxyz_ptmass(1:3,2)
+ if (nptmass == 2) then
+    pt = 2
+    r1 = xyzmh_ptmass(1:3,1)
+    m1 = xyzmh_ptmass(4,1)
+    v1 = vxyz_ptmass(1:3,1)
+ else
+    pt = 1
+    r1 = 0.
+    m1 = mass1
+    v1 = 0.
+ endif
+
+ r2        = xyzmh_ptmass(1:3,pt)
+ rasteroid = xyzmh_ptmass(ihsoft,pt)
+ m2        = xyzmh_ptmass(4,pt)
+ v2        = vxyz_ptmass(1:3,pt)
 
  speed     = sqrt(dot_product(v2,v2))
  vhat      = v2/speed
 
  r         = sqrt(dot_product(r1-r2,r1-r2))
- q         = m2/m1
- mu        = 1./(1 + q)
- period    = twopi*sqrt((r*udist)**3/(gg*(m1+m2)*umass))       ! period of orbit in code units
-
- dmdt      = mdot/(umass/utime)                                ! convert grams/sec to code units
- dndt      = npartperorbit*utime/period                        ! convert particles per orbit into code units
 
 !
-!-- Mass of gas particles is set by mass accretion rate and particle injection rate
+! Add any dependency on radius to mass injection rate (and convert to code units)
 !
- massoftype(igas) = dmdt/dndt
+ dmdt      = mdot*mdot_func(r,semia)/(umass/utime) ! Use semi-major axis as r_ref
 
-!
 !-- How many particles do we need to inject?
 !   (Seems to need at least eight gas particles to not crash) <-- This statement may or may not be true...
 !
  if (npartoftype(igas)<8) then
     npinject = 8-npartoftype(igas)
  else
-    npinject = max(0, int(0.5 + (time*dmdt/massoftype(igas)) - npartoftype(igas) ))
+    ! Calculate how many extra particles from previous step to now
+    dt = time - t_old
+    inject_this_step = dt*mdot/massoftype(igas)/(umass/utime)
+
+    npinject = max(0, int(0.5 + have_injected + inject_this_step - npartoftype(igas) ))
+
+    ! Save for next step (faster than integrating the whole thing each time)
+    t_old = time
+    have_injected = have_injected + inject_this_step
  endif
 
-!
 !-- Randomly inject particles around the asteroids outer 'radius'
+!-- Only inject them on the side that is facing the central sink
 !
  do i=1,npinject
-    phi       = ran2(seed)*twopi
-    theta     = ran2(seed)*pi
-    xyz       = r2 + (/rasteroid*cos(phi)*sin(theta),rasteroid*sin(phi)*sin(theta),rasteroid*cos(theta)/)
+    xyz       = r2 + rasteroid*get_random_pos_on_sphere(seed)
     vxyz      = (1.-vlag/100)*speed*vhat
     u         = 0. ! setup is isothermal so utherm is not stored
     h         = hfact*(rasteroid/2.)
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
+
  !
  !-- no constraint on timestep
  !
  dtinject = huge(dtinject)
 
 end subroutine inject_particles
+
+!-----------------------------------------------------------------------
+!+
+!  Returns dndt(t) depending on which function is chosen
+!  Note that time in this function is strictly the fraction
+!  of the orbit, not absolute time
+!+
+!-----------------------------------------------------------------------
+
+real function mdot_func(r,r_ref)
+ real, intent(in) :: r,r_ref
+
+ select case (mdot_type)
+ case (2)
+    mdot_func = (r_ref/r)**2
+ case default
+    mdot_func = 1.0
+ end select
+
+end function mdot_func
 
 !-----------------------------------------------------------------------
 !+
@@ -142,6 +179,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot         ,'mdot'         ,'mass injection rate in grams/second'              ,iunit)
  call write_inopt(npartperorbit,'npartperorbit','particle injection rate in particles/binary orbit',iunit)
  call write_inopt(vlag         ,'vlag'         ,'percentage lag in velocity of wind'               ,iunit)
+ call write_inopt(mdot_type    ,'mdot_type'    ,'injection rate (0=const, 1=cos(t), 2=r^(-2))'     ,iunit)
 
 end subroutine write_options_inject
 
@@ -170,6 +208,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     if (npartperorbit < 0.) call fatal(label,'npartperorbit < 0 in input options')
  case('vlag')
     read(valstring,*,iostat=ierr) vlag
+    ngot = ngot + 1
+ case('mdot_type')
+    read(valstring,*,iostat=ierr) mdot_type
     ngot = ngot + 1
  case default
     imatch = .false.

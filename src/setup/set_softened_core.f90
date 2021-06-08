@@ -1,430 +1,103 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setsoftenedcore
-!
-!  DESCRIPTION:
-!   This module softens the core of a MESA stellar profile with a cubic
-!   density profile, given a softening length and core mass, in preparation
-!   for adding a sink particle core. CAUTION: This module does not output
-!   self-consistent internal energy and temperature profiles, and just
-!   returns the input MESA data.
-!
-!  REFERENCES: For point mass potential, see Price & Monaghan (2007)
-!
-!  OWNER: Mike Lau
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos_idealplusrad, physcon
-!+
-!--------------------------------------------------------------------------
 module setsoftenedcore
- use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
- use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,&
-                            get_idealplusrad_enfromtemp
+!
+! This module softens the core of a MESA stellar profile given a softening
+! radius
+!
+! :References:
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, io, physcon, setcubiccore, setfixedentropycore,
+!   table_utils
+!
  implicit none
- real    :: hsoft,msoft,mcore
- integer :: hidx
+ real :: rcore,mcore
 
- ! hsoft: Radius below which we replace the original profile with a
- !        softened profile. Note: This is called 'hdens' in
- !        setup_star.f90
+ ! rcore: Radius below which we replace the original profile with a
+ !        softened profile.
  ! mcore: Mass of core particle
- ! msoft: Softened mass (mass at softening length minus mass of core
- !        particle)
- ! hphi:  Softening length for the point particle potential, defined in
- !        Price & Monaghan (2007). Set to be 0.5*hsoft. Note: This is
- !        called 'hsoft' in setup_star.f90
 
 contains
 
 !-----------------------------------------------------------------------
 !+
-!  Main subroutine that calls the subroutines to calculate the cubic
-!  core profile
+!  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(ieos,gamma,mu,mcore,hsoft,hphi, &
-                             rho,r,pres,m,ene,temp,ierr,Xfrac,Yfrac)
- real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
- real, allocatable          :: phi(:)
- real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,mcore,hsoft,hphi,gamma
- integer, intent(in)        :: ieos
- integer, intent(out)       :: ierr
- real                       :: mc,h,hphi_cm
- logical                    :: isort_decreasing,iexclude_core_mass
+subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,ene,temp,X,Y,rcore,mcore,ierr)
+ use eos,         only:ieos,X_in,Z_in,gmw,init_eos
+ use io,          only:fatal
+ use setcubiccore,only:set_cubic_core,find_mcore_given_rcore,find_rcore_given_mcore,check_rcore_and_mcore
+ use setfixedentropycore,only:set_fixedS_softened_core
+ integer, intent(in)        :: isoftcore,isofteningopt
+ real, intent(inout)        :: r(:),den(:),m(:),pres(:),ene(:),temp(:),X(:),Y(:),rcore,mcore
+ integer                    :: ierr
 
- ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
- !
- ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
-
- h       = hsoft * solarr      ! Convert to cm
- hphi_cm = hphi  * solarr      ! Convert to cm
- mc      = mcore * solarm      ! Convert to g
- call interpolator(r,h,hidx)   ! Find index in r closest to h
- msoft = m(hidx) - mc
-
- call calc_rho_and_m(rho, m, r, mc, h)
- call calc_phi(r, mc, m-mc, hphi_cm, phi)
- call calc_pres(r, rho, phi, pres)
- call calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
-
- ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
- if (isort_decreasing) then
-   call flip_array(m)
-   call flip_array(pres)
-   call flip_array(temp)
-   call flip_array(r)
-   call flip_array(rho)
-   call flip_array(ene)
-   call flip_array(phi)
-endif
-
- if (iexclude_core_mass) then
-    m = m - mc
+ ! set mu, X, Z mass fractions to be their values at R/2
+ if ((ieos == 10) .or. (ieos == 12)) then
+    call get_composition(r,den,pres,temp,X,Y,X_in,Z_in,gmw)
+    write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at R/2: X = ',X_in,', Z = ',Z_in,', mu = ',gmw
  endif
+ call init_eos(ieos,ierr)
+ if (ierr /= 0) call fatal('set_softened_core','could not initialise equation of state')
+
+ ! get values of rcore and mcore
+ select case (isofteningopt)
+ case(1)
+    call find_mcore_given_rcore(rcore,r,den,m,mcore,ierr)
+    if (ierr==1) call fatal('setup','Cannot find mcore that produces nice profile (mcore/m(h) > 0.98 reached)')
+ case(2)
+    call find_rcore_given_mcore(mcore,r,den,m,rcore,ierr)
+    if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
+ case(3) ! Both rcore and mcore are specified, check if values are sensible
+    call check_rcore_and_mcore(rcore,mcore,r,den,m,ierr)
+    if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
+    if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
+    if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
+ end select
+
+ ! call core-softening subroutines
+ select case(isoftcore) ! choose type of core-softneing
+ case(1)
+    call set_cubic_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
+    if (ierr /= 0) call fatal('setup','could not set softened core')
+ case(2)
+    call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,ene,temp,ierr)
+    if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
+ end select
 
 end subroutine set_softened_core
 
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
-!  Iteratively look for a value of mcore for given hsoft that
-!  produces a nice softened density profile
+!  Get composition (mean molecular weight, X, Z mass fractions) to be
+!  their values at R/2
 !+
-!----------------------------------------------------------------
-subroutine find_mcore_given_hsoft(hsoft,r,rho0,m0,mcore,ierr)
- real,    intent(in)  :: r(:),rho0(:),m0(:),hsoft
- real,    intent(out) :: mcore
- integer, intent(out) :: ierr
- real,    allocatable :: rho(:),drho(:),m(:)
- real                 :: h,mc,tolerance
- integer              :: hidx,counter=0
+!-----------------------------------------------------------------------
+subroutine get_composition(r,den,pres,temp,X,Y,Xfixed,Zfixed,mu)
+ use table_utils, only:interpolator
+ use physcon,     only:radconst,kb_on_mh
+ real, intent(in)     :: r(:),den(:),pres(:),temp(:),X(:),Y(:)
+ real, intent(out)    :: mu,Xfixed,Zfixed
+ real                 :: Rstar,pgas
+ integer              :: i
 
- h = hsoft * solarr ! Convert to cm
- call interpolator(r, h, hidx) ! Find index in r closest to h
- mc = 0.7*m0(hidx) ! Initialise profile to have very large softened mass
- tolerance = 1.5 ! How much we allow the softened density to exceed the original profile by
- ierr = 0
+ Rstar = r(size(r))
+ call interpolator(r, 0.5*Rstar, i)
+ pgas = pres(i) - radconst*temp(i)**4/3. ! Assuming pressure due to ideal gas + radiation
+ mu = (den(i) * kb_on_mh * temp(i)) / pgas
+ Xfixed = X(i)
+ Zfixed = 1. - Xfixed - Y(i)
 
- allocate(rho( size(rho0) ))
- allocate(m( size(m0) ))
- allocate(drho( size(rho0)-1 ))
- do
-    rho = rho0   ! Reset density
-    m   = m0     ! Reset mass
-    call calc_rho_and_m(rho, m, r, mc, h)
-    call diff(rho, drho)
-    if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
-    if (mc > 0.98*m0(hidx)) then
-       ierr = 1
-       exit
-    endif
-    mc = mc + 0.01*m0(hidx) ! Increase mcore/m(h) by 1 percent
-    counter = counter+1
- enddo
- ! Output mcore in solar masses
- mcore = mc / solarm
-end subroutine find_mcore_given_hsoft
-
-!----------------------------------------------------------------
-!+
-!  Iteratively look for a value of hsoft for given mcore that
-!  produces a nice softened density profile
-!+
-!----------------------------------------------------------------
-subroutine find_hsoft_given_mcore(mcore,r,rho0,m0,hsoft,ierr)
- real,    intent(in)  :: r(:),rho0(:),m0(:),mcore
- real,    intent(out) :: hsoft
- integer, intent(out) :: ierr
- real,    allocatable :: rho(:),drho(:),m(:)
- real                 :: h,mc,mh,tolerance
- integer              :: hidx
-
- mc = mcore * solarm ! Convert to g
- mh = mc / 0.7 ! Initialise h such that m(h) to be much larger than mcore
- tolerance = 1.5 ! How much we allow the softened density to exceed the original profile by
- ierr = 0
- allocate(rho( size(rho0) ))
- allocate(m( size(m0) ))
- allocate(drho( size(rho0)-1 ))
- do
-    call interpolator(m0, mh, hidx)
-    h   = r(hidx)
-    rho = rho0   ! Reset density
-    m   = m0     ! Reset mass
-    call calc_rho_and_m(rho, m, r, mc, h)
-    call diff(rho, drho)
-    if (all(rho/rho0 < tolerance) .and. all(drho(1:hidx) < 0)) exit
-    if (mc > 0.98*m0(hidx)) then
-       ierr = 1
-       exit
-    endif
-    call interpolator(m0, 1.3*mc, hidx)
-    mh = 1./(1./mh + 0.01/mc) ! Increase mcore/m(h) by 1 percent
- enddo
- ! Write out hsoft in solar radii
- hsoft = h / solarr
-end subroutine find_hsoft_given_mcore
-
-!----------------------------------------------------------------
-!+
-!  Check for sensible values of hsoft and mcore, returning errors.
-!  Called in setup_star.f90 when both hsoft and mcore are chosen
-!  by user
-!+
-!----------------------------------------------------------------
-subroutine check_hsoft_and_mcore(hsoft,mcore,r,rho0,m0,ierr)
- real,    intent(in)  :: r(:),rho0(:),m0(:),mcore
- real,    intent(out) :: hsoft
- integer, intent(out) :: ierr
- real,    allocatable :: rho(:),drho(:),m(:)
- real                 :: h,mc,msoft,tolerance
- integer              :: hidx
- ierr = 0
- tolerance = 1.5 ! How much we allow the softened density to exceed the original profile by
- h = hsoft * solarr ! Convert to cm
- mc = mcore * solarm ! Convert to g
- call interpolator(r, h, hidx) ! Find index in r closest to h
- msoft = m0(hidx) - mc
-
- if (msoft < 0.) ierr = 1
-
- allocate(rho( size(rho0) ))
- allocate(m( size(m0) ))
- allocate(drho( size(rho0)-1 ))
- rho = rho0
- m   = m0
- call calc_rho_and_m(rho, m, r, mc, h)
- if (any(rho/rho0 > tolerance)) ierr = 2
-
- call diff(rho, drho)
- if (any(drho(1:hidx) > 0)) ierr = 3
-end subroutine check_hsoft_and_mcore
-
-
-subroutine calc_rho_and_m(rho,m,r,mc,h)
- real, intent(in)    :: r(:)
- real, intent(inout) :: rho(:),m(:)
- real, intent(in)    :: mc,h
- real                :: a,b,d,msoft,drhodr_h
- integer             :: hidx
-
- call interpolator(r,h,hidx) ! Find index in r closest to h
- msoft    = m(hidx) - mc
- drhodr_h = (rho(hidx+1) - rho(hidx)) / (r(hidx+1) - r(hidx)) ! drho/dr at r = h
-
- ! a, b, d: Coefficients of cubic density profile defined by rho(r) = ar**3 + br**2 + d
- a = 2./h**2 * drhodr_h - 10./h**3 * rho(hidx) + 7.5/pi/h**6 * msoft
- b = 0.5*drhodr_h/h - 1.5*a*h
- d = rho(hidx) - 0.5*h*drhodr_h + 0.5*a*h**3
-
- rho(1:hidx) = a*r(1:hidx)**3 + b*r(1:hidx)**2 + d
-
- ! Mass is then given by m(r) = mcore + 4*pi (1/6 a r^6 + 1/5 b r^5 + 1/3 d r^3)
- m(1:hidx) = mc + 4.*pi * (1./6. * a * r(1:hidx)**6 + 0.2 * b * r(1:hidx)**5 + &
-                           1./3. * d * r(1:hidx)**3)
-end subroutine calc_rho_and_m
-
-
-subroutine calc_phi(r,mc,mgas,hphi,phi)
- real, intent(in)               :: r(:),mgas(:),mc,hphi
- real, allocatable              :: q(:),phi_core(:),phi_gas(:)
- real, allocatable, intent(out) :: phi(:)
- integer                        :: idx2hphi,idxhphi,i
- ! The gravitational potential is needed to integrate the pressure profile using the
- ! equation of hydrostatic equilibrium. First calculate gravitational potential due
- ! to point mass core, according to the cubic spline kernel in Price & Monaghan (2007)
- ! to be consistent with Phantom, then calculate the gravitational potential due to the
- ! softened gas.
- allocate(phi(size(r)), phi_core(size(r)), phi_gas(size(r)))
- ! (i) Gravitational potential due to core particle (cubic spline softening)
- ! For 0 <= r/hphi < 1
- call interpolator(r, hphi, idxhphi) ! Find index corresponding to r = 2*hphi
- allocate(q(1:idxhphi-1))
- q = r(1:idxhphi-1) / hphi
- phi_core(1:idxhphi-1) = gg*mc/hphi * (2./3.*q**2 - 0.3*q**4 + 0.1*q**5 &
-                                   - 7./5.)
- deallocate(q)
-
- ! For 1 <= r/hphi < 2
- call interpolator(r, 2*hphi, idx2hphi) ! Find index corresponding to r = 2*hphi
- allocate(q(idxhphi:idx2hphi-1))
- q = r(idxhphi:idx2hphi-1) / hphi
- phi_core(idxhphi:idx2hphi-1) = gg*mc/hphi * (4./3.*q**2 - q**3 + 0.3*q**4 &
-                                        - 1./30.*q**5 - 1.6 + 1./15./q)
- deallocate(q)
-
- ! For 2 <= r/hphi
- phi_core(idx2hphi:size(r)) = - gg * mc / r(idx2hphi:size(r))
-
- ! (ii) Gravitational potential due to softened gas
- phi_gas(size(r)) = - gg * mgas(size(r)) / r(size(r)) ! Surface boundary condition for phi
- do i = 1,size(r)-1
-    phi_gas(size(r)-i) = phi_gas(size(r)-i+1) - gg * mgas(size(r)-i) / r(size(r)-i)**2. &
-                                               * (r(size(r)-i+1) - r(size(r)-i))
- enddo
-
- ! (iii) Add the potentials
- phi = phi_gas + phi_core
-end subroutine calc_phi
-
-
-subroutine calc_pres(r, rho, phi, pres)
- ! Calculates pressure by integrating the equation of hydrostatic equilibrium
- ! given the gravitational potential and the density profile
- real, intent(in)  :: rho(:),phi(:),r(:)
- real, intent(out) :: pres(:)
- integer           :: i
-
- pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
- do i = 1,size(r)-1
-    ! Reverse Euler
-    pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
- enddo
-end subroutine calc_pres
-
-
-subroutine calc_temp_and_ene(ieos,hidx,mu,gamma,rho,pres,ene,temp,ierr,Xfrac,Yfrac)
- real, intent(in)           :: rho(:),pres(:)
- real, intent(in), optional :: Xfrac(:),Yfrac(:)
- real, intent(in)           :: mu,gamma
- real, intent(inout)        :: ene(:),temp(:)
- integer, intent(in)        :: ieos,hidx
- integer, intent(out)       :: ierr
- real                       :: e_rec,tempi,muprofile(size(rho))
- integer                    :: i
-
- ! Calculate temperature and internal energy profile depending on EoS
- ierr = 0
- if (ieos == 2) then ! Adiabatic/polytropic EoS
-    temp = pres / (rho * kb_on_mh) * mu
-    ene = pres / ( (gamma-1.) * rho)
-
- elseif (ieos == 10) then ! MESA EoS (note: only an approximation)
-    if (.not. ( present(Xfrac) .and. present(Yfrac) )) then
-       ierr = 1
-       return
-    endif
-    ! Calculate mu from X, Y instead of using the guessed mu
-    muprofile = 4. / (6.*Xfrac + Yfrac + 2.)
-
-    ! Approximate T(r<h) as that of ideal gas plus radiation
-    do i = 1,hidx
-       tempi = temp(i)
-       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),muprofile(i),tempi)
-       temp(i) = tempi
-    enddo
-
-    ! Calculate internal energy
-    do i = 1,hidx
-       ! Contribution from pressure and gas
-       call get_idealplusrad_enfromtemp(rho(i),temp(i),muprofile(i),ene(i))
-       ! Add ionisation energy
-       call calc_rec_ene(Xfrac(i),Yfrac(i),e_rec)
-       ene(i) = ene(i) + e_rec
-    enddo
-
- elseif (ieos == 12) then ! Ideal gas plus radiation pressure EoS
-    temp(size(rho)) = 0. ! Zero surface temperature
-    do i = 1,size(rho)-1
-       tempi = temp(i)
-       call get_idealgasplusrad_tempfrompres(pres(i),rho(i),mu,tempi)
-       temp(i) = tempi
-    enddo
-
-    do i = 1,size(rho)
-       call get_idealplusrad_enfromtemp(rho(i),temp(i),mu,ene(i))
-    enddo
-
- else
-    ierr = 2 ! Return error: Selected EoS not supported in setsoftenedcore
- endif
-
-end subroutine calc_temp_and_ene
-
-!----------------------------------------------------------------
-!+
-!  Get recombination energy (per unit mass) complete ionisation
-!+
-!----------------------------------------------------------------
-subroutine calc_rec_ene(XX,YY,e_rec)
- real, intent(in)  :: XX, YY
- real, intent(out) :: e_rec
- real              :: e_H2,e_HI,e_HeI,e_HeII
- real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
-                      e_ion_HI   = 4.36d12, &
-                      e_ion_HeI  = 2.3723d13, &
-                      e_ion_HeII = 5.2505d13
-
- ! XX     : Hydrogen mass fraction
- ! YY     : Helium mass fraction
- ! e_rec  : Total ionisation energy due to H2, HI, HeI, and HeII
- 
- e_H2   = 0.5 * XX * e_ion_H2
- e_HI   = XX * e_ion_HI
- e_HeI  = 0.25 * YY * e_ion_HeI
- e_HeII = 0.25 * YY * e_ion_HeII
- e_rec  = e_H2 + e_HI + e_HeI + e_HeII
-
-end subroutine calc_rec_ene
-
-!----------------------------------------------------------------
-!+
-!  Finds index of the array value closest to a given value for an
-!  ordered array
-!+
-!----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
- real, intent(in)     :: array(:)
- real, intent(in)     :: value
- integer, intent(out) :: valueidx
-
- valueidx = minloc(abs(array - value), dim = 1)
-end subroutine interpolator
-
-!----------------------------------------------------------------
-!+
-!  Reverses the elements of a 1-d array
-!+
-!----------------------------------------------------------------
-subroutine flip_array(array)
- real, intent(inout) :: array(:)
- real, allocatable   :: flipped_array(:)
- integer             :: i
- allocate(flipped_array(size(array)))
- do i = 1, size(array)
-    flipped_array(i) = array(size(array) - i + 1)
- enddo
- array = flipped_array
-end subroutine flip_array
-
-!----------------------------------------------------------------
-!+
-!  Takes a n-dim array and produces a (n-1)-dim array with the
-!  ith element being the (i+1)th element minus the ith element of
-!  the original array
-!+
-!----------------------------------------------------------------
-subroutine diff(array, darray)
- real, intent(in)               :: array(:)
- real, allocatable, intent(out) :: darray(:)
- integer                        :: i
-
- allocate(darray(size(array)-1))
- do i = 1, size(array)-1
-    darray(i) = array(i+1) - array(i)
- enddo
-end subroutine diff
+end subroutine get_composition
 
 end module setsoftenedcore

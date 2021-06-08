@@ -1,35 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: interpolations3D_amr
+module interpolations3D_amr
 !
-!  DESCRIPTION:
-!  Module containing routine for interpolation from PHANTOM data
+! Module containing routine for interpolation from PHANTOM data
 !  to 3D adaptive mesh
 !
 !  Requires adaptivemesh.f90 module
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: adaptivemesh
 !
-!  DEPENDENCIES: adaptivemesh
-!+
-!--------------------------------------------------------------------------
 
-module interpolations3D_amr
  implicit none
  real, parameter, private :: dpi = 1./3.1415926536d0
  public :: interpolate3D_amr
- !$ integer(kind=8), dimension(:), private, allocatable :: ilock
+!$ integer(kind=8), dimension(:), private, allocatable :: ilock
 
 contains
 !--------------------------------------------------------------------------
@@ -114,10 +108,10 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
     datnorm = 0.
  endif
 
-!$  allocate(ilock(0:nnodes))
-!$  do i=0,nnodes
-!$     call omp_init_lock(ilock(i))
-!$  enddo
+!$ allocate(ilock(0:nnodes))
+!$ do i=0,nnodes
+!$  call omp_init_lock(ilock(i))
+!$ enddo
 
  !
  !--print a progress report if it is going to take a long time
@@ -159,7 +153,7 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi,icell,isubmesh)  &
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax)
  !$omp master
- !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
+!$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
  !$omp end master
  !$omp do schedule(guided,10)
  over_parts: do i=1,npart
@@ -311,10 +305,10 @@ subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
  !$omp enddo
  !$omp end parallel
 
-!$   do i=0,nnodes
-!$      call omp_destroy_lock(ilock(i))
-!$   enddo
-!$   if (allocated(ilock)) deallocate(ilock)
+!$ do i=0,nnodes
+!$  call omp_destroy_lock(ilock(i))
+!$ enddo
+!$ if (allocated(ilock)) deallocate(ilock)
 
  !
  !--normalise dat array
@@ -442,13 +436,13 @@ recursive subroutine interpolate_submesh(xi,yi,zi,radkern,hi21,termnorm,ilendat,
                 !
                 !--calculate data value at this pixel using the summation interpolant
                 !
-                !$ call omp_set_lock(ilock(imesh))
+!$              call omp_set_lock(ilock(imesh))
                 datsmooth(:,icell,imesh) = datsmooth(:,icell,imesh) + termdat(:)*wab
 
                 if (normalise) then
                    datnorm(icell,imesh) = datnorm(icell,imesh) + termnorm*wab
                 endif
-                !$ call omp_unset_lock(ilock(imesh))
+!$              call omp_unset_lock(ilock(imesh))
              endif
           endif
        enddo over_x

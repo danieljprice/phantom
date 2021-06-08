@@ -1,31 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: combinedustdumps
+program combinedustdumps
 !
-!  DESCRIPTION: This program is a utility for stacking multiple 2-fluid dust
+! This program is a utility for stacking multiple 2-fluid dust
 !  dumps onto a single set of gas particles. The gas positions will be taken
 !  from the dumpfile named in the first argument on the command line, and the
 !  output dumpfile name is the last argument. We assume that all dumps have the
 !  same number of dust particles.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Usage: combinedustdumps inputdumpfiles ... outputdumpfile
 !
-!  USAGE: combinedustdumps inputdumpfiles ... outputdumpfile
+! :Dependencies: checksetup, deriv, dim, initial, io, memory, part,
+!   readwrite_dumps, units
 !
-!  DEPENDENCIES: checksetup, deriv, dim, initial, io, memory, part,
-!    readwrite_dumps, units
-!+
-!--------------------------------------------------------------------------
-program combinedustdumps
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,tagline
  use initial,         only:initialise

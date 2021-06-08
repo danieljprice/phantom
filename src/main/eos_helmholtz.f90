@@ -1,31 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos_helmholtz
+module eos_helmholtz
 !
-!  DESCRIPTION:
-!   The equation state based on the Helmholtz free energy.
+! The equation state based on the Helmholtz free energy.
 !   "Perfect thermodynamic consistency."
 !   Primarily used to model degenerate matter in white dwarfs.
 !
-!  REFERENCES:
+! :References:
 !   Timmes & Swesty (2000), ApJS, 126, 501-516.
 !
-!  OWNER: Terrence Tricco
+! :Owner: Terrence Tricco
 !
-!  $Id$
+! :Runtime parameters:
+!   - relaxflag : *0=evolve, 1=relaxation on (keep T const)*
 !
-!  RUNTIME PARAMETERS:
-!    relaxflag -- 0=evolve, 1=relaxation on (keep T const)
+! :Dependencies: datafiles, infile_utils, io, physcon, units
 !
-!  DEPENDENCIES: datafiles, infile_utils, io, physcon, units
-!+
-!--------------------------------------------------------------------------
-module eos_helmholtz
  implicit none
 
 ! subroutines to read/initialise tables, and get pressure/sound speed

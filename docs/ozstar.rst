@@ -25,14 +25,12 @@ show available software
 
    $ module avail
 
-load intel compilers, git, git-lfs and splash
+load intel compilers, git and splash
 
 ::
 
-   $ module load ifort/2016.2.181-gcc-6.4.0
-   $ module load git/2.16.0
-   $ module load git-lfs/2.4.0
-   $ module load splash/2.7.0
+   $ module load ifort/2018.1.163-gcc-6.4.0
+   $ module load git/2.18.0
 
 Get phantom
 ~~~~~~~~~~~
@@ -41,7 +39,7 @@ Clone a copy of phantom into your home directory
 
 ::
 
-   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+   $ git clone https://github.com/danieljprice/phantom.git
 
 Set your username and email address
 -----------------------------------
@@ -57,15 +55,6 @@ Ensure that your name and email address are set, as follows:
 Please use your full name in the format above, as this is what appears
 in the commit logs (and in the AUTHORS file).
 
-Initialise git-lfs
-------------------
-
-Ensure you have done “module load git-lfs” as above, then type:
-
-::
-
-   git lfs install
-
 edit your .bashrc file
 ----------------------
 
@@ -75,10 +64,8 @@ contains the modules I want loaded every time I log in. For example:
 ::
 
    $ cat .modules
-   module load ifort/2016.2.181-gcc-6.4.0
-   module load git/2.16.0
-   module load git-lfs/2.4.0
-   module load splash/2.7.0
+   module load ifort
+   module load git
 
 Then, add the following lines to your ~/.bashrc
 
@@ -187,7 +174,7 @@ version that gets regularly updated in the shared project folder
 
 ::
 
-   /fred/oz015/splash/bin/ssplash
+   /fred/oz015/splash/bin/splash
 
 You can add this directory in your path by putting the following lines
 in your ~/.bashrc file:
@@ -195,6 +182,7 @@ in your ~/.bashrc file:
 ::
 
    export PATH=/fred/oz015/splash/bin:${PATH}
+   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/fred/oz015/splash/giza/lib
 
 more info
 ~~~~~~~~~
@@ -205,4 +193,13 @@ userguide <https://supercomputing.swin.edu.au>`__
 getting your job to run quickly
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-check the online job monitor!
+first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/>`__, click on "Future" and check for available nodes with the largest number of cpus available (typically either 16 or 32). The "skylake" queue is the default. If you notice spare nodes on other queues, e.g. sstar or gstar you can request this queue via your job submission script, e.g.::
+
+     #SBATCH --nodes=1 --ntasks=16
+     ...
+     #SBATCH --partition=sstar
+     ...
+     export OMP_NUM_THREADS=16
+
+where as above you also need to adjust the number of cpus you are requesting to fit the node size.
+

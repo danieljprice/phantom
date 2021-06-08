@@ -1,30 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos_mesa
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: mesa_microphysics
-!+
-!--------------------------------------------------------------------------
 module eos_mesa
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: mesa_microphysics
+!
 
  use mesa_microphysics
 
  implicit none
+ logical,private :: mesa_initialised = .false.
 
 contains
 
@@ -42,6 +38,9 @@ subroutine init_eos_mesa(x,z,ierr)
     ierr=-1
     return
  endif
+ !to not initialise mesa multiple times. Otherwise could call finish_eos_mesa instead of return
+ if (mesa_initialised) return
+ mesa_initialised = .true.
 
  call get_environment_variable('MESA_DATA_DIR',mesa_eos_dir)
  mesa_eos_prefix="output_DE_"
@@ -78,19 +77,20 @@ end subroutine finish_eos_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/gamma1 as a function of
-!  density/internal energy
+!  subroutine returns pressure, temp, gamma1 as a function of
+!  density and internal energy
 !+
 !----------------------------------------------------------------
-subroutine get_eos_pressure_gamma1_mesa(den,eint,pres,gam1,ierr)
- real, intent(in) :: den, eint
- real, intent(out) :: pres, gam1
+subroutine get_eos_pressure_temp_gamma1_mesa(den,eint,pres,temp,gam1,ierr)
+ real, intent(in) :: den,eint
+ real, intent(out) :: pres,temp,gam1
  integer, intent(out) :: ierr
 
- call getvalue_mesa(den,eint,3,pres,ierr)
+ call getvalue_mesa(den,eint,2,pres,ierr)
+ call getvalue_mesa(den,eint,4,temp)
  call getvalue_mesa(den,eint,11,gam1)
 
-end subroutine get_eos_pressure_gamma1_mesa
+end subroutine get_eos_pressure_temp_gamma1_mesa
 
 !----------------------------------------------------------------
 !+
@@ -108,7 +108,7 @@ end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
-!  subroutine returns pressure/temperature as
+!  subroutine returns pressure and temperature as
 !  a function of density/internal energy
 !+
 !----------------------------------------------------------------
@@ -120,6 +120,74 @@ subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
  call getvalue_mesa(den,eint,4,temp)
 
 end subroutine get_eos_pressure_temp_mesa
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy and temperature from
+!  density and internal energy using bisection method
+!+
+!----------------------------------------------------------------
+subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
+ real, intent(in)           :: rho,pres
+ real, intent(out)          :: eint,temp
+ real, intent(in), optional :: guesseint
+ real                       :: err,eintguess,eint1,eint2,&
+                               eint3,pres1,pres2,pres3,left,right,mid
+ real, parameter            :: tolerance = 1d-15
+ integer                    :: ierr
+
+ if (present(guesseint)) then
+    eintguess = guesseint
+    eint1 = 1.005 * eintguess  ! Tight lower bound
+    eint2 = 0.995 * eintguess  ! Tight upper bound
+ else
+    eintguess = 1.5*pres/rho
+    eint1 = 10. * eintguess  ! Guess lower bound
+    eint2 = 0.1 * eintguess  ! Guess upper bound
+ endif
+
+ call getvalue_mesa(rho,eint1,2,pres1,ierr)
+ call getvalue_mesa(rho,eint2,2,pres2,ierr)
+ left  = pres - pres1
+ right = pres - pres2
+
+ ! If lower and upper bounds do not contain roots, extend them until they do
+ do while (left*right > 0.)
+    eint1 = 0.99 * eint1
+    eint2 = 1.01 * eint2
+    call getvalue_mesa(rho,eint1,2,pres1,ierr)
+    call getvalue_mesa(rho,eint2,2,pres2,ierr)
+    left  = pres - pres1
+    right = pres - pres2
+ enddo
+
+ ! Start bisecting
+ err = huge(1.)
+ do while (abs(err) > tolerance)
+    call getvalue_mesa(rho,eint1,2,pres1,ierr)
+    call getvalue_mesa(rho,eint2,2,pres2,ierr)
+    left  = pres - pres1
+    right = pres - pres2
+    eint3 = 0.5*(eint2+eint1)
+    call getvalue_mesa(rho,eint3,2,pres3,ierr)
+    mid = pres - pres3
+
+    if (left*mid < 0.) then
+       eint2 = eint3
+    elseif (right*mid < 0.) then
+       eint1 = eint3
+    elseif (mid == 0.) then
+       eint = eint3
+       exit
+    endif
+
+    eint = eint3
+    err = (eint2 - eint1)/eint1
+ enddo
+
+ call getvalue_mesa(rho,eint,4,temp,ierr)
+
+end subroutine get_eos_eT_from_rhop_mesa
 
 !----------------------------------------------------------------
 !+

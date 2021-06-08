@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testlum
-!
-!  DESCRIPTION:
-!   Tests lightcurve and timestepping
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: deriv, dim, energies, eos, io, options, part, setdisc,
-!    testutils, timing, viscosity
-!+
-!--------------------------------------------------------------------------
 module testlum
+!
+! Tests lightcurve and timestepping
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: deriv, dim, energies, eos, io, options, part, setdisc,
+!   testutils, timing, viscosity
+!
  implicit none
  public :: test_lum
 

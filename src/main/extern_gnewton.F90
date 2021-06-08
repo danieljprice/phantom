@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_gnewton
+module extern_gnewton
 !
-!  DESCRIPTION:
 ! This module contains routines relating to the computation
 ! of the force in a generalized Newtonian potential (Tejeda
 ! & Rosswog 2013) which reproduced accurately several features
 ! of the Schwarzschild space-time.
 !
-!  REFERENCES: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
+! :References: Tejeda E., Rosswog S., 2013, MNRAS, 433, 1930
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: fastmath, io, physcon, units
 !
-!  DEPENDENCIES: fastmath, io, physcon, units
-!+
-!--------------------------------------------------------------------------
-module extern_gnewton
  implicit none
  public  :: get_gnewton_spatial_force, get_gnewton_vdependent_force
  public  :: update_gnewton_leapfrog

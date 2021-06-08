@@ -1,17 +1,15 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_spiral
+module extern_spiral
 !
-!  DESCRIPTION:
-!    This module contains everything related to
+! This module contains everything related to
 !    Clare and Alex's galactic potentials:
 !
-!  REFERENCES:
+! :References:
 !    Cox and Gomez (2002), ApJS 142, 261-267
 !    Pichardo et al. (2003), ApJ 582, 230-245
 !    Freeman (1970), ApJ 160, 811-830
@@ -24,28 +22,24 @@
 !    Voigt and Letelier (2011), MNRAS 411, 2371-2382
 !    and other basic forms (see Binney and Tremaine 1987)
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - NN     : *No of arms in stellar spiral potential*
+!   - a_bar  : *Major axis of galactic bar (in x, kpc)*
+!   - b_bar  : *Minor axis of galactic bar (in y, kpc)*
+!   - c_bar  : *Minor axis of galactic bar (in z, kpc)*
+!   - iarms  : *type of arm potential (1:C&G 2:4 P&M spheroids+linear)*
+!   - ibulg  : *type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)*
+!   - idisk  : *type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)*
+!   - ihalo  : *type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)*
+!   - iread  : *Read in potential from file (1=y,0=n)*
+!   - phib   : *Bar(s) potential pattern speed (km/s/kpc)*
+!   - phir   : *Spiral potential pattern speed (km/s/kpc)*
+!   - pitchA : *Pitch angle of spiral arms (deg)*
 !
-!  RUNTIME PARAMETERS:
-!    NN     -- No of arms in stellar spiral potential
-!    a_bar  -- Major axis of galactic bar (in x, kpc)
-!    b_bar  -- Minor axis of galactic bar (in y, kpc)
-!    c_bar  -- Minor axis of galactic bar (in z, kpc)
-!    iarms  -- type of arm potential (1:C&G 2:4 P&M spheroids+linear)
-!    ibulg  -- type of bulge potential (1:Plummer 2:Hernquist 3:Hubble)
-!    idisk  -- type of disk potential (1:log 2:flattened 3:Freeman w. bar/arm)
-!    ihalo  -- type of halo potential (1:C&O 2:Flat 3:A&M 4:K&B 5:NFW)
-!    iread  -- Read in potential from file (1=y,0=n)
-!    phib   -- Bar(s) potential pattern speed (km/s/kpc)
-!    phir   -- Spiral potential pattern speed (km/s/kpc)
-!    pitchA -- Pitch angle of spiral arms (deg)
+! :Dependencies: infile_utils, io, mathfunc, physcon, units
 !
-!  DEPENDENCIES: infile_utils, io, mathfunc, physcon, units
-!+
-!--------------------------------------------------------------------------
-module extern_spiral
  implicit none
  public :: s_potential,schmidt_potential,pichardo_potential,initialise_spiral,&
            LogDisc,MNDisc,KFDiscSp,PlumBul,HernBul,HubbBul,COhalo,Flathalo,AMhalo,&
@@ -1083,7 +1077,7 @@ function betafn(om2,z2)
  betafn(2)=asin(betafn(1))  !beta
 
  return
-end function
+end function betafn
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !~~~~BARS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1457,7 +1451,7 @@ function softpot(pspeed,softfac,ti)
  endif
 
  return
-end function
+end function softpot
 
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

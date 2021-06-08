@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io_structurefn
-!
-!  DESCRIPTION:
-!  module for read/write of structure functions to/from file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fileutils
-!+
-!--------------------------------------------------------------------------
 module io_structurefn
+!
+! module for read/write of structure functions to/from file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fileutils
+!
  implicit none
  integer, parameter, public :: nformats = 4
  character(len=41), dimension(nformats) :: labelformat = &
@@ -251,7 +245,7 @@ subroutine openw_sf (file,origin,n_lag,lag,n_order,n_rho_power)
  open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
  write (power_unit,structurefn)                                                ! dimensions info
  write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
-end subroutine
+end subroutine openw_sf
 
 subroutine write_sf (n_lag, n_order, f, orders, rho_power)
  integer,      intent(in) :: n_lag, n_order
@@ -268,7 +262,7 @@ subroutine write_sf (n_lag, n_order, f, orders, rho_power)
        write (power_unit,'(8g15.7)') f(i_sf,i_order,:)  !f(:,i_order,i_sf)         ! f(lag;order;direction)
     enddo
  enddo
-end subroutine
+end subroutine write_sf
 !----------------------------------------------------------------
 !+
 !  routines to read structure functions in Aake format

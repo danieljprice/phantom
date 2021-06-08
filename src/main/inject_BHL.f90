@@ -1,37 +1,31 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!  Handles wind injection for 3D Bondi Hoyle Lyttleton simulations
+! Handles wind injection for 3D Bondi Hoyle Lyttleton simulations
 !
-!  REFERENCES: Ruffert & Arnett (1994): Three-dimensional hydrodynamic Bondi-Hoyle accretion.
+! :References: Ruffert & Arnett (1994): Three-dimensional hydrodynamic Bondi-Hoyle accretion.
 !              2: Homogeneous medium at Mach 3 with gamma = 5/3
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - BHL_closepacked      : *0: cubic distribution, 1: closepacked distribution*
+!   - BHL_handled_layers   : *(integer) number of handled BHL wind layers*
+!   - BHL_mach             : *BHL wind mach number*
+!   - BHL_psep             : *particle separation (in star radii)*
+!   - BHL_r_star           : *BHL star radius (in accretion radii)*
+!   - BHL_radius           : *radius of the wind cylinder (in star radii)*
+!   - BHL_wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - BHL_wind_length      : *crude wind length (in star radii)*
 !
-!  RUNTIME PARAMETERS:
-!    BHL_closepacked      -- 0: cubic distribution, 1: closepacked distribution
-!    BHL_handled_layers   -- (integer) number of handled BHL wind layers
-!    BHL_mach             -- BHL wind mach number
-!    BHL_psep             -- particle separation (in star radii)
-!    BHL_r_star           -- BHL star radius (in accretion radii)
-!    BHL_radius           -- radius of the wind cylinder (in star radii)
-!    BHL_wind_injection_x -- x position of the wind injection boundary (in star radii)
-!    BHL_wind_length      -- crude wind length (in star radii)
+! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
+!   units
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    units
-!+
-!--------------------------------------------------------------------------
-module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'BHL'
 
@@ -259,7 +253,7 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
     call add_or_update_particle(itype,position_u,velocity_u,h(i)/udist,u(i)/(udist**2/utime**2),&
      ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
  enddo
-end subroutine
+end subroutine inject_or_update_particles
 
 !-----------------------------------------------------------------------
 !+
@@ -279,7 +273,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(BHL_psep,'BHL_psep','particle separation (in star radii)',iunit)
  call write_inopt(BHL_wind_length,'BHL_wind_length','crude wind length (in star radii)',iunit)
 
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -333,6 +327,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
 
  igotall = (ngot >= 8)
-end subroutine
+end subroutine read_options_inject
 
 end module inject

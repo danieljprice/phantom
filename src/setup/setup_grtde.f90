@@ -1,37 +1,32 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup GR TDE
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    beta          -- penetration factor
-!    dumpsperorbit -- number of dumps per orbit
-!    ecc           -- eccentricity (1 for parabolic)
-!    mhole         -- mass of black hole (solar mass)
-!    mstar         -- mass of star       (solar mass)
-!    norbits       -- number of orbits
-!    nr            -- particles per star radius (i.e. resolution)
-!    rstar         -- radius of star     (solar radii)
-!    theta         -- inclination of orbit (degrees)
-!
-!  DEPENDENCIES: eos, externalforces, infile_utils, io, metric, part,
-!    physcon, rho_profile, setbinary, spherical, timestep, units,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup GR TDE
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - beta          : *penetration factor*
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - ecc           : *eccentricity (1 for parabolic)*
+!   - mhole         : *mass of black hole (solar mass)*
+!   - mstar         : *mass of star       (solar mass)*
+!   - norbits       : *number of orbits*
+!   - nr            : *particles per star radius (i.e. resolution)*
+!   - rstar         : *radius of star     (solar radii)*
+!   - theta         : *inclination of orbit (degrees)*
+!
+! :Dependencies: eos, externalforces, infile_utils, io, metric, part,
+!   physcon, rho_profile, setbinary, spherical, timestep, units,
+!   vectorutils
+!
  implicit none
  public :: setpart
 
@@ -73,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: ntab=5000
  integer :: ierr,i,npts
  logical :: iexist
- real    :: rtidal,rp,semia,psep,period,hacc1,hacc2,massr
+ real    :: rtidal,rp,semia,psep,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
  real    :: densi,r0,vel,lorentz
  real    :: vhat(3),x0,y0
@@ -154,10 +149,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     period   = 2.*pi*sqrt(semia**3/mass1)
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
-    massr    = mstar/mass1
     ! apocentre = rp*(1.+ecc)/(1.-ecc)
     ! trueanom = acos((rp*(1.+ecc)/r0 - 1.)/ecc)*180./pi
-    call set_binary(mass1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,&
+    call set_binary(mass1,mstar,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
     vxyzstar = vxyz_ptmass(1:3,2)
     xyzstar  = xyzmh_ptmass(1:3,2)

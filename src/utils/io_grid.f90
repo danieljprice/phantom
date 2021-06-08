@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io_grid
-!
-!  DESCRIPTION:
-!  module for read/write of gridded data to/from file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: fileutils, hdf5utils, io, readwrite_griddata
-!+
-!--------------------------------------------------------------------------
 module io_grid
+!
+! module for read/write of gridded data to/from file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fileutils, hdf5utils, io, readwrite_griddata
+!
  implicit none
  integer, parameter :: doub_prec = kind(0.d0)
  integer, parameter, public :: nformats = 4

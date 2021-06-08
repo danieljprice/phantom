@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testgeometry
-!
-!  DESCRIPTION:
-!   Unit tests of the geometry module
-!
-!  REFERENCES:
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: geometry, io, testutils
-!+
-!--------------------------------------------------------------------------
 module testgeometry
+!
+! Unit tests of the geometry module
+!
+! :References:
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: geometry, io, testutils
+!
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
@@ -37,7 +31,7 @@ contains
 !--------------------------------------------
 subroutine test_geometry(ntests,npass)
  use geometry, only:maxcoordsys,coord_transform,labelcoordsys,vector_transform,&
-                    get_coord_limits,small_number
+                    get_coord_limits,small_number,igeom_planetwake
  integer, intent(inout) :: ntests,npass
  real    :: xin(3),xout(3),xtmp(3),tol
  real    :: vecin(3),vecout(3),vectmp(3),xmin(3),xmax(3),rad
@@ -49,7 +43,6 @@ subroutine test_geometry(ntests,npass)
 !  returns original result
 !
  ndim = 3
- tol = small_number !3.*epsilon(0.)
  xin   = (/5.,6.,7./)
  vecin = (/2.,3.,4./)
 
@@ -71,6 +64,8 @@ subroutine test_geometry(ntests,npass)
        call coord_transform(xout,ndim,igeom,xtmp,ndim,1,ierr)
        call vector_transform(xout,vecout,ndim,igeom,vectmp,ndim,1,ierr)
 
+       tol = small_number
+       if (igeom==igeom_planetwake) tol = 1e-13
        call checkval(3,xtmp,xin,tol,ndiff(1),trim(labelcoordsys(igeom)))
        call checkval(3,vectmp,vecin,tol,ndiff(2),trim(labelcoordsys(igeom)))
     enddo

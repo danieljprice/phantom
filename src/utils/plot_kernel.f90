@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: plot_kernel
+program plot_kernel
 !
-!  DESCRIPTION: Plots the kernel functions
+! Plots the kernel functions
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: plot_kernel [no arguments]
 !
-!  USAGE: plot_kernel [no arguments]
+! :Dependencies: giza, kernel, plotk
 !
-!  DEPENDENCIES: giza, kernel, plotk
-!+
-!--------------------------------------------------------------------------
-module plotk
  implicit none
 
 contains

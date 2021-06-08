@@ -1,14 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mol_data
+module mol_data
 !
-!  DESCRIPTION:
-!  Written by S. Glover, AMNH, 2004-2005, AIP, 2006, ITA, 2017
+! Written by S. Glover, AMNH, 2004-2005, AIP, 2006, ITA, 2017
 !  Adapted for use in Phantom by D. Price, MoCA, 2011
 !
 !  Data for molecular cooling rates (H2, CO)
@@ -28,18 +26,14 @@
 !  (1995, ApJS, 100, 132). Extended from 10 K to 5 K by
 !  Glover & Clark (2012, MNRAS, 421, 116)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Simon Glover
+! :Owner: Simon Glover
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module mol_data
  implicit none
  integer, parameter :: nh2data = 41
  real :: h2_lte(nh2data), h2_h_rate(nh2data), h2_h2_rate(nh2data), h2_temp(nh2data)

@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setshock
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: unifdis
-!+
-!--------------------------------------------------------------------------
 module setshock
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: unifdis
+!
  implicit none
 
  public :: set_shock, adjust_shock_boundaries, fsmooth
@@ -38,8 +33,8 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin,ymax,zmin,zmax,&
-                     xshock,dxleft,hfact,smooth_fac,npart,xyzh,massoftype,iverbose,ierr)
- use unifdis, only:set_unifdis,get_ny_nz_closepacked,is_closepacked
+                     xshock,dxleft,hfact,smooth_fac,npart,xyzh,massoftype,iverbose,ierr,mask)
+ use unifdis, only:set_unifdis,get_ny_nz_closepacked,is_closepacked,mask_prototype,mask_true
  character(len=*), intent(in) :: latticetype
  integer, intent(in) :: id,master,itype,iverbose
  real,    intent(in) :: rholeft,rhoright,xshock,xmin,xmax,ymin,ymax,zmin,zmax
@@ -47,9 +42,12 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
  integer, intent(inout) :: npart
  real,    intent(out)   :: xyzh(:,:),massoftype(:)
  integer, intent(out)   :: ierr
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: my_mask
  integer :: npartold,ny,nz
  real :: totmass,volume,dxright
  real :: xminleft(3),xmaxleft(3),xminright(3),xmaxright(3)
+ logical, parameter :: periodic=.true.
  !
  ! sanity check some of the input to avoid seg faults
  !
@@ -57,6 +55,11 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
  if (itype <= 0 .or. itype > size(massoftype)) then
     ierr = 1
     return
+ endif
+ if (present(mask)) then
+    my_mask => mask
+ else
+    my_mask => mask_true
  endif
  !
  ! set limits of the different domains
@@ -76,7 +79,8 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
 
     ! set up a uniform lattice for left half
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
-                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,rhofunc=rhosmooth)
+                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,&
+                     periodic,rhofunc=rhosmooth,mask=my_mask)
 
     ! set particle mass
     volume            = product(xmaxleft-xminleft)
@@ -97,12 +101,12 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
 
     call set_unifdis(latticetype,id,master,xminright(1),xmaxright(1), &
          xminright(2),xmaxright(2),xminright(3),xmaxright(3),dxright,hfact,&
-         npart,xyzh,npy=ny,npz=nz,rhofunc=rhosmooth) ! set right half
+         npart,xyzh,periodic,npy=ny,npz=nz,rhofunc=rhosmooth,mask=my_mask) ! set right half
 
  else  ! set all of volume if densities are equal
     write(*,'(3(a,es16.8))') 'shock: uniform density  ',xminleft(1), ' to ',xmaxright(1), ' with dx  = ',dxleft
     call set_unifdis(latticetype,id,master,xminleft(1),xmaxleft(1),xminleft(2), &
-                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh)
+                     xmaxleft(2),xminleft(3),xmaxleft(3),dxleft,hfact,npart,xyzh,periodic,mask=my_mask)
     volume           = product(xmaxleft-xminleft)
     dxright          = dxleft
     totmass          = rholeft*volume
@@ -137,7 +141,7 @@ real function fsmooth(x,x0,psep,fac,fl,fr)
  if (fac > 0.)  then
     delta = (x - x0)/(fac*psep)
  else
-    delta = 2.*sign(x-x0,1.0)*dsmooth
+    delta = 2.*sign(1.0,x-x0)*dsmooth
  endif
 
  if (delta > dsmooth) then

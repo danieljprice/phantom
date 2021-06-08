@@ -1,28 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomsetup
-!
-!  DESCRIPTION: Wrapper to routines for setting up Phantom simulations
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: phantomsetup fileprefix [nprocsfake]
-!
-!  DEPENDENCIES: boundary, checksetup, dim, domain, eos, fileutils, io,
-!    memory, mpiutils, options, part, physcon, readwrite_dumps,
-!    readwrite_infile, setBfield, setup, setup_params, units
-!+
-!--------------------------------------------------------------------------
 program phantomsetup
+!
+! Wrapper to routines for setting up Phantom simulations
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: phantomsetup fileprefix [nprocsfake]
+!
+! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils, io,
+!   krome_interface, memory, mpiutils, options, part, physcon,
+!   readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
+!   units
+!
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,&
                            ndivcurlv,ndivcurlB,maxp_hard
@@ -32,7 +28,7 @@ program phantomsetup
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma,en_from_utherm
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
- use readwrite_dumps, only:write_fulldump
+ use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup,           only:setpart
@@ -46,6 +42,9 @@ program phantomsetup
  use fileutils,       only:strip_extension
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
+#endif
+#ifdef KROME
+ use krome_interface, only:write_KromeSetupFile
 #endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
@@ -174,6 +173,7 @@ program phantomsetup
 !
 !--write initial conditions to the dump file
 !
+    call init_readwrite_dumps()
     call write_fulldump(time,dumpfile,ntotal)
 !
 !--write an input file if it doesn't already exist
@@ -183,6 +183,11 @@ program phantomsetup
        print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
     endif
  enddo
+
+#ifdef KROME
+ inquire(file='krome.setup',exist=iexist)
+ if (.not. iexist) call write_KromeSetupFile
+#endif
 
  call finalise_mpi
  call deallocate_memory(part_only=.true.)
