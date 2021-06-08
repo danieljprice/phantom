@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: checkoptions
-!
-!  DESCRIPTION:
-!  this module performs checks of the compile time options
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, metric_tools, part
-!+
-!--------------------------------------------------------------------------
 module checkoptions
+!
+! this module performs checks of the compile time options
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, metric_tools, part
+!
  implicit none
  public :: check_compile_time_settings
 
@@ -61,10 +55,6 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
-#ifdef USE_CMAC_IONISE
- if (id==master) call error(string,'can not use both -DNONIDEALMHD and -DUSE_CMAC_IONISE')
- ierr = 1
-#endif
 #endif
 !
 !--check additional dimension settings are OK

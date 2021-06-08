@@ -1,33 +1,27 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: test
+module test
 !
-!  DESCRIPTION:
-!   Instead of running a simulation this routine, when called,
+! Instead of running a simulation this routine, when called,
 !   initiates a series of internal tests on the code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
+!   testcorotate, testderivs, testdust, testeos, testexternf, testgeometry,
+!   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
+!   testkernel, testlink, testmath, testnimhd, testpart, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsmol, teststep,
+!   timing
 !
-!  DEPENDENCIES: dim, io, io_summary, mpiutils, options, testcooling,
-!    testcorotate, testderivs, testdust, testeos, testexternf,
-!    testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!    testindtstep, testkdtree, testkernel, testlink, testmath, testnimhd,
-!    testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!    testsmol, teststep, timing
-!+
-!--------------------------------------------------------------------------
-module test
  implicit none
  public :: testsuite
 
@@ -47,6 +41,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdust,     only:test_dust
  use testgrowth,   only:test_growth
  use testsmol,     only:test_smol
+ use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
 #ifdef FINVSQRT
  use testmath,     only:test_math
@@ -66,7 +61,6 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
  use testgeometry, only:test_geometry
- use options,      only:set_default_options
  use timing,       only:get_timings,print_time
  use mpiutils,      only:barrier_mpi
  use testradiation, only:test_radiation
@@ -77,7 +71,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation
+ logical :: dogr,doradiation,dopart
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -103,6 +97,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  testall    = .false.
  dokernel   = .false.
  dolink     = .false.
+ dopart     = .false.
  dokdtree   = .false.
  doderivs   = .false.
  dostep     = .false.
@@ -127,6 +122,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
+ if (index(string,'part')      /= 0) dopart    = .true.
  if (index(string,'polytrope') /= 0) dogravity = .true.
  if (index(string,'directsum') /= 0) dogravity = .true.
  if (index(string,'dust')      /= 0) dodust    = .true.
@@ -141,7 +137,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'rad')       /= 0) doradiation = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
-               doptmass,docooling,dogeom,dogr,dosmol,doradiation/))
+               doptmass,docooling,dogeom,dogr,dosmol,doradiation,dopart/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -183,6 +179,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  case default
     if (.not.doany) testall = .true.
  end select
+ call set_default_options_testsuite(iverbose) ! set defaults
 
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
@@ -198,111 +195,118 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dolink.or.testall) then
     call test_link(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of part module
+!
+ if (dopart .or. testall) then
+    call test_part(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of derivs module
 !
  if (doderivs.or.testall) then
     call test_derivs(ntests,npass,string)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of equation of state module
 !
  if (doeos.or.testall) then
     call test_eos(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of equation of state module
 !
  if (docooling.or.testall) then
     call test_cooling(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of kdtree module
 !
  if (dokdtree.or.testall) then
     call test_kdtree(ntests,npass)
-    call set_default_options
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of self-gravity
 !
  if (dogravity.or.testall) then
     call test_gravity(ntests,npass,string)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of dust module
 !
  if (dodust.or.testall) then
     call test_dust(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of dust growth module
 !
  if (dogrowth.or.testall) then
     call test_growth(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of smoluchowsky growth solver
 !
  if (dosmol.or.testall) then
     call test_smol(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of non-ideal MHD
 !
  if (donimhd.or.testall) then
     call test_nonidealmhd(ntests,npass,string)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of readwrite_dumps module
 !
  if (dorwdump.or.testall) then
     call test_rwdump(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of step module
 !
  if (dostep.or.testall) then
     call test_step(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of ind tstep module
 !
  if (doindtstep.or.testall) then
     call test_indtstep(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of external forces module
 !
  if (doexternf.or.testall) then
     call test_externf(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of ptmass module
 !
  if (doptmass.or.testall) then
     call test_ptmass(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 
 #ifdef GR
  if (dogr.or.testall) then
     call test_gr(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 #else
 !
@@ -310,14 +314,14 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dognewton.or.testall) then
     call test_gnewton(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of corotate module
 !
  if (docorotate.or.testall) then
     call test_corotate(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 #endif
 !
@@ -325,19 +329,19 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--test of geometry module
 !
  if (dogeom.or.testall) then
     call test_geometry(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 
  if (doradiation.or.testall) then
     call test_radiation(ntests,npass)
-    call set_default_options ! restore defaults
+    call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
@@ -382,5 +386,17 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  endif
 
 end subroutine testsuite
+
+!--Short subroutine to reset default options & iverbose
+!  (note: iverbose is not set in set_default_options)
+subroutine set_default_options_testsuite(iverbose)
+ use options, only:set_default_options,iopacity_type
+ integer, intent(inout) :: iverbose
+
+ iverbose = max(iverbose,2)
+ call set_default_options ! restore defaults
+ iopacity_type = 0 ! do not use opacity tables in test suite
+
+end subroutine set_default_options_testsuite
 
 end module test

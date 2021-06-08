@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!   Analysis routine to call MCFOST code to perform post-processing
+! Analysis routine to call MCFOST code to perform post-processing
 !   radiation transport
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: deriv, dim, energies, eos, growth, io, mcfost2phantom,
+!   omp_lib, options, part, physcon, timestep, units
 !
-!  DEPENDENCIES: deriv, dim, eos, growth, initial_params, io,
-!    mcfost2phantom, omp_lib, options, part, physcon, timestep, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  use omp_lib
 
  implicit none
@@ -50,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use eos,            only:temperature_coef,gmw,gamma
  use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters
+                             use_mcfost_stellar_parameters, mcfost_computes_Lacc
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -62,7 +56,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, save   :: init_mcfost = .false., isinitial = .true.
  real            :: mu_gas,factor,T_to_u
  real(kind=4)    :: Tdust(npart),n_packets(npart)
- integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i
+ integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
  real(kind=8), dimension(6), save            :: SPH_limits
@@ -85,7 +79,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
     mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
-            Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters)
+         Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
+         turn_on_Lacc = mcfost_computes_Lacc)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
@@ -111,6 +106,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
  endif
 
+ if (gamma <= 1.) then
+    write(*,*) 'WARNING: gamma = 1 but should be > 1 for phantom+mcfost'
+    write(*,*) 'RESETTING GAMMA = 5/3'
+    gamma = 5./3.
+ endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
  T_to_u = factor * massoftype(igas) /dtmax
@@ -195,9 +195,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo
 
-    write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ', 100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
+    write(iprint,"(/,a,f6.2,'%')") ' -}+{- RADIATION particles done by SPH = ',&
+         100.*count(radprop(ithick,:)==1)/real(size(radprop(ithick,:)))
     isinitial = .false.
+    nerr = 0
  else ! No diffusion approximation
+    nerr = 0
     do i=1,npart
        if (Tdust(i) > 1.) then
           vxyzu(4,i) = Tdust(i) * factor
@@ -205,8 +208,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           ! if mcfost doesn't return a temperature set it to Tdefault
           vxyzu(4,i) = Tdefault * factor
        endif
+       if (vxyzu(4,i) <= 0. .or. vxyzu(4,i) > huge(0.)) then
+          nerr = nerr + 1
+          if (nerr < 10) write(*,*) 'ERROR: part ',i,' u = ',vxyzu(4,i),' Tdust was ',Tdust(i)
+       endif
     enddo
  endif
+ if (nerr > 0) write(*,*) 'ERROR: ** GOT ',nerr,' particles with invalid u (0 or Infinity), code will crash **'
 
  call reset_mcfost_phantom()
  if (allocated(dudt)) deallocate(dudt)
@@ -234,10 +242,10 @@ subroutine growth_to_fake_multi(npart)
 end subroutine growth_to_fake_multi
 
 subroutine back_to_growth(npart)
- use part,           only: ndusttypes,ndustlarge,idust,massoftype,&
-                              npartoftype,iamtype,iphase,idust,&
-                              set_particle_type
- use initial_params, only:mdust_in
+ use part,     only:ndusttypes,ndustlarge,idust,massoftype,&
+                    npartoftype,iamtype,iphase,idust,&
+                    set_particle_type
+ use energies, only:mdust
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
 
@@ -255,12 +263,12 @@ subroutine back_to_growth(npart)
  do j=2,ndusttypes
     if (npartoftype(idust+j-1) /= 0) write(*,*) 'ERROR! npartoftype ",idust+j-1 " /= 0'
     massoftype(idust+j-1)      = 0.
-    mdust_in(idust+j-1)        = 0.
+    mdust(idust+j-1)           = 0.
  enddo
 
  ndusttypes                    = 1
  ndustlarge                    = 1
- mdust_in(idust)               = npartoftype(idust)*massoftype(idust)
+ mdust(idust)                  = npartoftype(idust)*massoftype(idust)
 
  !- sanity checks for npartoftype
  if (npartoftype(idust) /= ndustold) then

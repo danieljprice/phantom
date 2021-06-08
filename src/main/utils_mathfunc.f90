@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mathfunc
-!
-!  DESCRIPTION:
-!  Contains utility routines for mathematical functions
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module mathfunc
+!
+! Contains utility routines for mathematical functions
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
 
  public :: bessi0_s, bessi1_s, bessk0_s, bessk1_s,IK01A
@@ -143,7 +137,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
       /   real (     i,     kind = 8 )
  enddo
  return
-end subroutine
+end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
 !Associated Legendre polynomials
@@ -318,7 +312,7 @@ subroutine legendre_associated( n, m, x, cx )
  enddo
 
  return
-end subroutine
+end subroutine legendre_associated
 
 !--------------------------------------------------------------------
 !Below are a set of slightly modified functions from
@@ -539,7 +533,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
  dk1=-bk0-bk1/x
 
  return
-end subroutine
+end subroutine ik01a
 
 !--------------------------------------------------------------------
 ! polynomial function

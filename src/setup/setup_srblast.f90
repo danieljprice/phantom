@@ -1,34 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup for the SR blast wave problem
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    Pblast    -- pressure in blast
-!    Pmed      -- pressure in medium
-!    Rblast    -- radius of blast
-!    boxsize   -- size of the box
-!    npartx    -- number of particles in x-direction
-!    smoothfac -- IC smoothing factor (in terms of particle spacing)
-!
-!  DEPENDENCIES: boundary, dim, infile_utils, io, kernel, mpiutils,
-!    options, part, physcon, prompting, setup_params, timestep, unifdis,
-!    units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the SR blast wave problem
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - Pblast    : *pressure in blast*
+!   - Pmed      : *pressure in medium*
+!   - Rblast    : *radius of blast*
+!   - boxsize   : *size of the box*
+!   - npartx    : *number of particles in x-direction*
+!   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
+!
+! :Dependencies: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
+!
  implicit none
  public :: setpart
 
@@ -59,6 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
  use units,        only:set_units
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -148,7 +144,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Put particles on grid
  !
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
 
  del = smoothfac*deltax
 

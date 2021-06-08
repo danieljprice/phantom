@@ -1,37 +1,31 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for star cluster formation calculations following
+! Setup for star cluster formation calculations following
 !   Bate, Bonnell & Bromm (2003). Requires pre-calculated velocity cubes.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - M_cloud     : *mass of cloud in solar masses*
+!   - R_cloud     : *radius of cloud in pc*
+!   - Temperature : *Temperature*
+!   - dist_fac    : *distance unit in pc*
+!   - mass_fac    : *mass unit in pc*
+!   - mu          : *mean molecular mass*
+!   - n_particles : *number of particles in sphere*
 !
-!  RUNTIME PARAMETERS:
-!    M_cloud     -- mass of cloud in solar masses
-!    R_cloud     -- radius of cloud in pc
-!    Temperature -- Temperature
-!    dist_fac    -- distance unit in pc
-!    mass_fac    -- mass unit in pc
-!    mu          -- mean molecular mass
-!    n_particles -- number of particles in sphere
+! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
+!   kernel, part, physcon, prompting, ptmass, random, setup_params,
+!   setvfield, timestep, units, velfield
 !
-!  DEPENDENCIES: centreofmass, datafiles, dim, eos, infile_utils, io,
-!    kernel, part, physcon, prompting, ptmass, random, setup_params,
-!    setvfield, timestep, units, velfield
-!+
-!--------------------------------------------------------------------------
-module setup
  use dim, only: maxvxyzu
  implicit none
  public :: setpart
@@ -52,8 +46,8 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au
  use velfield,     only:set_velfield_from_cubes
- use setup_params, only:rmax,rhozero
- use random,       only:ran2
+ use setup_params, only:rmax,rhozero,npart_total
+ use spherical,    only:set_sphere
  use part,         only:igas,set_particle_type
  use io,           only:fatal,master
  use units,        only:umass,udist,utime,set_units
@@ -64,6 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,11 +68,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer                      :: ipart,iseed,ierr
- real                         :: r2,totmass,xi,yi,zi,hi,epotgrav,t_ff
+ integer                      :: i,ierr
+ real                         :: r2,totmass,epotgrav,t_ff,psep
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
  character(len=20), parameter :: filevz = 'cube_v3.dat'
+ character(len=16)            :: lattice
  character(len=120)           :: filex,filey,filez,filein,fileset
  logical                      :: inexists,setexists
  logical                      :: BBB03 = .true. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
@@ -132,46 +128,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  !--Define remaining variables using the inputs
- npartoftype(:)= 0
- npartoftype(1)= np
- npart         = npartoftype(1)
  polyk         = kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
  rmax          = Rcloud_pc*(pc/udist)
  r2            = rmax*rmax
  totmass       = Mcloud_msun*(solarm/umass)
- massoftype(1) = totmass/real(npart)
  rhozero       = totmass/(4./3.*pi*rmax*r2)
  hfact         = hfact_default
- hi            = hfact*(massoftype(1)/rhozero)**(1./3.)
  t_ff          = sqrt(3.*pi/(32.*rhozero))  ! free-fall time (the characteristic timescale)
  epotgrav      = 3./5.*totmass**2/rmax      ! Gravitational potential energy
+ lattice       = 'random'
 
- !--Set positions (randomly placed in a sphere)
- ipart = 0
- iseed = -2485
- do while (ipart < npart)
-    xi = 2.*rmax*(ran2(iseed)-0.5)
-    yi = 2.*rmax*(ran2(iseed)-0.5)
-    zi = 2.*rmax*(ran2(iseed)-0.5)
-    if ((xi*xi + yi*yi + zi*zi) < r2) then
-       ipart = ipart + 1
-       xyzh(1,ipart) = xi
-       xyzh(2,ipart) = yi
-       xyzh(3,ipart) = zi
-       xyzh(4,ipart) = hi
-       call set_particle_type(ipart,igas)
-    endif
+ !--Set positions
+ call set_sphere(trim(lattice),id,master,0.,rmax,psep,hfact,npart,xyzh,nptot=npart_total, &
+                 exactN=.true.,np_requested=np,mask=i_belong)
+ npartoftype(:) = 0
+ npartoftype(1) = npart
+ massoftype(1)  = totmass/real(npart)
+ !--Set particle properties
+ do i = 1,npart
+    call set_particle_type(i,igas)
  enddo
- write(*,"(1x,a)") 'Setting up velocity field on the particles...'
- vxyzu(:,:) = 0.
 
  !--Set velocities (from pre-made velocity cubes)
+ write(*,"(1x,a)") 'Setting up velocity field on the particles...'
+ vxyzu(:,:) = 0.
  filex = find_phantom_datafile(filevx,'velfield')
  filey = find_phantom_datafile(filevy,'velfield')
  filez = find_phantom_datafile(filevz,'velfield')
 
- call set_velfield_from_cubes(xyzh,vxyzu,npartoftype(igas),filex,filey,filez,&
-                              1.,rmax,.false.,ierr)
+ call set_velfield_from_cubes(xyzh,vxyzu,npartoftype(igas),filex,filey,filez,1.,rmax,.false.,ierr)
  if (ierr /= 0) call fatal('setup','error setting up velocity field')
 
  !--Normalise the energy
@@ -188,7 +173,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     h_acc         = Rsink_au*au/udist
     r_crit        = 2.*h_acc
     icreate_sinks = 1
-    rho_crit_cgs  = 1.e-10
+    rho_crit_cgs  = 1.d-10
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used
  endif
@@ -242,7 +227,7 @@ subroutine write_setupfile(filename)
  call write_inopt(np,'n_particles','number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# units'
  call write_inopt(dist_fac,'dist_fac','distance unit in pc',iunit)
- call write_inopt(mass_fac,'mass_fac','mass unit in pc',iunit)
+ call write_inopt(mass_fac,'mass_fac','mass unit in Msun',iunit)
  write(iunit,"(/,a)") '# options for sphere'
  call write_inopt(Mcloud_msun,'M_cloud','mass of cloud in solar masses',iunit)
  call write_inopt(Rcloud_pc,'R_cloud','radius of cloud in pc',iunit)

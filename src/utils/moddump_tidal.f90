@@ -1,34 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    beta  -- penetration factor
-!    mh    -- mass of black hole (code units)
-!    ms    -- mass of star       (code units)
-!    phi   -- stellar rotation with respect to y-axis (in degrees)
-!    r0    -- starting distance
-!    rs    -- radius of star     (code units)
-!    theta -- stellar rotation with respect to x-axis (in degrees)
-!
-!  DEPENDENCIES: centreofmass, externalforces, infile_utils, io, options,
-!    physcon, prompting
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - beta  : *penetration factor*
+!   - mh    : *mass of black hole (code units)*
+!   - ms    : *mass of star       (code units)*
+!   - phi   : *stellar rotation with respect to y-axis (in degrees)*
+!   - r0    : *starting distance*
+!   - rs    : *radius of star     (code units)*
+!   - theta : *stellar rotation with respect to x-axis (in degrees)*
+!
+! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
+!   physcon, prompting
+!
  implicit none
 
  real :: beta,   &  ! penetration factor

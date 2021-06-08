@@ -1,28 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos_shen
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: datafiles, io
-!+
-!--------------------------------------------------------------------------
 module eos_shen
- !author: G.Shen, C. Horowitz, and S. Teige
- !modified: Z. Pellow
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, io
+!
  use datafiles, only:find_phantom_datafile
  use io,        only:warning
  implicit none
@@ -474,7 +467,7 @@ subroutine find_cv(rin,tin,yin,cv,ene)
  call partial(ent,ent_t1,tin,tin_t1,par_st)
  cv=par_st*tin
 
-end subroutine
+end subroutine find_cv
 
 !------------------------------------------------------------------------
 !+
@@ -515,7 +508,7 @@ subroutine temp_step(tin,yin,rin,par_rt,par_tt)
 
  par_tt=tin/cv*(par_pt)*(1./(rin**2))*(par_rt)
 
-end subroutine
+end subroutine temp_step
 
 !------------------------------------------------------------------------
 !+
@@ -540,7 +533,7 @@ subroutine sound_speed_clas(rin,tin,yin,spsound)
 
  spsound=sqrt(ABS(par_pr))
 
-end subroutine
+end subroutine sound_speed_clas
 
 !------------------------------------------------------------------------
 !+
@@ -578,7 +571,7 @@ subroutine sound_speed_rel(rin,tin,yin,spsound)
 
  spsound=sqrt(ABS(light_speed**2*par_pe))
 
-end subroutine
+end subroutine sound_speed_rel
 
 !------------------------------------------------------------------------
 !+
@@ -601,7 +594,7 @@ subroutine sound_speed_comb(rin,tin,yin,spsound)
     call sound_speed_clas(10**(turning_point)*((fmtocm**3)/amu),tin,yin,spsound)
  endif
 
-end subroutine
+end subroutine sound_speed_comb
 
 !------------------------------------------------------------------------
 !+

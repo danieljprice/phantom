@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: evutils
+module evutils
 !
-!  DESCRIPTION:
-!   Contains supplementary subroutines useful for dealing with .ev files
+! Contains supplementary subroutines useful for dealing with .ev files
 !   -> currently used by phantomevcompare and ev2mdot
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - Concise : *write columns that exist in all files (F: write columns that exist in any file)*
 !
-!  RUNTIME PARAMETERS:
-!    Concise -- write columns that exist in all files (F: write columns that exist in any file)
+! :Dependencies: infile_utils
 !
-!  DEPENDENCIES: infile_utils
-!+
-!--------------------------------------------------------------------------
-module evutils
  implicit none
  !
  ! Subroutines

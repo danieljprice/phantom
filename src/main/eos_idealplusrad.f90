@@ -1,27 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: eos_idealplusrad
+module eos_idealplusrad
 !
-!  DESCRIPTION: Ideal gas equation of state plus radiation pressure
+! Ideal gas equation of state plus radiation pressure, assumes
+!               inputs are in cgs units
 !
-!  REFERENCES: Stellar Structure and Evolution (2nd Edition) (Kippenhahn, 
+! :References: Stellar Structure and Evolution (2nd Edition) (Kippenhahn,
 !              Weigert, Weiss)
 !
-!  OWNER: Mike Lau
+! :Owner: Mike Lau
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon
 !
-!  DEPENDENCIES: physcon
-!+
-!--------------------------------------------------------------------------
-module eos_idealplusrad
  use physcon,  only:kb_on_mh,radconst
  implicit none
  real, parameter :: tolerance = 1d-15

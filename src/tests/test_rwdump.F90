@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testrwdump
-!
-!  DESCRIPTION:
-!   Unit test of read/write of particle data to/from dump files
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!    options, part, physcon, readwrite_dumps, testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testrwdump
+!
+! Unit test of read/write of particle data to/from dump files
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
+!   options, part, physcon, readwrite_dumps, testutils, timing, units
+!
  implicit none
  public :: test_rwdump
 
@@ -41,8 +35,9 @@ subroutine test_rwdump(ntests,npass)
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndusttypes
- use dim,             only:maxp,maxdusttypes
+                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
+                           iorig,copy_particle_all,norig
+ use dim,             only:maxp,maxdustsmall
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -56,7 +51,7 @@ subroutine test_rwdump(ntests,npass)
  use timing,          only:getused,printused
  use options,         only:use_dustfrac
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(64)
+ integer :: nfailed(67)
  integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
@@ -98,6 +93,7 @@ subroutine test_rwdump(ntests,npass)
     alphawas = real(0.23_4)
     iu = 4
     do i=1,npart
+       iorig(i) = i
        xyzh(1,i) = 1.
        xyzh(2,i) = 2.
        xyzh(3,i) = 3.
@@ -120,11 +116,13 @@ subroutine test_rwdump(ntests,npass)
        endif
        if (use_dust) then
           use_dustfrac = .true.
-          ndustsmall = maxdusttypes
-          ndusttypes = ndustsmall
+          ndustsmall = maxdustsmall
+          ndustlarge = 1
+          ndusttypes = ndustsmall + ndustlarge
           dustfrac(:,i) = 0.16_4
        endif
     enddo
+    norig   = npart
     nptmass = 10
     do i=1,nptmass
        do j=1,nsinkproperties
@@ -156,6 +154,8 @@ subroutine test_rwdump(ntests,npass)
     endif
     polykwas = polyk
     call set_units(dist=au,mass=solarm,G=1.d0)
+    call copy_particle_all(ngas,2,.false.)   ! Move i=ngas to i=2 (assumes i=2 was killed)
+    call copy_particle_all(1,ngas,.true.)    ! Create new i=ngas based upon i=1
 !
 !--write to file
 !
@@ -243,6 +243,12 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bexty,Bextywas,tiny(Bexty),nfailed(19),'Bexty')
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
+    if (itest==1) then  ! iorig is not dumped to small dumps
+       call checkval(iorig(2),    ngas,    0,nfailed(65),'iorig(2)')
+       call checkval(iorig(ngas), npart+1, 0,nfailed(66),'iorig(ngas)')
+       call checkval(iorig(npart),npart,   0,nfailed(67),'iorig(N)')
+    endif
+
     call update_test_scores(ntests,nfailed,npass)
 
     call barrier_mpi()
@@ -330,9 +336,9 @@ subroutine test_rwdump(ntests,npass)
     endif
  enddo over_tests
 
- if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
  call deallocate_memory
  call allocate_memory(maxp_old)
+ if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump
 

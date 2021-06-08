@@ -1,33 +1,27 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: linklist
+module linklist
 !
-!  DESCRIPTION:
-!  This module contains all routines required for
+! This module contains all routines required for
 !  link-list based neighbour-finding
 !
 !  THIS VERSION USES A K-D TREE
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
-!  RUNTIME PARAMETERS:
-!    tree_accuracy -- tree opening criterion (0.0-1.0)
+! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
+!   kdtree, kernel, mpiutils, part
 !
-!  DEPENDENCIES: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!    kdtree, kernel, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module linklist
- use dim,          only:maxp,ncellsmax
+ use dim,          only:ncellsmax
  use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
@@ -39,7 +33,8 @@ module linklist
  type(kdnode),          allocatable :: nodeglobal(:)
  type(kdnode), public,  allocatable :: node(:)
  integer,               allocatable :: nodemap(:)
-
+ integer,      public ,            allocatable :: listneigh(:)
+!$omp threadprivate(listneigh)
  integer(kind=8), public :: ncells
  real, public            :: dxcell
  real, public :: dcellx = 0.,dcelly = 0.,dcellz = 0.
@@ -60,6 +55,7 @@ contains
 subroutine allocate_linklist
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree
+ use dim,        only:maxp
 
  call allocate_array('cellatid', cellatid, ncellsmax+1)
  call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
@@ -67,6 +63,9 @@ subroutine allocate_linklist
  call allocate_array('node', node, ncellsmax+1)
  call allocate_array('nodemap', nodemap, ncellsmax+1)
  call allocate_kdtree()
+!$omp parallel
+ call allocate_array('listneigh',listneigh,maxp)
+!$omp end parallel
 
 end subroutine allocate_linklist
 
@@ -78,7 +77,9 @@ subroutine deallocate_linklist
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
-
+!$omp parallel
+ if (allocated(listneigh)) deallocate(listneigh)
+!$omp end parallel
  call deallocate_kdtree()
 
 end subroutine deallocate_linklist
@@ -165,7 +166,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: npart
 #endif
  integer, intent(in)    :: nactive
- real,    intent(inout) :: xyzh(4,maxp)
+ real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
 
 #ifdef MPI
@@ -184,7 +185,7 @@ end subroutine set_linklist
 ! the list is returned in 'listneigh' (length nneigh)
 !+
 !-----------------------------------------------------------------------
-subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
  use kdtree, only:getneigh,lenfgrav
@@ -194,9 +195,9 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
  use boundary, only:dxbound,dybound,dzbound
 #endif
  integer, intent(in)  :: inode,ixyzcachesize
- integer, intent(out) :: listneigh(:)
+ integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
  logical, intent(in),  optional :: getj
  real,    intent(out), optional :: f(lenfgrav)
@@ -237,11 +238,11 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                 cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
 #endif
-    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
     if (present(local_gravity)) then
        f = fgrav
@@ -252,29 +253,28 @@ subroutine get_neighbour_list(inode,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize
 #ifdef MPI
     if (present(remote_export)) then
        remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               cellatid,get_j,remote_export=remote_export)
     endif
 #endif
-    call getneigh(node,xpos,xsizei,rcuti,3,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                ifirstincell,get_j)
  endif
 
 end subroutine get_neighbour_list
 
-subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
- use dim,    only:maxneigh
+subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell)
  use kdtree, only:getneigh
  integer, intent(in)  :: ndim,ixyzcachesize
  real,    intent(in)  :: xpos(ndim)
  real,    intent(in)  :: xsizei,rcuti
- integer, intent(out) :: listneigh(maxneigh)
+ integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
- real,    intent(in)  :: xyzh(4,maxp)
+ real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: xyzcache(:,:)
- integer, intent(in)  :: ifirstincell(ncellsmax+1)
+ integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
- call getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
+ call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                ifirstincell,.false.)
 
 end subroutine getneigh_pos

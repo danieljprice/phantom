@@ -1,14 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: fastmath
+module fastmath
 !
-!  DESCRIPTION:
-!   This module computes a fast inverse square root
+! This module computes a fast inverse square root
 !   Algorithm originally in C by Chris Lomont,
 !   implemented here in Fortran by Daniel Price
 !
@@ -19,20 +17,16 @@
 !
 !   For fast sqrt, just use sqrt(x) = x*finvsqrt(x)
 !
-!  REFERENCES:
+! :References:
 !    Chris Lomont, "Fast Inverse Square Root"
 !    www.math.purdue.edu/~clomont
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module fastmath
  implicit none
 
  private
@@ -66,7 +60,7 @@ real(kind=4) pure elemental function fastinvsqrt(y)
  fastinvsqrt = x
 
  return
-end function
+end function fastinvsqrt
 
 !-----------------------------------------
 !+
@@ -90,7 +84,7 @@ real(kind=8) pure elemental function dfastinvsqrt(y)
  dfastinvsqrt = x
 
  return
-end function
+end function dfastinvsqrt
 
 !----------------------------------------------------------------
 !+

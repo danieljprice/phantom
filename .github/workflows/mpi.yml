@@ -29,7 +29,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: compile with MPI
-      run: make SETUP=testkd MPI=yes OPENMP=no
+      run: make SETUP=testkd MPI=yes OPENMP=no phantomtest
 
     - name: test with MPI
-      run: mpirun --allow-run-as-root --mca btl self,sm -np 2 ./bin/phantom test
+      run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest

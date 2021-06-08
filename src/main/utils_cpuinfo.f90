@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: cpuinfo
-!
-!  DESCRIPTION:
-!  This module extracts information about the system hardware
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module cpuinfo
+!
+! This module extracts information about the system hardware
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
 
  public :: print_cpuinfo, get_cpuinfo
@@ -87,6 +81,10 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
 !
  ierr = 0
  ncpu = 0
+ ncpureal = 0
+ cpuspeed = 0.
+ cpumodel = ''
+ cachesize = ''
  inquire(file='/proc/cpuinfo',exist=iexist)
  if (iexist) then
     open(unit=iunit,file='/proc/cpuinfo',status='old',iostat=ierr)

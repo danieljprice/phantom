@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for a disc and planet interaction (set with two ptmass)
-!
-!  REFERENCES: None
-!
-!  OWNER: Bec Nealon
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, discanalysisutils, infile_utils, io,
-!    options, part, physcon, vectorutils
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for a disc and planet interaction (set with two ptmass)
+!
+! :References: None
+!
+! :Owner: Bec Nealon
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, discanalysisutils, infile_utils, io,
+!   options, part, physcon, vectorutils
+!
  use discanalysisutils, only:disc_analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_planet'

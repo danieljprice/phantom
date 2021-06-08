@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION:
-!  Handles Roche Lobe injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    Mdot    -- mass injection rate at L1, in Msun/yr
-!    chi     -- width of injection stream in cm
-!    dNdt    -- particle injection rate in particles/binary orbit
-!    gastemp -- Temperature at injection point in K
-!
-!  DEPENDENCIES: eos, infile_utils, io, part, partinject, physcon, random,
-!    setbinary, units
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Handles Roche Lobe injection
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters:
+!   - Mdot    : *mass injection rate at L1, in Msun/yr*
+!   - chi     : *width of injection stream in cm*
+!   - dNdt    : *particle injection rate in particles/binary orbit*
+!   - gastemp : *Temperature at injection point in K*
+!
+! :Dependencies: eos, infile_utils, io, part, partinject, physcon, random,
+!   setbinary, units
+!
  implicit none
  character(len=*), parameter, public :: inject_type = 'rochelobe'
 

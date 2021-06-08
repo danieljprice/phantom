@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testsetdisc
-!
-!  DESCRIPTION:
-!  Unit tests of set_disc module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!    testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testsetdisc
+!
+! Unit tests of set_disc module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: checksetup, deriv, dim, eos, io, options, part, physcon,
+!   setdisc, testutils, timing, units
+!
  implicit none
  public :: test_setdisc
 
@@ -47,6 +41,7 @@ subroutine test_setdisc(ntests,npass)
  use setdisc,    only:set_disc
  use checksetup, only:check_setup
  use units,      only:set_units
+ use physcon,    only:au,solarm
  integer, intent(inout) :: ntests,npass
  integer :: nparttot
  integer :: nfailed(3),ncheck
@@ -65,7 +60,7 @@ subroutine test_setdisc(ntests,npass)
  endif
 
  testall  = .true.
- call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+ call set_units(mass=solarm,dist=au,G=1.d0)
  call init_part()
 !
 !--test that centrifugal acceleration balances radial forces

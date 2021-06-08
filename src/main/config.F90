@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dim
-!
-!  DESCRIPTION:
-!   Module to determine storage based on compile-time configuration
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module dim
+!
+! Module to determine storage based on compile-time configuration
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
 #include "../../build/phantom-version.h"
  integer, parameter, public :: phantom_version_major = PHANTOM_VERSION_MAJOR
@@ -34,7 +28,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2019 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -48,9 +42,9 @@ module dim
 #ifdef MAXPTMASS
  integer, parameter :: maxptmass = MAXPTMASS
 #else
- integer, parameter :: maxptmass = 100
+ integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 11
+ integer, parameter :: nsinkproperties = 17
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -65,6 +59,15 @@ module dim
  logical, parameter :: store_temperature = .true.
 #else
  logical, parameter :: store_temperature = .false.
+#endif
+
+ integer :: maxTdust = 0
+#ifdef SINK_RADIATION
+ logical, parameter :: sink_radiation = .true.
+ logical, parameter :: store_dust_temperature = .true.
+#else
+ logical, parameter :: sink_radiation = .false.
+ logical, parameter :: store_dust_temperature = .false.
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
@@ -169,7 +172,7 @@ module dim
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
 #else
- integer, parameter :: nalpha = 2
+ integer, parameter :: nalpha = 3
 #endif
 #endif
 #endif
@@ -204,6 +207,19 @@ module dim
  !
  integer, parameter :: ndim = 3
 
+
+!-----------------
+! KROME chemistry
+!-----------------
+ integer :: maxp_krome = 0
+#ifdef KROME
+ logical, parameter :: use_krome = .true.
+ logical, parameter :: store_gamma = .true.
+#else
+ logical, parameter :: store_gamma = .false.
+ logical, parameter :: use_krome = .false.
+#endif
+
 !-----------------
 ! Magnetic fields
 !-----------------
@@ -216,17 +232,22 @@ module dim
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
-! non-ideal MHD
+! Non-ideal MHD
+! if fast_divcurlB=true, then divcurlB is calculated simultaneous with density which leads to a race condition and errors (typically less than a percent)
+! divcurlB is only used as diagnostics & divergence cleaning in ideal MHD, so fast_divcurlB=true is reasonable
+! divcurlB is used to update the non-ideal terms, so fast_divcurlB=false is required for accuracy (especially if there will be jumps in density)
  integer :: maxmhdni = 0
-#ifdef MHD
 #ifdef NONIDEALMHD
- logical, parameter :: mhd_nonideal = .true.
+ logical, parameter :: mhd_nonideal    = .true.
+ logical, parameter :: fast_divcurlB   = .false.
+ integer, parameter :: n_nden_phantom  = 13      ! number density of chemical species, electrons & n_grains; defined in nicil == 11+2*na
 #else
- logical, parameter :: mhd_nonideal = .false.
+ logical, parameter :: mhd_nonideal    = .false.
+ logical, parameter :: fast_divcurlB   = .true.
+ integer, parameter :: n_nden_phantom  = 0
 #endif
-#else
- logical, parameter :: mhd_nonideal = .false.
-#endif
+ logical            :: calculate_density  = .true.  ! do not toggle; initialised for efficiency
+ logical            :: calculate_divcurlB = .true.  ! do not toggle; initialised for efficiency
 
 !--------------------
 ! H2 Chemistry
@@ -276,6 +297,24 @@ module dim
  integer :: maxsts = 1
 
 !--------------------
+! Wind cooling
+!--------------------
+#if defined(WIND) || !defined (ISOTHERMAL)
+ logical :: windcooling = .true.
+#else
+ logical :: windcooling = .false.
+#endif
+
+!--------------------
+! Dust formation
+!--------------------
+#ifdef NUCLEATION
+ integer :: maxsp = maxp_hard
+#else
+ integer :: maxsp = 0
+#endif
+
+!--------------------
 ! Light curve stuff
 !--------------------
  integer :: maxlum = 0
@@ -286,14 +325,12 @@ module dim
 #endif
 
 !--------------------
-! Electron number densities .or. ionisation fractions
+! logical for bookkeeping
 !--------------------
- integer :: maxne = 0
-
-#ifdef CMACIONIZE
- logical, parameter :: use_CMacIonize = .true.
+#ifdef INJECT_PARTICLES
+ logical, parameter :: particles_are_injected = .true.
 #else
- logical, parameter :: use_CMacIonize = .false.
+ logical, parameter :: particles_are_injected = .false.
 #endif
 
  !--------------------
@@ -316,6 +353,14 @@ subroutine update_max_sizes(n)
  integer, intent(in) :: n
 
  maxp = n
+
+#ifdef KROME
+ maxp_krome = maxp
+#endif
+
+#ifdef SINK_RADIATION
+ maxTdust = maxp
+#endif
 
 #ifdef STORE_TEMPERATURE
  maxtemp = maxp
@@ -375,14 +420,6 @@ subroutine update_max_sizes(n)
 
 #if LIGHTCURVE
  maxlum = maxp
-#endif
-
-#ifdef NONIDEALMHD
- maxne = maxp
-#else
-#ifdef CMACIONIZE
- maxne = maxp
-#endif
 #endif
 
 #ifndef ANALYSIS

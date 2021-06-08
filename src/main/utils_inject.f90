@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: injectutils
-!
-!  DESCRIPTION:
-!   Utility routines for geodesic sphere injection
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: icosahedron, part, partinject
-!+
-!--------------------------------------------------------------------------
 module injectutils
+!
+! Utility routines for geodesic sphere injection
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: icosahedron, part, partinject
+!
  implicit none
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
  real, parameter :: pi = 4.*atan(1.)
@@ -85,13 +79,13 @@ end function get_neighb_distance
 !+
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
-           geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0)
+           geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, JKmuS)
  use icosahedron, only:pixel2vector
  use partinject,  only:add_or_update_particle
  use part,        only:hrho
  integer, intent(in) :: sphere_number, first_particle, ires, itype
- real,    intent(in) :: r, v, u, rho, geodesic_R(0:19,3,3), geodesic_v(0:11,3)
- real,    intent(in), optional :: x0(3), v0(3)
+ real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
+ real,    intent(in), optional :: JKmuS(:)
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
 
@@ -140,10 +134,10 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(3)*rotmat(3,3)
     particle_position = r*radial_unit_vector_rotated
     particle_velocity = v*radial_unit_vector_rotated
-    if (present(x0)) particle_position = particle_position + x0
-    if (present(v0)) particle_velocity = particle_velocity + v0
+    particle_position = particle_position + x0
+    particle_velocity = particle_velocity + v0
     call add_or_update_particle(itype,particle_position,particle_velocity, &
-         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu)
+         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
  enddo
 
 end subroutine inject_geodesic_sphere

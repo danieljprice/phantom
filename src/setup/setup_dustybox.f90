@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for the dustybox problem in dust-gas mixtures
-!
-!  REFERENCES: Laibe & Price (2011), MNRAS 418, 1491
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, io, mpiutils, part, physcon, prompting,
-!    setup_params, unifdis, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for the dustybox problem in dust-gas mixtures
+!
+! :References: Laibe & Price (2011), MNRAS 418, 1491
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
+!   setup_params, unifdis, units
+!
  implicit none
  public :: setpart
 
@@ -43,10 +37,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas
+ use part,         only:labeltype,set_particle_type,igas,periodic
  use physcon,      only:pi,solarm,au
  use units,        only:set_units
  use prompting,    only:prompt
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -123,15 +118,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     case(1)
        if (ishift_box .eqv. .false.) then
           call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                            hfact,npart,xyzh,nptot=npart_total)
+                            hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
        else
           if (itype == igas) then
              call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                               hfact,npart,xyzh,nptot=npart_total)
+                               hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
           else
              call set_unifdis('cubic',id,master,xmin+0.01*deltax,xmax+0.01*deltax,ymin+0.05*deltax, &
                               ymax+0.05*deltax,zmin+0.05*deltax,zmax+0.05*deltax,deltax, &
-                              hfact,npart,xyzh,nptot=npart_total)
+                              hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
              !call set_unifdis('cubic',id,master,xmin+0.5*deltax,xmax+0.5*deltax,ymin+0.5*deltax, &
              !                  ymax+0.5*deltax,zmin+0.5*deltax,zmax+0.5*deltax,deltax, &
              !                   hfact,npart,xyzh,nptot=npart_total)
@@ -140,11 +135,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
     case(2)
        call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
     case default
        print*,' error: chosen lattice not available, using cubic'
        call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
     end select
 
     !--set which type of particle it is

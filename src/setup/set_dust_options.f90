@@ -1,49 +1,43 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: set_dust_options
-!
-!  DESCRIPTION:
-!  Contains interactive set up for dust
-!
-!  REFERENCES:
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dust_method       -- dust method (1=one fluid,2=two fluid,3=Hybrid)
-!    dust_to_gas       -- dust to gas ratio
-!    graindensinp      -- intrinsic grain density (in g/cm^3)
-!    graindenslargeinp -- intrinsic grain density (in g/cm^3)
-!    graindenssmallinp -- intrinsic grain density (in g/cm^3)
-!    grainsizeinp      -- grain size (in cm)
-!    igraindens        -- grain density input (0=equal,1=manually)
-!    igraindenslarge   -- small grain density input (0=equal,1=manually)
-!    igraindenssmall   -- small grain density input (0=equal,1=manually)
-!    ndustlargeinp     -- number of large grain sizes
-!    ndustsmallinp     -- number of small grain sizes
-!    ndusttypesinp     -- number of grain sizes
-!    sindex            -- grain size power-law index (e.g. MRN = 3.5)
-!    sindexlarge       -- large grain size power-law index (e.g. MRN = 3.5)
-!    sindexsmall       -- small grain size power-law index (e.g. MRN = 3.5)
-!    smaxcgs           -- max grain size (in cm)
-!    smaxlargecgs      -- max large grain size (in cm)
-!    smaxsmallcgs      -- max small grain size (in cm)
-!    smincgs           -- min grain size (in cm)
-!    sminlargecgs      -- min large grain size (in cm)
-!    sminsmallcgs      -- min small grain size (in cm)
-!
-!  DEPENDENCIES: dim, dust, eos, fileutils, growth, infile_utils, io,
-!    options, part, prompting
-!+
-!--------------------------------------------------------------------------
 module set_dust_options
+!
+! Contains interactive set up for dust
+!
+! :References:
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters:
+!   - dust_method       : *dust method (1=one fluid,2=two fluid,3=Hybrid)*
+!   - dust_to_gas       : *dust to gas ratio*
+!   - graindensinp      : *intrinsic grain density (in g/cm^3)*
+!   - graindenslargeinp : *intrinsic grain density (in g/cm^3)*
+!   - graindenssmallinp : *intrinsic grain density (in g/cm^3)*
+!   - grainsizeinp      : *grain size (in cm)*
+!   - igraindens        : *grain density input (0=equal,1=manually)*
+!   - igraindenslarge   : *small grain density input (0=equal,1=manually)*
+!   - igraindenssmall   : *small grain density input (0=equal,1=manually)*
+!   - ndustlargeinp     : *number of large grain sizes*
+!   - ndustsmallinp     : *number of small grain sizes*
+!   - ndusttypesinp     : *number of grain sizes*
+!   - sindex            : *grain size power-law index (e.g. MRN = 3.5)*
+!   - sindexlarge       : *large grain size power-law index (e.g. MRN = 3.5)*
+!   - sindexsmall       : *small grain size power-law index (e.g. MRN = 3.5)*
+!   - smaxcgs           : *max grain size (in cm)*
+!   - smaxlargecgs      : *max large grain size (in cm)*
+!   - smaxsmallcgs      : *max small grain size (in cm)*
+!   - smincgs           : *min grain size (in cm)*
+!   - sminlargecgs      : *min large grain size (in cm)*
+!   - sminsmallcgs      : *min small grain size (in cm)*
+!
+! :Dependencies: dim, dust, eos, fileutils, growth, infile_utils, io,
+!   options, part, prompting
+!
  use dim,       only:maxdusttypes,maxdustsmall,maxdustlarge,use_dustgrowth
  use prompting, only:prompt
  implicit none

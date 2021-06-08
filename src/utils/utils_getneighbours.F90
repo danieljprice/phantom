@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: getneigbours
+module getneighbours
 !
-!  DESCRIPTION:
-!  A set of routines generate neighbour lists for all particles, and
+! A set of routines generate neighbour lists for all particles, and
 !  read/write the list to file
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
 !
-!  DEPENDENCIES: boundary, dim, kdtree, kernel, linklist, part
-!+
-!--------------------------------------------------------------------------
-module getneigbours
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours
@@ -30,8 +24,9 @@ module getneigbours
  integer, public, allocatable, dimension(:,:) :: neighb
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
- integer,         parameter :: maxcellcache = 50000
- integer, public, parameter :: neighmax     = 2000
+ integer,         parameter :: maxcellcache =  50000
+ integer,         parameter :: neighall     = 100000 ! maximum number of neighbours to test
+ integer, public, parameter :: neighmax     =   2000 ! maximum number of neighbours to store
 
  private
 
@@ -57,11 +52,13 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  logical,          intent(in)     :: write_neighbour_list
  real,allocatable, dimension(:,:) :: dumxyzh
 
- integer      :: i,j,k,ip,icell,ineigh,nneigh
+ integer      :: i,j,k,p,ip,icell,ineigh,nneigh
+ integer      :: ineigh_all(neighall)
  real         :: dx,dy,dz,rij2
  real         :: hi1,hj1,hi21,hj21,q2i,q2j
  integer,save :: listneigh(maxneigh)
  real,   save :: xyzcache(maxcellcache,4)
+ real         :: rneigh_all(neighall)
  !$omp threadprivate(xyzcache,listneigh)
  character(len=100) :: neighbourfile
 
@@ -95,8 +92,9 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
 #ifdef PERIODIC
  !$omp shared(dxbound,dybound,dzbound) &
-#endif !$omp private(icell,i,j,k,ip)&
- !$omp private(nneigh) &
+#endif
+ !$omp private(icell,i,j,k,p,ip)&
+ !$omp private(nneigh,ineigh_all,rneigh_all) &
  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
  !$omp private(dx,dy,dz)
  !$omp do schedule(runtime)
@@ -119,6 +117,8 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
 
        ! Fill neighbour list for this particle
        neighcount(i) = 0
+       ineigh_all    = 0
+       rneigh_all    = 0.
        hi1  = 1.0/xyzh(4,i)
        hi21 = hi1*hi1
 
@@ -144,17 +144,29 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           q2j  = rij2*hj21
 
           is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
-             !$omp critical
              neighcount(i) = neighcount(i) + 1
-             if (neighcount(i) <= neighmax) then
-                neighb(i,neighcount(i)) = j
+             if (neighcount(i) <= neighall) then
+                ineigh_all(neighcount(i)) = j
+                rneigh_all(neighcount(i)) = rij2
              else
-                print*, 'neighbour finding.  neighcount > neighmax.  aborting'
+                print*, 'neighbour finding.  neighcount > neighall.  aborting'
                 stop
              endif
-             !$omp end critical
           endif is_sph_neighbour
        enddo over_neighbours ! End loop over neighbours
+       ! Failsafe if too many neighbours
+       if (neighcount(i) <= neighmax) then
+          neighb(i,1:neighcount(i)) = ineigh_all(1:neighcount(i))
+       else
+          print*, 'Neighbour finding: There are ',neighcount(i),' neighbours for i = ',i
+          print*, 'Neighbour finding: Keeping the ',neighmax,' closest neighbours.'
+          neighcount(i) = neighmax
+          do p = 1,neighmax
+             j = minloc(rneigh_all(1:neighcount(i)),1)
+             neighb(i,p) = ineigh_all(j)
+             rneigh_all(j) = huge(rij2)
+          enddo
+       endif
     enddo over_parts         ! End loop over particles in the cell
  enddo over_cells            ! End loop over cells in the kd-tree
  !$omp enddo
@@ -187,8 +199,7 @@ end subroutine generate_neighbour_lists
 !-----------------------------------------------------------------------
 subroutine neighbours_stats(npart)
  integer, intent(in) :: npart
- integer             :: ipart
- real                :: minimum, maximum
+ integer             :: ipart, minimum, maximum
 
  ! Calculate mean and standard deviation of neighbour counts
 

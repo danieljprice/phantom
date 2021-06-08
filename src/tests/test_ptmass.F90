@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testptmass
-!
-!  DESCRIPTION:
-!   Unit tests of the ptmass/sink particles module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, checksetup, deriv, dim, energies, eos,
-!    fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
-!    ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module testptmass
+!
+! Unit tests of the ptmass/sink particles module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
+!   fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
+!   ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
+!   timestep, units
+!
  implicit none
  public :: test_ptmass
 
@@ -72,11 +66,11 @@ subroutine test_ptmass(ntests,npass)
  integer                :: nparttot
  logical                :: test_binary,test_accretion,test_createsink, test_softening
  logical                :: accreted
- real                   :: massr,m1,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
+ real                   :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
  real                   :: r2,r2min,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
- real                   :: q,phisoft,fsoft,m2,mu,v_c1,v_c2,r1,omega1,omega2
+ real                   :: q,phisoft,fsoft,mu,v_c1,v_c2,r1,omega1,omega2
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass),rhomax_test,rhomax
@@ -124,6 +118,7 @@ subroutine test_ptmass(ntests,npass)
 #endif
     iverbose = 0
     tree_accuracy = 0.
+    h_soft_sinksink = 0.
 
     binary_tests: do itest = 1,nbinary_tests
        select case(itest)
@@ -147,7 +142,7 @@ subroutine test_ptmass(ntests,npass)
 !       time = 0.
        nptmass = 0
        m1    = 1.
-       massr = 1.
+       m2    = 1.
        a     = 1.
        if (itest==3) then
           ecc = 0.5
@@ -159,12 +154,13 @@ subroutine test_ptmass(ntests,npass)
        C_force = 0.25
        t = 0.
        call set_units(mass=1.d0,dist=1.d0,G=1.d0)
-       call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose=.false.)
+       call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
+       if (ierr /= 0) nerr = nerr + 1
        if (itest==2 .or. itest==3) then
           !  add a circumbinary gas disc around it
           nparttot = 1000
           call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
-                        HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+massr*m1,gamma=gamma,&
+                        HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
                         particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                         polyk=polyk,verbose=.false.)
           npartoftype(1) = npart
@@ -225,18 +221,18 @@ subroutine test_ptmass(ntests,npass)
        !
        nfailed(:) = 0
        if (itest==1) then
-          call checkval(epot_sinksink,-m1*m1*massr/a,epsilon(0.),nfailed(1),'potential energy')
+          call checkval(epot_sinksink,-m1*m2/a,epsilon(0.),nfailed(1),'potential energy')
           call update_test_scores(ntests,nfailed,npass)
           !
           !--check initial angular momentum on the two sinks is correct
           !
-          call checkval(angtot,m1*m1*massr*sqrt(a/(m1 + m1*massr)),1.e6*epsilon(0.),nfailed(1),'angular momentum')
+          call checkval(angtot,m1*m2*sqrt(a/(m1 + m2)),1.e6*epsilon(0.),nfailed(1),'angular momentum')
           call update_test_scores(ntests,nfailed,npass)
        endif
        !
        !--determine number of steps per orbit for information
        !
-       mred    = m1*m1*massr/(m1 + m1*massr)
+       mred    = m1*m2/(m1 + m2)
        omega   = sqrt(mred/a**3)
        nsteps  = int(2.*pi/omega/dt) + 1
        if (itest==2 .or. itest==3) then
@@ -304,7 +300,7 @@ subroutine test_ptmass(ntests,npass)
     npart = 0
     npartoftype = 0
     m1    = 1.
-    massr = 1.
+    m2    = 1.
     a     = 1.
     ecc   = 0.
     hacc1 = 0.
@@ -314,13 +310,12 @@ subroutine test_ptmass(ntests,npass)
     h_soft_sinksink = 0.8*a
 
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
-    call set_binary(m1,massr,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose=.false.)
+    call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
 
     q   = a/h_soft_sinksink
     call kernel_softening(q*q,q,phisoft,fsoft)
 
     ! Test energy and momentum conservation
-    m2 = m1*massr
     mu = (m1*m2)/(m1+m2)
     r1 = sqrt(xyzmh_ptmass(1,1)**2+xyzmh_ptmass(2,1)**2+xyzmh_ptmass(3,1)**2)
     r2 = sqrt(xyzmh_ptmass(1,2)**2+xyzmh_ptmass(2,2)**2+xyzmh_ptmass(3,2)**2)
@@ -340,7 +335,7 @@ subroutine test_ptmass(ntests,npass)
     totmomin = totmom
     angmomin = angtot
 
-    call checkval(epot,m1*m1*massr*(phisoft)/h_soft_sinksink,2.*epsilon(0.),nfailed(1),'potential energy')
+    call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,2.*epsilon(0.),nfailed(1),'potential energy')
     call update_test_scores(ntests,nfailed(1:1),npass)
 
     C_force = 0.25
@@ -606,16 +601,15 @@ subroutine test_ptmass(ntests,npass)
  !--reset stuff
  nptmass = 0
 
- ! clean up temporary files
+ ! clean up temporary files & turn off sink creation
  itmp = 201
- do i=iskfile+1,iskfile+2    ! we used 2 point masses in tests above
-    close(i,iostat=ierr)     ! close file unit numbers if they are already open
-    write(filename,"(i3)") i
-    filename = 'fort.'//trim(adjustl(filename))
-    open(unit=itmp,file=filename,status='old',iostat=ierr)
-    close(itmp,status='delete',iostat=ierr)
- enddo
- open(unit=itmp,file='SinkSink0001N00.ev',status='old',iostat=ierr)
+ icreate_sinks = 0
+ close(iskfile,iostat=ierr)
+ write(filename,"(i3)") iskfile
+ filename = 'fort.'//trim(adjustl(filename))
+ open(unit=itmp,file=filename,status='old',iostat=ierr)
+ close(itmp,status='delete',iostat=ierr)
+ open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'

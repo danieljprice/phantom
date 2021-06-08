@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup for tokamak torus with equilibrium density profiles
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, extern_Bfield, externalforces, geometry, io, kernel,
-!    mpiutils, options, part, physcon, random, setup_params, stretchmap
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for tokamak torus with equilibrium density profiles
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, extern_Bfield, externalforces, geometry, io, kernel,
+!   mpiutils, options, part, physcon, random, setup_params, stretchmap
+!
  implicit none
  public :: setpart
 

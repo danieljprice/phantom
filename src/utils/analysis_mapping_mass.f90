@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for mapping to kepler (bins radially by mass)
-!
-!  REFERENCES: None
-!
-!  OWNER: Nicole Rodrigues
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, part, physcon, sortutils, units
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for mapping to kepler (bins radially by mass)
+!
+! :References: None
+!
+! :Owner: Nicole Rodrigues
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, part, physcon, sortutils, units
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'kepler'
  logical :: firstcall = .true.
@@ -216,4 +210,4 @@ end subroutine do_analysis
 
 !-----------------------------------------------------------------------
 !
-end module
+end module analysis

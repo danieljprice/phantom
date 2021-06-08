@@ -1,14 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setflyby
+module setflyby
 !
-!  DESCRIPTION:
-!   This module is contains utilities for setting up flyby.
+! This module is contains utilities for setting up flyby.
 !   Our conventions for angles are the same as in Xiang-Gruess (2016).
 !   Eccentricity is set to unity, i.e. for a parabolic orbit.
 !
@@ -20,23 +18,25 @@
 !                        defined by the position angle (for
 !                        posang_ascnode==0 this is a roll angle)
 !
-!  REFERENCES:
-!   Xiang-Gruess (2016) MNRAS, Volume 455, Issue 3, p.3086-3100
-!   Cuello et al. (2018) submitted to MNRAS
+! :References:
+!   Xiang-Gruess (2016), MNRAS 455, 3086-3100
+!   Cuello et al. (2019), MNRAS 483, 4114-4139
 !
-!  OWNER: Daniel Mentiplay
+! :Owner: Daniel Mentiplay
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: physcon, vectorutils
 !
-!  DEPENDENCIES: io, part, physcon, units, vectorutils
-!+
-!--------------------------------------------------------------------------
-module setflyby
  use physcon, only:pi
  implicit none
  public :: set_flyby,get_T_flyby
+
+ integer, parameter :: &
+   ierr_m1   = 1, &
+   ierr_m2   = 2, &
+   ierr_ecc  = 3, &
+   ierr_peri = 4
 
  private
 
@@ -47,22 +47,21 @@ contains
 !  setup for a flyby
 !+
 !----------------------------------------------------------------
-subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
+subroutine set_flyby(m1,m2,minimum_approach,initial_dist, &
                      accretion_radius1,accretion_radius2,xyzmh_ptmass, &
-                     vxyz_ptmass,nptmass,posang_ascnode,inclination,verbose)
- use io,          only:warning,fatal
- use part,        only:ihacc,ihsoft
+                     vxyz_ptmass,nptmass,ierr,posang_ascnode,inclination,verbose)
  use vectorutils, only:rotatevec
- real,    intent(in)    :: mprimary,massratio
+ real,    intent(in)    :: m1,m2
  real,    intent(in)    :: minimum_approach,initial_dist
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
+ integer, intent(out)   :: ierr
  real,    intent(in), optional :: posang_ascnode,inclination
  logical, intent(in), optional :: verbose
 
  integer :: i1,i2,i
- real    :: m1,m2,mtot,n0
+ real    :: mtot,n0
  real    :: xp(3),vp(3),reducedmass
  real    :: dma,ecc,eccentricity,m0,pf,r0,x0,y0,z0,vx0,vy0,vz0
  real    :: big_omega,incl,rot_axis(3)
@@ -81,9 +80,7 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  i2 = nptmass + 2
  nptmass = nptmass + 2
 
- !--mass of the central star (m1) and the perturber (m2)
- m1 = mprimary
- m2 = mprimary*massratio
+ !--total mass
  mtot = m1 + m2
 
  !--eccentricity is set to 1, i.e. parabolic orbit
@@ -94,9 +91,9 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  if (do_verbose) then
     print "(/,2x,a)",'---------- flyby parameters ----------- '
     print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
-        'primary mass            :',mprimary, &
-        'secondary mass          :',massratio*mprimary, &
-        'mass ratio              :',massratio, &
+        'primary mass            :',m1, &
+        'secondary mass          :',m2, &
+        'mass ratio              :',m2/m1, &
         'reduced mass            :',reducedmass, &
         'dist of min. app.       :',minimum_approach, &
         'pos. angle ascen. node  :',big_omega, &
@@ -105,9 +102,24 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  endif
 
  !--check for bad parameter choices
- if (mprimary <= 0.) call fatal('set_flyby','primary mass <= 0')
- if (massratio < 0.) call fatal('set_flyby','mass ratio < 0')
- if (minimum_approach <= 0.) call fatal('set_flyby','distance of min approach <= 0')
+ ierr = 0
+ if (m1 <= 0.) then
+    print "(1x,a)",'ERROR: set_flyby: primary mass <= 0'
+    ierr = ierr_m1
+ endif
+ if (m2 < 0.) then
+    print "(1x,a)",'ERROR: set_flyby: secondary mass <= 0'
+    ierr = ierr_m2
+ endif
+ if (eccentricity > 1. .or. eccentricity < 0.) then
+    print "(1x,a)",'ERROR: set_flyby: eccentricity must be between 0 and 1'
+    ierr = ierr_ecc
+ endif
+ if (minimum_approach <= 0.) then
+    print "(1x,a)",'ERROR: set_flyby: distance of min approach <= 0'
+    ierr = ierr_peri
+ endif
+ if (ierr /= 0) return
 
  dma = minimum_approach
  ecc = eccentricity
@@ -141,10 +153,10 @@ subroutine set_flyby(mprimary,massratio,minimum_approach,initial_dist, &
  xyzmh_ptmass(1:3,i2) = xp
  xyzmh_ptmass(4,i1) = m1
  xyzmh_ptmass(4,i2) = m2
- xyzmh_ptmass(ihacc,i1) = accretion_radius1
- xyzmh_ptmass(ihacc,i2) = accretion_radius2
- xyzmh_ptmass(ihsoft,i1) = 0.
- xyzmh_ptmass(ihsoft,i2) = 0.
+ xyzmh_ptmass(5,i1) = accretion_radius1
+ xyzmh_ptmass(5,i2) = accretion_radius2
+ xyzmh_ptmass(6,i1) = 0.
+ xyzmh_ptmass(6,i2) = 0.
 
  !--velocities
  vxyz_ptmass(:,i1) = 0.
@@ -172,8 +184,6 @@ end subroutine set_flyby
 !
 !-------------------------------------------------------------
 function get_T_flyby(m1,m2,dma,n0) result(T)
- use physcon, only:gg
- use units,   only:umass,udist,utime
  real, intent(in) :: m1,m2,dma,n0
  real :: T,nu,xi,yi,Di,Df,p,mu,G
 
@@ -185,7 +195,7 @@ function get_T_flyby(m1,m2,dma,n0) result(T)
  yi = dma*(1.0-(xi/p)**2)
 
  !--graviational parameter
- G = gg*umass*utime**2/(udist**3)
+ G = 1.0 ! we assume code units where G=1
  mu = G*(m1+m2)
 
  !--true anomaly

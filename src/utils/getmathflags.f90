@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: getmathflags
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: getmathflags [no arguments]
-!
-!  DEPENDENCIES: mpiutils, testmath
-!+
-!--------------------------------------------------------------------------
 program getmathflags
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: getmathflags [no arguments]
+!
+! :Dependencies: mpiutils, testmath
+!
  use testmath, only:test_math
  use mpiutils, only:init_mpi, finalise_mpi
  implicit none

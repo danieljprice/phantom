@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: timing
-!
-!  DESCRIPTION:
-!   This module contains utilities for code timings
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module timing
+!
+! This module contains utilities for code timings
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
  integer, private :: istarttime(6)
  real(kind=4), private :: starttime
@@ -48,7 +42,7 @@ contains
 !+
 !--------------------------------------
 subroutine reset_timer(my_timer,label,wall,cpu)
- type(timer),      intent(out) :: my_timer
+ type(timer),      intent(inout)        :: my_timer
  real(kind=4),     intent(in), optional :: wall, cpu
  character(len=*), intent(in), optional :: label
 

@@ -1,47 +1,42 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module initialises the wave damping test, as per
+! This module initialises the wave damping test, as per
 !   Choi et al. 2009 (has been generalised for additional studies)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - Bxin      : *Initial x-magnetic field*
+!   - ambitest  : *Testing ambipolar diffusion*
+!   - amplitude : *Initial wave amplitude*
+!   - geo_cp    : *Using close-packed grid (F: cubic).*
+!   - halltest  : *Testing the Hall effect*
+!   - isowave   : *Modelling a sound wave (F: Alfven wave)*
+!   - kwave     : *Wavenumber (k/pi)*
+!   - kx_kxy    : *Using wavenumber in x only (F: initialise in x,y)*
+!   - nx        : *Particles in the x-direction*
+!   - ohmtest   : *Testing Ohmic resistivity*
+!   - polyk     : *Initial polyk*
+!   - realvals  : *Using physical values (F: arbitrary values)*
+!   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
+!   - rhoin     : *Initial density*
+!   - viscoff   : *Using no viscosity (F: using viscosity*
+!   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-!  RUNTIME PARAMETERS:
-!    Bxin      -- Initial x-magnetic field
-!    ambitest  -- Testing ambipolar diffusion
-!    amplitude -- Initial wave amplitude
-!    geo_cp    -- Using close-packed grid (F: cubic).
-!    halltest  -- Testing the Hall effect
-!    isowave   -- Modelling a sound wave (F: Alfven wave)
-!    kwave     -- Wavenumber (k/pi)
-!    kx_kxy    -- Using wavenumber in x only (F: initialise in x,y)
-!    nx        -- Particles in the x-direction
-!    ohmtest   -- Testing Ohmic resistivity
-!    polyk     -- Initial polyk
-!    realvals  -- Using physical values (F: arbitrary values)
-!    rect      -- Using rectangular cp grid (F: cubic cp grid)
-!    rhoin     -- Initial density
-!    viscoff   -- Using no viscosity (F: using viscosity
-!    vx_vz     -- Using velocity in x (F: initialise in z)
+! :Dependencies: boundary, dim, domain, infile_utils, io, mpiutils, nicil,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
+!   units
 !
-!  DEPENDENCIES: boundary, dim, infile_utils, io, mpiutils, nicil, options,
-!    part, physcon, prompting, setup_params, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  use part,    only:mhd
- use nicil,   only:use_ohm,use_ohm,use_hall,use_ambi
+ use nicil,   only:use_ohm,use_hall,use_ambi
  use nicil,   only:eta_constant,eta_const_type,C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst
  use nicil,   only:n_e_cnst,rho_i_cnst,rho_n_cnst,gamma_AD,alpha_AD,hall_lt_zero
  !
@@ -68,13 +63,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:set_particle_type,igas,Bxyz
+ use part,         only:set_particle_type,igas,Bxyz,periodic
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump,alpha,alphamax,alphaB
  use physcon,      only:pi,fourpi,solarm,c,qe
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -297,10 +293,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  if ( geo_cp ) then
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                     hfact,npart,xyzh,nptot=npart_total)
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  else
     call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                     hfact,npart,xyzh,nptot=npart_total)
+                     hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  endif
  npartoftype(igas) = npart
  totmass           = rhozero*dxbound*dybound*dzbound

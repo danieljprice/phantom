@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for discs by DF, adapted from a routine by CJN
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, getneigbours, io, kernel, part, physcon,
-!    prompting, units
-!+
-!--------------------------------------------------------------------------
 module analysis
- use getneigbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+!
+! Analysis routine for discs by DF, adapted from a routine by CJN
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, getneighbours, io, kernel, part, physcon,
+!   prompting, units
+!
+ use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_stresses'

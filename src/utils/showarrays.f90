@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: showarrays
-!
-!  DESCRIPTION: Utility to print tags of all array in a dump file
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: showarrays file_00000
-!
-!  DEPENDENCIES: dump_utils
-!+
-!--------------------------------------------------------------------------
 program showarrays
+!
+! Utility to print tags of all array in a dump file
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: showarrays file_00000
+!
+! :Dependencies: dump_utils
+!
  use dump_utils, only:print_arrays_in_file
  implicit none
  integer, parameter   :: iu = 23

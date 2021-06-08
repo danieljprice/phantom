@@ -1,13 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantom
+program phantom
 !
-!  DESCRIPTION: The Phantom SPH code, by Daniel Price.
+! The Phantom SPH code, by Daniel Price.
 !
 !  This code is designed to be an ultra-sleek, ultra-low-memory,
 !  code for high resolution SPH simulations
@@ -16,38 +15,24 @@
 !  (aim is to be able to run 10^7 particles in under 1Gb)
 !  and to use the fastest possible implementation
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: phantom infilename
 !
-!  USAGE: phantom infilename
+! :Dependencies: dim, evolve, initial, io, mpiutils
 !
-!  DEPENDENCIES: dim, evolve, initial, io, memory, mpiderivs, mpiutils,
-!    stack, test
-!+
-!--------------------------------------------------------------------------
-program phantom
- use memory,          only:allocate_memory
- use dim,             only:tagline,maxp_hard
+ use dim,             only:tagline
  use mpiutils,        only:init_mpi,finalise_mpi
-#ifdef MPI
- use mpiderivs,       only:init_tree_comms,finish_tree_comms
- use stack,           only:init_mpi_memory,finish_mpi_memory
-#endif
- use initial,         only:initialise,startrun,endrun
+ use initial,         only:initialise,finalise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use evolve,          only:evol
- use test,            only:testsuite
  implicit none
- integer :: nargs,i,ntests,npass,nfail
+ integer            :: nargs
  character(len=120) :: infile,logfile,evfile,dumpfile
 
  id = 0
- ntests = 0
- npass  = 0
- nfail  = 0
 
  call init_mpi(id,nprocs)
  call set_io_unit_numbers
@@ -58,7 +43,7 @@ program phantom
  if (nargs < 1) then
     if (id==master) then
        print "(a,/)",trim(tagline)
-       print "(a)",' Usage: phantom infilename '
+       print "(a)",' Usage: phantom infilename'
     endif
     call die
  endif
@@ -73,46 +58,14 @@ program phantom
     endif
     call die
  endif
+ !
+ ! perform a simulation
+ !
+ if (index(infile,'.in')==0) infile = trim(infile)//'.in'
+ call startrun(infile,logfile,evfile,dumpfile)
+ call evol(infile,logfile,evfile,dumpfile)
+ if (id==master) call endrun()
 
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
- if (trim(infile)=='test') then
-    !
-    ! run the phantom internal test suite
-    !
-    call initialise()
-    call allocate_memory(maxp_hard)
-    if (nargs >= 2) then
-       do i=2,nargs
-          call get_command_argument(i,infile)
-          call testsuite(trim(infile),(i==2),(i==nargs),ntests,npass,nfail)
-       enddo
-    else
-       call testsuite('all',.true.,.true.,ntests,npass,nfail)
-    endif
- else
-    !
-    ! perform a simulation
-    !
-    if (index(infile,'.in')==0) then
-       infile = trim(infile)//'.in'
-    endif
-    call startrun(infile,logfile,evfile,dumpfile)
-    call evol(infile,logfile,evfile,dumpfile)
-    if (id==master) call endrun()
- endif
-
-#ifdef MPI
- call finish_tree_comms()
- call finish_mpi_memory()
-#endif
  call finalise_mpi()
-
- !
- ! stop with an error code if test suite failed
- !
- if (ntests > 0 .and. nfail > 0) stop 666
 
 end program phantom

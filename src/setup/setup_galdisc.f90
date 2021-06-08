@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!  this module does setup for galactic discs with live or analytic stars
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: datafiles, dim, extern_spiral, externalforces, io,
-!    mpiutils, options, part, physcon, prompting, random, set_dust,
-!    setup_params, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! this module does setup for galactic discs with live or analytic stars
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, dim, extern_spiral, externalforces, io,
+!   mpiutils, options, part, physcon, prompting, random, set_dust,
+!   setup_params, units
+!
  implicit none
  public :: setpart
 
@@ -632,7 +626,7 @@ subroutine readinr(file_in,filelen,cdf_ar,r_ar,ierr)
  close(lu)
 
  return
-end subroutine
+end subroutine readinr
 
 
 !/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\

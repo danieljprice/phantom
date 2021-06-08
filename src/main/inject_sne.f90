@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION:
-!   Routine for injecting supernovae for test from Balsara & Kim (2004)
-!
-!  REFERENCES: Balsara & Kim (2004), ApJ 602, 1079
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Routine for injecting supernovae for test from Balsara & Kim (2004)
+!
+! :References: Balsara & Kim (2004), ApJ 602, 1079
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, infile_utils, io, part, physcon
+!
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
 
@@ -150,7 +144,7 @@ subroutine write_options_inject(iunit)
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)
 
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -176,6 +170,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
  igotall = (ngot >= 0)
 
-end subroutine
+end subroutine read_options_inject
 
 end module inject

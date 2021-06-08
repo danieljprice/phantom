@@ -1,31 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
+module inject
 !
-!  DESCRIPTION:
-!   Wind injection from galactic centre stars
+! Wind injection from galactic centre stars
 !   Written by Daniel Price, Jorge Cuadra, and Christopher Russell
 !
-!  REFERENCES: Cuadra et al. (2008), MNRAS 383, 458
+! :References: Cuadra et al. (2008), MNRAS 383, 458
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - datafile       : *name of data file for wind injection*
+!   - outer_boundary : *kill gas particles outside this radius*
 !
-!  RUNTIME PARAMETERS:
-!    datafile       -- name of data file for wind injection
-!    outer_boundary -- kill gas particles outside this radius
+! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
+!   random, units
 !
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, partinject, physcon,
-!    random, setbinary, units
-!+
-!--------------------------------------------------------------------------
-module inject
  use dim,  only:maxptmass
  use part, only:nptmass
  implicit none
@@ -33,7 +27,6 @@ module inject
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject
 
- !integer :: wind_type = 1
  real :: outer_boundary = 20.
  character(len=120) :: datafile = 'winddata.txt'
 
@@ -73,7 +66,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,        only:fatal,iverbose
  use part,      only:massoftype,igas,ihacc,i_tlast
  use partinject,only:add_or_update_particle
- use setbinary, only:L1_point
  use physcon,   only:pi,solarm,seconds,years,km,kb_on_mH
  use units,     only:umass,udist,utime,unit_velocity
  use random,    only:ran2
@@ -241,7 +233,6 @@ subroutine write_options_inject(iunit)
 
  call write_inopt(trim(datafile),'datafile','name of data file for wind injection',iunit)
  call write_inopt(outer_boundary,'outer_boundary','kill gas particles outside this radius',iunit)
- !call write_inopt(wind_type,'wind_type','type of mass injection',iunit)
 
 end subroutine write_options_inject
 

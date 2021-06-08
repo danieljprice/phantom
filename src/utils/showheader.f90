@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: showheader
-!
-!  DESCRIPTION: Utility to print contents of dump file header
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: showheader file_00000
-!
-!  DEPENDENCIES: dump_utils
-!+
-!--------------------------------------------------------------------------
 program showheader
+!
+! Utility to print contents of dump file header
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: showheader file_00000
+!
+! :Dependencies: dump_utils
+!
  use dump_utils, only:open_dumpfile_r,read_header,dump_h,lenid,&
                       print_header,free_header,ierr_realsize
  implicit none

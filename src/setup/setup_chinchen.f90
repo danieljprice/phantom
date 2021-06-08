@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!    Setup of "Chinese coin" orbital dynamics problem
+! Setup of "Chinese coin" orbital dynamics problem
 !    from Chin & Chen (2005)
 !
-!  REFERENCES: Chin & Chen (2005), Celest. Mech. Dyn. Astron. 91, 301
+! :References: Chin & Chen (2005), Celest. Mech. Dyn. Astron. 91, 301
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: extern_binary, externalforces, io, options, part, physcon,
+!   timestep, units
 !
-!  DEPENDENCIES: extern_binary, externalforces, io, options, part, physcon,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 

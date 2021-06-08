@@ -30,7 +30,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: compile SETUP=testkd
-      run: make SETUP=testkd
+      run: make SETUP=testkd phantomtest
         
     - name: run testsuite with SETUP=testkd
-      run: ./bin/phantom test
+      run: ./bin/phantomtest

@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setvfield
+module setvfield
 !
-!  DESCRIPTION:
 ! this module contains utilities for setting up velocity fields
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: energies, io, mpiutils
 !
-!  DEPENDENCIES: energies, io, mpiutils
-!+
-!--------------------------------------------------------------------------
-module setvfield
  implicit none
  public :: set_vfield,normalise_vfield
 
@@ -70,6 +64,7 @@ end subroutine set_vfield
 !------------------------------------------------------------------
 subroutine normalise_vfield(npart,vxyzu,ierr,rms,ke,rmsmach_in)
  use io,       only:fatal,id,master
+ use eos,      only:init_eos,ieos
  use energies, only:compute_energies,rmsmach,vrms,ekin
  use mpiutils, only:bcast_mpi
  integer, intent(in)    :: npart
@@ -81,6 +76,7 @@ subroutine normalise_vfield(npart,vxyzu,ierr,rms,ke,rmsmach_in)
 !
 !--compute the total kinetic energy, RMS Mach number and RMS velocity
 !
+ call init_eos(ieos,ierr)
  call compute_energies(0.)
  if (id==master) write(*,"(1x,3(a,es10.3))") &
     'Values from original   v-field: Ekin = ',ekin,' rms v = ',vrms,' rms mach = ',rmsmach

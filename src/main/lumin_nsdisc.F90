@@ -1,31 +1,25 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: lumin_nsdisc
+module lumin_nsdisc
 !
-!  DESCRIPTION:
 ! This module contains routines for calculating beta, the
 ! ratio of radiation to gravitational force, for an accretion disc
 ! surrounding a neutron star. It contains associated functions
 ! for calculating opacity, accretion luminosity, etc.
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, fastmath, infile_utils, io, physcon, units
 !
-!  DEPENDENCIES: eos, fastmath, infile_utils, io, physcon, units
-!+
-!--------------------------------------------------------------------------
 
-module lumin_nsdisc
  use physcon, only: pi
  implicit none
 
@@ -229,7 +223,7 @@ subroutine get_bracket_grid_points( array, ix, nx, maxx, x1, x2 )
  x1 = minimum  + (boundary-minimum)/2.
  x2 = boundary + (maximum-boundary)/2.
 
-end subroutine
+end subroutine get_bracket_grid_points
 
 !----------------------------------------------------------------
 !+
@@ -408,7 +402,7 @@ subroutine make_beta_grids(xyzh,particlemass,npart)
        w92sumbeta(rbin) = 0.0
        w92npart(rbin) = 0
     enddo
-    do ipart=0, npart
+    do ipart=1, npart
        x = xyzh(1, ipart)
        y = xyzh(2, ipart)
        z = xyzh(3, ipart)

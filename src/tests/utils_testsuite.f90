@@ -1,30 +1,24 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testutils
+module testutils
 !
-!  DESCRIPTION:
-!  This routine contains utility functions for use in
+! This routine contains utility functions for use in
 !  the testsuite modules
 !
 !  Requires mpi utility routines to print per-thread results
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, mpiutils
 !
-!  DEPENDENCIES: io, mpiutils
-!+
-!--------------------------------------------------------------------------
-module testutils
  use mpiutils, only:reduce_mpi,reduceall_mpi,barrier_mpi
  use io,       only:id,master
  implicit none

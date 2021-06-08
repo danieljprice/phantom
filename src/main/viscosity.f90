@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: viscosity
-!
-!  DESCRIPTION:
-!   Routines related to physical viscosity
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, part, timestep
-!+
-!--------------------------------------------------------------------------
 module viscosity
+!
+! Routines related to physical viscosity
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, part, timestep
+!
  implicit none
  integer, public :: irealvisc
  real, public :: shearparam, bulkvisc, HoverR
@@ -119,16 +113,16 @@ end function shearfunc
 !+
 !----------------------------------------------------------------
 real function dt_viscosity(xi,yi,zi,hi,spsoundi)
- use timestep,only:C_force
+ use timestep,only: C_force,bignumber
  real, intent(in) :: xi,yi,zi,hi,spsoundi
- real :: viscnu
+ real             :: viscnu
 
  viscnu = shearfunc(xi,yi,zi,spsoundi)
 
  if (viscnu > tiny(viscnu)) then
     dt_viscosity = 0.4*C_force*hi*hi/viscnu
  else
-    dt_viscosity = huge(dt_viscosity)
+    dt_viscosity = bignumber
  endif
 
 end function dt_viscosity

@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Arnaud Vericel
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: part, prompting
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! None
+!
+! :References: None
+!
+! :Owner: Arnaud Vericel
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, prompting
+!
 
  use part,         only:delete_particles_outside_sphere
  use prompting,    only:prompt
@@ -53,15 +48,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Deleting particles outside a given radius ?',icutoutside)
  if (icutinside) then
     call prompt('Enter inward radius in au',inradius,0.)
-    call prompt('Enter x coordinate of the center of that sphere',incenter(1),0.)
-    call prompt('Enter y coordinate of the center of that sphere',incenter(2),0.)
-    call prompt('Enter z coordinate of the center of that sphere',incenter(3),0.)
+    call prompt('Enter x coordinate of the center of that sphere',incenter(1))
+    call prompt('Enter y coordinate of the center of that sphere',incenter(2))
+    call prompt('Enter z coordinate of the center of that sphere',incenter(3))
  endif
  if (icutoutside) then
     call prompt('Enter outward radius in au',outradius,0.)
-    call prompt('Enter x coordinate of the center of that sphere',outcenter(1),0.)
-    call prompt('Enter y coordinate of the center of that sphere',outcenter(2),0.)
-    call prompt('Enter z coordinate of the center of that sphere',outcenter(3),0.)
+    call prompt('Enter x coordinate of the center of that sphere',outcenter(1))
+    call prompt('Enter y coordinate of the center of that sphere',outcenter(2))
+    call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
  endif
 
  if (icutinside) then

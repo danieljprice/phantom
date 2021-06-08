@@ -1,36 +1,31 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup of an asteroid being tidally disrupted by a white dwarf
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    dumpsperorbit -- number of dumps per orbit
-!    hacc1         -- white dwarf (sink) accretion radius (solar radii)
-!    m1            -- mass of white dwarf (solar mass)
-!    m2            -- mass of asteroid (ceres mass)
-!    norbits       -- number of orbits
-!    nr            -- particles per asteroid radius (i.e. resolution)
-!    rasteroid     -- radius of asteroid (km)
-!    rp            -- pericentre distance (solar radii)
-!    semia         -- semi-major axis (solar radii)
-!
-!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
-!    timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of an asteroid being tidally disrupted by a white dwarf
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - hacc1         : *white dwarf (sink) accretion radius (solar radii)*
+!   - m1            : *mass of white dwarf (solar mass)*
+!   - m2            : *mass of asteroid (ceres mass)*
+!   - norbits       : *number of orbits*
+!   - nr            : *particles per asteroid radius (i.e. resolution)*
+!   - rasteroid     : *radius of asteroid (km)*
+!   - rp            : *pericentre distance (solar radii)*
+!   - semia         : *semi-major axis (solar radii)*
+!
+! :Dependencies: infile_utils, io, part, physcon, setbinary, spherical,
+!   timestep, units
+!
  implicit none
  public :: setpart
 
@@ -66,7 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr,i
  logical :: iexist
- real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc,massr
+ real    :: vbody(3),xyzbody(3),massbody,psep,period,hacc2,ecc
 
  call set_units(mass=solarm,dist=solarr,G=1.d0)
 
@@ -124,7 +119,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- massr  = m2/m1
  ecc    = 1.-rp/semia
  period = sqrt(4.*pi**2*semia**3/(m1+m2))
  hacc2  = hacc1/1.e10
@@ -134,7 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Set a binary orbit given the desired orbital parameters
 !
- call set_binary(m1,massr,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+ call set_binary(m1,m2,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  vbody    = vxyz_ptmass(1:3,2)
  xyzbody  = xyzmh_ptmass(1:3,2)
  massbody = xyzmh_ptmass(4,2)

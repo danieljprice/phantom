@@ -1,30 +1,34 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: unifdis
-!
-!  DESCRIPTION:
-!   Setup of uniform particle distributions on various lattices
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: domain, part, random, stretchmap
-!+
-!--------------------------------------------------------------------------
 module unifdis
+!
+! Setup of uniform particle distributions on various lattices
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: random, stretchmap
+!
  implicit none
- public :: set_unifdis, get_ny_nz_closepacked
+ public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
  public :: is_valid_lattice, is_closepacked
+
+ ! following lines of code allow an optional mask= argument
+ ! to setup only certain subsets of the particle domain (used for MPI)
+ abstract interface
+  logical function mask_prototype(ip)
+   integer(kind=8), intent(in) :: ip
+  end function mask_prototype
+ end interface
+
+ public :: mask_prototype, mask_true
 
  private
 
@@ -34,36 +38,46 @@ contains
 !+
 !  This subroutine positions particles on a uniform lattice
 !  in three dimensions, either cubic or close packed.
+!  Optional inputs permit the creation of
+!  -spheres, cylinders & ellipses
+!  -spherical & cylindrical shells
+!  -spherical, cylindrical & elliptical voids
 !+
 !-------------------------------------------------------------
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
-                       zmin,zmax,delta,hfact,np,xyzh,rmin,rmax,rcylmin,rcylmax,&
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom)
+                       zmin,zmax,delta,hfact,np,xyzh,periodic, &
+                       rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
+                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
- use part,       only:periodic
  use stretchmap, only:set_density_profile
- use domain,     only:i_belong
+ !use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,hfact
  real,             intent(out)   :: xyzh(:,:)
+ logical,          intent(in)    :: periodic ! true or false
+
  real,             intent(in),    optional :: rmin,rmax
  real,             intent(in),    optional :: rcylmin,rcylmax
+ real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
  real, external,                  optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose,centre
+ logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
+ integer,          intent(out),   optional :: err
+ procedure(mask_prototype), optional :: mask
+ procedure(mask_prototype), pointer  :: i_belong
 
- integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin
+ integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
- integer(kind=8)    :: iparttot
+ integer(kind=8)    :: iparttot,iparttot0
  real               :: delx,dely
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
  real               :: xcentre,ycentre,zcentre
- real               :: rmin2,rmax2,rcylmin2,rcylmax2
+ real               :: rmin2,rmax2,rcylmin2,rcylmax2,rellipsoid21(3),rellmin,rellmax,rell2
  real               :: xpartmin,ypartmin,zpartmin
  real               :: xpartmax,ypartmax,zpartmax,xmins,xmaxs
  logical            :: is_verbose,centre_lattice
@@ -110,17 +124,36 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  else
     rcylmax2 = huge(0.)
  endif
+ if (present(rellipsoid) .and. present(in_ellipsoid) ) then
+    rellipsoid21 = 1.0/(rellipsoid*rellipsoid)
+    if (in_ellipsoid) then
+       rellmin = 0.
+       rellmax = 1.
+    else
+       rellmin = 1.
+       rellmax = huge(0.)
+    endif
+ else
+    rellipsoid21 = 0.
+    rellmin      = 0.
+    rellmax      = huge(0.)
+ endif
  if (present(nptot)) then
     iparttot = nptot
  else
     iparttot = 0
  endif
+ iparttot0 = iparttot
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
-
  is_verbose = .true.
- if (present(verbose)) then
-    is_verbose = verbose
+ if (present(verbose)) is_verbose = verbose
+
+ ! check against mask
+ if (present(mask)) then
+    i_belong => mask
+ else
+    i_belong => mask_true
  endif
 
  centre_lattice = .false.
@@ -162,7 +195,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
              rcyl2 = xi*xi + yi*yi
              rr2   = rcyl2 + zi*zi
-             if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+             rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+             if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
                 iparttot = iparttot + 1
                 if (i_belong(iparttot)) then
                    ipart = ipart + 1
@@ -273,7 +307,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -438,7 +473,8 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        !
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -485,14 +521,15 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
 
-    do i=1,npnew
+    do while (iparttot < iparttot0+npnew)
        xi = xmin + ran2(iseed)*dxbound
        yi = ymin + ran2(iseed)*dybound
        zi = zmin + ran2(iseed)*dzbound
 !--do not use if not within radial cuts
        rcyl2 = xi*xi + yi*yi
        rr2   = rcyl2 + zi*zi
-       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2)) then
+       rell2 = xi*xi*rellipsoid21(1) + yi*yi*rellipsoid21(2) + zi*zi*rellipsoid21(3)
+       if (in_range(rr2,rmin2,rmax2) .and. in_range(rcyl2,rcylmin2,rcylmax2) .and. in_range(rell2,rellmin,rellmax)) then
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
@@ -542,10 +579,14 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xmaxs = ymax
        endif
     endif
-    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,start=npin,geom=igeom,coord=icoord)
+    call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+    if (ierr > 0) then
+       if (present(err)) err = ierr
+       return
+    endif
  endif
 
- return
 end subroutine set_unifdis
 
 !-------------------------------------------------------------
@@ -556,9 +597,16 @@ end subroutine set_unifdis
 pure logical function in_range(x,xmin,xmax)
  real, intent(in) :: x,xmin,xmax
 
- in_range = (x >= xmin .and. x <= xmax)
+ in_range = (xmin <= x .and. x <= xmax)
 
 end function in_range
+
+pure logical function mask_true(ip)
+ integer(kind=8), intent(in) :: ip
+
+ mask_true = .true.
+
+end function mask_true
 
 !-------------------------------------------------------------
 !+
@@ -582,6 +630,75 @@ pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
+!-------------------------------------------------------------
+!+
+!  helper routine to figure to adjust boundaries so particle spacing
+!  is exact for periodicity
+!+
+!-------------------------------------------------------------
+pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,ierr,delta_in,nx_in)
+ real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ integer,           intent(out)   :: ierr
+ real,    optional, intent(in)    :: delta_in
+ integer, optional, intent(in)    :: nx_in
+ character(len=*),  intent(in)    :: latticetype
+ integer                          :: nx,ny,nz
+ real                             :: delta,deltax,deltay,deltaz,boxx,boxy,boxz,exact_width,dbounds
+
+ ! set box width
+ boxx = xmax - xmin
+ boxy = ymax - ymin
+ boxz = zmax - zmin
+ ierr = 0
+
+ ! determine delta_x or nx, depending on input
+ if (present(delta_in)) then
+    delta = delta_in
+    nx    = nint(boxx/delta)
+ elseif (present(nx_in)) then
+    nx    = nx_in
+    delta = boxx/nx
+ else
+    ierr = 1 ! Incomplete inputs
+    return
+ endif
+
+ ! calculate remaining delta's
+ select case(trim(latticetype))
+ case ('cubic')
+    deltax = delta
+    deltay = delta
+    deltaz = delta
+ case ('closepacked','hcp','hexagonal')
+    deltax = delta
+    deltay = delta*sqrt(3./4.)
+    deltaz = delta*sqrt(6.)/3.
+ case default
+    ierr = 2 ! not an included lattice
+    return
+ end select
+
+ ! update number of particles in remaining directions
+ ny = nint(boxy/deltay)
+ nz = nint(boxz/deltaz)
+
+ ! adjust boundaries as required
+ exact_width = nx*deltax
+ dbounds     = abs(boxx - exact_width)
+ xmin = xmin - 0.5*dbounds
+ xmax = xmax + 0.5*dbounds
+
+ exact_width = ny*deltay
+ dbounds     = abs(boxy - exact_width)
+ ymin = ymin - 0.5*dbounds
+ ymax = ymax + 0.5*dbounds
+
+ exact_width = nz*deltaz
+ dbounds     = abs(boxz - exact_width)
+ zmin = zmin - 0.5*dbounds
+ zmax = zmax + 0.5*dbounds
+
+end subroutine get_xyzmin_xyzmax_exact
 !---------------------------------------------------------------
 !+
 !  helper routine to sanity check that the latticetype is valid
@@ -591,7 +708,7 @@ pure logical function is_valid_lattice(latticetype)
  character(len=*), intent(in) :: latticetype
 
  select case(trim(latticetype))
- case ('random','cubic','closepacked','hcp')
+ case ('random','cubic','closepacked','hcp','hexagonal')
     is_valid_lattice = .true.
  case default
     is_valid_lattice = .false.

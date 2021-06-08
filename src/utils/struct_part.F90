@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: structurefn_part
+module structurefn_part
 !
-!  DESCRIPTION:
-!  module for obtaining structure functions
+! module for obtaining structure functions
 !  direct from SPH particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: random, timing
 !
-!  DEPENDENCIES: random, timing
-!+
-!--------------------------------------------------------------------------
-module structurefn_part
  implicit none
 
 contains
@@ -54,7 +48,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
  real                      :: rij2,distmin2,ddxbin,minusdistminddxbin
  real                      :: dvdotr,dvterm,dvtrans,rhomax,errtot,temp
  real(kind=8)              :: dvdotrterm,dvtransterm
- !$ integer                   :: omp_get_num_threads
+!$ integer                   :: omp_get_num_threads
  logical                   :: converged
 !
 !--set up the distance bins (linear)
@@ -84,7 +78,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
  converged = .false.
  !$omp parallel
  !$omp master
- !$ print*,' Using ',omp_get_num_threads(),' cpus'
+!$ print*,' Using ',omp_get_num_threads(),' cpus'
  !$omp end master
  !$omp end parallel
 

@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: splineutils
+module splineutils
 !
-!  DESCRIPTION:
-!  This module contains utilities for fitting/ evaluating
+! This module contains utilities for fitting/ evaluating
 !  cubic spline fits to data
 !
 !  Routines are originally by Simon Glover,
 !  Translated to Fortran 90 and adapted
 !  for use in Phantom by Daniel Price (2011)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: None
 !
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
-module splineutils
  implicit none
 
  public :: spline_eval

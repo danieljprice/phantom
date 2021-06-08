@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: dtypekdtree
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Conrad Chan
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: mpi, mpiutils
-!+
-!--------------------------------------------------------------------------
 module dtypekdtree
+!
+! None
+!
+! :References: None
+!
+! :Owner: Conrad Chan
+!
+! :Runtime parameters: None
+!
+! :Dependencies: mpi, mpiutils
+!
  implicit none
 
 #ifdef TREEVIZ
@@ -41,7 +36,7 @@ module dtypekdtree
                     + 8*6 &         ! quads(6)
 #endif
 #ifdef TREEVIZ
-                    + 8*ndimtree &  ! xmin(ndimtree)
+ + 8*ndimtree &  ! xmin(ndimtree)
                     + 8*ndimtree &  ! xmax(ndimtree)
 #endif
                     + 0

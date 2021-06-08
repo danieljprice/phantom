@@ -1,13 +1,11 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: extern_prdrag
+module extern_prdrag
 !
-!  DESCRIPTION:
 ! This module contains routines relating to the computation
 ! of radial and transverse radiation forces from a central sink particle
 ! centered at the origin.
@@ -25,19 +23,15 @@
 ! subroutine write_options_prdrag-- use beta_module, only:write_options_beta
 ! subroutine read_options_prdrag-- use beta_module, only:read_options_beta
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, fastmath, infile_utils, io, lumin_nsdisc, physcon,
+!   units
 !
-!  DEPENDENCIES: eos, fastmath, infile_utils, io, lumin_nsdisc, physcon,
-!    units
-!+
-!--------------------------------------------------------------------------
-module extern_prdrag
  use eos, only:qfacdisc
 
  implicit none

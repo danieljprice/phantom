@@ -1,28 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: externalforces
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    accradius1      -- soft accretion radius of black hole
-!    accradius1_hard -- hard accretion radius of black hole
-!
-!  DEPENDENCIES: dump_utils, infile_utils, io, metric_tools, part, units
-!+
-!--------------------------------------------------------------------------
 module externalforces
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - accradius1      : *soft accretion radius of black hole*
+!   - accradius1_hard : *hard accretion radius of black hole*
+!
+! :Dependencies: dump_utils, infile_utils, io, metric_tools, part, units
+!
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -48,12 +43,13 @@ module externalforces
 
  ! (the following for compatibility with non-relativistic code)
  integer, parameter, public :: iext_lensethirring = -1
- integer, parameter, public :: iext_einsteinprec = -1
- integer, parameter, public :: iext_binary = -1
- integer, parameter, public :: iext_spiral = -1
- integer, parameter, public :: iext_star = -1
- integer, parameter, public :: iext_corotate = -1
- integer, parameter, public :: iext_corot_binary = -1
+ integer, parameter, public :: iext_einsteinprec = -2
+ integer, parameter, public :: iext_binary = -3
+ integer, parameter, public :: iext_spiral = -4
+ integer, parameter, public :: iext_star = -5
+ integer, parameter, public :: iext_corotate = -6
+ integer, parameter, public :: iext_corot_binary = -7
+ integer, parameter, public :: iext_gwinspiral = -8
 
  !
  ! Human-readable labels for these

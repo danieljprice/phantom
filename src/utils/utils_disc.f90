@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: discanalysisutils
+module discanalysisutils
 !
-!  DESCRIPTION:
-!  Routine to calculate azimuithally averaged properties in a disc
+! Routine to calculate azimuithally averaged properties in a disc
 !  Can handle gas disc, gas disc + sinks and warped discs
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Bec Nealon
+! :Owner: Bec Nealon
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, externalforces, options, physcon, prompting,
+!   vectorutils
 !
-!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
-module discanalysisutils
  implicit none
 
  character(len=20), parameter, public :: analysistype = 'disc'

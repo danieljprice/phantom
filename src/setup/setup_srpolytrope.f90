@@ -1,28 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup a polytrope in flat space, Minkowski metric (special relativity)
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    nr -- resolution (number of radial particles)
-!
-!  DEPENDENCIES: eos, infile_utils, io, options, part, physcon, prompting,
-!    rho_profile, spherical, timestep, units
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup a polytrope in flat space, Minkowski metric (special relativity)
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - nr : *resolution (number of radial particles)*
+!
+! :Dependencies: eos, infile_utils, io, options, part, physcon, prompting,
+!   rho_profile, spherical, timestep, units
+!
  implicit none
 
  public :: setpart

@@ -1,42 +1,36 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Computes the the distribution of different quantities in a TDE simulation
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!    angmax -- max angular momentum
-!    angmin -- min angular momentum
-!    emax   -- max energy
-!    emin   -- min energy
-!    lummax -- max luminosity
-!    lummin -- min luminosity
-!    mh     -- black hole mass in code units
-!    nbins  -- number of bins
-!    rmax   -- max radius
-!    rmin   -- min radius
-!    trmax  -- max return time
-!    trmin  -- min return time
-!    vmax   -- max velocity
-!    vmin   -- min velocity
-!
-!  DEPENDENCIES: dump_utils, infile_utils, io, physcon, prompting,
-!    readwrite_dumps, sortutils, vectorutils
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Computes the the distribution of different quantities in a TDE simulation
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - angmax : *max angular momentum*
+!   - angmin : *min angular momentum*
+!   - emax   : *max energy*
+!   - emin   : *min energy*
+!   - lummax : *max luminosity*
+!   - lummin : *min luminosity*
+!   - mh     : *black hole mass in code units*
+!   - nbins  : *number of bins*
+!   - rmax   : *max radius*
+!   - rmin   : *min radius*
+!   - trmax  : *max return time*
+!   - trmin  : *min return time*
+!   - vmax   : *max velocity*
+!   - vmin   : *min velocity*
+!
+! :Dependencies: dump_utils, infile_utils, io, physcon, prompting,
+!   readwrite_dumps, sortutils, vectorutils
+!
  implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
  public :: do_analysis
@@ -436,4 +430,4 @@ subroutine read_tdeparams(filename,ierr)
 
 end subroutine read_tdeparams
 
-end module
+end module analysis
