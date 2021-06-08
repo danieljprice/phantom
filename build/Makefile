@@ -2073,7 +2073,7 @@ cleananalysis:
 .PHONY: libphantom
 
 SRCLIB= libphantom-evolve.F90  libphantom-splash.f90  libphantom.F90
-BJLIB1=${SRCLIB:.f90=.o}
+OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
