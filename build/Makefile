@@ -2071,8 +2071,8 @@ cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
 .PHONY: libphantom
-
-SRCLIB= #libphantom-evolve.F90  libphantom-splash.f90  libphantom.F90
+# extra files used in libphantom that are not in OBJECTS
+SRCLIB= # libphantom.F90
 OBJLIB1=${SRCLIB:.f90=.o}
 OBJLIB=${OBJLIB1:.F90=.o}
 
