@@ -167,7 +167,8 @@ module setup
  real    :: R_c_dust(maxdiscs,maxdusttypes)
  real    :: pindex_dust(maxdiscs,maxdusttypes),qindex_dust(maxdiscs,maxdusttypes)
  real    :: H_R_dust(maxdiscs,maxdusttypes)
-
+ real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs) 
+ logical :: iecc(maxdiscs)
  !--planets
  integer, parameter :: maxplanets = 9
 
@@ -1002,7 +1003,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
  do i=1,maxdiscs
     if (iuse_disc(i)) then
-
        if (ndiscs > 1) then
           print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
           prefix = trim(fileprefix)//'-'//disctype(i)
@@ -1088,6 +1088,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         inclination      = incl(i),              &
                         rwarp            = R_warp(i),            &
                         warp_smoothl     = H_warp(i),            &
+                        e0               = e0(i),                &
+                        eindex           = eindex(i),            &
+                        phiperi          = phiperi(i),           &
                         bh_spin          = bhspin,               &
                         prefix           = prefix)
 
@@ -1142,6 +1145,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               inclination    = incl(i),            &
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
+                              e0               = e0(i),                &
+                              eindex           = eindex(i),            &
+                              phiperi          = phiperi(i),           &
                               bh_spin        = bhspin,             &
                               prefix         = dustprefix(j))
 
@@ -1183,6 +1189,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         inclination     = incl(i),            &
                         rwarp           = R_warp(i),          &
                         warp_smoothl    = H_warp(i),          &
+                        e0               = e0(i),             &
+                        eindex           = eindex(i),         &
+                        phiperi          = phiperi(i),        &
                         bh_spin         = bhspin,             &
                         prefix          = prefix)
 
@@ -1235,6 +1244,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               inclination    = incl(i),            &
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
+                              e0               = e0(i),            &
+                              eindex           = eindex(i),        &
+                              phiperi          = phiperi(i),       &
                               bh_spin        = bhspin,             &
                               prefix         = dustprefix(j))
 
@@ -1974,6 +1986,13 @@ subroutine setup_interactive()
           H_warp = 20.
           incl   = 30.
        endif
+       
+       call prompt('Do you want the disc to be eccentric?',iecc(i))
+       if (iecc(i)) then
+          e0=0.1
+          eindex = 1.
+          phiperi = 0.
+       endif    
     endif
  enddo
 
@@ -2266,6 +2285,7 @@ subroutine write_setupfile(filename)
           'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
        call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
+       call write_inopt(iecc(i),'iecc'//trim(disclabel),'eccentric disc',iunit)
        call write_inopt(R_in(i),'R_in'//trim(disclabel),'inner radius',iunit)
        call write_inopt(R_ref(i),'R_ref'//trim(disclabel),'reference radius',iunit)
        call write_inopt(R_out(i),'R_out'//trim(disclabel),'outer radius',iunit)
@@ -2306,6 +2326,11 @@ subroutine write_setupfile(filename)
        if (iwarp(i)) then
           call write_inopt(R_warp(i),'R_warp'//trim(disclabel),'warp radius',iunit)
           call write_inopt(H_warp(i),'H_warp'//trim(disclabel),'warp smoothing length',iunit)
+       endif
+       if (iecc(i)) then
+          call write_inopt(e0(i),'e0'//trim(disclabel),'eccentricity at disc edge',iunit)
+          call write_inopt(eindex(i),'eindex'//trim(disclabel),'power of eccentricity profile',iunit)
+          call write_inopt(phiperi(i),'phiperi'//trim(disclabel),'longitude of pericentre',iunit)
        endif
        if (.not.done_alpha) then
           if (maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
@@ -2614,9 +2639,15 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
        call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(iwarp(i),'iwarp'//trim(disclabel),db,errcount=nerr)
+       call read_inopt(iecc(i),'iecc'//trim(disclabel),db,errcount=nerr)
        if (iwarp(i)) then
           call read_inopt(R_warp(i),'R_warp'//trim(disclabel),db,min=0.,errcount=nerr)
           call read_inopt(H_warp(i),'H_warp'//trim(disclabel),db,min=0.,errcount=nerr)
+       endif
+       if (iecc(i)) then
+          call read_inopt(e0(i),'e0'//trim(disclabel),db,min=0.,errcount=nerr)
+          call read_inopt(eindex(i),'eindex'//trim(disclabel),db,min=0.,errcount=nerr)
+          call read_inopt(phiperi(i),'phiperi'//trim(disclabel),db,min=0.,errcount=nerr)
        endif
        !--dust disc
        if (use_dust) then

@@ -70,7 +70,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     rc,rcdust,p_index,p_indexdust,q_index,q_indexdust,HoverR,HoverRdust,gamma, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
-                    position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
+                    position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl,e0,eindex,phiperi, &
                     bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
@@ -90,6 +90,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  integer, optional, intent(in)    :: particle_type
  real, optional,    intent(in)    :: position_angle,inclination
  real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
+ real, optional,    intent(in)    :: e0,eindex,phiperi
  logical, optional, intent(in)    :: ismooth,mixture
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
@@ -104,6 +105,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: star_m,disc_m,disc_mdust,sigma_norm,sigma_normdust,Q_tmp
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
+ real    :: e_0,e_index,phi_peri
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
@@ -333,13 +335,21 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--set particle positions and smoothing lengths
  !
+ e_0=0.
+ e_index=0.
+ phi_peri=0.
+ if(present(e0)) e_0=e0
+ if(present(eindex)) e_index=eindex
+ if(present(phiperi)) phi_peri=phiperi
+
  npart_tot = npart_start_count + npart_set - 1
  if (npart_tot > maxp) call fatal('set_disc', &
     'number of particles > array size, use e.g. "make setup MAXP=10000000"')
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         q_index,q_inddust,e_0,e_index,phi_peri,&
+                         star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
  !
@@ -350,7 +360,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,e_0,e_index,phi_peri)
  !
  !--inclines and warps
  !
@@ -488,7 +498,8 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+                              q_index,q_inddust,e_0,e_index,phi_peri,&
+                              star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,      only:id,master
  use part,    only:set_particle_type
  use random,  only:ran2
@@ -496,6 +507,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
+ real,    intent(in)    :: e_0,e_index,phi_peri
  logical, intent(in)    :: do_mixture,verbose
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
@@ -508,21 +520,40 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
  real    :: dR,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
-
+ real    :: R_ecc,Rin,Rout,Rindust,Routdust,phi_perirad
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
 
+ !--converting phi_peri to radians
+ phi_perirad=phi_peri*3.1415/180.
+
+ !--reset Rin-Rout for eccentric discs (if e=0, Rin=Rin, Rout=Rout)
+ !--R_in and then R_out are re-assigned to the original values at the
+ Rin=R_in/(1.-e_0*(R_in/R_ref)**(-e_index))
+ Rout=R_out/(1.+e_0*(R_out/R_ref)**(-e_index)) 
+ !--same for the dust
+ Rindust=R_indust/(1.-e_0*(R_indust/R_ref)**(-e_index))
+ Routdust=R_outdust/(1.+e_0*(R_outdust/R_ref)**(-e_index))
+
  !--set maximum f=R*sigma value
- dR = (R_out-R_in)/real(maxbins-1)
+ dR = (Rout-Rin)/real(maxbins-1)
  fr_max = 0.
+
  do i=1,maxbins
-    R = R_in + (i-1)*dR
-    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
+    R = Rin + (i-1)*dR
+    f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
+                                      Rin,Rout,R_c)*(1+e_0)**2
+                  !--factor (1+e_0)**2 is the maximum value of the 
+                  !--correction in distr_ecc_corr(....)
     if (do_mixture) then
-       if (R>=R_indust .and. R<=R_outdust) then
-          f_val = f_val + R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
+       if (R>=Rindust .and. R<=Routdust) then
+          f_val = f_val + R*sigma_normdust*&
+                  scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,&
+                               Rindust,Routdust,R_c_dust)*(1+e_0)**2
+                  !--factor (1+e_0)**2 is the maximum value of the 
+                  !--correction in distr_ecc_corr(....)
        endif
     endif
     fr_max = max(fr_max,f_val)
@@ -534,7 +565,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
- do i=npart_start_count,npart_tot,2
+! do i=npart_start_count,npart_tot,2
+  do i=npart_start_count,npart_tot,1
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
@@ -543,15 +575,26 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     f = 0.
     randtest = 1.
     do while (randtest > f)
-       R = R_in + (R_out - R_in)*ran2(iseed)
+       if(e_0 .ne. 0.) phi = phi_min + (phi_max - phi_min)*ran2(iseed)
+       !--This is because rejection must occur on the couple (a,phi)
+       !--and not only on a.
+       R = Rin + (Rout - Rin)*ran2(iseed)
+       !--Note that here R is the semi-maj axis, if e0=0. R=a
        randtest = fr_max*ran2(iseed)
-       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,R_in,R_out,R_c)
-       sigma = f/R
+       f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
+                                     p_index,R_ref,Rin,Rout,R_c)*&
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)
+       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
        if (do_mixture) then
-          if (R>=R_indust .and. R<=R_outdust) then
-             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,R_indust,R_outdust,R_c_dust)
+          if (R>=Rindust .and. R<=Routdust) then
+             fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
+                                                   p_inddust,R_ref,Rindust,&
+                                                   Routdust,R_c_dust)*&
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)
+                                      
              f     = f + fmixt
-             sigmamixt = fmixt/R
+             sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
+                                                 e_index,phi_peri))
           endif
        endif
     enddo
@@ -594,26 +637,41 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong_i4(i)) then
+    !--Setting ellipse properties
+    R_ecc=R*(1.-(e_0*(R/R_ref)**(-e_index))**2.)/&
+            (1+(e_0*(R/R_ref)**(-e_index))*cos(phi-phi_perirad))
+  !  if (i_belong_i4(i)) then
        ipart = ipart + 1
        !--set positions -- move to origin below
-       xyzh(1,ipart) = R*cos(phi)
-       xyzh(2,ipart) = R*sin(phi)
+       
+       xyzh(1,ipart) = R_ecc*cos(phi)
+       xyzh(2,ipart) = R_ecc*sin(phi)
        xyzh(3,ipart) = zi
        xyzh(4,ipart) = hpart
        !--set particle type
        call set_particle_type(ipart,itype)
-    endif
-    if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
-       ipart = ipart + 1
-       !--set positions -- move to origin below
-       xyzh(1,ipart) = -R*cos(phi)
-       xyzh(2,ipart) = -R*sin(phi)
-       xyzh(3,ipart) = -zi
-       xyzh(4,ipart) = hpart
-       !--set particle type
-       call set_particle_type(ipart,itype)
-    endif
+
+!----This part halves the number of iterations on the particles by making them
+!----negative symmetric, however this does not work for our non-axisymmetric
+!----setup. Note that the do file was skipping 2 part at the time.
+
+  !  endif
+  !  if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
+  !     ipart = ipart + 1
+  !    !--set positions -- move to origin below
+  !     if(e_0==0.) then
+  !       xyzh(1,ipart) = -R_ecc*cos(phi)
+  !        xyzh(2,ipart) = -R_ecc*sin(phi)
+  !        xyzh(3,ipart) = -zi
+  !      else
+  !        xyzh(1,ipart) = R_ecc*cos(phi)
+  !        xyzh(2,ipart) = R_ecc*sin(phi)
+  !        xyzh(3,ipart) = zi
+  !      endif
+  !     xyzh(4,ipart) = hpart
+  !     !--set particle type
+  !     call set_particle_type(ipart,itype)
+  !  endif
 
     !--HH is scale height
     if (zi*zi < HH*HH) then
@@ -634,7 +692,8 @@ end subroutine set_disc_positions
 !----------------------------------------------------------------
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
-                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination)
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination,&
+                               e_0,e_index,phi_peri)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -644,6 +703,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:),inclination
+ real,    intent(in)    :: e_0,e_index,phi_peri
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
  integer :: i,itable,ipart,ierr
@@ -1130,7 +1190,18 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
  end select
 
 end function scaled_sigma
+!-------------------------------
 
+!--This function corrects the distribution to account for eccentricity
+function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+ real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ real :: distr
+
+ distr=((1-(e_0*(a/R_ref)**e_index)**2)/&
+         (1+(e_0*(a/R_ref)**e_index)*cos(phi-phi_peri)))**2
+ !--distr=1 for e_0=0.
+
+end function distr_ecc_corr
 !------------------------------------------------------------------------
 !
 !
