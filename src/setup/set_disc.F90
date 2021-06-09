@@ -74,6 +74,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
+ use allocutils, only:allocate_array
  integer,           intent(in)    :: id,master
  integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
@@ -110,8 +111,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
- real, allocatable :: ecc_arr(:)
- allocate(ecc_arr(npart))
+ real :: ecc_arr(maxp)
 
  !
  !--set problem parameters
@@ -474,7 +474,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                            alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
     endif
  endif
- deallocate(ecc_arr)
+
  return
 end subroutine set_disc
 
@@ -641,6 +641,9 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
     !--Setting ellipse properties
     ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
+    if(ecc_arr(ipart)>0.99) then
+       call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.')
+    endif
     R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
             (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
   !  if (i_belong_i4(i)) then
