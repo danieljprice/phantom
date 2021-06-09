@@ -49,7 +49,7 @@ module setdisc
  use domain,   only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
- use part,     only:igas,labeltype
+ use part,     only:igas,labeltype,maxp
  use physcon,  only:c,gg,pi
  use units,    only:umass,udist,utime
  implicit none
@@ -57,7 +57,6 @@ module setdisc
 
  private
  integer, parameter :: maxbins = 4096
-
 contains
 
 !----------------------------------------------------------------
@@ -111,6 +110,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
+ real, allocatable :: ecc_arr(:)
+ allocate(ecc_arr(npart))
 
  !
  !--set problem parameters
@@ -348,7 +349,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,e_0,e_index,phi_peri,&
+                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,&
                          star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
@@ -360,7 +361,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,e_0,e_index,phi_peri)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr)
  !
  !--inclines and warps
  !
@@ -473,7 +474,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                            alphaSS_min,alphaSS_max,R_warp,psimax,L_tot_mag,idust)
     endif
  endif
-
+ deallocate(ecc_arr)
  return
 end subroutine set_disc
 
@@ -498,7 +499,7 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,e_0,e_index,phi_peri,&
+                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,&
                               star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,      only:id,master
  use part,    only:set_particle_type
@@ -508,6 +509,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
  real,    intent(in)    :: e_0,e_index,phi_peri
+ real,    intent(inout) :: ecc_arr(:)
  logical, intent(in)    :: do_mixture,verbose
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
@@ -638,8 +640,9 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
     !--Setting ellipse properties
-    R_ecc=R*(1.-(e_0*(R/R_ref)**(-e_index))**2.)/&
-            (1+(e_0*(R/R_ref)**(-e_index))*cos(phi-phi_perirad))
+    ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
+    R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
+            (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
   !  if (i_belong_i4(i)) then
        ipart = ipart + 1
        !--set positions -- move to origin below
@@ -693,7 +696,7 @@ end subroutine set_disc_positions
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
                                q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination,&
-                               e_0,e_index,phi_peri)
+                               ecc_arr)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -703,9 +706,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:),inclination
- real,    intent(in)    :: e_0,e_index,phi_peri
+ real,    intent(in)    :: ecc_arr(:)
  real,    intent(inout) :: vxyzu(:,:)
- real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
+ real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
  integer :: i,itable,ipart,ierr
  real :: rg,vkep
 
@@ -720,7 +723,10 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
-       term = G*star_m/R
+       ecc  = ecc_arr(i)
+       a_smj= R * (1. + ecc*cos(phi))/(1. - ecc**2)
+       !--term is v_phi^2, corrected for eccentricity
+       term = G*star_m/a_smj*(1.+ecc*cos(phi))**2/(1.-ecc**2)
        !
        !--correction for Einstein precession (assumes Rg=1)
        !
@@ -777,9 +783,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           vphi = 0.5*(term_bh + sqrt(det))
        endif
        !
-       !--radial velocities (zero in general)
+       !--radial velocities (Eq. 2.31 in Murray & Dermott, 1999)
        !
-       vr = 0.d0
+       vr = sqrt(term)*ecc*sin(phi)/sqrt(1.-ecc**2)
        !
        !--set velocities -- move to origin below
        !
