@@ -348,7 +348,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     nreleased = nfill_domain
     nboundaries = iboundary_spheres
-    !release particles and declare inner boundary shells as gas particles so they can exert some pressure
+    !release background particles
     ipart = igas
     if (.not.released) then
        do i = max(1,npart-nreleased*particles_per_sphere)+1,npart
@@ -403,7 +403,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        if (store_dust_temperature) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
             xyzmh_ptmass(iTeff,wind_emitting_sink)
     else
-       ! ejected particles
+       ! ejected particles + create new  inner sphere
 #ifdef NUCLEATION
        call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
             npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
