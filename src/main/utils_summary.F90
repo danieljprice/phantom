@@ -67,8 +67,11 @@ module io_summary
  !  Number of steps
  integer, parameter :: iosum_nreal = iowake + 1     ! number of 'real' steps taken
  integer, parameter :: iosum_nsts  = iowake + 2     ! number of 'actual' steps (including STS) taken
+ !  Number of steps
+ integer, parameter :: iosum_flrvp = iosum_nsts + 1 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
+ integer, parameter :: iosum_flrv  = iosum_nsts + 2 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
  ! Maximum number of values to summarise
- integer, parameter :: maxiosum = iosum_nsts        ! Number of values to summarise
+ integer, parameter :: maxiosum = iosum_flrv        ! Number of values to summarise
  !
  !  Reason sink particle was not created
  integer, parameter :: inosink_notgas = 1           ! not gas particles
@@ -94,7 +97,7 @@ module io_summary
  integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(inosink_max,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
- logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake
+ logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake,print_floor
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
  character(len=19), private :: freason(9)
@@ -164,6 +167,7 @@ subroutine summary_reset
  print_afail  = .false.
  print_early  = .false.
  print_wake   = .false.
+ print_floor  = .false.
  !
 end subroutine summary_reset
 !----------------------------------------------------------------
@@ -216,6 +220,7 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
  if (trim(cval)=='tolv' ) print_tolv = .true.
  if (trim(cval)=='hupdn') print_h    = .true.
  if (trim(cval)=='wake' ) print_wake = .true.
+ if (trim(cval)=='floor') print_floor= .true.
  !
 end subroutine summary_variable
 !----------------------------------------------------------------
@@ -350,7 +355,8 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--summarise logicals for cleanliness
  !
- if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. print_h .or. print_wake) then
+ if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. &
+     print_h  .or. print_wake .or. print_floor ) then
     get_averages = .true.
  else
     get_averages = .false.
@@ -547,6 +553,17 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 115 format(a,i9,a,f18.2,a,i17,30x,a)
+ !
+ !--Summary flooring the energy
+ if ( print_floor ) then
+    write(iprint,'(a)') '|* particles whose internal energies are floored                            *|'
+    write(iprint,'(a)') '|         |  #steps  | mean # part |  max # part                             |'
+    if (iosum_nstep(iosum_flrvp)/=0) write(iprint,120) '| vpred   | ' &
+      ,iosum_nstep(iosum_flrvp),'|',iosum_ave(iosum_flrvp),'|',int(iosum_max(iosum_flrvp)),'|'
+    if (iosum_nstep(iosum_flrv )/=0) write(iprint,120) '| vxuzy   | ' &
+      ,iosum_nstep(iosum_flrv ),'|',iosum_ave(iosum_flrv ),'|',int(iosum_max(iosum_flrv )),'|'
+    write(iprint,'(a)') '------------------------------------------------------------------------------'
+ endif
  !
  !--Summary of Restricted h jumps
  if ( print_h ) then
