@@ -424,8 +424,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  if (present(phimax)) then
     print "(a)",'Setting up disc sector - not adjusting centre of mass'
- else
-    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
+ else 
+    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini,e_0)
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
@@ -822,11 +822,11 @@ end subroutine set_disc_velocities
 ! shift the particles so the centre of mass is at the origin
 !
 !-------------------------------------------------------------
-subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
+subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,e_0)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: particle_mass
  integer, intent(in)    :: i1,i2
- real,    intent(in)    :: x0(3),v0(3)
+ real,    intent(in)    :: x0(3),v0(3),e_0
  real :: xcentreofmass(3), vcentreofmass(3)
  integer :: i,ipart
  real    :: totmass
@@ -835,23 +835,25 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0)
  vcentreofmass = 0.
  totmass       = 0.
  ipart = i1 - 1
- do i=i1,i2
-    if (i_belong_i4(i)) then
-       ipart = ipart + 1
-       xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
-       vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
-       totmass = totmass + particle_mass
-    endif
- enddo
+ if(e_0 == 0.) then
+    do i=i1,i2
+       if (i_belong_i4(i)) then
+          ipart = ipart + 1
+          xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
+          vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
+          totmass = totmass + particle_mass
+       endif
+    enddo
 
- totmass = reduceall_mpi('+',totmass)
+    totmass = reduceall_mpi('+',totmass)
 
- xcentreofmass = xcentreofmass/totmass
- vcentreofmass = vcentreofmass/totmass
+    xcentreofmass = xcentreofmass/totmass
+    vcentreofmass = vcentreofmass/totmass
 
- xcentreofmass = reduceall_mpi('+',xcentreofmass)
- vcentreofmass = reduceall_mpi('+',vcentreofmass)
-
+    xcentreofmass = reduceall_mpi('+',xcentreofmass)
+    vcentreofmass = reduceall_mpi('+',vcentreofmass)
+ endif
+ 
  ipart = i1 - 1
  do i=i1,i2
     if (i_belong_i4(i)) then

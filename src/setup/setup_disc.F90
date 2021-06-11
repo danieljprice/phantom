@@ -286,7 +286,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_planets(npart,massoftype,xyzh)
 
  !--reset centre of mass to the origin
- call set_centreofmass(npart,xyzh,vxyzu)
+! call set_centreofmass(npart,xyzh,vxyzu)
 
  !--set tmax and dtmax
  call set_tmax_dtmax()
@@ -387,6 +387,7 @@ subroutine set_default_options()
  itapersetgas = 0
  ismoothgas   = .true.
  iwarp        = .false.
+ iecc         = .false.
  pindex       = 1.
  qindex       = 0.25
  alphaSS      = 0.005
