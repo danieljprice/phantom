@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !chose analysis type
  if (dump_number==0) then
 
-    print "(24(a,/))", &
+    print "(27(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -109,18 +109,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '21) Recombination statistics', &
             '22) Optical depth profile', &
             '23) Particle tracker', &
-            '24) Unbound ion fraction'
+            '24) Unbound ion fraction', &
+            '25) Optical depth at recombination', &
+            '26) Binding energy outside core', &
+            '27) Print dumps number matching separation'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,24)
+    call prompt('Choose analysis type ',analysis_to_perform,1,27)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23,24/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23,24,25/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -176,6 +179,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call track_particle(time,particlemass,xyzh,vxyzu)
  case(24) ! Unbound ion fractions
     call unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
+ case(25) ! Optical depth at recombination
+    call recombination_tau(time,npart,particlemass,xyzh,vxyzu)
+ case(26) ! Calculate binding energy outside core
+    call env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
+ case(27) ! Print dump number corresponding to given set of sink-sink separations
+    call print_dump_numbers(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1025,14 +1034,16 @@ end subroutine print_simulation_parameters
 !+
 !----------------------------------------------------------------
 subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
- use part, only:eos_vars,itemp
+ use part,     only:eos_vars,itemp
+ use eos_mesa, only:get_eos_kappa_mesa
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  integer                      :: i
- real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,omegazi,xHIIi,xHeIIi
- real, dimension(npart)       :: etot,mach_number,omega,xHII,xHeII
+ real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
+                                 omegazi,xHIIi,xHeIIi,kappai,kappat,kappar
+ real, dimension(npart)       :: etot,mach_number,omega,xHII,xHeII,kappa
 
  call compute_energies(time)
  do i=1,npart
@@ -1047,12 +1058,14 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,xHIIi,dum,xHeIIi,dum)
     xHII(i) = xHIIi
     xHeII(i) = xHeIIi
+    call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
+    kappa(i) = kappai
  enddo
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
  write(26) (omega(i),i=1,npart)
- write(26) (xHeII(i),i=1,npart)
- write(26) (xHII(i),i=1,npart)
+ write(26) (mach_number(i),i=1,npart)
+ write(26) (kappa(i),i=1,npart)
  write(26) (etot(i),i=1,npart)
  close(26)
 end subroutine output_divv_files
@@ -1122,14 +1135,14 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
  use eos,  only:entropy
  real, intent(in)        :: time,particlemass
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:)
- integer, parameter      :: nparttotrack=3,ncols=17
+ integer, parameter      :: nparttotrack=10,ncols=17
  real                    :: r,v,rhopart,ponrhoi,Si,spsoundi,machi,xh0,xh1,xhe0,xhe1,xhe2,&
                             ekini,einti,epoti,ethi,etoti,dum,phii
  real, dimension(ncols)  :: datatable
  character(len=17)       :: filenames(nparttotrack),columns(ncols)
  integer                 :: i,k,partID(nparttotrack),ientropy,ierr
 
- partID = (/ 1, 2, 3 /)
+ partID = (/ 18295, 35825, 26217, 33149, 16954, 30608, 32186, 18181, 45159, 34156 /)
  columns = (/ '      r',&
               '      v',&
               '    rho',&
@@ -1151,9 +1164,9 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
  call compute_energies(time)
 
  do i=1,nparttotrack
-    write (filenames(i),"(A1,I7.7)") "p", partID(i)
+    write (filenames(i),"(a1,i7.7)") "p", partID(i)
  enddo
- 
+
  do k=1,nparttotrack
     i = partID(k)
     r = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
@@ -1179,7 +1192,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
 
     ! Write file
     datatable = (/ r,v,rhopart,eos_vars(itemp,i),Si,spsoundi,machi,ekini,epoti,ethi,einti,etoti,xh0,xh1,xhe0,xhe1,xhe2 /)
-    call write_time_file(trim(adjustl(filenames(i))),columns,time,datatable,ncols,dump_number)
+    call write_time_file(trim(adjustl(filenames(k))),columns,time,datatable,ncols,dump_number)
  enddo
 
 
@@ -1315,6 +1328,139 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
 end subroutine tau_profile
+
+
+!----------------------------------------------------------------
+!+
+!  Calculate binding energy outside core radius
+!+
+!----------------------------------------------------------------
+subroutine env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
+ use part,  only:ihsoft
+ use units, only:unit_energ
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer                :: i,j
+ real                   :: core_pcle_sep,comp_pcle_sep,ebind_grav,ebind_comp,eint,rcore
+
+ ebind_grav = 0.
+ ebind_comp = 0.
+ eint = 0.
+ rcore = 2.*xyzmh_ptmass(ihsoft,1)
+
+ do i=1,npart
+    core_pcle_sep = separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1))
+    comp_pcle_sep = separation(xyzh(1:3,i), xyzmh_ptmass(1:3,2))
+    if (core_pcle_sep > rcore) cycle 
+    eint = eint + vxyzu(4,i)
+    ebind_grav = ebind_grav - xyzmh_ptmass(4,1) / core_pcle_sep ! Potential due to core
+    ebind_comp = ebind_comp - xyzmh_ptmass(4,2) / comp_pcle_sep ! Potential due to companion
+                                                                ! Potential due to envelope particles
+    if (i == npart) exit
+    do j=i+1,npart
+       if ( separation(xyzh(1:3,j), xyzmh_ptmass(1:3,1)) > rcore ) cycle 
+       ebind_grav = ebind_grav - particlemass / separation(xyzh(1:3,i),xyzh(1:3,j))
+    enddo
+ enddo
+
+ ! Convert potentials to energies
+ eint = eint * particlemass * unit_energ
+ ebind_grav = ebind_grav * particlemass * unit_energ
+
+ print*,'GPE                              = ',ebind_grav,' erg'
+ print*,'GPE with companion               = ',ebind_grav + ebind_comp,' erg'
+ print*,'Ebind with thermal               = ',ebind_grav + eint,' erg'
+ print*,'Ebind with thermal and companion = ',ebind_grav + ebind_comp + eint,' erg'
+
+end subroutine env_binding_ene
+
+
+!----------------------------------------------------------------
+!+
+!  Histogram of optical depth at hydrogen recombination
+!+
+!----------------------------------------------------------------
+subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: time,particlemass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins,recombined_pid(npart)
+ real, dimension(npart) :: rad_part,kappa_part,rho_part
+ real, allocatable, save:: tau_recombined(:)
+ real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:),sepbins_cm(:)
+ logical, allocatable, save :: prev_recombined(:)
+ real                   :: maxloga,minloga,kappa,kappat,kappar,xh0,xh1,xhe0,xhe1,xhe2,&
+                           ponrhoi,spsoundi,etoti,ekini,einti,epoti,ethi,phii,dum
+ real, parameter        :: recomb_th=0.9
+ integer                :: i,j,nrecombined,bin_ind
+
+ call compute_energies(time)
+ rad_part   = 0.
+ kappa_part = 0.
+ rho_part   = 0.
+ nbins      = 300 ! Number of radial bins
+ minloga    = 0.5
+ maxloga    = 4.3
+ allocate(rho_hist(nbins),kappa_hist(nbins),sepbins(nbins),tau_r(nbins))
+ if (dump_number == 0) then
+    allocate(tau_recombined(npart),prev_recombined(npart))
+    tau_recombined = -1. ! Store tau of newly-recombined particles. -ve data means particle never recombined]
+    prev_recombined = .false. ! All hydrogen is ionised at the start
+ endif
+
+ j=0
+ do i=1,npart
+    rho_part(i) = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    call equationofstate(ieos,ponrhoi,spsoundi,rho_part(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call get_eos_kappa_mesa(rho_part(i)*unit_density,eos_vars(itemp,i),kappa,kappat,kappar)
+    kappa_part(i) = kappa ! In cgs units
+    call ionisation_fraction(rho_part(i)*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum) ! Calculate total energy
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rho_part(i),eos_vars(itemp,i),ethi)
+    etoti = ekini + epoti + ethi
+    if ((xh0 > recomb_th) .and. (.not. prev_recombined(i)) .and. (etoti < 0.)) then ! Recombination event and particle is still bound
+       j=j+1
+       recombined_pid(j) = i
+       prev_recombined(i) = .true.
+    else
+       prev_recombined(i) = .false.
+    endif
+ enddo
+ nrecombined = j
+
+ call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.)
+ call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.)
+
+ ! Integrate optical depth inwards
+ sepbins = (/ (10.**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ 
+ ! Convert to cgs units (kappa has already been outputted in cgs)
+ rho_hist = rho_hist * unit_density
+ sepbins_cm = sepbins * udist ! udist should be Rsun in g
+ 
+ ! Integrate bins in tau(r)
+ tau_r(nbins) = 0.
+ do i=nbins,2,-1
+    tau_r(i-1) = tau_r(i) + kappa_hist(i) * rho_hist(i) * (sepbins_cm(i+1) - sepbins_cm(i))
+ enddo
+
+ ! Integrate optical depth for each newly recombined particle
+ do j=1,nrecombined
+    i = recombined_pid(j)
+    bin_ind = 1 + nint( nbins * ( log10(rad_part(i))-minloga ) / (maxloga-minloga) )   ! Find radial bin of recombined particle
+    tau_recombined(i) = tau_r(bin_ind)
+ enddo
+ ! Trick write_time_file into writing my data table
+ if (dump_number == 320) then
+    do i=1,npart
+       call write_time_file("recombination_tau",(/'          tau'/),-1.,tau_recombined(i),1,i-1) ! Set num = i-1 so that header will be written for particle 1 and particle 1 only
+    enddo
+ endif
+
+end subroutine recombination_tau
 
 
 !----------------------------------------------------------------
@@ -1999,7 +2145,6 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     !       comment on the case of the companion only for clarity.
 
     ! Initialise output
-    fxyz_ptmass      = 0.
     rho_avg          = 0.
     mdot             = 0.
     avg_vel          = 0.
@@ -2103,8 +2248,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
 
     ! Calculate perpendicular force projected along -v
     cos_psi        = cos_vector_angle(-unit_sep_perp, -vxyz_ptmass(1:3,i))                ! Theta is angle between (r2-r1) x z and -v
-    drag_par       = - dot_product(fxyz_ptmass(1:3,i),unit_sep) * xyzmh_ptmass(4,i)       ! Total force projected along (r2-r1)
-    drag_perp      = - dot_product(fxyz_ptmass(1:3,i),unit_sep_perp) * xyzmh_ptmass(4,i)  ! Total force projected along (r2-r1) x z
+    drag_par       = - dot_product(fxyz_ptmass(1:3,i),unit_sep) * xyzmh_ptmass(4,i)       ! Total force projected along -(r2-r1)
+    drag_perp      = dot_product(fxyz_ptmass(1:3,i),-unit_sep_perp) * xyzmh_ptmass(4,i)   ! Total force projected along -(r2-r1) x z
     drag_perp_proj = drag_perp / cos_psi                                                  ! Perpendicular force projected along -v
 
     ! Calculate core + gas mass based on projected gravitational force
@@ -2263,6 +2408,35 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  call write_time_file(trim(adjustl(filename)),columns,time,mytable,ncols,dump_number)
 end subroutine get_core_gas_com
 
+!----------------------------------------------------------------
+!+
+!  Print dump numbers corresponding to given sink-sink separations
+!+
+!----------------------------------------------------------------
+subroutine print_dump_numbers(time,dumpfile,npart,particlemass,xyzh,vxyzu)
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: npart
+ real,             intent(in) :: time,particlemass
+ real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=*), allocatable :: dumpfiles(:)
+ integer :: nseps
+ integer, save :: i=1
+ real, allocatable :: sinksinksep
+ real :: sep
+
+ nseps = 5
+ allocate(sinksinksep(5),dumpfiles(5))
+ sinksinksep = (/ 800., 750., 619., 500., 100./)
+
+ sep = distance(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
+ if ( sep < sinksinksep(i) ) then
+    i=i+1
+    dumpfiles(i) = dumpfile
+ endif
+
+ print*,dumpfiles
+
+end subroutine print_dump_numbers
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!
