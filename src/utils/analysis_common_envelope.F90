@@ -2418,23 +2418,31 @@ subroutine print_dump_numbers(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer,          intent(in) :: npart
  real,             intent(in) :: time,particlemass
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- character(len=*), allocatable :: dumpfiles(:)
+ character(len=50), allocatable, save :: dumpfiles(:)
  integer :: nseps
- integer, save :: i=1
- real, allocatable :: sinksinksep
+ integer, save :: i
+ real, allocatable :: sinksinksep(:)
  real :: sep
 
  nseps = 5
- allocate(sinksinksep(5),dumpfiles(5))
- sinksinksep = (/ 800., 750., 619., 500., 100./)
+ allocate(sinksinksep(nseps))
+ if (dump_number == 0) then
+    allocate(dumpfiles(nseps))
+    i=1
+ endif
+ sinksinksep = (/ 1000., 400., 320., 160., 65./)
 
- sep = distance(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
+ sep = separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
  if ( sep < sinksinksep(i) ) then
+    dumpfiles(i) = trim(dumpfile)
     i=i+1
-    dumpfiles(i) = dumpfile
+ endif
+ if (i==nseps+1) then
+    print "(5(a,/))",'../',dumpfiles
+    stop
  endif
 
- print*,dumpfiles
+
 
 end subroutine print_dump_numbers
 
