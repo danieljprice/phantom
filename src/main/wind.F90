@@ -32,11 +32,6 @@ module wind
  ! input parameters
  real :: Mstar_cgs, Lstar_cgs, wind_gamma, Mdot_cgs, Tstar
  real :: u_to_temperature_ratio
-#ifdef NUCLEATION
- integer, parameter :: nwrite = 19
-#else
- integer, parameter :: nwrite = 12
-#endif
 
  ! wind properties
  type wind_state
@@ -273,7 +268,7 @@ end subroutine calc_wind_profile
 !-----------------------------------------------------------------------
 subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  !in/out variables in code units (except Jstar,K)
- use units,        only:udist, utime, unit_velocity, unit_density!, unit_pressure
+ use units,        only:udist, utime, unit_velocity, unit_density, unit_pressure
  use eos,          only:gamma
  real, intent(in)  :: local_time, GM, T0
  real, intent(inout) :: r, v
@@ -296,8 +291,8 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  r = state%r/udist
  v = state%v/unit_velocity
  rho = state%rho/unit_density
- u = state%Tg * u_to_temperature_ratio
- !u = state%p/((gamma-1.)*rho)/unit_pressure
+ !u = state%Tg * u_to_temperature_ratio
+ u = state%p/((gamma-1.)*rho)/unit_pressure
  e = .5*v**2 - GM/r + gamma*u
 #ifdef NUCLEATION
  JKmuS(1:7) = state%JKmuS(1:7)
@@ -500,7 +495,7 @@ subroutine get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
  enddo
  if (iverbose>1) print *, 'Lower bound found for r0 :', r0min
 
- ! Find upper bound for initial radius
+! Find upper bound for initial radius
  if (iverbose>1) print *, 'Searching upper bound for r0'
  r0 = r0max
  do
@@ -573,15 +568,15 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
  real :: dt_print,time_end
  type(wind_state) :: state
- integer :: n,iter
+ integer :: n,iter,nwrite
 
  write (*,'("Saving 1D model : ")')
  time_end = tmax*utime
  call init_wind(r0, v0, T0, tend, state)
 
  open(unit=1337,file=filename)
- call filewrite_header(1337)
- call filewrite_state(1337, state)
+ call filewrite_header(1337,nwrite)
+ call filewrite_state(1337,nwrite, state)
 
  n = 1
  iter = 0
@@ -592,7 +587,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
     call wind_step(state)
     if (state%time > n*dt_print) then
        n = floor(state%time/dt_print)+1
-       call filewrite_state(1337, state)
+       call filewrite_state(1337,nwrite, state)
     endif
     if (state%r > rout) tcross = min(state%time,tcross)
  enddo
@@ -601,35 +596,40 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
     &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
          state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
  endif
- print *,'saveprofile : vinf = ',state%v,state%r/au
  close(1337)
 
 end subroutine save_windprofile
 
-subroutine filewrite_header(iunit)
+subroutine filewrite_header(iunit,nwrite)
  use options, only : icooling
  integer, intent(in) :: iunit
+ integer, intent(out) :: nwrite
 
 #ifdef NUCLEATION
  if (icooling > 0) then
-    write(iunit,'("#",11x,a1,19(a20))') 't','r','v','T','c','p','rho','alpha','a',&
+    nwrite = 19
+    write(iunit,'(19(a11))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
  else
-    write(iunit,'("#",11x,a1,18(a20))') 't','r','v','T','c','p','rho','alpha','a',&
+    nwrite = 18
+    write(iunit,'(18(a11))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
-    write(iunit,'("#",11x,a1,12(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+    nwrite = 12
+    write(iunit,'(12(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
  else
-    write(iunit,'("#",11x,a1,11(a20))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    nwrite = 12
+    write(iunit,'(11(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
 
-subroutine state_to_array(state, array)
+subroutine state_to_array(state,nwrite, array)
  use options, only:icooling
  type(wind_state), intent(in) :: state
+ integer, intent(in) :: nwrite
  real, intent(out) :: array(:)
 
  array(1) = state%time
@@ -655,14 +655,14 @@ subroutine state_to_array(state, array)
  if (icooling > 0) array(nwrite) = state%Q
 end subroutine state_to_array
 
-subroutine filewrite_state(iunit, state)
- integer, intent(in) :: iunit
+subroutine filewrite_state(iunit,nwrite, state)
+ integer, intent(in) :: iunit,nwrite
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)
 
- call state_to_array(state, array)
- write(iunit, '(20E20.10E3)') array(1:nwrite)
+ call state_to_array(state,nwrite, array)
+ write(iunit, '(20(1x,es10.3:))') array(1:nwrite)
 end subroutine filewrite_state
 
 end module wind
