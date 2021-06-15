@@ -341,9 +341,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !
     i = npart
     inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
-    call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
+    if (outer_boundary_au.gt.Rinject) call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
-    print *,npart,i,inner_radius,dtlast,dtlast*wind_mass_rate/massoftype(igas)
     if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
 
     nreleased = nfill_domain
