@@ -66,19 +66,24 @@ end function yinterp
 !--------------------------------------------------------
 !+
 !  Function to fill an array with equally spaced points
+!  e.g. call linspace(rgrid,rmin,rmax)
+!
+!  the argument dx is optional giving the grid spacing
 !+
 !--------------------------------------------------------
-pure subroutine linspace(x,xmin,xmax)
+pure subroutine linspace(x,xmin,xmax,dx)
  real, intent(out) :: x(:)
  real, intent(in)  :: xmin,xmax
+ real, intent(out), optional :: dx
  integer :: i, n
- real    :: dx
+ real    :: dxi
 
  n  = size(x)
- dx = (xmax - xmin)/real(n-1)
+ dxi = (xmax - xmin)/real(n-1)
  do i=1,n
-    x(i) = xmin + (i-1)*dx
+    x(i) = xmin + (i-1)*dxi
  enddo
+ if (present(dx)) dx = dxi
 
 end subroutine linspace
 

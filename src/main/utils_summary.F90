@@ -578,11 +578,11 @@ subroutine summary_printout(iprint,nptmass)
        enddo
        if (j == inosink_max+1) then
           ! only one particle tested and it is converted to a sink particle
-          write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|','|'
+          write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(:,i)),'|',iosum_rxx(i),'|','|'
        else
           ! list particle and its initial reason to not create a sink
           write(iprint,140) &
-           '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|',freason(j),iosum_rxf(j,i),'|'
+           '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(:,i)),'|',iosum_rxx(i),'|',freason(j),iosum_rxf(j,i),'|'
        endif
        ! for the above particle, list the remaining reasons it failed to form a sink
        if (j < inosink_max) then

@@ -1027,7 +1027,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use chem,           only:update_abundances,get_dphot
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
- use timestep,       only:bignumber,C_force,C_cool
+ use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
@@ -1049,7 +1049,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- integer         :: i,itype,nsubsteps,idudtcool,ichem,naccreted,nfail,nfaili
+ integer         :: i,itype,nsubsteps,ichem,naccreted,nfail,nfaili
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
@@ -1143,7 +1143,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(eos_vars,dust_temp) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_implicit) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
-    !$omp shared(nptmass,f_acc,nsubsteps,C_force,C_cool,divcurlv,dphotflag,dphot0) &
+    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
 #ifdef NUCLEATION
     !$omp shared(nucleation) &
@@ -1153,7 +1153,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
-    !$omp private(i,ichem,idudtcool,dudtcool,fxi,fyi,fzi,phii) &
+    !$omp private(i,ichem,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
     !$omp private(vxhalfi,vyhalfi,vzhalfi) &
@@ -1166,7 +1166,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     predictor: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
-             itype = iamtype(iphase(i))
+             itype  = iamtype(iphase(i))
              pmassi = massoftype(itype)
           endif
           !
@@ -1231,7 +1231,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           fext(2,i) = fexty
           fext(3,i) = fextz
 
-          if (maxvxyzu >= 4) then
+          if (maxvxyzu >= 4 .and. itype==igas) then
+             ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+             !       dt is *passed in* to the chemistry & cooling routines so that the
+             !       output will be at the correct time of time + dt.  Since this is
+             !       implicit, there is no cooling timestep.  Explicit cooling is
+             !       calculated in force and requires a cooling timestep.
+
              dudtcool = 0.
              !
              ! CHEMISTRY
@@ -1284,11 +1290,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 endif
              endif
 #endif
-             ! update internal energy & cooling timestep
-             if (cooling_implicit .or. use_krome) then
-                vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
-                if (abs(dudtcool) > 0.) dtextforcenew = min(dtextforcenew, C_cool*abs(vxyzu(4,i)/dudtcool))
-             endif
+             ! update internal energy
+             if (cooling_implicit .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
           endif
        endif
     enddo predictor
