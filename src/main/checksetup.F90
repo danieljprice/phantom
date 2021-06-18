@@ -37,7 +37,8 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation,store_temperature
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
+                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -51,6 +52,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
+ use nicil,           only:n_nden
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
@@ -340,6 +342,12 @@ subroutine check_setup(nerror,nwarn,restart)
     if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
        print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
        nwarn = nwarn + 1
+    endif
+    if (mhd_nonideal) then
+       if (n_nden /= n_nden_phantom) then
+          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90'
+          nerror = nerror + 1
+       endif
     endif
  endif
 !

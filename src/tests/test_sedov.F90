@@ -49,21 +49,22 @@ subroutine test_sedov(ntests,npass)
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
- use checkconserved, only:etot_in,angtot_in,totmom_in,mdust_in
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
  use mpiutils,  only:reduceall_mpi
  use domain,    only:i_belong
+ use checkconserved,  only:etot_in,angtot_in,totmom_in,mdust_in
  use radiation_utils, only:set_radiation_and_gas_temperature_equal,&
                            T_from_Etot,Tgas_from_ugas,ugas_from_Tgas,radE_from_Trad,Trad_from_radE
  use readwrite_dumps, only:write_fulldump
+ use step_lf_global,  only:init_step
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu
  real    :: psep,denszero,enblast,rblast,prblast,gam1
  real    :: totmass,etotin,momtotin,etotend,momtotend
- real    :: rhoi,temp
+ real    :: temp
  character(len=20) :: logfile,evfile,dumpfile
 
 #ifndef PERIODIC
@@ -106,6 +107,7 @@ subroutine test_sedov(ntests,npass)
     rblast   = 2.*hfact*psep
     gamma    = 5./3.
     gam1     =  gamma - 1.
+    gmw      = 2.0
     if (do_radiation) then
        ! find for which T the function Etot*rho=Erad(T) + ugas(T)*rho is satified
        temp = T_from_Etot(denszero,enblast,gamma,gmw)
@@ -140,9 +142,9 @@ subroutine test_sedov(ntests,npass)
        call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
        radprop(ikappa,1:npart) = bignumber
     endif
-    tmax = 0.1
-    dtmax = tmax
-    C_cour = 0.15
+    tmax    = 0.1
+    dtmax   = tmax
+    C_cour  = 0.1
     C_force = 0.25
 !
 !--call derivs the first time around
@@ -155,6 +157,7 @@ subroutine test_sedov(ntests,npass)
 #ifndef IND_TIMESTEPS
     dt = min(dtcourant,dtforce,dtrad)
 #endif
+    call init_step(npart,time,dtmax)
     iprint = 6
     logfile  = 'test01.log'
     evfile   = 'test01.ev'
@@ -174,7 +177,7 @@ subroutine test_sedov(ntests,npass)
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etotin,4.7e-4,nfailed(1),'total energy')
+    call checkval(etotend,etotin,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
     call checkval(momtotend,momtotin,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files
