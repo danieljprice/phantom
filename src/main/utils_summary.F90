@@ -68,10 +68,11 @@ module io_summary
  integer, parameter :: iosum_nreal = iowake + 1     ! number of 'real' steps taken
  integer, parameter :: iosum_nsts  = iowake + 2     ! number of 'actual' steps (including STS) taken
  !  Number of steps
- integer, parameter :: iosum_flrvp = iosum_nsts + 1 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
- integer, parameter :: iosum_flrv  = iosum_nsts + 2 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
+ integer, parameter :: iosumflrp   = iosum_nsts + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
+ integer, parameter :: iosumflrps  = iosum_nsts + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
+ integer, parameter :: iosumflrc   = iosum_nsts + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
  ! Maximum number of values to summarise
- integer, parameter :: maxiosum = iosum_flrv        ! Number of values to summarise
+ integer, parameter :: maxiosum = iosumflrc         ! Number of values to summarise
  !
  !  Reason sink particle was not created
  integer, parameter :: inosink_notgas = 1           ! not gas particles
@@ -556,12 +557,14 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--Summary flooring the energy
  if ( print_floor ) then
-    write(iprint,'(a)') '|* particles whose internal energies are floored                            *|'
+    write(iprint,'(a)') '|* particles whose internal energies are floored in the labelled loops      *|'
     write(iprint,'(a)') '|         |  #steps  | mean # part |  max # part                             |'
-    if (iosum_nstep(iosum_flrvp)/=0) write(iprint,120) '| vpred   | ' &
-      ,iosum_nstep(iosum_flrvp),'|',iosum_ave(iosum_flrvp),'|',int(iosum_max(iosum_flrvp)),'|'
-    if (iosum_nstep(iosum_flrv )/=0) write(iprint,120) '| vxuzy   | ' &
-      ,iosum_nstep(iosum_flrv ),'|',iosum_ave(iosum_flrv ),'|',int(iosum_max(iosum_flrv )),'|'
+    if (iosum_nstep(iosumflrp)/=0) write(iprint,120)  '| predict | ' &
+      ,iosum_nstep(iosumflrp),'|',iosum_ave(iosumflrp),'|',int(iosum_max(iosumflrp)),'|'
+    if (iosum_nstep(iosumflrps)/=0) write(iprint,120) '| pred_sph| ' &
+      ,iosum_nstep(iosumflrps),'|',iosum_ave(iosumflrps),'|',int(iosum_max(iosumflrps)),'|'
+    if (iosum_nstep(iosumflrc )/=0) write(iprint,120) '| correct | ' &
+      ,iosum_nstep(iosumflrc ),'|',iosum_ave(iosumflrc ),'|',int(iosum_max(iosumflrc )),'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
  !
