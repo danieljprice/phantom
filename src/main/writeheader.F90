@@ -170,12 +170,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
     if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
-    if (cooling_implicit) then
-       write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
-       write(iprint,"(1x,a)") 'WARNING!  Implicit cooling timestep has not been properly initialised!!!'
-       ! The initial cooling timestep is an explicit timestep that neglects heating; all subsequent (non-restart)
-       ! cooling timesteps are correct.  JHW
-    endif
+    if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
     call eosinfo(ieos,iprint)
 
     if (maxalpha==maxp) then

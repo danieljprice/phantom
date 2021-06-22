@@ -37,10 +37,10 @@ module setup
  implicit none
  public :: setpart
 
- integer :: npartx,ilattice
- real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ integer           :: npartx,ilattice
+ real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
  character(len=20) :: dist_unit,mass_unit
- real(kind=8) :: udist,umass
+ real(kind=8)      :: udist,umass
  !--dust
  real    :: dust_to_gas
 
@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
- use units,        only:set_units,udist,unit_density
+ use units,        only:set_units,unit_density
  use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

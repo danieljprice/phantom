@@ -3,11 +3,410 @@
 ! These subroutines are part of the Phantom SPH code
 ! Use is by specific, written permission of the author
 ! (c) 2013 Daniel Price and Steven Toupin
+! Modifications for AMUSE interface to Phantom
+! (c) 2019-2020 Steven Rieder
 !----------------------------------------------------------------
 !+
 !  Allows phantom to be driven from an external application
 !+
 !----------------------------------------------------------------
+
+
+! This initialises things. This really should only be called once, before the first step.
+subroutine new_init_evol()
+ use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
+                            dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
+ use dim,              only:maxvxyzu,mhd,periodic
+ use fileutils,        only:getnextfilename
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use step_lf_global,   only:step
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
+                            timer_dens,timer_force,timer_link
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
+#ifdef SORT
+ use sort_particles,   only:sort_part
+#endif
+#ifdef IND_TIMESTEPS
+ use dim,              only:maxp
+ use part,             only:maxphase,ibin,iphase
+ use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
+                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
+                            print_dtlog_ind,get_newbin
+ use timestep,         only:dtdiff
+ use timestep_sts,     only:sts_get_dtau_next,sts_init_step
+ use step_lf_global,   only:init_step
+#else
+ use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
+#endif
+ use timestep_sts,     only: use_sts
+ use supertimestep,    only: step_sts
+#ifdef DRIVING
+ use forcing,          only:write_forcingdump
+#endif
+#ifdef CORRECT_BULK_MOTION
+ use centreofmass,     only:correct_bulk_motion
+#endif
+#ifdef MPI
+ use part,             only:ideadhead,shuffle_part
+#endif
+#ifdef IND_TIMESTEPS
+ use part,             only:twas
+ use timestep_ind,     only:get_dt
+#endif
+ use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
+ use quitdump,         only:quit
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
+ use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
+ use externalforces,   only:iext_spiral
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
+#ifdef MFLOW
+ use mf_write,         only:mflow_write
+#endif
+#ifdef VMFLOW
+ use mf_write,         only:vmflow_write
+#endif
+#ifdef BINPOS
+ use mf_write,         only:binpos_write
+#endif
+
+ real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
+ real            :: tprint,tzero,dtmaxold,dtinject
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
+ real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
+#ifdef IND_TIMESTEPS
+ integer         :: i,nalive,inbin,iamtypei
+ integer(kind=1) :: nbinmaxprev
+ integer(kind=8) :: nmovedtot,nalivetot
+ real            :: tlast,fracactive,speedup,tcheck,dtau,efficiency
+ real(kind=4)    :: tall
+ real(kind=4)    :: timeperbin(0:maxbins)
+ logical         :: dt_changed
+ integer         :: iloop,npart_old
+#else
+ integer         :: nactive
+ logical, parameter :: dt_changed = .false.
+#endif
+ logical         :: fulldump,abortrun,at_dump_time
+ logical         :: use_global_dt
+ integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
+
+ nsteps    = 0
+ tzero     = time
+ dtlast    = 0.
+ dtinject  = huge(dtinject)
+ np_cs_eq_0 = 0
+ np_e_eq_0  = 0
+
+ rhomaxold        = rhomaxnow
+ if (dtmax_dratio > 0.) then
+    dtmax_log_dratio = log10(dtmax_dratio)
+ else
+    dtmax_log_dratio = 0.0
+ endif
+
+#ifdef IND_TIMESTEPS
+ use_global_dt = .false.
+ istepfrac     = 0
+ tlast         = tzero
+ dt            = dtmax/2**nbinmax
+ nmovedtot     = 0
+ tall          = 0.
+ tcheck        = time
+ timeperbin(:) = 0.
+ dt_changed    = .false.
+ nbinmax       = 0
+!
+! first time through, move all particles on shortest timestep
+! then allow them to gradually adjust levels.
+! Keep boundary particles on level 0 since forces are never calculated
+! and to prevent boundaries from limiting the timestep
+!
+ if (time < tiny(time)) then
+    !$omp parallel do schedule(static) private(i,iamtypei)
+    do i=1,npart
+       ibin(i) = nbinmax
+       if (maxphase==maxp) then
+          if (abs(iphase(i))==iboundary) ibin(i) = 0
+       endif
+    enddo
+ endif
+ !call init_step(npart,time,dtmax)
+ !if (use_sts) then
+ !   call sts_get_dtau_next(dtau,dt,dtmax,dtdiff,nbinmax)
+ !   call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
+ !endif
+#else
+ use_global_dt = .true.
+ nskip   = npart
+ nactive = npart
+#endif
+
+ npart_old = 0
+end subroutine new_init_evol
+
+subroutine new_step(tlast)
+ use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
+ use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
+                            dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
+ use dim,              only:maxvxyzu,mhd,periodic
+ use fileutils,        only:getnextfilename
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
+                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use step_lf_global,   only:step
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
+                            timer_dens,timer_force,timer_link
+ use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
+#ifdef SORT
+ use sort_particles,   only:sort_part
+#endif
+#ifdef IND_TIMESTEPS
+ use dim,              only:maxp
+ use part,             only:maxphase,ibin,iphase
+ use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
+                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
+                            print_dtlog_ind,get_newbin
+ use timestep,         only:dtdiff
+ use timestep_sts,     only:sts_get_dtau_next,sts_init_step
+ use step_lf_global,   only:init_step
+#else
+ use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
+#endif
+ use timestep_sts,     only: use_sts
+ use supertimestep,    only: step_sts
+#ifdef DRIVING
+ use forcing,          only:write_forcingdump
+#endif
+#ifdef CORRECT_BULK_MOTION
+ use centreofmass,     only:correct_bulk_motion
+#endif
+#ifdef MPI
+ use part,             only:ideadhead,shuffle_part
+#endif
+#ifdef IND_TIMESTEPS
+ use part,             only:twas
+ use timestep_ind,     only:get_dt
+#endif
+ use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
+ use quitdump,         only:quit
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
+ use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
+ use externalforces,   only:iext_spiral
+ use initial_params,   only:etot_in,angtot_in,totmom_in,mdust_in
+#ifdef MFLOW
+ use mf_write,         only:mflow_write
+#endif
+#ifdef VMFLOW
+ use mf_write,         only:vmflow_write
+#endif
+#ifdef BINPOS
+ use mf_write,         only:binpos_write
+#endif
+
+ real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
+ real            :: tprint,dtmaxold,dtinject
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
+ real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
+#ifdef IND_TIMESTEPS
+ integer         :: i,nalive,inbin,iamtypei
+ integer(kind=1) :: nbinmaxprev
+ integer(kind=8) :: nmovedtot,nalivetot
+ real            :: fracactive,speedup,tcheck,dtau,efficiency,tbegin
+ real, intent(in) :: tlast
+ real(kind=4)    :: tall
+ real(kind=4)    :: timeperbin(0:maxbins)
+ logical         :: dt_changed
+ integer         :: iloop,npart_old
+#else
+ real            :: dtprint
+ integer         :: nactive
+ logical, parameter :: dt_changed = .false.
+#endif
+ logical         :: use_global_dt
+ integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
+!
+! --------------------- main loop ----------------------------------------
+!
+ tbegin = time
+ tcheck = time
+ npart_old = npart
+ !timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
+
+ if (istepfrac==0) then
+    twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+    call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+                                  rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+ endif
+ if (dt > dtmax) dt = dtmax
+ print*, "time, tcheck, dt, dtmax, tlast+dtmax, npart_old, npart: ", time, tcheck, dt, dtmax, (tlast+dtmax), npart_old, npart
+
+ timesubstepping: do while (istepfrac < 2**nbinmax)
+    dtmaxold    = dtmax
+#ifdef IND_TIMESTEPS
+    use_global_dt = .false.
+
+    !if (nbinmax==0) nbinmax = 6
+    istepfrac   = istepfrac + 1
+    nbinmaxprev = nbinmax
+    !--determine if dt needs to be decreased; if so, then this will be done
+    !  in step the next time it is called;
+    !  for global timestepping, this is called in the block where at_dump_time==.true.
+    ! if (istepfrac==2**nbinmax) then
+    !    twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+    !    call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+    !                                  rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+    ! endif
+
+    !--sanity check on istepfrac...
+    if (istepfrac > 2**nbinmax) then
+       write(iprint,*) 'ERROR: istepfrac = ',istepfrac,' / ',2**nbinmax
+       call fatal('evolve','error in individual timesteps')
+    endif
+
+    !--flag particles as active or not for this timestep
+    call set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
+    nactivetot = reduceall_mpi('+', nactive)
+    nalivetot = reduceall_mpi('+', nalive)
+    nskip = int(nactivetot)
+
+    !--print summary of timestep bins
+    if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+#endif
+
+    if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
+       !
+       ! creation of new sink particles
+       !
+       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+    endif
+
+    nsteps = nsteps + 1
+!
+!--evolve data for one timestep
+!  for individual timesteps this is the shortest timestep
+!
+    dt = dtmax/2**nbinmax !FIXME
+    call get_timings(t1,tcpu1)
+    if ( use_sts ) then
+       call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
+    else
+       call step(npart,nactive,time,dt,dtextforce,dtnew)
+    endif
+    dtlast = dt
+
+    !--timings for step call
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
+    call summary_counter(iosum_nreal,t2-t1)
+
+#ifdef IND_TIMESTEPS
+    tcheck = tcheck + dt
+
+    !--update time in way that is free of round-off errors
+    !print*, "CHECK tlast, time: ", tlast, time
+    time = tbegin + istepfrac/real(2**nbinmaxprev)*dtmaxold
+    !print*, "CHECK new time (istepfrac, nbinmaxprev, dtmaxold): ", time, istepfrac, nbinmaxprev, dtmaxold
+
+    !--print efficiency of partial timestep
+    if (id==master .and. iverbose >= 0 .and. nalivetot > 0) then
+       if (nactivetot==nalivetot) then
+          tall = t2-t1
+       elseif (tall > 0.) then
+          fracactive = nactivetot/real(nalivetot)
+          speedup = (t2-t1)/tall
+          if (iverbose >= 2) then
+             if (speedup > 0) then
+                efficiency = 100.*fracactive/speedup
+             else
+                efficiency = 0.
+             endif
+             write(iprint,"(1x,'(',3(a,f6.2,'%'),')')") &
+                  'moved ',100.*fracactive,' of particles in ',100.*speedup, &
+                  ' of time, efficiency = ',efficiency
+          endif
+       endif
+    endif
+    call update_time_per_bin(tcpu2-tcpu1,istepfrac,nbinmaxprev,timeperbin,inbin)
+    nmovedtot = nmovedtot + nactivetot
+
+    !--check that time is as it should be, may indicate error in individual timestep routines
+    if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
+    if (abs(tcheck-time) > 1.e-4) print*, "time, tcheck: ", time, tcheck
+
+    if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,npart)
+
+    !--if total number of bins has changed, adjust istepfrac and dt accordingly
+    !  (ie., decrease or increase the timestep)
+    if (nbinmax /= nbinmaxprev .or. dtmax_ifactor /= 0) then
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+       dt_changed = .true.
+    endif
+
+#else
+
+    ! advance time on master thread only
+    if (id == master) time = time + dt
+    call bcast_mpi(time)
+
+!
+!--set new timestep from Courant/forces condition
+!
+    ! constraint from time to next printout, must reach this exactly
+    ! Following redefinitions are to avoid crashing if dtprint = 0 & to reach next output while avoiding round-off errors
+    dtprint = min(tprint,tmax) - time + epsilon(dtmax)
+    if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
+    dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax))
+!
+!--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
+!
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtprint,dtinject,npart)
+#endif
+
+!    if (abs(dt) < 1e-8*dtmax) then
+!       write(iprint,*) 'main loop: timestep too small, dt = ',dt
+!       call quit   ! also writes dump file, safe here because called by all threads
+!    endif
+
+!   check that MPI threads are synchronised in time
+    if (nprocs > 0) then
+        timecheck = reduceall_mpi('+',time)
+        if (abs(timecheck/nprocs - time) > 1.e-13) then
+           call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
+        endif
+    endif
+!
+!--Update timer from last dump to see if dtmax needs to be reduced
+!
+    call get_timings(t2,tcpu2)
+    call increment_timer(timer_lastdump,t2-t1,tcpu2-tcpu1)
+
+#ifdef CORRECT_BULK_MOTION
+    call correct_bulk_motion()
+#endif
+
+    if (iverbose >= 1 .and. id==master) write(iprint,*)
+    call flush(iprint)
+    !--Write out log file prematurely (if requested based upon nstep, walltime)
+    if ( summary_printnow() ) call summary_printout(iprint,nptmass)
+
+
+ !enddo timestepping
+ enddo timesubstepping
+ !tlast = time
+ !dtlast = dt
+end subroutine new_step
 
 !
 ! Add gas or boundary particle
@@ -257,6 +656,7 @@ end subroutine get_boundaries
 !
 subroutine code_init()
  use initial, only:initialise
+ use timestep, only:set_defaults_timestep
  implicit none
 
  call initialise()
@@ -279,7 +679,7 @@ end subroutine set_defaults
 subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in)
  use initial, only:startrun
  use io, only:set_io_unit_numbers
- use evolvesplit, only:evol_init
+ !use evolvesplit, only:evol_init
  use timestep, only:tmax,dt,dtmax
  use units, only:utime
  implicit none
@@ -289,9 +689,11 @@ subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in
  double precision, intent(in) :: tmax_in, dtmax_in
 
  call set_io_unit_numbers
+#ifndef AMUSE
  if (index(infile,'.in')==0) then
     infile = trim(infile)//'.in'
  endif
+#endif
  call startrun(infile,logfile,evfile,dumpfile)
  ! Overrides tmax and dtmax
  tmax = tmax_in/utime
@@ -306,7 +708,7 @@ end subroutine init
 subroutine override_tmax_dtmax(tmax_in, dtmax_in)
  use timestep,only:tmax,dtmax
  use units,only:utime
- use evolvesplit, only:evol_init
+ !use evolvesplit, only:evol_init
  implicit none
  double precision, intent(in) :: tmax_in, dtmax_in
 
@@ -365,7 +767,7 @@ end subroutine finalize_step_wrapper
 !
 ! Get stepping and timing information
 !
-subroutine get_time(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
+subroutine get_time_info(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
  use timestep,         only:time,tmax,nmax,nsteps,dt
  use units,            only:utime
  implicit none
@@ -848,3 +1250,5 @@ subroutine delete_particles_outside_sphere_wrapper(center, radius)
 
  call delete_particles_outside_sphere(center/udist, radius/udist)
 end subroutine delete_particles_outside_sphere_wrapper
+
+

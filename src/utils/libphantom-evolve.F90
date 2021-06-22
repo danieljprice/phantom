@@ -254,6 +254,7 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
 !
 !--write to data file if time is right
 !
+#ifndef AMUSE
  at_dump_time = .false.
 #ifdef IND_TIMESTEPS
  if ( (istepfrac==2**nbinmax) &
@@ -388,6 +389,8 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
  tprint = tzero + noutput*dtmax
  nsteplast = nsteps
 endif
+!#ifndef AMUSE
+#endif
 !
 !--Calculate total energy etc and write to ev file
 !  For individual timesteps, we do not want to do this every step, but we want
