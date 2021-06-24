@@ -119,6 +119,7 @@ module eos
     ierr_units_not_set   = 3, &
     ierr_isink_not_set   = 4, &
     ierr_iso_Tfloor      = 5
+
 contains
 
 !----------------------------------------------------------------
@@ -391,8 +392,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = sqrt(gamma_local*ponrhoi)
        if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     else
-       call fatal('eos','invoking KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate (bad value for eos?)')
+       call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
     endif
 
  case default
