@@ -104,14 +104,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use eos,            only:get_spsound
+ use eos,            only:get_spsound,use_Tfloor,ufloor
  use cooling,        only:cooling_implicit
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ibin_wake
- use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake
+ use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
+                          iosumflrp,iosumflrps,iosumflrc
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -135,7 +136,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real,    intent(in)    :: t,dtsph
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
- integer            :: i,its,np,ntypes,itype,nwake,ialphaloc
+ integer            :: i,its,np,ntypes,itype,nwake,nvfloorp,nvfloorps,nvfloorc,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
  real               :: vxi,vyi,vzi,eni,vxoldi,vyoldi,vzoldi,hdtsph,pmassi
  real               :: alphaloci,divvdti,source,tdecay1,hi,rhoi,ddenom,spsoundi
@@ -179,17 +180,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
+ nvfloorp  = 0
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
- !$omp shared(dustprop,ddustprop,dustproppred) &
+ !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
 #endif
  !$omp firstprivate(itype) &
- !$omp private(i,hdti)
+ !$omp private(i,hdti) &
+ !$omp reduction(+:nvfloorp)
  predictor: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 #ifdef IND_TIMESTEPS
@@ -210,6 +213,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
        else
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+       endif
+
+       !--floor the thermal energy if requested and required
+       if (use_Tfloor) then
+          if (vxyzu(4,i) < ufloor) then
+             vxyzu(4,i) = ufloor
+             nvfloorp   = nvfloorp + 1
+          endif
        endif
 
        if (itype==idust .and. use_dustgrowth) then
@@ -254,6 +265,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call increment_timer(timer_extf,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
+ nvfloorps  = 0
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph
@@ -265,14 +277,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
-!$omp shared(eos_vars) &
+!$omp shared(eos_vars,ufloor) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci,divvdti) &
-!$omp firstprivate(pmassi,itype,avdecayconst,alpha)
+!$omp firstprivate(pmassi,itype,avdecayconst,alpha) &
+!$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (store_itype) then
@@ -312,6 +325,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           ppred(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+       endif
+
+       !--floor the thermal energy if requested and required
+       if (use_Tfloor) then
+          if (vpred(4,i) < ufloor) then
+             vpred(4,i) = ufloor
+             nvfloorps  = nvfloorps + 1
+          endif
        endif
 
        if (use_dustgrowth .and. itype==idust) then
@@ -388,6 +409,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  converged  = .false.
  errmaxmean = 0.0
  nwake      = 0
+ nvfloorc   = 0
  iterations: do while (its < maxits .and. .not.converged .and. npart > 0)
     its     = its + 1
     errmax  = 0.
@@ -405,7 +427,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,ieos) &
+!$omp shared(dtsph,ieos,ufloor) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -416,7 +438,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
 !$omp reduction(max:errmax) &
-!$omp reduction(+:np,v2mean,p2mean,nwake) &
+!$omp reduction(+:np,v2mean,p2mean,nwake,nvfloorc) &
 !$omp firstprivate(pmassi,itype)
 !$omp do
     corrector: do i=1,npart
@@ -468,6 +490,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           else
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
           endif
+
+          !--floor the thermal energy if requested and required
+          if (use_Tfloor) then
+             if (vxyzu(4,i) < ufloor) then
+                vxyzu(4,i) = ufloor
+                nvfloorc   = nvfloorc + 1
+             endif
+          endif
+
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           if (itype==igas) then
              if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
@@ -629,9 +660,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo iterations
  ! Summary statements & crash if velocity is not converged
- if (nwake > 1) call summary_variable('wake',iowake,  0,real(nwake))
- if (its   > 1) call summary_variable('tolv',iosumtvi,0,real(its)  )
- if (maxits > 1 .and. its >= maxits) then
+ if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )
+ if (nvfloorp > 0) call summary_variable('floor',iosumflrp, 0,real(nvfloorp) )
+ if (nvfloorps> 0) call summary_variable('floor',iosumflrps,0,real(nvfloorps))
+ if (nvfloorc > 0) call summary_variable('floor',iosumflrc, 0,real(nvfloorc) )
+ if (its      > 1) call summary_variable('tolv', iosumtvi,  0,real(its)      )
+ if (maxits   > 1 .and. its >= maxits) then
     call summary_printout(iprint,nptmass)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
