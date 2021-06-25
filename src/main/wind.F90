@@ -371,7 +371,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
        if (state%spcode == -1) then
           v0min = v0
           exit
@@ -390,25 +390,27 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
        if (state%spcode == 1) then
           v0max = v0
           exit
        else
           v0min = max(v0min, v0)
           v0 = v0 * 1.1
+          !asymptotically approaching v0max
+          !v0 = min(v0, v0max*(v0/(1.+v0)))
        endif
        icount = icount+1
     enddo
     if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,state%spcode
 
     ! Find sonic point by dichotomy between v0min and v0max
     do
        v0last = v0
        v0 = (v0min+v0max)/2.
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs
+       if (iverbose>1) print *, 'v0/cs = ',v0/cs,state%spcode
        if (state%spcode == -1) then
           v0min = v0
        elseif (state%spcode == 1) then
@@ -620,7 +622,7 @@ subroutine filewrite_header(iunit,nwrite)
     nwrite = 12
     write(iunit,'(12(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
  else
-    nwrite = 12
+    nwrite = 11
     write(iunit,'(11(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
