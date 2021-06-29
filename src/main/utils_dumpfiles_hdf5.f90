@@ -972,7 +972,7 @@ subroutine read_hdf5_arrays( &
  endif
 
  call read_from_hdf5(iorig, 'iorig', group_id, got, error)
- if (got) got_arrays%got_orig = .true
+ if (got) got_arrays%got_iorig = .true
 
  ! Close the particles group
  call close_hdf5group(group_id, error)
