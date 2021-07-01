@@ -262,6 +262,17 @@ ifeq ($(SETUP), disc)
     IND_TIMESTEPS=yes
 endif
 
+ifeq ($(SETUP), mydisc)
+#   locally isothermal gas disc
+    DISC_VISCOSITY=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
+endif
+
 ifeq ($(SETUP), grtde)
     SETUPFILE= setup_grtde.f90
     GR=yes
