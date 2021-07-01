@@ -22,11 +22,11 @@ module analysis
 !
  use dim,         only: maxp,maxvxyzu,mhd_nonideal
  use options,     only: alphaB
- use part,        only: maxptmass,n_R,n_electronT
+ use part,        only: maxptmass,nden_nimhd
  use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
  use eos,         only: ieos,init_eos,equationofstate,init_eos, &
                         get_spsound,get_temperature,get_temperature_from_ponrho
- use nicil,       only: nicil_initialise,nicil_get_ion_n,nicil_get_eta,unit_eta,n_data_out
+ use nicil,       only: nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
  use physcon,     only: pi
  implicit none
  character(len=20), parameter, public :: analysistype = 'discRM'
@@ -77,9 +77,9 @@ module analysis
  real,    private, allocatable :: etaart(:)
  real,    private            :: rmu_global(nmu_global),rmu_sink(nmu_sink+1)
  logical, private            :: no_file(0:maxptmass+1)
- !
+
  private
- !
+
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
@@ -93,10 +93,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #ifdef NONIDEALMHD
  use io,           only: fatal
  use units,        only: utime
- use nicil,        only: use_ohm,use_hall,use_ambi, &
-                          ion_rays,ion_thermal,use_massfrac,massfrac_X,massfrac_Y, &
-                          g_cnst,fdg,rho_bulk,a0_grain,an_grain,ax_grain, &
-                          zeta_cgs,mass_MionR_mp
+ use nicil,        only: use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
 #endif
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,iunit
@@ -120,7 +117,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=200)                      :: infile,fileprefix
  type(inopts), dimension(:), allocatable :: db
 #endif
- !
+
  ! Yell if contradictory commands
  if ( sinks_only .and. ignore_sinks ) then
     print*, "You cannot both ignore sinks and only centre on sinks.  Aborting task."
@@ -162,7 +159,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  rmu_sink(5)   = 200.0*au/udist
  rmu_sink(6)   =   0.0                      ! dynamically calculated at R_disc
  mu_sink       =   0.0
- !
+
  ! If num <= num_old, then treat as firstcall again
  if (num <= num_old) firstcall = .true.
  num_old = num
@@ -204,26 +201,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     inquire(file=trim(infile),exist=iexist)
     if (iexist) then
        call open_db_from_file(db,infile,qunit,ierr)
-       call read_inopt(use_ohm,      'use_ohm',      db,ierr)
-       call read_inopt(use_hall,     'use_hall',     db,ierr)
-       call read_inopt(use_ambi,     'use_ambi',     db,ierr)
-       call read_inopt(ion_rays,     'ion_rays',     db,ierr)
-       call read_inopt(ion_thermal,  'ion_thermal',  db,ierr)
-       call read_inopt(use_massfrac, 'use_massfrac', db,ierr)
-       call read_inopt(massfrac_X,   'massfrac_X',   db,ierr)
-       call read_inopt(massfrac_Y,   'massfrac_Y',   db,ierr)
-       call read_inopt(g_cnst,       'g_cnst',       db,ierr)
-       call read_inopt(fdg,          'fdg',          db,ierr)
-       call read_inopt(rho_bulk,     'rho_bulk',     db,ierr)
-       call read_inopt(a0_grain,     'a0_grain',     db,ierr)
-       call read_inopt(an_grain,     'an_grain',     db,ierr)
-       call read_inopt(ax_grain,     'ax_grain',     db,ierr)
-       call read_inopt(zeta_cgs,     'zeta_cgs',     db,ierr)
-       call read_inopt(mass_MionR_mp,'mass_MionR_mp',db,ierr)
+       call read_inopt(use_ohm,  'use_ohm',  db,ierr)
+       call read_inopt(use_hall, 'use_hall', db,ierr)
+       call read_inopt(use_ambi, 'use_ambi', db,ierr)
+       call read_inopt(fdg,      'fdg',      db,ierr)
+       call read_inopt(rho_bulk, 'rho_bulk', db,ierr)
+       call read_inopt(a0_grain, 'a0_grain', db,ierr)
+       call read_inopt(an_grain, 'an_grain', db,ierr)
+       call read_inopt(ax_grain, 'ax_grain', db,ierr)
+       call read_inopt(zeta_cgs, 'zeta',     db,ierr)
        call close_db(db)
        close(qunit)
-       n_R         = 0.0
-       n_electronT = 0.0
+       nden_nimhd = 0.0
     endif
     ! Initialise nicil
     call nicil_initialise(utime,udist,umass,unit_Bfield,ierr)
@@ -319,7 +308,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           endif
        enddo
     endif
-    !
+
     ! Open files: note, give no sink file id as if there was a sink.  Maybe we should add nptmasses to the list
     write(rval, '(I3.3)') rthreshAU
     write(csink,'(I3.3)') isink
@@ -348,7 +337,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        if (.not. discRM_only) open(junit,file=fileout2,position='append')
        if (printvol) open(kunit,file=fileout3,position='append')
     endif
-    !
+
     if (isink==0) then
        ! Reset the centre of mass to the origin
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -366,7 +355,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           call reset_origin(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,xyz_tmp,vxyz_tmp)
        endif
     endif
-    !
+
     ! Initialise parameters
     itype = igas
     mdisc = 0.0
@@ -385,7 +374,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! Determines disc mass and properties
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,n_R,n_electronT,etaart,iphase) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
@@ -416,7 +405,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                    rad2(i) = rtmp2
                 endif
                 if (isink==isink0 .and. calc_eta) then
-                   call get_eta_global(etaohm,etahall,etaambi,rhoi,n_R(:,i),n_electronT(i),Bxyz(1:3,i))
+                   call get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd(:,i),Bxyz(1:3,i))
                    eta_1 = eta_1 + etaart(i)
                    eta_2 = eta_2 + etaohm
                    eta_3 = eta_3 + etahall
@@ -440,23 +429,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     eta(4) = eta_4
     eta(5) = eta_5
     eta(6) = eta_6
-    !
+
     ! Sort the rad2 array (this occurs in increasing order of distance)
     call indexx(npart,rad2,indx)
-    !
+
     ! Determine the radii which contains massfrac of the mass (total & component-wise)
     if (isink > 0) then
        call get_mass_and_radius(npart,ndens,rad2,xyzh(3,:),xyzh(4,:),indx,particlemass,mdisc,rdisc)
     else
        call get_radius(npart,rdisc,msink,(msink+mdisc)*massfrac,rad2,massoftype(igas),indx)
     endif
-    !
+
     ! Call analysis to get the (r,phi,z) components of the B & V fields;  this is for gas only!
     if ( (.not. discRM_only .and. calc_rad_prof) .or. angle > 0.0 ) then
        call doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,dthresh &
                          ,au,udist,umass,solarm,unit_velocity,unit_Bfield,rdisc**2,time,mhd,rthresh**2,msink)
     endif
-    !
+
     ! Calculate the evolution of mu
     if (calc_mu) then
        if (isink==1 .or. isink==2) then
@@ -466,19 +455,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                          B_mu_sink(isink,:),xyzh,xyzmh_ptmass,Bxyz,particlemass)
        endif
     endif
-    !
+
     ! Convert mass & radius to M_sun & AU, respectively & Print results to file
     m_low_dens = m_low_dens*umass/solarm
     mdisc      = mdisc*umass/solarm
     msink      = msink*umass/solarm
     rdisc      = rdisc*udist/au
     write(iunit, '(I18,1x,7(1pe18.10,1x))') num,time,m_low_dens,msink,mdisc,mdisc+msink,rdisc
-    !
+
     close(iunit)
     close(junit)
     close(kunit)
  enddo over_sinks
- !
+
  ! Print the globally averaged eta-values, for particles with rho > rho_crit
  if (calc_eta) then
     write(fileout6,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_eta.dat'
@@ -497,7 +486,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     npt_prev = nptmass
     close(eunit)
  endif
- !
+
  ! Calculate the global evolution and print the evolution of mu to file
  if (calc_mu) then
     call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -511,7 +500,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     call get_mu(npart,nptmass,nmu_global,rmu_global,mu_global,mass_mu_global,B_mu_global, &
                 xyzh,xyzmh_ptmass,Bxyz,particlemass)
-    !
+
     write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu.dat'
     write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_mass.dat'
     write(fileout9,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_B.dat'
@@ -547,7 +536,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     no_file(isink) = .false.
  enddo
  no_file(maxptmass+1) = .false.
-!
+
 end subroutine do_analysis
 !
 !----------------------------------------------------------------
@@ -561,7 +550,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  real,    intent(in)  :: msink,discmasslim,rad2(:),pmass
  integer              :: i,j
  real                 :: discmass
- !
+
  i        = 1
  j        = 1
  discmass = msink
@@ -577,7 +566,7 @@ subroutine get_radius(npart,rdisc,msink,discmasslim,rad2,pmass,indx)
  else
     rdisc = sqrt(rad2(j))
  endif
- !
+
 end subroutine get_radius
 !
 !----------------------------------------------------------------
@@ -600,7 +589,7 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
  integer                :: i,j,k,ninring_loc
  real                   :: zmin,zmax,totmass,notdisc,dring,rmin2,rmax2,dmax,dr0,rad2old,rad2now,rad2next
  logical                :: indisc
- !
+
  ! Initialise parameters, including several to simply avoid compiler warnings
  indisc  = .true.
  rmin2   = 0.0
@@ -625,7 +614,7 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
     rdisc = 0.0
     return
  endif
- !
+
  do while (j < npart)
     j       = j + 1
     i       = indx(j)
@@ -676,33 +665,32 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
     endif
     rmin2 = rmax2
  enddo
- !
+
 end subroutine get_mass_and_radius
 !----------------------------------------------------------------
 !+
 !  Calculate the global eta values for rho > rho_crit
 !+
 !----------------------------------------------------------------
-subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,n_Ri,n_electronTi,B)
- real,   intent(inout) :: n_Ri(:),n_electronTi
+subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd0,B)
+ real,   intent(inout) :: nden_nimhd0(:)
  real,   intent(in)    :: rhoi
  real,   intent(in)    :: B(3)
  real,   intent(out)   :: etaohm,etahall,etaambi
- integer               :: ierr
+ integer               :: ierrlist(n_warn)
  real                  :: temperature,B2i,vdummy(maxvxyzu),xdummy(3)
- !
+
  ! Calculate temperature
  xdummy      = 0.0
  vdummy      = 0.0
  temperature = get_temperature(ieos,xdummy,rhoi,vdummy)
- !
+
  ! Calculate the artificial coefficient
  B2i         = sqrt( dot_product(B,B) )
  ! Calculate physical coefficients
- call nicil_get_ion_n(real(rhoi),temperature,n_Ri(:),n_electronTi,ierr)
- call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),real(rhoi),temperature, &
-                           n_Ri(:),n_electronTi,ierr)
- !
+ call nicil_update_nimhd(0,etaohm,etahall,etaambi,sqrt(B2i),real(rhoi), &
+                         temperature,nden_nimhd0,ierrlist)
+
 end subroutine get_eta_global
 !----------------------------------------------------------------
 !+
@@ -717,13 +705,13 @@ real function etaart_old(hi,rhoi,alphaB_in,B)
  xdummy   = 0.0
  vdummy   = 0.0
  spsoundi = get_spsound(ieos,xdummy,rhoi,vdummy)
- !
+
  ! Calculate the artificial coefficient
  B2i       = sqrt( dot_product(B,B) )
  valfven2i = B2i/rhoi
  vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
  etaart_old = 0.5*hi*vsigi*alphaB_in
- !
+
 end function etaart_old
 !----------------------------------------------------------------
 !+
@@ -743,7 +731,7 @@ real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
  real                        :: runix,runiy,runiz,rhoj
  real                        :: qi,q2i,radkern2i,wkern,grkern
  real                        :: vsigx,vsigy,vsigz,vsigB
- !
+
  xi  = xyzh(1,ipart)
  yi  = xyzh(2,ipart)
  zi  = xyzh(3,ipart)
@@ -788,7 +776,7 @@ real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
     endif
  enddo
  etaart_new = 0.5*etaart_new*hi* (pmass*cnormk/hi**3) ! the terms in brackets is from the kernel weighting
- !
+
 end function etaart_new
 !----------------------------------------------------------------
 !+
@@ -804,7 +792,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
  real                 :: rmasstoflux_crit
  real                 :: xi,yi,zi,hi,hi3,mi,Bxi,Byi,Bzi,Bi,rad2,rad2_mu(nrad)
  real                 :: mass_thread(nrad),vol(nrad),vol_thread(nrad),B_thread(nrad)
- !
+
  rad2_mu = rad_mu*rad_mu
  mass    = 0.0
  vol     = 0.0
@@ -849,7 +837,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
  enddo
 !$omp end critical(collatedata)
 !$omp end parallel
- !
+
  ! Add mass contribution of point masses
  do i = 1,nptmass
     xi   = xyzmh_ptmass(1,i)
@@ -861,7 +849,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
        if (rad2 < rad2_mu(j)) mass(j) = mass(j) + mi
     enddo
  enddo
- !
+
  ! Calculate the mass to flux ratio
  do j = 1,nrad
     if (vol(j) > 0.0) B(j) = B(j)/vol(j)
@@ -869,7 +857,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
  enddo
  rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi)
  mu               = mu/rmasstoflux_crit
- !
+
 end subroutine get_mu
 !----------------------------------------------------------------
 !+
@@ -887,7 +875,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  real,             intent(in)    :: Bxyz(:,:)
  real,             intent(in)    :: particlemass,dthreshg,au,udist,umass,solarm,unit_velocity,unit_Bfield
  logical,          intent(in)    :: mhd
- !
+
  ! Indicies of the disc bins (Dbins): TIME AVERAGED
  !  Note: Cbins is similar, but different radial cutoff; currently left with hardcoded indicies
  integer, parameter           :: iDvr      =  1 ! vr
@@ -975,8 +963,8 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  integer, parameter           :: iFNvpvra  =  5 ! ave(vphi/vr) (volume only)
  integer, parameter           :: iFNvpvrx  =  6 ! max(vphi/vr) (volume only)
  ! Local variables
- integer                      :: i,j,k,p,nobj,ierr
- integer                      :: volN(5),ibins(4,nbins)
+ integer                      :: i,j,k,p,nobj
+ integer                      :: volN(5),ibins(4,nbins),ierrlist(n_warn)
  real                         :: hi,rhoi,rtmp2,rtmp3d2,B2i,Bi,anglei
  real                         :: vr,vphi,Br,Bphi,plasmab,temperature,rr1
  real                         :: spsoundi,ponrhoi,angx,angy,angz,ang,massint
@@ -986,7 +974,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  real                         :: fracrotVol(6),vrat,fracrotDisc(6,nbins),ReyK(7),Rey(7)
  real                         :: data_out(n_data_out)
  character(len=200)           :: fileout4,fileout5
- !
+
  ! Initialise variables
  nobj        = 0
  ibins       = 0
@@ -1001,7 +989,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  etahall     = 0.0
  etaambi     = 0.0
  data_out    = 0.0
- !
+
  !--Bin the data
  parts: do i = 1,npart
     xi = xyzh(1,i)
@@ -1068,9 +1056,8 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        rho1i     = 1./rhoi
        temperature = get_temperature_from_ponrho(ponrhoi)
        if ( mhd_nonideal .and. mhd ) then
-          call nicil_get_ion_n(real(rhoi),temperature,n_R(:,i),n_electronT(i),ierr)
-          call nicil_get_eta(etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature, &
-                           n_R(:,i),n_electronT(i),ierr,data_out)
+          call nicil_update_nimhd(0,etaohm,etahall,etaambi,sqrt(B2i),rhoi, &
+                                  temperature,nden_nimhd(:,i),ierrlist,data_out)
        endif
        if (etaart(i) > 0.0) then
           etaart1 = 1.0/etaart(i)
@@ -1135,7 +1122,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
              fracrotVol(iFNvpvrx) = max(fracrotVol(iFNvpvrx),vrat)
           endif
        endif
-       !
+
        !--If the particle is in the disc (or at least has a high enough density this could be)
        if ( (rhoi > dthreshg .and. (rtmp2 < rdisc2 .or. map_all_R)) .or. anglei > 0.0 ) then
           if (j < nbins) then
@@ -1220,7 +1207,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
     endif
  enddo parts
  deallocate(etaart)
- !
+
  angx = 0.0
  angy = 0.0
  angz = 0.0
@@ -1284,7 +1271,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  endif
  if (volN(iVNvphip) > 0) volP(iVvphip) = volP(iVvphip)/volN(iVNvphip)
  if (volN(iVNvphin) > 0) volP(iVvphin) = volP(iVvphin)/volN(iVNvphin)
- !
+
  ! Write results to file
  if ( printrad ) then
     if (csink=="000") then
@@ -1326,7 +1313,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
     close(punit)
     close(bunit)
  endif
- !
+
  ! Write time averaged quantities: disc properties & all gas with rho > rho_crit
  if (Rey(7) > 0) Rey(1:6) = Rey(1:6)/Rey(7)
  write(junit,'(I18,1x,44(1pe18.10,1x))') num, time, Hbins(2,iHv:iHvphi)*unit_velocity,Hbins(2,iHb:iHbx)*unit_Bfield,&
@@ -1342,7 +1329,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                                      volP(iVvphin)*unit_velocity,volL*udist*unit_velocity,volP(iVbeta),&
                                      fracrotVol,float(volN(iVNrhoh))/float(volN(iVN))
  endif
- !
+
 end subroutine doanalysisRPZ
 !----------------------------------------------------------------
 !+
@@ -1430,7 +1417,7 @@ subroutine write_header_file1(inunit)
         6,'m_system', &
         7,'r_disc'
 end subroutine write_header_file1
-!
+
 ! Write header for fileout2 = analysisout_*_discRMnx.dat
 subroutine write_header_file2(inunit)
  integer, intent(in)  :: inunit
@@ -1481,7 +1468,7 @@ subroutine write_header_file2(inunit)
        44,'G |e_hall|',&
        45,'G eta_ambi'
 end subroutine write_header_file2
-!
+
 ! Write header for fileout3 = analysisout_*_vol*RM.dat
 subroutine write_header_file3(inunit)
  integer, intent(in)  :: inunit
@@ -1499,7 +1486,7 @@ subroutine write_header_file3(inunit)
        11,'r_d,dust', &
        12,'r_d,star'
 end subroutine write_header_file3
-!
+
 ! Write header for fileout4 = rhosurf_*.dat
 subroutine write_header_file4(inunit)
  integer, intent(in)  :: inunit
@@ -1552,7 +1539,7 @@ subroutine write_header_file4(inunit)
        46,'n_{h-ion}',  &
        47,'n_{m-ionm}'
 end subroutine write_header_file4
-!
+
 ! Write header for fileout5 = rhosurfM_*.dat
 subroutine write_header_file5(inunit)
  integer, intent(in)  :: inunit
@@ -1567,7 +1554,7 @@ subroutine write_header_file5(inunit)
         8,'B',    &
         9,'Bphi/Bp'
 end subroutine write_header_file5
-!
+
 ! Write header for fileout6 = analysisout_*_eta.dat
 subroutine write_header_file6(inunit)
  integer, intent(in)  :: inunit
@@ -1582,7 +1569,7 @@ subroutine write_header_file6(inunit)
         8,'nptmass',    &
         9,'nptmassPrev'
 end subroutine write_header_file6
-!
+
 ! Write header for fileout7 = analysisout_*_mu.dat
 subroutine write_header_file7(inunit)
  integer, intent(in)  :: inunit
@@ -1611,5 +1598,4 @@ subroutine write_header_file7(inunit)
        22,'D2 (au)'
 end subroutine write_header_file7
 !-----------------------------------------------------------------------
-!
 end module analysis

@@ -1,0 +1,161 @@
+This will list the instructions regarding how to embed Nicil into a parent code.  In all arrays, i will represent particle i for SPH or cell i for a grid code, and we assume that there are N particles/cells.  When required, calling sequences will be listed twice - once with the required arguments and once with all the optional arguments; naturally, the user can choose which optional arguments to include/exclude.  Nicil contains several SPH-specific subroutines that we will not discuss, however, see the example programme nicil_ex_sph for an example regarding how to implement those subroutines.
+
+This will document the optimal method to use the error list, so that the code will immediately exit if a fatal error is triggered, otherwise all the warnings will be summarised at dump-time.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Parameters -=-
+At the top of nici.F90, there are many input parameters that the user can set.  Most of these can be accessed and changed by the parent code (change these prior to initialising nicil), however, the number of grain sizes, na, is a hard-coded parameter.  The default is na = 1; if this value is modified, Nicil (and the parent code) must be recompiled.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Arrays -=-
+
+The following are real arrays that we assume are evolved by the parent code.  We assume these are global arrays that are passed in to all the relevant subroutines.
+rho(N)    ! density of the cell/particle
+v(3,N)    ! The three components of the velocity field
+B(3,N)    ! The three components of the magnetic field
+J(3,N)    ! The three components of the curl of the magnetic field
+Temp(N)   ! The gas temperature; we assume temperature is a stored array, although it may be a locally calculated quantity depending on the equation of state
+
+The following is a new array for nicil that must be stored for efficiency:
+use nicil,  only: n_nden,n_warn
+real    :: nden_nimhd(n_nden,N)
+integer :: ierrlist(n_warn)
+nden_nimhd contains the number densities of the n_nden ions and charged dust grains; n_nden is calculated by and imported from Nicil.  It is optimal to store all these value since they are calculated iteratively, and the calculation is faster and more stable if the initial guess is the previous value rather than one of the initial semi-random guesses made by Nicil.
+ierrlist contains the errors that may occur during the calculation.  The storage location of this array will depend on whether the user would like to output the errors at the end of a loop (in which case this will be defined within a subroutine), or at dump time (in which case this will need to be passed between files).  Note that the number of errors of each type will be summed if not re-zeroed.
+
+The following are optional arrays.  Depending on the layout and structure of the code, it may be more efficient for these values to be local real scalars if they are calculated then immediately used.
+real :: eta_ohm(N)   ! the non-ideal coefficient for Ohmic resistivity
+real :: eta_hall(N)  ! the non-ideal coefficient for the Hall effect
+real :: eta_ambi(N)  ! the non-ideal coefficient for ambipolar diffusion
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Initialisation -=-
+
+Import & define the following:
+ use nicil,  only: nicil_initialise
+ integer :: ierr                         ! required by Nicil to track errors
+ integer :: iprint                       ! required by Nicil: unit number of the file where to print the output
+ integer :: iprintwarn                   ! OPTIONAL: unit number of the file where to print the warnings if warn_verbose=.true. 
+ real    :: nden_nimhd0(n_nden)          ! OPTIONAL: the number densities assuming rho = 10^-12 g/cm^3 & T=100K to be used as an initial guess
+ real    :: a_grain_cgs_in(Ngrains)      ! OPTIONAL FROM PARENT CODE: the radii of the Ngrains dust grains; used only if self-consistently evolving the dust
+ real    :: utime,udist,umass,uBfield    ! CALCULATED BY PARENT CODE: code units for time, distance, mass and magnetic field
+
+The calling sequence:
+ nden_nimhd = 0.0
+ ierrlist   = 0
+ if (required arguments only) then
+    call nicil_initialise(utime,udist,umass,uBfield,ierr,iprint)
+ elseif (all arguments) then
+    call nicil_initialise(utime,udist,umass,uBfield,ierr,iprint,iprintwarn,nden_nimhd0,a_grain_cgs_in)
+    nden_nimhd(:,N) = nden_nimhd0
+ endif
+ if (ierr/=0) call fatal ! Abort programme if there are errors in the setup
+
+Notes:
+ In the above, if iprintwarn is not passed in, then the warnings are also printed to the file with unit iprint.
+ fatal is a subroutine of the parent code that will end the simulation if nicil is not properly initialised.
+ The initial guess can be important in some domains, thus nden_nimhd0 can be used instead of 0; see section 8.4 in modifications.pdf
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Primary calculation -=-
+
+Import & define the following:
+ use nicil, only: nicil_update_nimhd,nicil_translate_error,n_data_out
+ integer :: icall                        ! required by Nicil to tell it what to compute
+ real    :: Bfield                       ! The magnitude of the magnetic field; may already be calculated by the parent code
+ real    :: data_out(n_data_out)         ! OPTIONAL: will return additional values useful for bookkeeping or analysis
+ real    :: fdg(Ngrains,N)               ! OPTIONAL FROM PARENT CODE: array containing the dust-to-gas ratios of the Ngrains of the particle/cell if evolving dust
+
+The calling sequence:
+ Bfield = sqrt(B(1,i)**2 + B(2,i)**2 + B(3,i)**2)
+ if (required arguments only) then
+    call nicil_update_nimhd(icall,eta_ohm(i),eta_hall(i),eta_ambi(i),Bfield,rho(i),Temp(i),nden_nimhd(:,i),ierrlist)
+ else if (all arguments) then
+    call nicil_update_nimhd(icall,eta_ohm(i),eta_hall(i),eta_ambi(i),Bfield,rho(i),Temp(i),nden_nimhd(:,i),ierrlist,data_out,fdg(:,i))
+ end if
+ if ( any(ierrlist > 0) ) then
+    if (required arguments only) then
+       call nicil_translate_error(ierrlist,.true.,rho(i),Bfield,Temp(i))
+    else if (all arguments) then
+       call nicil_translate_error(ierrlist,.true.)
+    endif
+    call fatal
+ endif
+
+Notes:
+ The structure of the parent code (i.e. when various properties are updated) will dictate where and how this subroutine is called.
+ If icall = 0, then update nden_nimhd and calculate the non-ideal coefficients
+ If icall = 1, then update nden_nimhd only (Bfield not used, so a dummy variable can be passed in)
+ If icall = 2, then calculate the non-ideal coefficients only
+
+ If use_fdg_in = true, then fdg MUST be passed in, where fdg is an array of the dust-to-gas ratios of the Ngrains grains.  In this case, dust evaporation is accounted for in the parent code and not in Nicil.  In all cases, rho(i) is the total density of the particle/cell, and Nicil extracts the gas and dust components.
+
+ ierrlist is used to track the n_warn possible errors within Nicil.  If any value > 0, then a a fatal issue has occurred.  nicil_translate_error will print the error, then fatal will exit the code.  Although rho(i),Bfield,Temp(i) are optional inputs, it would be in the user's best interest to include them for additional help debugging the code, if necessary.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Timestepping -=-
+
+Import & define the following:
+ use nicil, only: nicil_get_dt_nimhd
+ real :: dtohm,dthall,dtambi  ! required by Nicil: the timesteps for the individual non-ideal effects; the dt-coefficients are set in Nicil
+ real :: dt                   ! CALCULATED BY PARENT CODE: the minimum timestep
+
+The calling sequence:
+ call nicil_get_dt_nimhd(dtohm,dthall,dtambi,h(i),eta_ohm(i),eta_hall(i),eta_ambi(i))
+ dt = min(dt,dtohm,dthall,dtambi)  ! to find the local timestep, must take the minimum of all the non-ideal timesteps and the other timestep options previously calculated
+
+Notes:
+ For SPH, h(i) is the smoothing length of particle i; for grid-codes, h(i) is the minimum width of cell i
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Thermal Energy -=-
+To calculate the non-ideal MHD contribution to thermal energy (i.e. du/dt); required only if evolving thermal energy.
+
+Import & define the following:
+ use nicil, only: nicil_get_dudt_nimhd
+ real :: dudt_nimhd      ! required by Nicil: a scalar that includes the non-ideal MHD contribution to thermal energy
+ real :: dudt(N)         ! CALCULATED BY PARENT CODE: the change in thermal energy
+
+The calling sequence:
+ call nicil_get_dudt_nimhd(dudt_nimhd,eta_ohm(i),eta_ambi(i),rho(i),J(1:3,i),B(1:3,i))
+ dudt(i) = dudt(i) + dudt_nimhd
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- Velocities Subroutines -=-
+There are three optional subroutines that the user can include to track the ion motions.
+
+Import & define the following:
+ use nicil, only: nicil_get_halldrift,nicil_get_ambidrift,nicil_get_vion,n_warn
+ integer :: ierrlist(n_warn)             ! required by Nicil: An array to track the errors in Nicil
+ real    :: vdrift_hall(3)               ! required by Nicil: The drift velocity from the Hall effect
+ real    :: vdrift_ambi(3)               ! required by Nicil: The drift velocity from ambipolar diffusion
+ real    :: vdrift(3)                    ! OPTIONAL: The drift velocity from the Hall effect + ambipolar diffusion
+ real    :: vion(3)                      ! required by Nicil: The ion velocity, assuming only ambipolar diffusion
+
+The calling sequence:
+ ! Calculates the drift velocity caused by the Hall effect
+ call nicil_get_halldrift(eta_hall(i),B(1,i),B(2,i),B(3,i),J(1:3,i),vdrift_hall)
+
+ ! Calculates the drift velocity caused by ambipolar diffusion
+ call nicil_get_ambidrift(eta_ambi(i),B(1,i),B(2,i),B(3,i),J(1:3,i),vdrift_ambi)
+
+ ! Calculates the ion velocity; optionally outputs the drift velocity from both the Hall effect and ambipolar diffusion
+ ! This subroutine also checks to ensure that the ion velocity is small
+ if (required arguments only) then
+    call nicil_get_vion(eta_hall(i),eta_ambi(i),v(1,i),v(2,i),v(3,i),B(1,i),B(2,i),B(3,i),J(1:3,i),vion,ierrlist)
+ else if (all arguments) then
+    call nicil_get_vion(eta_hall(i),eta_ambi(i),v(1,i),v(2,i),v(3,i),B(1,i),B(2,i),B(3,i),J(1:3,i),vion,ierrlist,vdrift)
+ end if
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-=- At Dump Time -=-
+To write a summary of the error to file:
+
+Import  & define the following:
+ use nicil, only: nicil_translate_error
+
+The calling sequence:
+ if (any (ierrlist(i) /= 0) call nicil_translate_error(ierrlist,.false.)
+ ierrlist = 0
+
+This will print all the errors since this command was last called.  Since this is routinely called if a fatal error is called, there will be no fatal errors here.  For this call, do not pass in the optional arguments, since there is no single value of rho, B or T associated with the summary.  This is for bookkeeping only.  Once the errors are printed, reset the counter.

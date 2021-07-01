@@ -414,7 +414,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (present(phimax)) then
     print "(a)",'Setting up disc sector - not adjusting centre of mass'
  else
-    ! call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
+    call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)

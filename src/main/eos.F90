@@ -99,6 +99,10 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
+ !--Minimum temperature (failsafe to prevent u < 0)
+ logical, public, parameter :: use_Tfloor = .false.
+ real,    public            :: Tfloor     = 10. ![K]
+ real,    public            :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
@@ -113,7 +117,8 @@ module eos
     ierr_file_not_found  = 1, &
     ierr_option_conflict = 2, &
     ierr_units_not_set   = 3, &
-    ierr_isink_not_set   = 4
+    ierr_isink_not_set   = 4, &
+    ierr_iso_Tfloor      = 5
 
 contains
 
@@ -387,8 +392,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = sqrt(gamma_local*ponrhoi)
        if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     else
-       call fatal('eos','invoking KROME to calculate local gamma but variable '&
-                        'not passed in equationofstate (bad value for eos?)')
+       call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
     endif
 
  case default
@@ -554,13 +558,13 @@ end function gamma_pwp
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos(eos_type,ierr)
- use units,    only:unit_density,unit_velocity,unit_pressure
+ use units,    only:unit_density,unit_velocity,unit_pressure,unit_ergg
  use physcon,  only:mass_proton_cgs,kboltz
  use io,       only:error,warning
  use eos_mesa, only:init_eos_mesa
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
- use dim,      only:do_radiation
+ use dim,      only:maxvxyzu,do_radiation
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -576,6 +580,14 @@ subroutine init_eos(eos_type,ierr)
  !  c_s^2 = gamma*P/rho = gamma*kT/(gmw*m_p) -> T = P/rho * (gmw*m_p)/k
  !
  temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
+
+ !--calculate the energy floor in code units
+ if (gamma > 1.) then
+    ufloor = kboltz*Tfloor/((gamma-1.)*gmw*mass_proton_cgs)/unit_ergg
+ else
+    ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
+ endif
+ if (use_Tfloor .and. maxvxyzu < 4) ierr = ierr_iso_Tfloor ! cannot floor isothermal simulation
 
  select case(eos_type)
  case(6)
@@ -1068,7 +1080,7 @@ end function diff
 subroutine eosinfo(eos_type,iprint)
  use dim,           only:maxvxyzu,gr
  use io,            only:fatal
- use units,         only:unit_density, unit_velocity
+ use units,         only:unit_density,unit_velocity,unit_ergg
  use eos_helmholtz, only:eos_helmholtz_eosinfo
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
@@ -1154,6 +1166,11 @@ subroutine eosinfo(eos_type,iprint)
     call eos_helmholtz_eosinfo(iprint)
 
  end select
+ if (use_Tfloor) then
+    write(iprint,*)
+    write(iprint,"(3(a,Es10.3),a)") 'WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
+    ufloor*unit_ergg,' erg/g = ',ufloor,' code units'
+ endif
  write(iprint,*)
 
  return

@@ -374,7 +374,6 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  else
     itemp = int(log10(temp) / dtlog) + 1
     if (itemp  <=  0 .or. itemp  >  nmd) then
-       !print*, 'Fatal error in cool_func.F', itemp, temp
        call fatal('cool_func','bad temperature in cooling function',var='temp',val=temp,ival=itemp)
     endif
     dtemp = temp - temptab(itemp)
