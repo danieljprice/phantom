@@ -83,7 +83,7 @@ Performing a calculation
 
 You should *not* perform calculations in your home space - this is for
 code and small files. Calculations should be run in the “project” area
-in /fred/PROJECT_NAME/USERNAME
+in /fred/PROJECT_NAME/$USER
 
 I usually make a soft link / shortcut called “runs” pointing to the
 directory where I want to run my calculations:
@@ -91,9 +91,9 @@ directory where I want to run my calculations:
 ::
 
    $ cd /fred/oz015
-   $ mkdir USERNAME
+   $ mkdir $USER
    $ cd
-   $ ln -s /fred/oz015/USERNAME runs
+   $ ln -s /fred/oz015/$USER runs
    $ cd runs
    $ pwd -P
    /fred/oz015/USERNAME
@@ -184,12 +184,6 @@ in your ~/.bashrc file:
    export PATH=/fred/oz015/splash/bin:${PATH}
    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/fred/oz015/splash/giza/lib
 
-more info
-~~~~~~~~~
-
-For more information on the actual machine `read the
-userguide <https://supercomputing.swin.edu.au>`__
-
 getting your job to run quickly
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -202,4 +196,29 @@ first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/
      export OMP_NUM_THREADS=16
 
 where as above you also need to adjust the number of cpus you are requesting to fit the node size.
+
+getting your job to restart automatically
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Ozstar has fairly generous queue limits (168 hrs) but if you want your job to automatically continue longer than this (use with caution), you can submit a second job to the queue that depends on the first one completing, e.g.::
+
+    $ sbatch run.q
+    Submitted batch job 21300377
+    
+    $ sbatch --dependency=afterany:21300377 run.q
+    Submitted batch job 21300378
+
+You should then be able to see two jobs in the queue, with one waiting on the other to finish::
+
+   $ squeue -u $USER
+             21300378   skylake  enemata   dprice PD       0:00      1 (Dependency) 
+             21300377   skylake  enemata   dprice R        0:10      1 (john110) 
+
+You can use either "afterok" to start the next job only if the first job completed successfully, or "afterany" to restart when the previous job terminates for any reason.
+
+
+more info
+~~~~~~~~~
+
+For more information on the actual machine `read the
+userguide <https://supercomputing.swin.edu.au>`__
 

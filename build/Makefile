@@ -746,6 +746,7 @@ endif
 
 ifeq ($(SETUP), balsarakim)
 #   Balsara-Kim 2004
+#   set BalsaraKim=.true. in setup_unifdis.f90 to initialise the correct defaults
     PERIODIC=yes
     SETUPFILE= setup_unifdis.f90
     MHD=yes
