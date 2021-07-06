@@ -240,7 +240,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
     endif
     print "(' Alfven speed = ',es12.4,/,' Plasma beta  = ',es12.4)",valfven,betazero
  endif
-
 !
 !--spit out flux to mass ratio (assumes spherical geometry at the moment)
 !
