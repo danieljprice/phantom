@@ -281,14 +281,27 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Enter name of second dumpfile',dumpname)
           nstar2 = nstar1
           call prompt('Enter no. of particles in second dumpfile',nstar2)
-          ! copy star 1 particles to IDs Nstar2+1:Nstar2+Nstar1
-          do i=1,npart
-             call copy_particle(i,nstar2+i,.true.) ! true or false?
-          enddo
+
+          ! Move star 1 particles to avoid getting overwritten when reading second dump file.
+          if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar1+i
+             do i=1,nstar1
+                call copy_particle(i,nstar1+i,.false.)
+             enddo
+          else ! Move ith particle of star 1 to nstar2+i
+             do i=1,nstar1
+                call copy_particle(i,nstar2+i,.false.)
+             enddo
+          endif
 
           ! read dump file containing star 2
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
-          if (ierr /= 0) stop 'error reading second dumpfile'
+          if (ierr /= 0) stop 'error reading second dump file'
+
+          if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar2+i
+             do i=1,nstar1
+                call copy_particle(nstar1+i,nstar2+i,.false.)
+             enddo
+          endif
 
           npart = nstar1 + nstar2
           npartoftype(igas) = npart
@@ -298,7 +311,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,2)
              vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,2)
           enddo
-
           ! shift star1 to primary point mass (deleted)
           do i=nstar2+1,npart
             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
