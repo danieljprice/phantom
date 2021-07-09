@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  Give velocity perturbation to gas particles
-!
-!  REFERENCES: None
-!
-!  OWNER: Mike Lau
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! Give velocity perturbation to gas particles
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part
+!
  implicit none
 
 contains
