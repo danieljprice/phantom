@@ -102,7 +102,7 @@ subroutine init_inject(ierr)
  use units,             only:unit_velocity, umass, utime, udist
  use part,              only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- use cooling_molecular, only:fit_rho_power, fit_rho_inner, fit_vel
+ use cooling_molecular, only:fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
  
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point
@@ -148,17 +148,12 @@ subroutine init_inject(ierr)
  endif
 
  if (nptmass == 2) then
+    r_compOrb      = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
     orbital_period = sqrt(4.*pi**2*semi_major_axis_cgs**3/(Gg*(xyzmh_ptmass(4,1)*solarm+xyzmh_ptmass(4,2)*solarm)))    ! cgs
     time_period    = 0.
     fit_rho_inner  = (3*wind_mass_rate_cgs*(semi_major_axis_cgs/wind_velocity_cgs))/(4*pi*(semi_major_axis_cgs)**3)
     fit_rho_power  = 2.0
     fit_vel        = wind_velocity_cgs
-    
-    print*,'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-    print*,'fit_rho_inner  = ',fit_rho_inner 
-    print*,'fit_rho_power  = ',fit_rho_power 
-    print*,'fit_vel        = ',fit_vel
-    print*,'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
  end if
  
  

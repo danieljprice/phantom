@@ -1057,7 +1057,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dust_temp
+                          fxyz_ptmass_sinksink,dust_temp,T_gas_cool
  use chem,           only:update_abundances,get_dphot
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1067,12 +1067,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use damping,        only:calc_damp,apply_damp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
+!  use eos,            only:ieos,get_temperature,gamma
+ use cooling_molecular, only: do_molecular_cooling
 #ifdef NUCLEATION
  use part,           only:nucleation
  use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,T_chem,dudt_chem
+ use part,            only: gamma_chem,mu_chem,dudt_chem
  use krome_interface, only: update_krome
  use eos,             only: get_local_u_internal
 #endif
@@ -1179,11 +1181,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
+!     !$omp shared(T_gas_cool,do_molecular_cooling,gamma,ieos) &
 #ifdef NUCLEATION
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,T_chem,dudt_chem) &
+    !$omp shared(gamma_chem,mu_chem,dudt_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
@@ -1289,7 +1292,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
-                               abundance(:,i),gamma_chem(i),mu_chem(i),T_chem(i))
+                               abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
@@ -1300,6 +1303,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !
              ! COOLING
              !
+             
+!              if (do_molecular_cooling) T_gas_cool(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzu(:,i),gamma)
+             
              if (cooling_implicit) then
                 if (h2chemistry) then
                    !

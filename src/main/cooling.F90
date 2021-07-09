@@ -214,11 +214,11 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  dlnQ_relax_Stefan = 0.
  dlnQ_molec        = 0.
  
- if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (T>3000. .and. excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan) 
- if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, Q_molec, dlnQ_molec)
+ if (T<3500. .and. CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, Q_molec, dlnQ_molec)
  
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen + Q_col_dust*dlnQ_col_dust&
@@ -289,7 +289,7 @@ end subroutine cooling_radiative_relaxation
 
 !-----------------------------------------------------------------------
 !+
-!  Cooling due to electron excitation of neutral H (Spitzer)
+!  Cooling due to electron excitation of neutral H (Spitzer 1978)
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
