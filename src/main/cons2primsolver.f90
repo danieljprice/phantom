@@ -64,7 +64,7 @@ pure subroutine get_u(u,P,dens,gamma)
  uthermconst = polyk
  if (ieos==4) u=uthermconst
 
-end subroutine
+end subroutine get_u
 
 pure subroutine get_enthalpy(enth,dens,P,gamma)
  real, intent(in)  :: dens,P,gamma
@@ -78,7 +78,7 @@ pure subroutine get_enthalpy(enth,dens,P,gamma)
     enth = 1.+p/dens*(gamma/(gamma-1.))
  endif
 
-end subroutine
+end subroutine get_enthalpy
 !=========================
 
 !----------------------------------------------------------------
