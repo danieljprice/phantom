@@ -1041,11 +1041,33 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  integer                      :: i
+ logical, allocatable, save   :: prev_bound(:)
  real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
-                                 omegazi,xHIIi,xHeIIi,kappai,kappat,kappar
- real, dimension(npart)       :: etot,mach_number,omega,xHII,xHeII,kappa
+                                 omegai,omega_orb,xHIIi,xHeIIi,kappai,kappat,kappar,interior_mass
+ real, dimension(npart)       :: etot,mach_number,omega_ratio,xHII,xHeII,kappa,bound_rho
+ real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
  call compute_energies(time)
+ if (dump_number == 0) then
+    allocate(prev_bound(npart))
+    prev_bound = .true.
+ endif
+
+ ! Tom's way of calculating orbit omega
+!  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+ com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+ com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1) + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+
+ omega_orb = 0.
+ do i=1,nptmass
+    xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
+    vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
+    omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+ enddo
+
+!  call get_interior_mass(xyzh,vxyzu,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2),particlemass,npart,1,interior_mass,com_xyz,com_vxyz)
+!  omega_orb = sqrt( (interior_mass + xyzmh_ptmass(4,2)) / separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)**3 ))
+
  do i=1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
@@ -1053,19 +1075,38 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
     etot(i) = (ekini + epoti + ethi) / particlemass ! Specific energy
     mach_number(i) = distance(vxyzu(1:3,i)) / spsoundi
-    call get_gas_omega(xyzmh_ptmass(1:3,1),vxyz_ptmass(1:3,1),xyzh(1:3,i),vxyzu(1:3,i),omegazi)
-    omega(i) = omegazi
+    if (etot(i) > 0.) then
+       prev_bound(i) = .true.
+       bound_rho(i) = rhopart
+    else
+       prev_bound(i) = .false.
+       bound_rho(i) = -1.
+    endif
+
+    ! Tom's way of calculating gas omega
+    xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
+    vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+    omega_ratio(i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+    omega_ratio(i) = (omega_ratio(i) - omega_orb) / omega_orb
+
+   !  call get_gas_omega(com_xyz,com_vxyz,xyzh(1:3,i),vxyzu(1:3,i),omegai)
+   !  omega_ratio(i) = omegai / omega_orb - 1.
+
     call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,xHIIi,dum,xHeIIi,dum)
     xHII(i) = xHIIi
     xHeII(i) = xHeIIi
-    call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
-    kappa(i) = kappai
+    if (ieos == 10) then
+       call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
+       kappa(i) = kappai
+    else
+       kappa(i) = 0.
+    endif
  enddo
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
- write(26) (omega(i),i=1,npart)
  write(26) (mach_number(i),i=1,npart)
- write(26) (kappa(i),i=1,npart)
+ write(26) (bound_rho(i),i=1,npart)
+ write(26) (omega_ratio(i),i=1,npart)
  write(26) (etot(i),i=1,npart)
  close(26)
 end subroutine output_divv_files
@@ -1532,7 +1573,7 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  integer                      :: nbins
  real, dimension(npart)       :: rad_part
  real, allocatable            :: hist_var(:),dist_part(:,:)
- real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),omegaz
+ real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),xyz_origin(3),vxyz_origin(3),omega
  character(len=17), allocatable :: grid_file(:)
  character(len=40)            :: data_formatter
  integer                      :: i,unitnum,nfiles,iradius
@@ -1542,32 +1583,38 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  dist_part = 0.
  minloga = 0.5
  maxloga = 4.3
- iradius = 1 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius in z=0 cross section
+ iradius = 3 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius from CM
 
  nfiles = 2
  allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart))
  grid_file = (/ '    grid_omega.ev', &
                 '       grid_Jz.ev' /)
 
+ select case (iradius)
+ case(1,2) ! Take donor core as origin
+    xyz_origin = xyzmh_ptmass(1:3,1)
+    vxyz_origin = vxyz_ptmass(1:3,1)
+ case(3) ! Take sink CM as origin
+    xyz_origin = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+    vxyz_origin = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1) + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+ end select
+
  do i=1,npart
     select case (iradius)
-    case(1) ! Bin by cylindrical radius
-       rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyzmh_ptmass(1:2,1), xyzh(1:2,i) - xyzmh_ptmass(1:2,1)) )
+    case(1,3) ! Bin by cylindrical radius
+       rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyz_origin(1:2), xyzh(1:2,i) - xyz_origin(1:2)) )
     case(2) ! Bin by spherical radius
-       rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    !case(3) ! Bin by cylindrical radius in z=0 cross-section
-    !   if ( abs(xyzh(3,i) - xyzmh_ptmass(3,1)) > 50. ) cycle
+       rad_part(i) = separation(xyzh(1:3,i),xyz_origin)
     end select
 
-    call get_gas_omega(xyzmh_ptmass(1:3,1),vxyz_ptmass(1:3,1),xyzh(1:3,i),vxyzu(1:3,i),omegaz)
-    dist_part(1,i) = omegaz
+    call get_gas_omega(xyz_origin,vxyz_origin,xyzh(1:3,i),vxyzu(1:3,i),omega)
+    dist_part(1,i) = omega
 
-    sep_vector = xyzh(1:3,i) - xyzmh_ptmass(1:3,1)
-    vel_vector = vxyzu(1:3,i) - vxyz_ptmass(1:3,1)
+    sep_vector = xyzh(1:3,i) - xyz_origin(1:3)
+    vel_vector = vxyzu(1:3,i) - vxyz_origin(1:3)
     call cross(vel_vector, sep_vector, J_vector)
     dist_part(2,i) = dot_product(J_vector, (/0.,0.,1./))
  enddo
-
 
  do i=1,nfiles
     call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.)
@@ -2469,7 +2516,6 @@ subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,omega)
  call cross((/0.,0.,1./), R_unitvec, phi_unitvec) ! phi = z x R
  vphi = dot_product(vxyzi - vxyz_centre, phi_unitvec)
  omega = vphi / Rmag
-
 end subroutine get_gas_omega
 
 
@@ -2692,12 +2738,12 @@ end subroutine stellar_profile
 !  Calculate mass interior to companion
 !+
 !----------------------------------------------------------------
-subroutine get_interior_mass(xyzh,donor_xyzm,companion_xyzm,particlemass,npart,iavgopt,interior_mass)
- real, intent(in) :: xyzh(:,:),donor_xyzm(4),companion_xyzm(4),particlemass
- real, intent(out) :: interior_mass
+subroutine get_interior_mass(xyzh,vxyzu,donor_xyzm,companion_xyzm,particlemass,npart,iavgopt,interior_mass,com_xyz,com_vxyz)
+ real, intent(in) :: xyzh(:,:),vxyzu(:,:),donor_xyzm(4),companion_xyzm(4),particlemass
+ real, intent(out) :: interior_mass,com_xyz(3),com_vxyz(3)
  integer, intent(in) :: npart,iavgopt
- real :: sinksinksep,maxsep,sep
- integer :: j,k,iorder(npart)
+ real :: sinksinksep,maxsep,sep,xyz_int(3,npart),vxyz_int(3,npart)
+ integer :: j,k,iorder(npart),npart_int
 
  ! Calculate mass interior to companion
  call set_r2func_origin(donor_xyzm(1),donor_xyzm(2),donor_xyzm(3)) ! Order particles by distance from donor core
@@ -2712,12 +2758,18 @@ subroutine get_interior_mass(xyzh,donor_xyzm,companion_xyzm,particlemass,npart,i
  case default  ! Calculate mass interior to R
     maxsep = sinksinksep
  end select
+ npart_int = 0
  do j = 1,npart
     k = iorder(j)
     sep = separation(donor_xyzm(1:3), xyzh(1:3,k))
     if (sep > maxsep) exit
-    interior_mass = interior_mass + particlemass
+    npart_int = npart_int + 1
+    xyz_int(1:3,npart_int) = xyzh(1:3,k)
+    vxyz_int(1:3,npart_int) = vxyzu(1:3,k)
  enddo
+ interior_mass = npart_int * particlemass
+
+ call get_centreofmass(com_xyz,com_vxyz,npart_int,xyz_int,vxyz_int,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
 end subroutine get_interior_mass
 
