@@ -818,7 +818,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                   ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
  use dim,    only:maxp,maxneigh,maxvxyzu
  use kdtree, only:getneigh
- use kernel, only:kernel_softening
+ use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
@@ -853,13 +853,14 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
- real    :: rij2,rik2,rjk2,dx,dy,dz,h_acc2
+ real    :: rij2,rik2,rjk2,dx,dy,dz
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
  real    :: alpha_grav,alphabeta_grav,radxy2,radxz2,radyz2
  real    :: etot,epot,ekin,etherm,erot,erotx,eroty,erotz
  real    :: rcrossvx,rcrossvy,rcrossvz,fxj,fyj,fzj
  real    :: pmassi,pmassj,pmassk,ponrhoj,rhoj,spsoundj
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
+ real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
  integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
  logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot
@@ -915,7 +916,15 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  call bcast_mpi(ibin_itest,id_rhomax)
 #endif
  call bcast_mpi(poteni,id_rhomax)
-
+ !
+ ! determine radius in which to check the criteria
+ !
+ hcheck      = radkern*hi               ! = h_acc in previous versions of Phantom; current method is faster
+ f_acc_local = max(f_acc,hcheck/h_acc)  ! = 1.0   in previous versions of Phantom; current method is faster
+ hcheck2     = hcheck*hcheck
+ !
+ ! initialise variables
+ !
  hi1  = 1.0/hi
  hi21 = hi1**2
  if (maxphase==maxp) then
@@ -961,7 +970,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ifail_array(inosink_h) = 1
  endif
 
- h_acc2 = h_acc*h_acc
  ekin   = 0.
  epot   = -epsilon(epot)
  etherm = 0.
@@ -972,16 +980,16 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  epot_mass = 0.
  epot_rad  = 0.
 
- ! CHECK 3: all neighbours within h_acc are all active ( & perform math for checks 4-6)
- ! find neighbours within h_acc
- call getneigh_pos((/xi,yi,zi/),0.,h_acc,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+ ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
+ ! find neighbours within the checking radius of hcheck
+ call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
  ! determine if we should approximate epot
  calc_exact_epot = .true.
  if ((nneigh_thresh > 0 .and. nneigh > nneigh_thresh) .or. (nprocs > 1)) calc_exact_epot = .false.
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(nneigh,listneigh,h_acc2,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot) &
+!$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
@@ -1024,7 +1032,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
     rij2 = dx*dx + dy*dy + dz*dz
-    if (rij2 < h_acc2) then
+    if (rij2 < hcheck2) then
 
 #ifdef IND_TIMESTEPS
        ibin_wake(j) = max(ibin_wake(j),ibin_itest)
@@ -1042,7 +1050,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        hj21 = hj1**2
 
        ! kinetic energy
-       dv2 = dvx*dvx + dvy*dvy + dvz*dvz
+       dv2  = dvx*dvx + dvy*dvy + dvz*dvz
        ekin = ekin + pmassj*dv2
 
        ! rotational energies around each axis
@@ -1121,7 +1129,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                 if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
                 rik2 = dx*dx + dy*dy + dz*dz
-                if (rik2 < h_acc2) then
+                if (rik2 < hcheck2) then
                    dx = xj - xk
                    dy = yj - yk
                    dz = zj - zk
@@ -1300,7 +1308,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                           dptmass,time,1.0,ibin_wakei,ibin_wakei)
+                           dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
 
        if (accreted) nacc = nacc + 1
     enddo

@@ -27,22 +27,21 @@ module readwrite_dumps
 
  public :: write_smalldump,write_fulldump,read_smalldump,read_dump,write_gadgetdump
 
- logical, pointer, public    :: opened_full_dump       ! for use in analysis files if user wishes to skip small dumps
- logical, pointer, public    :: dt_read_in             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
+ logical, pointer, public    :: opened_full_dump => opened_full_dump_fortran      ! for use in analysis files if user wishes to skip small dumps
+ logical, pointer, public    :: dt_read_in => dt_read_in_fortran           ! to determine if dt has been read in so that ibin & ibinold can be set on restarts
 
  integer, parameter, public :: is_small_dump = 1978
  integer, parameter, public :: is_not_mhd = 1979
 
- procedure(read_dump_fortran), pointer :: read_dump => null()
- procedure(read_smalldump_fortran), pointer :: read_smalldump => null()
- procedure(write_smalldump_fortran), pointer :: write_smalldump => null()
- procedure(write_fulldump_fortran), pointer :: write_fulldump => null()
+ procedure(read_dump_fortran), pointer :: read_dump => read_dump_fortran
+ procedure(read_smalldump_fortran), pointer :: read_smalldump => read_smalldump_fortran
+ procedure(write_smalldump_fortran), pointer :: write_smalldump => write_smalldump_fortran
+ procedure(write_fulldump_fortran), pointer :: write_fulldump => write_fulldump_fortran
 
 
 contains
 
 subroutine init_readwrite_dumps()
-
  logical :: lhdf5
 
 #ifdef HDF5
@@ -76,8 +75,6 @@ subroutine init_readwrite_dumps()
  opened_full_dump => opened_full_dump_fortran
  dt_read_in => dt_read_in_fortran
 #endif
-
- return
 
 end subroutine init_readwrite_dumps
 

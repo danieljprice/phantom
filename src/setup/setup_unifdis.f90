@@ -31,16 +31,20 @@ module setup
 !   options, part, physcon, prompting, set_dust, setup_params, unifdis,
 !   units
 !
- use dim,          only:use_dust
+ use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac
  use setup_params, only:rhozero
  implicit none
  public :: setpart
 
- integer :: npartx,ilattice
- real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
+ integer           :: npartx,ilattice
+ real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero
  character(len=20) :: dist_unit,mass_unit
- real(kind=8) :: udist,umass
+ real(kind=8)      :: udist,umass
+
+ !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
+ logical :: BalsaraKim = .false.
+
  !--dust
  real    :: dust_to_gas
 
@@ -55,15 +59,19 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxvxyzu,h2chemistry,gr
- use setup_params, only:npart_total
+ use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use part,         only:Bxyz,periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
- use units,        only:set_units,udist,unit_density
+ use units,        only:set_units,unit_density
  use domain,       only:i_belong
+ use eos,          only:gmw
+ use options,      only:icooling,alpha,alphau
+ use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
+ use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -101,9 +109,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set default values for input parameters
  !
- npartx = 64
+ npartx   = 64
  ilattice = 1
- rhozero = 1.
+ rhozero  = 1.
  if (gr) then
     cs0 = 1.e-4
  else
@@ -111,11 +119,48 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  if (use_dust) then
     use_dustfrac = .true.
-    dust_to_gas = 0.01
-    ndustsmall = 1
-    ndusttypes = 1
+    dust_to_gas  = 0.01
+    ndustsmall   = 1
+    ndusttypes   = 1
     grainsize(1) = 1.*micron/udist
     graindens(1) = 3./unit_density
+ endif
+ if (BalsaraKim) then
+    ! there is a typo in Price+ (2018) in stating the physical density;
+    ! this mass_unit yields the correct value of 2.3e-24g/cm^3
+    mass_unit = '33982786.25*solarm'
+    dist_unit = 'kpc'
+    xmini = -0.1; xmaxi = 0.1
+    ymini = -0.1; ymaxi = 0.1
+    zmini = -0.1; zmaxi = 0.1
+    Bzero = 0.056117
+    cs0   = sqrt(0.3*gamma)
+    ilattice = 2
+    filename=trim(fileprefix)//'.in'
+    inquire(file=filename,exist=iexist)
+    if (.not.iexist) then
+       tmax    = 0.035688
+       dtmax   = 1.250d-4
+       C_cour  = 0.200
+       C_force = 0.150
+       C_cool  = 0.15
+       tolv    = 1.0d3
+       alpha   = 1
+       alphau  = 0.1
+       gmw     = 1.22
+       if (h2chemistry) then
+       ! flags controlling h2chemistry
+          icooling = 1
+          abundc  = 2.0d-4
+          abundo  = 4.5d-4
+          abundsi = 3.0d-5
+          abunde  = 2.0d-4
+          iphoto  = 0
+          dust_to_gas_ratio = 0.010
+       else
+          icooling = 0
+       endif
+    endif
  endif
  !
  ! get disc setup parameters from file or interactive setup
@@ -193,6 +238,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        abundance(iHI,i) = 1.  ! assume all atomic hydrogen initially
     enddo
  endif
+
+ if (mhd .and. balsarakim) then
+    Bxyz = 0.
+    do i = 1,npart
+       Bxyz(1,i) = Bzero
+    enddo
+    ihavesetupB = .true.
+ endif
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -208,7 +261,7 @@ subroutine setup_interactive(id,polyk)
  use units,     only:select_unit
  integer, intent(in)  :: id
  real,    intent(out) :: polyk
- integer :: ierr
+ integer              :: ierr
 
  if (id==master) then
     ierr = 1
@@ -259,6 +312,12 @@ subroutine setup_interactive(id,polyk)
     call bcast_mpi(dust_to_gas)
  endif
  !
+ ! magnetic field strength
+ if (mhd .and. balsarakim) then
+    call prompt('Enter magnetic field strength in code units ',Bzero,0.)
+    call bcast_mpi(Bzero)
+ endif
+ !
  ! type of lattice
  !
  if (id==master) then
@@ -303,6 +362,9 @@ subroutine write_setupfile(filename)
  call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
  if (use_dustfrac) then
     call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
+ endif
+ if (mhd .and. balsarakim) then
+    call write_inopt(Bzero,'Bzero','magnetic field strength in code units',iunit)
  endif
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  close(iunit)
@@ -350,6 +412,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
  if (use_dustfrac) then
     call read_inopt(dust_to_gas,'dust_to_gas',db,min=0.,errcount=nerr)
+ endif
+ if (mhd .and. balsarakim) then
+    call read_inopt(Bzero,'Bzero',db,min=0.,errcount=nerr)
  endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
