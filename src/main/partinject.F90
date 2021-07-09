@@ -26,6 +26,9 @@ module partinject
 
  public :: add_or_update_particle, add_or_update_sink
  public :: update_injected_particles
+ ! Use this flag if particles are updated rather than injected (e.g. inject_sne)
+ ! see inject_sne for use; currently only valid for gas particles
+ logical, public :: updated_particle = .false.
  private
 
 contains
@@ -149,7 +152,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
  use part,         only:twas,ibin
 #endif
- use part,         only:norig,iorig
+ use part,         only:norig,iorig,iphase,igas,iunknown
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -169,8 +172,10 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
 #ifdef GR
  real                           :: dtext_dum
 #endif
-
- if (npartold==npart) return
+ !
+ !--Exit if particles not added or updated
+ !
+ if (npartold==npart .and. .not.updated_particle) return
 #ifdef GR
  !
  ! after injecting particles, reinitialise metrics on all particles
@@ -193,6 +198,10 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     ibin(i) = nbinmax
     twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
  enddo
+#else
+ ! For global timestepping, reset the timestep, since this is otherwise
+ ! not updated until after the call to step.
+ dt = min(dt,dtinject)
 #endif
 
  ! add particle ID
@@ -200,6 +209,19 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     norig    = norig + 1
     iorig(i) = norig
  enddo
+
+ ! if a particle was updated rather than added, reset iphase & set timestep (if individual timestepping)
+ if (updated_particle) then
+    do i=1,npart
+       if (iphase(i) == iunknown) then
+          iphase(i) = igas
+#ifdef IND_TIMESTEPS
+          ibin(i) = nbinmax
+          twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+#endif
+       endif
+    enddo
+ endif
 
 end subroutine update_injected_particles
 

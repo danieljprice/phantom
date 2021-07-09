@@ -75,10 +75,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use physcon,      only:pi,jupiterm,years,au
  use part,         only:iphase,npartoftype,igas,idust,massoftype,labeltype,dustfrac,tstop, &
                         rhoh,maxphase,iamtype,xyzmh_ptmass,vxyz_ptmass,nptmass,deltav, &
-                        isdead_or_accreted,graindens
+                        isdead_or_accreted,graindens,iamgas,iamdust,idusttype
  use options,      only:use_dustfrac,iexternalforce
  use units,        only:umass,udist,utime
  use leastsquares, only:fit_slope
+ use table_utils,  only:linspace
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyz(:,:)
  real,             intent(in) :: pmass,time
@@ -91,6 +92,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer :: i,j,k,ir,ii,ierr,iline,ninbin(nr),ninbindust(maxdusttypes,nr),iwarp,nptmassinit
  integer :: icutgas(nr),icutdust(maxdusttypes,nr),find_ii(1),irealvisc
  integer :: itype,lu,nondustcols,dustcols,numcols
+ integer(kind=1) :: itypei
  real, allocatable :: deltavsum(:,:),dustfracisuma(:)
  real :: err,errslope,erryint,slope
  real :: Sig0,rho0,hi,rhoi
@@ -100,9 +102,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: zeta(nr+2),dzetadr(nr),Pr(nr+2),dPrdr(nr)
  real :: St_mid(maxdusttypes,nr),St_from_tstop(maxdusttypes,nr)
  real :: rhogmid(nr),rhodmid(maxdusttypes,nr)
- real :: rhog(npart),rhod(maxdusttypes,npart),rhogbin(npartoftype(igas),nr),rhodbin(maxdusttypes,npartoftype(igas),nr)
- real :: vK(nr),etabin(npartoftype(igas),nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
- real :: vrgasbin(npartoftype(igas),nr),vrdustbin(maxdusttypes,npartoftype(igas),nr)
+ real :: rhog(npart),rhod(maxdusttypes,npart),rhogbin(npart,nr),rhodbin(maxdusttypes,npart,nr)
+ real :: vK(nr),etabin(npart,nr),meaneta(nr),nuvisc(nr),shearvisc,alphaAV
+ real :: vrgasbin(npart,nr),vrdustbin(maxdusttypes,npart,nr)
  real :: meanvrgas(nr),meanvrdust(maxdusttypes,nr)
  real :: meanrhog(nr),meanrhod(maxdusttypes,nr)
  real :: vgas(3),vdust(3,maxdusttypes),vrgas(npart),vrdust(maxdusttypes,npart)
@@ -114,13 +116,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: dreven,log_dr,drlog(nr),log_grid(nr+1),grid(nr+1)
  real :: angtot,Ltot,tilt,dtwist,Li(3)
  real :: rad(nr),Lx(nr),Ly(nr),Lz(nr),h_smooth(nr),sigmagas(nr),sigmadust(maxdusttypes,nr),cs(nr),H(nr),omega(nr)
- real :: zsetgas(npartoftype(igas),nr),hgas(nr),meanzgas(nr)
- real :: dustfraci_bin(maxdusttypes,npartoftype(igas),nr),meandustfraci(maxdusttypes,nr)
- real :: tstopbin(maxdusttypes,npartoftype(igas),nr),meantstop(maxdusttypes,nr)
- real :: dustfracisum_bin(npartoftype(igas),nr),meandustfracisum(nr)
- real :: d2g_ratio_bin(maxdusttypes,npartoftype(igas),nr),meand2g_ratio(maxdusttypes,nr)
+ real :: zsetgas(npart,nr),hgas(nr),meanzgas(nr)
+ real :: dustfraci_bin(maxdusttypes,npart,nr),meandustfraci(maxdusttypes,nr)
+ real :: tstopbin(maxdusttypes,npart,nr),meantstop(maxdusttypes,nr)
+ real :: dustfracisum_bin(npart,nr),meandustfracisum(nr)
+ real :: d2g_ratio_bin(maxdusttypes,npart,nr),meand2g_ratio(maxdusttypes,nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),tp(nr)
- real :: zsetdust(maxdusttypes,max(npartoftype(idust),npartoftype(igas)),nr)
+ real :: zsetdust(maxdusttypes,npart,nr)
  real :: hdust(maxdusttypes,nr),meanzdust(maxdusttypes,nr)
  real :: psi_x,psi_y,psi_z,psi,Mdust,Mgas,Mtot,Macc,pmassi,pgasmass,pdustmass(maxdusttypes)
  real :: dustfraci(maxdusttypes),dustfracisum,rhoeff(maxdusttypes)
@@ -146,6 +148,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer, parameter :: isol    = 34
  integer, parameter :: iunit1  = 22
  logical :: do_precession,ifile
+
+ print*,' GOT ',ndusttypes,' DUST SPECIES'
 
  if (use_dustfrac .and. ndusttypes > 1) then
     fit_sigma   = .false.
@@ -204,9 +208,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if (use_dustfrac) then
     write(*,'("one-fluid model")')
  else
-    write(*,'("two-fluid model")')
+    write(*,'("two-fluid model with",i3,"dust types")') ndusttypes
  endif
 
+ R_warp = 0.
+ R_warp_dust = 0.
+ R_c = 0.
+ R_cdust = 0.
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
  write(filename,"(a)") trim(discprefix)//'.discparams'
@@ -214,7 +222,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  if (.not.ifile) write(filename,"(a)") 'discparams.list'
  call read_discparams(filename,R_in,R_out,R_ref,R_warp,H_R_in,H_R_out,H_R_ref, &
                            p_index,R_c,q_index,G,M_star,M_disc,iparams,ierr,cs0,Sig0)
- if (ierr /= 0) call fatal('analysis','could not open/read '//trim(filename))
+ if (ierr /= 0) call fatal('analysis','could not open/read '//trim(discprefix)//'.discparams')
 
  iline = index(dumpfile,'_')
  discprefix = dumpfile(1:iline-1)
@@ -245,10 +253,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*) 'H_R_ref = ',H_R_ref
  write(*,*) 'Sig0    = ',Sig0
  write(*,*) 'cs0     = ',cs0*udist/utime
- if (R_warp /= 0.) &
+ if (R_warp > 0.) &
  write(*,*) 'Rwarp   = ',R_warp
  write(*,*) 'p_index = ',p_index
- if (R_c /= 0.) &
+ if (R_c > 0.) &
  write(*,*) 'R_c     = ',R_c
  write(*,*) 'q_index = ',q_index
  write(*,*) 'G       = ',G
@@ -257,6 +265,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  write(*,*)
  write(*,*)
 
+ R_in_dust = R_in
+ R_out_dust = R_out
  write(filename,"(a)") trim(discprefix)//'-'//trim(labeltype(idust))//'.discparams'
  inquire(file=filename, exist=ifile)
  if (ifile) then
@@ -273,10 +283,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     write(*,*) 'H_R_in  = ',H_R_in_dust
     write(*,*) 'H_R_out = ',H_R_out_dust
     write(*,*) 'H_R_ref = ',H_R_ref_dust
-    if (R_warp_dust/=0.) &
+    if (R_warp_dust > 0.) &
     write(*,*) 'Rwarp   = ',R_warp_dust
     write(*,*) 'p_index = ',p_index_dust
-    if (R_cdust/=0.) &
+    if (R_cdust > 0.) &
     write(*,*) 'R_c     = ',R_cdust
     write(*,*) 'G       = ',G
     write(*,*) 'M_disc  = ',M_disc_dust
@@ -289,8 +299,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     rmin = min(R_in,R_in_dust)
     rmax = max(R_out,R_out_dust)
  else
-    !rmin = R_in
-    !rmax = R_out
     rmin = max(R_in,R_in_dust)
     rmax = min(R_out,R_out_dust)
  endif
@@ -313,12 +321,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        drlog(i) = grid(i+1)-grid(i)
     enddo
  else
-    ! Set up an evenly spaced radius array
-    dreven = (rmax-rmin)/real(nr-1)
-    do i=1,nr
-       rad(i) = rmin + real(i-1)*dreven
-    enddo
+    call linspace(rad,rmin,rmax,dreven)   ! evenly spaced radius array
  endif
+ print *,' radial grid min,max = ',rmin,rmax
  rad = rad*au/udist
 
 ! Initialise arrays to zero
@@ -389,7 +394,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     H(i)     = cs(i)/omega(i)
  enddo
 
- if (R_warp/=0.) then
+ if (R_warp > 0.) then
     iwarp=3
  else
     iwarp=2
@@ -418,16 +423,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  rhoeff = graindens*sqrt(pi/8.)
  dustfracisum = 0.
  dustfraci(:) = 0.
+ itypei = igas
 
  do i = 1,npart
     hi = xyzh(4,i)
     if (maxphase==maxp) then
        itype = iamtype(iphase(i))
        pmassi = massoftype(itype)
+       itypei = int(itype,kind=1)
     endif
     Mtot = Mtot + pmassi
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       if (itype==igas) then
+       if (iamgas(itypei)) then
           if (use_dustfrac) then
              dustfraci = dustfrac(:,i)
              pdustmass = pmassi*dustfraci
@@ -439,10 +446,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           pgasmass     = pmassi*(1. - dustfracisum)
           Mgas  = Mgas  + pgasmass
           Mdust = Mdust + pmassi*dustfracisum
-       elseif (itype==idust) then
+       elseif (iamdust(itypei)) then
           Mdust = Mdust + pmassi
+          pdustmass(idusttype(itypei)) = pmassi
        endif
     else
+       pgasmass = 0.
        Macc  = Macc + pmassi
     endif
 
@@ -460,32 +469,31 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                    deltav(:,k,i) = 0.
                 endif
              enddo
-             vgas(:)    = vxyz(:,i) - dustfracisum*deltavsum(:,i)
-             vdust(:,j) = vxyz(:,i) + deltav(:,j,i) - dustfracisum*deltavsum(:,i)
+             vgas(:)    = vxyz(1:3,i) - dustfracisum*deltavsum(:,i)
+             vdust(:,j) = vxyz(1:3,i) + deltav(:,j,i) - dustfracisum*deltavsum(:,i)
           else
-             vgas(:)    = vxyz(:,i) - dustfraci(j)*deltav(:,j,i)
-             vdust(:,j) = vxyz(:,i) + (1. - dustfraci(j))*deltav(:,j,i)
+             vgas(:)    = vxyz(1:3,i) - dustfraci(j)*deltav(:,j,i)
+             vdust(:,j) = vxyz(1:3,i) + (1. - dustfraci(j))*deltav(:,j,i)
           endif
        else
-          select case(itype)
-          case(igas)
+          if (iamgas(itypei)) then
              rhog(i)    = rhog(i)   + rhoh(hi,pmassi)
-             vgas(:)    = vxyz(:,i)
+             vgas(1:3)  = vxyz(1:3,i)
              vdust(:,j) = 0.
-          case(idust)
+          elseif (iamdust(itypei) .and. j==idusttype(itypei)) then
              rhod(j,i)  = rhod(j,i) + rhoh(hi,pmassi)
              vgas(:)    = 0.
-             vdust(:,j) = vxyz(:,i)
-          case default
+             vdust(1:3,j) = vxyz(1:3,i)
+          else
              vgas(:)    = 0.
              vdust(:,j) = 0.
-          end select
+          endif
        endif
        vrgas(i)    = 0.5*(2*xyzh(1,i)*vgas(1)    + 2*xyzh(2,i)*vgas(2))   /ri_mid
        vrdust(j,i) = 0.5*(2*xyzh(1,i)*vdust(1,j) + 2*xyzh(2,i)*vdust(2,j))/ri_mid
     enddo
 
-    if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
        ri = sqrt(dot_product(xyzh(1:iwarp,i),xyzh(1:iwarp,i)))
        !Hi_part = cs0*ri**(-q_index)/(sqrt(G*M_star/ri**3))
        if (use_log_r) then
@@ -504,7 +512,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           area = (pi*((rad(ii) + dreven/2.)**2 - (rad(ii) - dreven/2.)**2))
        endif
 
-       if (iphase(i) == igas) then
+       if (iamgas(itypei)) then
 
           sigmagas(ii) = sigmagas(ii) + pgasmass/area
           if (use_dustfrac) sigmadust(:,ii) = sigmadust(:,ii) + pdustmass(:)/area
@@ -550,7 +558,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           else
              icutgas(ii) = icutgas(ii) + 1
           endif
-       elseif (iphase(i) == idust) then
+       elseif (iamdust(iphase(i))) then
           do j=1,ndusttypes
              sigmadust(j,ii) = sigmadust(j,ii) + pdustmass(j)/area
 
@@ -575,8 +583,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        angz = angz + pgasmass*(xyzh(1,i)*vxyz(2,i) - xyzh(2,i)*vxyz(1,i))
     endif
  enddo
- write(*,*)"Dust mass: ",Mdust
- write(*,*)"Gas mass: ",Mgas
+ write(*,*) 'Dust mass: ',Mdust
+ write(*,*) 'Gas mass: ',Mgas
 
  numcols = 5 ! # of total columns
  if (.not.init) then

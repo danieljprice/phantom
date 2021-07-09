@@ -4,44 +4,33 @@
 #            A script to generate new source code with most            !
 #                     logical if-statements removed                    !
 #                                                                      !
-#                 Copyright (c) 2015-2019 James Wurster                !
+#                 Copyright (c) 2015-2021 James Wurster                !
 #        See LICENCE file for usage and distribution conditions        !
 #----------------------------------------------------------------------!
-# The primary function of this script is to make a new copy of
-# nicil.F90, where the if-statements of selected input parameters have
-# been removed (except in the initialisation subroutines). The interior
-# commands will be included or deleted based upon the choices of the
-# logicals.  The original file will be saved as nicil_source.F90.
-# In production runs, it is not necessary to be continually calling the
-# if-statements for values that are always true or false.
-# Secondary functions are to copy nicil_source.F90 back onto nicil.F90,
-# to list the hardcoded changes in nicil.F90, and to diff the files.
+# This script has multiple options:
+# 1. Remove hardcoded if's from nicil.F90
+#    This is similar to using pre-processor flags, but the action is
+#    performed manually.  Prior to removing the if-statements, nicil.F90
+#    is backed up as nicil_source.F90
+# 2. List the hard coded options and their status in nicil.F90
+# 3. Replace nicil.F90 with nicil_source.F90
+# 4. diff nicil.F90 and nicil_source.F90
+# 5. Developer: remove 'pure' statements so that print statements can be
+#    added for develop[ment & debugging
+# 6. Developer: re-add 'pure' statements
 #----------------------------------------------------------------------!
 import os
 import sys
-#
-print "Welcome to Nicil's hardcode_ifs.py script"
-#--Filenames; make nicil_source.F90 if it does not yet exist
-srcname = "nicil_source.F90"
-outname = "nicil.F90"
-tmpname = "nicil_tmp.F90"
-difname = "nicilsrc_nicil.diff"
-if (not os.path.isfile(srcname)):
-  print "Created  "+srcname+" by copying "+outname
-  os.system("cp "+outname+" "+srcname)
-  # sanity check
-  if (not os.path.isfile(srcname)):
-    print "Failed to create "+srcname+".  Aborting"
-    sys.exit()
-#
+
 #--List the options and ask the user which task they would like performed
+print "Welcome to Nicil's hardcode_ifs.py script"
 print "Please choose from one of the following options:"
-print "  1) Remove hardcoded if's from nicil.F90"
-print "  2) List the hard coded options and their status in nicil.F90"
-print "  3) Replace nicil.F90 with nicil_source.F90"
-print "  4) diff nicil.F90 and nicil_source.F90"
-print "  5) Developer: remove 'pure' statements"
-print "  6) Developer: re-add 'pure' statements"
+print "  1. Remove hardcoded if's from nicil.F90"
+print "  2. List the hard coded options and their status in nicil.F90"
+print "  3. Replace nicil.F90 with nicil_source.F90"
+print "  4. diff nicil.F90 and nicil_source.F90"
+print "  5. Developer: remove 'pure' statements"
+print "  6. Developer: re-add 'pure' statements"
 opt = str(raw_input("Please enter option now: "))
 ask = True
 while ( ask ):
@@ -49,29 +38,37 @@ while ( ask ):
     ask = False
   else:
     opt = str(raw_input("That is not a valid input.  Please enter option now:"))
-#
+
+#--Relevant filenames
+srcname = "nicil_source.F90"
+outname = "nicil.F90"
+tmpname = "nicil_tmp.F90"
+difname = "nicilsrc_nicil.diff"
+
 #----------------------------------------------------------------------!
 #+
 # Make a new copy if nicil.F90, where the parameter if's are hardcoded
 #+
 #----------------------------------------------------------------------!
 if (opt=="1"):
-  #
   #--The list of logicals to remove
   clogical = [];                       llogical = []
   clogical.append('use_ohm');          llogical.append('')
   clogical.append('use_hall');         llogical.append('')
   clogical.append('use_ambi');         llogical.append('')
-  clogical.append('ion_rays');         llogical.append('')
-  clogical.append('ion_thermal');      llogical.append('')
   clogical.append('zeta_of_rho');      llogical.append('')
   clogical.append('use_fdg_in');       llogical.append('')
-  clogical.append('rho_is_rhogas');    llogical.append('')
   clogical.append('eta_constant');     llogical.append('')
-  clogical.append('mod_beta');         llogical.append('')
   clogical.append('warn_verbose');     llogical.append('')
   clogical.append('reorder_Jacobian'); llogical.append('')
-  #
+
+  #--Create a backup
+  if (os.path.isfile(srcname)):
+    print "Overwriting "+srcname+" by copying "+outname
+  else:
+    print "Creating "+srcname+" by copying "+outname
+  os.system("cp -p "+outname+" "+srcname)
+
   #--Determine the value of the required logicals
   a=open(srcname,'r')
   g_cnst       = 0
@@ -214,6 +211,7 @@ if (opt=="1"):
     if (write_line and keep_text): b.write(line)
   a.close()
   b.close()
+
 #----------------------------------------------------------------------!
 #+
 # List the hardcoded ifs currently in nicil.F90
@@ -229,36 +227,45 @@ elif (opt=="2"):
       hardcodes = True
   a.close()
   if (not hardcodes): print "none"
+
 #----------------------------------------------------------------------!
 #+
 # Replace nicil.F90 with nicil_source.F90
 #+
 #----------------------------------------------------------------------!
 elif (opt=="3"):
-  print "Replaced  "+outname+" with "+srcname
-  os.system("cp "+srcname+" "+outname)
+  if (os.path.isfile(srcname)):
+     print "Replaced  "+outname+" with "+srcname
+     os.system("cp "+srcname+" "+outname)
+  else:
+     print srcname+" does not exist.  No actions taken."
+
 #----------------------------------------------------------------------!
 #+
 # diff nicil.F90 and nicil_source.F90
 #+
 #----------------------------------------------------------------------!
 elif (opt=="4"):
-  #--Additional promtps
-  sf  = str(raw_input("Print results to screen (s) or to file (f) [default=s]: "))
-  sbs = str(raw_input("Diff side-by-side (y or n)? [default=n]: "))
-  if (sf[0:1]=="f" or sf[0:1]=="F"):
-    tofile  = " > "+difname
-    comment = " with results printed to "+difname
+  if (os.path.isfile(srcname)):
+    #--Additional promtps
+    sf  = str(raw_input("Print results to screen (s) or to file (f) [default=s]: "))
+    sbs = str(raw_input("Diff side-by-side (y or n)? [default=n]: "))
+    if (sf[0:1]=="f" or sf[0:1]=="F"):
+      tofile  = " > "+difname
+      comment = " with results printed to "+difname
+    else:
+      tofile  = ""
+      comment = ""
+    if (sbs[0:1]=="y" or sbs[0:1]=="Y"):
+      sidebyside = " --side-by-side"
+    else:
+      sidebyside = ""
+    #--The command
+    os.system("diff "+srcname+" "+outname+sidebyside+tofile)
+    print "diffed  "+srcname+" and "+outname+comment
   else:
-    tofile  = ""
-    comment = ""
-  if (sbs[0:1]=="y" or sbs[0:1]=="Y"):
-    sidebyside = " --side-by-side"
-  else:
-    sidebyside = ""
-  #--The command
-  os.system("diff "+srcname+" "+outname+sidebyside+tofile)
-  print "diffed  "+srcname+" and "+outname+comment
+    print srcname+" does not exist.  No actions taken."
+
 #----------------------------------------------------------------------!
 #+
 # Re-write nicil.F90 without pure subroutines/functions
@@ -279,6 +286,7 @@ elif (opt=="5"):
   b.close()
   os.system("mv "+tmpname+" "+outname)
   print "'Pure' was removed "+str(ictr)+" times."
+
 #----------------------------------------------------------------------!
 #+
 # Re-write nicil.F90 replacing pure subroutines/functions
@@ -300,6 +308,7 @@ elif (opt=="6"):
   b.close()
   os.system("mv "+tmpname+" "+outname)
   print "'Pure' was re-added "+str(ictr)+" times."
+
 #----------------------------------------------------------------------!
 #+
 # none of the above: exit

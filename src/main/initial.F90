@@ -135,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            n_R,n_electronT,dustevol,rhoh,gradh, &
+                            nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -152,6 +152,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef NONIDEALMHD
  use units,            only:utime,umass,unit_Bfield
+ use eos,              only:gmw
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
 #endif
@@ -217,7 +218,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use part,             only:h2chemistry
  use checksetup,       only:check_setup
  use h2cooling,        only:init_h2cooling,energ_h2cooling
- use cooling,          only:init_cooling,init_cooling_type,cooling_implicit
+ use cooling,          only:init_cooling,init_cooling_type
  use chem,             only:init_chem
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
@@ -235,7 +236,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
 #ifdef NONIDEALMHD
- real            :: gmw_old,gmw_new
+ real            :: gmw_nicil
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist
@@ -281,11 +282,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #ifdef NONIDEALMHD
  call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint,iprint)
  if (ierr/=0) call fatal('initial','error initialising nicil (the non-ideal MHD library)')
- call use_consistent_gmw(ierr,gmw_old,gmw_new)
- if (ierr/=0) write(iprint,'(2(a,Es18.7))')' initial: Modifying mean molecular mass from ',gmw_old,' to ',gmw_new
+ call use_consistent_gmw(ierr,gmw,gmw_nicil)
+ if (ierr/=0) write(iprint,'(2(a,Es18.7))')' initial: Modifying mean molecular mass from ',gmw,' to ',gmw_nicil
 #endif
- n_R         = 0.0
- n_electronT = 0.0
+ nden_nimhd = 0.0
 !
 !--Initialise and verify parameters for super-timestepping
 !
@@ -338,8 +338,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call init_cooling(ierr)
     if (ierr /= 0) call fatal('initial','error initialising cooling')
  endif
+ ! determine if this is implicit (step_leapfrog) or explicit (force) cooling
  call init_cooling_type(h2chemistry)
- if (h2chemistry .or. cooling_implicit) dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')

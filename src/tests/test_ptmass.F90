@@ -601,8 +601,9 @@ subroutine test_ptmass(ntests,npass)
  !--reset stuff
  nptmass = 0
 
- ! clean up temporary files
+ ! clean up temporary files & turn off sink creation
  itmp = 201
+ icreate_sinks = 0
  close(iskfile,iostat=ierr)
  write(filename,"(i3)") iskfile
  filename = 'fort.'//trim(adjustl(filename))
