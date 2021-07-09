@@ -15,7 +15,7 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, dust, infile_utils, io, leastsquares, options, part,
-!   physcon, solvelinearsystem, units
+!   physcon, solvelinearsystem, table_utils, units
 !
  use dim,  only:maxdusttypes
  use dust, only:grainsizecgs

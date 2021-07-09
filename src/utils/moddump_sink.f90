@@ -16,8 +16,9 @@ module moddump
 !
 ! :Dependencies: part, prompting
 !
- use part,      only:xyzmh_ptmass,nptmass,ihacc,ihsoft
- use prompting, only:prompt
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,ihsoft
+ use prompting,    only:prompt
+ use centreofmass, only:reset_centreofmass
  implicit none
 
 contains
@@ -29,7 +30,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(:), intent(inout)    :: massoftype
  real, dimension(:,:), intent(inout)  :: xyzh,vxyzu
  integer                              :: i,isinkpart
- real                                 :: racc,hsoft,mass,mass_old
+ real                                 :: racc,hsoft,mass,mass_old,newx
+ logical                              :: iresetCM
 
  print*,'Sink particles in dump:'
  do i=1,nptmass
@@ -57,6 +59,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Enter new softening length for the sink:',hsoft,0.)
  print*,'Softening length changed to ',hsoft
  xyzmh_ptmass(ihsoft,isinkpart) = hsoft
+
+ newx = xyzmh_ptmass(1,isinkpart)
+ call prompt('Enter new x-coordinate for the sink in code units:',newx,0.)
+ xyzmh_ptmass(1,isinkpart) = newx
+ print*,'x-coordinate changed to ',xyzmh_ptmass(1,isinkpart)
+
+ iresetCM = .false.
+ call prompt('Reset centre of mass?',iresetCM)
+ if (iresetCM) then
+    call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+ endif
 
  return
 

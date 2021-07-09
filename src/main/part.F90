@@ -305,7 +305,7 @@ module part
    +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
-   +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
+ +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
  +1                                   &  ! iphase
@@ -1064,7 +1064,7 @@ subroutine copy_particle(src,dst,new_part)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
-    Bxyz(:,dst)  = Bxyz(:,dst)
+    Bxyz(:,dst)  = Bxyz(:,src)
  endif
  if (do_radiation) then
     rad(:,dst) = rad(:,src)
@@ -1686,7 +1686,7 @@ subroutine accrete_particles_outside_sphere(radius)
  enddo
  !$omp end parallel do
 
-end subroutine
+end subroutine accrete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+

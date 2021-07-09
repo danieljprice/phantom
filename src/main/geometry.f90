@@ -1,24 +1,21 @@
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+module geometry
 !
-!  This file is (or was) part of SPLASH, a visualisation tool
-!  for Smoothed Particle Hydrodynamics written by Daniel Price:
+! geometry
 !
-!  http://users.monash.edu.au/~dprice/splash
+! :References: None
 !
-!  SPLASH comes with ABSOLUTELY NO WARRANTY.
-!  This is free software; and you are welcome to redistribute
-!  it under the terms of the GNU General Public License
-!  (see LICENSE file for details) and the provision that
-!  this notice remains intact. If you modify this file, please
-!  note section 2a) of the GPLv2 states that:
+! :Owner: Daniel Price
 !
-!  a) You must cause the modified files to carry prominent notices
-!     stating that you changed the files and the date of any change.
+! :Runtime parameters: None
 !
-!  Copyright (C) 2005-2018 Daniel Price. All rights reserved.
-!  Contact: daniel.price@monash.edu
+! :Dependencies: None
 !
-!-----------------------------------------------------------------
 
 !-----------------------------------------------------------------
 ! Standalone module containing subroutines to transform between
@@ -43,7 +40,6 @@
 ! written by Daniel Price 2004-2021
 ! as part of the SPLASH SPH visualisation package
 !-----------------------------------------------------------------
-module geometry
  implicit none
  integer, parameter, public :: maxcoordsys = 8
  integer, parameter, public :: igeom_cartesian   = 1
@@ -278,8 +274,8 @@ pure real function planet_wake_r(t) result(r)
     dr = -fr/fr_dash  ! Newton-Raphson
     if (rr + dr < 0.8*rr) then ! take care approaching zero
        rr = 0.8*rr
-   ! elseif (rr + dr > 1.2*rr) then
-   !    rr = 1.2*rr
+       ! elseif (rr + dr > 1.2*rr) then
+       !    rr = 1.2*rr
     else
        rr = rr + dr
     endif
