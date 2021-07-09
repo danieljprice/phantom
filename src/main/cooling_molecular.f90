@@ -15,12 +15,10 @@ module cooling_molecular
 !
 
  implicit none
- 
+
  real                                :: CO_abun  = 1.e-4
  real                                :: H2O_abun = 5.e-5
- real                                :: HCN_abun = 3.e-7 
- character(len=80)                   :: path_cooltable = "radcool_all.dat"
- character(len=80)                   :: path_cdtable   = "table_cd.dat"
+ real                                :: HCN_abun = 3.e-7
  real, dimension(40, 40, 40, 6)      :: coolingTable
  real, dimension(36, 102, 6, 8, 5)   :: cdTable
  logical                             :: do_molecular_cooling = .false.
@@ -37,14 +35,14 @@ subroutine write_options_molecularcooling(iunit)
 
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
- 
+
  call write_inopt(CO_abun, 'CO_abun', 'set to value>0 to activate CO radiative cooling &
                                           & (typical value O-rich AGB star=1.0e-4)',iunit)
  call write_inopt(HCN_abun,'HCN_abun','set to value>0 to activate HCN radiative cooling &
                                           & (typical value O-rich AGB star=1.0e-7)',iunit)
  call write_inopt(H2O_abun,'H2O_abun','set to value>0 to activate H2O radiative cooling &
                                               & (typical value O-rich AGB star=5.0e-5)',iunit)
-                                              
+
 end subroutine write_options_molecularcooling
 
 !-----------------------------------------------------------------------
@@ -82,10 +80,10 @@ end subroutine read_options_molecular_cooling
 !  Initialise molecular cooling tables
 !+
 !-----------------------------------------------------------------------
-subroutine init_cooling_molec 
-  
+subroutine init_cooling_molec
+
   do_molecular_cooling = .true.
-  
+
   call loadCoolingTable(coolingTable)
   call loadCDTable(cdTable)
 
@@ -161,6 +159,7 @@ end subroutine  calc_cool_molecular
 !+
 !-----------------------------------------------------------------------
 subroutine loadCoolingTable(data_array)
+  use datafiles,  only:find_phantom_datafile
 
     real, dimension(40, 40, 40, 6), intent(out) :: data_array
 
@@ -169,6 +168,8 @@ subroutine loadCoolingTable(data_array)
     character(len=80)  :: imsg
     integer, parameter :: headerLines = 5
     real               :: T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
+    character(len=120) :: filename
+
 
     ! Initialise variables
     i          = 0
@@ -184,7 +185,8 @@ subroutine loadCoolingTable(data_array)
     data_array = -999.
 
     iunit = 1
-    OPEN(unit=iunit, FILE=TRIM(path_cooltable), STATUS="OLD", ACTION="read", &
+    filename = find_phantom_datafile('radcool_all.dat','cooling')
+    OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
     ! Begin loading in data
@@ -214,7 +216,7 @@ subroutine loadCoolingTable(data_array)
         end if skipheaderif
 
     else
-        write(*, *) "Error: Radiative cooling table ", path_cooltable ," does not exist."
+        write(*, *) "Error: Radiative cooling table ", trim(filename) ," does not exist."
     end if openif
 end subroutine loadCoolingTable
 
@@ -224,7 +226,7 @@ end subroutine loadCoolingTable
 !+
 !-----------------------------------------------------------------------
 subroutine loadCDTable(data_array)
-
+  use datafiles,  only:find_phantom_datafile
     real, dimension(36, 102, 6, 8, 5), intent(out) :: data_array
 
     ! Data dictionary: Read radiative cooling file
@@ -232,6 +234,8 @@ subroutine loadCDTable(data_array)
     character(len=80)  :: imsg
     integer, parameter :: headerLines = 8
     real               :: r_part, widthLine, m_exp, r_compOrb, N_H
+    character(len=120) :: filename
+
 
     ! Initialise variables
     i            = 0
@@ -247,7 +251,8 @@ subroutine loadCDTable(data_array)
     data_array   = -999.
 
     iunit = 1
-    OPEN(unit=iunit, FILE=TRIM(path_cdtable), STATUS="OLD", ACTION="read", &
+    filename = find_phantom_datafile('table_cd.dat','cooling')
+    open(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
     ! Begin loading in data
@@ -277,7 +282,7 @@ subroutine loadCDTable(data_array)
         end if skipheaderif
 
     else
-        write(*, *) "Error: Column density table ", path_cdtable," does not exist."
+        write(*, *) "Error: Column density table ", trim(filename)," does not exist."
     end if openif
 end subroutine loadCDTable
 
