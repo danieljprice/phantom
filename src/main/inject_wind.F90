@@ -102,7 +102,7 @@ subroutine init_inject(ierr)
  use units,             only:unit_velocity, umass, utime, udist
  use part,              only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- use cooling_molecular, only:fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
+ use cooling_molecular, only:fit_rho_power, fit_rho_inner, fit_vel
  
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point
@@ -148,16 +148,17 @@ subroutine init_inject(ierr)
  endif
 
  if (nptmass == 2) then
-    orbital_period = sqrt(4.*pi**2*semi_major_axis_cgs**3/(xyzmh_ptmass(4,1)*umass+xyzmh_ptmass(4,2)*umass))    ! cgs
+    orbital_period = sqrt(4.*pi**2*semi_major_axis_cgs**3/(Gg*(xyzmh_ptmass(4,1)*solarm+xyzmh_ptmass(4,2)*solarm)))    ! cgs
     time_period    = 0.
     fit_rho_inner  = (3*wind_mass_rate_cgs*(semi_major_axis_cgs/wind_velocity_cgs))/(4*pi*(semi_major_axis_cgs)**3)
     fit_rho_power  = 2.0
     fit_vel        = wind_velocity_cgs
     
-!     print*,'orbital_period [yr] = ',orbital_period/years
-!     print*,'rho_inner [g/cm^3]  = ',fit_rho_inner*1000.
-!     print*,'wind speed [km/s]   = ',fit_vel/100000.
-    
+    print*,'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    print*,'fit_rho_inner  = ',fit_rho_inner 
+    print*,'fit_rho_power  = ',fit_rho_power 
+    print*,'fit_vel        = ',fit_vel
+    print*,'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
  end if
  
  
@@ -330,7 +331,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
       delete_dead_particles_inside_radius,dust_temp,n_nucleation,massoftype
  use partinject,        only:add_or_update_particle
  use injectutils,       only:inject_geodesic_sphere
- use units,             only:udist
+ use units,             only:udist, utime
  use cooling_molecular, only: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
  
  real,    intent(in)    :: time, dtlast
@@ -341,12 +342,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
             nreleased, nboundaries
  real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone
+ real    :: fit_rho_power_new, fit_rho_inner_new, fit_vel_new, tolv
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
 #ifdef NUCLEATION
  real :: JKmuS(n_nucleation)
 #endif
-
+ 
+ tolv = 10.
+ 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     x0 = xyzmh_ptmass(1:3,wind_emitting_sink)
     GM = xyzmh_ptmass(4,wind_emitting_sink)
@@ -357,8 +361,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     GM = 0.
  endif
 
- time_period  = time_period + dtlast
-
+ time_period  = time_period + dtlast*utime
+ 
  if (npart > 0) then
     !
     ! delete particles that exit the outer boundary
@@ -371,11 +375,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
-       r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-       ! pass xyzh to fitting and compute r and rho [use rhoh() in part.f90] array inside fitting
-       ! for velocity pass vxyzu to fittin
+       r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))       
+       call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
        
-       call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner, fit_rho_power, fit_vel)
+       ! catch poor fit values and revert to previous value
+       if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
+       if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
+       if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
     end if
     
     nreleased = nfill_domain
