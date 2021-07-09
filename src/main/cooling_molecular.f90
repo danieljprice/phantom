@@ -96,8 +96,9 @@ end subroutine init_cooling_molec
 !-----------------------------------------------------------------------
 subroutine calc_cool_molecular( T, r_part, Q, dlnQdlnT)
 
- use physcon, only:atomic_mass_unit,kboltz
-
+ use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
+ use eos,     only:gmw
+ 
 ! Data dictionary: Arguments
 real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
 real, intent(in)   :: T                           ! In CGS
@@ -105,8 +106,8 @@ real, intent(in)   :: r_part                      ! In AU
 
 ! Data dictionary: Additional parameters for calculations
 integer                                     :: i
-real                                        :: n_H
-real                                        :: fit_rho_inner_log, T_log, n_H_log, N_hydrogen, N_coolant_log
+real                                        :: rho_H, n_H
+real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
 real                                        :: abundance, widthLine_molecule
 real, dimension(3)                          :: lambda_log, params_cool, widthLine
 real, dimension(4)                          :: params_cd
@@ -116,21 +117,23 @@ character(len=3), dimension(3), parameter   :: moleculeNames = ["CO ", "H2O", "H
 character(len=3)                            :: moleculeName
 
 ! Initialise variables
-i               = -1
-fit_rho_inner_log          = log10(fit_rho_inner)
-T_log           = log10(T)
 if (r_part <= r_compOrb) then
-    n_H = fit_rho_inner
+    rho_H = fit_rho_inner
 else
-    n_H = fit_rho_inner*(r_compOrb/r_part)**fit_rho_power
+    rho_H = fit_rho_inner*(r_compOrb/r_part)**fit_rho_power
 end if
-n_H_log         = log10(n_H)
-widthLine       = sqrt(2. * kboltz * T / mass_molecules) / fit_vel
-N_coolant_log   = -999.
-params_cool     = -999.
-params_cd       = 0.
-lambda_log      = -999.
-molecular_abun  = [CO_abun, H2O_abun, HCN_abun]
+
+n_H                 = rho_H/(gmw*mass_proton_cgs)    ! convert mass density to number density
+fit_n_inner         = fit_rho_inner/(gmw*mass_proton_cgs)
+i                   = -1
+T_log               = log10(T)
+n_H_log             = log10(n_H)
+widthLine           = sqrt(2. * kboltz * T / mass_molecules) / fit_vel
+N_coolant_log       = -999.
+params_cool         = -999.
+params_cd           = 0.
+lambda_log          = -999.
+molecular_abun      = [CO_abun, H2O_abun, HCN_abun]
 
 ! Calculate column density
 do i = 1, 3
@@ -141,7 +144,7 @@ do i = 1, 3
     call ColumnDensity(cdTable, params_cd, N_hydrogen)
 
     if (N_hydrogen /= 0.) then
-        N_coolant_log      = log10(abundance * fit_rho_inner * N_hydrogen)
+        N_coolant_log      = log10(abundance * fit_n_inner * N_hydrogen)
         ! Calculate cooling rate
         params_cool = [T_log, n_H_log, N_coolant_log]
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
@@ -185,7 +188,7 @@ subroutine loadCoolingTable(data_array)
     data_array = -999.
 
     iunit = 1
-    filename = find_phantom_datafile('radcool_all.dat','cooling')
+    filename = '/lhome/ward/Programs/phantom/data/cooling/radcool_all.dat'
     OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
@@ -251,9 +254,8 @@ subroutine loadCDTable(data_array)
     data_array   = -999.
 
     iunit = 1
-    filename = find_phantom_datafile('table_cd.dat','cooling')
-    open(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
-            iostat=istat, IOMSG=imsg)
+    filename = '/lhome/ward/Programs/phantom/data/cooling/table_cd.dat'
+    open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
 
     ! Begin loading in data
     openif: if (istat == 0) then
