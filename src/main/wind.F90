@@ -19,9 +19,10 @@ module wind
 !
 
  implicit none
+ 
  public :: setup_wind
  public :: wind_state,wind_profile,save_windprofile
-
+ 
  private
  ! Shared variables
  real, parameter :: Tdust_stop = 1.d-2 ! Temperature at outer boundary of wind simulation
@@ -211,9 +212,9 @@ subroutine wind_step(state)
        state%Teq = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     endif
 #ifdef NUCLEATION
-    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
+    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
-    call calc_cooling_rate(state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
+    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
 #endif
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
@@ -664,5 +665,6 @@ subroutine filewrite_state(iunit,nwrite, state)
  call state_to_array(state,nwrite, array)
  write(iunit, '(20(1x,es10.3:))') array(1:nwrite)
 end subroutine filewrite_state
+
 
 end module wind
