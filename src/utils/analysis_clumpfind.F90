@@ -1167,4 +1167,4 @@ subroutine check_clump_max
 
 end subroutine check_clump_max
 !-----------------------------------------------------------------------
-end module
+end module analysis
