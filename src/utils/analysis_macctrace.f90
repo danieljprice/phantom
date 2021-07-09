@@ -78,4 +78,4 @@ subroutine open_newfile(iunit,numfile,time,fopened)
 
 end subroutine open_newfile
 
-end module
+end module analysis
