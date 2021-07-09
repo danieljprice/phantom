@@ -372,7 +372,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
        if (state%spcode == -1) then
           v0min = v0
           exit
@@ -391,25 +391,27 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
        if (state%spcode == 1) then
           v0max = v0
           exit
        else
           v0min = max(v0min, v0)
           v0 = v0 * 1.1
+          !asymptotically approaching v0max
+          !v0 = min(v0, v0max*(v0/(1.+v0)))
        endif
        icount = icount+1
     enddo
     if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,state%spcode
 
     ! Find sonic point by dichotomy between v0min and v0max
     do
        v0last = v0
        v0 = (v0min+v0max)/2.
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs
+       if (iverbose>1) print *, 'v0/cs = ',v0/cs,state%spcode
        if (state%spcode == -1) then
           v0min = v0
        elseif (state%spcode == 1) then
@@ -609,20 +611,20 @@ subroutine filewrite_header(iunit,nwrite)
 #ifdef NUCLEATION
  if (icooling > 0) then
     nwrite = 19
-    write(iunit,'(19(a11))') 't','r','v','T','c','p','rho','alpha','a',&
+    write(iunit,'(19(a12))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
  else
     nwrite = 18
-    write(iunit,'(18(a11))') 't','r','v','T','c','p','rho','alpha','a',&
+    write(iunit,'(18(a12))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
     nwrite = 12
-    write(iunit,'(12(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
  else
-    nwrite = 12
-    write(iunit,'(11(a11))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    nwrite = 11
+    write(iunit,'(11(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
@@ -645,7 +647,7 @@ subroutine state_to_array(state,nwrite, array)
 #ifdef NUCLEATION
  array(10)  = state%JKmuS(6)
  array(11)  = state%JKmuS(7)
- array(12) = state%JKmuS(1)
+ array(12)  = state%JKmuS(1)
  array(13:16) = state%JKmuS(2:5)
  array(17) = state%tau_lucy
  array(18) = state%kappa
@@ -663,7 +665,7 @@ subroutine filewrite_state(iunit,nwrite, state)
  real :: array(nwrite)
 
  call state_to_array(state,nwrite, array)
- write(iunit, '(20(1x,es10.3:))') array(1:nwrite)
+ write(iunit, '(20(1x,es11.3E3:))') array(1:nwrite)
 end subroutine filewrite_state
 
 
