@@ -52,4 +52,4 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 end subroutine do_analysis
 
-end module
+end module analysis

@@ -52,7 +52,7 @@ real function fk(q)
 
 end function fk
 
-end module plotk
+end program plot_kernel
 
 program plot_kernel
  use giza

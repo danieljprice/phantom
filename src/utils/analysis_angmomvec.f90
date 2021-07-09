@@ -87,4 +87,4 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
 
 end subroutine get_angmomvec
 
-end module
+end module analysis

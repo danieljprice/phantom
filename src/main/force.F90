@@ -90,13 +90,13 @@ module forces
        igraindensi = 46, &
        idvxdxi     = 47, &
        idvzdzi     = 55, &
-       !--dust arrays initial index
+ !--dust arrays initial index
        idustfraci    = 56, &
-       !--dust arrays final index
+ !--dust arrays final index
        idustfraciend = 56 + (maxdusttypes - 1), &
        itstop        = 57 + (maxdusttypes - 1), &
        itstopend     = 57 + 2*(maxdusttypes - 1), &
-       !--final dust index
+ !--final dust index
        lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
        iradxii        = lastxpvdust + 1, &
        iradfxi        = lastxpvdust + 2, &
@@ -105,11 +105,11 @@ module forces
        iradkappai     = lastxpvdust + 5, &
        iradlambdai    = lastxpvdust + 6, &
        iradrbigi      = lastxpvdust + 7, &
-       !--final radiation index
+ !--final radiation index
        lastxpvrad     = lastxpvdust + 7, &
-       !--gr primitive density
+ !--gr primitive density
        idensGRi      = lastxpvrad + 1, &
-       !--gr metrics
+ !--gr metrics
        imetricstart  = idensGRi + 1, &
        imetricend    = imetricstart + 31
 
@@ -128,7 +128,7 @@ module forces
        idBevolzi   = 11, &
        idivBdiffi  = 12, &
        ihdivBBmax  = 13, &
-       !--dust array indexing
+ !--dust array indexing
        iddustevoli    = 14, &
        iddustevoliend = 14 +   (maxdustsmall-1), &
        idudtdusti     = 15 +   (maxdustsmall-1), &
