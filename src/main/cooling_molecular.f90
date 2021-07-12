@@ -188,7 +188,7 @@ subroutine loadCoolingTable(data_array)
     data_array = -999.
 
     iunit = 1
-    filename = '/lhome/ward/Programs/phantom/data/cooling/radcool_all.dat'
+    filename = find_phantom_datafile('radcool_all.dat','cooling')
     OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
@@ -254,7 +254,7 @@ subroutine loadCDTable(data_array)
     data_array   = -999.
 
     iunit = 1
-    filename = '/lhome/ward/Programs/phantom/data/cooling/table_cd.dat'
+    filename = find_phantom_datafile('table_cd.dat','cooling')    
     open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
 
     ! Begin loading in data
