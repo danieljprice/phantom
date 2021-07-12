@@ -14,7 +14,7 @@ module setvfield
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: energies, io, mpiutils
+! :Dependencies: energies, eos, io, mpiutils
 !
  implicit none
  public :: set_vfield,normalise_vfield

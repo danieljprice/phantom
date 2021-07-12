@@ -14,7 +14,7 @@ module inject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, part, physcon
+! :Dependencies: eos, infile_utils, io, part, partinject, physcon
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
