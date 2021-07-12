@@ -82,8 +82,6 @@ end subroutine read_options_molecular_cooling
 !-----------------------------------------------------------------------
 subroutine init_cooling_molec
 
-  do_molecular_cooling = .true.
-
   call loadCoolingTable(coolingTable)
   call loadCDTable(cdTable)
 

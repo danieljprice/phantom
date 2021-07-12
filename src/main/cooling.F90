@@ -716,7 +716,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use part,         only:h2chemistry
  use h2cooling,    only:read_options_h2cooling
  use io,           only:fatal
- use cooling_molecular, only: do_molecular_cooling, read_options_molecular_cooling
+ use cooling_molecular, only: CO_abun, H2O_abun, HCN_abun, do_molecular_cooling, read_options_molecular_cooling
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -768,7 +768,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     if (h2chemistry) then
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
-    if (do_molecular_cooling) then
+    if (CO_abun+H2O_abun+HCN_abun /= 0) then
+       do_molecular_cooling = .true.
        call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
     endif
  end select
