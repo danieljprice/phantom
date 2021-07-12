@@ -89,4 +89,4 @@ subroutine get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
 
 end subroutine get_average_energies
 
-end module
+end module analysis
