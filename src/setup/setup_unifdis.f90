@@ -69,9 +69,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac
  use units,        only:set_units,unit_density
  use domain,       only:i_belong
- use eos,          only:gmw,Tfloor
+ use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
+ use cooling,      only:Tfloor
  use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

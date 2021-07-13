@@ -99,10 +99,6 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
- !--Minimum temperature (failsafe to prevent u < 0)
- logical, public :: use_Tfloor = .false.
- real,    public :: Tfloor     = 0. ![K]  (off if Tfloor < epsilon(Tfloor))
- real,    public :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
@@ -117,8 +113,7 @@ module eos
     ierr_file_not_found  = 1, &
     ierr_option_conflict = 2, &
     ierr_units_not_set   = 3, &
-    ierr_isink_not_set   = 4, &
-    ierr_iso_Tfloor      = 5
+    ierr_isink_not_set   = 4
 
 contains
 
@@ -581,20 +576,6 @@ subroutine init_eos(eos_type,ierr)
  !
  temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
 
- !--calculate the energy floor in code units
- if (Tfloor > epsilon(Tfloor)) then
-    use_Tfloor = .true.
-    if (gamma > 1.) then
-       ufloor = kboltz*Tfloor/((gamma-1.)*gmw*mass_proton_cgs)/unit_ergg
-    else
-       ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
-    endif
-    if (maxvxyzu < 4) ierr = ierr_iso_Tfloor ! cannot floor isothermal simulation
- else
-    use_Tfloor = .false.
-    ufloor = 0.
- endif
-
  select case(eos_type)
  case(6)
     !
@@ -824,7 +805,6 @@ end subroutine print_eos_to_file
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
- use options,      only:icooling
  use infile_utils, only:write_inopt
  use eos_helmholtz, only:eos_helmholtz_write_inopt
  integer, intent(in) :: iunit
@@ -859,7 +839,6 @@ subroutine write_options_eos(iunit)
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
  end select
- if (icooling > 0) call write_inopt(Tfloor,'Tfloor','temperature floor (K); of if < epsilon',iunit)
 
 end subroutine write_options_eos
 
@@ -967,9 +946,6 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) tmp
     call eos_helmholtz_set_relaxflag(tmp)
     ngot = ngot + 1
- case('Tfloor')
-    ! not compulsory to read in
-    read(valstring,*,iostat=ierr) Tfloor
  case default
     imatch = .false.
  end select
@@ -1091,7 +1067,7 @@ end function diff
 subroutine eosinfo(eos_type,iprint)
  use dim,           only:maxvxyzu,gr
  use io,            only:fatal
- use units,         only:unit_density,unit_velocity,unit_ergg
+ use units,         only:unit_density,unit_velocity
  use eos_helmholtz, only:eos_helmholtz_eosinfo
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
@@ -1177,11 +1153,6 @@ subroutine eosinfo(eos_type,iprint)
     call eos_helmholtz_eosinfo(iprint)
 
  end select
- if (use_Tfloor) then
-    write(iprint,*)
-    write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
-    ufloor*unit_ergg,' erg/g = ',ufloor,' code units'
- endif
  write(iprint,*)
 
  return
