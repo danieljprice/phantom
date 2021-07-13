@@ -104,8 +104,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use eos,            only:get_spsound,use_Tfloor,ufloor
- use cooling,        only:cooling_implicit
+ use eos,            only:get_spsound
+ use cooling,        only:cooling_implicit,ufloor
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -186,7 +186,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
- !$omp shared(dustprop,ddustprop,dustproppred,ufloor,use_Tfloor) &
+ !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
 #endif
@@ -216,7 +216,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
 
        !--floor the thermal energy if requested and required
-       if (use_Tfloor) then
+       if (ufloor > 0.) then
           if (vxyzu(4,i) < ufloor) then
              vxyzu(4,i) = ufloor
              nvfloorp   = nvfloorp + 1
@@ -277,7 +277,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
-!$omp shared(eos_vars,ufloor,use_Tfloor) &
+!$omp shared(eos_vars,ufloor) &
 #ifdef IND_TIMESTEPS
 !$omp shared(twas,timei) &
 #endif
@@ -328,7 +328,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
 
        !--floor the thermal energy if requested and required
-       if (use_Tfloor) then
+       if (ufloor > 0.) then
           if (vpred(4,i) < ufloor) then
              vpred(4,i) = ufloor
              nvfloorps  = nvfloorps + 1
@@ -427,7 +427,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,ieos,ufloor,use_Tfloor) &
+!$omp shared(dtsph,ieos,ufloor) &
 #ifdef IND_TIMESTEPS
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
@@ -492,7 +492,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 
           !--floor the thermal energy if requested and required
-          if (use_Tfloor) then
+          if (ufloor > 0.) then
              if (vxyzu(4,i) < ufloor) then
                 vxyzu(4,i) = ufloor
                 nvfloorc   = nvfloorc + 1
