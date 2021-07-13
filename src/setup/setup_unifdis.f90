@@ -69,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac
  use units,        only:set_units,unit_density
  use domain,       only:i_belong
- use eos,          only:gmw
+ use eos,          only:gmw,Tfloor
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
  use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
@@ -149,6 +149,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        alpha   = 1
        alphau  = 0.1
        gmw     = 1.22
+       Tfloor  = 3.
        if (h2chemistry) then
           ! flags controlling h2chemistry
           icooling = 1
