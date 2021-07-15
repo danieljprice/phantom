@@ -95,7 +95,7 @@ end subroutine init_cooling_molec
 subroutine calc_cool_molecular( T, r_part, Q, dlnQdlnT)
 
  use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
- use eos,     only:gmw
+ use eos,     only:gmw, Tfloor, use_Tfloor
  
 ! Data dictionary: Arguments
 real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
@@ -104,7 +104,7 @@ real, intent(in)   :: r_part                      ! In AU
 
 ! Data dictionary: Additional parameters for calculations
 integer                                     :: i
-real                                        :: rho_H, n_H
+real                                        :: rho_H, n_H, Temp
 real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
 real                                        :: abundance, widthLine_molecule
 real, dimension(3)                          :: lambda_log, params_cool, widthLine
@@ -121,12 +121,15 @@ else
     rho_H = fit_rho_inner*(r_compOrb/r_part)**fit_rho_power
 end if
 
+Temp=T
+if ( use_Tfloor .and. T<=Tfloor) Temp=Tfloor
+
 n_H                 = rho_H/(gmw*mass_proton_cgs)    ! convert mass density to number density
 fit_n_inner         = fit_rho_inner/(gmw*mass_proton_cgs)
 i                   = -1
-T_log               = log10(T)
+T_log               = log10(Temp)
 n_H_log             = log10(n_H)
-widthLine           = sqrt(2. * kboltz * T / mass_molecules) / fit_vel
+widthLine           = sqrt(2. * kboltz * Temp / mass_molecules) / fit_vel
 N_coolant_log       = -999.
 params_cool         = -999.
 params_cd           = 0.
