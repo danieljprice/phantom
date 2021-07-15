@@ -100,7 +100,7 @@ module eos
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
  !--Minimum temperature (failsafe to prevent u < 0)
- logical, public, parameter :: use_Tfloor = .false.
+ logical, public, parameter :: use_Tfloor = .true.
  real,    public            :: Tfloor     = 10. ![K]
  real,    public            :: ufloor
 
