@@ -580,7 +580,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,              intent(in)    :: vxyz_ptmass(3,maxptmass)
  logical,           intent(out)   :: accreted
- real,              intent(inout) :: dptmass(ndptmass,maxptmass)
+ real,              intent(inout) :: dptmass(:,:)
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
