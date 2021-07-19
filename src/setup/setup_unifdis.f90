@@ -72,6 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
+ use cooling,      only:Tfloor
  use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -149,6 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        alpha   = 1
        alphau  = 0.1
        gmw     = 1.22
+       Tfloor  = 3.
        if (h2chemistry) then
           ! flags controlling h2chemistry
           icooling = 1
