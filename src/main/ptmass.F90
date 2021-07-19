@@ -826,7 +826,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
 #endif
- use linklist, only:getneigh_pos,ifirstincell
+ use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
@@ -844,7 +844,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei
  integer            :: nneigh
- integer            :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
 #ifdef IND_TIMESTEPS
