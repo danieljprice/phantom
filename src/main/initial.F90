@@ -215,11 +215,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
- use part,             only:h2chemistry
  use checksetup,       only:check_setup
- use h2cooling,        only:init_h2cooling,energ_h2cooling
- use cooling,          only:init_cooling,init_cooling_type
- use chem,             only:init_chem
+ use cooling,          only:init_cooling
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
@@ -327,19 +324,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 !
 !--initialise cooling function
-!
- if (h2chemistry) then
-    if (icooling > 0) then
-       if (id==master) write(iprint,*) 'initialising cooling function...'
-       call init_chem()
-       call init_h2cooling()
-    endif
- elseif (icooling > 0) then
-    call init_cooling(ierr)
-    if (ierr /= 0) call fatal('initial','error initialising cooling')
- endif
- ! determine if this is implicit (step_leapfrog) or explicit (force) cooling
- call init_cooling_type(h2chemistry)
+!  this will initialise all cooling variables, including if h2chemistry = true
+ if (icooling > 0) call init_cooling(id,master,iprint,ierr)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')

@@ -104,8 +104,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use eos,            only:get_spsound,use_Tfloor,ufloor
- use cooling,        only:cooling_implicit
+ use eos,            only:get_spsound
+ use cooling,        only:cooling_implicit,ufloor
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -216,7 +216,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
 
        !--floor the thermal energy if requested and required
-       if (use_Tfloor) then
+       if (ufloor > 0.) then
           if (vxyzu(4,i) < ufloor) then
              vxyzu(4,i) = ufloor
              nvfloorp   = nvfloorp + 1
@@ -328,7 +328,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
 
        !--floor the thermal energy if requested and required
-       if (use_Tfloor) then
+       if (ufloor > 0.) then
           if (vpred(4,i) < ufloor) then
              vpred(4,i) = ufloor
              nvfloorps  = nvfloorps + 1
@@ -492,7 +492,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
 
           !--floor the thermal energy if requested and required
-          if (use_Tfloor) then
+          if (ufloor > 0.) then
              if (vxyzu(4,i) < ufloor) then
                 vxyzu(4,i) = ufloor
                 nvfloorc   = nvfloorc + 1
