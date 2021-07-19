@@ -53,14 +53,14 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
                       rhofunc,rhotab,rtab,xyz_origin,nptot,dir,exactN,np_requested,mask)
- use stretchmap, only:set_density_profile
+ use stretchmap, only:set_density_profile,rho_func
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
  real,             intent(in)    :: rmin,rmax,hfact
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
- real,             external,      optional :: rhofunc
+ procedure(rho_func), pointer, optional :: rhofunc
  real,             intent(in),    optional :: rhotab(:), rtab(:)
  integer,          intent(in),    optional :: dir
  integer,          intent(in),    optional :: np_requested

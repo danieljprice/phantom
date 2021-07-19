@@ -580,7 +580,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,              intent(in)    :: vxyz_ptmass(3,maxptmass)
  logical,           intent(out)   :: accreted
- real,              intent(inout) :: dptmass(ndptmass,maxptmass)
+ real,              intent(inout) :: dptmass(:,:)
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
@@ -826,7 +826,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
 #endif
- use linklist, only:getneigh_pos,ifirstincell
+ use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
@@ -844,13 +844,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei
  integer            :: nneigh
- integer            :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin_itest
 #endif
- real    :: xyzcache(maxcache,3)
+ real, save :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
