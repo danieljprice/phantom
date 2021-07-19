@@ -29,6 +29,7 @@ module stretchmap
  real, parameter :: pi = 4.*atan(1.) ! the circle of life
  public :: set_density_profile
  public :: get_mass_r
+ public :: rho_func
 
  integer, private :: ngrid = 1024 ! number of points used when integrating rho to get mass
  integer, parameter, private :: maxits = 100  ! max number of iterations
@@ -38,6 +39,11 @@ module stretchmap
                                ierr_memory_allocation = 2, & ! error code
                                ierr_table_size_differs = 3, & ! error code
                                ierr_not_converged = -1 ! error code
+ abstract interface
+   real function rho_func(x)
+      real, intent(in) :: x
+   end function rho_func
+ end interface
 
  private
 
@@ -84,7 +90,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  integer, intent(in)    :: np
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: min,max
- real,    external,   optional :: rhofunc
+ procedure(rho_func), pointer, optional :: rhofunc
  real,    intent(in), optional :: rhotab(:),xtab(:)
  integer, intent(in), optional :: start, geom, coord
  logical, intent(in), optional :: verbose
@@ -198,7 +204,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
     nerr = 0
     !$omp parallel do default(none) &
     !$omp shared(np,xyzh,rhozero,igeom,use_rhotab,rhotab,xtable,masstab,nt) &
-    !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart) &
+    !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart,rhofunc) &
     !$omp private(x,xold,xt,fracmassold,its,xprev,xi,hi,rhoi) &
     !$omp private(func,dfunc,xminbisect,xmaxbisect,bisect) &
     !$omp reduction(+:nerr)
@@ -354,7 +360,7 @@ real function get_mass_r(rhofunc,r,rmin)
 ! mass integrated along spherical radius
 !
  real, intent(in) :: r,rmin
- real, external   :: rhofunc
+ procedure(rho_func), pointer :: rhofunc
  real :: dr,ri,dmi,dmprev
  integer :: i
 
@@ -376,7 +382,7 @@ real function get_mass_rcyl(rhofunc,rcyl,rmin)
 ! mass integrated along cylindrical radius
 !
  real, intent(in) :: rcyl,rmin
- real, external   :: rhofunc
+ procedure(rho_func), pointer :: rhofunc
  real :: dr,ri,dmi,dmprev
  integer :: i
 
@@ -398,7 +404,7 @@ real function get_mass(rhofunc,x,xmin)
 ! mass integrated along cartesian direction
 !
  real, intent(in) :: x,xmin
- real, external   :: rhofunc
+ procedure(rho_func), pointer :: rhofunc
  real :: dx,xi,dmi,dmprev
  integer :: i
 
