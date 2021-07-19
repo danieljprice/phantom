@@ -49,7 +49,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
                        nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
- use stretchmap, only:set_density_profile
+ use stretchmap, only:set_density_profile,rho_func
  !use domain,     only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
@@ -63,7 +63,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
- real, external,                  optional :: rhofunc
+ procedure(rho_func), pointer,    optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err
