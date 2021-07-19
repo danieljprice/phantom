@@ -61,6 +61,7 @@ subroutine test_ptmass(ntests,npass)
  use part,            only:ibin,ibin_old
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
+ use stretchmap,      only:rho_func
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
  integer                :: nparttot
@@ -79,8 +80,11 @@ subroutine test_ptmass(ntests,npass)
  integer                :: id_rhomax,ipart_rhomax_global
  integer(kind=1)        :: ibin_wakei
  character(len=20)      :: dumpfile,filename
+ procedure(rho_func), pointer :: density_func
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
+
+ density_func => gaussianr
 
  test_binary = .true.
  test_accretion = .true.
@@ -501,7 +505,7 @@ subroutine test_ptmass(ntests,npass)
        psep = 0.05  ! required as a variable since this may change under conditions not requested here
        if (itest==2) then
           ! use random so particle with maximum density is unique
-          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=gaussianr)
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
        else
           call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
        endif
