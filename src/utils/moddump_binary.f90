@@ -313,8 +313,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
           ! shift star1 to primary point mass (deleted)
           do i=nstar2+1,npart
-            xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
-            vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
           enddo
 
        endif
