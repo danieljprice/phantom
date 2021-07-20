@@ -1,5 +1,4 @@
-# This is a basic workflow to help you get started with Actions
-name: testkd
+name: test-suite
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -12,11 +11,25 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
-  build:
+  test:
     # do not run it if [skip ci] appears in the commit message
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     # The type of runner that the job will run on
     runs-on: self-hosted
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test_inputs:
+          - ['testkd', '']
+          - ['testdust', 'dust']
+          - ['testgr', 'gr']
+          - ['testgrav', 'gravity ptmass']
+          - ['testgrowth', 'dustgrowth']
+          - ['testnimhd', 'nimhd']
+          - ['test2', '']
+          - ['testcyl', '']
+
     env:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
@@ -24,13 +37,13 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Install gfortran
-      run: sudo apt-get --yes install gfortran
+      run: sudo apt-get install gfortran
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: compile SETUP=testkd
-      run: make SETUP=testkd phantomtest
-
-    - name: run testsuite with SETUP=testkd
-      run: ./bin/phantomtest
+    - name: Compile and run test
+      uses: ./.github/actions/run-test
+      with:
+        SETUP: ${{ matrix.test_inputs[0] }}
+        tests: ${{ matrix.test_inputs[1] }}
