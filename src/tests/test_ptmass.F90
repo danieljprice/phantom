@@ -16,8 +16,8 @@ module testptmass
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
 !   fileutils, io, kdtree, kernel, mpiutils, options, part, physcon,
-!   ptmass, setbinary, setdisc, spherical, step_lf_global, testutils,
-!   timestep, units
+!   ptmass, setbinary, setdisc, spherical, step_lf_global, stretchmap,
+!   testutils, timestep, units
 !
  implicit none
  public :: test_ptmass
