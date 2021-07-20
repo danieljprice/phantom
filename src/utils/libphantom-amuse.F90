@@ -905,6 +905,24 @@ subroutine amuse_get_velocity(i, vx, vy, vz)
     endif
 end subroutine amuse_get_velocity
 
+subroutine amuse_get_acceleration(i, fx, fy, fz)
+    use part, only:fxyzu,fxyz_ptmass
+    implicit none
+    integer, intent(in) :: i
+    integer :: j
+    double precision, intent(out) :: fx, fy, fz
+    if (i == abs(i)) then
+        fx = fxyzu(1, i)
+        fy = fxyzu(2, i)
+        fz = fxyzu(3, i)
+    else
+        j = -i
+        fx = fxyz_ptmass(1, j)
+        fy = fxyz_ptmass(2, j)
+        fz = fxyz_ptmass(3, j)
+    endif
+end subroutine amuse_get_acceleration
+
 subroutine amuse_get_smoothing_length(i, h)
     use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
