@@ -111,7 +111,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
- real :: ecc_arr(maxp)
+ real :: ecc_arr(maxp),a_arr(maxp)
 
  !
  !--set problem parameters
@@ -349,7 +349,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,&
+                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,&
                          star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
@@ -361,7 +361,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,ecc_arr,a_arr)
  !
  !--inclines and warps
  !
@@ -499,7 +499,7 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,&
+                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,&
                               star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,      only:id,master
  use part,    only:set_particle_type
@@ -509,7 +509,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
  real,    intent(in)    :: e_0,e_index,phi_peri
- real,    intent(inout) :: ecc_arr(:)
+ real,    intent(inout) :: ecc_arr(:),a_arr(:)
  logical, intent(in)    :: do_mixture,verbose
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
@@ -639,8 +639,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    !--Setting ellipse properties
-    ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
     if(ecc_arr(ipart)>0.99) then
        call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.')
     endif
@@ -648,8 +646,10 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
             (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
   !  if (i_belong_i4(i)) then
        ipart = ipart + 1
-       !--set positions -- move to origin below
-       
+       !--Setting ellipse properties
+       ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
+       a_arr(ipart)=R
+       !--set positions -- move to origin below       
        xyzh(1,ipart) = R_ecc*cos(phi)
        xyzh(2,ipart) = R_ecc*sin(phi)
        xyzh(3,ipart) = zi
@@ -696,10 +696,11 @@ end subroutine set_disc_positions
 ! set up the particle velocities
 !
 !----------------------------------------------------------------
+! Note that phi_peri must be added if different from 0.
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
                                q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination,&
-                               ecc_arr)
+                               ecc_arr,a_arr)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -709,12 +710,14 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
  logical, intent(in)    :: do_sigmapringle,smooth_sigma
  real,    intent(in)    :: xyzh(:,:),inclination
- real,    intent(in)    :: ecc_arr(:)
+ real,    intent(in)    :: ecc_arr(:),a_arr(:)
  real,    intent(inout) :: vxyzu(:,:)
- real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
+ real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc,a_prov
  integer :: i,itable,ipart,ierr
  real :: rg,vkep
+ logical :: isecc
 
+ isecc=any(ecc_arr(:)/=0)
  ierr = 0
  ipart = npart_start_count - 1
  do i=npart_start_count,npart_tot
@@ -727,9 +730,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        R    = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2)
        phi  = atan2(xyzh(2,ipart),xyzh(1,ipart))
        ecc  = ecc_arr(i)
-       a_smj= R * (1. + ecc*cos(phi))/(1. - ecc**2)
+       a_smj= a_arr(i)
        !--term is v_phi^2, corrected for eccentricity
-       term = G*star_m/a_smj*(1.+ecc*cos(phi))**2/(1.-ecc**2)
+       term = G*star_m/a_smj
        !
        !--correction for Einstein precession (assumes Rg=1)
        !
@@ -778,17 +781,20 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
        !
        det = term_bh**2 + 4.*(term + term_pr)
        Rg   = G*star_m/clight**2
-       vkep = sqrt(G*star_m/R)
+       vkep = sqrt(G*star_m/a_smj)
        if (gr) then
           ! Pure post-Newtonian velocity i.e. no pressure corrections
           vphi = vkep**4/clight**3 * (sqrt(aspin**2 + (R/Rg)**3) - aspin) * cos(inclination)
+          vr=0.
+       elseif (isecc) then
+          !--if eccentric we ignore pressure correction for setup
+          !--eccentric velocities (Eq. 2.31-2.32 in Murray & Dermott, 1999)
+          vphi=vkep*(1.+ecc*cos(phi))/sqrt(1.-ecc**2)
+          vr = vkep*ecc*sin(phi)/sqrt(1.-ecc**2)
        else
           vphi = 0.5*(term_bh + sqrt(det))
+          vr=0.
        endif
-       !
-       !--radial velocities (Eq. 2.31 in Murray & Dermott, 1999)
-       !
-       vr = sqrt(term)*ecc*sin(phi)/sqrt(1.-ecc**2)
        !
        !--set velocities -- move to origin below
        !
