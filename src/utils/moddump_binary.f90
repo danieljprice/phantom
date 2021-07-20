@@ -10,13 +10,13 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
-!   infile_utils, io, options, part, physcon, prompting, rho_profile,
-!   setbinary, table_utils, timestep, units
+!   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
+!   rho_profile, setbinary, table_utils, timestep, units
 !
  implicit none
 

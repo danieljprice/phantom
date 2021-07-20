@@ -14,7 +14,7 @@ module setshock
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: unifdis
+! :Dependencies: stretchmap, unifdis
 !
  implicit none
 
