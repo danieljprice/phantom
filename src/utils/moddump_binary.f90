@@ -61,7 +61,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=20)         :: filename = 'binary.in'
  character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
- 
+
 
  if (nptmass > 3) then
     stop 'ERROR: Number of sink particles > 3'
