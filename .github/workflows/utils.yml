@@ -33,17 +33,8 @@ jobs:
         repository: danieljprice/splash
         path: splash
 
-    - run: ls ${{ github.workspace }}
-    - run: ls ${{ github.workspace }}/*
-
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: grab a copy of phantom source code
-      uses: actions/checkout@v2
-      with:
-        path: phantom
+    - uses: actions/checkout@v2
 
-    - run: ls ${{ github.workspace }}
-    - run: ls ${{ github.workspace }}/*
-
-    # - name: compile utils with SETUP=test
-    #   run: make SETUP=test utils
+    - name: compile utils with SETUP=test
+      run: make SETUP=test utils
