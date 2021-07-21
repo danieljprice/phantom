@@ -37,7 +37,13 @@ jobs:
     - run: ls ${{ github.workspace }}/*
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - name: grab a copy of phantom source code
+      uses: actions/checkout@v2
+      with:
+        path: phantom
 
-    - name: compile utils with SETUP=test
-      run: make SETUP=test utils
+    - run: ls ${{ github.workspace }}
+    - run: ls ${{ github.workspace }}/*
+
+    # - name: compile utils with SETUP=test
+    #   run: make SETUP=test utils
