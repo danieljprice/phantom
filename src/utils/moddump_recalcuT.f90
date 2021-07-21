@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: eos, part, units
 !
  implicit none
 
@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ieos == 10) then
     X_in = 0.69843
     Z_in = 0.01426
- endif 
+ endif
  !--------------------------
  call init_eos(ieos,ierr)
  print*,'Changing to ieos = ',ieos

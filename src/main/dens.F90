@@ -15,9 +15,9 @@ module densityforce
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, fastmath, io, io_summary, kdtree, kernel,
-!   linklist, mpidens, mpiderivs, mpiutils, options, part, stack, timestep,
-!   timing, viscosity
+! :Dependencies: boundary, dim, io, io_summary, kdtree, kernel, linklist,
+!   mpidens, mpiderivs, mpiutils, options, part, stack, timestep, timing,
+!   viscosity
 !
  use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
  use dim,     only:calculate_density,calculate_divcurlB
@@ -558,17 +558,17 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     if (realviscosity .and. maxdvdx==maxp .and. stressmax > 0. .and. iverbose > 0 .and. id==master) then
        call warning('force','applying negative stress correction',var='max',val=-stressmax)
     endif
-   !
-   !--warnings
-   !
+    !
+    !--warnings
+    !
     if (icall==1) then
        if (nwarnup   > 0) call summary_variable('hupdn',iosumhup,0,real(nwarnup  ))
        if (nwarndown > 0) call summary_variable('hupdn',iosumhdn,0,real(nwarndown))
        if (iverbose  >=1) call reduce_and_print_warnings(nwarnup,nwarndown,nwarnroundoff)
     endif
-   !
-   !--diagnostics
-   !
+    !
+    !--diagnostics
+    !
     if (icall==0 .or. icall==1) call reduce_and_print_neighbour_stats(np)
  endif
 

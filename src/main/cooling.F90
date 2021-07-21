@@ -18,6 +18,7 @@ module cooling
 !
 ! :Runtime parameters:
 !   - C_cool               : *factor controlling cooling timestep*
+!   - Tfloor               : *temperature floor (K); on if > 0*
 !   - beta_cool            : *beta factor in Gammie (2001) cooling*
 !   - bowen_Cprime         : *radiative cooling rate (g.s/cm³)*
 !   - cooltable            : *data file containing cooling function*
@@ -29,8 +30,8 @@ module cooling
 !   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
 !   - temp_floor           : *Minimum allowed temperature in K*
 !
-! :Dependencies: datafiles, eos, h2cooling, infile_utils, io, options,
-!   part, physcon, timestep, units
+! :Dependencies: chem, datafiles, dim, eos, h2cooling, infile_utils, io,
+!   options, part, physcon, timestep, units
 !
 
  use options,  only:icooling
@@ -39,7 +40,7 @@ module cooling
  implicit none
  character(len=*), parameter :: label = 'cooling'
 
- public :: init_cooling,init_cooling_type,calc_cooling_rate,energ_cooling
+ public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table
  logical, public :: calc_Teq
@@ -60,7 +61,9 @@ module cooling
  real    :: crate_coef
  integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
-
+ !--Minimum temperature (failsafe to prevent u < 0)
+ real,    public :: Tfloor = 0. ! [K]; set in .in file.  On if Tfloor > 0.
+ real,    public :: ufloor = 0. ! [code units]; set in init_cooling
 
 contains
 
@@ -69,46 +72,54 @@ contains
 !  Initialise cooling
 !+
 !-----------------------------------------------------------------------
-subroutine init_cooling(ierr)
- use units,   only:utime,umass,udist
- use physcon, only:mass_proton_cgs
- use io,  only:fatal
+subroutine init_cooling(id,master,iprint,ierr)
+ use dim,       only:maxvxyzu
+ use units,     only:utime,umass,udist,unit_ergg
+ use physcon,   only:mass_proton_cgs,kboltz
+ use io,        only:fatal
+ use eos,       only:gamma,gmw
+ use part,      only:h2chemistry
+ use h2cooling, only:init_h2cooling
+ use chem,      only:init_chem
+ integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
 
- !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
- if (icool_relax_bowen == 1 .and. icool_relax_stefan == 1) then
-    call fatal(label,'you can"t have bowen and stefan cooling at the same time')
- endif
+ if (h2chemistry) then
+    if (id==master) write(iprint,*) 'initialising cooling function...'
+    call init_chem()
+    call init_h2cooling()
+ else
+    !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
+    if (icool_relax_bowen == 1 .and. icool_relax_stefan == 1) then
+       call fatal(label,'you can"t have bowen and stefan cooling at the same time')
+    endif
 
 #ifdef KROME
- !krome calculates its own cooling rate
- icool_radiation_H0 = 0
- icool_dust_collision = 0
+    !krome calculates its own cooling rate
+    icool_radiation_H0 = 0
+    icool_dust_collision = 0
 #else
- !if no cooling flag activated, disable cooling
- if (icooling == 1 .and. (icool_radiation_H0+icool_relax_Bowen+icool_dust_collision+&
-       icool_relax_Stefan == 0)) then
-    icooling = 0
-    calc_Teq = .false.
-    return
- endif
+    !if no cooling flag activated, disable cooling
+    if (icooling == 1 .and. (icool_radiation_H0+icool_relax_Bowen+icool_dust_collision+&
+          icool_relax_Stefan == 0)) then
+       icooling = 0
+       calc_Teq = .false.
+       return
+    endif
 #endif
- calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
+    calc_Teq = (icool_relax_Bowen == 1) .or. (icool_relax_Stefan == 1) .or. (icool_dust_collision == 1)
 
- !--initialise remaining variables
- if (icooling == 2) then
-    call init_cooltable(ierr)
- elseif (icooling == 5) then
-    crate_coef = 2.0d-26*umass*utime**3/(mass_proton_cgs**2 * udist**5)
- elseif (icooling > 0) then
-    call set_Tgrid
+    !--initialise remaining variables
+    if (icooling == 2) then
+       call init_cooltable(ierr)
+    elseif (icooling == 5) then
+       crate_coef = 2.0d-26*umass*utime**3/(mass_proton_cgs**2 * udist**5)
+    elseif (icooling > 0) then
+       call set_Tgrid
+    endif
  endif
 
-end subroutine init_cooling
-
-subroutine init_cooling_type(h2chemistry)
- logical, intent(in)  :: h2chemistry
-
+ !--Determine if this is implicit or explicit cooling
  cooling_implicit = .false.
  cooling_explicit = .false.
  if (h2chemistry) then
@@ -121,7 +132,19 @@ subroutine init_cooling_type(h2chemistry)
     endif
  endif
 
-end subroutine init_cooling_type
+ !--calculate the energy floor in code units
+ if (Tfloor > 0.) then
+    if (gamma > 1.) then
+       ufloor = kboltz*Tfloor/((gamma-1.)*gmw*mass_proton_cgs)/unit_ergg
+    else
+       ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
+    endif
+    if (maxvxyzu < 4) ierr = 1
+ else
+    ufloor = 0.
+ endif
+
+end subroutine init_cooling
 
 !-----------------------------------------------------------------------
 !+
@@ -674,6 +697,7 @@ subroutine write_options_cooling(iunit)
        call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
     end select
  endif
+ if (icooling > 0) call write_inopt(Tfloor,'Tfloor','temperature floor (K); on if > 0',iunit)
 
 end subroutine write_options_cooling
 
@@ -731,6 +755,9 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) beta_cool
     ngot = ngot + 1
     if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
+ case('Tfloor')
+    ! not compulsory to read in
+    read(valstring,*,iostat=ierr) Tfloor
  case default
     imatch = .false.
     if (h2chemistry) then

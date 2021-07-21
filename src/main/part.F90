@@ -305,7 +305,7 @@ module part
    +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
-   +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
+ +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
  +1                                   &  ! iphase
@@ -1686,7 +1686,7 @@ subroutine accrete_particles_outside_sphere(radius)
  enddo
  !$omp end parallel do
 
-end subroutine
+end subroutine accrete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+
