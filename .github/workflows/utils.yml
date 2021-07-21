@@ -33,6 +33,9 @@ jobs:
         repository: danieljprice/splash
         path: splash
 
+    - run: ls ${{ github.workspace }}
+    - run: ls ${{ github.workspace }}/*
+
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
