@@ -21,7 +21,7 @@ jobs:
         debug:
           - no
           - yes
-        setup&target:
+        input: # [SETUP, make_target]
           - ['blob', 'phantomtest']
           - ['test', 'utils']
 
@@ -51,6 +51,6 @@ jobs:
       uses: ./.github/actions/compile-test
       with:
         SYSTEM: ${{ matrix.system[1] }}
-        SETUP: ${{ matrix.setup&target[0] }}
+        SETUP: ${{ matrix.input[0] }}
         DEBUG: ${{ matrix.debug }}
-        target: ${{ matrix.setup&target[1] }}
+        target: ${{ matrix.input[1] }}

@@ -21,7 +21,7 @@ jobs:
         debug:
           - no
           - yes
-        setup&tests:
+        input: # [SETUP, phantom_tests]
           - ['testkd', '']
           - ['testdust', 'dust']
           - ['testgr', 'gr']
@@ -50,6 +50,6 @@ jobs:
       uses: ./.github/actions/run-test
       with:
         SYSTEM: ${{ matrix.system[1] }}
-        SETUP: ${{ matrix.setup&tests[0] }}
+        SETUP: ${{ matrix.input[0] }}
         DEBUG: ${{ matrix.debug }}
-        tests: ${{ matrix.setup&tests[1] }}
+        phantom_tests: ${{ matrix.input[1] }}

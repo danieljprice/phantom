@@ -1,15 +1,11 @@
-name: 'compile-test'
-description: 'Run a compile only test in the phantom repo'
+name: 'build-test'
+description: 'Run a build-only test in the phantom repo'
 
 inputs:
   SETUP:
     description: 'SETUP to compile'
     required: true
     default: 'test'
-  target:
-    description: 'Compile target'
-    required: true
-    default: 'phantomtest'
   SYSTEM:
     description: 'system/compiler to run on'
     required: false
@@ -18,12 +14,16 @@ inputs:
     description: 'whether to turn on debugging or not'
     required: false
     default: 'no'
+  make_target:
+    description: 'Build target in makefile'
+    required: true
+    default: 'phantomtest'
 
 runs:
   using: "composite"
   steps:
     - name: "compile"
-      run: make SETUP=${{ inputs.SETUP }} DEBUG=${{ inputs.DEBUG }} ${{ inputs.target }}
+      run: make SETUP=${{ inputs.SETUP }} DEBUG=${{ inputs.DEBUG }} ${{ inputs.make_target }}
       shell: bash
       env:
         SYSTEM: ${{ inputs.SYSTEM }}
