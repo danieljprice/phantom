@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - id: extract_step
-        run: echo ::set-output name=setups::"$(grep 'ifeq ($(SETUP)' ./build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1)"
+        run: echo ::set-output name=setups::$(grep 'ifeq ($(SETUP)' ./build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1)
 
   build:
     needs: extract
