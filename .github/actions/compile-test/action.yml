@@ -14,12 +14,16 @@ inputs:
     description: 'system/compiler to run on'
     required: false
     default: 'gfortran'
+  DEBUG:
+    description: 'whether to turn on debugging or not'
+    required: false
+    default: 'no'
 
 runs:
   using: "composite"
   steps:
     - name: "compile"
-      run: make SETUP=${{ inputs.SETUP }} ${{ inputs.target }}
+      run: make SETUP=${{ inputs.SETUP }} DEBUG=${{ inputs.DEBUG }} ${{ inputs.target }}
       shell: bash
       env:
         SYSTEM: ${{ inputs.SYSTEM }}
