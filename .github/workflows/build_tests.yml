@@ -13,8 +13,6 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # do not run it if [skip ci] appears in the commit message
-    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     # The type of runner that the job will run on
     runs-on: self-hosted
 
@@ -31,8 +29,6 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: Install gfortran
-      run: sudo apt-get --yes install gfortran
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2

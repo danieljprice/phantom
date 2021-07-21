@@ -13,8 +13,6 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # do not run it if [skip ci] appears in the commit message
-    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     # The type of runner that the job will run on
     runs-on: self-hosted
     env:
