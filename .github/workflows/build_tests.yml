@@ -1,5 +1,5 @@
-# This is a basic workflow to help you get started with Actions
-name: real*4
+# Check that all code utilities build correctly
+name: build-tests
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -17,9 +17,17 @@ jobs:
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     # The type of runner that the job will run on
     runs-on: self-hosted
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test_inputs:
+          - ['blob', 'phantomtest']
+          - ['test', 'utils']
+
     env:
-      SYSTEM: gfortran
       OMP_STACKSIZE: 512M
+      SPLASH_DIR: ${{ github.workspace }}/splash
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -29,5 +37,15 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: compile SETUP=blob
-      run: make SETUP=blob phantomtest
+    - name: grab a copy of splash source code
+      uses: actions/checkout@v2
+      with:
+        repository: danieljprice/splash
+        path: splash
+
+    - name: Run build tests
+      uses: ./.github/actions/compile-test
+      with:
+        SYSTEM: gfortran
+        SETUP: ${{ matrix.test_inputs[0] }}
+        target: ${{ matrix.test_inputs[1] }}

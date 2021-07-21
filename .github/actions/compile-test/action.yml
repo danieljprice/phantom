@@ -1,0 +1,25 @@
+name: 'compile-test'
+description: 'Run a compile only test in the phantom repo'
+
+inputs:
+  SETUP:
+    description: 'SETUP to compile'
+    required: true
+    default: 'test'
+  target:
+    description: 'Compile target'
+    required: true
+    default: 'phantomtest'
+  SYSTEM:
+    description: 'system/compiler to run on'
+    required: false
+    default: 'gfortran'
+
+runs:
+  using: "composite"
+  steps:
+    - name: "compile"
+      run: make SETUP=${{ inputs.SETUP }} ${{ inputs.target }}
+      shell: bash
+      env:
+        SYSTEM: ${{ inputs.SYSTEM }}
