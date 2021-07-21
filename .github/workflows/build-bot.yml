@@ -1,4 +1,4 @@
-name: test-suite
+name: build-bot
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -10,9 +10,10 @@ on:
 
 env:
   OMP_STACKSIZE: 512M
+  SPLASH_DIR: ${{ github.workspace }}/splash
 
 jobs:
-  test:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -22,16 +23,9 @@ jobs:
         debug:
           - no
           - yes
-        input: # [SETUP, phantom_tests]
-          - ['test', '']
-          - ['testkd', '']
-          - ['testdust', 'dust']
-          - ['testgr', 'gr']
-          - ['testgrav', 'gravity ptmass']
-          - ['testgrowth', 'dustgrowth']
-          - ['testnimhd', 'nimhd']
-          - ['test2', '']
-          - ['testcyl', '']
+        input: # [SETUP, make_target]
+          - ['blob', 'phantomtest']
+          - ['test', 'utils']
 
     runs-on: ${{ matrix.system[0] }}
 
@@ -43,10 +37,13 @@ jobs:
     - name: "Clone phantom"
       uses: actions/checkout@v2
 
+    - name: "Grab a copy of splash source code"
+      uses: actions/checkout@v2
+      with:
+        repository: danieljprice/splash
+        path: splash
+
     - name: "Compile phantom"
-      run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} phantomtest
+      run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} ${{ matrix.input[1] }}
       env:
         SYSTEM: ${{ matrix.system[1] }}
-
-    - name: "Run phantom tests"
-      run: ./bin/phantomtest ${{ matrix.input[1] }}
