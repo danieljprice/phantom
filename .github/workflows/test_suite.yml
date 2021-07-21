@@ -31,7 +31,6 @@ jobs:
           - ['testcyl', '']
 
     env:
-      SYSTEM: gfortran
       OMP_STACKSIZE: 512M
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -45,5 +44,6 @@ jobs:
     - name: Compile and run test
       uses: ./.github/actions/run-test
       with:
+        SYSTEM: gfortran
         SETUP: ${{ matrix.test_inputs[0] }}
         tests: ${{ matrix.test_inputs[1] }}

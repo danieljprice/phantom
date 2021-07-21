@@ -10,6 +10,10 @@ inputs:
     description: 'The name of the test(s) to run'
     required: false
     default: ''
+  SYSTEM:
+    description: 'system/compiler to run on'
+    required: false
+    default: 'gfortran'
 
 runs:
   using: "composite"
@@ -17,6 +21,8 @@ runs:
     - name: "compile"
       run: make SETUP=${{ inputs.SETUP }} phantomtest
       shell: bash
+      env:
+        SYSTEM: ${{ inputs.SYSTEM }}
 
     - name: "run testsuite"
       run: ./bin/phantomtest ${{ inputs.SETUP }}
