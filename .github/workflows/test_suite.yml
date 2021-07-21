@@ -48,4 +48,4 @@ jobs:
         SYSTEM: ${{ matrix.system[1] }}
 
     - name: "Run phantom tests"
-      run: ./bin/phantomtest ${{ inputs.phantom_tests }}
+      run: ./bin/phantomtest ${{ matrix.input[1] }}
