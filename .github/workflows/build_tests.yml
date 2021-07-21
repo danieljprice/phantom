@@ -13,15 +13,18 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
-    runs-on: self-hosted
-
     strategy:
       fail-fast: false
       matrix:
         test_inputs:
           - ['blob', 'phantomtest']
           - ['test', 'utils']
+        system:
+          - ['self-hosted', 'ifort']
+          - ['ubuntu-latest', 'gfortran']
+
+    # The type of runner that the job will run on
+    runs-on: ${{ matrix.system[0] }}
 
     env:
       OMP_STACKSIZE: 512M
@@ -42,6 +45,6 @@ jobs:
     - name: Run build tests
       uses: ./.github/actions/compile-test
       with:
-        SYSTEM: gfortran
+        SYSTEM: ${{ matrix.system[1] }}
         SETUP: ${{ matrix.test_inputs[0] }}
         target: ${{ matrix.test_inputs[1] }}
