@@ -13,7 +13,7 @@ jobs:
   release:
     strategy:
       matrix:
-        os: [self-hosted]
+        os: [ubuntu-latest]
 
     runs-on: ${{ matrix.os }}
 
