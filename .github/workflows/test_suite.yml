@@ -23,6 +23,7 @@ jobs:
           - no
           - yes
         input: # [SETUP, phantom_tests]
+          - ['test', '']
           - ['testkd', '']
           - ['testdust', 'dust']
           - ['testgr', 'gr']
