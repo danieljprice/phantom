@@ -15,9 +15,12 @@ env:
 jobs:
   extract:
     runs-on: ubuntu-latest
+    outputs:
+      setups: ${{ steps.extract_step.outputs.setups }}
     steps:
       - uses: actions/checkout@v2
-      - id: extract
+      - run: echo
+      - id: extract_step
         run: echo "::set-output name=setups::`grep 'ifeq ($(SETUP)' ./build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`"
 
   build:
@@ -40,6 +43,7 @@ jobs:
     steps:
 
     - run: echo ${{needs.extract.outputs.setups}}
+    - run: "false"
 
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
