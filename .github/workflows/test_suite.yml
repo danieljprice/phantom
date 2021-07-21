@@ -38,8 +38,7 @@ jobs:
     steps:
 
     - name: nuke the github workspace before doing anything
-      run: rm -r * .*
-      working-directory: ${{ github.workspace }}
+      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
