@@ -20,18 +20,21 @@ jobs:
     env:
       SYSTEM: gfortran
       OMP_STACKSIZE: 512M
-      SPLASH_DIR: /home/runner/work/splash
+      SPLASH_DIR: ${{ github.workspace }}/splash
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Install gfortran
       run: sudo apt-get --yes install gfortran
 
+    - name: grab a copy of splash source code
+      uses: actions/checkout@v2
+      with:
+        repository: danieljprice/splash
+        path: splash
+
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
-
-    - name: grab a copy of splash source code
-      run: git clone https://github.com/danieljprice/splash /home/runner/work/splash
 
     - name: compile utils with SETUP=test
       run: make SETUP=test utils
