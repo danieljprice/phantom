@@ -1,4 +1,3 @@
-# Check that all code utilities build correctly
 name: build-tests
 
 # Controls when the action will run. Triggers the workflow on push or pull request
@@ -16,12 +15,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_inputs:
-          - ['blob', 'phantomtest']
-          - ['test', 'utils']
         system:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
+        debug:
+          - no
+          - yes
+        setup&target:
+          - ['blob', 'phantomtest']
+          - ['test', 'utils']
 
     # The type of runner that the job will run on
     runs-on: ${{ matrix.system[0] }}
@@ -49,5 +51,6 @@ jobs:
       uses: ./.github/actions/compile-test
       with:
         SYSTEM: ${{ matrix.system[1] }}
-        SETUP: ${{ matrix.test_inputs[0] }}
-        target: ${{ matrix.test_inputs[1] }}
+        SETUP: ${{ matrix.setup&target[0] }}
+        DEBUG: ${{ matrix.debug }}
+        target: ${{ matrix.setup&target[1] }}

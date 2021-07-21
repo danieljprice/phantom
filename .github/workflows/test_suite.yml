@@ -15,7 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_inputs:
+        system:
+          - ['self-hosted', 'ifort']
+          - ['ubuntu-latest', 'gfortran']
+        debug:
+          - no
+          - yes
+        setup&tests:
           - ['testkd', '']
           - ['testdust', 'dust']
           - ['testgr', 'gr']
@@ -24,9 +30,6 @@ jobs:
           - ['testnimhd', 'nimhd']
           - ['test2', '']
           - ['testcyl', '']
-        system:
-          - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
 
     # The type of runner that the job will run on
     runs-on: ${{ matrix.system[0] }}
@@ -47,5 +50,6 @@ jobs:
       uses: ./.github/actions/run-test
       with:
         SYSTEM: ${{ matrix.system[1] }}
-        SETUP: ${{ matrix.test_inputs[0] }}
-        tests: ${{ matrix.test_inputs[1] }}
+        SETUP: ${{ matrix.setup&tests[0] }}
+        DEBUG: ${{ matrix.debug }}
+        tests: ${{ matrix.setup&tests[1] }}
