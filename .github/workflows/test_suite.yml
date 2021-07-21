@@ -8,9 +8,10 @@ on:
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+env:
+  OMP_STACKSIZE: 512M
+
 jobs:
-  # This workflow contains a single job called "build"
   test:
     strategy:
       fail-fast: false
@@ -31,25 +32,20 @@ jobs:
           - ['test2', '']
           - ['testcyl', '']
 
-    # The type of runner that the job will run on
     runs-on: ${{ matrix.system[0] }}
 
-    env:
-      OMP_STACKSIZE: 512M
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
-    - name: nuke the github workspace before doing anything
+    - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
 
-    - name: Compile and run test
-      uses: ./.github/actions/run-test
-      with:
+    - name: "Compile phantom"
+      run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} phantomtest
+      env:
         SYSTEM: ${{ matrix.system[1] }}
-        SETUP: ${{ matrix.input[0] }}
-        DEBUG: ${{ matrix.debug }}
-        phantom_tests: ${{ matrix.input[1] }}
+
+    - name: "Run phantom tests"
+      run: ./bin/phantomtest ${{ inputs.phantom_tests }}
