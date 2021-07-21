@@ -27,14 +27,14 @@ jobs:
     - name: Install gfortran
       run: sudo apt-get --yes install gfortran
 
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+
     - name: grab a copy of splash source code
       uses: actions/checkout@v2
       with:
         repository: danieljprice/splash
         path: splash
-
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
 
     - name: compile utils with SETUP=test
       run: make SETUP=test utils
