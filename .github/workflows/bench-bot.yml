@@ -57,7 +57,7 @@ jobs:
 
     - name: "Checkout LFS objects"
       working-directory: phantom-benchmarks
-      run: git lfs checkout
+      run: git lfs init && git lfs checkout
 
     - name: "Get number of CPU cores"
       run: echo "::set-output name=count::$(nproc)"
