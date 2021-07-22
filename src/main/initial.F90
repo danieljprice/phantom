@@ -505,7 +505,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
     dtextforce = min(dtextforce,dtsinkgas)
  endif
- call init_ptmass(nptmass,logfile,dumpfile)
+ call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'

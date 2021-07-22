@@ -1356,18 +1356,18 @@ end subroutine ptmass_create
 !  Open files to track sink particle data
 !+
 !-----------------------------------------------------------------------
-subroutine init_ptmass(nptmass,logfile,dumpfile)
+subroutine init_ptmass(nptmass,logfile)
  integer,          intent(in) :: nptmass
- character(len=*), intent(in) :: logfile,dumpfile
- integer                      :: i,idot,idash
+ character(len=*), intent(in) :: logfile
+ integer                      :: i,idot
  character(len=150)           :: filename
  !
  !--Extract prefix & suffix
  !
- idash = index(dumpfile,'_')
- write(pt_prefix,"(a)") dumpfile(1:idash-1)
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
+ write(pt_prefix,"(a)") logfile(1:idot-3)
+
  !
  !--Define file name components and finalise suffix & open files
  !
