@@ -23,18 +23,17 @@ jobs:
 
       - name: "Extract setups from directory"
         id: extract_step
-        run: echo ::set-output name=setups::"[$(ls -d */)]"
+        run: echo ::set-output name=setups::$(ls -d */ |jq -cnR '[inputs]')
 
   bench:
+    needs: extract
     strategy:
       fail-fast: false
       matrix:
         system:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
-        setup:
-          - growth
-          - tde
+        setup: ${{fromJson(needs.extract.outputs.setups)}}
 
     runs-on: ${{ matrix.system[0] }}
 
