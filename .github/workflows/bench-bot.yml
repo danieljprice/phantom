@@ -19,6 +19,9 @@ jobs:
         system:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
+        setup:
+          - growth
+          - tde
 
     runs-on: ${{ matrix.system[0] }}
 
@@ -47,7 +50,7 @@ jobs:
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
-      run: ./run-benchmarks.sh
+      run: ./run-benchmarks.sh  ${{ matrix.setup }}
       env:
         SYSTEM: ${{ matrix.system[1] }}
         OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
