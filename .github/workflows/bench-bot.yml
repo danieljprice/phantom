@@ -37,9 +37,10 @@ jobs:
         path: phantom-benchmarks
 
     - name: Get number of CPU cores
-      run: echo "::set-output name=cpu-cores::$(nproc)"
+      run: echo "::set-output name=count::4"
+      id: cpu
 
-    - run: echo ${{ steps.vars.outputs.cpu-cores }}
+    - run: echo ${{ steps.cpu.outputs.count }}
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
