@@ -19,7 +19,10 @@ jobs:
       setups: ${{ steps.extract_step.outputs.setups }}
 
     steps:
-      - uses: actions/checkout@v2
+      - name: "Checkout benchmarks repo for the directory names"
+        uses: actions/checkout@v2
+        with:
+          repository: phantomSPH/phantom-benchmarks
 
       - name: "Extract setups from directory"
         id: extract_step
