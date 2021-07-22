@@ -12,7 +12,20 @@ env:
   OMP_STACKSIZE: 512M
 
 jobs:
-  test:
+
+  extract:
+    runs-on: ubuntu-latest
+    outputs:
+      setups: ${{ steps.extract_step.outputs.setups }}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: "Extract setups from directory"
+        id: extract_step
+        run: echo ::set-output name=setups::"[$(ls -d */)]"
+
+  bench:
     strategy:
       fail-fast: false
       matrix:
