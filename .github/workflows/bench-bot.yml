@@ -59,9 +59,15 @@ jobs:
       working-directory: phantom-benchmarks
       run: git lfs checkout
 
-    - name: Get number of CPU cores
+    - name: "Get number of CPU cores"
       run: echo "::set-output name=count::$(nproc)"
       id: cpu
+
+    - name: "Load previous benchmark data from cache"
+      uses: actions/cache@v2
+      with:
+        path: phantom-benchmarks/${{ matrix.setup }}/*.log
+        key: ${{ runner.os }}-${{ matrix.system[0] }}-${{ matrix.system[1] }}-${{ matrix.setup }}-${{ steps.cpu.outputs.count }}-benchmark
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
