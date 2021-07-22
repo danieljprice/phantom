@@ -35,7 +35,7 @@ jobs:
       matrix:
         system:
           - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
+          - ['self-hosted', 'gfortran']
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
     runs-on: ${{ matrix.system[0] }}
