@@ -26,7 +26,7 @@ jobs:
 
       - name: "Extract setups from directory"
         id: extract_step
-        run: echo ::set-output name=setups::$(ls -d */ |jq -cnR '[inputs]')
+        run: echo ::set-output name=setups::$(printf '%s\n' */ | sort -r | sed 's:/$::' |jq -cnR '[inputs]')
 
   bench:
     needs: extract
