@@ -39,6 +39,8 @@ jobs:
     - name: Get number of CPU cores
       uses: SimenB/github-actions-cpu-cores@v1
 
+    - run: echo ${{ steps.cpu-cores.outputs.count }}
+
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
       run: ./run-benchmarks.sh
