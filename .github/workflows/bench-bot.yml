@@ -37,8 +37,7 @@ jobs:
         path: phantom-benchmarks
 
     - name: "Run benchmarks"
-      run:
-        shell: ./run-benchmarks.sh
-        working-directory: phantom-benchmarks
+      working-directory: phantom-benchmarks
+      run: ./run-benchmarks.sh
       env:
         SYSTEM: ${{ matrix.system[1] }}
