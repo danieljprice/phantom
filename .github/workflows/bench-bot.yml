@@ -55,3 +55,4 @@ jobs:
         SYSTEM: ${{ matrix.system[1] }}
         OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
         PHANTOM_DIR: ${{ github.workspace }}
+        RETURN_ERR: "yes"
