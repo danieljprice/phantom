@@ -42,7 +42,7 @@ jobs:
         path: splash
 
     - name: "Run buildbot.sh"
-      run: ./builbot.sh 17000000
+      run: ./buildbot.sh 17000000
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
