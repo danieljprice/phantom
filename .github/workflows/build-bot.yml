@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         system:
-          - ['self-hosted', 'ifort']
+          # - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
 
     runs-on: ${{ matrix.system[0] }}
@@ -38,8 +38,19 @@ jobs:
         repository: danieljprice/splash
         path: splash
 
-    - name: "Run buildbot.sh"
-      run: ./buildbot.sh 17000000
-      working-directory: scripts
-      env:
-        SYSTEM: ${{ matrix.system[1] }}
+    # - name: "Run buildbot.sh"
+    #   run: ./buildbot.sh 17000000
+    #   working-directory: scripts
+    #   env:
+    #     SYSTEM: ${{ matrix.system[1] }}
+
+    - name: "Print logs"
+      run: |
+        mkdir logs
+        echo -e "test1\ntest2\n" > logs/file1.txt
+        echo -e "test3\ntest4\n" > logs/file2.txt
+        for item in $(ls logs/*.txt); do
+          echo ::group::"${item}"
+          cat $item
+          echo ::endgroup::
+        done
