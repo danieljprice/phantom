@@ -1366,7 +1366,7 @@ subroutine init_ptmass(nptmass,logfile)
  !
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
- write(pt_prefix,"(a)") logfile(1:idot-3)
+ pt_prefix = logfile(1:idot-3)
 
  !
  !--Define file name components and finalise suffix & open files
