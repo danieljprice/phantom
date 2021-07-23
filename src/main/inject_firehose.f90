@@ -15,6 +15,7 @@ module inject
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - N            : *number of particles per stream width*
 !   - mach         : *Mach number of injected stream*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - stream_width : *width of injected stream in Rsun*
@@ -259,10 +260,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) stream_width
     ngot = ngot + 1
     if (stream_width <= 0.) call fatal(label,'stream_width < 0 in input options')
-case('N')
-   read(valstring,*,iostat=ierr) N
-   ngot = ngot + 1
-   if (N <= 1) call fatal(label,'N < 1 in input options')
+ case('N')
+    read(valstring,*,iostat=ierr) N
+    ngot = ngot + 1
+    if (N <= 1) call fatal(label,'N < 1 in input options')
 
  case default
     imatch = .false.
