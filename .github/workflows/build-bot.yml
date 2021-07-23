@@ -4,29 +4,17 @@ name: build-bot
 # events but only for the master branch
 on:
   push:
-    branches: [ master ]
+    branches: [ build-bot ]
   pull_request:
     branches: [ master ]
 
 env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
+  PHANTOM_DIR: ${{ github.workspace }}
 
 jobs:
-  extract:
-    runs-on: ubuntu-latest
-    outputs:
-      setups: ${{ steps.extract_step.outputs.setups }}
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: "Extract setups from makefile"
-        id: extract_step
-        run: echo ::set-output name=setups::"[$(grep 'ifeq ($(SETUP)' ./build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | tr -s '\n' ',')]"
-
   build:
-    needs: extract
     strategy:
       fail-fast: false
       matrix:
@@ -36,16 +24,10 @@ jobs:
         debug:
           - no
           - yes
-        input: # [SETUP, make_target]
-          - ['blob', 'phantomtest']
-          - ['test', 'utils']
 
     runs-on: ${{ matrix.system[0] }}
 
     steps:
-
-    - run: echo ${{needs.extract.outputs.setups}}
-    - run: "false"
 
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
@@ -59,7 +41,8 @@ jobs:
         repository: danieljprice/splash
         path: splash
 
-    - name: "Compile phantom"
-      run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} ${{ matrix.input[1] }}
+    - name: "Run buildbot.sh"
+      run: ./builbot.sh 17000000
+      working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
