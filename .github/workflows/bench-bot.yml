@@ -91,6 +91,11 @@ jobs:
     - name: "Copy plots to webdir"
       run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org.git/nightly/opt/;
 
+    - name: "Install SSH Key"
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
     - name: "Plot benchmarks"
       working-directory: phantomsph.bitbucket.org.git
       run: |
