@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, prompting
+! :Dependencies: centreofmass, part, prompting
 !
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,ihsoft
  use prompting,    only:prompt
