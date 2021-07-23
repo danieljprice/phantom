@@ -7,12 +7,44 @@ Visualisation of Phantom output
 Dump files
 ~~~~~~~~~~
 
-That's what splash is for! Use ssplash to look at the dump
+That's what `splash <https://users.monash.edu.au/~splash>`_ is for! Use splash to interactively inspect the dump
 files produced by phantom, e.g.:
 
 .. code-block:: bash
 
-   ssplash dump_0*
+   splash dump_0*
+
+or for a column density rendering:
+
+.. code-block:: bash
+
+   splash -r 6 dump_0*
+   
+and press Enter for "Hollywood mode". You can also use splash to convert to ascii:
+
+.. code-block:: bash
+
+   splash to ascii dump_0*
+
+or to interpolate to a 3D grid:
+
+.. code-block:: bash
+
+   splash to grid dump_0*
+   
+To make a movie, just give "/png" as the output:
+
+.. code-block:: bash
+
+   splash -r 6 dump_0* -dev /png
+
+Then use the ffmpeg script in the splash/scripts directory to convert the png files into an mp4 movie:
+
+.. code-block:: bash
+
+   ~/splash/scripts/movie.sh mymovie.mp4 splash
+
+More details in the `splash documentation <https://splash-viz.readthedocs.io>`_
 
 For more detailed analysis of Phantom dump files, write yourself an
 analysis module for the phantomanalysis utility as described below.
@@ -30,21 +62,14 @@ with the -ev (or -e) option:
 
 .. code-block:: bash
 
-   asplash -e dump*.ev
-
-where to label the columns properly, set the following environment
-variable:
-
-.. code-block:: bash
-
-   export ASPLASH_COLUMNSFILE=~/phantom/scripts/columns
+   splash -ev dump*.ev
 
 Global quantities not in the .ev file can also be obtained using the
 splash calc utility, e.g.:
 
 .. code-block:: bash
 
-   ssplash calc max dump_0*
+   splash calc max dump_0*
 
 which produces a file containing the maximum of each quantity in the
 dump files as a function of time.
@@ -111,8 +136,8 @@ arrays using:
 
    use part, only:xyzmh_ptmass,vxyz_ptmass
 
-For a list of pre-built analysis tools, see the list of Phantom
-utilities :doc:`utils`.
+For a list of pre-built analysis tools, see the :doc:`list of Phantom
+utilities <utils>`.
 
 Converting to another format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,7 +148,7 @@ utility in splash. For example, to convert all files to ascii format
 
 .. code-block:: bash
 
-   ssplash to ascii blast_0*
+   splash to ascii blast_0*
 
 To avoid precision loss, you will need to ensure that splash is compiled
 in double precision (use make DOUBLEPRECISION=yes when compiling splash)
