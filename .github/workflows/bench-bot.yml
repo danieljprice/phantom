@@ -55,10 +55,6 @@ jobs:
         path: phantom-benchmarks
         lfs: true
 
-    - name: "Checkout LFS objects"
-      working-directory: phantom-benchmarks
-      run: git lfs checkout
-
     - name: "Get number of CPU cores"
       run: echo "::set-output name=count::$(nproc)"
       id: cpu
