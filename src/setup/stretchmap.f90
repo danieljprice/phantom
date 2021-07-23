@@ -40,9 +40,9 @@ module stretchmap
                                ierr_table_size_differs = 3, & ! error code
                                ierr_not_converged = -1 ! error code
  abstract interface
-   real function rho_func(x)
-      real, intent(in) :: x
-   end function rho_func
+  real function rho_func(x)
+   real, intent(in) :: x
+  end function rho_func
  end interface
 
  private
