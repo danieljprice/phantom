@@ -21,9 +21,6 @@ jobs:
         system:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
-        debug:
-          - no
-          - yes
 
     runs-on: ${{ matrix.system[0] }}
 
