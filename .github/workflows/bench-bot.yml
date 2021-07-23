@@ -62,7 +62,9 @@ jobs:
     - name: "Load previous benchmark data from cache"
       uses: actions/cache@v2
       with:
-        path: phantom-benchmarks/${{ matrix.setup }}/*.prev
+        path: |
+          phantom-benchmarks/${{ matrix.setup }}/*.prev
+          phantom-benchmarks/${{ matrix.setup }}/*.txt
         key: ${{ runner.os }}-${{ matrix.system[0] }}-${{ matrix.system[1] }}-${{ matrix.setup }}-${{ steps.cpu.outputs.count }}-benchmark
 
     - name: "Set ulimit unlimited"
