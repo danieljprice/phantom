@@ -28,9 +28,9 @@ module setup
 !   - zmax        : *zmax boundary*
 !   - zmin        : *zmin boundary*
 !
-! :Dependencies: boundary, dim, domain, eos, h2cooling, infile_utils, io,
-!   mpiutils, options, part, physcon, prompting, set_dust, setup_params,
-!   timestep, unifdis, units
+! :Dependencies: boundary, cooling, dim, domain, eos, h2cooling,
+!   infile_utils, io, mpiutils, options, part, physcon, prompting,
+!   set_dust, setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac

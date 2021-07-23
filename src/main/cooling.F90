@@ -18,6 +18,7 @@ module cooling
 !
 ! :Runtime parameters:
 !   - C_cool               : *factor controlling cooling timestep*
+!   - Tfloor               : *temperature floor (K); on if > 0*
 !   - beta_cool            : *beta factor in Gammie (2001) cooling*
 !   - bowen_Cprime         : *radiative cooling rate (g.s/cm³)*
 !   - cooltable            : *data file containing cooling function*
@@ -29,8 +30,8 @@ module cooling
 !   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
 !   - temp_floor           : *Minimum allowed temperature in K*
 !
-! :Dependencies: datafiles, eos, h2cooling, infile_utils, io, options,
-!   part, physcon, timestep, units
+! :Dependencies: chem, datafiles, dim, eos, h2cooling, infile_utils, io,
+!   options, part, physcon, timestep, units
 !
 
  use options,  only:icooling
