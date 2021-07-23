@@ -65,6 +65,9 @@ jobs:
         path: phantom-benchmarks/${{ matrix.setup }}/*.prev
         key: ${{ runner.os }}-${{ matrix.system[0] }}-${{ matrix.system[1] }}-${{ matrix.setup }}-${{ steps.cpu.outputs.count }}-benchmark
 
+    - name: "Set ulimit unlimited"
+      run: ulimit -s unlimited
+
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
       run: ./run-benchmarks.sh  ${{ matrix.setup }}
