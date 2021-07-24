@@ -1030,7 +1030,7 @@ end subroutine print_simulation_parameters
 
 !----------------------------------------------------------------
 !+
-!  Output divv file
+!  Write quantities (up to four) to divv file
 !+
 !----------------------------------------------------------------
 subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
@@ -1040,76 +1040,122 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- integer                      :: i
- logical, allocatable, save   :: prev_bound(:)
+ integer                      :: i,k
+ integer, save                :: ans,quantities_to_calculate(4)
  real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
-                                 omegai,omega_orb,xHIIi,xHeIIi,kappai,kappat,kappar,interior_mass
- real, dimension(npart)       :: etot,mach_number,omega_ratio,xHII,xHeII,kappa,bound_rho
+                                 omega_orb,kappai,kappat,kappar
+ real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
- call compute_energies(time)
  if (dump_number == 0) then
-    allocate(prev_bound(npart))
-    prev_bound = .true.
+     print "(5(a,/))",&
+           '1) Total energy (kin + pot + therm)', &
+           '2) Mach number', &
+           '3) Opacity from MESA tables', &
+           '4) Gas omega w.r.t. effective CoM', &
+           '5) Fractional difference between gas and orbital omega'
+    ans = 1
+    call prompt('Choose first quantity to compute ',ans,1,5)
+    quantities_to_calculate(1) = ans
+    ans = 2
+    call prompt('Choose second quantity to compute ',ans,1,5)
+    quantities_to_calculate(2) = ans
+    ans = 4
+    call prompt('Choose third quantity to compute ',ans,1,5)
+    quantities_to_calculate(3) = ans
+    ans = 5
+    call prompt('Choose fourth quantity to compute ',ans,1,5)
+    quantities_to_calculate(4) = ans
  endif
 
- ! Tom's way of calculating orbit omega
-!  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
- com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
- com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1) + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-
- omega_orb = 0.
- do i=1,nptmass
-    xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
-    vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
-    omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+ ! Calculations performed outside particle loop
+ call compute_energies(time)
+ do k=1,4
+    select case (quantities_to_calculate(k))
+    case(1) ! Total energy (kin + pot + therm)
+    case(2) ! Mach number
+    case(3) ! Opacity from MESA tables
+    case(4) ! Gas omega w.r.t. effective CoM
+    case(5  ) ! Fractional difference between gas and orbital omega
+       ! Tom's way of calculating orbit omega
+       !  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
+       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+      
+       omega_orb = 0.
+       do i=1,nptmass
+          xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
+          vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
+          omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+       enddo
+       !  call get_interior_mass(xyzh,vxyzu,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2),particlemass,npart,1,interior_mass,com_xyz,com_vxyz)
+       !  omega_orb = sqrt( (interior_mass + xyzmh_ptmass(4,2)) / separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)**3 ))
+    case default
+       print*,"Error: Requested quantity is invalid."
+       stop
+    end select
  enddo
 
-!  call get_interior_mass(xyzh,vxyzu,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2),particlemass,npart,1,interior_mass,com_xyz,com_vxyz)
-!  omega_orb = sqrt( (interior_mass + xyzmh_ptmass(4,2)) / separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)**3 ))
-
+ ! Calculations performed in loop over particles
  do i=1,npart
-    rhopart = rhoh(xyzh(4,i), particlemass)
-    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
-    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-    etot(i) = (ekini + epoti + ethi) / particlemass ! Specific energy
-    mach_number(i) = distance(vxyzu(1:3,i)) / spsoundi
-    if (etot(i) > 0.) then
-       prev_bound(i) = .true.
-       bound_rho(i) = rhopart
-    else
-       prev_bound(i) = .false.
-       bound_rho(i) = -1.
-    endif
+    do k=1,4
+       select case (quantities_to_calculate(k))
+       case(1) ! Total energy (kin + pot + therm)
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+          call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+          quant(k,i) = (ekini + epoti + ethi) / particlemass ! Specific energy
 
-    ! Tom's way of calculating gas omega
-    xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
-    vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
-    omega_ratio(i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-    omega_ratio(i) = (omega_ratio(i) - omega_orb) / omega_orb
+       case(2) ! Mach number
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          quant(k,i) = distance(vxyzu(1:3,i)) / spsoundi
 
-   !  call get_gas_omega(com_xyz,com_vxyz,xyzh(1:3,i),vxyzu(1:3,i),omegai)
-   !  omega_ratio(i) = omegai / omega_orb - 1.
+       case(3) ! Opacity from MESA tables
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,dum,dum,dum,dum)
+          if (ieos == 10) then
+             call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
+             quant(k,i) = kappai
+          else
+             quant(k,i) = 0.
+          endif
 
-    call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,xHIIi,dum,xHeIIi,dum)
-    xHII(i) = xHIIi
-    xHeII(i) = xHeIIi
-    if (ieos == 10) then
-       call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
-       kappa(i) = kappai
-    else
-       kappa(i) = 0.
-    endif
+       case(4) ! Gas omega w.r.t. effective CoM
+          xyz_a(1:3)  = xyzh(1:3,i)  - com_xyz(1:3)
+          vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+          quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+
+       case(5) ! Fractional difference between gas and orbital omega
+          xyz_a(1:3)  = xyzh(1:3,i)  - com_xyz(1:3)
+          vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+          quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+          quant(k,i) = (quant(k,i) - omega_orb) / omega_orb
+           
+       case default
+          print*,"Error: Requested quantity is invalid."
+          stop
+       end select
+    enddo
  enddo
+
+!     if (etot(i) > 0.) then
+!        prev_bound(i) = .true.
+!        bound_rho(i) = rhopart
+!     else
+!        prev_bound(i) = .false.
+!        bound_rho(i) = -1.
+!     endif
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
- write(26) (mach_number(i),i=1,npart)
- write(26) (bound_rho(i),i=1,npart)
- write(26) (omega_ratio(i),i=1,npart)
- write(26) (etot(i),i=1,npart)
+ do k=1,4
+    write(26) (quant(k,i),i=1,npart)
+ enddo
  close(26)
+
 end subroutine output_divv_files
+
 
 
 !!!!! EoS surfaces !!!!!
