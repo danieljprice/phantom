@@ -218,7 +218,7 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan) 
- if (T<3500. .and. CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, Q_molec, dlnQ_molec)
+ if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, Q_molec, dlnQ_molec)
  
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0) then
