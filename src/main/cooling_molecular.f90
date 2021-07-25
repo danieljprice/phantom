@@ -104,7 +104,7 @@ real, intent(in)   :: r_part                      ! In AU
 
 ! Data dictionary: Additional parameters for calculations
 integer                                     :: i
-real                                        :: rho_H, n_H, Temp
+real                                        :: rho_H, n_H, Temp, Lambda
 real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
 real                                        :: abundance, widthLine_molecule
 real, dimension(3)                          :: lambda_log, params_cool, widthLine
@@ -149,11 +149,13 @@ do i = 1, 3
         ! Calculate cooling rate
         params_cool = [T_log, n_H_log, N_coolant_log]
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
-        Q = Q + 10.**lambda_log(i)
+        Lambda = Lambda + 10.**lambda_log(i)
     end if
 end do
 
-if (Q /= 0.) call lambdaGradT(coolingTable, params_cool, Q, dlnQdlnT)
+if (Lambda /= 0.) call lambdaGradT(coolingTable, params_cool, Lambda, dlnQdlnT)
+
+Q = -Lambda
 
 end subroutine  calc_cool_molecular
 
