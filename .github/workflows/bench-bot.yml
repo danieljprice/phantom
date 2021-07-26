@@ -36,7 +36,9 @@ jobs:
         system:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
-        setup: ${{fromJson(needs.extract.outputs.setups)}}
+        # setup: ${{fromJson(needs.extract.outputs.setups)}}
+        setup:
+          - polar
 
     runs-on: ${{ matrix.system[0] }}
 
@@ -86,7 +88,7 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Checkout web server repo"
-      run: git clone https://conradchan@bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
+      run: pwd && git clone https://conradchan@bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
 
     - name: "Copy plots to webdir"
       run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org.git/nightly/opt/;
