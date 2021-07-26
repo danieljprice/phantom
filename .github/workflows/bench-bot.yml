@@ -94,7 +94,7 @@ jobs:
     #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
 
     - name: "Copy plots to webdir"
-      run: echo "test" > phantomsph.bitbucket.org/nightly/opt/polar.js
+      run: echo "test" > phantomsph.bitbucket.org/nightly/opt/test.js
 
     - name: "Install SSH Key"
       uses: shimataro/ssh-key-action@v2
@@ -114,3 +114,4 @@ jobs:
         git config user.name "${{ secrets.BITBUCKET_NAME }}"
         git add nightly/opt/*
         git commit -m "[benchmarks]: ${{ matrix.setup }} ${{ steps.date.outputs.now }}"
+        git push
