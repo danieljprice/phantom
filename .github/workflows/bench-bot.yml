@@ -70,7 +70,8 @@ jobs:
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
       run: |
-        for SYSTEM in "gfortran ifort"; do
+        systems = "gfortran ifort"
+        for SYSTEM in $systems; do
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
         done
       env:
@@ -95,7 +96,7 @@ jobs:
       run: GIT_SSH_COMMAND="ssh -i ~/.ssh/id_rsa" git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
 
     - name: "Copy plots to webdir"
-      run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
+      run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/
 
     - name: "Get current date"
       run: echo "::set-output name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
