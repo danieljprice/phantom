@@ -108,7 +108,7 @@ jobs:
       id: date
 
     - name: "Plot benchmarks"
-      working-directory: phantomsph.bitbucket.org.git
+      working-directory: phantomsph.bitbucket.org
       run: |
         git add nightly/opt/*
         git commit -m "[benchmarks]: ${{ matrix.setup }} ${{ steps.date.outputs.now }}"
