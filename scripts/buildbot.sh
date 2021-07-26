@@ -155,7 +155,6 @@ check_phantomsetup ()
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
-allsetups="empty disc bondi"
 for component in $listofcomponents; do
 case $component in
  'setup')

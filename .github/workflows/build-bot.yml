@@ -20,7 +20,7 @@ jobs:
       matrix:
         system:
           - ['self-hosted', 'ifort']
-          # - ['ubuntu-latest', 'gfortran']
+          - ['ubuntu-latest', 'gfortran']
 
     runs-on: ${{ matrix.system[0] }}
 
@@ -53,11 +53,11 @@ jobs:
       if: always()
       run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
 
-    - name: "Print build logs"
+    - name: logs/make-*-${{ matrix.system[1] }}.txt
       if: always()
       run: |
         echo
-        for item in $(ls logs/make*-${{ matrix.system[1] }}.txt); do
+        for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
           echo ::group::"${item}"
           cat $item
           echo ::endgroup::
