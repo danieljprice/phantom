@@ -64,15 +64,13 @@ jobs:
           phantom-benchmarks/${{ matrix.setup }}/*.txt
         key: ${{ matrix.setup }}-benchmark
 
-    - name: "Set ulimit unlimited"
-      run: ulimit -s unlimited
-
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
       run: |
+        ulimit -s unlimited
         systems="gfortran ifort"
         for SYSTEM in $systems; do
-          echo ::group::$SYSTEM
+          echo ::group::SYSTEM=$SYSTEM
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
           echo ::endgroup::
         done
