@@ -100,6 +100,7 @@ jobs:
       uses: shimataro/ssh-key-action@v2
       with:
         key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+        known_hosts: 'placeholder'
 
     - name: "Plot benchmarks"
       working-directory: phantomsph.bitbucket.org.git
