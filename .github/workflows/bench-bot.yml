@@ -72,7 +72,9 @@ jobs:
       run: |
         systems="gfortran ifort"
         for SYSTEM in $systems; do
+          echo ::group::$SYSTEM
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+          echo ::endgroup::
         done
       env:
         OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
