@@ -72,20 +72,20 @@ jobs:
     - name: "Set ulimit unlimited"
       run: ulimit -s unlimited
 
-    - name: "Run benchmarks"
-      working-directory: phantom-benchmarks
-      run: ./run-benchmarks.sh  ${{ matrix.setup }}
-      env:
-        SYSTEM: ${{ matrix.system[1] }}
-        OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
-        PHANTOM_DIR: ${{ github.workspace }}
-        RETURN_ERR: "yes"
+    # - name: "Run benchmarks"
+    #   working-directory: phantom-benchmarks
+    #   run: ./run-benchmarks.sh  ${{ matrix.setup }}
+    #   env:
+    #     SYSTEM: ${{ matrix.system[1] }}
+    #     OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
+    #     PHANTOM_DIR: ${{ github.workspace }}
+    #     RETURN_ERR: "yes"
 
-    - name: "Plot benchmarks"
-      working-directory: phantom-benchmarks
-      run: ./plot-benchmarks.sh
-      env:
-        PHANTOM_DIR: ${{ github.workspace }}
+    # - name: "Plot benchmarks"
+    #   working-directory: phantom-benchmarks
+    #   run: ./plot-benchmarks.sh
+    #   env:
+    #     PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Checkout web server repo"
       uses: actions/checkout@v2
@@ -93,8 +93,8 @@ jobs:
         repository: https://bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
         path: phantomsph.bitbucket.org
 
-    - name: "Copy plots to webdir"
-      run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
+    # - name: "Copy plots to webdir"
+    #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
 
     - name: "Install SSH Key"
       uses: shimataro/ssh-key-action@v2
