@@ -20,7 +20,7 @@ jobs:
       matrix:
         system:
           - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
+          # - ['ubuntu-latest', 'gfortran']
 
     runs-on: ${{ matrix.system[0] }}
 
