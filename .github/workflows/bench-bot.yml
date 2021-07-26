@@ -88,11 +88,7 @@ jobs:
     #     PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Install SSH Key"
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-        known_hosts: "placeholder"
-        if_key_exists: "replace"
+      run: echo ${{ secrets.RUNNER_PRIVATE_KEY }} > ~/.ssh/id_rsa && chmod 700 ~/.ssh/id_rsa
 
     - name: "Checkout web server repo"
       run: git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
