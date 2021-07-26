@@ -88,10 +88,10 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Checkout web server repo"
-      run: pwd && git clone https://conradchan@bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
+      run: git clone https://conradchan@bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
 
     - name: "Copy plots to webdir"
-      run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org.git/nightly/opt/;
+      run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
 
     - name: "Install SSH Key"
       uses: shimataro/ssh-key-action@v2
