@@ -95,7 +95,7 @@ jobs:
         if_key_exists: "replace"
 
     - name: "Checkout web server repo"
-      run: git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
+      run: GIT_SSH_COMMAND="ssh -i ~/.ssh/id_rsa" git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
 
     # - name: "Copy plots to webdir"
     #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
