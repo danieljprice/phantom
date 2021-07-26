@@ -70,7 +70,7 @@ jobs:
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
       run: |
-        systems = "gfortran ifort"
+        systems="gfortran ifort"
         for SYSTEM in $systems; do
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
         done
