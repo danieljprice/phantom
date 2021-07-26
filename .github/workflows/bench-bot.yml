@@ -87,6 +87,13 @@ jobs:
     #   env:
     #     PHANTOM_DIR: ${{ github.workspace }}
 
+    - name: "Install SSH Key"
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+        known_hosts: "placeholder"
+        if_key_exists: "replace"
+
     - name: "Checkout web server repo"
       run: git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
 
@@ -95,13 +102,6 @@ jobs:
 
     - name: "Copy plots to webdir"
       run: echo "test" > phantomsph.bitbucket.org/nightly/opt/test.js
-
-    - name: "Install SSH Key"
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-        known_hosts: "placeholder"
-        if_key_exists: "replace"
 
     - name: "Get current date"
       run: echo "::set-output name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
