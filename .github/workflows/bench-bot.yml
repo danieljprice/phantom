@@ -94,7 +94,7 @@ jobs:
     #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
 
     - name: "Copy plots to webdir"
-      run: touch phantomsph.bitbucket.org/nightly/opt/polar.js;
+      run: echo "test" > phantomsph.bitbucket.org/nightly/opt/polar.js
 
     - name: "Install SSH Key"
       uses: shimataro/ssh-key-action@v2
