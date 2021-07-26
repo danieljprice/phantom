@@ -128,6 +128,7 @@ subroutine compute_energies(t)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  real    :: hx(4),hp(4)
+ real    :: ddq_xy(3,3)
 ! real    :: theta
 
  ! initialise values
@@ -750,8 +751,10 @@ subroutine compute_energies(t)
      calc_gravitwaves_gr=.true.
     !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
     !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
-    call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,fext)
-    print*, 'buongiorno'
+    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+    !print*, 'show acc', fxyzu
+    print*, 'good morning'
 #else
    print*,'pmassi', pmassi
    if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
@@ -759,7 +762,8 @@ subroutine compute_energies(t)
       v0 = (/xmom,ymom,zmom/)
       call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
    endif
-    call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,fext)
+    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
 #endif
     hx(1)  = reduce_fn('+',hx(1))
     hp(1)  = reduce_fn('+',hp(1))

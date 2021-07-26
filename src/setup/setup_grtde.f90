@@ -82,6 +82,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
+ !gamma = 4./3.
+ print*, 'gamma', gamma
  ieos  = 2
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 
@@ -130,7 +132,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(mass=mhole,c=1.,G=1.) !--Set central mass to M=1 in code units
  mstar         = mstar*solarm/umass
  rstar         = rstar*solarr/udist
-
+ print*, 'mstar', mstar
+ print*, 'rstar', rstar
+ print*, 'umass', umass
+ print*, 'udist', udist
  rtidal          = rstar*(mass1/mstar)**(1./3.)
  rp              = rtidal/beta
  psep            = rstar/nr
@@ -150,6 +155,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
+    print*, 'print period', period
+    print*, 'mass1', mass1
+    print*, 'tidal radisu', rtidal
+    print*, 'beta', beta
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     massr    = mstar/mass1
