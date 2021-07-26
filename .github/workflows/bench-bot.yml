@@ -88,9 +88,10 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Checkout web server repo"
-        uses: actions/checkout@v2
-        with:
-          repository: https://bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
+      uses: actions/checkout@v2
+      with:
+        repository: https://bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
+        path: phantomsph.bitbucket.org
 
     - name: "Copy plots to webdir"
       run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
