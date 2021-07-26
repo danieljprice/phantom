@@ -33,12 +33,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        system:
-          - ['self-hosted', 'ifort']
-          # - ['ubuntu-latest', 'gfortran']
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
-    runs-on: ${{ matrix.system[0] }}
+    runs-on: self-hosted
 
     steps:
 
@@ -65,16 +62,18 @@ jobs:
         path: |
           phantom-benchmarks/${{ matrix.setup }}/*.prev
           phantom-benchmarks/${{ matrix.setup }}/*.txt
-        key: ${{ runner.os }}-${{ matrix.system[0] }}-${{ matrix.system[1] }}-${{ matrix.setup }}-${{ steps.cpu.outputs.count }}-benchmark
+        key: ${{ matrix.setup }}-benchmark
 
     - name: "Set ulimit unlimited"
       run: ulimit -s unlimited
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
-      run: ./run-benchmarks.sh  ${{ matrix.setup }}
+      run: |
+        for SYSTEM in "gfortran ifort"; do
+          SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+        done
       env:
-        SYSTEM: ${{ matrix.system[1] }}
         OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
         PHANTOM_DIR: ${{ github.workspace }}
         RETURN_ERR: "yes"
