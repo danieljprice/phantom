@@ -103,8 +103,12 @@ jobs:
         known_hosts: "placeholder"
         if_key_exists: "replace"
 
+    - name: "Get current date"
+        run: echo "::set-output name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
+        id: date
+
     - name: "Plot benchmarks"
       working-directory: phantomsph.bitbucket.org.git
       run: |
         git add nightly/opt/*
-        git commit -m "[benchmarks]: ${{ matrix.setup }} `date`"
+        git commit -m "[benchmarks]: ${{ matrix.setup }} ${{ steps.date.outputs.now }}"
