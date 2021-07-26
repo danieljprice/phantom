@@ -110,5 +110,7 @@ jobs:
     - name: "Plot benchmarks"
       working-directory: phantomsph.bitbucket.org
       run: |
+        git config user.email "${{ secrets.BITBUCKET_EMAIL }}"
+        git config user.name "${{ secrets.BITBUCKET_NAME }}"
         git add nightly/opt/*
         git commit -m "[benchmarks]: ${{ matrix.setup }} ${{ steps.date.outputs.now }}"
