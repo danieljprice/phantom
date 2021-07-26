@@ -88,7 +88,7 @@ jobs:
     #     PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Checkout web server repo"
-      run: git clone https://conradchan@bitbucket.org/phantomsph/phantomsph.bitbucket.org.git
+      run: git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
 
     # - name: "Copy plots to webdir"
     #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/;
