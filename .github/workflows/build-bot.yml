@@ -44,9 +44,19 @@ jobs:
       env:
         SYSTEM: ${{ matrix.system[1] }}
 
-    - name: "Print logs"
+    - name: "Print build failures"
+      if: always()
+      run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
+
+    - name: "Print setup failures"
+      if: always()
+      run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
+
+    - name: "Print build logs"
+      if: always()
       run: |
-        for item in $(ls logs/*.txt); do
+        echo "Make errors/warnings:"
+        for item in $(ls logs/*-${{ matrix.system[1] }}.txt); do
           echo ::group::"${item}"
           cat $item
           echo ::endgroup::
