@@ -43,20 +43,21 @@ jobs:
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
+        RETURN_ERR: yes
 
-    - name: "Print build failures"
+    - name: logs/build-failures-${{ matrix.system[1] }}.txt
       if: always()
       run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
 
-    - name: "Print setup failures"
+    - name: logs/setup-failures-${{ matrix.system[1] }}.txt
       if: always()
       run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
 
     - name: "Print build logs"
       if: always()
       run: |
-        echo "Make errors/warnings:"
-        for item in $(ls logs/*-${{ matrix.system[1] }}.txt); do
+        echo
+        for item in $(ls logs/make*-${{ matrix.system[1] }}.txt); do
           echo ::group::"${item}"
           cat $item
           echo ::endgroup::
