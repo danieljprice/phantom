@@ -14,7 +14,7 @@ env:
   WEB_SERVER: data.phantom.cloud.edu.au
   BENCH_LOG_DIR: /var/www/html/ci/bench/
   PERF_PLOT_DIR: /var/www/html/nightly/opt/
-  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no"
+  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no UserKnownHostsFile=/dev/null"
 
 jobs:
 
