@@ -61,13 +61,9 @@ jobs:
       id: cpu
 
     - name: "Install SSH Key"
-      uses: shimataro/ssh-key-action@v2
+      uses: webfactory/ssh-agent@v0.5.3
       with:
-        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-        known_hosts: |
-          ${{ secrets.BITBUCKET_KNOWN_HOST }}
-          ${{ secrets.WEBSERVER_KNOWN_HOST }}
-        if_key_exists: "replace"
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Load previous benchmark data from phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
