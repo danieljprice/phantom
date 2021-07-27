@@ -69,7 +69,7 @@ jobs:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Add known hosts"
-      run: |
+      run: >
         ansible localhost
         -m blockinfile
         -a "
