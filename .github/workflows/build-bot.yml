@@ -65,7 +65,7 @@ jobs:
         RETURN_ERR: yes
 
     - name: "Copy new build logs to web server"
-      run: rsync -vau logs ${WEB_SERVER}:${BUILD_LOG_DIR}
+      run: rsync -vau logs ${WEB_SERVER}:${WEB_HTML_DIR}${BUILD_LOG_DIR}
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
       if: always()
