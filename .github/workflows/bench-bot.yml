@@ -103,27 +103,7 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Copy plots to phantom-data-files"
-      working-directory: phantom-benchmarks/${{ matrix.setup }}
+      working-directory: phantom-benchmarks
       run: |
         rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
         rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
-
-
-    # - name: "Checkout web server repo"
-    #   run: GIT_SSH_COMMAND="ssh -i ~/.ssh/id_rsa" git clone git@bitbucket.org:phantomsph/phantomsph.bitbucket.org.git
-
-    # - name: "Copy plots to webdir"
-    #   run: cp phantom-benchmarks/*.js phantomsph.bitbucket.org/nightly/opt/
-
-    # - name: "Get current date"
-    #   run: echo "::set-output name=now::$(date +'%Y-%m-%dT%H:%M:%S')"
-    #   id: date
-
-    # - name: "Plot benchmarks"
-    #   working-directory: phantomsph.bitbucket.org
-    #   run: |
-    #     git config user.email "${{ secrets.BITBUCKET_EMAIL }}"
-    #     git config user.name "${{ secrets.BITBUCKET_NAME }}"
-    #     git add nightly/opt/*
-    #     git commit -m "[benchmarks]: ${{ matrix.setup }} ${{ steps.date.outputs.now }}"
-    #     git push
