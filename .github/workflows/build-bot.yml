@@ -12,8 +12,10 @@ env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
   PHANTOM_DIR: ${{ github.workspace }}
-  WEB_SERVER: ec2-user@data.phantom.cloud.edu.au
-  BUILD_LOG_DIR: /var/www/html/ci/build/
+  WEB_USER: ec2-user
+  WEB_SERVER: data.phantom.cloud.edu.au
+  WEB_HTML_DIR: /var/www/html/
+  BUILD_LOG_DIR: /ci/build/logs/
 
 jobs:
   build:
@@ -53,10 +55,10 @@ jobs:
 
     - name: "Grab previous build logs from web server"
       working-directory: logs
-      run: rsync -vau ${WEB_SERVER}:${BUILD_LOG_DIR}/logs/*${{ matrix.system[1] }}.txt . || true
+      run: rsync -vau ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}${BUILD_LOG_DIR}/*${{ matrix.system[1] }}.txt . || true
 
     - name: "Run buildbot.sh"
-      run: ./buildbot.sh 17000000
+      run: ./buildbot.sh 17000000 http://${WEB_SEVER}${BUILD_LOG_DIR}
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
