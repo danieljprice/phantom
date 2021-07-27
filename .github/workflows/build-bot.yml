@@ -53,7 +53,7 @@ jobs:
 
     - name: "Grab previous build logs from web server"
       working-directory: logs
-      run: rsync -vauR ${WEB_SERVER}:${BUILD_LOG_DIR}/logs/*${{ matrix.system[1] }}.txt . || true
+      run: rsync -vau ${WEB_SERVER}:${BUILD_LOG_DIR}/logs/*${{ matrix.system[1] }}.txt . || true
 
     - name: "Run buildbot.sh"
       run: ./buildbot.sh 17000000
@@ -63,7 +63,7 @@ jobs:
         RETURN_ERR: yes
 
     - name: "Copy new build logs to web server"
-      run: rsync -vauR logs ${WEB_SERVER}:${BUILD_LOG_DIR} || true
+      run: rsync -vau logs ${WEB_SERVER}:${BUILD_LOG_DIR} || true
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
       if: always()
