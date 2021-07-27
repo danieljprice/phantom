@@ -48,8 +48,12 @@ jobs:
           ${{ secrets.WEBSERVER_KNOWN_HOST }}
         if_key_exists: "replace"
 
+    - name: "Create logs directory"
+      run: mkdir logs
+
     - name: "Grab previous build logs from web server"
-      run: rsync -vauR ${WEB_SERVER}:${BUILD_LOG_DIR}/logs . || true
+      working-directory: logs
+      run: rsync -vauR ${WEB_SERVER}:${BUILD_LOG_DIR}/logs/*${{ matrix.system[1] }}.txt . || true
 
     - name: "Run buildbot.sh"
       run: ./buildbot.sh 17000000
