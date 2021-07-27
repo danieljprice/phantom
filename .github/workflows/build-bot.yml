@@ -58,7 +58,7 @@ jobs:
       run: rsync -vau ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}${BUILD_LOG_DIR}/*${{ matrix.system[1] }}.txt . || true
 
     - name: "Run buildbot.sh"
-      run: ./buildbot.sh 17000000 http://${WEB_SEVER}${BUILD_LOG_DIR}
+      run: ./buildbot.sh 17000000 http://${WEB_SERVER}${BUILD_LOG_DIR}
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
