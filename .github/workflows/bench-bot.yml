@@ -14,7 +14,6 @@ env:
   WEB_SERVER: data.phantom.cloud.edu.au
   BENCH_LOG_DIR: /var/www/html/ci/bench/
   PERF_PLOT_DIR: /var/www/html/nightly/opt/
-  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no UserKnownHostsFile=/dev/null"
 
 jobs:
 
@@ -52,6 +51,10 @@ jobs:
 
     - name: "Clone phantom"
       uses: actions/checkout@v2
+      with:
+        ssh-known-hosts: |
+          ${{ secrets.BITBUCKET_KNOWN_HOST }}
+          ${{ secrets.WEBSERVER_KNOWN_HOST }}
 
     - name: "Grab a copy of the benchmark tests"
       uses: actions/checkout@v2
