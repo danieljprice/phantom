@@ -10,7 +10,8 @@ on:
 
 env:
   OMP_STACKSIZE: 512M
-  WEB_SERVER: ec2-user@data.phantom.cloud.edu.au
+  WEB_USER: ec2-user
+  WEB_SERVER: data.phantom.cloud.edu.au
   BENCH_LOG_DIR: /var/www/html/ci/bench/
 
 jobs:
@@ -70,8 +71,8 @@ jobs:
     - name: "Load previous benchmark data from phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
-        rsync -vauR ${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.prev . || true
-        rsync -vauR ${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.txt .  || true
+        rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.prev . || true
+        rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.txt .  || true
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
@@ -91,8 +92,8 @@ jobs:
     - name: "Copy new benchmark data to phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
-        rsync -vauR *.prev ${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vauR *.txt  ${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
 
     - name: "Plot benchmarks"
       working-directory: phantom-benchmarks
