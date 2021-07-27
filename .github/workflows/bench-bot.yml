@@ -14,6 +14,7 @@ env:
   WEB_SERVER: data.phantom.cloud.edu.au
   BENCH_LOG_DIR: /var/www/html/ci/bench/
   PERF_PLOT_DIR: /var/www/html/nightly/opt/
+  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no"
 
 jobs:
 
@@ -67,16 +68,6 @@ jobs:
       uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-
-    - name: "Add known hosts"
-      run: >
-        ansible localhost
-        -m blockinfile
-        -a "
-        path=~/.ssh/known_hosts
-        create=yes
-        block='${{ secrets.BITBUCKET_KNOWN_HOST }}\n${{ secrets.WEBSERVER_KNOWN_HOST }}'
-        "
 
     - name: "Load previous benchmark data from phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
