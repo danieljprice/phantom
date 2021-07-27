@@ -46,6 +46,9 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
+    - name: "Install ansible"
+      run: sudo apt-get --yes install ansible
+
     - name: "Clone phantom"
       uses: actions/checkout@v2
 
@@ -64,6 +67,16 @@ jobs:
       uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    - name: "Add known hosts"
+      run: |
+        ansible localhost
+        -m blockinfile
+        -a "
+        path=~/.ssh/known_hosts
+        create=yes
+        block=${{ secrets.BITBUCKET_KNOWN_HOST }}\n${{ secrets.WEBSERVER_KNOWN_HOST }}
+        "
 
     - name: "Load previous benchmark data from phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
