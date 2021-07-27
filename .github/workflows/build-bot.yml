@@ -12,6 +12,8 @@ env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
   PHANTOM_DIR: ${{ github.workspace }}
+  WEB_SERVER: ec2-user@data.phantom.cloud.edu.au
+  BUILD_LOG_DIR: /var/www/html/ci/build/
 
 jobs:
   build:
@@ -36,7 +38,18 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: danieljprice/splash
-        path: splash
+        path:
+
+    - name: "Install SSH Key"
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+        known_hosts: |
+          ${{ secrets.WEBSERVER_KNOWN_HOST }}
+        if_key_exists: "replace"
+
+    - name: "Grab previous build logs from web server"
+      run: rsync -vauR ${WEB_SERVER}:${BUILD_LOG_DIR}/logs . || true
 
     - name: "Run buildbot.sh"
       run: ./buildbot.sh 17000000
@@ -44,6 +57,9 @@ jobs:
       env:
         SYSTEM: ${{ matrix.system[1] }}
         RETURN_ERR: yes
+
+    - name: "Copy new build logs to web server"
+      run: rsync -vauR logs ${WEB_SERVER}:${BUILD_LOG_DIR} || true
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
       if: always()
