@@ -58,14 +58,6 @@ jobs:
       run: echo "::set-output name=count::$(nproc)"
       id: cpu
 
-    # - name: "Load previous benchmark data from cache"
-    #   uses: actions/cache@v2
-    #   with:
-    #     path: |
-    #       phantom-benchmarks/${{ matrix.setup }}/*.prev
-    #       phantom-benchmarks/${{ matrix.setup }}/*.txt
-    #     key: ${{ matrix.setup }}-benchmark
-
     - name: "Install SSH Key"
       uses: shimataro/ssh-key-action@v2
       with:
