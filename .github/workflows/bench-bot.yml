@@ -75,7 +75,7 @@ jobs:
         -a "
         path=~/.ssh/known_hosts
         create=yes
-        block=${{ secrets.BITBUCKET_KNOWN_HOST }}\n${{ secrets.WEBSERVER_KNOWN_HOST }}
+        block='${{ secrets.BITBUCKET_KNOWN_HOST }}\n${{ secrets.WEBSERVER_KNOWN_HOST }}'
         "
 
     - name: "Load previous benchmark data from phantom-data-files"
