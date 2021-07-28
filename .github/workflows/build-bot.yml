@@ -84,15 +84,15 @@ jobs:
         rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
-      if: (${{ success() }} || ${{ failure() }})
+      if: always()
       run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
 
     - name: logs/setup-failures-${{ matrix.system[1] }}.txt
-      if: (${{ success() }} || ${{ failure() }})
+      if: always()
       run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
 
     - name: logs/make-*-${{ matrix.system[1] }}.txt
-      if: (${{ success() }} || ${{ failure() }})
+      if: always()
       run: |
         echo
         for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
