@@ -47,9 +47,6 @@ jobs:
 
     steps:
 
-    - name: "debug"
-      run: echo $SECRET_ACCESS
-
     # - name: "Nuke the github workspace before doing anything"
     #   run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
@@ -92,10 +89,11 @@ jobs:
 
 
 
-    # - name: "Install SSH Key"
-    #   uses: webfactory/ssh-agent@v0.5.3
-    #   with:
-    #     ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+    - name: "Install SSH Key"
+      uses: webfactory/ssh-agent@v0.5.3
+      if: ${{ env.SECRET_ACCESS }}
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     # - name: "Copy new benchmark data to phantom-data-files"
     #   working-directory: phantom-benchmarks/${{ matrix.setup }}
