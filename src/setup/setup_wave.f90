@@ -32,7 +32,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic
@@ -62,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
  real    :: kwave,denom,length,uuzero,przero !,dxi
  real    :: xmini,xmaxi,ampl,cs,dtg,massfac
+ procedure(rho_func), pointer :: density_func
 !
 ! default options
 !
@@ -127,6 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
  npartoftype(:) = 0
+ density_func => rhofunc  ! desired density function
 
  overtypes: do itypes=1,ntypes
     select case (itypes)
@@ -159,7 +161,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     if (itype == igas) then
        call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=rhofunc,mask=i_belong)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=density_func,mask=i_belong)
        xmin_dust = xmin + dust_shift*deltax
        xmax_dust = xmax + dust_shift*deltax
        ymin_dust = ymin + dust_shift*deltax
@@ -169,7 +171,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        call set_unifdis('closepacked',id,master,xmin_dust,xmax_dust,ymin_dust, &
                          ymax_dust,zmin_dust,zmax_dust,deltax, &
-                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=rhofunc,mask=i_belong)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=density_func,mask=i_belong)
     endif
 
     !--set which type of particle it is
@@ -216,7 +218,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo overtypes
 
 contains
-
+!----------------------------------------------------
+!+
+!  callback function giving desired density profile
+!+
+!----------------------------------------------------
 real function rhofunc(x)
  real, intent(in) :: x
 
