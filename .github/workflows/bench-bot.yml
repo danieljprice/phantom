@@ -87,20 +87,35 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
         RETURN_ERR: "yes"
 
-    - name: "Plot benchmarks"
-      working-directory: phantom-benchmarks
-      run: ./plot-benchmarks.sh
-      env:
-        PHANTOM_DIR: ${{ github.workspace }}
-
     - name: "Copy new benchmark data to phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
         rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
         rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
 
+  plot:
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+
+    - name: "Install SSH Key"
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    - name: "Grab a copy of the benchmark tests (without LFS)"
+      uses: actions/checkout@v2
+      with:
+        repository: phantomSPH/phantom-benchmarks
+
+    - name: "Load previous benchmark data from phantom-data-files"
+      run: |
+        rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR} .
+
+    - name: "Plot benchmarks"
+      run: ./plot-benchmarks.sh
+
     - name: "Copy plots to phantom-data-files"
-      working-directory: phantom-benchmarks
       run: |
         rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
         rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
