@@ -70,7 +70,7 @@ jobs:
 
     - name: "Copy HTML files to web server"
       if: always()
-      run: rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/nightly/build/
+      run: rsync -vau --mkpath logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")/
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
       if: always()
