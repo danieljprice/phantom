@@ -3,12 +3,12 @@ name: bench-bot
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  schedule:
-    - cron: "0 0 * * *"
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+  # schedule:
+  #   - cron: "0 0 * * *"
 
 env:
   # Only post results to web server if secrets are accessible (i.e. scheduled runs)
@@ -29,10 +29,6 @@ jobs:
       setups: ${{ steps.extract_step.outputs.setups }}
 
     steps:
-
-      - name: "DEBUG"
-        run: echo ${{ env.SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
-
       - name: "Checkout benchmarks repo for the directory names"
         uses: actions/checkout@v2
         with:
