@@ -149,6 +149,11 @@ jobs:
       working-directory: phantom-benchmarks
       run: ls -latrh
 
+    - name: "DEBUG"
+      if: ${{ env.SECRET_ACCESS }}
+      working-directory: phantom-benchmarks
+      run: cat performance.html
+
     - name: "Copy plots to phantom-data-files"
       if: ${{ env.SECRET_ACCESS }}
       working-directory: phantom-benchmarks
