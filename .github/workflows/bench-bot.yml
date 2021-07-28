@@ -7,6 +7,8 @@ on:
     branches: [ bench-bot ]
   pull_request:
     branches: [ master ]
+  schedule:
+    - cron: "0 0 * * *"
 
 env:
   OMP_STACKSIZE: 512M
@@ -43,49 +45,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: debug
+        run: echo $GITHUB_REF ${{ github.ref }}
+
+    # - name: "Nuke the github workspace before doing anything"
+    #   run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
+
+    # - name: "Clone phantom"
+    #   uses: actions/checkout@v2
+
+    # - name: "Grab a copy of the benchmark tests"
+    #   uses: actions/checkout@v2
+    #   with:
+    #     repository: phantomSPH/phantom-benchmarks
+    #     path: phantom-benchmarks
+    #     lfs: true
+
+    # - name: "Get number of CPU cores"
+    #   run: echo "::set-output name=count::$(nproc)"
+    #   id: cpu
+
+    # - name: "Load previous benchmark data from the web server"
+    #   working-directory: phantom-benchmarks/${{ matrix.setup }}
+    #   env:
+    #     WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+    #   run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }}
+
+    # - name: "Run benchmarks"
+    #   working-directory: phantom-benchmarks
+    #   run: |
+    #     ulimit -s unlimited
+    #     systems="gfortran"
+    #     for SYSTEM in $systems; do
+    #       echo ::group::SYSTEM=$SYSTEM
+    #       SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+    #       echo ::endgroup::
+    #     done
+    #   env:
+    #     OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
+    #     PHANTOM_DIR: ${{ github.workspace }}
+    #     RETURN_ERR: "yes"
+
+
+
+
 
     # - name: "Install SSH Key"
     #   uses: webfactory/ssh-agent@v0.5.3
     #   with:
     #     ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-
-    - name: "Nuke the github workspace before doing anything"
-      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
-
-    - name: "Clone phantom"
-      uses: actions/checkout@v2
-
-    - name: "Grab a copy of the benchmark tests"
-      uses: actions/checkout@v2
-      with:
-        repository: phantomSPH/phantom-benchmarks
-        path: phantom-benchmarks
-        lfs: true
-
-    - name: "Get number of CPU cores"
-      run: echo "::set-output name=count::$(nproc)"
-      id: cpu
-
-    - name: "Load previous benchmark data from the web server"
-      working-directory: phantom-benchmarks/${{ matrix.setup }}
-      env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }}
-
-    - name: "Run benchmarks"
-      working-directory: phantom-benchmarks
-      run: |
-        ulimit -s unlimited
-        systems="gfortran"
-        for SYSTEM in $systems; do
-          echo ::group::SYSTEM=$SYSTEM
-          SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
-          echo ::endgroup::
-        done
-      env:
-        OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
-        PHANTOM_DIR: ${{ github.workspace }}
-        RETURN_ERR: "yes"
 
     # - name: "Copy new benchmark data to phantom-data-files"
     #   working-directory: phantom-benchmarks/${{ matrix.setup }}
