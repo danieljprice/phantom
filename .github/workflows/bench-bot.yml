@@ -4,7 +4,7 @@ name: bench-bot
 # events but only for the master branch
 on:
   push:
-    branches: [ bench-bot ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
