@@ -52,9 +52,6 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: "Install ansible"
-      run: sudo apt-get --yes install ansible
-
     - name: "Clone phantom"
       uses: actions/checkout@v2
 
