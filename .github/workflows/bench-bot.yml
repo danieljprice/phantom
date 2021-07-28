@@ -23,83 +23,83 @@ env:
 
 jobs:
 
-  extract:
-    runs-on: ubuntu-latest
-    outputs:
-      setups: ${{ steps.extract_step.outputs.setups }}
+  # extract:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     setups: ${{ steps.extract_step.outputs.setups }}
 
-    steps:
-      - name: "Checkout benchmarks repo for the directory names"
-        uses: actions/checkout@v2
-        with:
-          repository: phantomSPH/phantom-benchmarks
+  #   steps:
+  #     - name: "Checkout benchmarks repo for the directory names"
+  #       uses: actions/checkout@v2
+  #       with:
+  #         repository: phantomSPH/phantom-benchmarks
 
-      - name: "Extract setups from directory"
-        id: extract_step
-        run: echo ::set-output name=setups::$(printf '%s\n' */ | sort -r | sed 's:/$::' |jq -cnR '[inputs]')
+  #     - name: "Extract setups from directory"
+  #       id: extract_step
+  #       run: echo ::set-output name=setups::$(printf '%s\n' */ | sort -r | sed 's:/$::' |jq -cnR '[inputs]')
 
-  bench:
-    needs: extract
-    strategy:
-      fail-fast: false
-      matrix:
-        setup: ${{fromJson(needs.extract.outputs.setups)}}
+  # bench:
+  #   needs: extract
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       setup: ${{fromJson(needs.extract.outputs.setups)}}
 
-    runs-on: ubuntu-latest
+  #   runs-on: ubuntu-latest
 
-    steps:
+  #   steps:
 
-    - name: "Nuke the github workspace before doing anything"
-      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
+  #   - name: "Nuke the github workspace before doing anything"
+  #     run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: "Clone phantom"
-      uses: actions/checkout@v2
+  #   - name: "Clone phantom"
+  #     uses: actions/checkout@v2
 
-    - name: "Grab a copy of the benchmark tests"
-      uses: actions/checkout@v2
-      with:
-        repository: phantomSPH/phantom-benchmarks
-        path: phantom-benchmarks
-        lfs: true
+  #   - name: "Grab a copy of the benchmark tests"
+  #     uses: actions/checkout@v2
+  #     with:
+  #       repository: phantomSPH/phantom-benchmarks
+  #       path: phantom-benchmarks
+  #       lfs: true
 
-    - name: "Get number of CPU cores"
-      run: echo "::set-output name=count::$(nproc)"
-      id: cpu
+  #   - name: "Get number of CPU cores"
+  #     run: echo "::set-output name=count::$(nproc)"
+  #     id: cpu
 
-    - name: "Load previous benchmark data from the web server"
-      working-directory: phantom-benchmarks/${{ matrix.setup }}
-      env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
+  #   - name: "Load previous benchmark data from the web server"
+  #     working-directory: phantom-benchmarks/${{ matrix.setup }}
+  #     env:
+  #       WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+  #     run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
 
-    - name: "Run benchmarks"
-      working-directory: phantom-benchmarks
-      run: |
-        ulimit -s unlimited
-        systems="gfortran"
-        for SYSTEM in $systems; do
-          echo ::group::SYSTEM=$SYSTEM
-          SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
-          echo ::endgroup::
-        done
-      env:
-        OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
-        PHANTOM_DIR: ${{ github.workspace }}
-        RETURN_ERR: "yes"
+  #   - name: "Run benchmarks"
+  #     working-directory: phantom-benchmarks
+  #     run: |
+  #       ulimit -s unlimited
+  #       systems="gfortran"
+  #       for SYSTEM in $systems; do
+  #         echo ::group::SYSTEM=$SYSTEM
+  #         SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+  #         echo ::endgroup::
+  #       done
+  #     env:
+  #       OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
+  #       PHANTOM_DIR: ${{ github.workspace }}
+  #       RETURN_ERR: "yes"
 
-    - name: "Install SSH Key if repo secrets accessible"
-      uses: webfactory/ssh-agent@v0.5.3
-      if: ${{ env.SECRET_ACCESS }}
-      with:
-        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+  #   - name: "Install SSH Key if repo secrets accessible"
+  #     uses: webfactory/ssh-agent@v0.5.3
+  #     if: ${{ env.SECRET_ACCESS }}
+  #     with:
+  #       ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
-    - name: "Copy new benchmark data to phantom-data-files"
-      if: ${{ env.SECRET_ACCESS }}
-      working-directory: phantom-benchmarks/${{ matrix.setup }}
-      run: |
-        rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+  #   - name: "Copy new benchmark data to phantom-data-files"
+  #     if: ${{ env.SECRET_ACCESS }}
+  #     working-directory: phantom-benchmarks/${{ matrix.setup }}
+  #     run: |
+  #       rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+  #       rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+  #       rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
 
   plot:
     runs-on: ubuntu-latest
