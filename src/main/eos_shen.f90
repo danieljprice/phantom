@@ -75,6 +75,7 @@ subroutine eos_shen_NL3(rin_cgs,tin_cgs,yin,p,spsound)
  rin=rin_cgs/(amu/(fmtocm**3))
  tin=tin_cgs/MevtoK
 
+ p = 0.
  if (rin>1.e-8) then
     !the value is inside shen
     call cubic_readeos_simp(tin,yin,rin,p)
