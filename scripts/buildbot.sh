@@ -155,7 +155,8 @@ check_phantomsetup ()
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
-for component in $listofcomponents; do
+# for component in $listofcomponents; do
+component="utils"
 case $component in
  'setup')
    text="$component runs, creates .setup and .in files with no unspecified user input";
