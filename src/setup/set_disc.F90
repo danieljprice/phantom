@@ -8,7 +8,10 @@ module setdisc
 !
 ! This module contains utility routines for accretion disc setups
 !
-! :References: None
+! :References:
+!   Lodato & Pringle (2007), MNRAS 381, 1287-1300
+!   Lodato & Price (2010), MNRAS 405, 1212-1226
+!   Meru & Bate (2012), MNRAS 427, 2022-2046
 !
 ! :Owner: Daniel Mentiplay
 !
@@ -199,6 +202,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     itype = igas
  endif
  do_mixture = .false.
+ q_inddust = 0.  ! avoid compiler warning if not set
  if (present(mixture)) then
     do_mixture = mixture
     if (do_mixture) then
@@ -299,6 +303,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     call get_disc_mass(disc_m,enc_m,rad,Q,sigmaprofile,sigma_norm, &
                        star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R)
  else
+    disc_m = 0.
+    sigma_norm = 0.
     call fatal('set_disc','need to set disc mass directly or via sigma normalisation')
  endif
  !
