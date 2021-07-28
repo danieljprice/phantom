@@ -121,7 +121,8 @@ subroutine compute_energies(t)
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
- real    :: axyz(3,npart),hx,hp,hxx,hpp
+ real    :: hx,hp,hxx,hpp
+ real, allocatable :: axyz(:,:)
 
  ! initialise values
  itype  = igas
@@ -725,6 +726,7 @@ subroutine compute_energies(t)
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
  if (gws) then
+    allocate(axyz(3,npart))
 #ifdef GR
     call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
 #else
@@ -732,6 +734,7 @@ subroutine compute_energies(t)
 #endif
     pmassi = massoftype(igas)
     call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
+    deallocate(axyz)
     hx  = reduceall_mpi('+',hx)
     hp  = reduceall_mpi('+',hp)
     hxx = reduceall_mpi('+',hxx)
