@@ -11,6 +11,7 @@ on:
     - cron: "0 0 * * *"
 
 env:
+  SECRET_ACCESS: ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
   OMP_STACKSIZE: 512M
   WEB_USER: ec2-user
   WEB_SERVER: data.phantom.cloud.edu.au
@@ -45,8 +46,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: debug
-        run: echo $GITHUB_REF ${{ github.ref }}
+
+    - name: "debug"
+      run: echo $SECRET_ACCESS
 
     # - name: "Nuke the github workspace before doing anything"
     #   run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
