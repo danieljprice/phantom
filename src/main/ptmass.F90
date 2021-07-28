@@ -36,7 +36,7 @@ module ptmass
 !
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
- use io,   only:iscfile,iskfile
+ use io,   only:iscfile,iskfile,id,master
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -1356,18 +1356,20 @@ end subroutine ptmass_create
 !  Open files to track sink particle data
 !+
 !-----------------------------------------------------------------------
-subroutine init_ptmass(nptmass,logfile,dumpfile)
+subroutine init_ptmass(nptmass,logfile)
  integer,          intent(in) :: nptmass
- character(len=*), intent(in) :: logfile,dumpfile
- integer                      :: i,idot,idash
+ character(len=*), intent(in) :: logfile
+ integer                      :: i,idot
  character(len=150)           :: filename
+
+ if (id /= master) return ! only do this on master thread
  !
  !--Extract prefix & suffix
  !
- idash = index(dumpfile,'_')
- write(pt_prefix,"(a)") dumpfile(1:idash-1)
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
+ pt_prefix = logfile(1:idot-3)
+
  !
  !--Define file name components and finalise suffix & open files
  !
@@ -1433,6 +1435,8 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
+ if (id /= master) return ! only do this on master thread
+
  if (write_one_ptfile) then
     write(filename,'(2a)') trim(pt_prefix),trim(pt_suffix)
  else
@@ -1474,13 +1478,16 @@ end subroutine pt_open_sinkev
 subroutine pt_close_sinkev(nptmass)
  integer, intent(in) :: nptmass
  integer             :: i,iunit
- if (write_one_ptfile) then
-    close(iskfile)
- else
-    do i = 1,nptmass
-       iunit = iskfile+i
-       close(iunit)
-    enddo
+
+ if (id == master) then ! only on master thread
+    if (write_one_ptfile) then
+       close(iskfile)
+    else
+       do i = 1,nptmass
+          iunit = iskfile+i
+          close(iunit)
+       enddo
+    endif
  endif
 
 end subroutine pt_close_sinkev
@@ -1490,10 +1497,12 @@ end subroutine pt_close_sinkev
 !+
 !-----------------------------------------------------------------------
 subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
- use part,        only: ispinx,ispiny,ispinz,imacc
+ use part,        only:ispinx,ispiny,ispinz,imacc
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit
+
+ if (id /= master) return ! only do this on master thread
 
  iunit = iskfile
  do i = 1,nptmass
