@@ -35,6 +35,8 @@ jobs:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
 
+    name: build (SYSTEM=${{ matrix.system[1] }})
+
     runs-on: ${{ matrix.system[0] }}
 
     steps:

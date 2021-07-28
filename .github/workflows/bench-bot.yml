@@ -49,6 +49,8 @@ jobs:
       matrix:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
+    name: bench (SETUP=${{ matrix.setup] }})
+
     runs-on: self-hosted
 
     steps:

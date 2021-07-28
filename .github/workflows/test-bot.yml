@@ -39,6 +39,12 @@ jobs:
           - ['test2', '']
           - ['testcyl', '']
 
+    name: |
+      test (SYSTEM=${{ matrix.system[1] }},
+            DEBUG=${{ matrix.debug }},
+            SETUP=${{ matrix.input[0] }},
+            targets=${{ matrix.input[1] }})
+
     runs-on: ${{ matrix.system[0] }}
 
     steps:
