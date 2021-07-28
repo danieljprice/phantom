@@ -70,7 +70,7 @@ jobs:
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
         rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.prev . || true
-        rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.txt .  || true
+        rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/*.txt  . || true
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
@@ -90,6 +90,7 @@ jobs:
     - name: "Copy new benchmark data to phantom-data-files"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
+        rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
         rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
         rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
 
