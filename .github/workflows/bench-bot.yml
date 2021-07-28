@@ -99,6 +99,15 @@ jobs:
     if: always()
     steps:
 
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
+
+    - name: "Grab a copy of the benchmark tests"
+      uses: actions/checkout@v2
+      with:
+        repository: phantomSPH/phantom-benchmarks
+        path: phantom-benchmarks
+
     - name: "Install SSH Key"
       uses: webfactory/ssh-agent@v0.5.3
       with:
@@ -108,15 +117,21 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: phantomSPH/phantom-benchmarks
+        path: phantom-benchmarks
 
     - name: "Load previous benchmark data from phantom-data-files"
+      working-directory: phantom-benchmarks
       run: |
         rsync -vau ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR} .
 
     - name: "Plot benchmarks"
+      working-directory: phantom-benchmarks
       run: ./plot-benchmarks.sh
+      env:
+        PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Copy plots to phantom-data-files"
+      working-directory: phantom-benchmarks
       run: |
         rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
         rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
