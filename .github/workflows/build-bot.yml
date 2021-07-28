@@ -36,7 +36,7 @@ jobs:
     steps:
 
     - name: "DEBUG"
-        run: echo ${{ env.SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
+      run: echo ${{ env.SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
 
     - name: "Install SSH Key"
       if: ${{ env.SECRET_ACCESS }}
