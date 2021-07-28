@@ -31,7 +31,7 @@ jobs:
     steps:
 
       - name: "DEBUG"
-        run: echo ${{ SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
+        run: echo ${{ env.SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
 
       - name: "Checkout benchmarks repo for the directory names"
         uses: actions/checkout@v2
