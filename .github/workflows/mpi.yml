@@ -24,6 +24,8 @@ jobs:
           - no
           - yes
 
+    name: MPI SYSTEM=${{ matrix.system[1] }} DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}
+
     runs-on: ${{ matrix.system[0] }}
 
     env:
