@@ -90,17 +90,17 @@ jobs:
         PHANTOM_DIR: ${{ github.workspace }}
         RETURN_ERR: "yes"
 
-    - name: "Copy new benchmark data to phantom-data-files"
-      working-directory: phantom-benchmarks/${{ matrix.setup }}
-      run: |
-        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
-
     - name: "Plot benchmarks"
       working-directory: phantom-benchmarks
       run: ./plot-benchmarks.sh
       env:
         PHANTOM_DIR: ${{ github.workspace }}
+
+    - name: "Copy new benchmark data to phantom-data-files"
+      working-directory: phantom-benchmarks/${{ matrix.setup }}
+      run: |
+        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
 
     - name: "Copy plots to phantom-data-files"
       working-directory: phantom-benchmarks
