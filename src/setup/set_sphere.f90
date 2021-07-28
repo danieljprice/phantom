@@ -17,11 +17,12 @@ module spherical
 !
 ! :Dependencies: physcon, random, stretchmap, unifdis
 !
- use unifdis, only:set_unifdis,mask_prototype,mask_true
- use physcon, only:pi
+ use unifdis,    only:set_unifdis,mask_prototype,mask_true
+ use physcon,    only:pi
+ use stretchmap, only:rho_func
  implicit none
 
- public  :: set_sphere,set_ellipse
+ public  :: set_sphere,set_ellipse,rho_func
 
  integer, parameter :: &
    ierr_notinrange    = 1, &

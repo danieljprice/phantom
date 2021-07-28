@@ -76,7 +76,7 @@ module setup
 !   setdisc, setflyby, spherical, timestep, units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
-                            maxdustlarge,maxdustsmall
+                            maxdustlarge,maxdustsmall,compiled_with_mcfost
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
                             iext_einsteinprec,iext_corot_binary,iext_corotate,&
                             update_externalforce
@@ -86,9 +86,7 @@ module setup
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid
-#ifdef MCFOST
  use options,          only:use_mcfost,use_mcfost_stellar_parameters,mcfost_computes_Lacc
-#endif
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
@@ -555,23 +553,17 @@ end subroutine number_of_discs
 subroutine equation_of_state(gamma)
  use eos,     only:isink,qfacdisc
  use options, only:ieos,icooling
-#ifdef MCFOST
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
-#endif
  real, intent(out) :: gamma
 
  logical :: is_isothermal
  integer :: i
 
  is_isothermal = (maxvxyzu==3)
-#ifdef MCFOST
  if (use_mcfost) then
     is_isothermal = .false.
     nfulldump = 1
- else ! We are in the isothermal case
-    is_isothermal = .true.
  endif
-#endif
 
  if (is_isothermal) then
 
@@ -632,14 +624,12 @@ subroutine equation_of_state(gamma)
     gamma = 5./3.
     icooling = 1
 
-#ifdef MCFOST
     if (use_mcfost) then
        icooling = 0
        ipdv_heating = 0
        ishock_heating = 0
        alphau = 0
     endif
-#endif
 
  endif
 
@@ -2363,15 +2353,16 @@ subroutine write_setupfile(filename)
     call write_inopt(norbits,'norbits','maximum number of orbits at outer disc',iunit)
  endif
  call write_inopt(deltat,'deltat','output interval as fraction of orbital period',iunit)
-#ifdef MCFOST
+
  !--mcfost
- write(iunit,"(/,a)") '# mcfost'
- call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
- call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
-      'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
- call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
-      'Should mcfost compute the accretion luminosity',iunit)
-#endif
+ if (compiled_with_mcfost) then
+    write(iunit,"(/,a)") '# mcfost'
+    call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
+    call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
+        'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
+    call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
+        'Should mcfost compute the accretion luminosity',iunit)
+ endif
 
  if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
 
@@ -2673,13 +2664,14 @@ subroutine read_setupfile(filename,ierr)
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
  call read_inopt(deltat,'deltat',db,err=ierr)
-#ifdef MCFOST
+
  !--mcfost
- call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
- if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
- call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
- if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
-#endif
+ if (compiled_with_mcfost) then
+    call read_inopt(use_mcfost,'use_mcfost',db,err=ierr)
+    if (ierr /= 0) use_mcfost = .false. ! no mcfost by default
+    call read_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',db,err=ierr)
+    if (ierr /= 0) use_mcfost_stellar_parameters = .false. ! update stellar parameters by default
+ endif
 
  if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
 
