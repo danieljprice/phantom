@@ -140,7 +140,7 @@ jobs:
     - name: "Plot benchmarks"
       if: ${{ env.SECRET_ACCESS }}
       working-directory: phantom-benchmarks
-      run: ./plot-benchmarks.sh && ./plot-benchmarks.sh
+      run: ./plot-benchmarks.sh
       env:
         PHANTOM_DIR: ${{ github.workspace }}
 
