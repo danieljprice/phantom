@@ -129,10 +129,10 @@ subroutine print_dustinfo(iprint)
           write(iprint,"(2(a,1pg10.3),a)") '  Gas mfp at rho=1 = ',seff*udist/unit_density, &
                                            ' cm     = ',seff,' (code units)'
           rhocrit = 9.*seff/(4.*grainsize(i))
+          write(iprint,"(/,a)") ' Density above which Stokes drag is used:'
+          write(iprint,"(2(a,1pg10.3),a)")    '           rhocrit = ',rhocrit*unit_density,    &
+                                              ' g/cm^3 = ',rhocrit,' (code units)'
        enddo
-       write(iprint,"(/,a)") ' Density above which Stokes drag is used:'
-       write(iprint,"(2(a,1pg10.3),a)")    '           rhocrit = ',rhocrit*unit_density,    &
-                                           ' g/cm^3 = ',rhocrit,' (code units)'
     endif
  case(2)
     do i=1,ndusttypes
