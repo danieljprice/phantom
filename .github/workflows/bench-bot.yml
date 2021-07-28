@@ -45,7 +45,7 @@ jobs:
       matrix:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
 
@@ -76,7 +76,7 @@ jobs:
       working-directory: phantom-benchmarks
       run: |
         ulimit -s unlimited
-        systems="gfortran ifort"
+        systems="gfortran"
         for SYSTEM in $systems; do
           echo ::group::SYSTEM=$SYSTEM
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
@@ -97,9 +97,9 @@ jobs:
       if: ${{ env.SECRET_ACCESS }}
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
-        rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
-        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
 
   plot:
     runs-on: ubuntu-latest
