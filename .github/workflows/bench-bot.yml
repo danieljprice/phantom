@@ -11,6 +11,7 @@ on:
     - cron: "0 0 * * *"
 
 env:
+  # Only post results to web server if secrets are accessible (i.e. scheduled runs)
   SECRET_ACCESS: ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
   OMP_STACKSIZE: 512M
   WEB_SERVER: data.phantom.cloud.edu.au
@@ -69,7 +70,7 @@ jobs:
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       env:
         WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }}
+      run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
 
     - name: "Run benchmarks"
       working-directory: phantom-benchmarks
