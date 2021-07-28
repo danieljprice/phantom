@@ -218,15 +218,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- integer :: nalloc
 
- write(*,10)
-10 format(/, &
-   "-----------------------------------------------------------------",/, &
-   "",/, &
-   "     Welcome to the New Disc Setup",/, &
-   "",/, &
-   "-----------------------------------------------------------------",/)
+ write(*,"(/,65('-'),/,/,5x,a,/,/,65('-'))") 'Welcome to the New Disc Setup'
 
  !--set default options
  call set_default_options()
@@ -1322,7 +1315,7 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                           HoverR,Mstar,q_index,gamma,Ratm_in,Ratm_out,r_surface, &
                           npart,npart_planet_atm,npart_disc,hfact)
  use part,          only:set_particle_type
- use spherical,     only:set_sphere
+ use spherical,     only:set_sphere,rho_func
  integer, intent(in)    :: id
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -1350,6 +1343,7 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
  real               :: a_orbit
  real               :: psep,vol_sphere
  real               :: cs0,cs
+ procedure(rho_func), pointer :: density_func
  !
  ! place particles in sphere
  !
@@ -1367,9 +1361,10 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
  nx          = int(npart_planet_atm**(1./3.))
  psep        = vol_sphere**(1./3.)/real(nx)
  nptot       = npart
+ density_func => atm_dens
 
  call set_sphere('closepacked',id,master,Ratm_in,Ratm_out,psep,hfact,npart,xyzh, &
-                 rhofunc=atm_dens,nptot=nptot, &
+                 rhofunc=density_func,nptot=nptot, &
                  np_requested=npart_planet_atm,xyz_origin=xyz_orig)
 
  npart_planet_atm = npart-npart_disc
@@ -1657,6 +1652,7 @@ subroutine set_tmax_dtmax()
 
  real :: period, period2
 
+ period2 = 0.
  if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     !--binary orbital period
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
@@ -1683,15 +1679,15 @@ subroutine set_tmax_dtmax()
     if (deltat > 0.) dtmax = deltat*period
     if (norbits >= 0) tmax = norbits*period
  elseif (period > 0. .and. nsinks==3) then
-    if (deltat > 0.) then
-       dtmax = deltat*period
-    elseif (deltat < 0.) then
+    if (deltat < 0. .and. period2 > 0.) then
        dtmax = -deltat*period2
+    elseif (deltat > 0.) then
+       dtmax = deltat*period
     endif
-    if (norbits >= 0) then
-       tmax = norbits*period
-    elseif (norbits < 0) then
+    if (norbits < 0 .and. period2 > 0.) then
        tmax = -norbits*period2
+    elseif (norbits >= 0) then
+       tmax = norbits*period
     endif
  endif
 
