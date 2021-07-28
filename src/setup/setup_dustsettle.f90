@@ -55,7 +55,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,   only:npart_total
  use io,             only:master
- use unifdis,        only:set_unifdis
+ use unifdis,        only:set_unifdis,rho_func
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
@@ -89,6 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: xmini,xmaxi,ymaxdisc,cs,t_orb,Rmax
  logical            :: iexist
  character(len=100) :: filename
+ procedure(rho_func), pointer :: density_func
 !
 !--default options
 !
@@ -231,9 +232,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ymaxdisc = 3.*H0
  totmass  = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
  npart_previous = npart
+ density_func => rhofunc
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
                    hfact,npart,xyzh,periodic,nptot=npart_total,&
-                   rhofunc=rhofunc,dir=2,mask=i_belong)
+                   rhofunc=density_func,dir=2,mask=i_belong)
 
  !--set which type of particle it is
  do i=npart_previous+1,npart
