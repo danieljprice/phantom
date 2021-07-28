@@ -38,7 +38,7 @@ module forces
 
  integer, parameter :: maxcellcache = 50000
 
- public :: force
+ public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -2168,6 +2168,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        visctermiso = 0.
        visctermaniso = 0.
        dustfraci = 0.
+       tempi = 0.
     endif
 
     !
