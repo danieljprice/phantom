@@ -155,6 +155,7 @@ check_phantomsetup ()
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+listofcomponents="utils"
 for component in $listofcomponents; do
 case $component in
  'setup')
@@ -180,6 +181,7 @@ echo "<table>" >> $htmlfile;
 #--loop over each setup
 #
 for setup in $listofsetups; do
+   if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::group:: component=${component}, setup=${setup}"; fi
    cd $phantomdir;
    dims="`make --quiet SETUP=$setup getdims`";
    dims=${dims//[^0-9]/};  # number only
@@ -288,7 +290,9 @@ for setup in $listofsetups; do
    done
    echo "</tr>" >> $htmlfile;
    cd $pwd;
+   if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::endgroup::"; fi
 done
 echo "</table>" >> $htmlfile;
 echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
 done
+if [ "$nfail" -gt 0 ] && [ "$RETURN_ERR" == "yes" ]; then exit 1; fi
