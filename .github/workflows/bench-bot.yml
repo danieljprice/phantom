@@ -135,4 +135,4 @@ jobs:
       working-directory: phantom-benchmarks
       run: |
         rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
-        rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}
+        rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${PERF_PLOT_DIR}/index.html
