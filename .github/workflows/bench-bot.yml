@@ -137,17 +137,10 @@ jobs:
       run: |
         rsync -vau ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR} .
 
-    - name: "DEBUG"
-      if: ${{ env.SECRET_ACCESS }}
-      working-directory: phantom-benchmarks
-      run: |
-        touch polar.js
-        touch tde.js
-
     - name: "Plot benchmarks"
       if: ${{ env.SECRET_ACCESS }}
       working-directory: phantom-benchmarks
-      run: ./plot-benchmarks.sh
+      run: ./plot-benchmarks.sh && ./plot-benchmarks.sh
       env:
         PHANTOM_DIR: ${{ github.workspace }}
 
