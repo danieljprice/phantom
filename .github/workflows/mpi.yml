@@ -9,17 +9,28 @@ on:
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        system:
+          - ['self-hosted', 'ifort']
+          - ['ubuntu-latest', 'gfortran']
+        debug:
+          - no
+          - yes
+        openmp:
+          - no
+          - yes
+
+    runs-on: ${{ matrix.system[0] }}
+
     env:
-      SYSTEM: gfortran
       OMP_STACKSIZE: 512M
 
     steps:
+
     - name: Install gfortran and openMPI
       run: |
         sudo apt-get update
@@ -28,8 +39,10 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: compile with MPI
-      run: make SETUP=testkd MPI=yes OPENMP=no phantomtest
+    - name: Compile with MPI
+      run: make SETUP=testkd MPI=yes OPENMP=${{ matrix.openmp }}  phantomtest
+      env:
+        SYSTEM: ${{ matrix.system[1] }}
 
-    - name: test with MPI
+    - name: Test with MPI
       run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest
