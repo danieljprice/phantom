@@ -44,7 +44,7 @@ jobs:
       matrix:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
 
@@ -75,7 +75,7 @@ jobs:
       working-directory: phantom-benchmarks
       run: |
         ulimit -s unlimited
-        systems="gfortran"
+        systems="gfortran ifort"
         for SYSTEM in $systems; do
           echo ::group::SYSTEM=$SYSTEM
           SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
