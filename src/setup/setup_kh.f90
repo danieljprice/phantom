@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:npart_total
  use io,           only:master
  use options,      only:nfulldump
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:igas,periodic
@@ -63,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  integer :: i,maxp,maxvxyzu,npartx
  real    :: totmass,deltax
+ procedure(rho_func), pointer :: density_func
 !
 !--general parameters
 !
@@ -93,9 +94,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  npart = 0
  npart_total = 0
+ density_func => rhofunc
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,periodic,nptot=npart_total,&
-                  rhofunc=rhofunc,dir=2,mask=i_belong)
+                  rhofunc=density_func,dir=2,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -116,6 +118,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
+!------------------------------------------
+!+
+!  desired density profile in y direction
+!+
+!------------------------------------------
 real function rhofunc(y)
  real, intent(in) :: y
 
@@ -123,6 +130,11 @@ real function rhofunc(y)
 
 end function rhofunc
 
+!---------------------------------------------------
+!+
+!  smoothing function, as per Robertson et al paper
+!+
+!---------------------------------------------------
 real function Rfunc(y)
  real, parameter  :: delta = 0.05
  real, intent(in) :: y
