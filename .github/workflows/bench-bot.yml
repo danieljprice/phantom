@@ -3,12 +3,12 @@ name: bench-bot
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
-  # push:
-  #   branches: [ master ]
-  # pull_request:
-  #   branches: [ master ]
-  # schedule:
-  #   - cron: "0 0 * * *"
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: "0 0 * * *"
 
 env:
   # Only post results to web server if secrets are accessible (i.e. scheduled runs)
@@ -89,12 +89,12 @@ jobs:
 
     - name: "Install SSH Key if repo secrets accessible"
       uses: webfactory/ssh-agent@v0.5.3
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       with:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Copy new benchmark data to phantom-data-files"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       run: |
         rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
@@ -108,44 +108,44 @@ jobs:
     steps:
 
     - name: "Clone phantom"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       uses: actions/checkout@v2
 
     - name: "Grab a copy of the benchmark tests"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       uses: actions/checkout@v2
       with:
         repository: phantomSPH/phantom-benchmarks
         path: phantom-benchmarks
 
     - name: "Install SSH Key"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Grab a copy of the benchmark tests (without LFS)"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       uses: actions/checkout@v2
       with:
         repository: phantomSPH/phantom-benchmarks
         path: phantom-benchmarks
 
     - name: "Load previous benchmark data from phantom-data-files"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       working-directory: phantom-benchmarks
       run: |
         rsync -vau ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR} .
 
     - name: "Plot benchmarks"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       working-directory: phantom-benchmarks
       run: ./plot-benchmarks.sh
       env:
         PHANTOM_DIR: ${{ github.workspace }}
 
     - name: "Copy plots to phantom-data-files"
-      if: ${{ env.SECRET_ACCESS }}
+      if: env.SECRET_ACCESS == 'true'
       working-directory: phantom-benchmarks
       run: |
         rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${PERF_PLOT_DIR} || true
