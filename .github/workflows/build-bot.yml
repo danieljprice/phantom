@@ -59,7 +59,7 @@ jobs:
     - name: "Grab previous build logs from web server"
       env:
         WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}/${BUILD_LOG_DIR}/ || true
+      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
 
     - name: "Run buildbot.sh"
       run: ./buildbot.sh 17000000 http://${WEB_SERVER}/${BUILD_LOG_DIR}
