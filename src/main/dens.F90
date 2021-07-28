@@ -1609,7 +1609,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
           call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)
           divcurlv(1:ndivcurlv,lli) = real(divcurlvi(1:ndivcurlv),kind=kind(divcurlv)) ! save to global memory
-          if (nalpha >= 3) alphaind(3,lli) = divcurlvi(5)
+          if (nalpha >= 3) alphaind(3,lli) = real4(divcurlvi(5))
        else ! we always need div v for h prediction
           if (ndivcurlv >= 1) divcurlv(1,lli) = -real4(rhosum(idivvi)*term)
           if (nalpha >= 2) alphaind(2,lli) = 0.
