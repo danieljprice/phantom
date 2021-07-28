@@ -16,6 +16,7 @@ env:
   WEB_SERVER: data.phantom.cloud.edu.au
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
+  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
 
 jobs:
   build:
@@ -30,6 +31,11 @@ jobs:
 
     steps:
 
+    - name: "Install SSH Key"
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
@@ -41,14 +47,6 @@ jobs:
       with:
         repository: danieljprice/splash
         path: splash
-
-    - name: "Install SSH Key"
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-        known_hosts: |
-          ${{ secrets.WEBSERVER_KNOWN_HOST }}
-        if_key_exists: "replace"
 
     - name: "Create logs directory"
       run: mkdir logs
@@ -72,7 +70,7 @@ jobs:
       if: always()
       run: |
         export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
-        ssh ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
+        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
         rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
 
     - name: logs/build-failures-${{ matrix.system[1] }}.txt
