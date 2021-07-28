@@ -35,11 +35,8 @@ jobs:
 
     steps:
 
-    - name: "DEBUG"
-      run: echo ${{ env.SECRET_ACCESS }} ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
-
     - name: "Install SSH Key"
-      if: ${{ env.SECRET_ACCESS }}
+      if: ${{ env.SECRET_ACCESS == 'true' }}
       uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
