@@ -5,7 +5,7 @@ name: mpi
 # events but only for the master branch
 on:
   push:
-    branches: [ master ]
+    branches: [ mpi ]
   pull_request:
     branches: [ master ]
 
@@ -21,7 +21,9 @@ jobs:
 
     steps:
     - name: Install gfortran and openMPI
-      run: sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
