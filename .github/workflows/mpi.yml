@@ -5,7 +5,7 @@ name: mpi
 # events but only for the master branch
 on:
   push:
-    branches: [ mpi ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
