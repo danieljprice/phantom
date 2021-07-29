@@ -5,21 +5,31 @@ name: mpi
 # events but only for the master branch
 on:
   push:
-    branches: [ master ]
+    branches: [ mpi ]
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  mpi:
-    # The type of runner that the job will run on
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        debug:
+          - no
+          - yes
+        openmp:
+          - no
+          - yes
+
+    name: MPI DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}
+
     runs-on: ubuntu-latest
+
     env:
-      SYSTEM: gfortran
       OMP_STACKSIZE: 512M
 
     steps:
+
     - name: Install gfortran and openMPI
       run: |
         sudo apt-get --yes update
@@ -28,8 +38,10 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: compile with MPI
-      run: make SETUP=testkd MPI=yes OPENMP=no phantomtest
+    - name: Compile with MPI
+      run: make SETUP=testkd MPI=yes OPENMP=${{ matrix.openmp }}  phantomtest
+      env:
+        SYSTEM: gfortran
 
-    - name: test with MPI
+    - name: Test with MPI
       run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest
