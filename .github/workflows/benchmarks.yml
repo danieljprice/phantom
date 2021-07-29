@@ -19,7 +19,7 @@ on:
 env:
   OMP_STACKSIZE: 512M
   WEB_SERVER: data.phantom.cloud.edu.au
-  WEB_USER: ec2-user
+  WEB_USER: github
   HTML_DIR: /var/www/html/
   BENCH_LOG_DIR: /ci/bench/
   PERF_PLOT_DIR: /nightly/opt/

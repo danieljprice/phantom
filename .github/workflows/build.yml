@@ -20,7 +20,7 @@ env:
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
   PHANTOM_DIR: ${{ github.workspace }}
-  WEB_USER: ec2-user
+  WEB_USER: github
   WEB_SERVER: data.phantom.cloud.edu.au
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
