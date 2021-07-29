@@ -1,12 +1,18 @@
-name: test-bot
+name: test
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
 
 env:
   OMP_STACKSIZE: 512M
@@ -32,6 +38,12 @@ jobs:
           - ['testnimhd', 'nimhd']
           - ['test2', '']
           - ['testcyl', '']
+
+    name: |
+      test (SYSTEM=${{ matrix.system[1] }},
+            DEBUG=${{ matrix.debug }},
+            SETUP=${{ matrix.input[0] }},
+            targets=${{ matrix.input[1] }})
 
     runs-on: ${{ matrix.system[0] }}
 

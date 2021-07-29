@@ -35,7 +35,7 @@ jobs:
 
     - name: Install gfortran and openMPI
       run: |
-        sudo apt-get update
+        sudo apt-get --yes update
         sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it

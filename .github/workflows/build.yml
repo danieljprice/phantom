@@ -1,22 +1,26 @@
-name: build-bot
+name: build
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
   schedule:
     - cron: "0 0 * * *"
 
 env:
-  # Only post results to web server if secrets are accessible (i.e. scheduled runs)
-  SECRET_ACCESS: ${{ secrets.RUNNER_PRIVATE_KEY  != '' }}
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
   PHANTOM_DIR: ${{ github.workspace }}
-  WEB_USER: ec2-user
+  WEB_USER: github
   WEB_SERVER: data.phantom.cloud.edu.au
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
@@ -31,15 +35,11 @@ jobs:
           - ['self-hosted', 'ifort']
           - ['ubuntu-latest', 'gfortran']
 
+    name: build (SYSTEM=${{ matrix.system[1] }})
+
     runs-on: ${{ matrix.system[0] }}
 
     steps:
-
-    - name: "Install SSH Key"
-      if: env.SECRET_ACCESS == 'true'
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
@@ -68,12 +68,18 @@ jobs:
         SYSTEM: ${{ matrix.system[1] }}
         RETURN_ERR: yes
 
+    - name: "Install SSH Key"
+      if: github.event_name == 'schedule'
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
     - name: "Copy new build logs to web server"
-      if: always() && env.SECRET_ACCESS == 'true'
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
       run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
 
     - name: "Copy HTML files to web server"
-      if: always() && env.SECRET_ACCESS == 'true'
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
       run: |
         export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
         ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
