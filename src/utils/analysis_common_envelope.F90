@@ -111,7 +111,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '23) Particle tracker', &
             '24) Unbound ion fraction', &
             '25) Optical depth at recombination', &
-            '26) Binding energy outside core', &
+            '26) Envelope binding energy', &
             '27) Print dumps number matching separation'
 
     analysis_to_perform = 1
@@ -123,7 +123,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23,24,25/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,10,11,13,14,15,20,21,22,23,24,25,26/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -528,8 +528,8 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
  ekin = 0.
 
  do i=1,npart
-    encomp(ipot_pp) = encomp(ipot_pp) + poten(i) ! THIS IS WRONG: You are double counting
-    encomp(ipot_env) = encomp(ipot_env) + poten(i) ! THIS IS WRONG: You are double counting
+    encomp(ipot_pp)  = encomp(ipot_pp) + poten(i) ! poten already includes factor of 1/2 to correct for double counting
+    encomp(ipot_env) = encomp(ipot_env) + poten(i)
 
     call cross(xyzh(1:3,i),particlemass * vxyzu(1:3,i),rcrossmv)
 
@@ -1076,7 +1076,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     case(2) ! Mach number
     case(3) ! Opacity from MESA tables
     case(4) ! Gas omega w.r.t. effective CoM
-    case(5  ) ! Fractional difference between gas and orbital omega
+    case(5) ! Fractional difference between gas and orbital omega
        ! Tom's way of calculating orbit omega
        !  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
        com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1415,52 +1415,6 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
 end subroutine tau_profile
-
-
-!----------------------------------------------------------------
-!+
-!  Calculate binding energy outside core radius
-!+
-!----------------------------------------------------------------
-subroutine env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
- use part,  only:ihsoft
- use units, only:unit_energ
- integer, intent(in)    :: npart
- real,    intent(in)    :: time,particlemass
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i,j
- real                   :: core_pcle_sep,comp_pcle_sep,ebind_grav,ebind_comp,eint,rcore
-
- ebind_grav = 0.
- ebind_comp = 0.
- eint = 0.
- rcore = 2.*xyzmh_ptmass(ihsoft,1)
-
- do i=1,npart
-    core_pcle_sep = separation(xyzh(1:3,i), xyzmh_ptmass(1:3,1))
-    comp_pcle_sep = separation(xyzh(1:3,i), xyzmh_ptmass(1:3,2))
-    if (core_pcle_sep > rcore) cycle 
-    eint = eint + vxyzu(4,i)
-    ebind_grav = ebind_grav - xyzmh_ptmass(4,1) / core_pcle_sep ! Potential due to core
-    ebind_comp = ebind_comp - xyzmh_ptmass(4,2) / comp_pcle_sep ! Potential due to companion
-                                                                ! Potential due to envelope particles
-    if (i == npart) exit
-    do j=i+1,npart
-       if ( separation(xyzh(1:3,j), xyzmh_ptmass(1:3,1)) > rcore ) cycle 
-       ebind_grav = ebind_grav - particlemass / separation(xyzh(1:3,i),xyzh(1:3,j))
-    enddo
- enddo
-
- ! Convert potentials to energies
- eint = eint * particlemass * unit_energ
- ebind_grav = ebind_grav * particlemass * unit_energ
-
- print*,'GPE                              = ',ebind_grav,' erg'
- print*,'GPE with companion               = ',ebind_grav + ebind_comp,' erg'
- print*,'Ebind with thermal               = ',ebind_grav + eint,' erg'
- print*,'Ebind with thermal and companion = ',ebind_grav + ebind_comp + eint,' erg'
-
-end subroutine env_binding_ene
 
 
 !----------------------------------------------------------------
@@ -2052,6 +2006,46 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
 
 end subroutine sink_properties
 
+
+
+subroutine env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)    :: npart
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: i
+ real                   :: ethi,phii,rhoi,ponrhoi,spsoundi,dum
+ real                   :: bind_g,bind_th,bind_int,eth_tot,eint_tot
+
+ bind_g = 0.
+ bind_th = 0.
+ bind_int = 0.
+ eint_tot = 0.
+ eth_tot = 0.
+ do i=1,npart
+    ! Gas-gas potential
+    bind_g = bind_g + poten(i) ! Double counting factor of 1/2 already included in poten
+
+    ! Sink-sink potential
+    phii = 0.
+    call get_accel_sink_gas(1,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass(:,1),dum,dum,dum,phii) ! Include only core particle; no companion
+    bind_g = bind_g + particlemass * phii
+
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhoi,eos_vars(itemp,i),ethi)
+
+    eth_tot = eth_tot + ethi
+    eint_tot = eint_tot + particlemass * vxyzu(4,i)
+ enddo
+ bind_th  = bind_g + eth_tot
+ bind_int = bind_g + eint_tot
+
+ print*,bind_g*unit_energ, bind_th*unit_energ, bind_int*unit_energ
+
+end subroutine env_binding_ene
+
+
 subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  integer, intent(in)          :: npart
  real, intent(in)             :: time, particlemass
@@ -2587,7 +2581,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
 
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
 
- epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get GmM/r
+ epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
  etoti = epoti + ekini + einti
