@@ -14,9 +14,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        system:
-          - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
         debug:
           - no
           - yes
@@ -24,9 +21,9 @@ jobs:
           - no
           - yes
 
-    name: MPI ${{ matrix.system[1] }} DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}
+    name: MPI DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}
 
-    runs-on: ${{ matrix.system[0] }}
+    runs-on: ubuntu-latest
 
     env:
       OMP_STACKSIZE: 512M
@@ -44,8 +41,7 @@ jobs:
     - name: Compile with MPI
       run: make SETUP=testkd MPI=yes OPENMP=${{ matrix.openmp }}  phantomtest
       env:
-        SYSTEM: ${{ matrix.system[1] }}
-        OMPI_FC: ${{ matrix.system[1] }}
+        SYSTEM: gfortran
 
     - name: Test with MPI
       run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest
