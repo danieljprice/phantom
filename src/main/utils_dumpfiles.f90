@@ -1479,7 +1479,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
        select case(i)
        case(i_int)
           if (allocated(hdr%inttags) .and. allocated(hdr%intvals)) then
-             write(iunit,iostat=ierrs(2)) hdr%inttags(1:number)
+             write(iunit,iostat=ierrs(2)) (hdr%inttags(j),j=1,number)
              write(iunit,iostat=ierrs(3)) hdr%intvals(1:number)
           else
              write(iunit,iostat=ierrs(2)) (tag('unknown'),j=1,number)
@@ -1487,7 +1487,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_int1)
           if (allocated(hdr%int1tags) .and. allocated(hdr%int1vals)) then
-             write(iunit,iostat=ierrs(4)) hdr%int1tags(1:number)
+             write(iunit,iostat=ierrs(4)) (hdr%int1tags(j),j=1,number)
              write(iunit,iostat=ierrs(5)) hdr%int1vals(1:number)
           else
              write(iunit,iostat=ierrs(4)) (tag('unknown'),j=1,number)
@@ -1495,7 +1495,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_int2)
           if (allocated(hdr%int2tags) .and. allocated(hdr%int2vals)) then
-             write(iunit,iostat=ierrs(6)) hdr%int2tags(1:number)
+             write(iunit,iostat=ierrs(6)) (hdr%int2tags(j),j=1,number)
              write(iunit,iostat=ierrs(7)) hdr%int2vals(1:number)
           else
              write(iunit,iostat=ierrs(6)) (tag('unknown'),j=1,number)
@@ -1503,7 +1503,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_int4)
           if (allocated(hdr%int4tags) .and. allocated(hdr%int4vals)) then
-             write(iunit,iostat=ierrs(8)) hdr%int4tags(1:number)
+             write(iunit,iostat=ierrs(8)) (hdr%int4tags(j),j=1,number)
              write(iunit,iostat=ierrs(9)) hdr%int4vals(1:number)
           else
              write(iunit,iostat=ierrs(8)) (tag('unknown'),j=1,number)
@@ -1511,7 +1511,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_int8)
           if (allocated(hdr%int8tags) .and. allocated(hdr%int8vals)) then
-             write(iunit,iostat=ierrs(10)) hdr%int8tags(1:number)
+             write(iunit,iostat=ierrs(10)) (hdr%int8tags(j),j=1,number)
              write(iunit,iostat=ierrs(11)) hdr%int8vals(1:number)
           else
              write(iunit,iostat=ierrs(10)) (tag('unknown'),j=1,number)
@@ -1519,7 +1519,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_real)
           if (allocated(hdr%realtags) .and. allocated(hdr%realvals)) then
-             write(iunit,iostat=ierrs(12)) hdr%realtags(1:number)
+             write(iunit,iostat=ierrs(12)) (hdr%realtags(j),j=1,number)
              if (sing_prec) then
                 write(iunit,iostat=ierrs(13)) real(hdr%realvals(1:number),kind=4)
              else
@@ -1535,7 +1535,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_real4)
           if (allocated(hdr%real4tags) .and. allocated(hdr%real4vals)) then
-             write(iunit,iostat=ierrs(14)) hdr%real4tags(1:number)
+             write(iunit,iostat=ierrs(14)) (hdr%real4tags(j),j=1,number)
              write(iunit,iostat=ierrs(15)) hdr%real4vals(1:number)
           else
              write(iunit,iostat=ierrs(14)) (tag('unknown'),j=1,number)
@@ -1543,7 +1543,7 @@ subroutine write_header(iunit,hdr,ierr,singleprec)
           endif
        case(i_real8)
           if (allocated(hdr%real8tags) .and. allocated(hdr%real8vals)) then
-             write(iunit,iostat=ierrs(16)) hdr%real8tags(1:number)
+             write(iunit,iostat=ierrs(16)) (hdr%real8tags(j),j=1,number)
              write(iunit,iostat=ierrs(17)) hdr%real8vals(1:number)
           else
              write(iunit,iostat=ierrs(16)) (tag('unknown'),j=1,number)
