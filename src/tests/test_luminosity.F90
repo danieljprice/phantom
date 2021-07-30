@@ -57,8 +57,10 @@ subroutine test_lum(ntests,npass)
  real                   :: time
  real(kind=4) :: t1,t2
  integer                :: nfail(1),ii
-#endif
+#ifdef IND_TIMESTEPS
  integer :: nactive
+#endif
+#endif
 
 !#ifdef DISC_VISCOSITY
 !    if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF LIGHTCURVE (cannot have -DDISC_VISCOSITY)'
