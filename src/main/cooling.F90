@@ -42,7 +42,7 @@ module cooling
 
  public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
- public :: find_in_table
+ public :: find_in_table, implicit_cooling, exact_cooling
  logical, public :: calc_Teq
  logical, public :: cooling_implicit
  logical, public :: cooling_explicit
@@ -529,6 +529,8 @@ subroutine exact_cooling (u, dudt, rho, dt, Trad, mu_in, K2, kappa)
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Trad, mu, K2, kappa)
     Y = 0.
     k = nTg
+    Q = Qref                  ! default value if Tgrid < T for all k
+    dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
     do while (Tgrid(k) > T)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Trad, mu, K2, kappa)

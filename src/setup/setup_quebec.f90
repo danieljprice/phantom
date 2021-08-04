@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! this module does setup
+! setup for Quebec collaboration (ask T. Tricco for what this does)
 !
 ! :References: None
 !
@@ -33,14 +33,13 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,maxvxyzu
- use spherical, only:set_sphere
+ use part,      only:maxvxyzu
+ use spherical, only:set_sphere,rho_func
  use io,        only:master
- use setup_params, only:rhozero,npart_total
- use externalforces, only:mass1
+ use setup_params,   only:rhozero,npart_total
  use units,          only:set_units,udist,umass,utime
  use physcon,        only:pi,solarr,solarm,Rg,gg
- use prompting,      only: prompt
+ use prompting,      only:prompt
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,11 +49,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- real :: massr,m1,m2,a,hacc1,hacc2,ecc
- real :: P1,P2,P3,Q1,Q2,Q3,big_omega,omega,inc,E,v1,v2,E_dot
- real :: rmin,rmax,psep,totvol,dr,t,dt,total_mass,r
+ real :: a
+ real :: rmin,rmax,psep,totvol,total_mass,r
  integer :: i,nx,np,npmax
  real :: Rg_codeunits
+ procedure(rho_func), pointer :: density_func
 
  call set_units(dist=solarr, mass=solarm, G=1.0)
 
@@ -100,7 +99,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=rhofunc,nptot=npart_total)
+ density_func => rhofunc
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=density_func,nptot=npart_total)
 
 !
 !--set particle properties
@@ -132,6 +132,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
+!--------------------------------------
+!+
+!  functional form of density profile
+!+
+!--------------------------------------
 real function rhofunc(r)
  use units,          only:udist,umass
  use physcon,        only:pi,Rg,gg,solarm,solarr

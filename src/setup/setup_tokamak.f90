@@ -40,7 +40,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:iexternalforce
  use part,         only:igas
  use extern_Bfield, only:Rtorus,a_on_Rtorus,currJ0
- use stretchmap,    only:set_density_profile
+ use stretchmap,    only:set_density_profile,rho_func
  use geometry,      only:coord_transform
  use externalforces, only:iext_externB
  integer,           intent(in)    :: id
@@ -56,6 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: xtorus,ztorus,atorus,rintorus2
  real :: phi,rcyl,ra2,pri,da2,gam1,hzero,totmass,totvol
  integer :: ipart,i,j,k,nx,nphi,nz,iseed
+ procedure(rho_func), pointer :: density_func
 
  if (periodic) then
     call fatal('setup','periodic boundaries not compatible with torus setup')
@@ -133,14 +134,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--Stretching the spatial distribution to have the desired density distribution
 !
- call set_density_profile(npart,xyzh,rhofunc=densfunc,min=0.,max=atorus,geom=4)
+ density_func => densfunc
+ call set_density_profile(npart,xyzh,rhofunc=density_func,min=0.,max=atorus,geom=4)
 !
 !--set input options
 !
  iexternalforce = iext_externB
 
 contains
-
+!-------------------------------------------------
+!+
+!  callback function for desired density profile
+!+
+!-------------------------------------------------
 real function densfunc(r)
  real, intent(in) :: r
  real :: ra2, pri
@@ -156,4 +162,3 @@ end function densfunc
 end subroutine setpart
 
 end module setup
-
