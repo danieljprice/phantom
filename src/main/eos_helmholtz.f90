@@ -92,18 +92,18 @@ module eos_helmholtz
          ddi_sav(imax), dd2i_sav(imax), dd3i_sav(imax)
 
 ! for the helmholtz free energy tables
- real :: f(imax,jmax),    fd(imax,jmax),   ft(imax,jmax), &
-         fdd(imax,jmax),  ftt(imax,jmax),  fdt(imax,jmax), &
-         fddt(imax,jmax), fdtt(imax,jmax), fddtt(imax,jmax)
+ real, allocatable :: f(:,:),fd(:,:),ft(:,:), &
+                      fdd(:,:),ftt(:,:),fdt(:,:), &
+                      fddt(:,:),fdtt(:,:),fddtt(:,:)
 
 ! for the pressure derivative with density tables
- real :: dpdf(imax,jmax), dpdfd(imax,jmax), dpdft(imax,jmax), dpdfdt(imax,jmax)
+ real, allocatable :: dpdf(:,:),dpdfd(:,:),dpdft(:,:),dpdfdt(:,:)
 
 ! for chemical potential tables
- real :: ef(imax,jmax), efd(imax,jmax), eft(imax,jmax), efdt(imax,jmax)
+ real, allocatable :: ef(:,:),efd(:,:),eft(:,:),efdt(:,:)
 
 ! for the number density tables
- real :: xf(imax,jmax), xfd(imax,jmax), xft(imax,jmax), xfdt(imax,jmax)
+ real, allocatable :: xf(:,:),xfd(:,:),xft(:,:),xfdt(:,:)
 
 contains
 
@@ -114,15 +114,14 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine eos_helmholtz_init(ierr)
- use io,        only:warning,id,master
+ use io,        only:warning,id,master,fatal
  use datafiles, only:find_phantom_datafile
  integer, intent(out) :: ierr
  character(len=120) :: filename
  character(len=120) :: line
- integer :: i, j, iunit
- real    :: tsav, dsav, dth, dt2, dti, dt2i, dt3i, &
-                       dd, dd2, ddi, dd2i, dd3i
- real    :: thi, tstp, dhi, dstp
+ integer :: i,j,iunit
+ real    :: tsav,dsav,dth,dt2,dti,dt2i,dt3i,dd,dd2,ddi,dd2i,dd3i
+ real    :: thi,tstp,dhi,dstp
 
  ierr = 0
 
@@ -131,6 +130,15 @@ subroutine eos_helmholtz_init(ierr)
     call eos_helmholtz_set_relaxflag(1)
  endif
 
+ ! allocate memory
+ allocate(f(imax,jmax),fd(imax,jmax),ft(imax,jmax), &
+          fdd(imax,jmax),ftt(imax,jmax),fdt(imax,jmax), &
+          fddt(imax,jmax),fdtt(imax,jmax),fddtt(imax,jmax),stat=ierr)
+ if (ierr /= 0) call fatal('helmholtz','could not allocate memory (free energy arrays)')
+ allocate(dpdf(imax,jmax),dpdfd(imax,jmax),dpdft(imax,jmax),dpdfdt(imax,jmax), &
+          ef(imax,jmax),efd(imax,jmax),eft(imax,jmax),efdt(imax,jmax), &
+          xf(imax,jmax),xfd(imax,jmax),xft(imax,jmax),xfdt(imax,jmax),stat=ierr)
+ if (ierr /= 0) call fatal('helmholtz','could not allocate memory (derivatives)')
 
  ! set the species information
  speciesname(1) = "hydrogen"
@@ -194,7 +202,7 @@ subroutine eos_helmholtz_init(ierr)
  ! check that the full datafile is there, not just the text git-lfs pointer
  read(iunit,*,iostat=ierr) line
  if (line(1:7) == 'version') then
-    if (id==master) call warning('eos_helmoltz','full datafile not present. Download using git-lfs')
+    if (id==master) call warning('eos_helmholtz','full datafile not present. Download using git-lfs')
     ierr = 1
     return
  else

@@ -315,6 +315,15 @@ module dim
 #endif
 
 !--------------------
+! MCFOST library
+!--------------------
+#ifdef MCFOST
+ logical, parameter :: compiled_with_mcfost = .true.
+#else
+ logical, parameter :: compiled_with_mcfost = .false.
+#endif
+
+!--------------------
 ! Light curve stuff
 !--------------------
  integer :: maxlum = 0

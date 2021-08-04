@@ -387,6 +387,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        spsoundi = sqrt(gamma_local*ponrhoi)
        if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     else
+       ponrhoi = 0.
+       spsoundi = 0.
        call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
     endif
 
@@ -553,7 +555,7 @@ end function gamma_pwp
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos(eos_type,ierr)
- use units,    only:unit_density,unit_velocity,unit_pressure,unit_ergg
+ use units,    only:unit_density,unit_velocity,unit_pressure
  use physcon,  only:mass_proton_cgs,kboltz
  use io,       only:error,warning
  use eos_mesa, only:init_eos_mesa

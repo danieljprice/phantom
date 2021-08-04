@@ -28,6 +28,10 @@ module radiation_utils
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
+ ! following declared public to avoid compiler warnings
+ public :: solve_internal_energy_implicit_substeps
+ public :: solve_internal_energy_explicit
+ public :: solve_internal_energy_explicit_substeps
 
  private
 
@@ -78,7 +82,7 @@ end subroutine set_radiation_and_gas_temperature_equal
 !-------------------------------------------------
 real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi)
  use physcon,   only:Rg,steboltz,c
- use units,     only:unit_ergg,unit_density,get_steboltz_code,get_c_code
+ use units,     only:unit_ergg,get_steboltz_code,get_c_code
  real, intent(in) :: rho,u_gas,gamma,gmw
  real :: temp,cv1,a,Erad,steboltz_code,c_code
 

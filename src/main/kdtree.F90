@@ -534,6 +534,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  il = 0
  nl = 0
  nr = 0
+ wassplit = .false.
  if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
 
  r2max = 0.
