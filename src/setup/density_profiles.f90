@@ -528,6 +528,7 @@ subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  !
  !--Read data from file
  !
+ 
  n = 0
  stardata(:,:) = 0.
  n_too_big = .false.
