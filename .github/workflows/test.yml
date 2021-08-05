@@ -2,7 +2,7 @@ name: test
 
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ master ]
     paths-ignore:
       - 'docs/**'
       - 'README.md'

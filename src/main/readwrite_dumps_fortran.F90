@@ -378,7 +378,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
-          call write_array(1,eos_vars(igasP,:),eos_vars_label(igasP),npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=igasP)
        endif
 
        ! smoothing length written as real*4 to save disk space

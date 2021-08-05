@@ -20,6 +20,8 @@ module forces
 !  MHD:
 !      Tricco & Price (2012), J. Comp. Phys. 231, 7214-7236
 !      Tricco, Price & Bate (2016), MNRAS 322, 326-344
+!      Wurster, Price & Ayliffe (2014), MNRAS 444, 1104-1112
+!      Wurster, Price & Bate (2016), MNRAS 457, 1037-1061
 !  Dust:
 !      Laibe & Price (2012a), MNRAS 420, 2345-2364
 !      Laibe & Price (2012b), MNRAS 420, 2365-2376
@@ -28,6 +30,10 @@ module forces
 !      Ballabio et al. (2018), MNRAS 477, 2766-2771
 !      Mentiplay, Price, Pinte & Laibe (2020), MNRAS 499, 3806-3818
 !      Price & Laibe (2020), MNRAS 495, 3929-3934
+!  Radiation:
+!      Whitehouse & Bate (2004), MNRAS 353, 1078-1094
+!  GR:
+!      Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: Conrad Chan
 !
