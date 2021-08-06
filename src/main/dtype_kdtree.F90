@@ -79,6 +79,7 @@ contains
 subroutine get_mpitype_of_kdnode(dtype)
  use mpi
  use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
 
@@ -163,12 +164,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(node)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(node)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+    call error('dtype_kdtree','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 end subroutine get_mpitype_of_kdnode
