@@ -1,5 +1,5 @@
 # action to run phantom's automatic maintenance scripts
-name: bots
+name: maintenance
 
 # Controls when the action will run. Triggers the workflow on pull request
 # events but only for the master branch
@@ -10,7 +10,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
-  build:
+  maintenance:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
@@ -20,7 +20,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Install findent
-      run: sudo apt-get install findent
+      run: sudo apt-get --yes install findent
 
     - name: Run the bots
       run: |
