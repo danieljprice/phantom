@@ -157,7 +157,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  disp(nblock) = addr - start
 #endif
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
