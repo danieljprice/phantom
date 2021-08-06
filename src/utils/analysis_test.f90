@@ -22,10 +22,12 @@ contains
     if ( .not.iexist .or. firstcall ) then
        firstcall = .false.
        open(iunit,file=fileout,status='replace')
-       write(iunit,"(A,I5)") 'hello world!'
+       write(iunit,*)'hello world!'
      else
         open(iunit,file=fileout,position='append')
+
      endif
+     write(iunit,*) trim(dumpfile)
      close(iunit)
   end subroutine do_analysis
 end module analysis
