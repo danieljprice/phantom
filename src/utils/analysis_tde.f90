@@ -73,19 +73,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  logical :: iexist
  real(4) :: luminosity(npart)
 
+
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
  endif
 
  call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
+
  if (ierr/=0) then
     write(*,*)
     write(*,'("WARNING: could not read luminosity from file. It will be set to zero")')
     write(*,*)
     luminosity = 0.
  endif
-
+ print*, luminosity(:), 'luminsoity found'
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
@@ -99,6 +101,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Read black hole mass from params file
  filename = 'analysis_'//trim(analysistype)//'.params'
+ print*, trim(analysistype), 'trim(analysistype)'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_tdeparams(filename,ierr)
  if (.not.iexist.or.ierr/=0) then
@@ -148,6 +151,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        vbins(i),   &
        dmdv(i)
  enddo
+
 
 end subroutine do_analysis
 
