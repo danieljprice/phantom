@@ -87,7 +87,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(*,*)
     luminosity = 0.
  endif
- print*, luminosity(:), 'luminsoity found'
+
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile

@@ -35,6 +35,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real(4) :: temperature(npart)
    real(4) :: entropy(npart)
    real(4) :: int_eng(npart)
+   real, dimension(npart) :: mass, velocity, outer_rad, tot_mass
    real    :: gamma = 5./3.
 
    if (.not.opened_full_dump) then
@@ -42,6 +43,19 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       return
    endif
 
+   !read the particle mass, velocity, radius and save it as an array
+   do i = 1, npart
+     !set the mass as the particle mass.
+     mass(i) = pmass !every particle has same mass.
+
+     !calculate the poasition which is the location of the particle.
+     outer_rad(i) = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+
+     !calculate the velocity using the magnitude of the velocity vector i.e., velocity = sqrt(v.v) where v is a vector.
+     velocity(i) = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
+
+   end do
+   print*, vxyzu(1:3,1), 'velocity'
    !Read density of each particle caculated.
    call read_array_from_file(123,dumpfile,'rhogas',density(1:npart),ierr)
    if (ierr/=0) then
@@ -106,14 +120,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     open(iunit,file=output)
     write(iunit,'("# ",es20.12,"   # TIME")') time !Don't need time for the kepler file but just testing things.
     write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'density',      &
-          2,'temperature',  &
-          3,'pressure',     &
-          4,'entropy',      &
-          5,'int. energy'
+          1,'mass',               &
+          2,'outer radius',       &
+          3,'outer velocity',     &
+          4,'density',            &
+          5,'temperature',        &
+          6,'pressure',           &
+          7,'entropy',            &
+          8,'int. energy'
 
     do i = 1,npart
        write(iunit,'(3(es18.10,1X))') &
+              mass(i),           &
+              outer_rad(i),      &
+              velocity(i),       &
               density(i),        &
               temperature(i),    &
               pressure(i),       &
