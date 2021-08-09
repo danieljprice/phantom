@@ -75,10 +75,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use forces,         only:force
  use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
-#ifdef GR
- use cons2prim,      only:cons2primall
-#endif
- use cons2prim,      only:cons2prim_everything
+ use cons2prim,      only:cons2primall, cons2prim_everything
+ use metric_tools,   only:init_metric
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
