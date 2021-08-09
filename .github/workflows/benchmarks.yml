@@ -73,7 +73,7 @@ jobs:
     - name: "Load previous benchmark data from the web server"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=3 --no-host-directories
       run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
 
     - name: "Run benchmarks"
