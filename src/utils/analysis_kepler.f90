@@ -25,12 +25,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use prompting,  only:prompt
    use readwrite_dumps, only: opened_full_dump
    use vectorutils, only:cross_product3D
+   use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass
+   use centreofmass, only: get_centreofmass
 
    character(len=*),   intent(in) :: dumpfile
    integer,            intent(in) :: numfile,npart,iunit
    real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
    real,               intent(in) :: pmass,time
    character(len=120)             :: output
+   real                           :: xpos(3),vpos(3) !COM position and velocity
    !character(len=20)              :: filename
 
    integer :: i,ierr
@@ -64,14 +67,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      velocity(i) = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
    end do
 
+   !Calculating angular momentum and saving it as an array.
+   !Calculate the (r_x, r_y, r_z) X (v_x, v_y, v_z), ignoring mass as it gets cancelled when equating to I omega
    do i = 1, npart
-      !Calculating angular momentum and saving it as an array.
-      !Calculate the (r_x, r_y, r_z) X (v_x, v_y, v_z), ignoring mass as it gets cancelled when equating to I omega
       call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
       Li_mag(i) = sqrt(dot_product(Li, Li))
    end do
 
-   !from angular momentum, calculate angular velocity
+   !from angular momentum, calculate angular velocity using omega = sqrt(Li, Li)/r^2
    do i = 1, npart
      ang_vel(i) = Li_mag(i)/outer_rad(i)**2
    end do
@@ -102,7 +105,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       write(*,*)
       write(*,'("WARNING: could not read temperature from file. It will be set to zero")')
       write(*,*)
-      pressure = 0.
+      temperature = 0.
    endif
    print*, 'temperature found'
 
@@ -112,7 +115,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       write(*,*)
       write(*,'("WARNING: could not read entropy from file. It will be set to zero")')
       write(*,*)
-      pressure = 0.
+      entropy = 0.
    endif
    print*, 'entropy found'
 
@@ -148,10 +151,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           6,'press[g/(cm s^2)]',     &  !pressure
           7,'entropy',               &  !entropy
           8,'int.eng[erg/g]' ,       &  !specific internal energy
-          9,'ang vel'                  !angular velocity
+          9,'ang vel'                   !angular velocity
 
-    do i = 1,npart
-       write(iunit,'(9(es18.10,1X))') &                             
+    do i = 1, npart
+       write(iunit,'(9(es18.10,1X))') &
               mass(i)*umass,                   &
               outer_rad(i)*udist,              &
               velocity(i)*unit_velocity,       &
@@ -164,7 +167,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     enddo
 
  print*, sum(mass*umass), 'tot mass?'
- end subroutine do_analysis
 
+ !get CoM
+ call get_centreofmass(xpos,vpos,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ print*, '(',xpos(1), xpos(2), xpos(3),')', '-> COM'
+
+ end subroutine do_analysis
 
 end module analysis
