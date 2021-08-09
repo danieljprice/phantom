@@ -1,7 +1,7 @@
 !!This code reads the data from the TDE dumpfile and stores the data in the format liked by kepler.
 !!Flaws in this code- Does not consider bins. Instead the total npart. We need to bin data so that we
 !!have grid similar to input file??
-!!Another problem is every value it reads is 0!!!
+!!Another problem is 0 values.
 !
 !--Writing the analysis module for making a kepler file.
 module analysis
@@ -20,14 +20,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
    use io,         only:warning
    use dump_utils, only:read_array_from_file
+   use units     , only:udist,umass,unit_density,unit_pressure,unit_ergg,unit_velocity !units required to convert to kepler units.
    use prompting,  only:prompt
    use readwrite_dumps, only: opened_full_dump
+
    character(len=*),   intent(in) :: dumpfile
    integer,            intent(in) :: numfile,npart,iunit
    real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
    real,               intent(in) :: pmass,time
-   character(len=120) :: output
-   character(len=20)  :: filename
+   character(len=120)             :: output
+   character(len=20)              :: filename
+
    integer :: i,ierr
    logical :: iexist
    real(4) :: pressure(npart)
@@ -55,7 +58,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      velocity(i) = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
 
    end do
-   print*, vxyzu(1:3,1), 'velocity'
+
+
    !Read density of each particle caculated.
    call read_array_from_file(123,dumpfile,'rhogas',density(1:npart),ierr)
    if (ierr/=0) then
@@ -120,27 +124,28 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     open(iunit,file=output)
     write(iunit,'("# ",es20.12,"   # TIME")') time !Don't need time for the kepler file but just testing things.
     write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'mass',               &
-          2,'outer radius',       &
-          3,'outer velocity',     &
-          4,'density',            &
-          5,'temperature',        &
-          6,'pressure',           &
-          7,'entropy',            &
-          8,'int. energy'
+          1,'mass[g]',               &  !mass of particle
+          2,'position[cm]',          &  !position
+          3,'vel[cm/s]',             &  !velocity
+          4,'den[g/cm^3]',           &  !density
+          5,'temp[K]',               &  !temperature
+          6,'press[g/(cm s^2)]',     &  !pressure
+          7,'entropy',               &  !entropy
+          8,'int.eng[erg/g]'            !specific internal energy
 
     do i = 1,npart
        write(iunit,'(3(es18.10,1X))') &
-              mass(i),           &
-              outer_rad(i),      &
-              velocity(i),       &
-              density(i),        &
-              temperature(i),    &
-              pressure(i),       &
-              entropy(i),        &
-              int_eng(i)
+              mass(i)*umass,                   &
+              outer_rad(i)*udist,              &
+              velocity(i)*unit_velocity,       &
+              density(i)*unit_density,         &
+              temperature(i),                  &
+              pressure(i)*unit_pressure,       &
+              entropy(i),                      & !no entropy unit?
+              int_eng(i)*unit_ergg
     enddo
 
+ print*, sum(mass*umass), 'tot mass?'
  end subroutine do_analysis
 
 
