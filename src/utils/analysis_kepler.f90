@@ -22,7 +22,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use sortutils,       only:set_r2func_origin,indexxfunc,r2func_origin
    use eos,             only:equationofstate
 
-
    integer :: i,ierr
    integer :: no_in_bin !this stores the number of particles in bin after each loop.
    integer :: ibin
@@ -31,12 +30,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer,  intent(in) :: numfile,npart,iunit
    integer :: iorder(npart), j
 
-
    real :: pressure(ngrid)
    real :: rad_grid(ngrid) !radius
    real :: mass(ngrid)
    real :: rad_vel(ngrid) !radial velocity
    real :: density(ngrid)
+   real :: grid_no(ngrid)
    real :: temperature(ngrid)
    real :: entropy(ngrid) !entropy
    real :: int_eng(ngrid) !specific internal energy
@@ -51,7 +50,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: ang_vel_sum ,ang_i
    real,   intent(in) :: xyzh(:,:),vxyzu(:,:)
    real,   intent(in) :: pmass,time
-
 
    character(len=120)             :: output
    character(len=*),   intent(in) :: dumpfile
@@ -69,15 +67,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    call set_r2func_origin(xpos(1),xpos(2),xpos(3))
    call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
-    ibin = 1
-    number_particle = (npart)/(ngrid) !number of particles per bin
+    ibin            = 1
+    number_particle = npart/ngrid !number of particles per bin
     print*, number_particle, 'particle no'
-    no_in_bin = 0 !this keeps tracks of the particles added to the bin in the loop implemented.
-    density_sum = 0.
-    u_sum = 0.
+    no_in_bin       = 0 !this keeps tracks of the particles added to the bin in the loop implemented.
+    density_sum     = 0.
+    u_sum           = 0.
     temperature_sum = 0.
-    pressure_sum =0.
-    vel_sum = 0.
+    pressure_sum    = 0.
+    vel_sum         = 0.
 
    !implementing loop for calculating the values we require.
    do j = 1, npart
@@ -135,6 +133,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        int_eng(ibin)     = u_sum / no_in_bin
        ang_vel(ibin)     = ang_vel_sum / no_in_bin
        rad_vel(ibin)     = vel_sum / no_in_bin
+       grid_no(ibin)     = ibin
 
        !print*, 'Created bin', ibin, rad_grid(ibin) , mass(ibin), density(ibin)
        no_in_bin       = 0
@@ -160,7 +159,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     open(iunit,file=output)
     write(iunit,'("# ",es20.12,"   # TIME")') time
     write(iunit,"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
-          !1,'grid',                 &  !grid number/ bin number
+          1,'grid',                 &  !grid number/ bin number
           2,'mass ',                &  !mass of particle
           3,'radius ',              &  !position
           4,'velocity',             &  !velocity
@@ -173,7 +172,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     do i = 1, ngrid
        write(iunit,'(10(es18.10,1X))') &
-       !write(iunit,*) &
+              grid_no(i),                      &
               mass(i)*umass,                   &
               rad_grid(i)*udist,               &
               rad_vel(i)*unit_velocity,        &
