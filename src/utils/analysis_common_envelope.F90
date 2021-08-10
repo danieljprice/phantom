@@ -1229,7 +1229,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
  character(len=17)       :: filenames(nparttotrack),columns(ncols)
  integer                 :: i,k,partID(nparttotrack),ientropy,ierr
 
- partID = (/ 18295, 35825, 26217, 33149, 16954, 30608, 32186, 18181, 45159, 34156 /)
+ partID = (/ 10336, 210772, 275174, 234208, 370243, 60399, 488763, 151791, 72730, 10147 /)
  columns = (/ '      r',&
               '      v',&
               '    rho',&
@@ -1295,17 +1295,14 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  integer, intent(in)          :: npart,num
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- integer                      :: npart_hist,nbins
  real, dimension(5,npart)     :: dist_part,rad_part
  real, allocatable            :: hist_var(:)
- real                         :: minloga,maxloga,xh0,xh1,xhe0,xhe1,xhe2
- real                         :: pressure,temperature,rhopart
- character(len=17), allocatable :: grid_file(:)
+ real                         :: minloga,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
+ character(len=17)            :: grid_file(5)
  character(len=40)            :: data_formatter
- integer                      :: i,unitnum
+ integer                      :: nbins,i,unitnum
 
  call compute_energies(time)
- npart_hist = 0
  nbins = 300
  rad_part = 0.
  dist_part = 0.
@@ -1320,21 +1317,20 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
                 'grid_HeIIIfrac.ev' /)
 
  do i=1,npart
-    rhopart = rhoh(xyzh(4,i), particlemass)
-    npart_hist = npart_hist + 1
-    rad_part(1,npart_hist) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1)) ! Mike: What is the difference between npart_hist and i?
-    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
-    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-    dist_part(1,npart_hist) = xh0
-    dist_part(2,npart_hist) = xh1
-    dist_part(3,npart_hist) = xhe0
-    dist_part(4,npart_hist) = xhe1
-    dist_part(5,npart_hist) = xhe2
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    rad_part(1,i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    call get_eos_pressure_temp_mesa(rhoi*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature)
+    call ionisation_fraction(rhoi*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    dist_part(1,i) = xh0
+    dist_part(2,i) = xh1
+    dist_part(3,i) = xhe0
+    dist_part(4,i) = xhe1
+    dist_part(5,i) = xhe2
  enddo
 
 
  do i=1,5
-    call histogram_setup(rad_part(1,1:npart_hist),dist_part(i,1:npart_hist),hist_var,npart_hist,maxloga,minloga,nbins,.true.)
+    call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,minloga,nbins,.true.)
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
     if (num == 0) then
        unitnum = 1000
