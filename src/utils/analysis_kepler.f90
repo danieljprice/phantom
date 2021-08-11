@@ -15,14 +15,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use dump_utils,      only:read_array_from_file
    use units,           only:udist,umass,unit_density,unit_pressure,unit_ergg,unit_velocity !units required to convert to kepler units.
    use prompting,       only:prompt
-   use readwrite_dumps, only: opened_full_dump
+   use readwrite_dumps, only:opened_full_dump
    use vectorutils,     only:cross_product3D
-   use part,            only: nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
-   use centreofmass,    only: get_centreofmass
+   use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
+   use centreofmass,    only:get_centreofmass
    use sortutils,       only:set_r2func_origin,indexxfunc,r2func_origin
    use eos,             only:equationofstate
 
-   integer :: i,ierr
+   integer :: i
    integer :: no_in_bin !this stores the number of particles in bin after each loop.
    integer :: ibin
    integer :: number_particle, ieos
@@ -40,14 +40,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: entropy(ngrid) !entropy
    real :: int_eng(ngrid) !specific internal energy
    real :: ang_vel(ngrid) !angular velocity
-   real :: density_sum, density_i
-   real :: u_sum, u_i !specific internal energy storage
-   real :: temperature_i, temperature_sum
-   real :: pressure_i, pressure_sum
-   real :: Li(3), pos(3), vel(3), rad, grid !defining angular momentum vector
-   real :: xpos(3), vpos(3) !COM position and velocity
-   real :: ponrhoi, spsoundi, vel_i, vel_sum
-   real :: ang_vel_sum ,ang_i
+   real :: bin_mass(ngrid) !cell mass in kepler
+   real :: density_sum,density_i
+   real :: u_sum,u_i !specific internal energy storage
+   real :: temperature_i,temperature_sum
+   real :: pressure_i,pressure_sum
+   real :: Li(3),pos(3),vel(3),rad !defining angular momentum vector
+   real :: xpos(3),vpos(3) !COM position and velocity
+   real :: ponrhoi,spsoundi,vel_i,vel_sum
+   real :: ang_vel_sum,ang_i
    real,   intent(in) :: xyzh(:,:),vxyzu(:,:)
    real,   intent(in) :: pmass,time
 
@@ -70,12 +71,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     ibin            = 1
     number_particle = npart/ngrid !number of particles per bin
     print*, number_particle, 'particle no'
-    no_in_bin       = 0 !this keeps tracks of the particles added to the bin in the loop implemented.
+    no_in_bin       = 0 !this keeps track of the particles added to the bin in the loop implemented.
     density_sum     = 0.
     u_sum           = 0.
     temperature_sum = 0.
     pressure_sum    = 0.
     vel_sum         = 0.
+    ang_vel_sum     = 0.
 
    !implementing loop for calculating the values we require.
    do j = 1, npart
@@ -125,24 +127,26 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
        !make the bin properties.
        rad_grid(ibin)    = rad !last particle
-       mass(ibin)        = j*pmass !mass of paricles < r
+       mass(ibin)        = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
+       bin_mass(ibin)    = number_particle*pmass !every bin has same mass.
        density(ibin)     = density_sum / no_in_bin
        temperature(ibin) = temperature_sum / no_in_bin
        pressure(ibin)    = pressure_sum / no_in_bin
-       entropy(ibin)     = 0.
        int_eng(ibin)     = u_sum / no_in_bin
        ang_vel(ibin)     = ang_vel_sum / no_in_bin
        rad_vel(ibin)     = vel_sum / no_in_bin
        grid_no(ibin)     = ibin
+       entropy(ibin)     = (4./3.)*(int_eng(ibin)/temperature(ibin)) !calculating entropy using black body entropy formula.
 
        !print*, 'Created bin', ibin, rad_grid(ibin) , mass(ibin), density(ibin)
        no_in_bin       = 0
-       ibin = ibin     + 1
+       ibin            = ibin + 1
        density_sum     = 0.
        u_sum           = 0.
        temperature_sum = 0.
        pressure_sum    = 0.
        vel_sum         = 0.
+       ang_vel_sum     = 0.
 
      end if
 
@@ -155,36 +159,39 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(output,"(a4,i5.5)") 'ptok',numfile
     write(*,'("Output file name is ",A)') output
 
-    !open the output file and save the data in the format kepler likes.
+    !open the output file and save the data in the format kepler likes. Using same labels as kepler.
     open(iunit,file=output)
     write(iunit,'("# ",es20.12,"   # TIME")') time
-    write(iunit,"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
-          1,'grid',                 &  !grid number/ bin number
-          2,'mass ',                &  !mass of particle
-          3,'radius ',              &  !position
-          4,'velocity',             &  !velocity
-          5,'density',              &  !density
-          6,'temp',                 &  !temperature
-          7,'pressure',             &  !pressure
-          8,'entropy',              &  !entropy
-          9,'int.engergy' ,         &  !specific internal energy
-          10,'ang vel'                 !angular velocity
+    !write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iunit,*) &
+          1,'grid',                        &  !grid number/ bin number
+          2,'cell mass',                   &  !bin mass
+          3,'cell outer total mass',       &  !total mass < r
+          4,'cell outer radius',           &  !position
+          5,'cell outer velocity',         &  !velocity
+          6,'cell density',                &  !density
+          7,'cell temperature',            &  !temperature
+          8,'cell pressure',               &  !pressure
+          9,'cell spec. int. energy' ,     &  !specific internal energy
+          10,'cell specific entropy',      &  !entropy
+          11,'cell angular velocity'          !angular velocity
 
     do i = 1, ngrid
-       write(iunit,'(10(es18.10,1X))') &
+       write(iunit,'(11(es18.10,1X))') &
               grid_no(i),                      &
+              bin_mass(i)*umass,               &
               mass(i)*umass,                   &
               rad_grid(i)*udist,               &
               rad_vel(i)*unit_velocity,        &
               density(i)*unit_density,         &
               temperature(i),                  &
               pressure(i)*unit_pressure,       &
-              entropy(i),                      & !no entropy unit?
               int_eng(i)*unit_ergg,            &
+              entropy(i)*unit_ergg,            &
               ang_vel(i)
     enddo
 
- print*, '(',xpos(1), xpos(2), xpos(3),')', '-> COM'
+! print*, '(',xpos(1), xpos(2), xpos(3),')', '-> COM'
 
  end subroutine do_analysis
 
