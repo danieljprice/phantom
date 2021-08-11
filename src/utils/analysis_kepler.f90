@@ -162,8 +162,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     !open the output file and save the data in the format kepler likes. Using same labels as kepler.
     open(iunit,file=output)
     write(iunit,'("# ",es20.12,"   # TIME")') time
-    !write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
-    write(iunit,*) &
+    write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+    !write(iunit,*) &
           1,'grid',                        &  !grid number/ bin number
           2,'cell mass',                   &  !bin mass
           3,'cell outer total mass',       &  !total mass < r
