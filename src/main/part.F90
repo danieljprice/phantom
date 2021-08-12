@@ -295,7 +295,7 @@ module part
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
-#ifndef CONST_AV
+#if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
    +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
