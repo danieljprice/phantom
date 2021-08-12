@@ -23,7 +23,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use eos,             only:equationofstate
 
    integer :: i
-   integer :: no_in_bin !this stores the number of particles in bin after each loop.
+   integer :: no_in_bin                !this stores the number of particles in bin after each loop.
    integer :: ibin
    integer :: number_particle, ieos
    integer, parameter   :: ngrid = 512 !resolution in grid in kepler,
@@ -31,22 +31,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer :: iorder(npart), j
 
    real :: pressure(ngrid)
-   real :: rad_grid(ngrid) !radius
+   real :: rad_grid(ngrid)         !radius
    real :: mass(ngrid)
-   real :: rad_vel(ngrid) !radial velocity
+   real :: rad_vel(ngrid)          !radial velocity
    real :: density(ngrid)
-   real :: grid_no(ngrid)
    real :: temperature(ngrid)
-   real :: entropy(ngrid) !entropy
-   real :: int_eng(ngrid) !specific internal energy
-   real :: ang_vel(ngrid) !angular velocity
-   real :: bin_mass(ngrid) !cell mass in kepler
+   real :: entropy(ngrid)          !entropy
+   real :: int_eng(ngrid)          !specific internal energy
+   real :: ang_vel(ngrid)          !angular velocity
+   real :: bin_mass(ngrid)         !cell mass in kepler
    real :: density_sum,density_i
-   real :: u_sum,u_i !specific internal energy storage
+   real :: u_sum,u_i, grid            !specific internal energy storage
    real :: temperature_i,temperature_sum
    real :: pressure_i,pressure_sum
    real :: Li(3),pos(3),vel(3),rad !defining angular momentum vector
-   real :: xpos(3),vpos(3) !COM position and velocity
+   real :: xpos(3),vpos(3)         !COM position and velocity
    real :: ponrhoi,spsoundi,vel_i,vel_sum
    real :: ang_vel_sum,ang_i
    real,   intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -135,7 +134,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        int_eng(ibin)     = u_sum / no_in_bin
        ang_vel(ibin)     = ang_vel_sum / no_in_bin
        rad_vel(ibin)     = vel_sum / no_in_bin
-       grid_no(ibin)     = ibin
        entropy(ibin)     = (4./3.)*(int_eng(ibin)/temperature(ibin)) !calculating entropy using black body entropy formula.
 
        !print*, 'Created bin', ibin, rad_grid(ibin) , mass(ibin), density(ibin)
@@ -151,7 +149,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      end if
 
    end do
-
    ! Print the analysis being done
     write(*,'("Performing analysis type ",A)') analysistype
     write(*,'("Input file name is ",A)') dumpfile
@@ -165,20 +162,22 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
     !write(iunit,*) &
           1,'grid',                        &  !grid number/ bin number
-          2,'cell mass',                   &  !bin mass
-          3,'cell outer total mass',       &  !total mass < r
-          4,'cell outer radius',           &  !position
-          5,'cell outer velocity',         &  !velocity
-          6,'cell density',                &  !density
-          7,'cell temperature',            &  !temperature
-          8,'cell pressure',               &  !pressure
-          9,'cell spec. int. energy' ,     &  !specific internal energy
-          10,'cell specific entropy',      &  !entropy
-          11,'cell angular velocity'          !angular velocity
+          2,'mass',                        &  !bin mass
+          3,'tot mass',                    &  !total mass < r
+          4,'outer rad',                   &  !position
+          5,'o. velocity',                 &  !velocity
+          6,'density',                     &  !density
+          7,'temperature',                 &  !temperature
+          8,'pressure',                    &  !pressure
+          9,'spec.int.energy' ,            &  !specific internal energy
+          10,'spec.entropy',               &  !entropy
+          11,'ang. vel.'                      !angular velocity
 
     do i = 1, ngrid
+      grid = i
+      print*, grid,'grid'
        write(iunit,'(11(es18.10,1X))') &
-              grid_no(i),                      &
+              grid,                            &
               bin_mass(i)*umass,               &
               mass(i)*umass,                   &
               rad_grid(i)*udist,               &
