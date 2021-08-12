@@ -103,7 +103,7 @@ module eos
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
  real            :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,p0pwp,p1pwp,p2pwp,k0pwp,k1pwp,k2pwp,k3pwp
- real, public    :: temperature_coef
+ real, public    :: temperature_coef = 1.2095*1.e-8
 
  logical, public :: done_init_eos = .false.
  !
@@ -161,6 +161,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(2)
+   print*, 'a'
 !
 !--adiabatic/polytropic eos
 !  (polytropic using polyk if energy not stored, adiabatic if utherm stored)
@@ -187,6 +188,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
           ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
        elseif (gamma > 1.0001) then
           ponrhoi = (gamma-1.)*eni   ! use this if en is thermal energy
+          print*, 'use this if en is thermal energy', gamma, 'gamma'
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
        endif
@@ -194,9 +196,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = polyk*rhoi**(gamma-1.)
     endif
     spsoundi = sqrt(gamma*ponrhoi)
+
 #endif
 
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    print*, ponrhoi,'pressure on density', temperature_coef,'coef',gmw,'gmw'
 
  case(3)
 !
