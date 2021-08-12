@@ -285,13 +285,18 @@ module part
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
 !
-!--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
+!--size of the buffer required for transferring particle
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
+#ifdef GR
+   +maxvxyzu                            &  ! pxyzu
+   +maxvxyzu                            &  ! ppred
+   +1                                   &  ! dens
+#endif
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
@@ -1142,7 +1147,14 @@ subroutine copy_particle_all(src,dst,new_part)
     radprop(:,dst) = radprop(:,src)
     drad(:,dst) = drad(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+   pxyzu(:,dst) = pxyzu(:,src)
+   if (maxgran==maxp) then
+      ppred(:,dst) = ppred(:,src)
+   endif
+   dens(dst) = dens(src)
+ endif
+
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
@@ -1423,6 +1435,11 @@ subroutine unfill_buffer(ipart,xbuf)
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ if (gr) then
+   pxyzu(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+   ppred(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+   dens(ipart)          = unfill_buf(xbuf,j)
+ endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv > 0) then
