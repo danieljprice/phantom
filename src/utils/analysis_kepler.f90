@@ -40,7 +40,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: int_eng(ngrid)          !specific internal energy
    real :: ang_vel(ngrid)          !angular velocity
    real :: bin_mass(ngrid)         !cell mass in kepler
-   real :: density_sum,density_i
+   real :: density_sum,density_i,gamma_inp
    real :: u_sum,u_i, grid            !specific internal energy storage
    real :: temperature_i,temperature_sum
    real :: pressure_i,pressure_sum
@@ -77,6 +77,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     pressure_sum    = 0.
     vel_sum         = 0.
     ang_vel_sum     = 0.
+    temperature_i = 0.
+    gamma_inp = 5./3.
 
    !implementing loop for calculating the values we require.
    do j = 1, npart
@@ -175,7 +177,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     do i = 1, ngrid
       grid = i
-      print*, grid,'grid'
        write(iunit,'(11(es18.10,1X))') &
               grid,                            &
               bin_mass(i)*umass,               &
