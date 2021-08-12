@@ -1606,7 +1606,13 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  call maketree(node,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
 
  ! tree refinement
- refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
+ ! if MPI=yes but only using 1 task, skip refinement because the local tree
+ ! contains every particle
+ if (nprocs == 1) then
+   refinelevels = 0
+ else
+   refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
+ endif
  roffset_prev = 1
 
  do i = 1,refinelevels
