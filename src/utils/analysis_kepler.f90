@@ -120,9 +120,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      ieos = 2
      !call eos routine
      eni_input = u_i*unit_ergg
+     density_i = density_i*unit_density
      call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
 
-     ponrhoi = ((5./3.)-1)*u_i*unit_ergg
+     !ponrhoi = ((5./3.)-1)*u_i*unit_ergg
      !temperature_i = (1/kb_on_mh)*gmw*ponrhoi
      !pressure and temperature calculation.
      pressure_i      = ponrhoi*density_i
@@ -192,9 +193,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               mass(i)*umass,                   &
               rad_grid(i)*udist,               &
               rad_vel(i)*unit_velocity,        &
-              density(i)*unit_density,         &
+              density(i),         &
               temperature(i),                  &
-              pressure(i)*unit_pressure,       &
+              pressure(i),       &
               int_eng(i)*unit_ergg,            &
               entropy_array(i)*unit_ergg,            &
               ang_vel(i)
