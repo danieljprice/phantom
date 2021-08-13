@@ -500,9 +500,10 @@ end subroutine write_softened_profile
 !+
 !-----------------------------------------------------------------------
 subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut,rcut)
+                               enitab,totmass,ierr,mcut, rcut   )
  use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only                      :find_phantom_datafile
+ use physcon,           only:kb_on_mh,radconst
  integer,          intent(in)            :: ng_max
  integer,          intent(out)           :: ierr,n_rows
  real,             intent(out)           :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
@@ -517,6 +518,9 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  integer                                 :: max_cols = 100
  real,             allocatable           :: stardata(:,:)
  logical                                 :: iexist,n_too_big
+ real         :: gmw            = 2.381
+ real :: temperature_i,ponrhoi
+
  !
  !--Get path name
  !
@@ -625,6 +629,11 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
+ do i = 1, n_rows
+   ponrhoi = (ptab(i)*unit_pressure)/(rhotab(i)*unit_density)
+   temperature_i = (1/kb_on_mh)*gmw*ponrhoi
+   print*, temperature_i, 'temperature', temperature(i),'true'
+end do
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
