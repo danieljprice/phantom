@@ -459,7 +459,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
  if (iexternalforce > 0) then
    dtextforce = reduceall_mpi('min',dtextforce)
-   write(iprint,*) 'dt(extforce)  = ',dtextforce
+   if (id==master) write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 
 !
