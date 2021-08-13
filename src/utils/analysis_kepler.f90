@@ -20,8 +20,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
    use centreofmass,    only:get_centreofmass
    use sortutils,       only:set_r2func_origin,indexxfunc,r2func_origin
-   use eos,             only:equationofstate
-
+   use eos,             only:equationofstate,entropy
+   use physcon,           only:kb_on_mh
+   real         :: gmw            = 2.381
    integer :: i
    integer :: no_in_bin                !this stores the number of particles in bin after each loop.
    integer :: ibin
@@ -30,19 +31,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer,  intent(in) :: numfile,npart,iunit
    integer :: iorder(npart), j
 
-   real :: pressure(ngrid)
+   real :: pressure(ngrid),ent
    real :: rad_grid(ngrid)         !radius
    real :: mass(ngrid)
    real :: rad_vel(ngrid)          !radial velocity
    real :: density(ngrid)
    real :: temperature(ngrid)
-   real :: entropy(ngrid)          !entropy
+   real :: entropy_array(ngrid)          !entropy
    real :: int_eng(ngrid)          !specific internal energy
    real :: ang_vel(ngrid)          !angular velocity
    real :: bin_mass(ngrid)         !cell mass in kepler
-   real :: density_sum,density_i,gamma_inp
-   real :: u_sum,u_i, grid            !specific internal energy storage
+   real :: density_sum,density_i,gamma_inp,eni_input
+   real :: u_sum,u_i               !specific internal energy storage
    real :: temperature_i,temperature_sum
+   real :: grid
    real :: pressure_i,pressure_sum
    real :: Li(3),pos(3),vel(3),rad !defining angular momentum vector
    real :: xpos(3),vpos(3)         !COM position and velocity
@@ -117,8 +119,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !using the adiabatic equation of state.
      ieos = 2
      !call eos routine
-     call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=u_i, tempi=temperature_i)
+     eni_input = u_i*unit_ergg
+     call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
 
+     ponrhoi = ((5./3.)-1)*u_i*unit_ergg
+     !temperature_i = (1/kb_on_mh)*gmw*ponrhoi
      !pressure and temperature calculation.
      pressure_i      = ponrhoi*density_i
      pressure_sum    = pressure_sum + pressure_i
@@ -136,7 +141,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        int_eng(ibin)     = u_sum / no_in_bin
        ang_vel(ibin)     = ang_vel_sum / no_in_bin
        rad_vel(ibin)     = vel_sum / no_in_bin
-       entropy(ibin)     = (4./3.)*(int_eng(ibin)/temperature(ibin)) !calculating entropy using black body entropy formula.
+
+       ent = kb_on_mh * (1/gmw) * log(temperature(ibin)**1.5/(density(ibin)*unit_density))
+
+       entropy_array(ibin)     = ent
+       print*, entropy_array(ibin), 'entropy'
 
        !print*, 'Created bin', ibin, rad_grid(ibin) , mass(ibin), density(ibin)
        no_in_bin       = 0
@@ -187,11 +196,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               temperature(i),                  &
               pressure(i)*unit_pressure,       &
               int_eng(i)*unit_ergg,            &
-              entropy(i)*unit_ergg,            &
+              entropy_array(i)*unit_ergg,            &
               ang_vel(i)
     enddo
 
-! print*, '(',xpos(1), xpos(2), xpos(3),')', '-> COM'
+
 
  end subroutine do_analysis
 
