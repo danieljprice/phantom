@@ -634,6 +634,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     endif
  enddo
  !$omp end parallel do
+
+ xmin = reduceall_mpi('min',xmin)
+ ymin = reduceall_mpi('min',ymin)
+ zmin = reduceall_mpi('min',zmin)
+ xmax = reduceall_mpi('max',xmax)
+ ymax = reduceall_mpi('max',ymax)
+ zmax = reduceall_mpi('max',zmax)
+
  dx = abs(xmax - xmin)
  dy = abs(ymax - ymin)
  dz = abs(zmax - zmin)
