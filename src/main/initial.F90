@@ -433,7 +433,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else
  if (iexternalforce > 0) then
@@ -455,9 +454,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        endif
     enddo
     !$omp end parallel do
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #endif
+
+ if (iexternalforce > 0) then
+   dtextforce = reduceall_mpi('min',dtextforce)
+   write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
 
 !
 !-- Set external force to zero on boundary particles
