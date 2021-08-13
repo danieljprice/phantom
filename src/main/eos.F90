@@ -96,6 +96,7 @@ module eos
  real,    public :: gamma1pwp      = 3.166
  real,    public :: gamma2pwp      = 3.573
  real,    public :: gamma3pwp      = 3.281
+
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -103,7 +104,7 @@ module eos
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
  real            :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,p0pwp,p1pwp,p2pwp,k0pwp,k1pwp,k2pwp,k3pwp
- real, public    :: temperature_coef = 1.2095*1.e-8
+ real, public    :: temperature_coef
 
  logical, public :: done_init_eos = .false.
  !
@@ -131,6 +132,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
+ use physcon,           only:kb_on_mh
+
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -145,6 +148,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real :: uthermconst
 #ifdef GR
  real :: enthi,pondensi
+
+
 ! Check to see if adiabatic equation of state is being used.
  if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11) &
  call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
@@ -161,7 +166,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(2)
-   print*, 'a'
 !
 !--adiabatic/polytropic eos
 !  (polytropic using polyk if energy not stored, adiabatic if utherm stored)
@@ -188,7 +192,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
           ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
        elseif (gamma > 1.0001) then
           ponrhoi = (gamma-1.)*eni   ! use this if en is thermal energy
-          print*, 'use this if en is thermal energy', gamma, 'gamma'
+
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
        endif
@@ -199,8 +203,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
 #endif
 
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
-    print*, ponrhoi,'pressure on density', temperature_coef,'coef',gmw,'gmw'
+
+    if (present(tempi)) tempi = (1/kb_on_mh)*gmw*ponrhoi
 
  case(3)
 !
