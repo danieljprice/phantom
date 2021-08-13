@@ -109,6 +109,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      !density
      density_i   = rhoh(xyzh(4,i),pmass)  !density of particle
+     !density_i   = density_i*unit_density !convert density into cgs units.
      density_sum = density_sum + density_i
 
      !internal energy
@@ -120,13 +121,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      ieos = 2
      !call eos routine
      eni_input = u_i*unit_ergg
-     density_i = density_i*unit_density
+     !density_i and eni_input are in cgs units.
      call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
 
      !ponrhoi = ((5./3.)-1)*u_i*unit_ergg
      !temperature_i = (1/kb_on_mh)*gmw*ponrhoi
      !pressure and temperature calculation.
-     pressure_i      = ponrhoi*density_i
+     pressure_i      = ponrhoi*density_i !ponrhoi is in cgs units and so is density_i.
      pressure_sum    = pressure_sum + pressure_i
      temperature_sum = temperature_sum + temperature_i
 
@@ -193,7 +194,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               mass(i)*umass,                   &
               rad_grid(i)*udist,               &
               rad_vel(i)*unit_velocity,        &
-              density(i),         &
+              density(i)*unit_density,         &
               temperature(i),                  &
               pressure(i),       &
               int_eng(i)*unit_ergg,            &
