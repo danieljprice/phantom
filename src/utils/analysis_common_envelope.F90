@@ -84,8 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-
-    print "(27(a,/))", &
+    print "(28(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -112,11 +111,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '24) Unbound ion fraction', &
             '25) Optical depth at recombination', &
             '26) Envelope binding energy', &
-            '27) Print dumps number matching separation'
+            '27) Print dumps number matching separation', &
+            '28) Companion mass coordinate vs. time'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,27)
+    call prompt('Choose analysis type ',analysis_to_perform,1,28)
 
  endif
 
@@ -184,7 +184,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(26) ! Calculate binding energy outside core
     call env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
  case(27) ! Print dump number corresponding to given set of sink-sink separations
-    call print_dump_numbers(time,dumpfile,npart,particlemass,xyzh,vxyzu)
+    call print_dump_numbers(dumpfile)
+ case(28) ! Companion mass coordinate (spherical mass shells) vs. time
+    call m_vs_t(time,npart,particlemass,xyzh)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -278,13 +280,17 @@ end subroutine do_analysis
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-!!!!! Separation vs time !!!!!
+!----------------------------------------------------------------
+!+
+!  Separation vs. time
+!+
+!----------------------------------------------------------------
 subroutine separation_vs_time(time)
  real, intent(in)               :: time
  character(len=17), allocatable :: columns(:)
  real                           :: sink_separation(4,nptmass-1)
- integer                        :: i, ncols
- ncols = 4 * (nptmass-1)
+ integer                        :: i,ncols
+ ncols = 4*(nptmass-1)
  allocate(columns(ncols))
 
  do i=1,(nptmass-1)
@@ -299,6 +305,33 @@ subroutine separation_vs_time(time)
  call write_time_file('separation_vs_time', columns, time, sink_separation, ncols, dump_number)
  deallocate(columns)
 end subroutine separation_vs_time
+
+
+!----------------------------------------------------------------
+!+
+!  Companion mass coordinate (spherical mass shells) vs. time
+!+
+!----------------------------------------------------------------
+subroutine m_vs_t(time,npart,particlemass,xyzh)
+ integer, intent(in) :: npart
+ real, intent(in)    :: time,particlemass,xyzh(:,:)
+ character(len=17)   :: colname
+ real                :: sinksinksep,mass(1)
+ integer             :: i,k,iorder(npart)
+
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+ sinksinksep = separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
+ do i=1,npart
+    k = iorder(i)
+    if (separation(xyzh(1:3,k), xyzmh_ptmass(1:3,1)) > sinksinksep) exit
+ enddo
+
+ mass = i*particlemass + xyzmh_ptmass(4,1)
+ write(colname, '(A11)') ' mass coord'
+ call write_time_file('            m_vs_t',colname,time,mass,1,dump_number)
+end subroutine m_vs_t
 
 
 !----------------------------------------------------------------
@@ -2491,12 +2524,13 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  call write_time_file(trim(adjustl(filename)),columns,time,mytable,ncols,dump_number)
 end subroutine get_core_gas_com
 
+
 !----------------------------------------------------------------
 !+
 !  Print dump numbers corresponding to given sink-sink separations
 !+
 !----------------------------------------------------------------
-subroutine print_dump_numbers(time,dumpfile,npart,particlemass,xyzh,vxyzu)
+subroutine print_dump_numbers(dumpfile)
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: npart
  real,             intent(in) :: time,particlemass
