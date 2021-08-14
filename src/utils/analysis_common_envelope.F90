@@ -170,11 +170,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(19) ! Rotation profile
     call rotation_profile(time,num,npart,xyzh,vxyzu)
  case(20) ! Energy profile
-    call energy_profile(time,num,npart,particlemass,xyzh,vxyzu)
+    call energy_profile(time,npart,particlemass,xyzh,vxyzu)
  case(21) ! Recombination statistics
     call recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  case(22) ! Optical depth profile
-    call tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
+    call tau_profile(time,num,npart,particlemass,xyzh)
  case(23) ! Particle tracker
     call track_particle(time,particlemass,xyzh,vxyzu)
  case(24) ! Unbound ion fractions
@@ -182,7 +182,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(25) ! Optical depth at recombination
     call recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  case(26) ! Calculate binding energy outside core
-    call env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
+    call env_binding_ene(npart,particlemass,xyzh,vxyzu)
  case(27) ! Print dump number corresponding to given set of sink-sink separations
     call print_dump_numbers(dumpfile)
  case(28) ! Companion mass coordinate (spherical mass shells) vs. time
@@ -1300,7 +1300,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
     case(12)
        ientropy = 2
     case(10)
-       ientropy = 3
+       ientropy = 2
     case default
        ientropy = -1
     end select
@@ -1330,7 +1330,7 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  real, dimension(5,npart)     :: dist_part,rad_part
  real, allocatable            :: hist_var(:)
- real                         :: minloga,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
+ real                         :: mincoord,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
  character(len=17)            :: grid_file(5)
  character(len=40)            :: data_formatter
  integer                      :: nbins,i,unitnum
@@ -1339,7 +1339,7 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  nbins = 300
  rad_part = 0.
  dist_part = 0.
- minloga = 0.5
+ mincoord = 0.5
  maxloga = 4.3
 
  allocate(hist_var(nbins))
@@ -1363,7 +1363,7 @@ subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
 
 
  do i=1,5
-    call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,minloga,nbins,.true.)
+    call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,mincoord,nbins,.true.,.true.)
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
     if (num == 0) then
        unitnum = 1000
@@ -1385,11 +1385,11 @@ end subroutine ion_profiles
 !  Optical depth profile
 !+
 !----------------------------------------------------------------
-subroutine tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
+subroutine tau_profile(time,num,npart,particlemass,xyzh)
  use part, only:eos_vars,itemp
  integer, intent(in)    :: npart,num
  real, intent(in)       :: time,particlemass
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ real, intent(inout)    :: xyzh(:,:)
  integer                :: nbins
  real, dimension(npart) :: rad_part,kappa_part,rho_part
  real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:)
@@ -1416,8 +1416,8 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh,vxyzu)
     kappa_part(i) = kappa ! In cgs units?
  enddo
 
- call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.)
- call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.)
+ call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+ call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.,.true.)
 
 
  ! Integrate optical depth inwards
@@ -1501,8 +1501,8 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  enddo
  nrecombined = j
 
- call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.)
- call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.)
+ call histogram_setup(rad_part(1:npart),kappa_part,kappa_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+ call histogram_setup(rad_part(1:npart),rho_part,rho_hist,npart,maxloga,minloga,nbins,.true.,.true.)
 
  ! Integrate optical depth inwards
  sepbins = (/ (10.**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
@@ -1538,55 +1538,106 @@ end subroutine recombination_tau
 !  Energy profile
 !+
 !----------------------------------------------------------------
-subroutine energy_profile(time,num,npart,particlemass,xyzh,vxyzu)
- use part, only:eos_vars,itemp
- integer, intent(in)          :: npart,num
- real, intent(in)             :: time,particlemass
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- integer                      :: nbins
- real                         :: dist_part(2,npart),rad_part(npart)
- real, allocatable            :: hist_var(:)
- real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,maxloga,minloga
- character(len=17), allocatable :: grid_file(:)
- character(len=40)            :: data_formatter
- integer                      :: i,unitnum
+subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
+ use part,              only:eos_vars,itemp
+ use eos,               only:entropy
+ use mesa_microphysics, only:getvalue_mesa
+ integer, intent(in)    :: npart
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: quant,coord
+ real, allocatable      :: hist(:)
+ real                   :: ekini,einti,epoti,ethi,phii,pgas,mu,dum,rhopart,ponrhoi,spsoundi,maxcoord,mincoord
+ character(len=17)      :: filename,headerline
+ character(len=40)      :: data_formatter
+ integer                :: i,k,unitnum,ierr,iquantity,iorder(npart),ientropy
+ logical                :: use_mass_coord,ilogbins
+
+ use_mass_coord = .true.
+ nbins = 300
+ if (use_mass_coord) then
+   mincoord  = 4.0  ! Min. mass coordinate
+   maxcoord  = 12.0 ! Max. mass coordinate
+   ilogbins = .false.
+ else
+   mincoord  = 0.5  ! Min. log(r)
+   maxcoord  = 4.3  ! Max. log(r)
+   ilogbins = .true.
+ endif
 
  call compute_energies(time)
- nbins      = 300
- rad_part   = 0.
- dist_part  = 0.
- minloga    = 0.5
- maxloga    = 4.3
+ allocate(hist(nbins))
 
- allocate(hist_var(nbins))
- grid_file = (/ '     grid_Etot.ev', &
-                '     grid_Eint.ev' /)
+ iquantity = 3
+ select case (iquantity)
+ case(1) ! Energy
+    filename = '     grid_Etot.ev'
+    headerline = '# Energy profile '
+ case(2) ! Entropy
+    filename = '  grid_entropy.ev'
+    headerline = '# Entropy profile'
+    select case(ieos)
+    case(2)
+       ientropy = 1
+    case(10,12)
+       ientropy = 2
+    case default
+       ientropy = -1
+    end select
+ case(3) ! Bernoulli energy (per unit mass)
+    filename = 'grid_bernoulli.ev'
+    headerline = '# Bernoulli prof.'
+ end select
+ 
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
- do i=1,npart
-    rhopart = rhoh(xyzh(4,i), particlemass)
-    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
-    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-
-    dist_part(1,i) = ekini + epoti + ethi
-    dist_part(2,i) = einti
- enddo
-
- do i=1,2
-    call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.)
-    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
-    if (num == 0) then
-       unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
-       write(unitnum, "(a)") '# Energy profile - look at the name of the file'
-       close(unit=unitnum)
+ coord = 0.
+ quant = 0.
+ do k=1,npart
+    i = iorder(k) ! Loop from innermost to outermost particle
+    if (use_mass_coord) then
+       coord(i) = real(k-1) ! Number of particles interior to particle k
+    else
+       coord(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
     endif
-    unitnum=1001+i
-    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
-    write(unitnum,data_formatter) time,hist_var(:)
-    close(unit=unitnum)
+
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    select case (iquantity)
+    case(1) ! Energy
+         call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+         call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+         quant(i) = ekini + epoti + ethi
+    case(2) ! Entropy
+         if (ieos==10) then
+             call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
+             mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas
+         else
+             mu = gmw
+         endif
+         quant(i) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,ientropy,ierr,mu)
+    case(3) ! Bernoulli energy (per unit mass)
+        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+        quant(i) = 0.5*dot_product(vxyzu(1:3,i),vxyzu(1:3,i)) + ponrhoi + vxyzu(4,i) + epoti/particlemass ! 1/2 v^2 + P/rho + phi
+    end select
  enddo
+
+ if (use_mass_coord) coord = coord * particlemass + xyzmh_ptmass(4,1)
+
+ call histogram_setup(coord,quant,hist,npart,maxcoord,mincoord,nbins,.true.,ilogbins)
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (dump_number == 0) then
+     unitnum = 1000
+     open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+     write(unitnum, "(a)") headerline
+     close(unit=unitnum)
+ endif
+ unitnum=1001
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,hist(:)
+ close(unit=unitnum)
 end subroutine energy_profile
 
 
@@ -1646,7 +1697,7 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  enddo
 
  do i=1,nfiles
-    call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.)
+    call histogram_setup(rad_part(1:npart),dist_part(i,1:npart),hist_var,npart,maxloga,minloga,nbins,.true.,.true.)
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
     if (num == 0) then
        unitnum = 1000
@@ -1754,7 +1805,7 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  enddo
 
  do i=1,4
-    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,.false.)
+    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,.false.,.true.)
 
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
 
@@ -2037,10 +2088,10 @@ end subroutine sink_properties
 
 
 
-subroutine env_binding_ene(time,npart,particlemass,xyzh,vxyzu)
+subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
  integer, intent(in)    :: npart
- real, intent(in)       :: time,particlemass
+ real, intent(in)       :: particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                :: i
  real                   :: ethi,phii,rhoi,ponrhoi,spsoundi,dum
@@ -2532,9 +2583,6 @@ end subroutine get_core_gas_com
 !----------------------------------------------------------------
 subroutine print_dump_numbers(dumpfile)
  character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: npart
- real,             intent(in) :: time,particlemass
- real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=50), allocatable, save :: dumpfiles(:)
  integer :: nseps
  integer, save :: i
@@ -3049,30 +3097,53 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
  xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
 end subroutine ionisation_fraction
 
-subroutine histogram_setup(dist_var,avg_var,hist_var,npart,max_value,min_value,nbins,average)
- ! Returns a radial histogram of a given variable dist_var
- integer, intent(in)                :: npart,nbins
- real, dimension(npart), intent(in) :: dist_var, avg_var
- real, dimension(nbins), intent(out) :: hist_var
- real, intent(in)                   :: max_value, min_value
- logical, intent(in)                :: average
- real                               :: bins(nbins)
- integer                            :: i,j,bincount
 
- bins = (/ (10**(min_value + (i-1) * (max_value-min_value)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
- !bins = (/ (min_value + (i-1) * (max_value-min_value)/real(nbins), i=1,nbins) /) ! Create linear bins
- hist_var(:) = 0.
+!----------------------------------------------------------------
+!+
+!  Returns hist, the radial or mass-coordinate profile of a
+!  quantity.
+! 
+!  Inputs:
+!   coord: Array of radius or mass-coordinate of each particle
+!   quant: Array containing quantity for each particle to be binned
+!   bin_min: Lower bin edge for coord
+!   bin_max: Upper bin edge for coord
+!   nbins: Number of bins for coord
+!   logbins: If true, produce log-uniform bins
+!   normalise_by_bincount: If true, normalises histogram by bin
+!            count, thus averaging the quantity
+!+
+!----------------------------------------------------------------
+subroutine histogram_setup(coord,quant,hist,npart,bin_max,bin_min,nbins,normalise_by_bincount,logbins)
+ integer, intent(in)    :: npart,nbins
+ real, intent(in)       :: coord(npart),quant(npart),bin_max, bin_min
+ logical, intent(in)    :: normalise_by_bincount,logbins
+ real, intent(out)      :: hist(nbins)
+ integer                :: i,j,bincount(nbins)
+ real                   :: bins(nbins)
 
- do i=1,nbins-1
-    bincount = 0
-    do j=1,npart
-       if (dist_var(j) >= bins(i) .and. dist_var(j) < bins(i+1)) then
-          bincount = bincount + 1
-          hist_var(i) = hist_var(i) + avg_var(j)
+ if (logbins) then ! Create log-uniform bins
+    bins = (/ (10**(bin_min + (i-1) * (bin_max-bin_min)/real(nbins)), i=1,nbins) /)
+ else ! Create linear bins
+    bins = (/ (bin_min + (i-1) * (bin_max-bin_min)/real(nbins), i=1,nbins) /)
+ endif
+
+ hist = 0.
+ bincount = 0
+ 
+ do j=1,npart
+    do i=1,nbins-1
+       if (coord(j) >= bins(i) .and. coord(j) < bins(i+1)) then
+          bincount(i) = bincount(i) + 1
+          hist(i) = hist(i) + quant(j)
+          exit ! Move onto next particle
        endif
     enddo
-    if ( (bincount > 0) .and. average) then
-       hist_var(i) = hist_var(i) / real(bincount)
+ enddo
+
+ do i=1,nbins
+    if ( (bincount(i) > 0) .and. normalise_by_bincount) then
+       hist(i) = hist(i) / real(bincount(i))
     endif
  enddo
 

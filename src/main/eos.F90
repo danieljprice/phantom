@@ -1271,33 +1271,39 @@ end subroutine calc_temp_and_ene
 !  up to an additive integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
-function entropy(rho,pres,ientropy,ierr)
+function entropy(rho,pres,ientropy,ierr,mu_in)
  use io,                only:fatal
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
  real, intent(in)               :: rho,pres
+ real, intent(in), optional     :: mu_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
- real                           :: inv_mu,entropy,logentropy,temp,eint
+ real                           :: mu,inv_mu,entropy,logentropy,temp,eint
 
- if (present(ierr)) ierr=0
- inv_mu = 1/gmw
+ ierr = 0
+ if (present(mu_in)) then
+    mu = mu_in
+    inv_mu = 1./mu
+ else ! Would produce "wrong" entropy for MESA EoS if using fixed mean molecular weight
+    mu = gmw
+    inv_mu = 1./gmw
+ endif
 
  select case(ientropy)
  case(1) ! Include only gas entropy (up to additive constants)
-     temp = pres * gmw / (rho * kb_on_mh)
-     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
+    temp = pres * mu / (rho * kb_on_mh)
+    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
-     temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
-     call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
-     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
  
  case(3) ! Get entropy from MESA tables if using MESA EoS
-     if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
-     call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+    if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+    call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
 
     ! Get entropy from rho and eint from MESA tables
     if (present(ierr)) then
