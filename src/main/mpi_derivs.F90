@@ -403,7 +403,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
              target_stack%cells(iwait)%tsmin(k) = min(target_stack%cells(iwait)%tsmin(k), xbuf(iproc)%tsmin(k))
              target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
 #ifdef IND_TIMESTEPS
-             target_stack%cells(iwait)%ibinneigh = max(target_stack%cells(iwait)%ibinneigh(k), xbuf(iproc)%ibinneigh(k))
+             target_stack%cells(iwait)%ibinneigh(k) = max(target_stack%cells(iwait)%ibinneigh(k), xbuf(iproc)%ibinneigh(k))
 #endif
           enddo
 #ifdef GRAVITY
