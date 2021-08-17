@@ -153,9 +153,10 @@ do i = 1, 3
     end if
 end do
 
-if (Lambda /= 0.) call lambdaGradT(coolingTable, params_cool, Lambda, dlnQdlnT)
+! if (Lambda /= 0.) call lambdaGradT(coolingTable, params_cool, Lambda, dlnQdlnT)
+dlnQdlnT = 0
 
-Q = -Lambda
+Q = Lambda
 
 end subroutine  calc_cool_molecular
 
