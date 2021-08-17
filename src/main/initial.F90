@@ -131,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim, &
+                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
@@ -226,7 +226,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc
- integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -300,7 +299,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--get total number of particles (on all processors)
 !
  ntot           = reduceall_mpi('+',npart)
- npartoftypetot = reduce_mpi('+',npartoftype)
+ call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)

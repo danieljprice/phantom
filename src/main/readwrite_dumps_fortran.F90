@@ -211,7 +211,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
  use eos,   only:ieos,eos_is_non_ideal
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
+ use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
+                 npartoftypetot,update_npartoftypetot, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
@@ -256,7 +257,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer            :: ipass,k,l
  integer            :: ierr,ierrs(29)
  integer            :: nblocks,nblockarrays,narraylengths
- integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8)    :: nparttot
  logical            :: sphNGdump,write_itype,use_gas
  character(len=lenid)  :: fileid
  type(dump_h)          :: hdr
@@ -267,7 +268,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !--allow non-MPI calls to create MPI dump files
 #ifdef MPI
  nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ call update_npartoftypetot
 #else
  if (present(ntotal)) then
     nparttot = ntotal
@@ -490,7 +491,8 @@ end subroutine write_fulldump_fortran
 subroutine write_smalldump_fortran(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
+ use part,       only:xyzh,xyzh_label,npart,Bxyz,Bxyz_label,&
+                      npartoftypetot,update_npartoftypetot,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
@@ -508,14 +510,14 @@ subroutine write_smalldump_fortran(t,dumpfile)
  integer         :: nums(ndatatypes,4)
  integer         :: ierr,ipass,k
  integer         :: nblocks,nblockarrays,narraylengths
- integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8) :: nparttot
  logical         :: write_itype
  type(dump_h)    :: hdr
 !
 !--collect global information from MPI threads
 !
  nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ call update_npartoftypetot
  nblocks = nprocs
 
  narraylengths = 2
@@ -1333,7 +1335,8 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  use dim,        only:maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
- use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
+ use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes,&
+                      npartoftypetot
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
  use fileutils,  only:make_tags_unique
@@ -1346,7 +1349,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  integer,         intent(out) :: ierr
  integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile,nptinfile
  integer         :: ierr1,ierrs(3),i,counter
- integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
+ integer(kind=8) :: ntypesinfile8
  character(len=10) :: dust_label(maxdustlarge)
 
  ierr = 0
