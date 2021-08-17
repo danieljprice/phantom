@@ -186,7 +186,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
 #else
     if (present(eni)) then
-       if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
+!       if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
+       if (eni < 0.) eni = ufloor
 
        if (use_entropy) then
           ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
