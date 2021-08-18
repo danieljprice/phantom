@@ -59,8 +59,8 @@ module part
 !
 !--tracking particle IDs
 !
- integer              :: norig
- integer, allocatable :: iorig(:)
+ integer(kind=8)              :: norig
+ integer(kind=8), allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
