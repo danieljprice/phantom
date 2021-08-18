@@ -15,6 +15,7 @@ module inject
 !
 ! :Runtime parameters:
 !   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - N            : *number of particles per stream width*
 !   - mach         : *Mach number of injected stream*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - stream_width : *width of injected stream in Rsun*
@@ -31,6 +32,7 @@ module inject
  real, private :: Mdotcode = 0.
  real, private :: mach = 2.
  integer, private :: imdot_func = 0
+ integer, private :: N = 8
  real, private :: stream_width = 1.
 
 contains
@@ -55,7 +57,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
            npart,npartoftype,dtinject)
- use part,      only:igas,hfact,massoftype
+ use part,      only:igas,hfact,massoftype,nptmass
  use partinject,only:add_or_update_particle
  use physcon,   only:pi,solarr,au,solarm,years
  use units,     only:udist,umass,utime
@@ -68,7 +70,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  real :: Rp,Rtidal,Rstar,beta,dt_walls
  real :: xyzi(3),x0(3),vxyz(3),cs,Mdot_now,tb,acrit,mbh_on_mstar,stream_radius
  real :: delta_r,delta_x,h,u,vinject,time_between_walls,local_time,ymin,zmin,rcyl,rcyl2
- integer :: N,i,iy,iz,i_part,part_type,boundary_walls
+ integer :: i,iy,iz,i_part,part_type,boundary_walls
  integer :: outer_wall, inner_wall, inner_boundary_wall, particles_per_wall
 
  ! get the location of the injection point
@@ -90,7 +92,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  print*,' stream radius = ',stream_radius,', or ',stream_radius/Rstar,' Rsun'
 
  ! specify the injection point
- x0(1:3) = (/105.,-150.,0./)
+ if (nptmass > 0) then
+    x0(1:3) = (/105.,-150.,0./)
+ else
+    x0(1:3) = (/100.*Rstar,0.,0./)
+ endif
 
  ! give the injection velocity in terms of the velocity of a parabolic orbit at Rp
  ! then use this to specify the sound speed from the desired Mach number
@@ -103,7 +109,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
  rcyl2 = rcyl*rcyl
  ymin = -rcyl       ! to ensure flow is centred around injection point
  zmin = -rcyl
- N = 8
+ !N = 8
  delta_r = 2.*rcyl/N  ! particle separation in cylinder
  particles_per_wall = int(0.25*pi*N**2)  ! cross section of cylinder
 
@@ -218,6 +224,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
  call write_inopt(mach,'mach','Mach number of injected stream',iunit)
  call write_inopt(stream_width,'stream_width','width of injected stream in Rsun',iunit)
+ call write_inopt(N,'N','number of particles per stream width',iunit)
 
 end subroutine write_options_inject
 
@@ -253,11 +260,16 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) stream_width
     ngot = ngot + 1
     if (stream_width <= 0.) call fatal(label,'stream_width < 0 in input options')
+ case('N')
+    read(valstring,*,iostat=ierr) N
+    ngot = ngot + 1
+    if (N <= 1) call fatal(label,'N < 1 in input options')
+
  case default
     imatch = .false.
  end select
 
- igotall = (ngot >= 2)
+ igotall = (ngot >= 5)
 
 end subroutine read_options_inject
 

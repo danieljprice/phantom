@@ -145,11 +145,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: pxi,pyi,pzi,p2i,p2mean
 #ifdef IND_TIMESTEPS
  real               :: dtsph_next,dti,time_now
-#ifdef MPI
- logical, parameter :: allow_waking = .false.
-#else
  logical, parameter :: allow_waking = .true.
-#endif
 #else
  integer(kind=1), parameter :: nbinmax = 0
 #endif

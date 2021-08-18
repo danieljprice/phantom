@@ -10,10 +10,30 @@ module forces
 !   Calculates force and rates of change for all particles
 !
 ! :References:
-!    Price (2012), J. Comp. Phys.
-!    Lodato & Price (2010), MNRAS
-!    Price & Federrath (2010), MNRAS
-!    Tricco & Price (2012), J. Comp. Phys.
+!
+!  Code paper:
+!      Price et al. (2018), PASA 35, e031
+!  Hydro:
+!      Price (2012), J. Comp. Phys. 231, 759-794
+!      Lodato & Price (2010), MNRAS 405, 1212-1226
+!      Price & Federrath (2010), MNRAS 406, 1659-1674
+!  MHD:
+!      Tricco & Price (2012), J. Comp. Phys. 231, 7214-7236
+!      Tricco, Price & Bate (2016), MNRAS 322, 326-344
+!      Wurster, Price & Ayliffe (2014), MNRAS 444, 1104-1112
+!      Wurster, Price & Bate (2016), MNRAS 457, 1037-1061
+!  Dust:
+!      Laibe & Price (2012a), MNRAS 420, 2345-2364
+!      Laibe & Price (2012b), MNRAS 420, 2365-2376
+!      Price & Laibe (2015), MNRAS 451, 5332-5345
+!      Hutchison, Price & Laibe (2018), MNRAS 476, 2186-2198
+!      Ballabio et al. (2018), MNRAS 477, 2766-2771
+!      Mentiplay, Price, Pinte & Laibe (2020), MNRAS 499, 3806-3818
+!      Price & Laibe (2020), MNRAS 495, 3929-3934
+!  Radiation:
+!      Whitehouse & Bate (2004), MNRAS 353, 1078-1094
+!  GR:
+!      Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: Conrad Chan
 !
@@ -38,7 +58,7 @@ module forces
 
  integer, parameter :: maxcellcache = 50000
 
- public :: force
+ public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -1401,7 +1421,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (vsigj > vsigmax) vsigmax = vsigj
              vsigavj = 0.; vwavej = 0.; avBtermj = 0.; autermj = 0. ! avoid compiler warnings
              sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.; pro2j = 0.; prj = 0.
-             dustfracj = 0.; sqrtrhodustfracj = 0.
+             dustfracj = 0.; dustfracjsum = 0.; sqrtrhodustfracj = 0.
           endif
        else ! set to zero terms which are used below without an if (usej)
           !rhoj      = 0.
@@ -1686,8 +1706,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
-             !rhogas1i = rho1i/(1.-dustfracisum)
-             !rhogas1j = 1./rhogasj
 
              !! Check that weighted sums of Tsj and tilde(Tsj) are equal (see Hutchison et al. 2017)
              !if (ndustsmall>1) then
@@ -1704,50 +1722,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !Dav(l)   = dustfraci(l)*tsi(l) + dustfracj(l)*tsj(l)
                    grkernav = 0.5*(grkerni + grkernj)
 
-                   ! these are equations (43) and (45) from Price & Laibe (2015)
-                   ! but note there is a sign error in the term in eqn (45) in the paper
-                   !dustfracterm(l)  = pmassj*rho1j*Dav(:)*(pri - prj)*grkernav*rij1
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!                   dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j                     &
-!                                      *((tsi(l)-epstsi)*rhogas1i+(tsj(l)-epstsj)*rhogas1j) &
-!                                      *(pri - prj)*grkernav*rij1
 !------------------------------------------------
 !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
                    dustfracterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j     &
                                       *((tsi(l)-epstsi)*(1.-dustfraci(l))/(1.-dustfracisum)   &
                                         +(tsj(l)-epstsj)*(1.-dustfracj(l))/(1.-dustfracjsum)) &
                                       *(pri - prj)*grkernav*rij1
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!                   dustfracterms(l) = pmassj*sin(sqrtrhodustfracj(l))     &
-!                                      *( (tsi(l)-epstsi)*rhogas1i*rho1j   &
-!                                        +(tsj(l)-epstsj)*rhogas1j*rho1i ) &
-!                                      *(pri - prj)*grkernav*rij1
-!                   if (sqrtrhodustfraci(l) == 0.) then
-!                      dustfracterms(l) = dustfracterms(l)/(2.*cos(sqrtrhodustfraci(l)))
-!                   else
-!                      dustfracterms(l) = dustfracterms(l)*sin(sqrtrhodustfraci(l)) &
-!                                         /sin(2.*sqrtrhodustfraci(l))
-!                      if (sin(2.*sqrtrhodustfraci(l)) == 0. ) stop 'dividing by zero'
-!                   endif
-!------------------------------------------------
-
-                   !vsigeps = 0.5*(spsoundi + spsoundj) !abs(projv)
-                   !depsdissterm(l) = pmassj*sqrtrhodustfracj(l)*rho1j*grkernav*vsigeps !(auterm*grkerni + autermj*grkernj)*vsigeps
-                   !dustfracterms(l) = dustfracterms(l) - depsdissterm(l)*(dustfraci(l) - dustfracj(l))! &
-                   !!*1.e-1/(dustfraci(l) + dustfracj(l))
 
                    fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterms(l)
-                   !fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - dustfracterm(l)
 !------------------------------------------------
 !--sqrt(rho*epsilon) method and sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
                    if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!                   if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) &
-!                                      - dustfracterms(l)*sin(2.*sqrtrhodustfraci(l))/rho1i*denij
-!------------------------------------------------
                 endif
                 ! Equation 270 in Phantom paper
                 if (dustfraci(l) < 1.) then
@@ -2168,6 +2153,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        visctermiso = 0.
        visctermaniso = 0.
        dustfraci = 0.
+       tempi = 0.
     endif
 
     !
@@ -2650,7 +2636,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           dustfracisum = sum(dustfraci(:))
           tstopi(:)    = xpartveci(itstop:itstopend)
        endif
-
+    else
+       rho1i = 0.
     endif
 
 #ifdef GRAVITY
@@ -2842,16 +2829,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
        if (use_dustfrac) then
-!------------------------------------------------
-!--sqrt(rho*epsilon) method
-!          ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)-sqrt(rhoi*dustfraci(1:maxdustsmall))*divvi)
-!------------------------------------------------
-!--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+          !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
           ddustevol(:,i) = 0.5*(fsum(iddustevoli:iddustevoliend)*rho1i/((1.-dustfraci(1:maxdustsmall))**2.))
-!------------------------------------------------
-!--asin(sqrt(epsilon)) method
-!          ddustevol(:,i) = fsum(iddustevoli:iddustevoliend)
-!------------------------------------------------
           deltav(1,:,i)  = fsum(ideltavxi:ideltavxiend)
           deltav(2,:,i)  = fsum(ideltavyi:ideltavyiend)
           deltav(3,:,i)  = fsum(ideltavzi:ideltavziend)
@@ -3062,6 +3041,7 @@ end subroutine combine_cells
 !-----------------------------------------------------------------------------
 !+
 !  Apply reconstruction to velocity gradients
+!  As described in Price & Laibe (2020), MNRAS 495, 3929-3934
 !+
 !-----------------------------------------------------------------------------
 subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,ilimiter)
@@ -3109,6 +3089,12 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,il
 
 end subroutine reconstruct_dv
 
+!-----------------------------------------------------------------------------
+!+
+!  Slope limiter used for velocity gradient reconstruction,
+!  as described in Price & Laibe (2020), MNRAS 495, 3929-3934
+!+
+!-----------------------------------------------------------------------------
 real function slope_limiter(sl,sr) result(s)
  real, intent(in) :: sl,sr
 ! integer, intent(in) :: ilimiter
