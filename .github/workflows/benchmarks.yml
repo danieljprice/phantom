@@ -142,6 +142,16 @@ jobs:
       env:
         PHANTOM_DIR: ${{ github.workspace }}
 
+    - name: "Update stats.txt on phantom-data-files"
+      working-directory: phantom-benchmarks
+      run: |
+        for dir in ./*; do
+          if [ -d ${dir} ]; then
+            list+=("${dir}")
+            rsync -vau ${dir}/stats.txt ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${dir}/
+          fi
+        done
+
     - name: "Copy plots to phantom-data-files"
       working-directory: phantom-benchmarks
       run: |
