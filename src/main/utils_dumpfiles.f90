@@ -1961,9 +1961,9 @@ subroutine read_array_int4(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
- integer      :: i
- real(kind=4) :: dum
- logical      :: match_datatype
+ integer         :: i
+ integer(kind=4) :: dum
+ logical         :: match_datatype
 
  if (matched) return
  match_datatype = (ikind==i_int4)
