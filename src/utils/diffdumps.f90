@@ -91,7 +91,7 @@ program diffdumps
  idiff = .false.
  ndiffu = 0
  err = 0.
- call checkval(npart,iorig(:),iorig2(:),0.0,ndiffid,'iorig')
+ call checkval(npart,iorig(:),iorig2(:),int(0,kind=8),ndiffid,'id')
 
  call checkval(npart,xyzh(1,:),xyzh2(1,:),tolerance,ndiffx,'x',rmserr=err(1))
  call checkval(npart,xyzh(2,:),xyzh2(2,:),tolerance,ndiffy,'y',rmserr=err(2))
