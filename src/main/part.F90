@@ -1238,6 +1238,7 @@ subroutine reorder_particles(iorder,np)
  call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
  !call copy_array1(twas(1:np),          iorder(1:np))
 #endif
+ call copy_arrayint8(iorig(1:np), iorder(1:np))
 
  return
 end subroutine reorder_particles
@@ -1544,7 +1545,7 @@ end subroutine copy_array1
 !----------------------------------------------------------------
 !+
 !  utility to reorder an array
-!  (real4, rank 1 arrays)
+!  (int1, rank 1 arrays)
 !+
 !----------------------------------------------------------------
 
@@ -1558,6 +1559,24 @@ subroutine copy_arrayint1(iarray,ilist)
 
  return
 end subroutine copy_arrayint1
+
+!----------------------------------------------------------------
+!+
+!  utility to reorder an array
+!  (int8, rank 1 arrays)
+!+
+!----------------------------------------------------------------
+
+subroutine copy_arrayint8(iarray,ilist)
+   integer(kind=8), intent(inout) :: iarray(:)
+   integer,         intent(in)    :: ilist(:)
+   integer(kind=8) :: iarraytemp(size(iarray(:)))
+
+   iarraytemp(:) = iarray(ilist(:))
+   iarray = iarraytemp
+
+   return
+  end subroutine copy_arrayint8
 
 !----------------------------------------------------------------
 !+
