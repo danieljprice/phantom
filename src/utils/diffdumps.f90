@@ -23,6 +23,7 @@ program diffdumps
  use io,      only:set_io_unit_numbers,iprint,idisk1,real4
  use readwrite_dumps, only:read_dump
  use testutils,       only:checkval
+ use sort_particles,  only:sort_part_id
  implicit none
  integer                      :: nargs
  character(len=120)           :: dumpfile,dumpfile2,tolstring
@@ -65,6 +66,9 @@ program diffdumps
  allocate (vxyzu2(maxvxyzu,maxp),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store velocities'
 
+!  Sort first dump by ID
+ call sort_part_id
+
  xyzh2 = xyzh
  vxyzu2 = vxyzu
 !
@@ -72,6 +76,9 @@ program diffdumps
 !
  call read_dump(trim(dumpfile2),time2,hfact2,idisk1+1,iprint,0,1,ierr)
  if (ierr /= 0) stop 'error reading second dumpfile'
+
+!  Sort second dump by ID
+ call sort_part_id
 
 ! call diffarr(hfact2,hfact,0,'hfact',ndiffh)
 ! call diffarr(time2,time,0,'time',ndiffh)
