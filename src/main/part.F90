@@ -296,14 +296,14 @@ module part
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
 #if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
-   +nalpha                              &  ! alphaind
+ +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
  +ngradh                              &  ! gradh
 #endif
 #ifdef MHD
  +maxBevol                            &  ! Bevol
-   +maxBevol                            &  ! Bpred
+ +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
  +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
@@ -313,11 +313,11 @@ module part
 #endif
 #ifdef DUST
  +maxdusttypes                        &  ! dustfrac
-   +maxdustsmall                        &  ! dustevol
-   +maxdustsmall                        &  ! dustpred
+ +maxdustsmall                        &  ! dustevol
+ +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
-   +1                                   &  ! dustproppred
-   +1                                   &  ! ddustprop
+ +1                                   &  ! dustproppred
+ +1                                   &  ! ddustprop
 #endif
 #endif
 #ifdef H2CHEM
@@ -325,17 +325,17 @@ module part
 #endif
 #ifdef NUCLEATION
  +1                                   &  ! nucleation rate
-   +4                                   &  ! moments
-   +1                                   &  ! mean molecular weight
+ +4                                   &  ! moments
+ +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
-   +1                                   &  ! variable gamma
-   +1                                   &  ! variable mu
-   +1                                   &  ! temperature
-   +1                                   &  ! cooling rate
+ +1                                   &  ! variable gamma
+ +1                                   &  ! variable mu
+ +1                                   &  ! temperature
+ +1                                   &  ! cooling rate
 #endif
-   +maxeosvars                          &  ! eos_vars
+ +maxeosvars                          &  ! eos_vars
 #ifdef GRAVITY
  +1                                   &  ! poten
 #endif
@@ -344,11 +344,12 @@ module part
 #endif
 #ifdef IND_TIMESTEPS
  +1                                   &  ! ibin
-   +1                                   &  ! ibin_old
-   +1                                   &  ! ibin_wake
-   +1                                   &  ! dt_in
-   +1                                   &  ! twas
+ +1                                   &  ! ibin_old
+ +1                                   &  ! ibin_wake
+ +1                                   &  ! dt_in
+ +1                                   &  ! twas
 #endif
+ +1                                   &  ! iorig
  +0
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -1401,6 +1402,7 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
+    call fill_buffer(xtemp,iorig(i),nbuf)
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
 
@@ -1469,6 +1471,7 @@ subroutine unfill_buffer(ipart,xbuf)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif
+ iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then
