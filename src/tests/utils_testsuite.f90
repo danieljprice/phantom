@@ -770,10 +770,10 @@ subroutine printerr_int8(label,ix,ival,erri,itol)
    integer(kind=8),  intent(in) :: ix, ival, erri, itol
 
    if (itol > 0) then
-      write(*,"(1x,4(a,i10),a)") &
+      write(*,"(1x,4(a,i19),a)") &
         trim(label)//' = ',ix,' should be ',ival,' err =',erri,' (tol =',itol,')'
    else
-      write(*,"(1x,3(a,i10),a)") &
+      write(*,"(1x,3(a,i19),a)") &
         trim(label)//' = ',ix,' should be ',ival,' err =',erri
    endif
 
