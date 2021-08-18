@@ -1855,7 +1855,8 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
-         ${SRCREADWRITE_DUMPS}
+         ${SRCREADWRITE_DUMPS} \
+         utils_sort.f90 sort_particles.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
