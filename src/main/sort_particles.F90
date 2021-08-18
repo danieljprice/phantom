@@ -158,7 +158,7 @@ subroutine sort_part_id
    call cpu_time(t1)
    write(iprint,*) '> sorting particles by ID...'
 
-   call indexx(npart,real(iorig),ll)
+   call indexx(npart,iorig,ll)
 
    write(iprint,*) ' copying arrays...'
   !
