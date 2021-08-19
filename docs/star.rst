@@ -17,7 +17,7 @@ make a new directory and write a local Makefile
 
    $ mkdir star
    $ cd star
-   $ ~/phantom/scripts/writemake.sh polytrope > Makefile
+   $ ~/phantom/scripts/writemake.sh star > Makefile
 
 compile phantom and phantomsetup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,67 +35,88 @@ run phantomsetup
 ::
 
    $./phantomsetup star
-     nprocs =            1
-    ERROR opening star.setup
 
-   Case  1 Uniform density sphere
-   Case  2 Polytrope
-   Case  3 Binary polytrope
-   Case  4 neutron star from file
-   Case  5 Red giant (Macquarie)
-   Case  6 neutron star with piecewise polytrope EOS
-   Case  7 Evrard collapse
-   Case  8 KEPLER star from file
-   Case  9 Helmholtz free energy eos star
-   Enter which setup to use ([1:9], default=1):
-   Setting up Uniform density sphere
-   Enter mass unit (e.g. solarm,jupiterm,earthm) (blank="blank",default="solarm"):
-   Enter distance unit (e.g. au,pc,kpc,0.1pc) (blank="blank",default="solarr"):
-   Enter the approximate number of particles in the sphere ([0:666666], default=10000):
-   Enter the radius of the star (code units) ([0.000:], default=1.000):
-   Enter the mass of the star (code units) ([0.000:], default=1.000):
-   Enter the Adiabatic index ([1.000:], default=1.667):
-   Enter polyk (sound speed .or. constant in EOS calculation) ([0.000:], default=0.5000):
-     set_sphere: Iterating to form sphere with approx        10000  particles
-    set_sphere: Iterations complete: added      10659 particles in sphere
+   star.setup not found: using interactive setup
+
+   1) Uniform density profile     
+   2) Polytrope                   
+   3) Density vs r from ascii file
+   4) KEPLER star from file       
+   5) MESA star from file         
+   6) Piecewise polytrope         
+   7) Evrard collapse             
+  Enter which density profile to use ([1:7], default=1): 2
+  Setting up Polytrope
+  Enter mass unit (e.g. solarm,jupiterm,earthm) (blank="blank",default="solarm"): 
+  Enter distance unit (e.g. au,pc,kpc,0.1pc) (blank="blank",default="solarr"): 
+  Enter the approximate number of particles in the sphere ([0:], default=100000): 
+  Enter the desired EoS for setup (default=2): 
+  Enter gamma (adiabatic index) ([1.000:7.000], default=1.667): 
+  Enter the mass of the star (code units) ([0.000:], default=1.000): 
+  Enter the radius of the star (code units) ([0.000:], default=1.000): 
+  Relax star automatically during setup? (default=no): y
+   Writing star.setup
+  STOP please check and edit .setup file and rerun phantomsetup
 
 once you have answered the questions once, they are written to a file
 called star.setup, which you can use for subsequent runs of phantomsetup
-without having to answer prompts
+without having to answer prompts (see below)
 
 relax the star
 ~~~~~~~~~~~~~~
 
-Open the star.in file and set the parameter “damp” to 0.03:
+Open the star.setup file and make sure the parameter “relax_star” to True::
 
-::
+                   relax_star =       T    ! artificial damping of velocities (if on, v=0 initially)
 
-                   damp =       0.030    ! artificial damping of velocities (if on, v=0 initially)
+Then run phantomsetup::
 
-Also change dtmax if you want more frequent output:
+   ./phantomsetup star.setup
+  
+Which will generate a sequence of snapshots of the relaxation process::
 
-::
+   RELAX-A-STAR-O-MATIC: Etherm:  0.499     Epot: -0.854     R*:   1.00    
+       WILL stop WHEN: dens error <   1.00% AND Ekin/Epot <   1.000E-07 OR Iter=0
 
-                  dtmax =       1.000    ! time between dumps
+   -------->   TIME =    0.000    : full dump written to file relax_00000   <--------
 
-Then run phantom:
+    Relaxing star: Iter   1/1000, dens error: 20.39%, R*:  0.978     Ekin/Epot:  3.157E-03
+    Relaxing star: Iter   2/1000, dens error: 15.91%, R*:  0.978     Ekin/Epot:  4.858E-03
+    Relaxing star: Iter   3/1000, dens error: 13.05%, R*:  0.978     Ekin/Epot:  3.303E-03
+    Relaxing star: Iter   4/1000, dens error: 11.11%, R*:  0.977     Ekin/Epot:  2.276E-03
+    Relaxing star: Iter   5/1000, dens error:  9.69%, R*:  0.975     Ekin/Epot:  1.655E-03
 
-::
+   -------->   TIME =   0.3756E-01: full dump written to file relax_00001   <--------
+    Relaxing star: Iter   6/ 500, dens error: 22.17%, R*:   1.03     Ekin/Epot:  1.280E-03
 
-   ./phantom star.in
+This process will stop when either the density error is less than 1\% and the ratio of kinetic to potential energy
+is less than the specified tolerance, OR the number of iterations reaches the specified maximum.
 
-In the log file you should see:
+Once complete, you should obtain a relaxed initial conditions snapshot with the correct density and pressure profiles::
 
-::
+   -------->   TIME =    0.000    : full dump written to file star_00000.tmp   <--------
 
-    Polytropic equation of state: P =   0.424304*rho^  1.666667
+
+    input file poly.in written successfully.
+    To start the calculation, use: 
+
+    ./phantom star.in
+
+evolve the star
+~~~~~~~~~~~~~~~
+
+If you really want to, you can evolve the star in isolation with the regular code to double-check that the relaxation process worked::
+
+    ./phantom star.in
 
 check the output
 ~~~~~~~~~~~~~~~~
 
 ::
 
-   ssplash star_0*
+   splash star_0*
+
+(if you have version 2 of splash, the relevant command is "ssplash")
 
 Putting the star on an orbit for a tidal disruption event
 ---------------------------------------------------------
@@ -116,7 +137,7 @@ Then run moddump on your relaxed star
 
 ::
 
-   $ ./phantommoddump star_00010 tde 0.0
+   $ ./phantommoddump star_00000 tde 0.0
    ...
    ...
    ...

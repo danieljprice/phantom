@@ -6,9 +6,9 @@
 !--------------------------------------------------------------------------!
 module setup
 !
+! Setup for Bondi flow problem, for both relativistic and non-relativistic solution
 !
-!
-! :References:
+! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: David Liptai
 !
@@ -41,7 +41,7 @@ module setup
  use units,          only:udist,umass,utime,set_units
  use physcon,        only:pc,solarm,gg
  use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
- use stretchmap,     only:get_mass_r
+ use stretchmap,     only:get_mass_r,rho_func
  use kernel,         only:radkern
  use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit
@@ -84,6 +84,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer            :: i,ierr,nx,nbound
  character(len=100) :: filename
  logical            :: iexist
+ procedure(rho_func), pointer :: density_func
 !
 !-- Set code units
 !
@@ -154,7 +155,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
 
- totmass  = get_mass_r(rhofunc,rmax,rmin)
+ density_func => rhofunc
+ totmass  = get_mass_r(density_func,rmax,rmin)
  approx_m = totmass/np
  approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
  rhozero  = totmass/vol
@@ -202,17 +204,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  npartoftype(:) = 0
- npartoftype(igas) = npart_total-nbound
+ npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
 
 end subroutine setpart
 
-
+!----------------------------------------------------------------
+!+
+!  functional form of density profile, used as argument
+!  to set_sphere
+!+
+!----------------------------------------------------------------
 real function rhofunc(r)
  real, intent(in) :: r
  real :: rho,v,u
+
  call get_bondi_solution(rho,v,u,r,mass1,gamma_eos)
  rhofunc = rho
+
 end function rhofunc
 
 !----------------------------------------------------------------
@@ -221,7 +230,7 @@ end function rhofunc
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -245,9 +254,9 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
+ use units,        only:select_unit
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -265,8 +274,12 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
 
+!----------------------------------------------------------------
+!+
+!  construct table of density as a function of radius
+!+
+!----------------------------------------------------------------
 subroutine get_rhotab(rhotab,rmin,rmax,mass1,gamma)
  real, intent(out) :: rhotab(:)
  real, intent(in) :: rmin,rmax,mass1,gamma

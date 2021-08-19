@@ -49,21 +49,21 @@ module inject
  real::    wind_temperature = 2500.
 #elif ISOTHERMAL
  integer:: sonic_type = 1
- real::    wind_velocity_km_s = 25.
+ real::    wind_velocity_km_s = 20.
  real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 0.46524726
+ real::    wind_injection_radius_au = 1.1
  real::    wind_temperature
 #else
  integer:: sonic_type = 0
- real::    wind_velocity_km_s = 35.
+ real::    wind_velocity_km_s = 30.
  real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 1.7
+ real::    wind_injection_radius_au = 1.1
  real::    wind_temperature = 3000.
 #endif
  integer :: iboundary_spheres = 5
  integer :: iwind_resolution = 0
- integer :: nfill_domain = 30
- real :: outer_boundary_au = 10.
+ integer :: nfill_domain = 10
+ real :: outer_boundary_au = 30.
  real :: wind_shell_spacing = 1.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
@@ -623,7 +623,8 @@ subroutine write_options_inject(iunit)
  use dim,          only: maxvxyzu
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
-
+ 
+ write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
  call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
