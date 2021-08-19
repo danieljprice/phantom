@@ -36,7 +36,7 @@ module ptmass
 !
  use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
- use io,   only:iscfile,iskfile
+ use io,   only:iscfile,iskfile,id,master
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -580,7 +580,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,              intent(in)    :: vxyz_ptmass(3,maxptmass)
  logical,           intent(out)   :: accreted
- real,              intent(inout) :: dptmass(ndptmass,maxptmass)
+ real,              intent(inout) :: dptmass(:,:)
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
@@ -826,7 +826,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
 #endif
- use linklist, only:getneigh_pos,ifirstincell
+ use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
  use options,  only:ieos
  use units,    only:unit_density
@@ -844,13 +844,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei
  integer            :: nneigh
- integer            :: listneigh(maxneigh)
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
 #ifdef IND_TIMESTEPS
  integer(kind=1)    :: ibin_itest
 #endif
- real    :: xyzcache(maxcache,3)
+ real, save :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
@@ -1357,18 +1356,20 @@ end subroutine ptmass_create
 !  Open files to track sink particle data
 !+
 !-----------------------------------------------------------------------
-subroutine init_ptmass(nptmass,logfile,dumpfile)
+subroutine init_ptmass(nptmass,logfile)
  integer,          intent(in) :: nptmass
- character(len=*), intent(in) :: logfile,dumpfile
- integer                      :: i,idot,idash
+ character(len=*), intent(in) :: logfile
+ integer                      :: i,idot
  character(len=150)           :: filename
+
+ if (id /= master) return ! only do this on master thread
  !
  !--Extract prefix & suffix
  !
- idash = index(dumpfile,'_')
- write(pt_prefix,"(a)") dumpfile(1:idash-1)
  idot = index(logfile,'.')
  if (idot==0) idot = len_trim(logfile) + 1
+ pt_prefix = logfile(1:idot-3)
+
  !
  !--Define file name components and finalise suffix & open files
  !
@@ -1434,6 +1435,8 @@ subroutine pt_open_sinkev(num)
  integer             :: iunit
  character(len=200)  :: filename
 
+ if (id /= master) return ! only do this on master thread
+
  if (write_one_ptfile) then
     write(filename,'(2a)') trim(pt_prefix),trim(pt_suffix)
  else
@@ -1475,13 +1478,16 @@ end subroutine pt_open_sinkev
 subroutine pt_close_sinkev(nptmass)
  integer, intent(in) :: nptmass
  integer             :: i,iunit
- if (write_one_ptfile) then
-    close(iskfile)
- else
-    do i = 1,nptmass
-       iunit = iskfile+i
-       close(iunit)
-    enddo
+
+ if (id == master) then ! only on master thread
+    if (write_one_ptfile) then
+       close(iskfile)
+    else
+       do i = 1,nptmass
+          iunit = iskfile+i
+          close(iunit)
+       enddo
+    endif
  endif
 
 end subroutine pt_close_sinkev
@@ -1491,10 +1497,12 @@ end subroutine pt_close_sinkev
 !+
 !-----------------------------------------------------------------------
 subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
- use part,        only: ispinx,ispiny,ispinz,imacc
+ use part,        only:ispinx,ispiny,ispinz,imacc
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit
+
+ if (id /= master) return ! only do this on master thread
 
  iunit = iskfile
  do i = 1,nptmass

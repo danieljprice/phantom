@@ -34,6 +34,7 @@ module linklist
  type(kdnode), public,  allocatable :: node(:)
  integer,               allocatable :: nodemap(:)
  integer,      public ,            allocatable :: listneigh(:)
+ integer,      public ,            allocatable :: listneigh_global(:)
 !$omp threadprivate(listneigh)
  integer(kind=8), public :: ncells
  real, public            :: dxcell
@@ -66,6 +67,7 @@ subroutine allocate_linklist
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
 !$omp end parallel
+ call allocate_array('listneigh_global',listneigh_global,maxp)
 
 end subroutine allocate_linklist
 
@@ -80,6 +82,7 @@ subroutine deallocate_linklist
 !$omp parallel
  if (allocated(listneigh)) deallocate(listneigh)
 !$omp end parallel
+ if (allocated(listneigh_global)) deallocate(listneigh_global)
  call deallocate_kdtree()
 
 end subroutine deallocate_linklist

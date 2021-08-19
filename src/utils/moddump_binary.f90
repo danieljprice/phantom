@@ -10,13 +10,13 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
-!   infile_utils, io, options, part, physcon, prompting, rho_profile,
-!   setbinary, table_utils, timestep, units
+!   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
+!   rho_profile, setbinary, table_utils, timestep, units
 !
  implicit none
 
@@ -61,7 +61,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=20)         :: filename = 'binary.in'
  character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
- 
+
 
  if (nptmass > 3) then
     stop 'ERROR: Number of sink particles > 3'
@@ -313,8 +313,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
           ! shift star1 to primary point mass (deleted)
           do i=nstar2+1,npart
-            xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
-            vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
           enddo
 
        endif

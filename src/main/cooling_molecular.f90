@@ -104,7 +104,7 @@ real, intent(in)   :: r_part                      ! In AU
 
 ! Data dictionary: Additional parameters for calculations
 integer                                     :: i
-real                                        :: rho_H, n_H, Temp, Lambda
+real                                        :: rho_H, n_H, Temp, f
 real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
 real                                        :: abundance, widthLine_molecule
 real, dimension(3)                          :: lambda_log, params_cool, widthLine
@@ -135,6 +135,7 @@ params_cool         = -999.
 params_cd           = 0.
 lambda_log          = -999.
 molecular_abun      = [CO_abun, H2O_abun, HCN_abun]
+f                   = 1.0e0
 
 ! Calculate column density
 do i = 1, 3
@@ -148,15 +149,19 @@ do i = 1, 3
         N_coolant_log      = log10(abundance * fit_n_inner * N_hydrogen)
         ! Calculate cooling rate
         params_cool = [T_log, n_H_log, N_coolant_log]
+    
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
-        Lambda = Lambda + 10.**lambda_log(i)
+        Q = Q + 10.**lambda_log(i)
     end if
 end do
 
-! if (Lambda /= 0.) call lambdaGradT(coolingTable, params_cool, Lambda, dlnQdlnT)
-dlnQdlnT = 0
+Q = -f*Q
 
-Q = Lambda
+if (Q /= 0.) then
+   call lambdaGradT(coolingTable, params_cool, Q, dlnQdlnT)
+else
+   dlnQdlnT = 0
+end if
 
 end subroutine  calc_cool_molecular
 
