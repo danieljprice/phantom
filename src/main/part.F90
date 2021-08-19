@@ -309,8 +309,6 @@ module part
 #ifdef MHD
    +maxBevol                            &  ! Bevol
    +maxBevol                            &  ! Bpred
- +maxBevol                            &  ! Bevol
- +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
    +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
@@ -322,9 +320,6 @@ module part
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
- +maxdusttypes                        &  ! dustfrac
- +maxdustsmall                        &  ! dustevol
- +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
  +1                                   &  ! dustproppred
  +1                                   &  ! ddustprop
@@ -337,9 +332,6 @@ module part
    +1                                   &  ! nucleation rate
    +4                                   &  ! moments
    +1                                   &  ! mean molecular weight
- +1                                   &  ! nucleation rate
- +4                                   &  ! moments
- +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
    +krome_nmols                         &  ! abundance
@@ -347,17 +339,11 @@ module part
    +1                                   &  ! variable mu
    +1                                   &  ! temperature
    +1                                   &  ! cooling rate
- +krome_nmols                         &  ! abundance
- +1                                   &  ! variable gamma
- +1                                   &  ! variable mu
- +1                                   &  ! temperature
- +1                                   &  ! cooling rate
 #endif
    +maxeosvars                          &  ! eos_vars
 #ifdef SINK_RADIATION
    +1                                   &  ! dust temperature
 #endif
- +maxeosvars                          &  ! eos_vars
 #ifdef GRAVITY
    +1                                   &  ! poten
 #endif
@@ -367,11 +353,6 @@ module part
    +1                                   &  ! ibin_wake
    +1                                   &  ! dt_in
    +1                                   &  ! twas
- +1                                   &  ! ibin
- +1                                   &  ! ibin_old
- +1                                   &  ! ibin_wake
- +1                                   &  ! dt_in
- +1                                   &  ! twas
 #endif
  +1                                   &  ! iorig
  +0
