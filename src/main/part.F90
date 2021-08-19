@@ -1210,37 +1210,30 @@ end subroutine copy_particle_all
 !------------------------------------------------------------------
 !+
 ! routine which reorders the particles according to an input list
-! (prior to a derivs evaluation - so no derivs required)
-! (allocates temporary arrays for each variable, so use with caution)
-! THIS ROUTINE IS OBSOLETE AND IS SCHEDULED FOR DELETION
 !+
 !------------------------------------------------------------------
 subroutine reorder_particles(iorder,np)
  integer, intent(in) :: iorder(:)
  integer, intent(in) :: np
 
- call copy_array(xyzh(:,1:np), iorder(1:np))
- call copy_array(vxyzu(:,1:np),iorder(1:np))
- call copy_array(fext(:,1:np), iorder(1:np))
- if (mhd) then
-    call copy_array(Bevol(:,1:np),iorder(1:np))
-    !--also copy the Bfield here, as this routine is used in setup routines
-    call copy_array(Bxyz(:,1:np), iorder(1:np))
- endif
- if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
- if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
- if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),   iorder(1:np))
- if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),  iorder(1:np))
- if (maxgrav  ==maxp) call copy_array1(poten(1:np),      iorder(1:np))
-#ifdef IND_TIMESTEPS
- call copy_arrayint1(ibin(1:np),      iorder(1:np))
- call copy_arrayint1(ibin_old(1:np),  iorder(1:np))
- call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
- !call copy_array1(twas(1:np),          iorder(1:np))
-#endif
- call copy_arrayint8(iorig(1:np), iorder(1:np))
+ integer :: isrc
+ real    :: xtemp(ipartbufsize)
 
- return
+ do i=1,np
+   isrc = iorder(i)
+
+   ! If particle has already been moved
+   do while (isrc < i)
+      isrc = iorder(isrc)
+   enddo
+
+   ! Swap particles around
+   call fill_sendbuf(i,xtemp)
+   call copy_particle_all(isrc,i,.false.)
+   call unfill_buffer(isrc,xtemp)
+
+ enddo
+
 end subroutine reorder_particles
 
 !-----------------------------------------------------------------------
