@@ -17,16 +17,12 @@ module sort_particles
 ! :Dependencies: dim, io, linklist, part, sortutils
 !
  implicit none
- public :: sort_part_radius, sort_part_id
-#ifdef SORT
- public :: sort_part
-#endif
+ public :: sort_part_radius, sort_part_id, sort_part
 
  private
 
 contains
 
-#ifdef SORT
 ! do not even compile with this routine if not sorting
 !----------------------------------------------------------------
 !+
@@ -113,7 +109,6 @@ subroutine sort_part
  write(iprint,*) '> sort completed in ',t2-t1,'s'
 
 end subroutine sort_part
-#endif
 
 !----------------------------------------------------------------
 !+
