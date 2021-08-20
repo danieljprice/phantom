@@ -558,7 +558,6 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  close(11)
 
  print "(a,i5)",' number of data rows = ', n_rows
- print "(a,i3)",' number of comments = ', nheaderlines
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
