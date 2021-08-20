@@ -375,7 +375,7 @@ subroutine write_hdf5_arrays( &
                                 divcurlv(:,:),     &
                                 divcurlB(:,:)
  integer(kind=1), intent(in) :: iphase(:)
- integer,         intent(in) :: iorig(:)
+ integer(kind=8), intent(in) :: iorig(:)
  type (arrays_options_hdf5), intent(in) :: array_options
 
  integer(HID_T) :: group_id
@@ -799,7 +799,7 @@ subroutine read_hdf5_arrays( &
  type (arrays_options_hdf5), intent(in)  :: array_options
  type (got_arrays_hdf5),     intent(out) :: got_arrays
  integer(kind=1), intent(out) :: iphase(:)
- integer,         intent(out) :: iorig(:)
+ integer(kind=8), intent(out) :: iorig(:)
  real,            intent(out) :: xyzh(:,:),         &
                                  vxyzu(:,:),        &
                                  xyzmh_ptmass(:,:), &
