@@ -21,7 +21,7 @@ program diffdumps
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact
  use io,      only:set_io_unit_numbers,iprint,idisk1,real4
- use readwrite_dumps, only:read_dump
+ use readwrite_dumps, only:read_dump,init_readwrite_dumps
  use testutils,       only:checkval
  implicit none
  integer                      :: nargs
@@ -53,6 +53,12 @@ program diffdumps
  endif
 
  print "(/,a,/)",' diffdumps: we welcome you'
+
+!
+!--Init readwrite dumps (switches between native and HDF5 outputs)
+!
+ call init_readwrite_dumps
+
 !
 !--read particle setup from first dumpfile
 !
