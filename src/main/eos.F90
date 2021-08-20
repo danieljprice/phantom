@@ -132,7 +132,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
- use physcon,           only:kb_on_mh
+ use physcon,       only:kb_on_mh
 
 
  integer, intent(in)  :: eos_type
@@ -192,7 +192,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
           ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
        elseif (gamma > 1.0001) then
           ponrhoi = (gamma-1.)*eni   ! use this if en is thermal energy
-
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
        endif
@@ -202,9 +201,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi = sqrt(gamma*ponrhoi)
 
 #endif
-
-
-    if (present(tempi)) tempi = (1/kb_on_mh)*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(3)
 !
@@ -1300,9 +1297,11 @@ function entropy(rho,pres,ientropy,ierr)
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
+
     temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
     call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
