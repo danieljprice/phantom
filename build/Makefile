@@ -2186,7 +2186,7 @@ diffdumps: checksys checkparams $(OBJDUMP) utils_testsuite.o diffdumps.o
 	@echo ""
 	@echo "diffdumps: we welcome you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o diffdumps.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o diffdumps.o $(LDFLAGS)
 
 cleandiffdumps:
 	rm -f $(BINDIR)/phantom2divb
