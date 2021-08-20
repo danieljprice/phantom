@@ -290,8 +290,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
    use centreofmass,    only:get_centreofmass
    use sortutils,       only:set_r2func_origin,indexxfunc,r2func_origin
-   use units ,          only:umass
-   !use physcon,         only:gg,solarm
+   use units ,          only:umass,unit_velocity,udist
+   use physcon,         only:gg,solarm
    integer,  intent(in) :: npart
    real,   intent(in) :: xyzh(:,:),vxyzu(:,:)
    real,   intent(in) :: pmass
@@ -299,7 +299,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: v2,eps(npart)
 
    integer :: i, iorder(npart),j
-   !real :: mh = 1e6*solarm
+   real :: mh
 
    !sort the particles based on radius.
    !compare the
@@ -315,32 +315,27 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !xyzh is position wrt the black hole present at origin.
      i  = iorder(j) !Access the rank of each particle in radius.
      pos(:) = xyzh(1:3,i) - xpos(:)
-     !pos(:) = xyzh(1:3,i)
 
     !calculate the position which is the location of the particle.
     rad = sqrt(dot_product(pos(:),pos(:)))
-    !v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    v2 = dot_product(vxyzu(1:3,i) - vpos(:),pos(:))/rad
-    !eps(i) = (v2*unit_velocity**2)/2. - (1*gg)/(rad*udist)
-    !e(i) = dot_product(vxyzu(1:3,i) - vpos(:),vxyzu(1:3,i) - vpos(:))/2 - 1/rad
-    
-    !Energy = KE + PE = v^2/2 - G mh/r. In code units G=1 and for the simulations I ran, mh = 1
-    eps(i) = v2**2/2. - 1/rad !in code units
-    !e(i) = (v2**2*unit_velocity**2)/2. - (1*umass*gg)/(rad*udist)
-    !print*,vxyzu(4,i)*unit_ergg,'energy',eps(i)
+    v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+
+    !Energy = KE + PE = v^2/2 - G mh/r.
+    eps(i) = (v2**2*unit_velocity**2)/2. - (1e6*solarm*gg)/(rad*udist) !in code units
+
   end do
 
  count = 0.
 
    do i = 1,npart
-     !if the radius exceeds the maximum position, the particle has been stripped.
+     !if energy is positive, then particle has been removed from star.
      if (eps(i) > 0) then
        count = count + 1.
      end if
    end do
 
    print*,count,'count',npart,'npart'
-   print*, count*umass*pmass, 'mass lost', npart*umass*pmass
+   print*, count*umass*pmass, 'mass lost', npart*umass*pmass,umass,'mass unit'
    percentage = (count/npart)*100.
    print*, percentage,'mass lost percentage'
   end subroutine find_mass_lost
