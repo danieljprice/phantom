@@ -84,7 +84,6 @@ subroutine get_mpitype_of_kdnode(dtype)
  integer, parameter              :: ndata = 20
 
  integer, intent(out)            :: dtype
- integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 

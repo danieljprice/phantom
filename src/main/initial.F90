@@ -131,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim, &
+                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
@@ -160,9 +160,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
-#ifdef SORT
- use sort_particles,   only:sort_part
-#endif
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
@@ -226,7 +223,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc
- integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -300,7 +296,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 !--get total number of particles (on all processors)
 !
  ntot           = reduceall_mpi('+',npart)
- npartoftypetot = reduce_mpi('+',npartoftype)
+ call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
@@ -387,14 +383,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 
 !
-!--check that sorting is allowed
-!  and if so sort particles
-!
-#ifdef SORT
- call sort_part()
-#endif
-
-!
 !--set up photoevaporation grid, define relevant constants, etc.
 !
 #ifdef PHOTO
@@ -407,9 +395,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  fext(:,:)  = 0.
 
 #ifdef GR
-! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,metrics,metricderivs)
 #ifdef PRIM2CONS_FIRST
+ ! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  ! -- The conserved quantites (momentum and entropy) are being computed
  ! -- directly from the primitive values in the starting dumpfile.
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -425,13 +413,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
+! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else
  if (iexternalforce > 0) then
@@ -453,9 +442,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
        endif
     enddo
     !$omp end parallel do
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #endif
+
+ if (iexternalforce > 0) then
+   dtextforce = reduceall_mpi('min',dtextforce)
+   if (id==master) write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
 
 !
 !-- Set external force to zero on boundary particles
@@ -629,6 +622,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     endif
  enddo
  !$omp end parallel do
+
+ xmin = reduceall_mpi('min',xmin)
+ ymin = reduceall_mpi('min',ymin)
+ zmin = reduceall_mpi('min',zmin)
+ xmax = reduceall_mpi('max',xmax)
+ ymax = reduceall_mpi('max',ymax)
+ zmax = reduceall_mpi('max',zmax)
+
  dx = abs(xmax - xmin)
  dy = abs(ymax - ymin)
  dz = abs(zmax - zmin)
