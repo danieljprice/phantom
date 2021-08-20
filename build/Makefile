@@ -2021,7 +2021,7 @@ ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          utils_sort.f90 set_Bfield.f90 \
+          set_Bfield.f90 \
           random.f90 set_disc.F90 set_dust.f90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
           icosahedron.f90 radiation_utils.f90 cons2prim.f90 \
