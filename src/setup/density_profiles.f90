@@ -503,23 +503,21 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
                                enitab,totmass,ierr,mcut, rcut   )
  use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only                      :find_phantom_datafile
- use physcon,           only:kb_on_mh,radconst
+ use fileutils, only                      :get_ncolumns
+
  integer,          intent(in)            :: ng_max
  integer,          intent(out)           :: ierr,n_rows
  real,             intent(out)           :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
  real,             intent(out)           :: totmass
  real,             intent(out), optional :: rcut
  real,             intent(in), optional  :: mcut
- real,             dimension(1:100)      :: test_cols
  character(len=*), intent(in)            :: filepath
  character(len=120)                      :: fullfilepath
  character(len=100000)                   :: line
- integer                                 :: i,aloc,k,j,m,s,n_cols
- integer                                 :: max_cols = 100
+ integer                                 :: i,aloc,k,j,s,n_cols
+ integer                                 :: ncolumns,nheaderlines
  real,             allocatable           :: stardata(:,:)
  logical                                 :: iexist,n_too_big
- real         :: gmw            = 2.381
- real :: temperature_i,ponrhoi
 
  !
  !--Get path name
@@ -536,9 +534,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  OPEN(UNIT=11, file=trim(fullfilepath))
  i = 1
- j = 0
- m=0
- s=1
+ j = 0 !this stores the number of comments that need to be skipped.
+ s = 1
  n_rows = 0
  n_cols = 0
  n_too_big = .false.
@@ -552,26 +549,31 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
        if (index(line,'#') .ne. 0) then
          j = j + 1
 
+       else if (len_trim(line) .eq. 0) then
+         exit
+
        else
          if (s==1) then
            !calculate number of columns
-           do m=1, max_cols
-
-             read(line,*,iostat=ierr) test_cols(1:m)
-             if (ierr/=0) exit
-
-           enddo
-       end if
-
-       s = s+1
-       !calculate number of rows
-       n_rows = n_rows + 1
-
+           call get_ncolumns(11,ncolumns,nheaderlines)
+           n_cols = ncolumns
+           s = s+1
+         else
+           !calculate number of rows
+           n_rows = n_rows + 1
+         end if
      end if
  end do
+
+ !After get_ncolumns is called, the file is read from beginning again, hence j is counted twice.
+ if (j .ne. 0) then
+   j = j/2
+ end if
+
+ print "(a,i5)",' number of data rows = ', n_rows
+ print "(a,i5)",' number of comments = ', j
  close(11)
 
- n_cols = m-1
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
@@ -594,6 +596,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read the file again and save it in stardata tensor.
  !
+
  open(13, file=trim(fullfilepath))
  do i = 1,j
    read(13,*,iostat=ierr)
@@ -629,11 +632,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
- do i = 1, n_rows
-   ponrhoi = (ptab(i)*unit_pressure)/(rhotab(i)*unit_density)
-   temperature_i = (1/kb_on_mh)*gmw*ponrhoi
-   print*, temperature_i, 'temperature', temperature(i),'true'
-end do
+ !if (present(abundance_tab)) then
+
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
