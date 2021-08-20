@@ -503,7 +503,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
                                enitab,totmass,ierr,mcut, rcut   )
  use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
  use datafiles, only                      :find_phantom_datafile
- use fileutils, only                      :get_ncolumns
+ use fileutils, only                      :get_ncolumns,get_nlines,skip_header
 
  integer,          intent(in)            :: ng_max
  integer,          intent(out)           :: ierr,n_rows
@@ -514,8 +514,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  character(len=*), intent(in)            :: filepath
  character(len=120)                      :: fullfilepath
  character(len=100000)                   :: line
- integer                                 :: i,aloc,k,j,s,n_cols
- integer                                 :: ncolumns,nheaderlines
+ integer                                 :: k,aloc,n_cols
+ integer                                 :: ncolumns,nheaderlines,ierror
  real,             allocatable           :: stardata(:,:)
  logical                                 :: iexist,n_too_big
 
@@ -533,51 +533,36 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--Read data from file
  !
  OPEN(UNIT=11, file=trim(fullfilepath))
- i = 1
- j = 0 !this stores the number of comments that need to be skipped.
- s = 1
+ k = 1
  n_rows = 0
  n_cols = 0
  n_too_big = .false.
  !
- !--The first loop calculates the number of rows, columns and comments in kepler file.
+ !--Calculate the number of rows, columns and comments in kepler file.
  !
+ call get_ncolumns(11,ncolumns,nheaderlines)
+ n_cols = ncolumns
+ call skip_header(11,nheaderlines,ierror)
+ ierr = 0
  do
-   read(11, '(a)', iostat=ierr) line
-       if (ierr/=0) exit
+    read(11, '(a)', iostat=ierr) line
+        if (ierr/=0) exit
 
-       if (index(line,'#') .ne. 0) then
-         j = j + 1
+        if (len_trim(line) .eq. 0) then
+          exit
 
-       else if (len_trim(line) .eq. 0) then
-         exit
-
-       else
-         if (s==1) then
-           !calculate number of columns
-           call get_ncolumns(11,ncolumns,nheaderlines)
-           n_cols = ncolumns
-           s = s+1
-         else
-           !calculate number of rows
-           n_rows = n_rows + 1
-         end if
-     end if
+        else
+            n_rows = n_rows + 1
+        end if
  end do
-
- !After get_ncolumns is called, the file is read from beginning again, hence j is counted twice.
- if (j .ne. 0) then
-   j = j/2
- end if
-
- print "(a,i5)",' number of data rows = ', n_rows
- print "(a,i5)",' number of comments = ', j
  close(11)
 
+ print "(a,i5)",' number of data rows = ', n_rows
+ print "(a,i3)",' number of comments = ', nheaderlines
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
- if (n_rows < 1) then
+ if (n_rows < 1 .or. n_cols < 1) then
     ierr = 2
     return
  endif
@@ -596,12 +581,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read the file again and save it in stardata tensor.
  !
-
  open(13, file=trim(fullfilepath))
- do i = 1,j
-   read(13,*,iostat=ierr)
- end do
-
+ call skip_header(13,nheaderlines,ierror)
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
  enddo
@@ -631,6 +612,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !specific internal energy
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
+
 
  !if (present(abundance_tab)) then
 
