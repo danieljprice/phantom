@@ -160,9 +160,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
-#ifdef SORT
- use sort_particles,   only:sort_part
-#endif
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
@@ -384,14 +381,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ibelong(i) = id
  enddo
  call balancedomains(npart)
-#endif
-
-!
-!--check that sorting is allowed
-!  and if so sort particles
-!
-#ifdef SORT
- call sort_part()
 #endif
 
 !

@@ -110,7 +110,7 @@ module mpiutils
 !--generic interface fill_buffer
 !
  interface fill_buffer
-  module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_ival
+  module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_i1val,fill_buffer_i8val
  end interface
 !
 !--generic interface unfill_buf
@@ -1540,7 +1540,7 @@ subroutine fill_buffer_r4val(xbuffer,xval,nbuf)
 
 end subroutine fill_buffer_r4val
 
-subroutine fill_buffer_ival(xbuffer,ival,nbuf)
+subroutine fill_buffer_i1val(xbuffer,ival,nbuf)
  real,            intent(inout) :: xbuffer(:)
  integer(kind=1), intent(in)    :: ival
  integer,         intent(inout) :: nbuf
@@ -1548,7 +1548,17 @@ subroutine fill_buffer_ival(xbuffer,ival,nbuf)
  nbuf = nbuf + 1
  xbuffer(nbuf) = real(ival)
 
-end subroutine fill_buffer_ival
+end subroutine fill_buffer_i1val
+
+subroutine fill_buffer_i8val(xbuffer,ival,nbuf)
+   real,            intent(inout) :: xbuffer(:)
+   integer(kind=8), intent(in)    :: ival
+   integer,         intent(inout) :: nbuf
+
+   nbuf = nbuf + 1
+   xbuffer(nbuf) = real(ival)
+
+  end subroutine fill_buffer_i8val
 
 !--------------------------------------------------------------------------
 !+
