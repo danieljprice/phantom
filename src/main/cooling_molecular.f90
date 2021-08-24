@@ -92,7 +92,7 @@ end subroutine init_cooling_molec
 !  Calculate the molecular cooling
 !+
 !-----------------------------------------------------------------------
-subroutine calc_cool_molecular( T, r_part, Q, dlnQdlnT)
+subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
 
  use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
  use eos,     only:gmw, Tfloor, use_Tfloor
@@ -100,14 +100,14 @@ subroutine calc_cool_molecular( T, r_part, Q, dlnQdlnT)
 ! Data dictionary: Arguments
 real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
 real, intent(in)   :: T                           ! In CGS
-real, intent(in)   :: r_part                      ! In AU
+real, intent(in)   :: r_part, rho_sph             ! In AU, CGS
 
 ! Data dictionary: Additional parameters for calculations
 integer                                     :: i
-real                                        :: rho_H, n_H, Temp, f
+real                                        :: rho_H, n_H, Temp, f, Lambda
 real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
 real                                        :: abundance, widthLine_molecule
-real, dimension(3)                          :: lambda_log, params_cool, widthLine
+real, dimension(3)                          :: lambda_log, params_cool, widthLine,Qi
 real, dimension(4)                          :: params_cd
 real, dimension(3)                          :: molecular_abun
 real, dimension(3), parameter               :: mass_molecules = [28.01, 18.01528, 27.0253]*atomic_mass_unit
@@ -135,10 +135,10 @@ params_cool         = -999.
 params_cd           = 0.
 lambda_log          = -999.
 molecular_abun      = [CO_abun, H2O_abun, HCN_abun]
-f                   = 1.0e0
 
 ! Calculate column density
 do i = 1, 3
+    Lambda             = 0.
     widthLine_molecule = widthLine(i)
     abundance          = molecular_abun(i)
     moleculeName       = moleculeNames(i)
@@ -151,11 +151,12 @@ do i = 1, 3
         params_cool = [T_log, n_H_log, N_coolant_log]
     
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
-        Q = Q + 10.**lambda_log(i)
+        Lambda = Lambda + 10.**lambda_log(i)
     end if
+    Qi(i) = -Lambda*abundance*rho_sph/(gmw*mass_proton_cgs)     ! in erg/sec
 end do
 
-Q = -f*Q
+Q = Qi(1)+Qi(2)+Qi(3)
 
 if (Q /= 0.) then
    call lambdaGradT(coolingTable, params_cool, Q, dlnQdlnT)
