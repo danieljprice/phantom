@@ -42,8 +42,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use externalforces, only:mass1
  use externalforces, only:accradius1
  use options,        only:iexternalforce,damp
+ use dim,            only:gr
  use prompting,      only:prompt
- use physcon,        only:pi
+ use physcon,        only:pi,solarm,solarr
+ use units,          only:umass,udist,get_c_code
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -55,22 +57,23 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: rp,rt
  real                    :: x,y,z,vx,vy,vz
  real                    :: x0,y0,vx0,vy0,alpha
+ real                    :: c_light
 
 !
 !-- Default runtime parameters
 !
 !
  beta  = 1.     ! penetration factor
- Mh    = 1.e6   ! BH mass
- Ms    = 1.     ! stellar mass
- rs    = 1.     ! stellar radius
+ Mh    = 1.e6*solarm/umass   ! BH mass
+ Ms    = 1.*solarm/umass     ! stellar mass
+ rs    = 1.*solarr/udist     ! stellar radius
  theta = 0.     ! stellar tilting along x
  phi   = 0.     ! stellar tilting along y
  ecc   = 1.                     ! eccentricity
 
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
- r0 = 4.9*rt                        ! starting radius
+ r0 = 10.*rt                        ! starting radius
 
  !
  !-- Read runtime parameters from tdeparams file
@@ -159,12 +162,18 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  y0    = r0*sin(alpha)
  vx0   = sqrt(mh*beta/((1.+ecc)*rt)) * sin(alpha)
  vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
+ print*, '------------------------------------------------------------------------'
+ print*, alpha, x0, y0, vx0, vy0
+ print*, '------------------------------------------------------------------------'
 
  !--Set input file parameters
- mass1          = Mh
- iexternalforce = 1
- damp           = 0.
- accradius1     = (2*Mh*rs)/((6.8565e2)**2) ! R_sch = 2*G*Mh*rs/c**2
+ if (.not. gr) then
+    mass1          = Mh
+    iexternalforce = 1
+    damp           = 0.
+    c_light        = get_c_code()
+    accradius1     = (2*Mh)/(c_light**2) ! R_sch = 2*G*Mh/c**2
+ endif
 
  !--Tilting the star
  theta=theta*pi/180.0
