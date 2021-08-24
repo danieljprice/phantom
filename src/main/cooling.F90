@@ -237,11 +237,11 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  dlnQ_relax_Stefan = 0.
  dlnQ_molec        = 0.
  
- if (T>3000. .and. excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan) 
- if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, Q_molec, dlnQ_molec)
+ if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
  
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0) then
@@ -324,7 +324,7 @@ subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
  real, intent(in) :: T, rho
  real, intent(out) :: Q,dlnQ_dlnT
 
- real, parameter :: f = 0.2! 1.d0 !0.2
+ real, parameter :: f = 1.0d0
  real :: eps_e
 
  if (T > 3000.) then
@@ -355,6 +355,12 @@ real function calc_eps_e(T)
  q = k1*(k2+k3)/(k3*k9)
  calc_eps_e = (p + sqrt(q+p**2))/q
 end function calc_eps_e
+
+!-----------------------------------------------------------------------
+!+
+!  Set Temperature grid
+!+
+!-----------------------------------------------------------------------
 
 subroutine set_Tgrid
  integer :: i
