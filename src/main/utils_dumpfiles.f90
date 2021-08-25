@@ -2384,6 +2384,8 @@ subroutine print_arrays_in_file(iunit,filename)
  integer(kind=1) :: i1(ndisplay)
  logical         :: singleprec
 
+ singleprec = .false.
+
  ! open file for read
  call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)
  if (ierr == ierr_realsize) then
