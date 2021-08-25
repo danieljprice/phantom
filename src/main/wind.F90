@@ -19,10 +19,10 @@ module wind
 !
 
  implicit none
- 
+
  public :: setup_wind
  public :: wind_state,wind_profile,save_windprofile
- 
+
  private
  ! Shared variables
  real, parameter :: Tdust_stop = 1.d-2 ! Temperature at outer boundary of wind simulation
@@ -125,7 +125,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 #ifdef NUCLEATION
  state%JKmuS = 0.
  state%jKmuS(6) = gmw
- state%alpha = 0.
+ !state%alpha = 0.
 #endif
  state%tau_lucy = 2./3.
  state%mu = gmw
@@ -161,6 +161,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations, only:evolve_hydro
+ use ptmass_radiation, only:alpha_rad
  use physcon,        only:pi,Rg
  use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,calc_alpha_dust,idust_opacity
  use cooling,        only:calc_cooling_rate,calc_Teq
@@ -168,7 +169,7 @@ subroutine wind_step(state)
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT
- real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded
+ real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded,alpha_dust
 
  kappa_old = state%kappa
 #ifdef NUCLEATION
@@ -176,7 +177,8 @@ subroutine wind_step(state)
  alpha_old = state%alpha
  state%mu  = state%JKmuS(6)
  call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
- call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha)
+ call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, alpha_dust)
+ state%alpha = alpha_dust+alpha_rad
  if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
 #endif
  rvT(1) = state%r
