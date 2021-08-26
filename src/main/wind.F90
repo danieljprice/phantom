@@ -160,10 +160,11 @@ end subroutine init_wind
 subroutine wind_step(state)
 ! all quantities in cgs
 
- use wind_equations, only:evolve_hydro
- use ptmass_radiation, only:alpha_rad
+ use wind_equations,   only:evolve_hydro
+ use ptmass_radiation, only:alpha_rad,isink_radiation
  use physcon,        only:pi,Rg
- use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,calc_alpha_dust,idust_opacity
+ use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+      calc_alpha_dust,calc_alpha_bowen,idust_opacity
  use cooling,        only:calc_cooling_rate,calc_Teq
  use options,        only:icooling
 
@@ -172,15 +173,21 @@ subroutine wind_step(state)
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded,alpha_dust
 
  kappa_old = state%kappa
+ alpha_old = state%alpha
 #ifdef NUCLEATION
  call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
- alpha_old = state%alpha
  state%mu  = state%JKmuS(6)
  call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, alpha_dust)
+#else
+ if (isink_radiation == 1 .or. isink_radiation == 3) then
+    call calc_alpha_bowen(Mstar_cgs, Lstar_cgs, state%Teq, alpha_dust)
+ else
+    alpha_dust = 0.d0
+ endif
+#endif
  state%alpha = alpha_dust+alpha_rad
  if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
-#endif
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
