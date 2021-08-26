@@ -119,7 +119,7 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
- use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
+ use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity,use_dust
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
@@ -491,8 +491,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
-    write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
+    !
+    ! reduction of sink-gas forces from each MPI thread
+    !
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+
+    if (id==master) write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
+
     dtextforce = min(dtextforce,dtsinkgas)
+    !  Reduce dt over MPI tasks
+    dtsinkgas = reduceall_mpi('min',dtsinkgas)
+    dtextforce = reduceall_mpi('min',dtextforce)
  endif
  call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0) then
