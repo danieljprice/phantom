@@ -36,7 +36,7 @@ module wind
 
  ! wind properties
  type wind_state
-    real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Teq, mu
+    real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust, mu
     real :: gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
     real :: tau_lucy, kappa
 #ifdef NUCLEATION
@@ -118,7 +118,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%v = v0
  state%a = 0.
  state%Tg = T0
- state%Teq = T0
+ state%Tdust = T0
  state%alpha = alpha_rad
  state%dalpha_dr = 0.
  state%gamma = wind_gamma
@@ -161,11 +161,11 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,isink_radiation
+ use ptmass_radiation, only:alpha_rad,isink_radiation,iget_Tdust
  use physcon,        only:pi,Rg
  use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
- use cooling,        only:calc_cooling_rate,calc_Teq
+ use cooling,        only:calc_cooling_rate
  use options,        only:icooling
 
  type(wind_state), intent(inout) :: state
@@ -177,11 +177,11 @@ subroutine wind_step(state)
 #ifdef NUCLEATION
  call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
  state%mu  = state%JKmuS(6)
- call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
+ call calc_kappa_dust(state%JKmuS(5), state%Tdust, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, alpha_dust)
 #else
  if (isink_radiation == 1 .or. isink_radiation == 3) then
-    call calc_alpha_bowen(Mstar_cgs, Lstar_cgs, state%Teq, alpha_dust)
+    call calc_alpha_bowen(Mstar_cgs, Lstar_cgs, state%Tdust, alpha_dust)
  else
     alpha_dust = 0.d0
  endif
@@ -207,28 +207,30 @@ subroutine wind_step(state)
  state%p    = state%rho*Rg*state%Tg/state%mu
 
 #ifdef NUCLEATION
- call calc_kappa_dust(state%JKmuS(5), state%Teq, state%rho, state%kappa)
+ call calc_kappa_dust(state%JKmuS(5), state%Tdust, state%rho, state%kappa)
 #else
- if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Teq)
+ if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Tdust)
 #endif
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%r0**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
  if (icooling > 0) then
     Q_old = state%Q
-    if (calc_Teq) then
+    if (iget_Tdust == 2) then
        tau_lucy_bounded = max(0., state%tau_lucy)
-       state%Teq = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    elseif (iget_Tdust == 1) then
+       state%Tdust = Tstar*sqrt(state%r0/state%r)
     endif
 #ifdef NUCLEATION
-    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%JKmuS(6),state%JKmuS(4),state%kappa)
+    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Tdust,state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
-    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Teq,state%mu)
+    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Tdust,state%mu)
 #endif
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
     !if cooling disabled or no imposed temperature profile, set Tdust = Tgas
-    state%Teq = state%Tg
+    state%Tdust = state%Tg
  endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
