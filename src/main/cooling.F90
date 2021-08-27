@@ -48,7 +48,6 @@ module cooling
  public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table, implicit_cooling, exact_cooling
- logical, public :: calc_Teq
  logical, public :: cooling_implicit
  logical, public :: cooling_explicit
  real,    public :: bowen_Cprime = 3.000d-5
@@ -109,14 +108,12 @@ subroutine init_cooling(id,master,iprint,ierr)
     if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+&
        relax_Stefan+CO_abun+HCN_abun+H2O_abun== 0)) then
        icooling = 0
-       calc_Teq = .false.
        return
     else if (icooling == 1 .and. (CO_abun+HCN_abun+H2O_abun/=0)) then
         ! Initialise cooling tables
         call init_cooling_molec
     endif
 #endif
-    calc_Teq = (relax_Bowen == 1) .or. (relax_Stefan == 1) .or. (dust_collision == 1)
 
     !--initialise remaining variables
     if (icooling == 2) then
@@ -216,7 +213,7 @@ end subroutine init_cooltable
 subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  use units,             only:unit_ergg,unit_density
  use cooling_molecular, only: CO_abun, HCN_abun, H2O_abun, calc_cool_molecular
- 
+
  real, intent(in) :: rho, T, Teq               !rho in code units
  real, intent(in) :: r                         !in au
  real, intent(in), optional :: mu, K2, kappa      !cgs
@@ -230,19 +227,19 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  Q_col_dust        = 0.
  Q_relax_Stefan    = 0.
  Q_molec           = 0.
- 
+
  dlnQ_H0           = 0.
  dlnQ_relax_Bowen  = 0.
  dlnQ_col_dust     = 0.
  dlnQ_relax_Stefan = 0.
  dlnQ_molec        = 0.
- 
+
  if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
- if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan) 
+ if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
  if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
- 
+
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0) then
    dlnQ_dlnT = 0
@@ -502,9 +499,9 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,K2,kappa,Tgas)
  real, intent(in), optional :: Tgas,Trad,mu_in,K2,kappa   ! in cgs units
  real, intent(inout)        :: dudt                       ! in code units
  real                       :: r
- 
+
 r  = sqrt(xi*xi + yi*yi + zi*zi)
- 
+
  select case (icooling)
  case(1)
     call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
