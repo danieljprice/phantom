@@ -500,24 +500,31 @@ end subroutine write_softened_profile
 !+
 !-----------------------------------------------------------------------
 subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut, rcut   )
- use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
- use datafiles, only                      :find_phantom_datafile
- use fileutils, only                      :get_ncolumns,get_nlines,skip_header
+                               enitab,totmass,composition,comp_label,columns_compo,ierr,mcut,rcut  )
+ use units,     only                      : udist,umass,unit_density,unit_pressure,unit_ergg
+ use datafiles, only                      : find_phantom_datafile
+ use fileutils, only                      : get_ncolumns,get_nlines,skip_header,get_column_labels
 
- integer,          intent(in)            :: ng_max
- integer,          intent(out)           :: ierr,n_rows
- real,             intent(out)           :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
- real,             intent(out)           :: totmass
- real,             intent(out), optional :: rcut
- real,             intent(in), optional  :: mcut
- character(len=*), intent(in)            :: filepath
- character(len=120)                      :: fullfilepath
- character(len=100000)                   :: line
- integer                                 :: k,aloc,n_cols
- integer                                 :: ncolumns,nheaderlines,ierror
- real,             allocatable           :: stardata(:,:)
- logical                                 :: iexist,n_too_big
+ integer,intent(in)                       :: ng_max
+ integer,intent(out)                      :: ierr,n_rows
+ real,intent(out)                         :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,intent(out),allocatable             :: composition(:,:)
+ real,intent(out)                         :: totmass
+ real,intent(out),optional                :: rcut
+ real,intent(in),optional                 :: mcut
+ character(len=20),allocatable,intent(out):: comp_label(:)
+ character(len=20),allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
+ character(len=*),intent(in)              :: filepath
+ integer,intent(out)                      :: columns_compo
+
+ character(len=120)                       :: fullfilepath
+ character(len=10000)                     :: line
+
+ integer                                  :: k,aloc,i,column_no,n_cols,n_labels
+ integer                                  :: nheaderlines,ierror,skip_no
+ real,allocatable                         :: stardata(:,:)
+ logical                                  :: iexist,n_too_big,composition_available
+ real                                     :: result
 
  !
  !--Get path name
@@ -532,32 +539,15 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read data from file
  !
- OPEN(UNIT=11, file=trim(fullfilepath))
  k = 1
  n_rows = 0
  n_cols = 0
  n_too_big = .false.
+ composition_available = .false.
  !
  !--Calculate the number of rows, columns and comments in kepler file.
  !
- call get_ncolumns(11,ncolumns,nheaderlines)
- n_cols = ncolumns
- call skip_header(11,nheaderlines,ierror)
- ierr = 0
- do
-    read(11, '(a)', iostat=ierr) line
-        if (ierr/=0) exit
-
-        if (len_trim(line) .eq. 0) then
-          exit
-
-        else
-            n_rows = n_rows + 1
-        end if
- end do
- close(11)
-
- print "(a,i5)",' number of data rows = ', n_rows
+ n_rows = get_nlines(trim(fullfilepath),skip_comments=.true.,n_columns=n_cols,n_headerlines=nheaderlines)
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
@@ -573,12 +563,36 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
     return
  endif
 
+ print "(a,i5)",' number of data rows = ', n_rows
+ !
+ !--If there is 'nt1' in the column headings, we know the file contains composition.
+ !--This is used as a test for saving composition.
+ !--We need to allocate composition as in some KEPLER
+ !--files we don't have He3 in the composition (e.g., kepler_MS and kepler_RG)
+ !
  ierr = 0
+ OPEN(UNIT=11, file=trim(fullfilepath))
+ !The row with the information about column headings is at nheaderlines-1.
+ !we skip the first nheaderlines-2 rows and then read the nheaderlines-1 to find the substrings
+ call skip_header(11,nheaderlines-2,ierror)
+ read(11, '(a)', iostat=ierr) line
+
+ !read the column labels and store it in an array.
+ allocate(all_label(n_cols))
+ call get_column_labels(line,n_labels,all_label)
+
+ !If  nt1 in file, composition exists in the file.
+ !Hence, we will use an array to save composition array.
+ result = index(line, "nt1")
+ if (result/=0) then
+   composition_available = .true.
+ end if
+ close(11)
 
  !Allocate memory for saving data
  allocate(stardata(n_rows, n_cols))
  !
- !--Read the file again and save it in stardata tensor.
+ !--Read the file again and save the data in stardata tensor.
  !
  open(13, file=trim(fullfilepath))
  call skip_header(13,nheaderlines,ierror)
@@ -587,6 +601,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  enddo
  close(13)
  !
+ !--Save the relevant information we require into arrays that can be used later.
  !--convert relevant data from CGS to code units
  !
  !radius
@@ -612,8 +627,27 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
-
- !if (present(abundance_tab)) then
+ !if elements were found in the file read, save the composition by allocating an array
+ !else set it to 0
+ if (composition_available) then
+   !saving composition. In a composition file of KEPLER, we have first 13 columns that do not contain composition
+   !We skip them and store the rest into a composition tensor.
+   columns_compo = 0
+   skip_no = 13
+   allocate(composition(n_rows,n_cols-skip_no))
+   allocate(comp_label(n_cols-skip_no))
+   comp_label(:) = all_label(skip_no+1:n_cols)
+   column_no = skip_no + 1
+   do i = 1, n_cols-skip_no
+     composition(:,i) = stardata(:,column_no)
+     column_no        = column_no + 1
+   end do
+   columns_compo = n_cols-skip_no
+ else
+   allocate(composition(0,0))
+   
+   allocate(comp_label(0))
+ endif
 
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
