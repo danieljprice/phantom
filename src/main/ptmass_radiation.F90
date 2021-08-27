@@ -25,8 +25,9 @@ module ptmass_radiation
 
  implicit none
  integer, public  :: isink_radiation = 0
- integer, public  :: iget_tdust = 0
- real,    public  :: alpha_rad = 0.
+ integer, public  :: iget_tdust      = 0
+ real,    public  :: tdust_exp       = 0.5
+ real,    public  :: alpha_rad       = 0.
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature_from_ptmass
@@ -190,18 +191,18 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
     ! simple T(r) relation
  case (1)
     !$omp parallel  do default(none) &
-    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp) &
+    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
     !$omp private(i,r)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-          dust_temp(i) = T_star*sqrt(R_star/r)
+          dust_temp(i) = T_star*(R_star/r)**tdust_exp
        endif
     enddo
     !$omp end parallel do
  case(2)
     call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- case(3)
+ case default
     ! sets Tdust = Tgas
     pmassi         = massoftype(igas)
     !$omp parallel  do default(none) &
@@ -488,6 +489,9 @@ subroutine write_options_ptmass_radiation(iunit)
  if (isink_radiation >= 2) then
     call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy 3:MCFOST)',iunit)
  endif
+ if (iget_tdust == 1 ) then
+    call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
+ endif
 
 end subroutine write_options_ptmass_radiation
 
@@ -519,7 +523,10 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('iget_tdust')
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
-    if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,2])')
+    if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,3])')
+ case('tdust_exp')
+    read(valstring,*,iostat=ierr) tdust_exp
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select

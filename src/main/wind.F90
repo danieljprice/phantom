@@ -621,21 +621,21 @@ subroutine filewrite_header(iunit,nwrite)
 
 #ifdef NUCLEATION
  if (icooling > 0) then
-    nwrite = 19
-    write(iunit,'(19(a12))') 't','r','v','T','c','p','rho','alpha','a',&
+    nwrite = 20
+    write(iunit,'(20(a12))') '#', 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
  else
-    nwrite = 18
-    write(iunit,'(18(a12))') 't','r','v','T','c','p','rho','alpha','a',&
+    nwrite = 19
+    write(iunit,'(19(a12))') '#', 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
-    nwrite = 12
-    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
- else
     nwrite = 11
-    write(iunit,'(11(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    write(iunit,'(13(a12))') '#', 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+ else
+    nwrite = 10
+    write(iunit,'(12(a12))') '#', 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
