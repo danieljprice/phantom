@@ -168,10 +168,6 @@ subroutine init_inject(ierr)
 
  initial_Rinject = wind_injection_radius
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
-    if (pulsating_wind) then
-       !implement background spheres starting from the smallest radius
-       !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
-    endif
     if (initial_Rinject < xyzmh_ptmass(5,wind_emitting_sink)) then
        print *,'stop wind_inject_radius < Racc (au)',wind_injection_radius_au,xyzmh_ptmass(5,wind_emitting_sink)
        call fatal(label,'invalid setting wind_inject_radius < accretion radius')
@@ -190,6 +186,9 @@ subroutine init_inject(ierr)
     call setup_wind(Mstar_cgs, wind_mass_rate, u_to_temperature_ratio, Rinject,&
          wind_temperature,initial_wind_velocity_cgs,rsonic,tsonic,sonic_type)
     initial_Rinject = Rinject/udist
+ elseif (pulsating_wind) then
+       !implement background spheres starting from the smallest radius
+       !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
  endif
  Rinject = initial_Rinject
  wind_injection_speed = initial_wind_velocity_cgs/unit_velocity

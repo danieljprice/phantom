@@ -49,7 +49,7 @@ module setup
  real :: semi_major_axis       = 4.0
  real :: eccentricity          = 0.
  real :: primary_Teff          = 3000.
- real :: primary_Reff
+ real :: primary_Reff          
  real :: primary_lum
  real :: primary_mass
  real :: primary_racc
@@ -62,7 +62,7 @@ module setup
  real :: default_particle_mass = 1.e-11
  real :: primary_lum_lsun      = 20000.
  real :: primary_mass_msun     = 1.5
- real :: primary_Reff_au       = 0.
+ real :: primary_Reff_au       = 1.
  real :: primary_racc_au       = 1.
  real :: secondary_lum_lsun    = 0.
  real :: secondary_mass_msun   = 1.0
