@@ -144,11 +144,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr
+ integer                          :: i,nx,npts,ierr,j
  real                             :: vol_sphere,psep,rmin,presi
- real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
+ real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),composition(:,:),comp(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
- logical                          :: calc_polyk,setexists
+ integer                          :: columns_compo
+ real , allocatable               :: compositioni(:,:)
+ character(len=20), allocatable   :: comp_label(:)
+ logical                          :: calc_polyk,setexists,composition_exists
  character(len=120)               :: setupfile,inname
  !
  ! Initialise parameters, including those that will not be included in *.setup
@@ -162,6 +165,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  relax_star_in_setup = .false.
  write_rho_to_file = .false.
  input_polyk  = .false.
+ composition_exists = .false.
  !
  ! set default options
  !
@@ -255,7 +259,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  calc_polyk = .true.
  if (ieos==9) call init_eos_9(EOSopt)
- allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
+ allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max),comp(ng_max))
 
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
@@ -298,12 +302,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr==2) call fatal('setup','insufficient data points read from file')
     if (ierr==3) call fatal('setup','too many data points; increase ng')
  case(ikepler)
-    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
+    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,composition,comp_label,columns_compo,ierr)
     if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
     if (ierr==2) call fatal('setup','insufficient data points read from file')
     if (ierr==3) call fatal('setup','too many data points; increase ng')
     rmin  = r(1)
     Rstar = r(npts)
+
+    !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+    !in the star.
+    if (columns_compo /= 0) then
+      composition_exists = .true.
+    endif
  case(ievrard)
     call rho_evrard(ng_max,Mstar,Rstar,r,den)
     npts = ng_max
@@ -395,6 +405,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Reset centre of mass (again)
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+ !
+ ! Interpolating composition for each particle in the star. For now I write a file with the interpolate data
+ ! This is used to compare with the original KEPLER file and see if interpolation works or .not.
+ ! Next, is to link this to the tde file. do not know how to do that. So I will just use this interpolated
+ !file and do analysis on it using the analysis_kepler file.
+ !
+ if (composition_exists) then
+
+   !open(11,file=trim(fileprefix)//'.comp')
+   open(11,file='kepler.comp')
+   write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
+         comp_label
+
+     print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+
+     !Now setting the composition of star if the case used was ikepler
+     allocate(compositioni(1,columns_compo))
+     do i = 1,nstar
+       !  Interpolate compositions
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+
+       do j = 1,columns_compo
+         comp(1:npts)      = composition(1:npts,j)
+         compositioni(1,j) = yinterp(comp(1:npts),r(1:npts),ri)
+       end do
+         write(11,*) compositioni
+     end do
+     print*, '>>>>>> done'
+  close(11)
+  end if
 
  !
  ! Print summary to screen
