@@ -226,10 +226,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           rhogas  = rhoi
        endif
        if (.not. iamgasi) cycle  !stop here if not a gas particle
-
+        
        !
        !--Calling Equation of state
        !
+       temperaturei = eos_vars(itemp,i) ! needed for initial guess for idealplusrad
        if (maxvxyzu >= 4) then
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i),&
