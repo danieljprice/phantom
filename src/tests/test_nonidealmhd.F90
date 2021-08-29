@@ -544,7 +544,7 @@ subroutine test_etaval(ntests,npass)
  real                   :: deltax,x_min,y_min,z_min,totmass,cs_sphere,cs_medium
  real                   :: Bi,rhoi,tempi
  real                   :: rho0(2),Bz0(2),eta_act(3,kmax)
- real, parameter        :: tol = 1.0d-8
+ real, parameter        :: tol = 1.d-10, tol_hall = 2.e-7
 
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing calculation of non-constant eta (nimhdeta)'
@@ -647,7 +647,7 @@ subroutine test_etaval(ntests,npass)
        write(*,'(1x,a, Es18.10)') 'unit_eta: ', unit_eta
     endif
     call checkval(eta_nimhd(iohm, itmp)*unit_eta,eta_act(1,k),tol,nerr(3*(k-1)+1),'calculated non-constant eta_ohm')
-    call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
+    call checkval(eta_nimhd(ihall,itmp)*unit_eta,eta_act(2,k),tol_hall,nerr(3*(k-1)+2),'calculated non-constant eta_hall')
     call checkval(eta_nimhd(iambi,itmp)*unit_eta,eta_act(3,k),tol,nerr(3*(k-1)+3),'calculated non-constant eta_ambi')
  enddo
  call update_test_scores(ntests,nerr,npass)
