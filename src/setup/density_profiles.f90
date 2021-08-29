@@ -647,7 +647,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
    allocate(composition(0,0))
    allocate(comp_label(0))
  endif
- print*, shape(compositon),'shape of composition array'
+ print*, shape(composition),'shape of composition array'
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
