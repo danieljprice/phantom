@@ -313,6 +313,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !in the star.
     if (columns_compo /= 0) then
       composition_exists = .true.
+      print*, shape(compositon),'shape of composition array'
     endif
  case(ievrard)
     call rho_evrard(ng_max,Mstar,Rstar,r,den)
