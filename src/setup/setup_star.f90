@@ -407,12 +407,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  !
  ! Interpolating composition for each particle in the star. For now I write a file with the interpolate data
- ! This is used to compare with the original KEPLER file and see if interpolation works or .not.
- ! Next, is to link this to the tde file. do not know how to do that. So I will just use this interpolated
- !file and do analysis on it using the analysis_kepler file.
+ ! This is used in analysis kepler file to bin composition.
  !
  if (composition_exists) then
-
+   print*, 'Reading composition file'
    !open(11,file=trim(fileprefix)//'.comp')
    open(11,file='kepler.comp')
    write(11,"('#',50(1x,'[',1x,a7,']',2x))") &

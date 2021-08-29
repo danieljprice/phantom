@@ -632,6 +632,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  if (composition_available) then
    !saving composition. In a composition file of KEPLER, we have first 13 columns that do not contain composition
    !We skip them and store the rest into a composition tensor.
+   print*, 'Kepler file has composition.'
    columns_compo = 0
    skip_no = 13
    allocate(composition(n_rows,n_cols-skip_no))

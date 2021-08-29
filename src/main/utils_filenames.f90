@@ -665,5 +665,4 @@ function nospaces(string)
 
 end function nospaces
 
-
 end module fileutils
