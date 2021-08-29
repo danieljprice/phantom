@@ -247,6 +247,7 @@ subroutine write_setupfile(filename)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
  call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance',                                   iunit)
+ call write_inopt(ecc,    'ecc',    'starting eccentricity',                                   iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -271,6 +272,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
  call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
+ call read_inopt(ecc,   'ecc',   db,min=0.,errcount=nerr)
 
  call close_db(db)
  if (nerr > 0) then
