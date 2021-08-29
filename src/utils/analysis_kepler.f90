@@ -51,6 +51,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    character(len=20),allocatable  :: comp_label(:)
    character(len=120)             :: output
    character(len=*),intent(in)    :: dumpfile
+   integer :: max_pos
 
    !If dumpfile is not a complete dump we don't read it.
    if (.not.opened_full_dump) then
@@ -58,10 +59,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       return
    endif
 
+
+
     !if dumpfile is a full dump, we call the subroutine for getting the arrays we need
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,rad_vel,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp)
+
 
     !Print the analysis being done
     write(*,'("Performing analysis type ",A)') analysistype
@@ -155,9 +159,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: ponrhoi,spsoundi,vel_sum(3)
    real :: Y_in
    real,allocatable :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
+   real :: pressure_max, density_max
+   integer ::  den_no, pres_no, i_value
 
    print*, minloc(xyzh(4,:),dim=1), 'loc'
    location = minloc(xyzh(4,:),dim=1)
+
    print*, xyzh(1:3,location),'minimum location in code units'
    print*, xyzh(1:3,location)*udist,'minimum location in code units in cm'
    ! we use the equation number 12 from eos file.
@@ -249,7 +256,26 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      pressure_i      = ponrhoi*density_i
      pressure_sum    = pressure_sum + pressure_i
      temperature_sum = temperature_sum + temperature_i
-
+     if (j==1) then
+       pressure_max = pressure_i
+       pres_no = j
+       i_value = i
+     else
+       if (pressure_i > pressure_max) then
+         pressure_max = pressure_i
+         pres_no = j
+         i_value = i
+       end if
+     end if
+     if (j==1) then
+       density_max = density_i
+       den_no = j
+     else
+       if (density_i > density_max) then
+         density_max = density_i
+         den_no = j
+       end if
+     end if
      !composition
      if (columns_compo /= 0) then
        composition_i(:)   = interpolate_comp(:,i)
@@ -268,7 +294,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        int_eng(ibin)              = u_sum / no_in_bin
        velocity_3D(:,ibin)        = vel_sum(:) / no_in_bin !in cartesian coordinates
        composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
-
        !calculating Y_e = X_e /(A_e*m_u*N_A)
        y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
        a_bar(ibin)       = X_in + (4.*Y_in) !average atomic mass in each bin.
@@ -280,6 +305,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        if (ierr/=0) then
          print*, 'Entropy is calculated incorrectly'
        end if
+
        no_in_bin          = 0
        ibin               = ibin + 1
        density_sum        = 0.
@@ -291,7 +317,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      end if
    end do
-
+   print*, pressure_max,'max pressure', density_max, 'max density', den_no,'den no', pres_no,'pres no',xyzh(1:3,i_value)
+   print*, i_value,'ival'
  end subroutine phantom_to_kepler_arrays
  !----------------------------------------------------------------
  !+
