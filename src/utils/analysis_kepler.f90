@@ -59,13 +59,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       return
    endif
 
-
-
     !if dumpfile is a full dump, we call the subroutine for getting the arrays we need
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,rad_vel,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp)
-
 
     !Print the analysis being done
     write(*,'("Performing analysis type ",A)') analysistype
