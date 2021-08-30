@@ -175,11 +175,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    !call get_centreofmass(xpos,vpos,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
    !print*, xpos, 'xpos'
    !use sorting algorithm to sort the particles from the center of star as a function of radius.
-   !xpos(:) = star_centre(:)
-   !vpos(:) = vxyzu(1:3,location)
+   xpos(:) = star_centre(:)
+   vpos(:) = vxyzu(1:3,location)
    call set_r2func_origin(xpos(1),xpos(2),xpos(3))
    call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
+   print*, xpos(:),'xpos',vpos(:),'vpos'
    !Call composition_array subroutine to get the composition.
    call composition_array(interpolate_comp,columns_compo,comp_label) !rows correspond to the particle used and column correspond to the elements.
 
