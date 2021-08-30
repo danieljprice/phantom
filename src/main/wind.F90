@@ -161,7 +161,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,isink_radiation,iget_Tdust
+ use ptmass_radiation, only:alpha_rad,isink_radiation,iget_Tdust,tdust_exp
  use physcon,        only:pi,Rg
  use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
@@ -220,7 +220,7 @@ subroutine wind_step(state)
        tau_lucy_bounded = max(0., state%tau_lucy)
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
     elseif (iget_Tdust == 1) then
-       state%Tdust = Tstar*sqrt(state%r0/state%r)
+       state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
     endif
 #ifdef NUCLEATION
     call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Tdust,state%JKmuS(6),state%JKmuS(4),state%kappa)
@@ -622,20 +622,20 @@ subroutine filewrite_header(iunit,nwrite)
 #ifdef NUCLEATION
  if (icooling > 0) then
     nwrite = 20
-    write(iunit,'(20(a12))') '#', 't','r','v','T','c','p','rho','alpha','a',&
+    write(iunit,'(19(a12))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
  else
     nwrite = 19
-    write(iunit,'(19(a12))') '#', 't','r','v','T','c','p','rho','alpha','a',&
+    write(iunit,'(18(a12))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
     nwrite = 11
-    write(iunit,'(13(a12))') '#', 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
  else
     nwrite = 10
-    write(iunit,'(12(a12))') '#', 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    write(iunit,'(11(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
