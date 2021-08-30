@@ -1271,14 +1271,14 @@ end subroutine calc_temp_and_ene
 !  up to an additive integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
-function entropy(rho,pres,ientropy,ierr,mu_in)
+function entropy(rho,pres,ientropy,ierr,mu_in,eint_in)
  use io,                only:fatal
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
  real, intent(in)               :: rho,pres
- real, intent(in), optional     :: mu_in
+ real, intent(in), optional     :: mu_in,eint_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
  real                           :: mu,inv_mu,entropy,logentropy,temp,eint
@@ -1303,7 +1303,12 @@ function entropy(rho,pres,ientropy,ierr,mu_in)
  
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
-    call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+
+    if (present(eint_in)) then
+       eint = eint_in
+    else
+       call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
+    endif
 
     ! Get entropy from rho and eint from MESA tables
     if (present(ierr)) then
