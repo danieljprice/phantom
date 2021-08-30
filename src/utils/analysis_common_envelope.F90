@@ -94,7 +94,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 7) Simulation units and particle properties', &
             ' 8) Output .divv', &
             ' 9) EoS testing', &
-            '10) Ion fraction profiles in time', &
             '11) New unbound particle profiles in time', &
             '12) Sink properties', &
             '13) MESA EoS compute total entropy and other average td quantities', &
@@ -163,8 +162,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(9) !EoS testing
     call eos_surfaces
- case(10) !Ion fraction profiles in time
-    call ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(11) !New unbound particle profiles in time
     call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(19) ! Rotation profile
@@ -406,15 +403,22 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  E_HeI  = 0.25*Yfrac*0.012442 * particlemass
  E_HeII = 0.25*Yfrac*0.027536 * particlemass
  
- do i = 1,npart
+ ! DEBUGGING
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+ call set_r2func_origin(0.,0.,0.) ! Order particles by distance from origin
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+ do j = 1,npart
+    i = iorder(j)
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
+       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum,dum,dum,phii)
+       epoti =  particlemass * phii !particlemass * (- (j-1) * particlemass / distance(xyzh(:,i)) + phii)
        rhopart = rhoh(xyzh(4,i), particlemass)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
        call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
        etoti = ekini + epoti + ethi ! Overwrite etoti outputted by calc_gas_energies to use ethi instead of einti
-       !etoti = ekini + epoti
     else
        ! How to get quantities for accreted particles? Set to 0 for now
        etoti   = 0.
@@ -1349,60 +1353,60 @@ end subroutine track_particle
 !  Ion profiles
 !+
 !----------------------------------------------------------------
-subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
- integer, intent(in)          :: npart,num
- real, intent(in)             :: time,particlemass
- real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- real, dimension(5,npart)     :: dist_part,rad_part
- real, allocatable            :: hist_var(:)
- real                         :: mincoord,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
- character(len=17)            :: grid_file(5)
- character(len=40)            :: data_formatter
- integer                      :: nbins,i,unitnum
+! subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
+!  integer, intent(in)          :: npart,num
+!  real, intent(in)             :: time,particlemass
+!  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
+!  real, dimension(5,npart)     :: dist_part,rad_part
+!  real, allocatable            :: hist_var(:)
+!  real                         :: mincoord,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
+!  character(len=17)            :: grid_file(5)
+!  character(len=40)            :: data_formatter
+!  integer                      :: nbins,i,unitnum
 
- call compute_energies(time)
- nbins = 300
- rad_part = 0.
- dist_part = 0.
- mincoord = 0.5
- maxloga = 4.3
+!  call compute_energies(time)
+!  nbins = 300
+!  rad_part = 0.
+!  dist_part = 0.
+!  mincoord = 0.5
+!  maxloga = 4.3
 
- allocate(hist_var(nbins))
- grid_file = (/ '   grid_HIfrac.ev', &
-                '  grid_HIIfrac.ev', &
-                '  grid_HeIfrac.ev', &
-                ' grid_HeIIfrac.ev', &
-                'grid_HeIIIfrac.ev' /)
+!  allocate(hist_var(nbins))
+!  grid_file = (/ '   grid_HIfrac.ev', &
+!                 '  grid_HIIfrac.ev', &
+!                 '  grid_HeIfrac.ev', &
+!                 ' grid_HeIIfrac.ev', &
+!                 'grid_HeIIIfrac.ev' /)
 
- do i=1,npart
-    rhoi = rhoh(xyzh(4,i), particlemass)
-    rad_part(1,i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    call get_eos_pressure_temp_mesa(rhoi*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature)
-    call ionisation_fraction(rhoi*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-    dist_part(1,i) = xh0
-    dist_part(2,i) = xh1
-    dist_part(3,i) = xhe0
-    dist_part(4,i) = xhe1
-    dist_part(5,i) = xhe2
- enddo
+!  do i=1,npart
+!     rhoi = rhoh(xyzh(4,i), particlemass)
+!     rad_part(1,i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+!     call get_eos_pressure_temp_mesa(rhoi*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature)
+!     call ionisation_fraction(rhoi*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+!     dist_part(1,i) = xh0
+!     dist_part(2,i) = xh1
+!     dist_part(3,i) = xhe0
+!     dist_part(4,i) = xhe1
+!     dist_part(5,i) = xhe2
+!  enddo
 
 
- do i=1,5
-    call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,mincoord,nbins,.true.,.true.)
-    write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
-    if (num == 0) then
-       unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
-       write(unitnum, "(a)") '# Ion fraction - look at the name of the file'
-       close(unit=unitnum)
-    endif
-    unitnum=1001+i
-    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
-    write(unitnum,data_formatter) time,hist_var(:)
-    close(unit=unitnum)
- enddo
+!  do i=1,5
+!     call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,mincoord,nbins,.true.,.true.)
+!     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+!     if (num == 0) then
+!        unitnum = 1000
+!        open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+!        write(unitnum, "(a)") '# Ion fraction - look at the name of the file'
+!        close(unit=unitnum)
+!     endif
+!     unitnum=1001+i
+!     open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+!     write(unitnum,data_formatter) time,hist_var(:)
+!     close(unit=unitnum)
+!  enddo
 
-end subroutine ion_profiles
+! end subroutine ion_profiles
 
 
 !----------------------------------------------------------------
@@ -2660,13 +2664,13 @@ subroutine print_dump_numbers(dumpfile)
  real, allocatable :: sinksinksep(:)
  real :: sep
 
- nseps = 5
+ nseps = 2
  allocate(sinksinksep(nseps))
  if (dump_number == 0) then
     allocate(dumpfiles(nseps))
     i=1
  endif
- sinksinksep = (/ 1000., 400., 320., 160., 65./)
+ sinksinksep = (/ 938., 67. /)
 
  sep = separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2))
  if ( sep < sinksinksep(i) ) then
@@ -3166,6 +3170,7 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
  xhe2 = xhe2g * n / nhe
  xh0 = ((nh/n) - xh1g) * n / nh
  xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
+
 end subroutine ionisation_fraction
 
 
