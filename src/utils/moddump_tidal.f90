@@ -20,7 +20,8 @@ module moddump
 !   - r0    : *starting distance*
 !   - rs    : *radius of star     (code units)*
 !   - theta : *stellar rotation with respect to x-axis (in degrees)*
-!
+!   - ecc   : *eccentricity of orbit*
+! 
 ! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
 !   physcon, prompting
 !
@@ -63,13 +64,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !-- Default runtime parameters
 !
 !
- beta  = 1.     ! penetration factor
+ beta  = 1.                  ! penetration factor
  Mh    = 1.e6*solarm/umass   ! BH mass
- Ms    = 1.*solarm/umass     ! stellar mass
- rs    = 1.*solarr/udist     ! stellar radius
- theta = 0.     ! stellar tilting along x
- phi   = 0.     ! stellar tilting along y
- ecc   = 1.                     ! eccentricity
+ Ms    = 1.  *solarm/umass   ! stellar mass
+ rs    = 1.  *solarr/udist   ! stellar radius
+ theta = 0.                  ! stellar tilting along x
+ phi   = 0.                  ! stellar tilting along y
+ ecc   = 1.                  ! eccentricity
 
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
@@ -157,14 +158,21 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call get_angmom(ltot,npart,xyzh,vxyzu)
  print*,'Stellar spin should now be along the z axis.'
 
- alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)         ! starting angle anti-clockwise from positive x-axis
- x0    = r0*cos(alpha)
- y0    = r0*sin(alpha)
- vx0   = sqrt(mh*beta/((1.+ecc)*rt)) * sin(alpha)
- vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
- print*, '------------------------------------------------------------------------'
- print*, alpha, x0, y0, vx0, vy0
- print*, '------------------------------------------------------------------------'
+ print*, ' '
+ if (ecc<1.) then
+    print*, 'Eliptical orbit'
+    alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
+    x0    = r0*cos(alpha)
+    y0    = -r0*sin(alpha)
+    vx0   = sqrt(mh*beta/((1.+ecc)*rt)) * sin(alpha)
+    vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
+ elseif (abs(ecc-1.) < tiny(1.)) then
+    print*, 'Parabolic orbit'
+    y0    = -2.*rp + r0 
+    x0    = -sqrt(r0**2 - y0**2)
+    vx0   = sqrt(2*Mh/r0) * 2*rp / (4*rp**2 + x0**2)
+    vy0   = sqrt(2*Mh/r0) * x0   / (4*rp**2 + x0**2)
+ end if
 
  !--Set input file parameters
  if (.not. gr) then
@@ -216,13 +224,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  phi   = phi*pi/180.
 
  write(*,'(a)') "======================================================================"
- write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' R_sun'
- write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' R_sun'
- write(*,'(a,Es12.5,a)') ' Radius of star      = ',rs,' R_sun'
- write(*,'(a,Es12.5,a)') ' Starting distance   = ',r0,' R_sun'
- write(*,'(a,Es12.5,a)') ' Stellar mass        = ',Ms,' M_sun'
+ write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
+ write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' code units'
+ write(*,'(a,Es12.5,a)') ' Radius of star      = ',rs,' code units'
+ write(*,'(a,Es12.5,a)') ' Starting distance   = ',r0,' code units'
+ write(*,'(a,Es12.5,a)') ' Stellar mass        = ',Ms,' code units'
  write(*,'(a,Es12.5,a)') ' Tilting along x     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
+ write(*,'(a,Es12.5,a)') ' Eccentricity        = ',ecc
 
  write(*,'(a)') "======================================================================"
 
@@ -246,7 +255,8 @@ subroutine write_setupfile(filename)
  call write_inopt(rs,    'rs',    'radius of star     (code units)',                     iunit)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
  call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
- call write_inopt(r0,    'r0',    'starting distance',                                   iunit)
+ call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
+ call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -271,6 +281,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
  call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
+ call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
 
  call close_db(db)
  if (nerr > 0) then
