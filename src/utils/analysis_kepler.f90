@@ -63,7 +63,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,rad_vel,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp)
-
+    !allocate for composition_kepler
     !Print the analysis being done
     write(*,'("Performing analysis type ",A)') analysistype
     write(*,'("Input file name is ",A)') dumpfile
@@ -152,26 +152,31 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: temperature_i,temperature_sum
    real :: pressure_i,pressure_sum
    real :: pos(3),vel(3),rad
-   real :: xpos(3),vpos(3) !COM position and velocity
+   real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
    real :: ponrhoi,spsoundi,vel_sum(3)
    real :: Y_in
    real,allocatable :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-   real :: pressure_max, density_max
-   integer ::  den_no, pres_no, i_value
+   !real :: avg_h
 
-   print*, minloc(xyzh(4,:),dim=1), 'loc'
+   !Lets print the average h value of the star.
+   !avg_h = sum(xyzh(4,:))/npart
+   !print*, avg_h,'avegage'
+   !The star is not on the origin as BH exists at that point.
+   !minimum h value corresponds to position of maximum density.
+   !COM is not a good option as it does not work for severe disruptione events.
    location = minloc(xyzh(4,:),dim=1)
-
-   print*, xyzh(1:3,location),'minimum location in code units'
-   print*, xyzh(1:3,location)*udist,'minimum location in code units in cm'
-   ! we use the equation number 12 from eos file.
+   star_centre(:) = xyzh(1:3,location)
+   print*,'density at center',rhoh(xyzh(4,location),pmass),xyzh(4,location)
+   print*, xyzh(1:3,location),'center of star in code units'
+   !we use the equation number 12 from eos file.
    ieos = 12
    call init_eos(ieos,ierr)
-   !The star is not on the origin as BH exists at that point. Hence we need to get COM.
-   call get_centreofmass(xpos,vpos,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-   print*, '(x,y,z)','->', '(',xpos(1),xpos(2),xpos(3),')','COM in code units'
-   print*, '(x,y,z)','->', '(',xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,')','COM in cm'
-   !use sorting algorithm to sort the particles from the center of mass as a function of radius.
+
+   !call get_centreofmass(xpos,vpos,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+   !print*, xpos, 'xpos'
+   !use sorting algorithm to sort the particles from the center of star as a function of radius.
+   !xpos(:) = star_centre(:)
+   !vpos(:) = vxyzu(1:3,location)
    call set_r2func_origin(xpos(1),xpos(2),xpos(3))
    call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
@@ -186,7 +191,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    endif
 
     ibin               = 1
-    number_particle    = (npart/ngrid)+1 !number of particles per bin
+    number_particle    = (npart/ngrid) !number of particles per bin
     no_in_bin          = 0 !this keeps track of the particles added to the bin in the loop implemented.
     density_sum        = 0.
     u_sum              = 0.
@@ -214,11 +219,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !add 1 to no_in_bin
      no_in_bin = no_in_bin + 1
 
-     !the position of the particle is calculated by subtracting the centre of mass.
+     !the position of the particle is calculated by subtracting the point of highest density.
      !xyzh is position wrt the black hole present at origin.
      pos(:) = xyzh(1:3,i) - xpos(:)
      !calculate the position which is the location of the particle.
+
      rad    = sqrt(dot_product(pos(:),pos(:)))
+     if (i==location) then
+       print*, rad, 'radius found',rhoh(xyzh(4,i),pmass)*unit_density
+     endif
 
      !radial velocity
      vel(:)  = vxyzu(1:3,i) - vpos(:) !relative velocity !velocity relative to com.
@@ -253,26 +262,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      pressure_i      = ponrhoi*density_i
      pressure_sum    = pressure_sum + pressure_i
      temperature_sum = temperature_sum + temperature_i
-     if (j==1) then
-       pressure_max = pressure_i
-       pres_no = j
-       i_value = i
-     else
-       if (pressure_i > pressure_max) then
-         pressure_max = pressure_i
-         pres_no = j
-         i_value = i
-       end if
-     end if
-     if (j==1) then
-       density_max = density_i
-       den_no = j
-     else
-       if (density_i > density_max) then
-         density_max = density_i
-         den_no = j
-       end if
-     end if
+
      !composition
      if (columns_compo /= 0) then
        composition_i(:)   = interpolate_comp(:,i)
@@ -293,7 +283,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
        !calculating Y_e = X_e /(A_e*m_u*N_A)
        y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
-       a_bar(ibin)       = X_in + (4.*Y_in) !average atomic mass in each bin.
+       a_bar(ibin)       =  X_in + (4.*Y_in) !average atomic mass in each bin.
 
        !calculating entropy
        !implementing entropy from the Sackur-Tetrode equation.
@@ -314,8 +304,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      end if
    end do
-   print*, pressure_max,'max pressure', density_max, 'max density', den_no,'den no', pres_no,'pres no',xyzh(1:3,i_value)
-   print*, i_value,'ival'
+
  end subroutine phantom_to_kepler_arrays
  !----------------------------------------------------------------
  !+
