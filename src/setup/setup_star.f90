@@ -461,6 +461,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write(*,'(a)') 'WARNING! This setup may not be stable'
  endif
  write(*,"(70('='))")
+ if (composition_exists) then
+   write(*,'(a)') 'Composition written to kepler.comp file.'
+   print*, shape(compositioni)
+ endif
 
 end subroutine setpart
 
