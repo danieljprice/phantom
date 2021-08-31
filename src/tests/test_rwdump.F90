@@ -244,9 +244,9 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
     if (itest==1) then  ! iorig is not dumped to small dumps
-       call checkval(iorig(2),    ngas,    0,nfailed(65),'iorig(2)')
-       call checkval(iorig(ngas), npart+1, 0,nfailed(66),'iorig(ngas)')
-       call checkval(iorig(npart),npart,   0,nfailed(67),'iorig(N)')
+       call checkval(iorig(2),    int(ngas   ,kind=8), 0,nfailed(65),'iorig(2)')
+       call checkval(iorig(ngas), int(npart+1,kind=8), 0,nfailed(66),'iorig(ngas)')
+       call checkval(iorig(npart),int(npart  ,kind=8), 0,nfailed(67),'iorig(N)')
     endif
 
     call update_test_scores(ntests,nfailed,npass)
