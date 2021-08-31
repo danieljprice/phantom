@@ -271,7 +271,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      composition_sum(:) = composition_sum(:) + composition_i(:)
 
      if (no_in_bin >= number_particle )  then
-       print*, ibin,'ibin',no_in_bin,'no_in_bin',number_particle,'number_particle'
+       print*, ibin,'ibin',no_in_bin,'no_in_bin',number_particle,'number_particle',j,'j',npart,'npart'
        !make the bin properties.
        rad_grid(ibin)             = rad !last particle
        mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
