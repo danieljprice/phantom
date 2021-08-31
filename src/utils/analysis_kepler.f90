@@ -63,6 +63,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,rad_vel,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp)
+
     !allocate for composition_kepler
     !Print the analysis being done
     write(*,'("Performing analysis type ",A)') analysistype
@@ -90,9 +91,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           'cell A_bar',                              &  !average molecular mass
           'cell Y_e',                                &
           comp_label                                    !chemical composition
-
+    print*, shape(composition_kepler),'kepler compo'
     do i = 1, ngrid
       grid = i
+      if (i==1 .or. i==2) then
+        print*,bin_mass(i),'bin mass',i,'ibin in main'
+      endif
        write(iunit,'(50(es18.10,1X))')                 &
               grid,                                    &
               bin_mass(i)*umass,                       &
@@ -146,7 +150,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer :: iorder(npart),j,i
    integer :: number_particle,ieos,ierr
    integer :: columns_compo,location
-
+   integer :: particle_sum
+   real :: p_no
    real :: density_sum,density_i,eni_input
    real :: u_sum,u_i,omega_sum(3) !specific internal energy storage
    real :: temperature_i,temperature_sum
@@ -191,7 +196,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    endif
 
     ibin               = 1
-    number_particle    = (npart/ngrid) !number of particles per bin
+    number_particle    = (npart/ngrid)+1 !number of particles per bin
     no_in_bin          = 0 !this keeps track of the particles added to the bin in the loop implemented.
     density_sum        = 0.
     u_sum              = 0.
@@ -204,13 +209,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     Y_in               = 0.27112283
     Z_in               = 1.-X_in-Y_in
     gmw                = 0.61 !mean molecular weight
-    print*,'gmw for this setup is ',gmw
+    p_no = (npart/ngrid)
+
     !allocating storage for composition of one particle.
     allocate(composition_i(columns_compo))
     allocate(composition_sum(columns_compo))
     allocate(composition_kepler(columns_compo,ngrid))
     composition_sum(:) = 0.
-
     !implementing loop for calculating the values we require.
     do j = 1, npart
 
@@ -223,11 +228,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !xyzh is position wrt the black hole present at origin.
      pos(:) = xyzh(1:3,i) - xpos(:)
      !calculate the position which is the location of the particle.
-
      rad    = sqrt(dot_product(pos(:),pos(:)))
-     if (i==location) then
-       print*, rad, 'radius found',rhoh(xyzh(4,i),pmass)*unit_density
-     endif
 
      !radial velocity
      vel(:)  = vxyzu(1:3,i) - vpos(:) !relative velocity !velocity relative to com.
@@ -269,12 +270,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      endif
      composition_sum(:) = composition_sum(:) + composition_i(:)
 
-     if (no_in_bin >= number_particle) then
-
+     if (no_in_bin >= number_particle )  then
        !make the bin properties.
        rad_grid(ibin)             = rad !last particle
        mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
        bin_mass(ibin)             = number_particle*pmass !every bin has same mass.
+       if (ibin==1 .or. ibin==2) then
+         print*,bin_mass(ibin),'bin mass',ibin,'ibin'
+       endif
        density(ibin)              = density_sum / no_in_bin
        temperature(ibin)          = temperature_sum / no_in_bin
        pressure(ibin)             = pressure_sum / no_in_bin
@@ -302,9 +305,53 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        vel_sum(:)         = 0.
        composition_sum(:) = 0.
 
+       !To avoid getting nan in the file for the last bin,
+       !we calculate the properties for all the remaning particles and
+       !save them into the respective arrays.
+     else if (ibin == ngrid ) then
+       if (j < npart) then
+         cycle
+       else
+         print*, ibin,'ibin',j,'j',npart,'npart',no_in_bin,'no_in_bin'
+         !print*, no_in_bin, 'no_in_bin', number_particle, 'partocle no', j, 'j',ibin,'ibin'
+         !make the bin properties.
+         rad_grid(ibin)             = rad !last particle
+         mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
+         bin_mass(ibin)             = number_particle*pmass !every bin has same mass.
+         if (ibin==1 .or. ibin==2) then
+           print*,bin_mass(ibin),'bin mass',ibin,'ibin'
+         endif
+         density(ibin)              = density_sum / no_in_bin
+         temperature(ibin)          = temperature_sum / no_in_bin
+         pressure(ibin)             = pressure_sum / no_in_bin
+         int_eng(ibin)              = u_sum / no_in_bin
+         velocity_3D(:,ibin)        = vel_sum(:) / no_in_bin !in cartesian coordinates
+         composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
+         !calculating Y_e = X_e /(A_e*m_u*N_A)
+         y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
+         a_bar(ibin)       =  X_in + (4.*Y_in) !average atomic mass in each bin.
+
+         !calculating entropy
+         !implementing entropy from the Sackur-Tetrode equation.
+         entropy_array(ibin) = entropy(density(ibin)*unit_density,pressure(ibin)*unit_pressure,2,ierr)
+         entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
+         if (ierr/=0) then
+           print*, 'Entropy is calculated incorrectly'
+         end if
+
+         no_in_bin          = 0
+         ibin               = ibin + 1
+         density_sum        = 0.
+         u_sum              = 0.
+         temperature_sum    = 0.
+         pressure_sum       = 0.
+         vel_sum(:)         = 0.
+         composition_sum(:) = 0.
+       endif
+
      end if
    end do
-
+   print*, shape(composition_kepler), 'comp array shape'
  end subroutine phantom_to_kepler_arrays
  !----------------------------------------------------------------
  !+
