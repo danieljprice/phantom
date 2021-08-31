@@ -428,7 +428,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          comp(1:npts)      = composition(1:npts,j)
          compositioni(1,j) = yinterp(comp(1:npts),r(1:npts),ri)
        end do
-         write(11,*) compositioni
+         write(11,'(50(es18.10,1X))') compositioni
      end do
      print*, '>>>>>> done'
   close(11)
