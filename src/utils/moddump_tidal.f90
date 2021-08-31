@@ -258,10 +258,6 @@ subroutine write_setupfile(filename)
 <<<<<<< HEAD
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
-=======
- call write_inopt(r0,    'r0',    'starting distance',                                   iunit)
- call write_inopt(ecc,    'ecc',    'starting eccentricity',                                   iunit)
->>>>>>> bbc141093e935c089608d0c98943c71dd8a7a50b
  close(iunit)
 
 end subroutine write_setupfile
