@@ -1855,7 +1855,8 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
-         ${SRCREADWRITE_DUMPS}
+         ${SRCREADWRITE_DUMPS} \
+         utils_sort.f90 sort_particles.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
@@ -1881,13 +1882,13 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
+SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           mpi_balance.F90 set_dust_options.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
 	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_vfield.f90 sort_particles.F90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
+          set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
@@ -2020,7 +2021,7 @@ ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          utils_sort.f90 set_Bfield.f90 \
+          set_Bfield.f90 \
           random.f90 set_disc.F90 set_dust.f90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
           icosahedron.f90 radiation_utils.f90 cons2prim.f90 \
@@ -2051,7 +2052,7 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN2= ${OBJAN1:.F90=.o}
 OBJAN= ${OBJAN2:.f=.o}
-OBJA= utils_sort.o leastsquares.o solvelinearsystem.o \
+OBJA= leastsquares.o solvelinearsystem.o \
       ${OBJDUMP} utils_disc.o utils_gravwave.o set_dust.o utils_binary.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
@@ -2185,7 +2186,7 @@ diffdumps: checksys checkparams $(OBJDUMP) utils_testsuite.o diffdumps.o
 	@echo ""
 	@echo "diffdumps: we welcome you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o diffdumps.o
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJDUMP) utils_testsuite.o diffdumps.o $(LDFLAGS)
 
 cleandiffdumps:
 	rm -f $(BINDIR)/phantom2divb

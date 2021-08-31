@@ -30,7 +30,7 @@ module testutils
  interface checkval
   module procedure checkvalconst,checkvalconstr4,checkvalconsti1
   module procedure checkval1_r4,checkval1_r8,checkval1_int,checkval1_int8,checkval1_logical
-  module procedure checkval_r8arr,checkval_r4arr
+  module procedure checkval_r8arr,checkval_r4arr,checkval_i8arr
  end interface checkval
 
  interface checkvalf
@@ -46,7 +46,7 @@ module testutils
  end interface checkvalbuf_end
 
  interface printerr
-  module procedure printerr_real,printerr_int,printerr_logical
+  module procedure printerr_real,printerr_int,printerr_int8,printerr_logical
  end interface
 
  interface printresult
@@ -538,6 +538,54 @@ end subroutine checkval_r4arr
 
 !----------------------------------------------------------------
 !+
+!  checks an array of integer*8 values against an array of expected answers
+!+
+!----------------------------------------------------------------
+subroutine checkval_i8arr(n,x,xexact,tol,ndiff,label,checkmask)
+   integer,          intent(in)  :: n
+   integer(kind=8),  intent(in)  :: x(:),xexact(:)
+   integer(kind=8),  intent(in)  :: tol
+   integer,          intent(out) :: ndiff
+   character(len=*), intent(in)  :: label
+   logical, optional,intent(in)  :: checkmask(:)
+   integer :: i,nval
+   integer(kind=8) :: val
+   integer(kind=8) :: erri,errmax
+   integer :: itol, ierrmax
+
+   call print_testinfo(trim(label))
+
+   ndiff = 0
+   errmax = 0
+   nval = 0
+   do i=1,n
+      if (present(checkmask)) then
+         if (.not. checkmask(i)) cycle
+      endif
+      val = xexact(i)
+      erri = abs(x(i)-val)
+
+      if (erri > tol .or. erri /= erri) then
+         ndiff = ndiff + 1
+         if (ndiff==1) write(*,*)
+         if (ndiff < 10 .or. erri > 2.*errmax) then
+            call printerr(label,x(i),val,erri,tol)
+         endif
+      endif
+      nval = nval + 1
+      errmax = max(errmax,erri)
+   enddo
+
+   ierrmax = int(errmax)
+   itol = int(tol)
+
+   call printresult(n,ndiff,ierrmax,itol)
+
+   return
+  end subroutine checkval_i8arr
+
+!----------------------------------------------------------------
+!+
 !  start a buffered error check
 !+
 !----------------------------------------------------------------
@@ -711,6 +759,26 @@ subroutine printerr_int(label,ix,ival,erri,itol)
 
  return
 end subroutine printerr_int
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
+subroutine printerr_int8(label,ix,ival,erri,itol)
+   character(len=*), intent(in) :: label
+   integer(kind=8),  intent(in) :: ix, ival, erri, itol
+
+   if (itol > 0) then
+      write(*,"(1x,4(a,i19),a)") &
+        trim(label)//' = ',ix,' should be ',ival,' err =',erri,' (tol =',itol,')'
+   else
+      write(*,"(1x,3(a,i19),a)") &
+        trim(label)//' = ',ix,' should be ',ival,' err =',erri
+   endif
+
+   return
+  end subroutine printerr_int8
 
 !----------------------------------------------------------------
 !+
