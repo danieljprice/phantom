@@ -162,8 +162,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ecc<1.) then
     print*, 'Eliptical orbit'
     alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
-    x0    = r0*cos(alpha)
-    y0    = -r0*sin(alpha)
+    x0    = -r0*cos(alpha)
+    y0    = r0*sin(alpha)
     vx0   = sqrt(mh*beta/((1.+ecc)*rt)) * sin(alpha)
     vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
  elseif (abs(ecc-1.) < tiny(1.)) then
@@ -255,7 +255,6 @@ subroutine write_setupfile(filename)
  call write_inopt(rs,    'rs',    'radius of star     (code units)',                     iunit)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
  call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
-<<<<<<< HEAD
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
  close(iunit)
@@ -282,11 +281,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
  call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
-<<<<<<< HEAD
  call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
-=======
- call read_inopt(ecc,   'ecc',   db,min=0.,errcount=nerr)
->>>>>>> bbc141093e935c089608d0c98943c71dd8a7a50b
 
  call close_db(db)
  if (nerr > 0) then
