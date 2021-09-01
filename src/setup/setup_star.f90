@@ -241,6 +241,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call set_units(dist=udist,mass=umass,G=1.d0)
  !call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric units
+ !
  ! set up particles
  !
  npartoftype(:) = 0
