@@ -1929,9 +1929,9 @@ subroutine read_array_int1(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
- integer      :: i
- real(kind=4) :: dum
- logical      :: match_datatype
+ integer         :: i
+ integer(kind=1) :: dum
+ logical         :: match_datatype
 
  if (matched) return
  match_datatype = (ikind==i_int1)
@@ -1961,9 +1961,9 @@ subroutine read_array_int4(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
- integer      :: i
- real(kind=4) :: dum
- logical      :: match_datatype
+ integer         :: i
+ integer(kind=4) :: dum
+ logical         :: match_datatype
 
  if (matched) return
  match_datatype = (ikind==i_int4)
@@ -1993,9 +1993,9 @@ subroutine read_array_int8(iarr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
- integer      :: i
- real(kind=4) :: dum
- logical      :: match_datatype
+ integer         :: i
+ integer(kind=8) :: dum
+ logical         :: match_datatype
 
  if (matched) return
  match_datatype = (ikind==i_int8)
@@ -2383,6 +2383,8 @@ subroutine print_arrays_in_file(iunit,filename)
  real(kind=4)    :: x4(ndisplay)
  integer(kind=1) :: i1(ndisplay)
  logical         :: singleprec
+
+ singleprec = .false.
 
  ! open file for read
  call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)
