@@ -211,7 +211,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
  use eos,   only:ieos,eos_is_non_ideal
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
+ use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
@@ -378,7 +378,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
-          call write_array(1,eos_vars(igasP,:),eos_vars_label(igasP),npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=igasP)
        endif
 
        ! smoothing length written as real*4 to save disk space
@@ -450,8 +450,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        !
        if (mhd) then
           ilen(4) = int(npart,kind=8)
-          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1))
-          call write_array(4,Bevol(4,:),'psi',npart,k,ipass,idump,nums,ierrs(1))
+          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1)) ! Bx,By,Bz
+          call write_array(4,Bevol,Bevol_label,1,npart,k,ipass,idump,nums,ierrs(1),index=4) ! psi
           if (ndivcurlB >= 1) then
              call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,ierrs(2))
           else

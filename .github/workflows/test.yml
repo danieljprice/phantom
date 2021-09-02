@@ -1,0 +1,62 @@
+name: test
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+env:
+  OMP_STACKSIZE: 512M
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        system:
+          - ['self-hosted', 'ifort']
+          - ['ubuntu-latest', 'gfortran']
+        debug:
+          - no
+          - yes
+        input: # [SETUP, phantom_tests]
+          - ['test', '']
+          - ['testkd', '']
+          - ['testdust', 'dust']
+          - ['testgr', 'gr']
+          - ['testgrav', 'gravity ptmass']
+          - ['testgrowth', 'dustgrowth']
+          - ['testnimhd', 'nimhd']
+          - ['test2', '']
+          - ['testcyl', '']
+
+    name: |
+      test (SYSTEM=${{ matrix.system[1] }},
+            DEBUG=${{ matrix.debug }},
+            SETUP=${{ matrix.input[0] }},
+            targets=${{ matrix.input[1] }})
+
+    runs-on: ${{ matrix.system[0] }}
+
+    steps:
+
+    - name: "Nuke the github workspace before doing anything"
+      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
+
+    - name: "Compile phantom"
+      run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} phantomtest
+      env:
+        SYSTEM: ${{ matrix.system[1] }}
+
+    - name: "Run phantom tests"
+      run: ./bin/phantomtest ${{ matrix.input[1] }}

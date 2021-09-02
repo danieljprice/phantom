@@ -20,7 +20,7 @@ module testcooling
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
  implicit none
- public :: test_cooling
+ public :: test_cooling, test_cooling_rate
 
  private
 
@@ -61,7 +61,7 @@ subroutine test_cooling_rate(ntests,npass)
  use physcon,   only:Rg,mass_proton_cgs
  use units,     only:unit_ergg,unit_density,udist,utime
  real :: abundance(nabundances)
- real :: ratesq(nrates)
+ !real :: ratesq(nrates)
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nt = 400
  real :: logtmin,logtmax,logt,dlogt,t,crate
