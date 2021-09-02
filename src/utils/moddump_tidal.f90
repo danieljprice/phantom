@@ -14,6 +14,7 @@ module moddump
 !
 ! :Runtime parameters:
 !   - beta  : *penetration factor*
+!   - ecc   : *starting eccentricity*
 !   - mh    : *mass of black hole (code units)*
 !   - ms    : *mass of star       (code units)*
 !   - phi   : *stellar rotation with respect to y-axis (in degrees)*
