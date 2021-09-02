@@ -36,16 +36,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use prompting,       only : prompt
    use readwrite_dumps, only : opened_full_dump
 
-   integer, parameter   :: ngrid = 512 !resolution in grid in kepler
+   !integer, parameter   :: ngrid = 512 !resolution in grid in kepler
    integer,  intent(in) :: numfile,npart,iunit
    integer              :: i,j,n_comp
+   integer :: ngrid = 0
 
    real                      :: grid
    real,intent(in)           :: xyzh(:,:),vxyzu(:,:)
    real,intent(in)           :: pmass,time
-   real , dimension(ngrid)   :: pressure,rad_grid,mass,rad_vel,density,temperature,entropy_array,&
+   real , allocatable,dimension(:)   :: pressure,rad_grid,mass,rad_vel,density,temperature,entropy_array,&
                                 int_eng,bin_mass,y_e,a_bar
-   real, dimension(3,ngrid)  :: velocity_3D
+   real, allocatable         :: velocity_3D(:,:)
    real, allocatable         :: composition_kepler(:,:)
 
    character(len=20),allocatable  :: comp_label(:)
@@ -60,9 +61,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    endif
 
     !if dumpfile is a full dump, we call the subroutine for getting the arrays we need
-    call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,rad_vel,&
+    call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,rad_vel,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
-                                  y_e,a_bar,composition_kepler,comp_label,n_comp)
+                                  y_e,a_bar,composition_kepler,comp_label,n_comp,ngrid)
 
     !allocate for composition_kepler
     !Print the analysis being done
@@ -124,9 +125,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  !  The arrays generated are used by do_analysis subroutine.
  !+
  !----------------------------------------------------------------
- subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,ngrid,pressure,rad_grid,mass,&
+ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                     rad_vel,density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
-                                    y_e,a_bar,composition_kepler,comp_label,columns_compo)
+                                    y_e,a_bar,composition_kepler,comp_label,columns_compo,ngrid)
 
    use units,           only : udist,unit_density,unit_pressure!units required to convert to kepler units.
    use vectorutils,     only : cross_product3D
@@ -136,12 +137,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use eos,             only : equationofstate,entropy,X_in,Z_in,entropy,gmw,init_eos
    use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro
 
-   integer,intent(in)   :: npart,ngrid
+   integer,intent(in)   :: npart
+   integer,intent(out)  :: ngrid
    real,intent(in)      :: xyzh(:,:),vxyzu(:,:)
    real,intent(in)      :: pmass,time
-   real,intent(out)     :: rad_grid(ngrid),mass(ngrid),rad_vel(ngrid),density(ngrid)!rad_grid stores radius, rad_vel stores radial velocity
-   real,intent(out)     :: temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid)
-   real,intent(out)     :: pressure(ngrid),y_e(ngrid),a_bar(ngrid),velocity_3D(3,ngrid)
+   real,intent(out),allocatable    :: rad_grid(:),mass(:),rad_vel(:),density(:)!rad_grid stores radius, rad_vel stores radial velocity
+   real,intent(out),allocatable     :: temperature(:),entropy_array(:),int_eng(:),bin_mass(:)
+   real,intent(out),allocatable    :: pressure(:),y_e(:),a_bar(:),velocity_3D(:,:)
    real,intent(out),allocatable              :: composition_kepler(:,:)
    character(len=20),allocatable,intent(out) :: comp_label(:)
 
@@ -161,7 +163,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: ponrhoi,spsoundi,vel_sum(3)
    real :: Y_in
    real,allocatable :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-   !real :: avg_h
+   integer::  number_bins,number_tot, number_per_bin
 
    !Lets print the average h value of the star.
    !avg_h = sum(xyzh(4,:))/npart
@@ -195,8 +197,26 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      endif
    endif
 
-    ibin               = 1
-    number_particle    = (npart/ngrid)+1 !number of particles per bin
+
+    ibin = 1
+    !instead of setting the bin number, the goal is to fix particle per bin for each run and calculate
+    !the ngrid using it.
+    number_particle = 201
+    number_per_bin = number_particle
+    number_tot = npart
+    !number_particle    = (npart/ngrid)!number of particles per bin
+    number_bins = number_tot/number_per_bin
+    ngrid = npart/number_particle
+
+    print*, mod(number_tot,number_per_bin),'mod(number_tot,number_per_bin)'
+    if (mod(number_tot,number_per_bin) > 0 ) then
+      ngrid = ngrid+1
+    endif
+    print*, ngrid, 'ngrid '
+
+    allocate(rad_grid(ngrid),mass(ngrid),rad_vel(ngrid),density(ngrid))!rad_grid stores radius, rad_vel stores radial velocity
+    allocate(temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid))
+    allocate(pressure(ngrid),y_e(ngrid),a_bar(ngrid),velocity_3D(3,ngrid))
     no_in_bin          = 0 !this keeps track of the particles added to the bin in the loop implemented.
     density_sum        = 0.
     u_sum              = 0.
@@ -209,7 +229,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     Y_in               = 0.27112283
     Z_in               = 1.-X_in-Y_in
     gmw                = 0.61 !mean molecular weight
-    p_no = (npart/ngrid)
+
 
     !allocating storage for composition of one particle.
     allocate(composition_i(columns_compo))
@@ -230,21 +250,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !calculate the position which is the location of the particle.
      rad    = sqrt(dot_product(pos(:),pos(:)))
 
-     !radial velocity
-     vel(:)  = vxyzu(1:3,i) - vpos(:) !relative velocity !velocity relative to com.
-     !vel_i   = dot_product(vel(:),pos(:))/rad
-     !this calculates (v.r)/|r| which is the dot production of velocity with position.
-     !vel_sum = vel_sum + vel_i
-
-     !angular velocity
-     !it is calculated by taking cross product of position and velocity.
-     !Then the magntitude of this vector is taken to get the ang_i.
-     !call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
-     !ang_i             = sqrt(dot_product(Li, Li))
-     !ang_vel_sum       = ang_vel_sum + ang_i
-     !moment_of_inertia = rad**2 + moment_of_inertia
-     !omega(:)          = Li(:)
-     !omega_sum(:)      = omega_sum(:) + omega(:)
+     !veloctiy
+     vel(:)  = vxyzu(1:3,i) - vpos(:)
      vel_sum(:) = vel_sum(:) + vel(:)
      !density
      density_i   = rhoh(xyzh(4,i),pmass)
@@ -270,22 +277,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      endif
      composition_sum(:) = composition_sum(:) + composition_i(:)
 
-     if (no_in_bin >= number_particle )  then
-       print*, ibin,'ibin',no_in_bin,'no_in_bin',number_particle,'number_particle',j,'j',npart,'npart'
+     if (no_in_bin >= number_particle .and. ibin /= ngrid)  then
        !make the bin properties.
        rad_grid(ibin)             = rad !last particle
        mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
        bin_mass(ibin)             = number_particle*pmass !every bin has same mass.
-       if (ibin==1 .or. ibin==2) then
-         print*,bin_mass(ibin),'bin mass',ibin,'ibin'
-       endif
        density(ibin)              = density_sum / no_in_bin
        temperature(ibin)          = temperature_sum / no_in_bin
        pressure(ibin)             = pressure_sum / no_in_bin
        int_eng(ibin)              = u_sum / no_in_bin
        velocity_3D(:,ibin)        = vel_sum(:) / no_in_bin !in cartesian coordinates
        composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
-       !calculating Y_e = X_e /(A_e*m_u*N_A)
+
        y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
        a_bar(ibin)       =  X_in + (4.*Y_in) !average atomic mass in each bin.
 
@@ -306,22 +309,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        vel_sum(:)         = 0.
        composition_sum(:) = 0.
 
-       !To avoid getting nan in the file for the last bin,
-       !we calculate the properties for all the remaning particles and
-       !save them into the respective arrays.
      else if (ibin == ngrid ) then
        if (j < npart) then
          cycle
        else
-         print*, ibin,'ibin',j,'j',npart,'npart',no_in_bin,'no_in_bin'
-         !print*, no_in_bin, 'no_in_bin', number_particle, 'partocle no', j, 'j',ibin,'ibin'
          !make the bin properties.
+         print*, ibin, 'ibin'
          rad_grid(ibin)             = rad !last particle
          mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
-         bin_mass(ibin)             = number_particle*pmass !every bin has same mass.
-         if (ibin==1 .or. ibin==2) then
-           print*,bin_mass(ibin),'bin mass',ibin,'ibin'
-         endif
+         bin_mass(ibin)             = no_in_bin*pmass !every bin has same mass.
          density(ibin)              = density_sum / no_in_bin
          temperature(ibin)          = temperature_sum / no_in_bin
          pressure(ibin)             = pressure_sum / no_in_bin
@@ -340,19 +336,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
            print*, 'Entropy is calculated incorrectly'
          end if
 
-         no_in_bin          = 0
-         ibin               = ibin + 1
-         density_sum        = 0.
-         u_sum              = 0.
-         temperature_sum    = 0.
-         pressure_sum       = 0.
-         vel_sum(:)         = 0.
-         composition_sum(:) = 0.
        endif
 
      end if
    end do
-   print*, shape(composition_kepler), 'comp array shape'
  end subroutine phantom_to_kepler_arrays
  !----------------------------------------------------------------
  !+
