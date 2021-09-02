@@ -364,38 +364,24 @@ subroutine find_rank(npart,func,xyzh,ranki)
  integer, intent(in) :: npart
  integer, allocatable, intent(out) :: ranki(:)
  integer, allocatable :: iorder(:)
- real, parameter :: min_diff = 1.d-10
+ real, parameter :: min_diff = tiny(1.)
  integer :: i,j,k
 
  ! First call indexxfunc
  allocate(iorder(npart),ranki(npart))
  call indexxfunc(npart,func,xyzh,iorder)
- ranki(pid_from_rank(1,iorder)) = 1 ! Set innermost particle to have rank 1
+ ranki(iorder(1)) = 1
 
  do i=2,npart ! Loop over ranks sorted by indexxfunc
-    j = pid_from_rank(i,iorder) ! particle ID for the ith closest particle to the origin
-    k = pid_from_rank(i-1,iorder) ! particle ID for the (i-1)th closest particle to the origin
-    if (func(xyzh(:,j)) - func(xyzh(:,k)) > min_diff) then ! If particles have distinct radii
-       ranki(j) = ranki(k) + 1     ! Give different ranks
+    j = iorder(i)
+    k = iorder(i-1)
+    if (func(xyzh(:,j))/func(xyzh(:,k)) - 1. > min_diff) then ! If particles have distinct radii
+       ranki(j) = i
     else
-       ranki(j) = ranki(j-1)       ! Else, give same ranks
+       ranki(j) = ranki(k)       ! Else, give same ranks
     endif
  enddo
 
 end subroutine find_rank
-
-!----------------------------------------------------------------
-!+
-!  Inverse function for indexxfunc: returns particle ID given its
-!  ranking in "iorder"
-!+
-!----------------------------------------------------------------
-integer function pid_from_rank(rank,iorder)
- integer, intent(in) :: rank 
- integer, dimension(:), intent(in) :: iorder
-
- pid_from_rank = minloc(iorder,1,iorder>=rank)
-
-end function pid_from_rank
 
 end module sortutils

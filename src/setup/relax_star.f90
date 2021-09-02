@@ -292,7 +292,7 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_e
  mstar = mr(nt)
  do i = 1,npart
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = mstar * iorder(i) / real(npart)
+    massri = mstar * real(iorder(i)-1) / real(npart)
     rhor = yinterp(rho,mr,massri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
