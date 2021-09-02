@@ -16,7 +16,7 @@ program diffdumps
 !
 ! :Usage: diffdumps firstdumpfilename seconddumpfilename [tolerance]
 !
-! :Dependencies: dim, io, part, readwrite_dumps, testutils
+! :Dependencies: dim, io, part, readwrite_dumps, sort_particles, testutils
 !
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact,iorig
