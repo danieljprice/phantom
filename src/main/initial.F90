@@ -21,8 +21,7 @@ module initial
 !   io_summary, krome_interface, linklist, metric_tools, mf_write, mpi,
 !   mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
 !   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   sort_particles, stack, timestep, timestep_ind, timestep_sts, timing,
-!   units, writeheader
+!   stack, timestep, timestep_ind, timestep_sts, timing, units, writeheader
 !
 #ifdef MPI
  use mpi
