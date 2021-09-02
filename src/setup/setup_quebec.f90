@@ -14,8 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, io, part, physcon, prompting,
-!   setup_params, spherical, units
+! :Dependencies: io, part, physcon, prompting, setup_params, spherical,
+!   units
 !
  implicit none
  public :: setpart
