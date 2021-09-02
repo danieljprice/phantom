@@ -521,10 +521,9 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  character(len=10000)                     :: line
 
  integer                                  :: k,aloc,i,column_no,n_cols,n_labels
- integer                                  :: nheaderlines,ierror,skip_no
+ integer                                  :: nheaderlines,skip_no
  real,allocatable                         :: stardata(:,:)
  logical                                  :: iexist,n_too_big,composition_available
- real                                     :: result
 
  !
  !--Get path name
@@ -544,6 +543,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  n_cols = 0
  n_too_big = .false.
  composition_available = .false.
+ skip_no = 0
  !
  !--Calculate the number of rows, columns and comments in kepler file.
  !
@@ -567,27 +567,26 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--If there is 'nt1' in the column headings, we know the file contains composition.
  !--This is used as a test for saving composition.
- !--We need to allocate composition as in some KEPLER
- !--files we don't have He3 in the composition (e.g., kepler_MS and kepler_RG)
  !
  ierr = 0
  OPEN(UNIT=11, file=trim(fullfilepath))
  !The row with the information about column headings is at nheaderlines-1.
  !we skip the first nheaderlines-2 rows and then read the nheaderlines-1 to find the substrings
- call skip_header(11,nheaderlines-2,ierror)
+ call skip_header(11,nheaderlines-2,ierr)
  read(11, '(a)', iostat=ierr) line
 
- !read the column labels and store it in an array.
+ !read the column labels and store them in an array.
  allocate(all_label(n_cols))
  call get_column_labels(line,n_labels,all_label)
-
- !If  nt1 in file, composition exists in the file.
- !Hence, we will use an array to save composition array.
- result = index(line, "nt1")
- if (result/=0) then
-   composition_available = .true.
- end if
  close(11)
+
+ !check which label gives nt1.
+ do i = 1,len(all_label)
+   if (all_label(i) == 'nt1') then
+     skip_no = i - 1
+     composition_available = .true.
+   endif
+ enddo
 
  !Allocate memory for saving data
  allocate(stardata(n_rows, n_cols))
@@ -595,7 +594,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--Read the file again and save the data in stardata tensor.
  !
  open(13, file=trim(fullfilepath))
- call skip_header(13,nheaderlines,ierror)
+ call skip_header(13,nheaderlines,ierr)
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
  enddo
@@ -627,6 +626,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
+ !edit for mu value
  !if elements were found in the file read, save the composition by allocating an array
  !else set it to 0
  if (composition_available) then
@@ -634,7 +634,6 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
    !We skip them and store the rest into a composition tensor.
    print*, 'Kepler file has composition.'
    columns_compo = 0
-   skip_no = 13
    allocate(composition(n_rows,n_cols-skip_no))
    allocate(comp_label(n_cols-skip_no))
    comp_label(:) = all_label(skip_no+1:n_cols)
