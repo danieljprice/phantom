@@ -547,7 +547,6 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Calculate the number of rows, columns and comments in kepler file.
  !
-
  n_rows = get_nlines(trim(fullfilepath),skip_comments=.true.,n_columns=n_cols,n_headerlines=nheaderlines)
  !
  !--Check if the number of rows is 0 or greater than ng_max.
@@ -596,9 +595,6 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  open(13, file=trim(fullfilepath))
  call skip_header(13,nheaderlines,ierr)
- do i = 1,j
-    read(13,*,iostat=ierr)
- enddo
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
  enddo
@@ -630,7 +626,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
- !edit for mu value
+
  !if elements were found in the file read, save the composition by allocating an array
  !else set it to 0
  if (composition_available) then
