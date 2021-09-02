@@ -17,7 +17,7 @@ module sortutils
 ! :Dependencies: None
 !
  implicit none
- public :: indexx,indexxfunc,r2func,r2func_origin,set_r2func_origin
+ public :: indexx,indexxfunc,find_rank,r2func,r2func_origin,set_r2func_origin
 
  private
  real, private :: x0,y0,z0
@@ -250,5 +250,51 @@ subroutine indexxfunc(n, func, xyzh, indx)
 
  goto 1
 end subroutine indexxfunc
+
+
+!----------------------------------------------------------------
+!+
+!  Same as indexxfunc, except two particles can have the same
+!  order/rank in the array ranki
+!+
+!----------------------------------------------------------------
+subroutine find_rank(npart,func,xyzh,ranki)
+ real, external :: func
+ real, intent(in)  :: xyzh(:,:)
+ integer, intent(in) :: npart
+ integer, allocatable, intent(out) :: ranki(:)
+ integer, allocatable :: iorder(:)
+ real, parameter :: min_diff = 1.d-10
+ integer :: i,j,k
+
+ ! First call indexxfunc
+ allocate(iorder(npart),ranki(npart))
+ call indexxfunc(npart,func,xyzh,iorder)
+ ranki(pid_from_rank(1,iorder)) = 1 ! Set innermost particle to have rank 1
+
+ do i=2,npart ! Loop over ranks, which have maximum value of npart
+    j = pid_from_rank(i,iorder) ! particle ID for the ith closest particle to the origin
+    k = pid_from_rank(i-1,iorder) ! particle ID for the (i-1)th closest particle to the origin
+    if (func(xyzh(:,j)) - func(xyzh(:,k)) > min_diff) then ! If particles have distinct radii
+       ranki(j) = ranki(k) + 1     ! Give different ranks
+    else
+       ranki(j) = ranki(j-1)       ! Else, give same ranks
+    endif
+ enddo
+
+end subroutine find_rank
+
+!----------------------------------------------------------------
+!+
+!  returns particle ID given its ranking in "iorder"
+!+
+!----------------------------------------------------------------
+integer function pid_from_rank(rank,iorder)
+ integer, intent(in) :: rank 
+ integer, dimension(:), intent(in) :: iorder
+
+ pid_from_rank = minloc(iorder,1,iorder>=rank)
+
+end function pid_from_rank
 
 end module sortutils

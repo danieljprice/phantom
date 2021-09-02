@@ -274,7 +274,7 @@ end subroutine shift_particles
 !----------------------------------------------------------------
 subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
- use sortutils,   only:indexxfunc,r2func
+ use sortutils,   only:find_rank,r2func
  use part,        only:rhoh,massoftype,igas,maxvxyzu,iorder=>ll
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
@@ -283,17 +283,16 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_e
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
  real :: ri,rhor,rhoi,rho1,mstar,massri
- integer :: i,j
+ integer :: i
 
  rho1 = yinterp(rho,mr,0.)
  rmax = 0.
  rmserr = 0.
- call indexxfunc(npart,r2func,xyzh(1:3,:),iorder)
+ call find_rank(npart,r2func,xyzh(1:3,:),iorder)
  mstar = mr(nt)
- do j = 1,npart
-    i = iorder(j)
+ do i = 1,npart
     ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = mstar * real(j) / real(npart)
+    massri = mstar * iorder(i) / real(npart)
     rhor = yinterp(rho,mr,massri) ! analytic rho(r)
     rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
     if (maxvxyzu >= 4) then
