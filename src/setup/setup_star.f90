@@ -427,7 +427,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end do
         write(11,'(50(es18.10,1X))') &
          (compositioni(j,1),j=1,columns_compo)
-     end do     
+     end do
   close(11)
   print*, '>>>>>> done'
   end if
@@ -461,7 +461,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(*,"(70('='))")
  if (composition_exists) then
    write(*,'(a)') 'Composition written to kepler.comp file.'
-   print*, shape(compositioni),'shape of compositoni'
  endif
 
 end subroutine setpart
