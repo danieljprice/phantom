@@ -372,7 +372,7 @@ subroutine find_rank(npart,func,xyzh,ranki)
  call indexxfunc(npart,func,xyzh,iorder)
  ranki(pid_from_rank(1,iorder)) = 1 ! Set innermost particle to have rank 1
 
- do i=2,npart ! Loop over ranks, which have maximum value of npart
+ do i=2,npart ! Loop over ranks sorted by indexxfunc
     j = pid_from_rank(i,iorder) ! particle ID for the ith closest particle to the origin
     k = pid_from_rank(i-1,iorder) ! particle ID for the (i-1)th closest particle to the origin
     if (func(xyzh(:,j)) - func(xyzh(:,k)) > min_diff) then ! If particles have distinct radii
@@ -386,7 +386,8 @@ end subroutine find_rank
 
 !----------------------------------------------------------------
 !+
-!  returns particle ID given its ranking in "iorder"
+!  Inverse function for indexxfunc: returns particle ID given its
+!  ranking in "iorder"
 !+
 !----------------------------------------------------------------
 integer function pid_from_rank(rank,iorder)
