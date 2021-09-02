@@ -73,7 +73,7 @@ jobs:
     - name: "Load previous benchmark data from the web server"
       working-directory: phantom-benchmarks/${{ matrix.setup }}
       env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=3 --no-host-directories
       run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
 
     - name: "Run benchmarks"
@@ -141,6 +141,16 @@ jobs:
       run: ./plot-benchmarks.sh
       env:
         PHANTOM_DIR: ${{ github.workspace }}
+
+    - name: "Update stats.txt on phantom-data-files"
+      working-directory: phantom-benchmarks
+      run: |
+        for dir in ./*; do
+          if [ -d ${dir} ]; then
+            list+=("${dir}")
+            rsync -vau ${dir}/stats.txt ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${dir}/
+          fi
+        done
 
     - name: "Copy plots to phantom-data-files"
       working-directory: phantom-benchmarks
