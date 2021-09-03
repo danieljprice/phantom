@@ -44,7 +44,8 @@ subroutine test_ptmass(ntests,npass)
                            ipart_rhomax,icreate_sinks, &
                            idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                            idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
-                           ndptmass,update_ptmass
+                           ndptmass,update_ptmass, &
+                           r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use physcon,         only:pi
  use setdisc,         only:set_disc
  use spherical,       only:set_sphere
@@ -64,10 +65,10 @@ subroutine test_ptmass(ntests,npass)
  use stretchmap,      only:rho_func
  integer, intent(inout) :: ntests,npass
  integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
- integer                :: nparttot
- logical                :: test_binary,test_accretion,test_createsink, test_softening
- logical                :: accreted
- real                   :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr
+ integer                :: nparttot,merge_ij(maxptmass),merge_n
+ logical                :: test_binary,test_accretion,test_createsink,test_softening,test_merger
+ logical                :: accreted,merged,merged_expected
+ real                   :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr,v2
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
  real                   :: r2,r2min,xcofm(3),totmass,dum,dum2,psep,tolen
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
@@ -76,7 +77,7 @@ subroutine test_ptmass(ntests,npass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass),rhomax_test,rhomax
  integer                :: norbits,itmp,ierr
- integer                :: nfailed(11),imin(1)
+ integer                :: nfailed(28),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
  integer(kind=1)        :: ibin_wakei
  character(len=20)      :: dumpfile,filename
@@ -90,6 +91,7 @@ subroutine test_ptmass(ntests,npass)
  test_accretion = .true.
  test_createsink = .true.
  test_softening = .true.
+ test_merger = .true.
  nbinary_tests = 3
  !
  !--general settings
@@ -187,7 +189,7 @@ subroutine test_ptmass(ntests,npass)
        ! initialise forces
        !
        if (id==master) then
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
        endif
        fxyz_ptmass(:,:) = 0.
        call bcast_mpi(epot_sinksink)
@@ -333,7 +335,7 @@ subroutine test_ptmass(ntests,npass)
     vxyz_ptmass(1,2) = 0.
     vxyz_ptmass(2,2) = -v_c2
     vxyz_ptmass(3,2) = 0.
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
     call compute_energies(t)
     etotin   = etot
     totmomin = totmom
@@ -601,13 +603,132 @@ subroutine test_ptmass(ntests,npass)
        call finish_ptmass(nptmass)
     enddo
  endif testcreatesink
+!
+!  Test sink particle creation
+!
+ testsinkmerger: if (test_merger) then
+    nfailed(:)      = 0
+    iverbose        = 0
+    nptmass         = 2
+    npart           = 0
+    h_acc           = 0.1
+    h_soft_sinksink =    h_acc
+    r_merge_uncond  = 2.*h_acc    ! sinks will unconditionally merge if they touch
+    r_merge_cond    = 4.*h_acc    ! sinks will merge if bound within this radius
+    r_merge_uncond2 = r_merge_uncond**2
+    r_merge_cond2   = r_merge_cond**2
+    r_merge2        = max(r_merge_uncond2,r_merge_cond2)
+    do itest=1,7
+       t                 = 0.
+       xyzmh_ptmass(:,:) = 0.
+       xyzmh_ptmass(4,:) = 1.
+       xyzmh_ptmass(ihacc,:) = h_acc
+       vxyz_ptmass(:,:)  = 0.
+       select case(itest)
+       case(1)
+          if (id==master) write(*,"(/,a)") '--> testing fast flyby: no merger'
+          ! fast flyby within r_merge_uncond < r < r_merge_cond
+          xyzmh_ptmass(1,1) =  1.
+          xyzmh_ptmass(2,1) =  1.5*h_acc
+          vxyz_ptmass(1,1)  = -10.
+          merged_expected   = .false.
+       case(2)
+          if (id==master) write(*,"(/,a)") '--> testing fast flyby: impact so merger'
+          ! fast flyby within r < r_merge_uncond
+          xyzmh_ptmass(1,1) =  1.
+          xyzmh_ptmass(2,1) =  0.5*h_acc
+          vxyz_ptmass(1,1)  = -10.
+          merged_expected   = .true.
+       case(3)
+          if (id==master) write(*,"(/,a)") '--> testing slow flyby: capture and merger'
+          ! slow flyby within r_merge_uncond < r < r_merge_cond
+          xyzmh_ptmass(1,1) =  1.
+          xyzmh_ptmass(2,1) =  1.5*h_acc
+          vxyz_ptmass(1,1)  = -1.
+          merged_expected   = .true.
+       case(4)
+          if (id==master) write(*,"(/,a)") '--> testing slow flyby: impact and merger'
+          ! slow flyby within r < r_merge_cond
+          xyzmh_ptmass(1,1) =  1.
+          xyzmh_ptmass(2,1) =  0.5*h_acc
+          vxyz_ptmass(1,1)  = -1.
+          merged_expected   = .true.
+       case(5)
+          if (id==master) write(*,"(/,a)") '--> testing flyby: slingshot & no merger'
+          ! flyby within r_merge_uncond < r < r_merge_cond
+          xyzmh_ptmass(1,1) =  1.
+          xyzmh_ptmass(2,1) =  1.5*h_acc
+          vxyz_ptmass(1,1)  = -5.
+          merged_expected   = .false.
+       case(6)
+          if (id==master) write(*,"(/,a)") '--> testing orbit: stable & no merger'
+          ! stable orbit within r >  r_merge_cond
+          xyzmh_ptmass(1,1) = 2.5*h_acc
+          vxyz_ptmass(2,1)  = sqrt(0.25*xyzmh_ptmass(4,1)/xyzmh_ptmass(1,1))
+          merged_expected   = .false.
+       case(7)
+          if (id==master) write(*,"(/,a)") '--> testing orbit: decaying & merger'
+          ! decaying orbit within r >  r_merge_cond
+          xyzmh_ptmass(1,1) = 2.5*h_acc
+          vxyz_ptmass(2,1)  = 0.9*sqrt(0.25*xyzmh_ptmass(4,1)/xyzmh_ptmass(1,1))
+          merged_expected   = .true.
+       end select
+       xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
+       vxyz_ptmass(1:3,2)  = -vxyz_ptmass(1:3,1)
+       !
+       ! initialise forces
+       !
+       if (id==master) then
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
+       endif
+       fxyz_ptmass(:,:) = 0.
+       call bcast_mpi(epot_sinksink)
+       call bcast_mpi(dtsinksink)
 
- !--reset stuff
+       if (id==master) fxyz_ptmass(:,:) = fxyz_ptmass(:,:) + fxyz_sinksink(:,:)
+       call reduce_in_place_mpi('+',fxyz_ptmass)
+       !
+       ! integrate
+       !
+       nsteps = 1000
+       v2     = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
+       dt     = 2./(sqrt(v2)*nsteps)
+       dtmax  = dt*nsteps
+       call init_step(npart,t,dtmax)
+       !write(333,*) itest,0,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+       do i=1,nsteps
+          t = t + dt
+          dtext = dt
+          if (id==master .and. iverbose > 2) write(*,*) ' t = ',t,' dt = ',dt
+          call step(npart,npart,t,dt,dtext,dtnew)
+          !write(333,*) itest,i,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+       enddo
+       !
+       ! check results
+       !
+       if (xyzmh_ptmass(4,2) < 0.) then
+          merged = .true.
+       else
+          merged = .false.
+       endif
+       call checkval(merged,merged_expected,nfailed(itest),'merger')
+       if (merged_expected) then
+          call checkval(xyzmh_ptmass(1,1),0.,epsilon(0.),nfailed(2*itest),'final x-position')
+          call checkval(xyzmh_ptmass(2,1),0.,epsilon(0.),nfailed(3*itest),'final y-position')
+          v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
+          call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
+       endif
+    enddo
+    call update_test_scores(ntests,nfailed(1:21),npass)
+
+ endif testsinkmerger
+
+ !--reset stuff, turn off sink creation & clean up temporary files
+ itmp    = 201
  nptmass = 0
-
- ! clean up temporary files & turn off sink creation
- itmp = 201
- icreate_sinks = 0
+ icreate_sinks  = 0
+ r_merge_uncond = 0.
+ r_merge_cond   = 0.
  close(iskfile,iostat=ierr)
  write(filename,"(i3)") iskfile
  filename = 'fort.'//trim(adjustl(filename))

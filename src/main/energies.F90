@@ -545,6 +545,7 @@ subroutine compute_energies(t)
        yi     = xyzmh_ptmass(2,i)
        zi     = xyzmh_ptmass(3,i)
        pmassi = xyzmh_ptmass(4,i)
+       if (pmassi < 0.) cycle
 
        vxi    = vxyz_ptmass(1,i)
        vyi    = vxyz_ptmass(2,i)
