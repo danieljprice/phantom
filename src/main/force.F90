@@ -638,7 +638,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                 !
                 use_part = .true.
                 over_ptmass: do j=1,nptmass
-                   if ((xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
+                   if (xyzmh_ptmass(4,j) > 0. .and.
+                       (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
                       use_part = .false.

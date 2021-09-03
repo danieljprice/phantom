@@ -70,6 +70,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  integer                 :: i,j
 
  do j=1,nptmass
+    if (xyzmh_ptmass(4,j) < 0.) cycle
     Mstar_cgs  = xyzmh_ptmass(4,j)*umass
     Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity

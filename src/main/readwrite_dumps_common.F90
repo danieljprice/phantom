@@ -324,7 +324,8 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
                               'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
        do i=1,min(nptmass,999)
-          print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i), &
+                                            xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
        enddo
        if (nptmass > 0) print "(1x,47('-'))"
     endif
