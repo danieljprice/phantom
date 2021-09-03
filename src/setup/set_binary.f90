@@ -194,10 +194,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  ! positions of each star so centre of mass is at zero
  x1 = -dx*m2/mtot
  x2 =  dx*m1/mtot
-
+ 
+ 
  ! velocities
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
- v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
+ v2 = dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
 
  omega0 = dv(2)/semimajoraxis
 
@@ -259,6 +260,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_binary
 
+
 !----------------------------------------------------------------
 !+
 !  setup for a multiple, using set_binary
@@ -296,6 +298,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  ierr = 0
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
+
 
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file='HIERARCHY', exist=iexist)
@@ -339,12 +342,11 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     close(1)
  endif
 
+
  !--- Checks to avoid bad substitutions
  if (present(subst)) then
     write(hier_prefix, *) subst
-    io = 0
-    subst_index = 0
-    mtot = 0.
+    io=0
     do i=1,lines
        if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
           if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
@@ -368,8 +370,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              rel_posang_ascnode = posang_ascnode
              rel_arg_peri = arg_peri
              rel_incl = incl
-          endif
 
+          endif
           mtot = data(i, 3)
           m_comp = data(i, 4)
           a_comp = data(i, 5)
@@ -390,7 +392,12 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           q2=m2/m1
           mprimary = mtot/(1+q2)
           msecondary = mtot*q2/(1+q2)
-
+          
+          ! test Jolien
+          print "(3(2x,a,g12.3,/),2x,a,g12.3)", &
+            'mprimary     :',mprimary, &
+            'msecondary   :',msecondary
+    
           io=1
           exit
        endif
@@ -401,10 +408,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        ierr = ierr_missstar
     endif
 
-    if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
-       x_subst(:)=xyzmh_ptmass(1:3,subst_index)
-       v_subst(:)=vxyz_ptmass(:,subst_index)
-    endif
+    x_subst(:)=xyzmh_ptmass(1:3, subst_index)
+    v_subst(:)=vxyz_ptmass(:, subst_index)
     !i1 = subst_index
     !i2 = nptmass + 1
     !nptmass = nptmass + 1
@@ -419,26 +424,44 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     if (present(incl)) rel_incl = incl
 
  endif
+ !---
 
  !--- Create the binary
  call set_binary(mprimary,msecondary,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
             posang_ascnode=rel_posang_ascnode,arg_peri=rel_arg_peri,incl=rel_incl, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
+ !---
 
  if (present(subst)) then
-    !--- lower nptmass, copy one of the new sinks to the subst star
+
+!     --- lower nptmass, copy one of the new sinks to the subst star
     nptmass = nptmass-1
     i1 = subst_index
     i2 = nptmass
-
+!     nptmass = nptmass-1
+!     i2 = subst_index
+!     i1 = nptmass
+!     werkt niet :(
+  
+  
+  
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
 
+    ! test Jolien
+    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
+    'i1     :',i1, &
+    'mass i1:',xyzmh_ptmass(4,i1), &
+    'i2     :',i2, &
+    'mass i2:',xyzmh_ptmass(4,i2)
+    
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 
+
     !---
+
     ! Rotate the substituting binary with orientational parameters
     ! referring to the substituted star's orbital plane
     if (subst>0) then
@@ -451,17 +474,17 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        if (omega <= pi/2) then
           beta_y = omega
           sign_alpha=-1
-          if (inc <= pi) then
+          if (inc<=pi) then
              sign_gamma=1
-          else
+          elseif (inc>pi) then
              sign_gamma=-1
           endif
-       else
+       elseif (omega>pi/2) then
           beta_y = 2*pi-omega
           sign_alpha=1
-          if (inc <= pi) then
+          if (inc<=pi) then
              sign_gamma=-1
-          else
+          elseif (inc>pi) then
              sign_gamma=1
           endif
        endif
@@ -469,22 +492,20 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        alpha_y=acos(sign_alpha*sqrt(abs(sin(beta_y)**2-cos(gamma_y)**2))) ! Needs abs cause float approx for cos
 
        ! Retrieve eulerian angles of the axis perpendicular to the substituted star orbital plane (z axis)
-       beta_z = pi/2.
-       gamma_z = inc
-       alpha_z = pi/2. - inc
-       if (inc <= pi) then
+       beta_z=pi/2
+       if (inc<=pi) then
           gamma_z=inc
-          if (inc <= pi/2.) then
-             alpha_z = pi/2.-inc
-          elseif (inc > pi/2.) then
-             alpha_z = inc-pi/2.
+          if (inc <= pi/2) then
+             alpha_z=pi/2-inc
+          elseif (inc>pi/2) then
+             alpha_z=inc-pi/2
           endif
-       elseif (inc < 2.*pi .and. inc > pi) then
-          gamma_z = 2.*pi-inc
-          if (inc <= 3.*pi/2.) then
-             alpha_z = inc-pi/2
-          elseif (inc > 3.*pi/2.) then
-             alpha_z = 5.*pi/2.-inc
+       elseif (inc<2*pi .and. inc>pi) then
+          gamma_z=2*pi-inc
+          if (inc <= 3*pi/2) then
+             alpha_z=inc-pi/2
+          elseif (inc>3*pi/2) then
+             alpha_z=5*pi/2-inc
           endif
        endif
 
@@ -529,15 +550,16 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
-!-------------------------------------
+
+!------------------------------------
 ! Rotate an (x,y,z) point by theta
 ! radiants around an axis with alpha,
 ! beta and gamma eulerian angles
-!-------------------------------------
-pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
+!------------------------------------
+pure subroutine gen_rotate(xyz,alpha,beta,gamma, theta)
  real, intent(inout) :: xyz(3)
- real, intent(in)    :: alpha,beta,gamma,theta
- real :: xi,yi,zi,A,B,C,D,E,F,G,H,I,nx,ny,nz
+ real, intent(in)    :: alpha, beta, gamma, theta
+ real :: xi,yi,zi, A,B,C,D,E,F,G,H,I, nx, ny, nz
 
  nx=cos(alpha)
  ny=cos(beta)
