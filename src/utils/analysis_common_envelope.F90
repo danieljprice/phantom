@@ -115,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,27)
+    call prompt('Choose analysis type ',analysis_to_perform,1,28)
 
  endif
 
@@ -1119,19 +1119,17 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     case(3) ! Opacity from MESA tables
     case(4) ! Gas omega w.r.t. effective CoM
     case(5) ! Fractional difference between gas and orbital omega
-       ! Tom's way of calculating orbit omega
-       !  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
-       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-      
+       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
        omega_orb = 0.
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
           vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
           omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
        enddo
-       !  call get_interior_mass(xyzh,vxyzu,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2),particlemass,npart,1,interior_mass,com_xyz,com_vxyz)
-       !  omega_orb = sqrt( (interior_mass + xyzmh_ptmass(4,2)) / separation(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,2)**3 ))
+    case(6) ! Calculate MESA EoS entropy
     case default
        print*,"Error: Requested quantity is invalid."
        stop
@@ -1596,7 +1594,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  nbins = 300
  allocate(hist(nbins))
  if (use_mass_coord) then
-   mincoord  = 4.0  ! Min. mass coordinate
+   mincoord  = 3.8405  ! Min. mass coordinate
    maxcoord  = 12.0 ! Max. mass coordinate
    ilogbins = .false.
  else
@@ -1750,8 +1748,10 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
     xyz_origin = xyzmh_ptmass(1:3,1)
     vxyz_origin = vxyz_ptmass(1:3,1)
  case(3) ! Take sink CM as origin
-    xyz_origin = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-    vxyz_origin = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1) + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+    xyz_origin = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + &
+                  xyzmh_ptmass(4,2))
+    vxyz_origin = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1) + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2)) / (xyzmh_ptmass(4,1) + &
+                  xyzmh_ptmass(4,2))
  end select
 
  do i=1,npart
@@ -1880,7 +1880,8 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  enddo
 
  do i=1,4
-    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,.false.,.true.)
+    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,&
+                        .false.,.true.)
 
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
 
@@ -2422,7 +2423,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
 
 
     ! Calculate volume averages
-    call average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,i,icentreonCM,iavgopt,avg_vel,cs,omega,volume,vol_mass,vol_npart)
+    call average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,i,icentreonCM,iavgopt,avg_vel,cs,omega,volume,vol_mass,&
+                     vol_npart)
     if (vol_npart > 0.) then
        rho_avg           = vol_mass / volume
        avg_vel_par(1:3)  = dot_product(avg_vel, unit_vel) * unit_vel
@@ -2508,7 +2510,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     drag_force(1,i)  = drag_perp
     drag_force(2,i)  = drag_par
     drag_force(3,i)  = drag_perp_proj
-    drag_force(4,i)  = drag_perp_proj * -distance(vxyz_ptmass(1:3,i))
+    drag_force(4,i)  = drag_perp_proj * (-distance(vxyz_ptmass(1:3,i)))
     drag_force(5,i)  = Jdot / R2
     drag_force(6,i)  = cos_psi
     drag_force(7,i)  = Fgrav_mag
@@ -3014,7 +3016,8 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
 
 end subroutine orbit_com
 
-subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,icentreonCM,iavgopt,vel,cs,omega,volume,vol_mass,vol_npart)
+subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,icentreonCM,iavgopt,vel,cs,omega,volume,vol_mass,&
+                          vol_npart)
    real,    intent(in) :: xyzh(:,:),vxyzu(:,:),com_xyz(:),com_vxyz(:),particlemass
    logical, intent(in) :: icentreonCM
    real,    intent(out) :: vel(:),cs,omega,volume,vol_mass
