@@ -1083,19 +1083,21 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer                      :: i,k,Nquantities,ierr
  integer, save                :: ans,quantities_to_calculate(4)
  real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi
+ real, allocatable, save      :: init_entropy(:)
  real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
- Nquantities = 6
+ Nquantities = 7
  if (dump_number == 0) then
-     print "(6(a,/))",&
+     print "(7(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
            '4) Gas omega w.r.t. effective CoM', &
            '5) Fractional difference between gas and orbital omega', &
-           '6) MESA EoS specific entropy'
+           '6) MESA EoS specific entropy', &
+           '7) Fractional entropy gain'
     ans = 1
     call prompt('Choose first quantity to compute ',ans,1,Nquantities)
     quantities_to_calculate(1) = ans
@@ -1114,10 +1116,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  call compute_energies(time)
  do k=1,4
     select case (quantities_to_calculate(k))
-    case(1) ! Total energy (kin + pot + therm)
-    case(2) ! Mach number
-    case(3) ! Opacity from MESA tables
-    case(4) ! Gas omega w.r.t. effective CoM
+    case(1,2,3,4,6) ! Nothing to do
     case(5) ! Fractional difference between gas and orbital omega
        com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                   / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
@@ -1129,7 +1128,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
           omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
        enddo
-    case(6) ! Calculate MESA EoS entropy
+    case(7)
+       if (dump_number==0) allocate(init_entropy(npart))
     case default
        print*,"Error: Requested quantity is invalid."
        stop
@@ -1173,31 +1173,32 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
           quant(k,i) = (quant(k,i) - omega_orb) / omega_orb
 
-       case(6) ! Calculate MESA EoS entropy
+       case(6,7) ! Calculate MESA EoS entropy
           if (ieos==10) then
              rhopart = rhoh(xyzh(4,i), particlemass)
              call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
              mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas  
-             quant(k,i) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,3,ierr,mu,vxyzu(4,i)*unit_ergg)
+             entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,3,ierr,mu,vxyzu(4,i)*unit_ergg)
           else
              print*,"Error: Calculaing MESA EoS entropy but not using MESA EoS"
-          endif   
-           
+          endif
+
+          if (quantities_to_calculate(k) == 7) then
+             if (dump_number == 0) then
+                init_entropy(i) = entropyi ! Store initial entropy on each particle
+             endif
+             quant(k,i) = entropyi/init_entropy(i) - 1.
+          elseif (quantities_to_calculate(k) == 6) then
+             quant(k,i) = entropyi
+          endif
+ 
        case default
           print*,"Error: Requested quantity is invalid."
           stop
        end select
     enddo
  enddo
-
-!     if (etot(i) > 0.) then
-!        prev_bound(i) = .true.
-!        bound_rho(i) = rhopart
-!     else
-!        prev_bound(i) = .false.
-!        bound_rho(i) = -1.
-!     endif
 
  open(26,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
  do k=1,4
@@ -2497,7 +2498,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     drag_perp_proj = drag_perp / cos_psi                                                  ! Perpendicular force projected along -v
 
     ! Calculate core + gas mass based on projected gravitational force
-    Fgrav = fxyz_ptmass(1:3,i) * xyzmh_ptmass(4,i) - drag_perp_proj * -unit_vel                               ! Ftot,gas + Fsinksink = Fdrag + Fgrav
+    Fgrav = fxyz_ptmass(1:3,i) * xyzmh_ptmass(4,i) - drag_perp_proj * (-unit_vel)                               ! Ftot,gas + Fsinksink = Fdrag + Fgrav
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,phitot,dtsinksink,0,0.)
     Fgrav = Fgrav + fxyz_ptmass_sinksink(1:3,i) * xyzmh_ptmass(4,i)
     Fgrav_mag = distance(Fgrav)
