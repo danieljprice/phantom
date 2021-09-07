@@ -63,25 +63,27 @@ subroutine test_ptmass(ntests,npass)
 #endif
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
  use stretchmap,      only:rho_func
+ use random,          only:ran2
  integer, intent(inout) :: ntests,npass
- integer                :: i,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
- integer                :: nparttot,merge_ij(maxptmass),merge_n
+ integer                :: i,j,nsteps,nbinary_tests,itest,nerr,nwarn,itestp
+ integer                :: nparttot,merge_ij(maxptmass),merge_n,nsink0,nsinkF
  logical                :: test_binary,test_accretion,test_createsink,test_softening,test_merger
  logical                :: accreted,merged,merged_expected
  real                   :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,dr,v2
  real                   :: etotin,totmomin,dtsinksink,omega,mred,errmax,angmomin
- real                   :: r2,r2min,xcofm(3),totmass,dum,dum2,psep,tolen
+ real                   :: r2,r2min,xcofm(3),totmass,dum,dum2,psep,tolen,dtmp(3)
  real                   :: xyzm_ptmass_old(4,1), vxyz_ptmass_old(3,1)
- real                   :: q,phisoft,fsoft,mu,v_c1,v_c2,r1,omega1,omega2
+ real                   :: q,phisoft,fsoft,mu,v_c1,v_c2,r1,omega1,omega2,mv0,angmom0,mtot0,mvF,angmomF,mtotF
  real                   :: dptmass(ndptmass,maxptmass)
  real                   :: dptmass_thread(ndptmass,maxptmass)
  real                   :: fxyz_sinksink(4,maxptmass),rhomax_test,rhomax
- integer                :: norbits,itmp,ierr
- integer                :: nfailed(28),imin(1)
+ integer                :: norbits,itmp,ierr,iseed
+ integer                :: nfailed(56),imin(1)
  integer                :: id_rhomax,ipart_rhomax_global
  integer(kind=1)        :: ibin_wakei
  character(len=20)      :: dumpfile,filename
  procedure(rho_func), pointer :: density_func
+ logical                :: print_sink_paths = .false. ! print sink paths in the merger test
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
@@ -607,6 +609,7 @@ subroutine test_ptmass(ntests,npass)
 !  Test sink particle creation
 !
  testsinkmerger: if (test_merger) then
+    iseed           = -74205
     nfailed(:)      = 0
     iverbose        = 0
     nptmass         = 2
@@ -618,7 +621,7 @@ subroutine test_ptmass(ntests,npass)
     r_merge_uncond2 = r_merge_uncond**2
     r_merge_cond2   = r_merge_cond**2
     r_merge2        = max(r_merge_uncond2,r_merge_cond2)
-    do itest=1,7
+    do itest=1,8
        t                 = 0.
        xyzmh_ptmass(:,:) = 0.
        xyzmh_ptmass(4,:) = 1.
@@ -672,9 +675,26 @@ subroutine test_ptmass(ntests,npass)
           xyzmh_ptmass(1,1) = 2.5*h_acc
           vxyz_ptmass(2,1)  = 0.9*sqrt(0.25*xyzmh_ptmass(4,1)/xyzmh_ptmass(1,1))
           merged_expected   = .true.
+       case(8)
+          if (id==master) write(*,"(/,a)") '--> testing multiple sink interations'
+          nptmass = 100
+          do i = 1,nptmass
+             xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2.  ! in range (-1,1)
+             vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6.  ! in range (-3,3)
+!             do j = 1,3
+!                xyzmh_ptmass(j,i) = (ran2(iseed) - 0.5) * 2.  ! in range (-3,3)
+!                vxyz_ptmass(j,i)  = (ran2(iseed) - 0.5) * 6.  ! in range (-3,3)
+!             enddo
+          enddo
+          merged_expected   = .true. ! this logical does not have meaning here
        end select
-       xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
-       vxyz_ptmass(1:3,2)  = -vxyz_ptmass(1:3,1)
+       if (itest /= 8) then
+          xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
+          vxyz_ptmass(1:3,2)  = -vxyz_ptmass(1:3,1)
+       endif
+       !
+       ! get initial values
+       call get_momenta(nptmass,nsink0,xyzmh_ptmass,vxyz_ptmass,angmom0,mv0,mtot0,periodic)
        !
        ! initialise forces
        !
@@ -691,35 +711,68 @@ subroutine test_ptmass(ntests,npass)
        ! integrate
        !
        nsteps = 1000
-       v2     = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
-       dt     = 2./(sqrt(v2)*nsteps)
+       dt     = huge(dt)
+       do i = 1,nptmass-1
+          do j = i+1,nptmass
+             dtmp = xyzmh_ptmass(1:3,i)-xyzmh_ptmass(1:3,j)
+             r2   = dot_product(dtmp,dtmp)
+             dtmp = vxyz_ptmass(1:3,i)-vxyz_ptmass(1:3,j)
+             v2   = dot_product(dtmp,dtmp)+epsilon(v2)
+             dt   = min(dt,sqrt(r2/v2))
+          enddo
+       enddo
+       dt     = 2.*dt/nsteps
        dtmax  = dt*nsteps
+       t      = 0.
+       print*, itest,dt
        call init_step(npart,t,dtmax)
-       !write(333,*) itest,0,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+       if (print_sink_paths) then
+          write(333,*) itest,0,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+          if (itest==8) then
+             do j = 1,nptmass
+                if (xyzmh_ptmass(4,j) > 0.) write(334,*) t,j,xyzmh_ptmass(1:4,j)
+             enddo
+          endif
+       endif
        do i=1,nsteps
           t = t + dt
           dtext = dt
           if (id==master .and. iverbose > 2) write(*,*) ' t = ',t,' dt = ',dt
           call step(npart,npart,t,dt,dtext,dtnew)
-          !write(333,*) itest,i,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+          if (print_sink_paths) then
+             write(333,*) itest,i,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
+             if (itest==8) then
+                do j = 1,nptmass
+                   if (xyzmh_ptmass(4,j) > 0.) write(334,*) t,j,xyzmh_ptmass(1:4,j)
+                enddo
+             endif
+          endif
        enddo
        !
        ! check results
+       call get_momenta(nptmass,nsinkF,xyzmh_ptmass,vxyz_ptmass,angmomF,mvF,mtotF,periodic)
        !
        if (xyzmh_ptmass(4,2) < 0.) then
           merged = .true.
        else
           merged = .false.
        endif
-       call checkval(merged,merged_expected,nfailed(itest),'merger')
-       if (merged_expected) then
-          call checkval(xyzmh_ptmass(1,1),0.,epsilon(0.),nfailed(2*itest),'final x-position')
-          call checkval(xyzmh_ptmass(2,1),0.,epsilon(0.),nfailed(3*itest),'final y-position')
-          v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
-          call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
+       if (itest==8) then
+          call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
+       else
+          call checkval(merged,merged_expected,nfailed(itest),'merger')
+          if (merged_expected) then
+             call checkval(xyzmh_ptmass(1,1),0.,epsilon(0.),nfailed(2*itest),'final x-position')
+             call checkval(xyzmh_ptmass(2,1),0.,epsilon(0.),nfailed(3*itest),'final y-position')
+             v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
+             call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
+          endif
        endif
+       call checkval(mvF,    mv0,    1.e-13,nfailed(5*itest),'conservation of linear momentum')
+       call checkval(angmomF,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
+       call checkval(mtotF,  mtot0,  1.e-13,nfailed(7*itest),'conservation of mass')
     enddo
-    call update_test_scores(ntests,nfailed(1:21),npass)
+    call update_test_scores(ntests,nfailed(1:56),npass)
 
  endif testsinkmerger
 
@@ -740,6 +793,46 @@ subroutine test_ptmass(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
 end subroutine test_ptmass
+
+subroutine get_momenta(nptmass,nsnk,xyzmh_ptmass,vxyz_ptmass,ang,mv,mtot,periodic)
+ use part, only:ispinx,ispiny,ispinz
+ integer, intent(in)  :: nptmass
+ integer, intent(out) :: nsnk
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(out) :: ang,mv,mtot
+ logical, intent(in)  :: periodic
+ integer              :: i
+ real                 :: angx,angy,angz,xmom,ymom,zmom
+
+ angx = 0.
+ angy = 0.
+ angz = 0.
+ xmom = 0.
+ ymom = 0.
+ zmom = 0.
+ mv   = 0.
+ mtot = 0.
+ nsnk = 0
+ do i = 1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       nsnk = nsnk + 1
+       angx = angx + xyzmh_ptmass(4,i)*(xyzmh_ptmass(2,i)*vxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*vxyz_ptmass(2,i))
+       angy = angy + xyzmh_ptmass(4,i)*(xyzmh_ptmass(3,i)*vxyz_ptmass(1,i) - xyzmh_ptmass(1,i)*vxyz_ptmass(3,i))
+       angz = angz + xyzmh_ptmass(4,i)*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
+       angx = angx + xyzmh_ptmass(ispinx,i)
+       angy = angy + xyzmh_ptmass(ispiny,i)
+       angz = angz + xyzmh_ptmass(ispinz,i)
+       xmom = xmom + xyzmh_ptmass(4,i)*vxyz_ptmass(1,i)
+       ymom = ymom + xyzmh_ptmass(4,i)*vxyz_ptmass(2,i)
+       zmom = zmom + xyzmh_ptmass(4,i)*vxyz_ptmass(3,i)
+       mtot = mtot + xyzmh_ptmass(4,i)
+    endif
+ enddo
+ mv  = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
+ ang = sqrt(angx*angx + angy*angy + angz*angz)
+ if (periodic) ang = 0. ! since this will not be conserved with periodic boundaries
+
+end subroutine get_momenta
 
 real function gaussianr(r)
  real, intent(in) :: r
