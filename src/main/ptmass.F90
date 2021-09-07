@@ -344,8 +344,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           phii  = phii + pmassj*pterm    ! potential (GM/r)
        endif
        if (rr2 < r_merge2) then
-          merge_n = merge_n + 1
           if (merge_ij(i)==0) then
+             merge_n = merge_n + 1
              merge_ij(i) = j
           else
              ! if we have already identified a nearby sink, replace the tag with the nearest sink
@@ -353,7 +353,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              dy   = yi - xyzmh_ptmass(2,merge_ij(i))
              dz   = zi - xyzmh_ptmass(3,merge_ij(i))
              rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
-             if (rr2j < rr2) merge_ij(i) = j
+             if (rr2 < rr2j) merge_ij(i) = j
           endif
        endif
        phitot = phitot + 0.5*pmassi*pmassj*pterm  ! total potential (G M_1 M_2/r)
@@ -1405,7 +1405,7 @@ end subroutine ptmass_create
 !+
 !-----------------------------------------------------------------------
 subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij,merge_n)
- use io,    only:iprint,warning
+ use io,    only:iprint,warning,iverbose,id,master
  use part,  only:ispinx,ispiny,ispinz,imacc
  real,    intent(in)    :: time
  integer, intent(in)    :: nptmass,merge_n,merge_ij(nptmass)
@@ -1472,11 +1472,15 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
                                     - mij*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
+             ! print success
              write(iprint,"(/,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+          elseif (id==master .and. iverbose>=1) then
+             write(iprint,"(/, a,I8,a,I8,a,F10.4)") &
+             'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
-       else
-          write(iprint,"(/,a,I8,a,I8)") &
-          'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j
+       elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
+          write(iprint,"(/,a,I8,a,I8,a,F10.4)") &
+          'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif
  enddo
@@ -1730,6 +1734,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case('r_crit')
     read(valstring,*,iostat=ierr) r_crit
     if (r_crit < 0.) call fatal(label,'r_crit < 0')
+    if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) then
+       call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
+    endif
     ngot = ngot + 1
  case('h_acc')
     read(valstring,*,iostat=ierr) h_acc
