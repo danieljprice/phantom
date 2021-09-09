@@ -514,14 +514,14 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
- integer :: i,iseed,ninz
+ integer :: i,j,iseed,ninz
  integer :: ipart
  real    :: rand_no,randtest,R,phi,zi
- real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt
+ real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt,distr_corr_max,distr_corr_val
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
  real    :: xcentreofmass(3)
- real    :: dR,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
+ real    :: dR,dphi,f_val,sigmamixt,HHdust,HHsqrt2dust,rhozmixt,csdust
  real    :: R_ecc,Rin,Rout,Rindust,Routdust,phi_perirad
  !--seed for random number generator
  iseed = -34598 + (itype - igas)
@@ -542,18 +542,31 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  !--set maximum f=R*sigma value
  dR = (Rout-Rin)/real(maxbins-1)
  fr_max = 0.
+ dphi= (6.283185)/real(maxbins-1)
 
  do i=1,maxbins
     R = Rin + (i-1)*dR
+    if(e_0>0) then
+       do j=1,maxbins
+          phi=(j-1)*dphi
+          distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)
+          if(distr_corr_val<0) then
+             call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
+          endif
+          distr_corr_max=max(distr_corr_max,distr_corr_val)
+          enddo
+    else
+       distr_corr_max=1
+    endif
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
-                                      Rin,Rout,R_c)*(1+e_0)**2
+                                      Rin,Rout,R_c)*distr_corr_max
                   !--factor (1+e_0)**2 is the maximum value of the 
                   !--correction in distr_ecc_corr(....)
     if (do_mixture) then
        if (R>=Rindust .and. R<=Routdust) then
           f_val = f_val + R*sigma_normdust*&
                   scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,&
-                               Rindust,Routdust,R_c_dust)*(1+e_0)**2
+                               Rindust,Routdust,R_c_dust)*distr_corr_max
                   !--factor (1+e_0)**2 is the maximum value of the 
                   !--correction in distr_ecc_corr(....)
        endif
@@ -585,14 +598,16 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        randtest = fr_max*ran2(iseed)
        f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
                                      p_index,R_ref,Rin,Rout,R_c)*&
-                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
+                        distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
        sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
                                                    p_inddust,R_ref,Rindust,&
                                                    Routdust,R_c_dust)*&
-                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
+                        distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
                                       
              f     = f + fmixt
              sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
@@ -1212,13 +1227,27 @@ end function scaled_sigma
 !--This function corrects the distribution to account for eccentricity
 function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
- real :: distr
+ real :: distr,drda,ea,deda
 
- distr=((1-(e_0*(a/R_ref)**e_index)**2)/&
-         (1+(e_0*(a/R_ref)**e_index)*cos(phi-phi_peri)))**2
+    ea = e_0*(a/R_ref)**e_index
+  deda = e_index*ea/a
+  drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
+            2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
+                                              /(1+ea*cos(phi-phi_peri))**2
+ distr = ((1-ea**2)/&
+         (1+ea*cos(phi-phi_peri)))*drda 
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
+
+function distr_ecc_azimuth(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+ real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ real :: distr,eR
+ eR=e_0*(a/R_ref)**e_index
+ distr=sqrt((1-eR)**2/(1+2*eR*cos(phi-phi_peri)+eR**2))
+ !--distr=1 for phi-phi_peri=3.1415
+
+end function distr_ecc_azimuth
 !------------------------------------------------------------------------
 !
 !
