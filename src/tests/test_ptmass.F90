@@ -681,10 +681,6 @@ subroutine test_ptmass(ntests,npass)
           do i = 1,nptmass
              xyzmh_ptmass(1:3,i) = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 2.  ! in range (-1,1)
              vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6.  ! in range (-3,3)
-!             do j = 1,3
-!                xyzmh_ptmass(j,i) = (ran2(iseed) - 0.5) * 2.  ! in range (-3,3)
-!                vxyz_ptmass(j,i)  = (ran2(iseed) - 0.5) * 6.  ! in range (-3,3)
-!             enddo
           enddo
           merged_expected   = .true. ! this logical does not have meaning here
        end select
