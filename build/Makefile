@@ -267,7 +267,7 @@ ifeq ($(SETUP), mydisc)
     
     DISC_VISCOSITY=yes
     GRAVITY=yes
-    SETUPFILE= setup_mydisc.f90
+    SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
