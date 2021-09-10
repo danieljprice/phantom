@@ -592,7 +592,7 @@ subroutine find_another_face(vector,R,face)
  ! by adding a bunch of if-statements, to avoid looping
  ! over more than a few faces.
  real,    intent(in)  :: vector(3), R(0:19,3,3)
- integer, intent(out) :: face
+ integer, intent(inout) :: face
  real    :: dot, max
  integer :: n,facetoavoid,i
 

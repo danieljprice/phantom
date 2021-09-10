@@ -164,7 +164,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
-               ! star_mass     = 1.0,                &
+ ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &

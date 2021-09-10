@@ -43,7 +43,7 @@ jobs:
 #          tar cfz /tmp/$tarfile --exclude ".git*" -s "/./${repo}/" .
 
     - name: build tarball
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'self-hosted'
       env:
           tarfile: ${{ steps.get_version.outputs.tarfile }}
           repo: ${{ steps.get_version.outputs.repo }}
@@ -65,7 +65,7 @@ jobs:
     - name: get release notes
       run: |
         grep -m 2 -B 1000 '^v' docs/releasenotes.rst | sed '$d' > latest.rst
-        sudo apt-get install pandoc
+        sudo apt-get --yes install pandoc
         pandoc --wrap=none -o latest.md latest.rst
 
     - name: Create Release

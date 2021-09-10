@@ -651,8 +651,8 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
                                                                      "|",grid(itype-idust+2)*code_to_mum,"|==>",npartoftype(itype)
 
        if (itype > idust) massoftype(itype) = massoftype(idust)
-       mdust_in(itype) = massoftype(itype)*npartoftype(itype)
-       mdustnew        = mdustnew + mdust_in(itype)
+       mdust_in(itype-idust+1) = massoftype(itype)*npartoftype(itype)
+       mdustnew        = mdustnew + mdust_in(itype-idust+1)
        ndustnew        = ndustnew + npartoftype(itype)
 
        if (verbose) write(iu,*) itype-idust+1,grid(itype-idust+1)*code_to_mum,grainsize(itype-idust+1)*code_to_mum,&

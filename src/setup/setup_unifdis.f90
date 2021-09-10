@@ -13,6 +13,7 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - Bzero       : *magnetic field strength in code units*
 !   - cs0         : *initial sound speed in code units*
 !   - dist_unit   : *distance unit (e.g. au)*
 !   - dust_to_gas : *dust-to-gas ratio*
@@ -27,9 +28,9 @@ module setup
 !   - zmax        : *zmax boundary*
 !   - zmin        : *zmin boundary*
 !
-! :Dependencies: boundary, dim, domain, infile_utils, io, mpiutils,
-!   options, part, physcon, prompting, set_dust, setup_params, unifdis,
-!   units
+! :Dependencies: boundary, cooling, dim, domain, eos, h2cooling,
+!   infile_utils, io, mpiutils, options, part, physcon, prompting,
+!   set_dust, setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac
@@ -71,6 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
+ use cooling,      only:Tfloor
  use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -148,8 +150,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        alpha   = 1
        alphau  = 0.1
        gmw     = 1.22
+       Tfloor  = 3.
        if (h2chemistry) then
-       ! flags controlling h2chemistry
+          ! flags controlling h2chemistry
           icooling = 1
           abundc  = 2.0d-4
           abundo  = 4.5d-4

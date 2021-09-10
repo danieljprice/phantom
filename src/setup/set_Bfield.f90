@@ -164,6 +164,10 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 ! now actually do setup
 !
+ Bxzero = 0.  ! to avoid warnings
+ Byzero = 0.
+ Bzzero = 0.
+
  select case(igeom)
  case(1)
 !
@@ -202,9 +206,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 !--uniform toroidal field
 !
-    Bxzero = 0.
-    Byzero = 0.
-    Bzzero = 0.
     reverse_field_dir = .false.
     if (Bzero >= 0.) then
        ians = .false.

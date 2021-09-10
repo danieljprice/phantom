@@ -15,14 +15,14 @@ module initial
 ! :Runtime parameters: None
 !
 ! :Dependencies: analysis, balance, boundary, centreofmass, checkconserved,
-!   checkoptions, checksetup, chem, cons2prim, cooling, cpuinfo,
-!   densityforce, deriv, dim, domain, dust, energies, eos, evwrite,
-!   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
-!   h2cooling, inject, io, io_summary, krome_interface, linklist,
-!   metric_tools, mf_write, mpi, mpiderivs, mpiutils, nicil, nicil_sup,
-!   omputils, options, part, photoevap, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, sort_particles, stack, timestep,
-!   timestep_ind, timestep_sts, timing, units, writeheader
+!   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
+!   deriv, dim, domain, dust, energies, eos, evwrite, extern_gr,
+!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
+!   io_summary, krome_interface, linklist, metric_tools, mf_write, mpi,
+!   mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
+!   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
+!   sort_particles, stack, timestep, timestep_ind, timestep_sts, timing,
+!   units, writeheader
 !
 #ifdef MPI
  use mpi
@@ -119,7 +119,7 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
- use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi
+ use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity,use_dust
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
@@ -160,9 +160,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
-#ifdef SORT
- use sort_particles,   only:sort_part
-#endif
 #ifdef IND_TIMESTEPS
  use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
@@ -215,11 +212,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
- use part,             only:h2chemistry
  use checksetup,       only:check_setup
- use h2cooling,        only:init_h2cooling,energ_h2cooling
- use cooling,          only:init_cooling,init_cooling_type
- use chem,             only:init_chem
+ use cooling,          only:init_cooling
  use cpuinfo,          only:print_cpuinfo
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
@@ -327,19 +321,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 #endif
 !
 !--initialise cooling function
-!
- if (h2chemistry) then
-    if (icooling > 0) then
-       if (id==master) write(iprint,*) 'initialising cooling function...'
-       call init_chem()
-       call init_h2cooling()
-    endif
- elseif (icooling > 0) then
-    call init_cooling(ierr)
-    if (ierr /= 0) call fatal('initial','error initialising cooling')
- endif
- ! determine if this is implicit (step_leapfrog) or explicit (force) cooling
- call init_cooling_type(h2chemistry)
+!  this will initialise all cooling variables, including if h2chemistry = true
+ if (icooling > 0) call init_cooling(id,master,iprint,ierr)
 
  if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
@@ -398,14 +381,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     ibelong(i) = id
  enddo
  call balancedomains(npart)
-#endif
-
-!
-!--check that sorting is allowed
-!  and if so sort particles
-!
-#ifdef SORT
- call sort_part()
 #endif
 
 !
@@ -516,10 +491,19 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
-    write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
+    !
+    ! reduction of sink-gas forces from each MPI thread
+    !
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+
+    if (id==master) write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
+
     dtextforce = min(dtextforce,dtsinkgas)
+    !  Reduce dt over MPI tasks
+    dtsinkgas = reduceall_mpi('min',dtsinkgas)
+    dtextforce = reduceall_mpi('min',dtextforce)
  endif
- call init_ptmass(nptmass,logfile,dumpfile)
+ call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'

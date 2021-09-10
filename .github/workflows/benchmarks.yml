@@ -1,0 +1,159 @@
+name: bench
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  OMP_STACKSIZE: 512M
+  WEB_SERVER: data.phantom.cloud.edu.au
+  WEB_USER: github
+  HTML_DIR: /var/www/html/
+  BENCH_LOG_DIR: /ci/bench/
+  PERF_PLOT_DIR: /nightly/opt/
+  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
+
+jobs:
+
+  extract:
+    runs-on: ubuntu-latest
+    outputs:
+      setups: ${{ steps.extract_step.outputs.setups }}
+
+    steps:
+      - name: "Checkout benchmarks repo for the directory names"
+        uses: actions/checkout@v2
+        with:
+          repository: phantomSPH/phantom-benchmarks
+
+      - name: "Extract setups from directory"
+        id: extract_step
+        run: echo ::set-output name=setups::$(printf '%s\n' */ | sort -r | sed 's:/$::' |jq -cnR '[inputs]')
+
+  bench:
+    needs: extract
+    strategy:
+      fail-fast: false
+      matrix:
+        setup: ${{fromJson(needs.extract.outputs.setups)}}
+
+    name: bench (SETUP=${{ matrix.setup }})
+
+    runs-on: self-hosted
+
+    steps:
+
+    - name: "Nuke the github workspace before doing anything"
+      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
+
+    - name: "Grab a copy of the benchmark tests"
+      uses: actions/checkout@v2
+      with:
+        repository: phantomSPH/phantom-benchmarks
+        path: phantom-benchmarks
+        lfs: true
+
+    - name: "Get number of CPU cores"
+      run: echo "::set-output name=count::$(nproc)"
+      id: cpu
+
+    - name: "Load previous benchmark data from the web server"
+      working-directory: phantom-benchmarks/${{ matrix.setup }}
+      env:
+        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=3 --no-host-directories
+      run: ${WGET} http://${WEB_SERVER}${BENCH_LOG_DIR}${{ matrix.setup }} || true
+
+    - name: "Run benchmarks"
+      working-directory: phantom-benchmarks
+      run: |
+        ulimit -s unlimited
+        systems="gfortran ifort"
+        for SYSTEM in $systems; do
+          echo ::group::SYSTEM=$SYSTEM
+          SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+          echo ::endgroup::
+        done
+      env:
+        OMP_NUM_THREADS: ${{ steps.cpu.outputs.count }}
+        PHANTOM_DIR: ${{ github.workspace }}
+        RETURN_ERR: "yes"
+
+    - name: "Install SSH Key if repo secrets accessible"
+      uses: webfactory/ssh-agent@v0.5.3
+      if: github.event_name == 'schedule'
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    - name: "Copy new benchmark data to phantom-data-files"
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+      working-directory: phantom-benchmarks/${{ matrix.setup }}
+      run: |
+        rsync -vau *.log  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.prev ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+        rsync -vau *.txt  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${{ matrix.setup }}/
+
+  plot:
+    runs-on: ubuntu-latest
+    needs: bench
+    if: ${{ always() && github.event_name == 'schedule' }}
+    steps:
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
+
+    - name: "Grab a copy of the benchmark tests"
+      uses: actions/checkout@v2
+      with:
+        repository: phantomSPH/phantom-benchmarks
+        path: phantom-benchmarks
+
+    - name: "Install SSH Key"
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    - name: "Grab a copy of the benchmark tests (without LFS)"
+      uses: actions/checkout@v2
+      with:
+        repository: phantomSPH/phantom-benchmarks
+        path: phantom-benchmarks
+
+    - name: "Load previous benchmark data from phantom-data-files"
+      working-directory: phantom-benchmarks
+      run: |
+        rsync -vau ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR} .
+
+    - name: "Plot benchmarks"
+      working-directory: phantom-benchmarks
+      run: ./plot-benchmarks.sh
+      env:
+        PHANTOM_DIR: ${{ github.workspace }}
+
+    - name: "Update stats.txt on phantom-data-files"
+      working-directory: phantom-benchmarks
+      run: |
+        for dir in ./*; do
+          if [ -d ${dir} ]; then
+            list+=("${dir}")
+            rsync -vau ${dir}/stats.txt ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${BENCH_LOG_DIR}${dir}/
+          fi
+        done
+
+    - name: "Copy plots to phantom-data-files"
+      working-directory: phantom-benchmarks
+      run: |
+        rsync -vau *.js              ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${PERF_PLOT_DIR} || true
+        rsync -vau performance.html  ${WEB_USER}@${WEB_SERVER}:${HTML_DIR}${PERF_PLOT_DIR}/index.html

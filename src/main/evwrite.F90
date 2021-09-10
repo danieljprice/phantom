@@ -40,20 +40,20 @@ module evwrite
 ! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
 !   fileutils, io, nicil, options, part, ptmass, timestep, units, viscosity
 !
- use io,             only: fatal,iverbose
- use options,        only: iexternalforce
- use timestep,       only: dtmax_dratio
- use externalforces, only: iext_binary,was_accreted
- use energies,       only: inumev,iquantities,ev_data
- use energies,       only: ndead,npartall
- use energies,       only: gas_only,track_mass,track_lum
- use energies,       only: iev_sum,iev_max,iev_min,iev_ave
- use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
-                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
-                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
-                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws
+ use io,             only:fatal,iverbose
+ use options,        only:iexternalforce
+ use timestep,       only:dtmax_dratio
+ use externalforces, only:iext_binary,was_accreted
+ use energies,       only:inumev,iquantities,ev_data
+ use energies,       only:ndead,npartall
+ use energies,       only:gas_only,track_mass,track_lum
+ use energies,       only:iev_sum,iev_max,iev_min,iev_ave
+ use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
+                          iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
+                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
+                          iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
+                          iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
+                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -73,12 +73,12 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
- use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve,gws
- use options,   only: calc_erot,ishock_heating,ipdv_heating,use_dustfrac
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
- use nicil,     only: use_ohm,use_hall,use_ambi
- use viscosity, only: irealvisc
+ use io,        only:id,master,warning
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve,gws
+ use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
+ use nicil,     only:use_ohm,use_hall,use_ambi
+ use viscosity, only:irealvisc
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file

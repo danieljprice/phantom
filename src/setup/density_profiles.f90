@@ -499,22 +499,24 @@ end subroutine write_softened_profile
 !  Read in datafile from the KEPLER stellar evolution code
 !+
 !-----------------------------------------------------------------------
-subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
+subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,&
                                enitab,totmass,ierr,mcut,rcut)
- use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- use datafiles, only:find_phantom_datafile
- integer,          intent(in)  :: ng_max
- integer,          intent(out) :: ierr,n
- real,             intent(out) :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
- real,             intent(out) :: totmass
+ use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
+ use datafiles, only                      :find_phantom_datafile
+ integer,          intent(in)            :: ng_max
+ integer,          intent(out)           :: ierr,n_rows
+ real,             intent(out)           :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,             intent(out)           :: totmass
  real,             intent(out), optional :: rcut
- real,             intent(in), optional :: mcut
- character(len=*), intent(in)  :: filepath
- character(len=120)            :: fullfilepath
- integer                       :: i,iread,aloc,iunit
- integer, parameter            :: maxstardatacols = 9
- real                          :: stardata(ng_max,maxstardatacols)
- logical                       :: iexist,n_too_big
+ real,             intent(in), optional  :: mcut
+ real,             dimension(1:100)      :: test_cols
+ character(len=*), intent(in)            :: filepath
+ character(len=120)                      :: fullfilepath
+ character(len=100000)                   :: line
+ integer                                 :: i,aloc,k,j,m,s,n_cols
+ integer                                 :: max_cols = 100
+ real,             allocatable           :: stardata(:,:)
+ logical                                 :: iexist,n_too_big
  !
  !--Get path name
  !
@@ -528,79 +530,108 @@ subroutine read_kepler_file(filepath,ng_max,n,rtab,rhotab,ptab,temperature,&
  !
  !--Read data from file
  !
- n = 0
- stardata(:,:) = 0.
+ OPEN(UNIT=11, file=trim(fullfilepath))
+ i = 1
+ j = 0
+ m=0
+ s=1
+ n_rows = 0
+ n_cols = 0
  n_too_big = .false.
- do iread=1,2
-    !--open
-    open(newunit=iunit, file=trim(fullfilepath), status='old',iostat=ierr)
-    if (.not. n_too_big) then
-       !--skip 23 header lines
-       do i=1,23
-          read(iunit,*)
-       enddo
-       if (iread==1) then
-          !--first reading
-          n = 0
-          do while (ierr==0 .and. n < size(stardata(:,1)))
-             n = n + 1
-             read(iunit,*,iostat=ierr)
-             if (ierr /= 0) n = n - 1
-          enddo
-          if (n >= size(stardata(:,1))) n_too_big = .true.
+ !
+ !--The first loop calculates the number of rows, columns and comments in kepler file.
+ !
+ do
+   read(11, '(a)', iostat=ierr) line
+       if (ierr/=0) exit
+
+       if (index(line,'#') .ne. 0) then
+         j = j + 1
+
        else
-          !--Second reading
-          do i=1,n
-             read(iunit,*,iostat=ierr) stardata(i,:)
-          enddo
-          ! fills hole in center of star
-          ! copy first row from second row
-          !stardata(1,:) = stardata(2,:)
-          ! setting mass, radius, velocity to zero
-          !stardata(1,3:5) = 0
-       endif
-    endif
-    close(iunit)
- enddo
- if (n < 1) then
+         if (s==1) then
+           !calculate number of columns
+           do m=1, max_cols
+
+             read(line,*,iostat=ierr) test_cols(1:m)
+             if (ierr/=0) exit
+
+           enddo
+       end if
+
+       s = s+1
+       !calculate number of rows
+       n_rows = n_rows + 1
+
+     end if
+ end do
+ close(11)
+
+ n_cols = m-1
+ !
+ !--Check if the number of rows is 0 or greater than ng_max.
+ !
+ if (n_rows < 1) then
     ierr = 2
     return
  endif
+
+ if (n_rows >= ng_max) n_too_big = .true.
+
  if (n_too_big) then
     ierr = 3
     return
  endif
+
+ ierr = 0
+
+ !Allocate memory for saving data
+ allocate(stardata(n_rows, n_cols))
+ !
+ !--Read the file again and save it in stardata tensor.
+ !
+ open(13, file=trim(fullfilepath))
+ do i = 1,j
+   read(13,*,iostat=ierr)
+ end do
+
+ do k=1,n_rows
+    read(13,*,iostat=ierr) stardata(k,:)
+ enddo
+ close(13)
  !
  !--convert relevant data from CGS to code units
  !
  !radius
- stardata(1:n,4)  = stardata(1:n,4)/udist
- rtab(1:n)        = stardata(1:n,4)
+ stardata(1:n_rows,4)  = stardata(1:n_rows,4)/udist
+ rtab(1:n_rows)        = stardata(1:n_rows,4)
 
  !density
- stardata(1:n,6)  = stardata(1:n,6)/unit_density
- rhotab(1:n)      = stardata(1:n,6)
+ stardata(1:n_rows,6)  = stardata(1:n_rows,6)/unit_density
+ rhotab(1:n_rows)      = stardata(1:n_rows,6)
 
  !mass
- stardata(1:n,3)  = stardata(1:n,3)/umass
- totmass          = stardata(n,3)
+ stardata(1:n_rows,3)  = stardata(1:n_rows,3)/umass
+ totmass               = stardata(n_rows,3)
 
  !pressure
- stardata(1:n,8)  = stardata(1:n,8)/unit_pressure
- ptab(1:n)        = stardata(1:n,8)
+ stardata(1:n_rows,8)  = stardata(1:n_rows,8)/unit_pressure
+ ptab(1:n_rows)        = stardata(1:n_rows,8)
 
  !temperature
- temperature(1:n) = stardata(1:n,7)
+ temperature(1:n_rows) = stardata(1:n_rows,7)
 
  !specific internal energy
- stardata(1:n,9)  = stardata(1:n,9)/unit_ergg
- enitab(1:n)      = stardata(1:n,9)
+ stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
+ enitab(1:n_rows)      = stardata(1:n_rows,9)
 
  if (present(rcut) .and. present(mcut)) then
-    aloc = minloc(abs(stardata(1:n,1) - mcut),1)
+    aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
     print*, 'rcut = ', rcut
  endif
+ print*, 'Finished reading KEPLER file'
+ print*, '------------------------------------------------------------'
 
 end subroutine read_kepler_file
 !-----------------------------------------------------------------------
