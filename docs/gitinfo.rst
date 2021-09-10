@@ -6,7 +6,7 @@ Make sure you have the git version control system installed.
 Getting your first copy
 -----------------------
 
-Once you have a GitHub account, you must create your own :doc:'fork <fork>`.
+Once you have a GitHub account, you must create your own :doc:`fork <fork>`.
 This is done using the “fork” button (the big button on top right of the
 repo page).  You can then clone your fork to your computer:
 
@@ -107,15 +107,10 @@ This will push all the remote changes to your forked version of Phantom.
 Committing changes to the master branch
 ---------------------------------------
 
-This is done through a “pull request” which I must approve.  To do this,
+This is done through a “pull request”.  To do this,
 you can click the big “pull request” button on the GitHub page to request
 that your changes be pulled into the master copy of Phantom. Please do
 this frequently. Many small pull requests are much better than one giant
 pull request!
 
-Before making a pull request, :doc:`ENSURE THAT YOUR CHANGES WILL NOT
-BREAK ANYONE ELSE’S STUFF <testing>`).  Automated tests will be performed
-on all pull requests.  Compilation failures are automatically checked by
-the buildbot, which runs every night there have been commits made to the
-code and checks for any compilation failures and/or new compiler
-warnings and **emails those responsible**.
+Automated tests will be performed on all pull requests to ensure nothing gets broken. Once these pass and the code has been reviewed, the code can be merged.

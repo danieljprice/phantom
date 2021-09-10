@@ -16,6 +16,7 @@ module unifdis
 !
 ! :Dependencies: random, stretchmap
 !
+ use stretchmap, only:rho_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
  public :: is_valid_lattice, is_closepacked
@@ -28,7 +29,7 @@ module unifdis
   end function mask_prototype
  end interface
 
- public :: mask_prototype, mask_true
+ public :: mask_prototype, mask_true, rho_func
 
  private
 
@@ -63,7 +64,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
- real, external,                  optional :: rhofunc
+ procedure(rho_func), pointer,    optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err

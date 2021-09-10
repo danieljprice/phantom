@@ -679,6 +679,7 @@ subroutine test_epsteinstokes(ntests,npass)
     nfailed = 0
     errmax = 0.
     tol = 6.3e-2
+    ts1 = 0.
     do i=1,npts
        grainsizei = smin*10**((i-1)*ds)/udist
        !--no need to test drag transition 'ndusttypes' times...once is enough

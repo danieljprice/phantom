@@ -1,0 +1,17 @@
+The velfield data tables are too large to be stored in the Phantom git repository
+They will be downloaded automatically when you run the code
+
+or can be retrieved manually using wget from the phantom website, e.g.:
+
+wget http://users.monash.edu.au/~dprice/phantom/data/velfield/cube_v1.dat
+
+The files are:
+cube_v1.dat
+cube_v2.dat
+cube_v3.dat
+
+These files contain realisations of a curl-free turbulent velocity field
+as used in the Bate, Bonnell & Bromm (2003) star cluster formation calculations.
+
+This velocity field is defined on a fixed grid and interpolated
+to SPH particles during the initial conditions procedure (src/setup/setup_cluster.f90)

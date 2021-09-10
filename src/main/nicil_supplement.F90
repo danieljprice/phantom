@@ -37,7 +37,7 @@ module nicil_sup
 !   - use_ohm        : *Calculate the coefficient for Ohmic resistivity*
 !   - zeta           : *cosmic ray ionisation rate (s^-1)*
 !
-! :Dependencies: eos, infile_utils, nicil, physcon
+! :Dependencies: infile_utils, nicil, physcon
 !
  use nicil, only: use_ohm,use_hall,use_ambi,na, &
                   fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs,Cdt_diff,Cdt_hall, &
