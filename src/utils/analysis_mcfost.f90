@@ -37,7 +37,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                              grainsize,graindens,ndusttypes,rad,radprop,&
-                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl
+                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
  use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
  use io,             only:fatal,iprint
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
@@ -54,7 +54,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: vxyzu(:,:)
 
  logical, save   :: init_mcfost = .false., isinitial = .true.
- real            :: mu_gas,factor,T_to_u
+ real            :: mu_gas,factor
  real(kind=4)    :: Tdust(npart),n_packets(npart)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
  integer(kind=1) :: itype(maxp)
@@ -112,14 +112,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     gamma = 5./3.
  endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
+
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
- T_to_u = factor * massoftype(igas) /dtmax
+ ! T_to_u = factor * massoftype(igas) /dtmax
 
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
          xyzmh_ptmass,vxyz_ptmass,hfact,umass,utime,udist,nlum,dudt,compute_Frad,SPH_limits,Tdust,&
-         n_packets,mu_gas,ierr,write_T_files,ISM,T_to_u)
+         n_packets,mu_gas,ierr,write_T_files,ISM,eos_vars(itemp,:))
 
  Tmin = minval(Tdust, mask=(Tdust > 1.))
  Tmax = maxval(Tdust)
