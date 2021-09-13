@@ -1264,9 +1264,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
           if (.not.iamboundary(iamtypej)) then
-! #ifndef MPI
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-! #endif
              ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
 #endif

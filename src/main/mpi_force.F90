@@ -192,7 +192,13 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (7 + minpart + maxprocs) + minpart, 8)
+ blens(nblock) = size(cell%ibinneigh)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%ibinneigh,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
