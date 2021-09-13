@@ -75,17 +75,17 @@ module setup
  real :: secondary_lum
  real :: secondary_mass
  real :: secondary_racc
- real :: semi_major_axis_au = 3.7
+ real :: semi_major_axis_au = 4.0
  real :: default_particle_mass = 1.e-11
  real :: primary_lum_lsun = 5315.
- real :: primary_mass_msun = 1.2
- real :: primary_Reff_au = 0.
+ real :: primary_mass_msun = 1.5
+ real :: primary_Reff_au = 1.
  real :: primary_racc_au = 1.
  real :: secondary_lum_lsun = 0.
- real :: secondary_mass_msun=0.6
+ real :: secondary_mass_msun= 1.0
  real :: secondary_Reff_au = 0.
  real :: secondary_racc_au = 0.1
- real :: temp_exponent = 0.
+ real :: temp_exponent = 0.5
  real :: q2
  real :: accr2a
  real :: accr2b
@@ -102,6 +102,8 @@ module setup
  real :: racc2b_au = 0.1
  real :: binary2_i = 0.
  integer :: subst
+ 
+ 
 contains
 
 !----------------------------------------------------------------
@@ -663,6 +665,7 @@ subroutine write_setupfile(filename)
     endif
  endif
  call write_inopt(default_particle_mass,'mass_of_particles','mass resolution (Msun)',iunit)
+ 
 #ifdef ISOTHERMAL
  wind_gamma = 1.
 #else
@@ -791,5 +794,6 @@ subroutine read_setupfile(filename,ierr)
  endif
  ierr = nerr
  call write_setupfile(filename)
+ 
 end subroutine read_setupfile
 end module setup
