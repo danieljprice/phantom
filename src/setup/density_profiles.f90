@@ -547,9 +547,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Calculate the number of rows, columns and comments in kepler file.
  !
-
  n_rows = get_nlines(trim(fullfilepath),skip_comments=.true.,n_columns=n_cols,n_headerlines=nheaderlines)
-
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
@@ -596,9 +594,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--Read the file again and save the data in stardata tensor.
  !
  open(13, file=trim(fullfilepath))
-
  call skip_header(13,nheaderlines,ierr)
-
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
  enddo
