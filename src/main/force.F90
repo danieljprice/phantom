@@ -2081,6 +2081,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           do j=1,ndustsmall
              if (dustfraci(j) > 1. .or. dustfraci(j) < 0.) call fatal('force','invalid eps',var='dustfrac',val=dustfraci(j))
           enddo
+          if (dustfracisum > 1.) call fatal('force','invalid eps',var='sum of dustfrac',val=dustfracisum)
        else
           dustfraci(:) = 0.
           dustfracisum = 0.
