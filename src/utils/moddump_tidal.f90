@@ -21,7 +21,7 @@ module moddump
 !   - r0    : *starting distance*
 !   - rs    : *radius of star     (code units)*
 !   - theta : *stellar rotation with respect to x-axis (in degrees)*
-!
+!   - ecc   : *eccentricity
 ! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
 !   physcon, prompting
 !
@@ -67,7 +67,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rs    = 1.     ! stellar radius
  theta = 0.     ! stellar tilting along x
  phi   = 0.     ! stellar tilting along y
- ecc   = 1.                     ! eccentricity
+ ecc   = 1.     ! eccentricity
 
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
@@ -239,7 +239,7 @@ subroutine write_setupfile(filename)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
  call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance',                                   iunit)
- call write_inopt(ecc,    'ecc',    'starting eccentricity',                                   iunit)
+ call write_inopt(ecc,    'ecc',    'starting eccentricity',                             iunit)
  close(iunit)
 
 end subroutine write_setupfile
