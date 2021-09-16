@@ -75,9 +75,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     !open the output file and save the data in the format kepler likes. Using same labels as kepler.
     open(iunit,file=output)
-    write(iunit,'("# ",i5,"   # Version")') 10000
-    write(iunit,'("# ",es20.12,"   # Dump file number")') time
-    write(iunit,"('#',50(a22,1x))")                  &
+    write(iunit,'("# ",es20.12,"   # Version")') time
+  !  write(iunit,"('#',50(1x,'[',1x,a22,']',2x))")    &
+    write(iunit,"('#',50(a22,1x))")    &
           'grid',                                    &  !grid number/ bin number
           'cell mass',                               &  !bin mass
           'cell outer tot. mass',                    &  !total mass < r
@@ -164,6 +164,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    !COM is not a good option as it does not work for severe disruptione events.
    location = minloc(xyzh(4,:),dim=1)
    star_centre(:) = xyzh(1:3,location)
+   print*,'density at center',rhoh(xyzh(4,location),pmass),xyzh(4,location)
+   print*, xyzh(1:3,location),'center of star in code units'
    !we use the equation number 12 from eos file.
    ieos = 12
    call init_eos(ieos,ierr)
@@ -173,6 +175,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    vpos(:) = vxyzu(1:3,location)
    call set_r2func_origin(xpos(1),xpos(2),xpos(3))
    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+   print*, xpos(:),'xpos',vpos(:),'vpos'
    !Call composition_array subroutine to get the composition.
    call composition_array(interpolate_comp,columns_compo,comp_label) !rows correspond to the particle used and column correspond to the elements.
 
@@ -189,13 +192,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     number_particle = 201
     number_per_bin = number_particle
     number_tot = npart
+    !number_particle    = (npart/ngrid)!number of particles per bin
     number_bins = number_tot/number_per_bin
     ngrid = npart/number_particle
 
+    print*, mod(number_tot,number_per_bin),'mod(number_tot,number_per_bin)'
     if (mod(number_tot,number_per_bin) > 0 ) then
       ngrid = ngrid + 1
     endif
-    print"(a,i5)", 'number of bins = ',ngrid
+    print*, ngrid, 'ngrid'
 
     allocate(rad_grid(ngrid),mass(ngrid),density(ngrid))!rad_grid stores radius, stores radial velocity
     allocate(temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid),rad_mom(ngrid))
@@ -214,7 +219,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     Y_in               = 0.27112283
     Z_in               = 1.-X_in-Y_in
     gmw                = 0.61 !mean molecular weight
-    !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
     z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
     a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,56,56/)
     !allocating storage for composition of one particle.
@@ -222,7 +226,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     allocate(composition_sum(columns_compo))
     allocate(composition_kepler(columns_compo,ngrid))
     composition_sum(:) = 0.
-    composition_i(:) = 0.
     !implementing loop for calculating the values we require.
     do j = 1, npart
 
@@ -237,10 +240,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !calculate the position which is the location of the particle.
      rad    = sqrt(dot_product(pos(:),pos(:)))
 
-     !velocity
+     !veloctiy
      vel(:)     = vxyzu(1:3,i) - vpos(:)
      vel_sum(:) = vel_sum(:) + vel(:)
-
+     if (j==1) then
+       print*, vel(:),pos(:)
+     endif
      !radial momentum
      !we skip the first particle as its the one that exists at the center of star and hence will give infinite rad_vel as rad = 0.
      if (rad > 0.) then
@@ -259,7 +264,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      !composition
      if (columns_compo /= 0) then
-       composition_i(:) = interpolate_comp(:,i)
+       composition_i(:)   = interpolate_comp(:,i)
      endif
      composition_sum(:) = composition_sum(:) + composition_i(:)
 
@@ -274,6 +279,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        gmw = 1/mu_i
      endif
 
+     !using the adiabatic equation of state.
      eni_input = u_i
      !call eos routine
      call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
@@ -284,7 +290,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      !angular velocity of the cells. In kepler, we need it for the interface.
      call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
-     moment_of_inertia = moment_of_inertia + rad**2*pmass*(2./3.) !moment of intertia
+     moment_of_inertia = moment_of_inertia + rad**2*pmass*(2./3.)  !moment of interia of shell
      omega(:)          = Li(:)*pmass
      omega_sum(:)      = omega_sum(:) + omega(:)
 
@@ -326,7 +332,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        if (ierr/=0) then
          print*, 'Entropy is calculated incorrectly'
        end if
-
+       print*, no_in_bin,'no in bin',ibin,'ibin',number_particle,'no particle',no_in_bin,'no in bin'
        no_in_bin          = 0
        ibin               = ibin + 1
        density_sum        = 0.
@@ -341,7 +347,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      end if
    end do
  end subroutine phantom_to_kepler_arrays
-
  !----------------------------------------------------------------
  !+
  !  This routine reads the output file that contains composition
@@ -398,7 +403,75 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        read(13,*,iostat=ierr) interpolate_comp(:,k)
      end do
      close(13)
+
      print*, '>>>>>> done'
    endif
 
  end subroutine composition_array
+
+ !-------
+
+ !----------------------------------------------------------------
+ !+
+ !  routine for finding the number of partilces that have been
+ !  stripped from the star we started with. This can be used to
+ !  calculate the mass lost by the star.
+ !  Might be useful in correctly finding the COM when the star has
+ !  lost mass.
+ !+
+ !----------------------------------------------------------------
+ subroutine find_mass_lost(xyzh,vxyzu,pmass,npart)
+   use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass
+   use centreofmass,    only:get_centreofmass
+   use sortutils,       only:set_r2func_origin,indexxfunc,r2func_origin
+   use units,           only:umass,unit_velocity,udist
+   use physcon,         only:gg,solarm
+   integer,intent(in) :: npart
+   real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
+   real,intent(in)    :: pmass
+   real :: xpos(3),vpos(3),pos(3),rad,percentage,count
+   real :: v2,eps(npart)
+
+   integer :: i, iorder(npart),j
+   real    :: mh
+
+   !sort the particles based on radius.
+   !compare the
+   !get CoM
+   call get_centreofmass(xpos,vpos,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+   !use sorting algorithm to sort the particles from the center of mass as a function of radius.
+   call set_r2func_origin(xpos(1),xpos(2),xpos(3))
+   call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+   do j = 1,npart
+     !the position of the particle is calculated by subtracting the centre of mass.
+     !xyzh is position wrt the black hole present at origin.
+     i  = iorder(j) !Access the rank of each particle in radius.
+     pos(:) = xyzh(1:3,i) - xpos(:)
+
+    !calculate the position which is the location of the particle.
+    rad = sqrt(dot_product(pos(:),pos(:)))
+    v2  = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+
+    !Energy = KE + PE = v^2/2 - G mh/r.
+    eps(i) = (v2**2*unit_velocity**2)/2. - (1e6*solarm*gg)/(rad*udist)
+
+  end do
+
+ count = 0.
+
+   do i = 1,npart
+     !if energy is positive, then particle has been removed from star.
+     if (eps(i) > 0) then
+       count = count + 1.
+     end if
+   end do
+
+   ! print*,count,'count',npart,'npart'
+   ! print*, count*umass*pmass, 'mass lost', npart*umass*pmass,umass,'mass unit'
+   ! percentage = (count/npart)*100.
+   ! print*, percentage,'mass lost percentage'
+  end subroutine find_mass_lost
+
+end module analysis
