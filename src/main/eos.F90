@@ -96,6 +96,7 @@ module eos
  real,    public :: gamma1pwp      = 3.166
  real,    public :: gamma2pwp      = 3.573
  real,    public :: gamma3pwp      = 3.281
+
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -131,6 +132,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
+ use physcon,       only:kb_on_mh
+
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -145,6 +148,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real :: uthermconst
 #ifdef GR
  real :: enthi,pondensi
+
+
 ! Check to see if adiabatic equation of state is being used.
  if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11) &
  call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
@@ -194,8 +199,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = polyk*rhoi**(gamma-1.)
     endif
     spsoundi = sqrt(gamma*ponrhoi)
-#endif
 
+#endif
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case(3)
@@ -1292,9 +1297,11 @@ function entropy(rho,pres,ientropy,ierr)
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
+
     temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
     call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
     entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
