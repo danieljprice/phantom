@@ -241,8 +241,8 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
- if (Q_cgs == 0) then
-   dlnQ_dlnT = 0
+ if (Q_cgs == 0.) then
+   dlnQ_dlnT = 0.
  else
    dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen + Q_col_dust*dlnQ_col_dust&
    + Q_relax_Stefan*dlnQ_relax_Stefan + Q_molec*dlnQ_molec)/Q_cgs
@@ -255,7 +255,7 @@ end subroutine calc_cooling_rate
 
 !-----------------------------------------------------------------------
 !+
-!  Bowen 1988 cooling term
+!  Bowen 1988 cooling prescription
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, Q, dlnQ_dlnT)
