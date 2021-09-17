@@ -49,7 +49,7 @@ module setup
  real :: semi_major_axis       = 4.0
  real :: eccentricity          = 0.
  real :: primary_Teff          = 3000.
- real :: primary_Reff          
+ real :: primary_Reff
  real :: primary_lum
  real :: primary_mass
  real :: primary_racc
@@ -211,7 +211,7 @@ secondary_racc = secondary_racc_au * (au / udist)
 !     call fatal('setup','If you choose options 1 or 3, the code must be compiled with SETUP=isowind')
 !  endif
 ! #endif
-! 
+!
 !  call prompt('Add binary?',icompanion_star,0,1)
 !  if (icompanion_star > 0) then
 !     print "(a)",'Primary star parameters'

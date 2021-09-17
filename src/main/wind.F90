@@ -74,7 +74,8 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  call set_abundances
 #endif
 
- if (iget_Tdust == 2) then
+ if (iget_Tdust == -12) then
+    !not working
     call get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
  else
     call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
@@ -122,13 +123,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%alpha = alpha_rad
  state%dalpha_dr = 0.
  state%gamma = wind_gamma
-#ifdef NUCLEATION
- state%JKmuS = 0.
- state%jKmuS(6) = gmw
- !state%alpha = 0.
-#endif
  state%tau_lucy = 2./3.
- state%mu = gmw
  state%kappa = kappa_gas
  state%Q = 0.
  state%dQ_dr = 0.
@@ -141,8 +136,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
 #ifdef NUCLEATION
+ state%JKmuS = 0.
  call evolve_chem(0., T0, state%rho, state%JKmuS)
  state%mu = state%jKmuS(6)
+#else
+ state%mu = gmw
 #endif
  state%p = state%rho*Rg*state%Tg/state%mu
  state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
@@ -162,14 +160,15 @@ subroutine wind_step(state)
 
  use wind_equations,   only:evolve_hydro
  use ptmass_radiation, only:alpha_rad,isink_radiation,iget_Tdust,tdust_exp
- use physcon,        only:pi,Rg
- use dust_formation, only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+ use physcon,          only:pi,Rg
+ use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
- use cooling,        only:calc_cooling_rate
- use options,        only:icooling
+ use cooling,          only:calc_cooling_rate
+ use options,          only:icooling
+ use units,            only:unit_ergg,unit_density
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnQ_dlnT
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded,alpha_dust
 
  kappa_old = state%kappa
@@ -187,7 +186,7 @@ subroutine wind_step(state)
  endif
 #endif
  state%alpha = alpha_dust+alpha_rad
- if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.+state%r-state%r_old)
+ if (state%time > 0.) state%dalpha_dr = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
@@ -195,6 +194,7 @@ subroutine wind_step(state)
  state%r_old = state%r
  call evolve_hydro(state%dt, rvT, state%Rstar, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
       state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
+
  state%r    = rvT(1)
  state%v    = rvT(2)
  state%a    = (state%v-v_old)/(state%dt)
@@ -223,11 +223,12 @@ subroutine wind_step(state)
        state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
     endif
 #ifdef NUCLEATION
-    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Tdust,state%JKmuS(6),state%JKmuS(4),state%kappa)
+    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
-    call calc_cooling_rate(state%r,state%Q,dlnQ_dlnT,state%rho,state%Tg,state%Tdust,state%mu)
+    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
 #endif
-    if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+    state%Q = Q_code*unit_ergg
+    if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = 0.!(state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
     !if cooling disabled or no imposed temperature profile, set Tdust = Tgas
     state%Tdust = state%Tg
@@ -262,13 +263,14 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     return
  endif
 
- ! integrate 1D wind solution with dust
+! integrate 1D wind solution with dust
  do while(state%dt > dtmin .and. state%Tg > Tdust_stop .and. .not.state%error .and. state%spcode == 0)
     tau_lucy_last = state%tau_lucy
 
     call wind_step(state)
     if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
     if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
+
  enddo
 
 end subroutine calc_wind_profile
@@ -335,7 +337,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
 
  type(wind_state) :: state
 
- real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max,vin
+ real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin
  integer, parameter :: ncount_max = 10
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
@@ -396,7 +398,6 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
     if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
-
     ! Find upper bound for initial velocity
     v0 = v0max
     icount = 0
@@ -430,7 +431,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        else
           exit
        endif
-       if (abs(v0-v0last)/v0last < 1.e-5) then
+       if (v0 == v0last) then
           exit
        endif
     enddo
@@ -595,12 +596,13 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
  n = 1
  iter = 0
  tcross = 1.d99
- dt_print = max(min(tsonic/10.,time_end/256.),time_end/5000.)
+ dt_print = max(min(tsonic/100.,time_end/256.),time_end/50000.)
  do while(state%time < time_end .and. iter < 10000000 .and. state%Tg > Tdust_stop)
     iter = iter+1
     call wind_step(state)
     if (state%time > n*dt_print) then
        n = floor(state%time/dt_print)+1
+       !if (state%time > 3.*tsonic) dt_print = min(dt_print*1.1,time_end/5000.)
        call filewrite_state(1337,nwrite, state)
     endif
     if (state%r > rout) tcross = min(state%time,tcross)
@@ -622,17 +624,17 @@ subroutine filewrite_header(iunit,nwrite)
 #ifdef NUCLEATION
  if (icooling > 0) then
     nwrite = 20
-    write(iunit,'(19(a12))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q'
+    write(iunit,'(20(a12))') 't','r','v','T','c','p','rho','alpha','a',&
+         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q','Tdust'
  else
-    nwrite = 19
+    nwrite = 18
     write(iunit,'(18(a12))') 't','r','v','T','c','p','rho','alpha','a',&
          'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
  endif
 #else
  if (icooling > 0) then
-    nwrite = 11
-    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q'
+    nwrite = 12
+    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q','Tdust'
  else
     nwrite = 10
     write(iunit,'(11(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
@@ -666,7 +668,10 @@ subroutine state_to_array(state,nwrite, array)
  array(10) = state%mu
  array(11) = state%kappa
 #endif
- if (icooling > 0) array(nwrite) = state%Q
+ if (icooling > 0) then
+    array(nwrite-1) = state%Q
+    array(nwrite) = state%Tdust
+ endif
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)

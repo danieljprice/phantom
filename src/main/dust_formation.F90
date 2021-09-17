@@ -197,6 +197,7 @@ subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
 
  !kappa = Qplanck_abs *fac ! planck
  !kappa = Qross_ext * fac  ! Rosseland
+
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
  ! kappa = 6.7d0 * fac * Tdust ! planck
  kappa = 5.9d0 * fac * Tdust  ! Rosseland
@@ -251,7 +252,8 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
  Z = sqrt(d2lnc_dN2star/(2.*pi))
  A_Nstar = A0 * Nstar**(2./3.)
- v1 = sqrt(kboltz*T/(8.*pi*12.01*mproton))
+ !v1 = sqrt(kboltz*T/(8.*pi*12.01*mproton))
+ v1 = sqrt(kboltz*T/(2.*pi*12.01*mproton))
  beta = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
  expon = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
  if (expon < -100.) then
@@ -261,7 +263,8 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  endif
  Jstar = beta * A_Nstar * Z * c_star
  taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
- v1 = sqrt(kboltz*T/(8.*pi*12.01*atomic_mass_unit))
+ !v1 = sqrt(kboltz*T/(8.*pi*12.01*atomic_mass_unit))
+ v1 = sqrt(kboltz*T/(2.*pi*12.01*atomic_mass_unit))
  taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
 
@@ -436,7 +439,7 @@ real function psat_C(T)
     Psat_C = huge(Psat_C)
  else
     T2 = T*T
-    T3 = T*T2
+    T3 = T*T*T
     pC1 = exp(-8.61240d4/T + 1.85106d1 + 5.87980d-4*T - 2.51549d-7*T2 + 3.24892d-11*T3 + f)
     !pC2 = exp(-1.01124d5/T + 2.35611d1 + 3.37807d-4*T - 2.94959d-7*T2 + 4.41801D-11*T3 + f)
     !pC3 = exp(-9.90261d4/T + 2.81161d1 - 1.55820d-3*T + 1.60002d-7*T2 - 4.47171D-12*T3 + f)
