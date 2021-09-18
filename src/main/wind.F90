@@ -228,7 +228,7 @@ subroutine wind_step(state)
     call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
 #endif
     state%Q = Q_code*unit_ergg
-    if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = 0.!(state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+    if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
     !if cooling disabled or no imposed temperature profile, set Tdust = Tgas
     state%Tdust = state%Tg
@@ -270,7 +270,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     call wind_step(state)
     if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
     if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
-
  enddo
 
 end subroutine calc_wind_profile
@@ -398,6 +397,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
     if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
+
     ! Find upper bound for initial velocity
     v0 = v0max
     icount = 0
@@ -431,6 +431,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        else
           exit
        endif
+       !if (abs(v0-v0last)/v0last < 1.e-12) then
        if (v0 == v0last) then
           exit
        endif
