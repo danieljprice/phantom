@@ -44,15 +44,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity,eos_vars,itemp
  use setbinary, only:set_binary
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist
+ use dim,       only:store_temperature
+ use units,     only:set_units,umass,udist,unit_density,unit_pressure,unit_ergg
  use physcon,   only:solarm,pi,solarr
+ use table_utils,only:yinterp
  use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
  use metric,    only:mass1,a
- use eos,       only:ieos
+ use eos,       only:ieos,calc_temp_and_ene
  use kernel,    only:hfact_default
  use extern_densprofile, only:nrhotab
  use externalforces,only:accradius1,accradius1_hard
@@ -74,7 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
- real    :: densi,r0,vel,lorentz
+ real    :: densi,r0,vel,lorentz,eni,tempi,presi,ri
  real    :: vhat(3),x0,y0
  real,allocatable   :: pres(:), temp(:), en(:)
 !
@@ -186,17 +188,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  endif
 
+ xyzstar = (/1e6,0.,0./)
+ vxyzstar = 0.
+ 
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
  if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
 
  tmax      = norbits*period
  dtmax     = period/dumpsperorbit
  select case (stardensprofile)
- case (1)
-    call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
  case (2)
     allocate(pres(ng_max), temp(ng_max), en(ng_max))
     call read_kepler_file(trim('kepler_MS.data'),ng_max,npts,rtab,rhotab,pres,temp,en,mstar,ierr)
+ case default
+    call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
  end select
  call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
@@ -205,7 +210,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     call set_particle_type(i,igas)
     densi        = rhoh(xyzh(4,i),massoftype(igas))
-    vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
+    select case (stardensprofile)
+    case (2)
+       ri        = sqrt(dot_product(xyzh(1:3,i)-xyzstar,xyzh(1:3,i)-xyzstar))
+       presi     = yinterp(pres(1:npts),rtab(1:npts),ri)
+       call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+       vxyzu(4,i) = eni / unit_ergg
+       if (store_temperature) eos_vars(itemp,i) = tempi
+    case default
+       vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
+    end select
     vxyzu(1:3,i) = vxyzstar(1:3)
  enddo
 
