@@ -434,7 +434,7 @@ subroutine calculate_energies(time, num, npart, particlemass, xyzh, vxyzu)
     encomp(ipot_env) = encomp(ipot_env) + phii1 * particlemass
 
     do j=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
+       if (xyzmh_ptmass(4,j) > 0.) then
           r_ij = separation(xyzmh_ptmass(1:3,j),xyzh(1:3,i))
           if (r_ij < 80.) then
              inearsink = .true.
@@ -1225,7 +1225,7 @@ subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
  real                         :: fxi, fyi, fzi, phii
  real, dimension(4,maxptmass) :: fssxyz_ptmass
  real, dimension(4,maxptmass) :: fxyz_ptmass
- integer                      :: i, ncols
+ integer                      :: i, ncols, merge_n, merge_ij(nptmass)
 
  ncols = 25
  allocate(columns(ncols))
@@ -1252,7 +1252,7 @@ subroutine sink_properties(time, num, npart, particlemass, xyzh, vxyzu)
              '       kin en'/)
 
  fxyz_ptmass = 0.
- call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
  fssxyz_ptmass = fxyz_ptmass
  do i=1,npart
     call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
@@ -1392,7 +1392,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
  real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable        :: columns(:)
  character(len=17)                     :: filename
- integer                               :: i,j,k,iorder(npart),ncols,npart_insphere,sizeRcut
+ integer                               :: i,j,k,iorder(npart),ncols,npart_insphere,sizeRcut,merge_ij(nptmass),merge_n
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass
@@ -1520,7 +1520,7 @@ subroutine gravitational_drag(time,num,npart,particlemass,xyzh,vxyzu)
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of all gas particles
     force_cut_vec = 0.
     fxyz_ptmass = 0.
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
 
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
