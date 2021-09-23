@@ -413,7 +413,7 @@ subroutine set_default_options()
  gsizemincgs = 5.e-3
 
  !--resolution
- np = 1000000
+ np = 10000
  np_dust = np/maxdustlarge/5
 
  !--planets

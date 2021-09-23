@@ -264,17 +264,19 @@ endif
 
 ifeq ($(SETUP), mydisc)
 #   locally isothermal gas disc
-    
     DISC_VISCOSITY=yes
     GRAVITY=yes
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc.f90
     ISOTHERMAL=yes
+    #needs to be yes (ie not store internal energy) for ieos=8 (barotropic)
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
     STORE_TEMP=yes
+    #no capital 'YES'
 endif
+
 
 ifeq ($(SETUP), grtde)
     SETUPFILE= setup_grtde.f90
