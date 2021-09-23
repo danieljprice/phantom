@@ -1046,7 +1046,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
-                          get_accel_sink_gas,get_accel_sink_sink,f_acc,pt_write_sinkev, &
+                          get_accel_sink_gas,get_accel_sink_sink,merge_sinks,f_acc,pt_write_sinkev, &
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
@@ -1079,7 +1079,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- integer         :: i,itype,nsubsteps,ichem,naccreted,nfail,nfaili
+ integer         :: i,itype,nsubsteps,ichem,naccreted,nfail,nfaili,merge_n
+ integer         :: merge_ij(nptmass)
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
@@ -1150,7 +1151,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           ! pass sink-sink forces to variable fxyz_ptmass_sinksink for later writing.
           !
           if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
+          if (merge_n > 0) then
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij,merge_n)
+             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
+          endif
           fxyz_ptmass_sinksink=fxyz_ptmass
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else

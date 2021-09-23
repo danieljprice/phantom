@@ -273,13 +273,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ! Perform the calculations for each sink; if no sink, reset to the centre of mass
  !
  over_sinks: do isink = isink0,isinkN
+    if (xyzmh_ptmass(4,isink) < 0.) cycle
     calc_rad_prof = .not. ignor_lowrho
     if (isink > 0) calc_rad_prof = .true.
     rsepmin2 = huge(rsepmin2)
     ! Skip 'merged' sinks
     if (isink > 0) then
        do j = 1,isinkN
-          if (j/=isink) then
+          if (j/=isink .and. xyzmh_ptmass(4,j) > 0.) then
              rtmp2    = (xyzmh_ptmass(1,isink)-xyzmh_ptmass(1,j))**2 &
                       + (xyzmh_ptmass(2,isink)-xyzmh_ptmass(2,j))**2
              rsepmin2 = min(rsepmin2,rtmp2)
@@ -288,6 +289,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        if (imerged(isink) > 0) cycle over_sinks
        ! Determine if two sinks should be merged
        do j = isink+1,isinkN
+          if (xyzmh_ptmass(4,j) < 0.) cycle
           rtmp2 = (xyzmh_ptmass(1,isink)-xyzmh_ptmass(1,j))**2 &
                 + (xyzmh_ptmass(2,isink)-xyzmh_ptmass(2,j))**2 &
                 + (xyzmh_ptmass(3,isink)-xyzmh_ptmass(3,j))**2
@@ -844,6 +846,7 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
     yi   = xyzmh_ptmass(2,i)
     zi   = xyzmh_ptmass(3,i)
     mi   = xyzmh_ptmass(4,i)
+    if (mi < 0.) cycle
     rad2 = xi*xi + yi*yi + zi*zi  ! Note that we are already centred on the point of interest
     do j = 1,nrad
        if (rad2 < rad2_mu(j)) mass(j) = mass(j) + mi
@@ -1372,8 +1375,8 @@ subroutine adjust_origin(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,xyz0,
  vxyz0 = 0.0
  do i = 1,nptmass
     rtmp2 = dot_product(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,i))
-    if (rtmp2 < rcom2) then
-       pmass = xyzmh_ptmass(4,i)
+    pmass = xyzmh_ptmass(4,i)
+    if (rtmp2 < rcom2 .and. pmass > 0.) then
        mcom  =  mcom + pmass
        xyz0  =  xyz0 + xyzmh_ptmass(1:3,i)*pmass
        vxyz0 = vxyz0 +  vxyz_ptmass(1:3,i)*pmass
