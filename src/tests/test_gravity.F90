@@ -249,7 +249,7 @@ subroutine test_directsum(ntests,npass)
  use ptmass,    only:get_accel_sink_sink,get_accel_sink_gas,h_soft_sinksink
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
- integer :: maxvxyzu,nx,np,i,k
+ integer :: maxvxyzu,nx,np,i,k,merge_n,merge_ij(maxptmass)
  real :: psep,totvol,totmass,rhozero,tol,pmassi
  real :: time,rmin,rmax,phitot,dtsinksink,fonrmax,phii,epot_gas_sink
  real(kind=4) :: t1,t2
@@ -364,7 +364,7 @@ subroutine test_directsum(ntests,npass)
 !
 !--compute gravity on the sink particles
 !
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.,merge_ij,merge_n)
 !
 !--compare the results
 !
@@ -387,7 +387,7 @@ subroutine test_directsum(ntests,npass)
     call get_derivs_global()
 
     epoti = 0.
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.,merge_ij,merge_n)
     epot_gas_sink = 0.
     do i=1,npart
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
