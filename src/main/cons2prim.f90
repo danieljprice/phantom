@@ -157,7 +157,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa
- use eos,               only:equationofstate,ieos,gamma,get_temperature,done_init_eos,init_eos
+ use eos,               only:equationofstate,ieos,get_temperature,done_init_eos,init_eos
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
@@ -165,8 +165,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use io,                only:fatal,real4
  use cullendehnen,      only:get_alphaloc,xi_limiter
  use options,           only:alpha,alphamax,use_dustfrac,iopacity_type
- use units,             only:unit_density,unit_opacity
-
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -175,7 +173,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
  integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
- real         :: rhoi,pondens,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
+ real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
  real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
  real         :: xi,yi,zi,hi
  logical      :: iactivei,iamgasi,iamdusti
@@ -192,11 +190,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
-!$omp shared(ieos,gamma,gamma_chem,nden_nimhd,eta_nimhd) &
+!$omp shared(ieos,gamma_chem,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(unit_density,unit_opacity,iopacity_type) &
-!$omp private(i,spsound,pondens,rhoi,p_on_rhogas,rhogas,gasfrac) &
+!$omp shared(iopacity_type) &
+!$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti) &

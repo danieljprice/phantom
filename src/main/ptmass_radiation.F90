@@ -30,10 +30,13 @@ module ptmass_radiation
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature_from_ptmass
- private
+ public :: init_radiation_ptmass
+
  integer, parameter :: N = 1024
  real, parameter :: theta = 0., phi = 0.
  real, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
+
+ private
 
 contains
 !-----------------------------------------------------------------------
@@ -67,6 +70,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  integer                 :: i,j
 
  do j=1,nptmass
+    if (xyzmh_ptmass(4,j) < 0.) cycle
     Mstar_cgs  = xyzmh_ptmass(4,j)*umass
     Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
@@ -206,9 +210,11 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
  real,     intent(out)   :: dust_temp(:)
- real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),K3(N),rho_over_r2(2*N+1),rho(N)
+ real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),rho_over_r2(2*N+1),rho(N)
  integer  :: i,idx_axis(npart),naxis
-
+#ifdef NUCLEATION
+ real     :: K3(N)
+#endif
  !.. find particles that lie within 2 smoothing lengths of the ray axis
  r0(1:3) = (/xa, ya, za/)
  dmin = huge(dmin)

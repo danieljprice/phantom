@@ -1,36 +1,102 @@
-# This is a basic workflow to help you get started with Actions
-name: testkd
+name: build
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+  schedule:
+    - cron: "0 0 * * *"
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+env:
+  OMP_STACKSIZE: 512M
+  SPLASH_DIR: ${{ github.workspace }}/splash
+  PHANTOM_DIR: ${{ github.workspace }}
+  WEB_USER: github
+  WEB_SERVER: data.phantom.cloud.edu.au
+  WEB_HTML_DIR: /var/www/html
+  BUILD_LOG_DIR: /ci/build/logs
+  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
+
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # do not run it if [skip ci] appears in the commit message
-    if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
-    env:
-      SYSTEM: gfortran
-      OMP_STACKSIZE: 512M
+    strategy:
+      fail-fast: false
+      matrix:
+        system:
+          - ['self-hosted', 'ifort']
+          - ['ubuntu-latest', 'gfortran']
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    name: build (SYSTEM=${{ matrix.system[1] }})
+
+    runs-on: ${{ matrix.system[0] }}
+
     steps:
-    - name: Install gfortran
-      run: sudo apt-get install gfortran
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - name: "Nuke the github workspace before doing anything"
+      run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: compile SETUP=testkd
-      run: make SETUP=testkd phantomtest
-        
-    - name: run testsuite with SETUP=testkd
-      run: ./bin/phantomtest
+    - name: "Clone phantom"
+      uses: actions/checkout@v2
+
+    - name: "Grab a copy of splash source code"
+      uses: actions/checkout@v2
+      with:
+        repository: danieljprice/splash
+        path: splash
+
+    - name: "Create logs directory"
+      run: mkdir logs
+
+    - name: "Grab previous build logs from web server"
+      env:
+        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
+
+    - name: "Run buildbot.sh"
+      run: ./buildbot.sh 17000000 http://${WEB_SERVER}/${BUILD_LOG_DIR}
+      working-directory: scripts
+      env:
+        SYSTEM: ${{ matrix.system[1] }}
+        RETURN_ERR: yes
+
+    - name: "Install SSH Key"
+      if: github.event_name == 'schedule'
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    - name: "Copy new build logs to web server"
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+      run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
+
+    - name: "Copy HTML files to web server"
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+      run: |
+        export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
+        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
+        rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
+
+    - name: logs/build-failures-${{ matrix.system[1] }}.txt
+      if: always()
+      run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
+
+    - name: logs/setup-failures-${{ matrix.system[1] }}.txt
+      if: always()
+      run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
+
+    - name: logs/make-*-${{ matrix.system[1] }}.txt
+      if: always()
+      run: |
+        echo
+        for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
+          echo ::group::"${item}"
+          cat $item
+          echo ::endgroup::
+        done
