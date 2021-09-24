@@ -1325,22 +1325,23 @@ subroutine amuse_set_icooling(icooling_in)
     use options, only:icooling,iexternalforce
     use part, only:h2chemistry
     use chem, only:init_chem
-    use cooling, only:init_cooling,init_cooling_type
+    use cooling, only:init_cooling,Tfloor
     use h2cooling, only:init_h2cooling
     implicit none
     integer :: ierr
     integer, intent(in) :: icooling_in
     icooling = icooling_in
     if (icooling > 0) then
-        if (h2chemistry) then
-            if (id==master) write(iprint,*) 'initialising cooling function...'
-            call init_chem()
-            call init_h2cooling()
-        else
-            call init_cooling(ierr)
-            if (ierr /= 0) call fatal('initial','error initialising cooling')
-        endif
-        call init_cooling_type(h2chemistry)
+        Tfloor = 1  ! K
+        call init_cooling(id,master,iprint,ierr)
+        !if (h2chemistry) then
+        !    if (id==master) write(iprint,*) 'initialising cooling function...'
+        !    call init_chem()
+        !    call init_h2cooling()
+        !else
+        !    call init_cooling(ierr)
+        !    if (ierr /= 0) call fatal('initial','error initialising cooling')
+        !endif
     endif
 end subroutine
 
