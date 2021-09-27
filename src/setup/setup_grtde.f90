@@ -188,9 +188,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  endif
 
- xyzstar = (/1e6,0.,0./)
- vxyzstar = 0.
- 
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
  if (lorentz>1.1) call warning('setup','Lorentz factor of star greater than 1.1, density may not be correct')
 
