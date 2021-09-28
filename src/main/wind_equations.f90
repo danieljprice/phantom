@@ -53,18 +53,20 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
  rold = rvT(1)
  do
     call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-    if (dt_force) exit
+    if (dt_force) then
+       dt_next = dt
+       exit
+    endif
     if (err > .01) then
-       dt = dt * .9
+       dt = dt * 0.9
     else
-       !dt = dt * 1.05
-       dt = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
-       !dt = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+       !dt_next = dt * 1.05
+       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
        exit
     endif
  enddo
  rvT = new_rvT
- dt_next = dt
 
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
