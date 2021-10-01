@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(27(a,/))", &
+    print "(28(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -94,7 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 7) Simulation units and particle properties', &
             ' 8) Output .divv', &
             ' 9) EoS testing', &
-            '11) New unbound particle profiles in time', &
+            '11) Profile of newly unbound particles', &
             '12) Sink properties', &
             '13) MESA EoS compute total entropy and other average td quantities', &
             '14) MESA EoS save on file thermodynamical quantities for all particles', &
@@ -111,18 +111,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '25) Optical depth at recombination', &
             '26) Envelope binding energy', &
             '27) Print dumps number matching separation', &
-            '28) Companion mass coordinate vs. time'
+            '28) Companion mass coordinate vs. time', &
+            '29) Energy histogram'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,28)
+    call prompt('Choose analysis type ',analysis_to_perform,1,29)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -184,6 +185,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call print_dump_numbers(dumpfile)
  case(28) ! Companion mass coordinate (spherical mass shells) vs. time
     call m_vs_t(time,npart,particlemass,xyzh)
+ case(29) ! Energy histogram
+    call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -395,25 +398,18 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
     endif
  endif
 
- Yfrac = 1 - Xfrac - Zfrac
+ Yfrac = 1. - Xfrac - Zfrac
 
  ! Ionisation energies per particle (in code units)
  E_H2   = 0.5*Xfrac*0.0022866 * particlemass
  E_HI   = Xfrac*0.0068808 * particlemass
  E_HeI  = 0.25*Yfrac*0.012442 * particlemass
  E_HeII = 0.25*Yfrac*0.027536 * particlemass
- 
- ! DEBUGGING
- call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
- call set_r2func_origin(0.,0.,0.) ! Order particles by distance from origin
- call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
- do j = 1,npart
-    i = iorder(j)
+ do i = 1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum,dum,dum,phii)
-       epoti =  particlemass * phii !particlemass * (- (j-1) * particlemass / distance(xyzh(:,i)) + phii)
        rhopart = rhoh(xyzh(4,i), particlemass)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
@@ -1088,16 +1084,18 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
- Nquantities = 7
+ Nquantities = 9
  if (dump_number == 0) then
-     print "(7(a,/))",&
+     print "(9(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
            '4) Gas omega w.r.t. effective CoM', &
            '5) Fractional difference between gas and orbital omega', &
            '6) MESA EoS specific entropy', &
-           '7) Fractional entropy gain'
+           '7) Fractional entropy gain', &
+           '8) Specific recombination energy', &
+           '9) Total energy (kin + pot)'
     ans = 1
     call prompt('Choose first quantity to compute ',ans,1,Nquantities)
     quantities_to_calculate(1) = ans
@@ -1116,8 +1114,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  call compute_energies(time)
  do k=1,4
     select case (quantities_to_calculate(k))
-    case(1,2,3,4,6) ! Nothing to do
-    case(5) ! Fractional difference between gas and orbital omega
+    case(1,2,3,6,8,9) ! Nothing to do
+    case(4,5) ! Fractional difference between gas and orbital omega
        com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                   / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
        com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
@@ -1140,12 +1138,16 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  do i=1,npart
     do k=1,4
        select case (quantities_to_calculate(k))
-       case(1) ! Total energy (kin + pot + therm)
+       case(1,9) ! Total energy (kin + pot + therm)
           rhopart = rhoh(xyzh(4,i), particlemass)
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
-          call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-          quant(k,i) = (ekini + epoti + ethi) / particlemass ! Specific energy
+          if (quantities_to_calculate(k)==1) then
+             call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+             quant(k,i) = (ekini + epoti + ethi) / particlemass ! Specific energy
+          elseif (quantities_to_calculate(k)==9) then
+             quant(k,i) = (ekini + epoti) / particlemass ! Specific energy
+          endif
 
        case(2) ! Mach number
           rhopart = rhoh(xyzh(4,i), particlemass)
@@ -1192,6 +1194,12 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           elseif (quantities_to_calculate(k) == 6) then
              quant(k,i) = entropyi
           endif
+      
+         case(8) ! Specific recombination energy
+          rhopart = rhoh(xyzh(4,i), particlemass)
+          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+          quant(k,i) = vxyzu(4,i) - ethi / particlemass ! Specific energy
  
        case default
           print*,"Error: Requested quantity is invalid."
@@ -1349,67 +1357,6 @@ end subroutine track_particle
 
 !----------------------------------------------------------------
 !+
-!  Ion profiles
-!+
-!----------------------------------------------------------------
-! subroutine ion_profiles(time,num,npart,particlemass,xyzh,vxyzu)
-!  integer, intent(in)          :: npart,num
-!  real, intent(in)             :: time,particlemass
-!  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
-!  real, dimension(5,npart)     :: dist_part,rad_part
-!  real, allocatable            :: hist_var(:)
-!  real                         :: mincoord,maxloga,xh0,xh1,xhe0,xhe1,xhe2,pressure,temperature,rhoi
-!  character(len=17)            :: grid_file(5)
-!  character(len=40)            :: data_formatter
-!  integer                      :: nbins,i,unitnum
-
-!  call compute_energies(time)
-!  nbins = 300
-!  rad_part = 0.
-!  dist_part = 0.
-!  mincoord = 0.5
-!  maxloga = 4.3
-
-!  allocate(hist_var(nbins))
-!  grid_file = (/ '   grid_HIfrac.ev', &
-!                 '  grid_HIIfrac.ev', &
-!                 '  grid_HeIfrac.ev', &
-!                 ' grid_HeIIfrac.ev', &
-!                 'grid_HeIIIfrac.ev' /)
-
-!  do i=1,npart
-!     rhoi = rhoh(xyzh(4,i), particlemass)
-!     rad_part(1,i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-!     call get_eos_pressure_temp_mesa(rhoi*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature)
-!     call ionisation_fraction(rhoi*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-!     dist_part(1,i) = xh0
-!     dist_part(2,i) = xh1
-!     dist_part(3,i) = xhe0
-!     dist_part(4,i) = xhe1
-!     dist_part(5,i) = xhe2
-!  enddo
-
-
-!  do i=1,5
-!     call histogram_setup(rad_part(1,:),dist_part(i,:),hist_var,npart,maxloga,mincoord,nbins,.true.,.true.)
-!     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
-!     if (num == 0) then
-!        unitnum = 1000
-!        open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
-!        write(unitnum, "(a)") '# Ion fraction - look at the name of the file'
-!        close(unit=unitnum)
-!     endif
-!     unitnum=1001+i
-!     open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
-!     write(unitnum,data_formatter) time,hist_var(:)
-!     close(unit=unitnum)
-!  enddo
-
-! end subroutine ion_profiles
-
-
-!----------------------------------------------------------------
-!+
 !  Optical depth profile
 !+
 !----------------------------------------------------------------
@@ -1427,7 +1374,7 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  integer                :: i,unitnum
 
  call compute_energies(time)
- nbins      = 300
+ nbins      = 500
  rad_part   = 0.
  kappa_part = 0.
  rho_part   = 0.
@@ -1563,6 +1510,63 @@ end subroutine recombination_tau
 
 !----------------------------------------------------------------
 !+
+!  Energy histogram
+!+
+!----------------------------------------------------------------
+subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ integer, intent(in)            :: npart
+ real, intent(in)               :: time,particlemass
+ real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
+ character(len=17), allocatable :: filename(:)
+ character(len=40)              :: data_formatter
+ integer                        :: nbins,nhists,i,unitnum
+ real, allocatable              :: hist(:),coord(:,:),Emin(:),Emax(:)
+ real                           :: rhopart,ponrhoi,spsoundi,phii,epoti,ekini,einti,ethi,dum,quant(npart)
+ logical                        :: ilogbins
+
+ nhists = 3
+ nbins = 500
+ allocate(filename(nhists),coord(npart,nhists),hist(nbins),Emin(nhists),Emax(nhists))
+ Emin = (/ -0.0446, 0., 0. /)
+ Emax = (/ 0.0315, 0.0105, 0.0105 /)
+ ilogbins = .false.
+ filename = (/ '       hist_kp.ev', &
+               '     hist_erec.ev', &
+               '      hist_eth.ev' /)   
+ quant = (/ (1., i=1,npart) /)
+ do i=1,npart
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    if (ieos==10) then
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    else
+       ethi = einti
+    endif
+    coord(i,1) = (ekini + epoti)/particlemass
+    coord(i,2) = vxyzu(4,i) - ethi/particlemass
+    coord(i,3) = ethi/particlemass
+ enddo
+
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ do i=1,nhists
+    call histogram_setup(coord(:,i),quant,hist,npart,Emax(i),Emin(i),nbins,.false.,ilogbins)
+    if (dump_number == 0) then
+       unitnum = 1000
+       open(unit=unitnum, file=trim(adjustl(filename(i))), status='replace')
+       close(unit=unitnum)
+    endif
+    unitnum=1001+i
+    open(unit=unitnum, file=trim(adjustl(filename(i))), status='old', position='append')
+    write(unitnum,data_formatter) time,hist
+    close(unit=unitnum)
+ enddo
+
+end subroutine
+
+!----------------------------------------------------------------
+!+
 !  Energy profile
 !+
 !----------------------------------------------------------------
@@ -1588,11 +1592,15 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  if (dump_number==0) then
     iquantity = 1
     use_mass_coord = .false. 
-    call prompt("Select quantity to calculate",iquantity,1,5)
+    print "(4(/,a))",'1. Energy',&
+                     '2. Entropy',&
+                     '3. Bernoulli energy',&
+                     '4. Ion fractions'
+    call prompt("Select quantity to calculate",iquantity,1,4)
     call prompt("Bin in mass coordinates instead of radius?",use_mass_coord)
  endif
 
- nbins = 300
+ nbins = 500
  allocate(hist(nbins))
  if (use_mass_coord) then
    mincoord  = 3.8405  ! Min. mass coordinate
@@ -1732,12 +1740,12 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  character(len=40)            :: data_formatter
  integer                      :: i,unitnum,nfiles,iradius
 
- nbins = 300
+ nbins = 500
  rad_part = 0.
  dist_part = 0.
  minloga = 0.5
  maxloga = 4.3
- iradius = 3 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius from CM
+ iradius = 1 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius from CM
 
  nfiles = 2
  allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart))
@@ -1803,24 +1811,24 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  real,    dimension(5,npart)                  :: dist_part,rad_part
  real,    dimension(:), allocatable           :: hist_var
  real                                         :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,maxloga,minloga
- character(len=17), dimension(:), allocatable :: grid_file
+ character(len=18), dimension(:), allocatable :: grid_file
  character(len=40)                            :: data_formatter
  logical, allocatable, save                   :: prev_unbound(:,:),prev_bound(:,:)
  integer                                      :: i,unitnum,nbins
 
  call compute_energies(time)
  npart_hist = 0     ! Stores number of particles fulfilling each of the four bound/unbound criterion
- nbins      = 300
+ nbins      = 500
  rad_part   = 0.    ! (4,npart_hist)-array storing separations of particles
  dist_part  = 0.
  minloga    = 0.5
  maxloga    = 4.3
 
  allocate(hist_var(nbins))
- grid_file = (/ 'gridpkiunbound.ev', &
-                ' gridpkunbound.ev', &
-                '  gridpkibound.ev', &
-                '   gridpkbound.ev' /)
+ grid_file = (/ 'grid_unbound_th.ev', &
+                'grid_unbound_kp.ev', &
+                ' grid_bound_kpt.ev', &
+                '  grid_bound_kp.ev' /)
 
  if (dump_number == 0) then
     allocate(prev_bound(2,npart))
@@ -3221,11 +3229,13 @@ subroutine histogram_setup(coord,quant,hist,npart,bin_max,bin_min,nbins,normalis
     enddo
  enddo
 
- do i=1,nbins
-    if ( (bincount(i) > 0) .and. normalise_by_bincount) then
-       hist(i) = hist(i) / real(bincount(i))
-    endif
- enddo
+ if (normalise_by_bincount) then
+    do i=1,nbins
+       if (bincount(i) > 0) then
+          hist(i) = hist(i) / real(bincount(i))
+       endif
+    enddo
+endif
 
 end subroutine histogram_setup
 
