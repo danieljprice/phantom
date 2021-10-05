@@ -181,8 +181,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
 #else
     if (present(eni)) then
-       if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
-
        if (use_entropy) then
           ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
        elseif (gamma > 1.0001) then
@@ -330,14 +328,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei)
+    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei,ierr)
     call get_idealplusrad_pres(cgsrhoi,temperaturei,gmw,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
     presi = cgspresi / unit_pressure
     ponrhoi = presi / rhoi
     if (present(tempi)) tempi = temperaturei
-
+    if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
 
  case(14)
 !

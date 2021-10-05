@@ -13,15 +13,16 @@ module setup
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - beta          : *penetration factor*
-!   - dumpsperorbit : *number of dumps per orbit*
-!   - ecc           : *eccentricity (1 for parabolic)*
-!   - mhole         : *mass of black hole (solar mass)*
-!   - mstar         : *mass of star       (solar mass)*
-!   - norbits       : *number of orbits*
-!   - nr            : *particles per star radius (i.e. resolution)*
-!   - rstar         : *radius of star     (solar radii)*
-!   - theta         : *inclination of orbit (degrees)*
+!   - beta           : *penetration factor*
+!   - dumpsperorbit  : *number of dumps per orbit*
+!   - ecc            : *eccentricity (1 for parabolic)*
+!   - mhole          : *mass of black hole (solar mass)*
+!   - mstar          : *mass of star       (solar mass)*
+!   - norbits        : *number of orbits*
+!   - nr             : *particles per star radius (i.e. resolution)*
+!   - rstar          : *radius of star     (solar radii)*
+!   - theta          : *inclination of orbit (degrees)*
+!   - stardensprofile: *density profile of star*
 !
 ! :Dependencies: eos, externalforces, infile_utils, io, metric, part,
 !   physcon, rho_profile, setbinary, spherical, timestep, units,
@@ -31,7 +32,7 @@ module setup
  public :: setpart
 
  real    :: mhole,mstar,rstar,beta,ecc,norbits,theta
- integer :: dumpsperorbit,nr
+ integer :: dumpsperorbit,nr,stardensprofile
 
  private
 
@@ -43,17 +44,21 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity,eos_vars,itemp
  use setbinary, only:set_binary
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist
+ use dim,       only:store_temperature
+ use units,     only:set_units,umass,udist,unit_density,unit_pressure,unit_ergg
  use physcon,   only:solarm,pi,solarr
+ use table_utils,only:yinterp
  use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
  use metric,    only:mass1,a
- use eos,       only:ieos
+ use eos,       only:ieos,calc_temp_and_ene
+ use kernel,    only:hfact_default
+ use extern_densprofile, only:nrhotab
  use externalforces,only:accradius1,accradius1_hard
- use rho_profile,   only:rho_polytrope
+ use rho_profile,   only:rho_polytrope,read_kepler_file
  use vectorutils,   only:rotatevec
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -66,16 +71,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
  integer, parameter :: ntab=5000
+ integer, parameter :: ng_max = nrhotab
  integer :: ierr,i,npts
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
- real    :: densi,r0,vel,lorentz
+ real    :: densi,r0,vel,lorentz,eni,tempi,presi,ri
  real    :: vhat(3),x0,y0
-
+ real,allocatable   :: pres(:), temp(:), en(:)
 !
 !-- general parameters
 !
+ hfact = hfact_default
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
@@ -95,16 +102,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Default runtime parameters
 !
 !
- mhole         = 1.e6  ! (solar masses)
- mstar         = 1.    ! (solar masses)
- rstar         = 1.    ! (solar radii)
- beta          = 5.
- ecc           = 0.8
- norbits       = 5.
- dumpsperorbit = 100
- nr            = 50
- theta         = 0.
-
+ mhole           = 1.e6  ! (solar masses)
+ mstar           = 1.    ! (solar masses)
+ rstar           = 1.    ! (solar radii)
+ beta            = 5.
+ ecc             = 0.8
+ norbits         = 5.
+ dumpsperorbit   = 100
+ nr              = 50
+ theta           = 0.
+ stardensprofile = 1
 !
 !-- Read runtime parameters from setup file
 !
@@ -186,7 +193,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  tmax      = norbits*period
  dtmax     = period/dumpsperorbit
- call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
+ select case (stardensprofile)
+ case (2)
+    allocate(pres(ng_max), temp(ng_max), en(ng_max))
+    call read_kepler_file(trim('kepler_MS.data'),ng_max,npts,rtab,rhotab,pres,temp,en,mstar,ierr)
+ case default
+    call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
+ end select
  call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
 
  npartoftype(igas) = npart
@@ -194,7 +207,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     call set_particle_type(i,igas)
     densi        = rhoh(xyzh(4,i),massoftype(igas))
-    vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
+    select case (stardensprofile)
+    case (2)
+       ri        = sqrt(dot_product(xyzh(1:3,i)-xyzstar,xyzh(1:3,i)-xyzstar))
+       presi     = yinterp(pres(1:npts),rtab(1:npts),ri)
+       call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+       vxyzu(4,i) = eni / unit_ergg
+       if (store_temperature) eos_vars(itemp,i) = tempi
+    case default
+       vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
+    end select
     vxyzu(1:3,i) = vxyzstar(1:3)
  enddo
 
@@ -225,15 +247,16 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
- call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',            iunit)
- call write_inopt(mstar,        'mstar',        'mass of star       (solar mass)',            iunit)
- call write_inopt(rstar,        'rstar',        'radius of star     (solar radii)',           iunit)
- call write_inopt(beta,         'beta',         'penetration factor',                         iunit)
- call write_inopt(ecc,          'ecc',          'eccentricity (1 for parabolic)',             iunit)
- call write_inopt(norbits,      'norbits',      'number of orbits',                           iunit)
- call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                  iunit)
- call write_inopt(nr           ,'nr'           ,'particles per star radius (i.e. resolution)',iunit)
- call write_inopt(theta        ,'theta'        ,'inclination of orbit (degrees)',             iunit)
+ call write_inopt(mhole,          'mhole',          'mass of black hole (solar mass)',             iunit)
+ call write_inopt(mstar,          'mstar',          'mass of star       (solar mass)',             iunit)
+ call write_inopt(rstar,          'rstar',          'radius of star     (solar radii)',            iunit)
+ call write_inopt(stardensprofile,'stardensprofile','star density profile (1=adiabatic, 2=kepler)',iunit)
+ call write_inopt(beta,           'beta',           'penetration factor',                          iunit)
+ call write_inopt(ecc,            'ecc',            'eccentricity (1 for parabolic)',              iunit)
+ call write_inopt(norbits,        'norbits',        'number of orbits',                            iunit)
+ call write_inopt(dumpsperorbit,  'dumpsperorbit',  'number of dumps per orbit',                   iunit)
+ call write_inopt(nr,             'nr',             'particles per star radius (i.e. resolution)', iunit)
+ call write_inopt(theta,          'theta',          'inclination of orbit (degrees)',              iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -251,15 +274,16 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mhole,        'mhole',        db,min=0.,errcount=nerr)
- call read_inopt(mstar,        'mstar',        db,min=0.,errcount=nerr)
- call read_inopt(rstar,        'rstar',        db,min=0.,errcount=nerr)
- call read_inopt(beta,         'beta',         db,min=0.,errcount=nerr)
- call read_inopt(ecc,          'ecc',          db,min=0.,max=1.,errcount=nerr)
- call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
- call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
- call read_inopt(nr,           'nr',           db,min=0 ,errcount=nerr)
- call read_inopt(theta,        'theta',        db,       errcount=nerr)
+ call read_inopt(mhole,          'mhole',          db,min=0.,errcount=nerr)
+ call read_inopt(mstar,          'mstar',          db,min=0.,errcount=nerr)
+ call read_inopt(rstar,          'rstar',          db,min=0.,errcount=nerr)
+ call read_inopt(stardensprofile,'stardensprofile',db,min=1,max=2,errcount=nerr)
+ call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
+ call read_inopt(ecc,            'ecc',            db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
+ call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
+ call read_inopt(nr,             'nr',             db,min=0 ,errcount=nerr)
+ call read_inopt(theta,          'theta',          db,       errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

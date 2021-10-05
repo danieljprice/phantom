@@ -35,22 +35,29 @@ contains
 !  unit mass (eni) and density (rhoi)
 !+
 !----------------------------------------------------------------
-subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi)
+subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
  real, intent(in)    :: rhoi,eni,mu
  real, intent(inout) :: tempi
+ integer, intent(out):: ierr
  real                :: numerator,denominator,correction
+ integer             :: iter
+ integer, parameter  :: iter_max = 1000
 
  if (tempi <= 0.) then
     tempi = eni*mu/(1.5*kb_on_mh)  ! Take gas temperature as initial guess
  endif
 
+ ierr = 0
+ iter = 0
  correction = huge(0.)
- do while (abs(correction) > tolerance*tempi)
+ do while (abs(correction) > tolerance*tempi .and. iter < iter_max)
     numerator = eni*rhoi - 1.5*kb_on_mh*tempi*rhoi/mu - radconst*tempi**4
     denominator =  - 1.5*kb_on_mh/mu*rhoi - 4.*radconst*tempi**3
     correction = numerator/denominator
-    tempi = tempi - correction
+    tempi= tempi - correction
+    iter = iter + 1
  enddo
+ if (iter >= iter_max) ierr = 1
 
 end subroutine get_idealplusrad_temp
 
@@ -83,14 +90,25 @@ end subroutine get_idealplusrad_spsoundi
 subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
  real, intent(in)    :: rhoi,presi,mu
  real, intent(inout) :: tempi
- real                :: numerator,denominator,correction
+ real                :: numerator,denominator,correction,temp_new
+ integer             :: iter
+ integer, parameter  :: iter_max = 1000
 
+ iter = 0
  correction = huge(0.)
- do while (abs(correction) > tolerance*tempi)
+ do while (abs(correction) > tolerance*tempi .and. iter < iter_max)
     numerator   = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4 /3.
     denominator =  - rhoi*kb_on_mh/mu - 4./3.*radconst*tempi**3
     correction  = numerator/denominator
-    tempi = tempi - correction
+    temp_new = tempi - correction
+    if (temp_new > 1.2 * tempi) then
+       tempi = 1.2 * tempi
+    else if (temp_new < 0.8 * tempi) then
+       tempi = 0.8 * tempi
+    else
+       tempi = temp_new
+    endif
+    iter = iter + 1
  enddo
 
 end subroutine get_idealgasplusrad_tempfrompres
