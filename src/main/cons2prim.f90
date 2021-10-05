@@ -162,7 +162,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
- use io,                only:fatal,real4
+ use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
  use options,           only:alpha,alphamax,use_dustfrac,iopacity_type
  integer,      intent(in)    :: npart
@@ -226,11 +226,13 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           rhogas  = rhoi
        endif
        if (.not. iamgasi) cycle  !stop here if not a gas particle
-
+        
        !
        !--Calling Equation of state
        !
+       temperaturei = eos_vars(itemp,i) ! needed for initial guess for idealplusrad
        if (maxvxyzu >= 4) then
+          if (vxyzu(4,i) < 0.) call warning('cons2prim','Internal energy < 0',i,'u',vxyzu(4,i))
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i),&
                                   tempi=temperaturei)
