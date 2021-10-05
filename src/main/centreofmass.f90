@@ -130,13 +130,15 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  if (id==master .and. present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass)) then
     do i=1,nptmass
        pmassi = xyzmh_ptmass(4,i)
-       totmass = totmass + pmassi
-       xpos  = xpos  + pmassi*xyzmh_ptmass(1,i)
-       ypos  = ypos  + pmassi*xyzmh_ptmass(2,i)
-       zpos  = zpos  + pmassi*xyzmh_ptmass(3,i)
-       vxpos = vxpos + pmassi*vxyz_ptmass(1,i)
-       vypos = vypos + pmassi*vxyz_ptmass(2,i)
-       vzpos = vzpos + pmassi*vxyz_ptmass(3,i)
+       if (pmassi > 0.) then
+          totmass = totmass + pmassi
+          xpos  = xpos  + pmassi*xyzmh_ptmass(1,i)
+          ypos  = ypos  + pmassi*xyzmh_ptmass(2,i)
+          zpos  = zpos  + pmassi*xyzmh_ptmass(3,i)
+          vxpos = vxpos + pmassi*vxyz_ptmass(1,i)
+          vypos = vypos + pmassi*vxyz_ptmass(2,i)
+          vzpos = vzpos + pmassi*vxyz_ptmass(3,i)
+       endif
     enddo
  endif
  xcom = (/xpos,ypos,zpos/)
@@ -219,11 +221,13 @@ subroutine correct_bulk_motion()
 !
 !$omp do
  do i=1,nptmass
-    pmassi  = xyzmh_ptmass(4,i)
-    totmass = totmass + pmassi
-    xmom    = xmom + pmassi*vxyz_ptmass(1,i)
-    ymom    = ymom + pmassi*vxyz_ptmass(2,i)
-    zmom    = zmom + pmassi*vxyz_ptmass(3,i)
+    if (pmassi > 0.) then
+       pmassi  = xyzmh_ptmass(4,i)
+       totmass = totmass + pmassi
+       xmom    = xmom + pmassi*vxyz_ptmass(1,i)
+       ymom    = ymom + pmassi*vxyz_ptmass(2,i)
+       zmom    = zmom + pmassi*vxyz_ptmass(3,i)
+    endif
  enddo
 !$omp enddo
 !$omp end parallel
