@@ -527,6 +527,7 @@ subroutine create_sink_clumps(npart,xyzh)
  print'(a,F5.1,a)', 'All particles within ',sinkclumprad,' accretion radii  will be added to sink clumps'
 
  do iptmass=1,nptmass
+    if (xyzmh_ptmass(4,iptmass) < 0.) cycle
     clumpsep = sinkclumprad*xyzmh_ptmass(ihacc,iptmass)
     nclump   = nclump + 1
 
