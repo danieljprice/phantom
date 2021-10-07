@@ -180,13 +180,13 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     !print*, dens, term, lorentz_LEO
 
     if (ien_type == ien_entropy) then
-       select case(ieos)
-       case(12)
+       !select case(ieos)
+       !case(12)
           !print*, 'before', gamma
-          call update_gamma(ien_type,dens,u,en,gamma,ierr)
+          !call update_gamma(ien_type,dens,u,en,gamma,ierr)
           !print*, 'update', gamma
           !read*
-       end select
+       !end select
        !print*, 'PT', P
        p = en*dens**gamma
        !print*, 'P', P
