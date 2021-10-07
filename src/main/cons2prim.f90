@@ -15,7 +15,7 @@ module cons2prim
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
-!   options, part, radiation_utils, units, utils_gr
+!   options, part, radiation_utils, utils_gr
 !
  use cons2primsolver, only:ien_entropy
  implicit none
@@ -226,7 +226,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           rhogas  = rhoi
        endif
        if (.not. iamgasi) cycle  !stop here if not a gas particle
-        
+
        !
        !--Calling Equation of state
        !
