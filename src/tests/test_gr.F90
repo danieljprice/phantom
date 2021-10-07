@@ -374,7 +374,7 @@ subroutine test_combinations(ntests,npass)
                             call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
                             p = pondens*dens
                             !print*, 'ini', dens, u, p
-                            call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+                            call test_cons2prim_i_var_gamma(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
                          enddo
                       enddo
                    endif
@@ -483,7 +483,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real :: toli
  integer :: ierr, i, j, nfailprev, ien_type
 
- over_energy_variables: do i = 1,1
+ over_energy_variables: do i = 1,2
+    !print*, i, v, dens, u
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
@@ -498,7 +499,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
        toli = tol
     else
        ien_type = ien_etotal
-       toli = 2.e-11
+       toli = 5.e-10
     endif
     call primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
     call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_type)
@@ -547,8 +548,6 @@ subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
  real :: toli
  integer :: ierr, i, j, nfailprev, ien_type
- real :: correction(1:3),lorentz_LEO,lorentz_LEO2,pmom22,alpha,betadown(1:3)
- real, dimension(1:3,1:3) :: gammaijUP
 
  ucgs = u*unit_ergg
  Pcgs = P*unit_pressure
@@ -569,7 +568,7 @@ subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
    gamma2 = 1. + P2/(dens2*u2)
    print*, 'state 2', u2, P2, dens2, gamma2, v2
  endif
- over_energy_variables: do i = 2,2
+ over_energy_variables: do i = 1,1
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
