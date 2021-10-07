@@ -28,6 +28,8 @@ module ptmass
 !   - h_soft_sinksink : *softening length between sink particles*
 !   - icreate_sinks   : *allow automatic sink particle creation*
 !   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
+!   - r_merge_cond    : *sinks will merge if bound within this radius*
+!   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
 ! :Dependencies: boundary, dim, domain, eos, externalforces, fastmath,

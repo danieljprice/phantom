@@ -542,29 +542,29 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--The first loop calculates the number of rows, columns and comments in kepler file.
  !
  do
-   read(11, '(a)', iostat=ierr) line
-       if (ierr/=0) exit
+    read(11, '(a)', iostat=ierr) line
+    if (ierr/=0) exit
 
-       if (index(line,'#') .ne. 0) then
-         j = j + 1
+    if (index(line,'#')  /=  0) then
+       j = j + 1
 
-       else
-         if (s==1) then
-           !calculate number of columns
-           do m=1, max_cols
+    else
+       if (s==1) then
+          !calculate number of columns
+          do m=1, max_cols
 
              read(line,*,iostat=ierr) test_cols(1:m)
              if (ierr/=0) exit
 
-           enddo
-       end if
+          enddo
+       endif
 
        s = s+1
        !calculate number of rows
        n_rows = n_rows + 1
 
-     end if
- end do
+    endif
+ enddo
  close(11)
 
  n_cols = m-1
@@ -592,8 +592,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  open(13, file=trim(fullfilepath))
  do i = 1,j
-   read(13,*,iostat=ierr)
- end do
+    read(13,*,iostat=ierr)
+ enddo
 
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
