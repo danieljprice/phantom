@@ -36,7 +36,7 @@ module cooling
 !   - icool_relax_bowen    : *Bowen (diffusive) relaxation on/off*
 !   - icool_relax_stefan   : *radiative relaxation on/off*
 !   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
-!   - temp_floor           : *Minimum allowed temperature in K*
+!   - temp_floor           : *Minimum allowed temperature in K for Townsend cooling table*
 !
 ! :Dependencies: chem, datafiles, dim, eos, h2cooling, infile_utils, io,
 !   options, part, physcon, timestep, units

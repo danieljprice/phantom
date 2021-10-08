@@ -14,16 +14,16 @@ module moddump
 !
 ! :Runtime parameters:
 !   - beta  : *penetration factor*
+!   - ecc   : *eccentricity (1 for parabolic)*
 !   - mh    : *mass of black hole (code units)*
 !   - ms    : *mass of star       (code units)*
 !   - phi   : *stellar rotation with respect to y-axis (in degrees)*
-!   - r0    : *starting distance*
+!   - r0    : *starting distance  (code units)*
 !   - rs    : *radius of star     (code units)*
 !   - theta : *stellar rotation with respect to x-axis (in degrees)*
-!   - ecc   : *eccentricity of orbit*
-! 
-! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
-!   physcon, prompting
+!
+! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
+!   options, physcon, prompting, units
 !
  implicit none
 
@@ -168,11 +168,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vy0   = -sqrt(mh*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
  elseif (abs(ecc-1.) < tiny(1.)) then
     print*, 'Parabolic orbit'
-    y0    = -2.*rp + r0 
+    y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
     vx0   = sqrt(2*Mh/r0) * 2*rp / (4*rp**2 + x0**2)
     vy0   = sqrt(2*Mh/r0) * x0   / (4*rp**2 + x0**2)
- end if
+ endif
 
  !--Set input file parameters
  if (.not. gr) then
