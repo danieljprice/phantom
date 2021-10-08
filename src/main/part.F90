@@ -1728,7 +1728,7 @@ real function Omega_k(i)
     m_star = xyzmh_ptmass(4,1)
  else
     do j=1,nptmass
-       m_star = m_star + xyzmh_ptmass(4,j)
+       if (xyzmh_ptmass(4,j) > 0.) m_star = m_star + xyzmh_ptmass(4,j)
     enddo
  endif
 
