@@ -119,7 +119,8 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,nalpha,mhd,maxdusttypes,do_radiation,gravity,use_dust
+ use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
+                            nalpha,mhd,do_radiation,gravity,use_dust
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -156,7 +157,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use nicil_sup,        only:use_consistent_gmw
 #endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
-                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks
+                            h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
+                            r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
  use timing,           only:get_timings
 #ifdef IND_TIMESTEPS
@@ -221,7 +223,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  use fileutils,        only:make_tags_unique
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
- integer         :: ierr,i,j,nerr,nwarn,ialphaloc
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc,merge_n,merge_ij(maxptmass)
  integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
@@ -462,6 +464,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  dtsinkgas = huge(dtsinkgas)
  r_crit2   = r_crit*r_crit
  rho_crit  = rho_crit_cgs/unit_density
+ r_merge_uncond2 = r_merge_uncond**2
+ r_merge_cond2   = r_merge_cond**2
+ r_merge2        = max(r_merge_uncond2,r_merge_cond2)
  if (rhofinal_cgs > 0.) then
     rhofinal1 = unit_density/rhofinal_cgs
  else
@@ -472,7 +477,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time)
+                             iexternalforce,time,merge_ij,merge_n)
     dtsinksink = C_force*dtsinksink
     write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -509,6 +514,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
     write(iprint,*) ' rho_crit         == ',rho_crit_cgs,'g cm^{-3}'
     write(iprint,*) ' m(h_fact/h_acc)^3 = ', massoftype(igas)*(hfactfile/h_acc)**3*unit_density,'g cm^{-3}'
+    if (r_merge_uncond < 2.0*h_acc) then
+       write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
+    endif
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this
@@ -543,6 +551,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  if (do_radiation) nderivinit = 1
 
+ eos_vars(3,:) = -1.0 ! initial guess for temperature overridden in eos
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&

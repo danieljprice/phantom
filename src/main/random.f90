@@ -38,6 +38,7 @@ real function ran2(s1)
  integer, intent(inout) :: s1
  integer, save :: s2 = 123456789
 
+ if (s1 < 0) s2 = 123456789
  ran2 = get_random(s1,s2)
 
 end function ran2

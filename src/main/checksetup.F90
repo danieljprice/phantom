@@ -522,7 +522,9 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !  or within each others accretion radii
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     do j=i+1,nptmass
+       if (xyzmh_ptmass(4,j) < 0.) cycle
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
@@ -541,21 +543,20 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  n = 0
  do i=1,nptmass
-    if (.not.in_range(xyzmh_ptmass(4,i),0.)) then
+    if (.not.in_range(xyzmh_ptmass(4,i))) then
        nerror = nerror + 1
        print*,' Error in setup: sink ',i,' mass = ',xyzmh_ptmass(4,i)
-    elseif (xyzmh_ptmass(4,i) < tiny(0.)) then
+    elseif (xyzmh_ptmass(4,i) < 0.) then
+       print*,' Sink ',i,' has previously merged with another sink'
        n = n + 1
     endif
  enddo
- if (n > 0) then
-    print*,'WARNING: ',n,' sink particles have zero mass '
-    nwarn = nwarn + 1
- endif
+ if (n > 0) print*,'The ptmass arrays have ',n,' sinks that have previously merged (i.e. have mass < 0)'
  !
  !  check that accretion radii are positive
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
     if (hsink <= 0.) then
        nerror = nerror + 1
