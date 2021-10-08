@@ -43,7 +43,7 @@ module readwrite_infile
 !   - nfulldump          : *full dump every n dumps*
 !   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
 !   - nmaxdumps          : *stop after n full dumps (-ve=ignore)*
-!   - nout               : *number of steps between dumps (-ve=ignore)*
+!   - nout               : *write dumpfile every n dtmax (-ve=ignore)*
 !   - overcleanfac       : *factor to increase cleaning speed (decreases time step)*
 !   - psidecayfac        : *div B diffusion parameter*
 !   - ptol               : *tolerance on pmom iterations*
