@@ -31,7 +31,7 @@ module cons2primsolver
 !!!!!!====================================================
 !
 !
-! NOTE: cons2prim has been written for only adiabatic eos.
+! NOTE: cons2prim has been written for only adiabatic & idealplusrad eos.
 !
 !
 !!!!!!====================================================
@@ -135,15 +135,14 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,temp,sqrt_gamma_inv,gamma_old
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,temp,sqrt_gamma_inv
  real :: ucgs,Pcgs,denscgs
  integer :: niter, i
- real, parameter :: tol = 1.e-12
+ real, parameter :: tol = 1.e-13
  integer, parameter :: nitermax = 100
  logical :: converged
  ierr = 0
 
- !print*, 'in', dens, u, P, rho, en, pmom ! ppp
  ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
  sqrtg_inv = 1./sqrtg
@@ -173,40 +172,31 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
 
  do while (.not. converged .and. niter < nitermax)
     enth_old = enth
-    !gamma_old = gamma
     lorentz_LEO2 = 1.+pmom2/enth_old**2
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
-    !print*, dens, term, lorentz_LEO
 
     if (ien_type == ien_entropy) then
-       !select case(ieos)
-       !case(12)
-          !print*, 'before', gamma
-          !call update_gamma(ien_type,dens,u,en,gamma,ierr)
-          !print*, 'update', gamma
-          !read*
-       !end select
-       !print*, 'PT', P
        p = en*dens**gamma
-       !print*, 'P', P
     elseif (ieos==4) then
        p = (gamma-1.)*dens*polyk
     else
        p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     endif
-    !print*, 'iter', niter, 'P', p ! ppp
 
     enth = 0.
     if (p > 0.) then
       ucgs = u*unit_ergg
       Pcgs = P*unit_pressure
       denscgs = dens*unit_density
+
       call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
       u = ucgs/unit_ergg
-      enth = 1.+u+P/dens
+
+      enth = 1. + u + P/dens
+      gamma = 1. + P/(u*dens)
+      gamfac = gamma/(gamma-1.)
     endif
-    !call get_enthalpy(enth,dens,p,gamma)
 
     f = enth-enth_old
 
@@ -248,77 +238,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  enddo
 
  call get_u(u,P,dens,gamma)
- !print*, 'u', u, P, dens, gamma ! ppp
+
 end subroutine conservative2primitive
-
-subroutine update_gamma(ien_type,dens,u,en,gamma,ierr)
- use physcon,          only:kb_on_mh,radconst
- use eos,              only:gmw,ieos
- use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_enfromtemp
- use units,            only:unit_pressure,unit_density,unit_ergg
- real, intent(in)     :: dens,en,u
- integer, intent(in)  :: ien_type
- real, intent(inout)  :: gamma
- integer, intent(out) :: ierr
- real, parameter      :: tol = 1.e-12
- real                 :: T,gamma1,gamma2,rhogamma,encgs,Pcgs,denscgs!,ucgs
- real                 :: dPdT,dudT,PT,uT,dgammadT
- real                 :: f,df,T_old
- integer              :: niter
- integer, parameter   :: nitermax = 100
- logical              :: converged
- real::pc,uc
-
- ! unit conversion
- Pcgs = en*dens**gamma*unit_pressure
- denscgs = dens*unit_density
- !ucgs = u*unit_ergg
- encgs = en*unit_ergg
-
- ! use pure rad temp as the initial guess
- T = (3.*Pcgs / radconst)**(1./4.)
- !print*, 'guess', T, pcgs, denscgs, gamma
- !read*
- converged = .false.
- niter = 0
- ierr = 0
- !print*, '                n      gamma                t_old,            t'
-
- do while (.not. converged .and. niter < nitermax)
-    T_old = T
-
-    select case(ieos)
-    case(12)
-      call get_idealplusrad_pres(denscgs,T,gmw,PT)
-      !Pc = denscgs*kb_on_mh*T/gmw + 1./3.*radconst*T**4.
-      dPdT = denscgs*kb_on_mh/gmw + 4./3.*radconst*T**3.
-      call get_idealplusrad_enfromtemp(denscgs,T,gmw,uT)
-      !uc = 3./2.*kb_on_mh*T/gmw + radconst*T**4./denscgs
-      dudT = 3./2.*kb_on_mh/gmw + 4.*radconst*T**3./denscgs
-      !print*, 'Pu', PT, Pc, ut, uc
-    case(2)
-      PT = denscgs*kb_on_mh*T/gmw
-      dPdT = denscgs*kb_on_mh/gmw
-      uT = 3./2.*kb_on_mh*T/gmw
-      dudT = 3./2.*kb_on_mh/gmw
-    end select
-
-    gamma = 1. + PT/(denscgs*uT)
-    gamma1 = gamma - 1
-    dgammadT = 1/denscgs*(dPdT/uT - PT/uT**2*dudT)
-
-    f = encgs/gamma1*denscgs**gamma1 - uT
-    df = encgs/gamma1**2 * dgammadT * denscgs**gamma1 * (gamma1*log(denscgs) - 1) - dudT
-    T = T - f/df
-
-    print*, 'val',niter, gamma, T_old, T
-
-    niter = niter + 1
-    if (abs(T_old-T)/T < tol) converged = .true.
- enddo
- read*
- if (.not. converged) ierr = 1
-
-end subroutine update_gamma
 
 end module cons2primsolver
