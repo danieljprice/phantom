@@ -18,8 +18,7 @@ module evolvesplit
 !
 ! :Dependencies: centreofmass, energies, evwrite, fileutils, forcing,
 !   inject, io, mpiutils, options, part, quitdump, readwrite_dumps,
-!   readwrite_infile, sort_particles, step_lf_global, timestep,
-!   timestep_ind, timing
+!   readwrite_infile, step_lf_global, timestep, timestep_ind, timing
 !
 #if IND_TIMESTEPS
  use timestep_ind, only:maxbins
