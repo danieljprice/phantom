@@ -104,7 +104,7 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
     temp_new = tempi - correction
     if (temp_new > 1.2 * tempi) then
        tempi = 1.2 * tempi
-    else if (temp_new < 0.8 * tempi) then
+    elseif (temp_new < 0.8 * tempi) then
        tempi = 0.8 * tempi
     else
        tempi = temp_new
