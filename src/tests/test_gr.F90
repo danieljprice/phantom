@@ -270,9 +270,7 @@ subroutine test_combinations_all(ntests,npass)
 
  do i = 1,size(eos_to_test)
     ieos = eos_to_test(i)
-    print*, 'ieos =', ieos
     call test_combinations(ntests,npass)
-    read*
  enddo
 
 end subroutine test_combinations_all
@@ -290,7 +288,7 @@ subroutine test_combinations(ntests,npass)
  use metric,          only:metric_type
  integer, intent(inout) :: ntests,npass
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(4),density(4),errmax,errmaxg,errmaxc,errmaxd
+ real    :: utherm(7),density(7),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
@@ -301,8 +299,9 @@ subroutine test_combinations(ntests,npass)
  real, parameter :: tolc = 1.e-12
  real, parameter :: told = 4.e-7
 
- write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
- write(*,'(a,/)') '    metric type = '//trim(metric_type)
+ write(*,'(/,a)')    '--> testing metric and cons2prim with combinations of variables'
+ write(*,'(a)')      '    metric type = '//trim(metric_type)
+ write(*,'(a,I4,/)') '    eos         = ', ieos
 
  ntests = ntests + 4
  ncheck_metric = 0
@@ -329,8 +328,8 @@ subroutine test_combinations(ntests,npass)
  vy = vx
  vz = vx
 
- utherm   = (/1.e-3,2.,10.,100./)
- density  = (/1.e-10,2.,10.,100./)
+ utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
+ density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
 
  do i=1,size(radii)
     ri = radii(i)
@@ -373,8 +372,7 @@ subroutine test_combinations(ntests,npass)
                             dens = density(jj)
                             call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
                             p = pondens*dens
-                            !print*, 'ini', dens, u, p
-                            call test_cons2prim_i_var_gamma(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+                            call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
                          enddo
                       enddo
                    endif
@@ -472,103 +470,29 @@ end subroutine test_metric_derivs_i
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy,ien_etotal
- use metric_tools,    only:pack_metric
- use eos,             only:gamma
- real, intent(in) :: x(1:3),v(1:3),dens,u,p,tol
- integer, intent(inout) :: ncheck,nfail
- real,    intent(inout) :: errmax
- real :: metrici(0:3,0:3,2)
- real :: rho,pmom(1:3),en
- real :: v_out(1:3),dens_out,u_out,p_out
- real :: toli
- integer :: ierr, i, j, nfailprev, ien_type
-
- over_energy_variables: do i = 1,2
-    !print*, i, v, dens, u
-    ! Used for initial guess in conservative2primitive
-    v_out    = v
-    dens_out = dens
-    u_out    = u
-    p_out    = p
-    errmax   = 0.
-    nfailprev = nfail
-
-    call pack_metric(x,metrici)
-    if (i == 2) then
-       ien_type = ien_entropy
-       toli = tol
-    else
-       ien_type = ien_etotal
-       toli = 5.e-10
-    endif
-    call primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
-    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_type)
-
-    call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
-    do j=1,3
-       call checkvalbuf(v_out(j),v(j),toli,'[F]: v_out',nfail,ncheck,errmax)
-    enddo
-    call checkvalbuf(dens_out,dens,toli,'[F]: dens_out',nfail,ncheck,errmax)
-    call checkvalbuf(u_out,u,toli,'[F]: u_out',nfail,ncheck,errmax)
-    call checkvalbuf(p_out,p,toli,'[F]: p_out',nfail,ncheck,errmax)
-
-    if (nfail > nfailprev .and. nfail < 10) then
-       print*,'-- cons2prim test failed with'
-       print*,'  - IN:'
-       print*,'     x    =',x
-       print*,'     v    =',v
-       print*,'     dens =',dens
-       print*,'     u    =',u
-       print*,'     p    =',p
-       print*,'  - OUT:'
-       print*,'     v    =',v_out
-       print*,'     dens =',dens_out
-       print*,'     u    =',u_out
-       print*,'     p    =',p_out
-       print*,''
-    endif
- enddo over_energy_variables
-
-end subroutine test_cons2prim_i
-
-subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
- use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy,ien_etotal
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
- use units,           only:unit_ergg,unit_pressure,unit_density
+ use physcon,         only:radconst,kb_on_mh
  real, intent(in) :: x(1:3),v(1:3),dens,p,tol
  real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
- real :: rho2,pmom2(1:3),en2,gamma
- real :: p2,u2,dens2,temp2,gamma2,v2(1:3),enth2
+ real :: rho2,pmom2(1:3),en2
+ real :: p2,u2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
- real :: denscgs,Pcgs,ucgs
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
  real :: toli
- integer :: ierr, i, j, nfailprev, ien_type
+ integer :: ierr,i,j,nfailprev,ien_type
 
- ucgs = u*unit_ergg
- Pcgs = P*unit_pressure
- denscgs = dens*unit_density
- call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp2,ierr)
- dens2 = dens*10. ! perturb the state
- u2 = ucgs/unit_ergg
+ dens2 = dens**2. ! perturb the state
+
+ u2 = u
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),u2)
  P2 = pondens2 * dens2
- denscgs = dens2*unit_density
- Pcgs = P2*unit_pressure
- call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp2,ierr)
- u2 = ucgs/unit_ergg
  v2 = v
- if (ieos==12) then
-    gamma = 1. + P/(dens*u)
-   print*, 'state 1', u, P, dens, gamma, v
-   gamma2 = 1. + P2/(dens2*u2)
-   print*, 'state 2', u2, P2, dens2, gamma2, v2
- endif
- over_energy_variables: do i = 1,1
+
+ over_energy_variables: do i = 1,2
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
@@ -578,31 +502,19 @@ subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     nfailprev = nfail
 
     call pack_metric(x,metrici)
-    call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown)
     if (i == 2) then
        ien_type = ien_entropy
-       toli = tol
+       toli = 1.5e-11
     else
        ien_type = ien_etotal
        toli = 5.e-10
     endif
-    gamma2 = 1. + P2/(dens2*u2)
 
-    if (ieos==12) then
-    !if (.true.) then
-       print*, 'ini',ien_type, dens2, u2, p2, gamma2
-       print*, '   ', v2
-    endif
     call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
     call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho2,pmom2,en2,ierr,ien_type)
+
+    gamma2 = 1. + P2/(dens2*u2)
     gamma_out = 1. + P_out/(dens_out*u_out)
-    if (ieos==12) then
-    !if (.true.) then
-      !print*, 'out',ien_type, dens_out, u_out, p_out, gamma_out
-      print*, 'out', u_out, P_out, dens_out, gamma_out, v_out
-      print*, '   ', v_out
-      read*
-    endif
 
     call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
     do j=1,3
@@ -617,11 +529,11 @@ subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
        print*,'-- cons2prim test failed with'
        print*,'  - IN:'
        print*,'     x    =',x
-       print*,'     v    =',v
-       print*,'     dens =',dens
-       print*,'     u    =',u
-       print*,'     p    =',p
-       print*,'     gamma=',gamma
+       print*,'     v    =',v2
+       print*,'     dens =',dens2
+       print*,'     u    =',u2
+       print*,'     p    =',p2
+       print*,'     gamma=',gamma2
        print*,'  - OUT:'
        print*,'     v    =',v_out
        print*,'     dens =',dens_out
@@ -632,6 +544,6 @@ subroutine test_cons2prim_i_var_gamma(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     endif
  enddo over_energy_variables
 
-end subroutine test_cons2prim_i_var_gamma
+end subroutine test_cons2prim_i
 
 end module testgr
