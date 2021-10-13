@@ -96,6 +96,7 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
 
  iter = 0
  correction = huge(0.)
+ tempi = min((3.*presi/radconst)**0.25, presi*mu/(rhoi*kb_on_mh))
  do while (abs(correction) > tolerance*tempi .and. iter < iter_max)
     numerator   = presi - rhoi*kb_on_mh*tempi/mu - radconst*tempi**4 /3.
     denominator =  - rhoi*kb_on_mh/mu - 4./3.*radconst*tempi**3
