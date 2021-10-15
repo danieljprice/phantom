@@ -14,7 +14,7 @@ module dtypekdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi, mpiutils
+! :Dependencies: io, mpi, mpiutils
 !
  implicit none
 

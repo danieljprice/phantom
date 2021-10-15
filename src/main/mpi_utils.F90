@@ -1551,14 +1551,14 @@ subroutine fill_buffer_i1val(xbuffer,ival,nbuf)
 end subroutine fill_buffer_i1val
 
 subroutine fill_buffer_i8val(xbuffer,ival,nbuf)
-   real,            intent(inout) :: xbuffer(:)
-   integer(kind=8), intent(in)    :: ival
-   integer,         intent(inout) :: nbuf
+ real,            intent(inout) :: xbuffer(:)
+ integer(kind=8), intent(in)    :: ival
+ integer,         intent(inout) :: nbuf
 
-   nbuf = nbuf + 1
-   xbuffer(nbuf) = real(ival)
+ nbuf = nbuf + 1
+ xbuffer(nbuf) = real(ival)
 
-  end subroutine fill_buffer_i8val
+end subroutine fill_buffer_i8val
 
 !--------------------------------------------------------------------------
 !+
