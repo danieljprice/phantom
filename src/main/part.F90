@@ -1220,17 +1220,17 @@ subroutine reorder_particles(iorder,np)
  real    :: xtemp(ipartbufsize)
 
  do i=1,np
-   isrc = iorder(i)
+    isrc = iorder(i)
 
-   ! If particle has already been moved
-   do while (isrc < i)
-      isrc = iorder(isrc)
-   enddo
+    ! If particle has already been moved
+    do while (isrc < i)
+       isrc = iorder(isrc)
+    enddo
 
-   ! Swap particles around
-   call fill_sendbuf(i,xtemp)
-   call copy_particle_all(isrc,i,.false.)
-   call unfill_buffer(isrc,xtemp)
+    ! Swap particles around
+    call fill_sendbuf(i,xtemp)
+    call copy_particle_all(isrc,i,.false.)
+    call unfill_buffer(isrc,xtemp)
 
  enddo
 
@@ -1561,15 +1561,15 @@ end subroutine copy_arrayint1
 !----------------------------------------------------------------
 
 subroutine copy_arrayint8(iarray,ilist)
-   integer(kind=8), intent(inout) :: iarray(:)
-   integer,         intent(in)    :: ilist(:)
-   integer(kind=8) :: iarraytemp(size(iarray(:)))
+ integer(kind=8), intent(inout) :: iarray(:)
+ integer,         intent(in)    :: ilist(:)
+ integer(kind=8) :: iarraytemp(size(iarray(:)))
 
-   iarraytemp(:) = iarray(ilist(:))
-   iarray = iarraytemp
+ iarraytemp(:) = iarray(ilist(:))
+ iarray = iarraytemp
 
-   return
-  end subroutine copy_arrayint8
+ return
+end subroutine copy_arrayint8
 
 !----------------------------------------------------------------
 !+
