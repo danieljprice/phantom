@@ -32,11 +32,14 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_gr(ntests,npass)
- use io,  only:id,master
+ use io,      only:id,master
+ use units,   only:set_units
+ use physcon, only:solarm
  integer, intent(inout)   :: ntests,npass
 
+ call set_units(mass=1.d6*solarm,G=1.d0,c=1.d0)
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
- call test_combinations(ntests,npass)
+ call test_combinations_all(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
@@ -259,6 +262,24 @@ end subroutine calculate_angmom
 !  Test various combinations of position, velocity and fluid quantities
 !+
 !-----------------------------------------------------------------------
+subroutine test_combinations_all(ntests,npass)
+ use eos, only:ieos
+ integer, intent(inout) :: ntests,npass
+ integer, parameter     :: eos_to_test(2) = (/2,12/)
+ integer                :: i
+
+ do i = 1,size(eos_to_test)
+    ieos = eos_to_test(i)
+    call test_combinations(ntests,npass)
+ enddo
+
+end subroutine test_combinations_all
+
+!-----------------------------------------------------------------------
+!+
+!  Test various combinations of position, velocity and fluid quantities
+!+
+!-----------------------------------------------------------------------
 subroutine test_combinations(ntests,npass)
  use physcon,         only:pi
  use eos,             only:gamma,equationofstate,ieos
@@ -267,7 +288,7 @@ subroutine test_combinations(ntests,npass)
  use metric,          only:metric_type
  integer, intent(inout) :: ntests,npass
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(4),density(4),errmax,errmaxg,errmaxc,errmaxd
+ real    :: utherm(7),density(7),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
@@ -278,8 +299,9 @@ subroutine test_combinations(ntests,npass)
  real, parameter :: tolc = 1.e-12
  real, parameter :: told = 4.e-7
 
- write(*,'(/,a)') '--> testing metric and cons2prim with combinations of variables'
- write(*,'(a,/)') '    metric type = '//trim(metric_type)
+ write(*,'(/,a)')    '--> testing metric and cons2prim with combinations of variables'
+ write(*,'(a)')      '    metric type = '//trim(metric_type)
+ write(*,'(a,I4,/)') '    eos         = ', ieos
 
  ntests = ntests + 4
  ncheck_metric = 0
@@ -295,6 +317,7 @@ subroutine test_combinations(ntests,npass)
  errmaxc = 0.
  errmaxd = 0.
 
+ ! ieos=12
  gamma = 5./3.
 
  radii  = (/2.1,2.5,3.0,5.0,10.0/)
@@ -305,8 +328,8 @@ subroutine test_combinations(ntests,npass)
  vy = vx
  vz = vx
 
- utherm   = (/0.,2.,10.,100./)
- density  = (/1.,2.,10.,100./)
+ utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
+ density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
 
  do i=1,size(radii)
     ri = radii(i)
@@ -446,52 +469,81 @@ end subroutine test_metric_derivs_i
 !+
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
- use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy
- use metric_tools,    only:pack_metric
- use eos,             only:gamma
- real, intent(in) :: x(1:3),v(1:3),dens,u,p,tol
+ use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy,ien_etotal
+ use metric_tools,    only:pack_metric,unpack_metric
+ use eos,             only:ieos,equationofstate,calc_temp_and_ene
+ use physcon,         only:radconst,kb_on_mh
+ real, intent(in) :: x(1:3),v(1:3),dens,p,tol
+ real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
- real :: rho,pmom(1:3),en
- real :: v_out(1:3),dens_out,u_out,p_out
- integer :: ierr, j, nfailprev
+ real :: rho2,pmom2(1:3),en2
+ real :: p2,u2,dens2,gamma2,v2(1:3)
+ real :: pondens2,spsound2
+ real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
+ real :: toli
+ integer :: ierr,i,j,nfailprev,ien_type
 
- ! Used for initial guess in conservative2primitive
- v_out    = v
- dens_out = dens
- u_out    = u
- p_out    = p
- errmax   = 0.
- nfailprev = nfail
+ dens2 = dens**2. ! perturb the state
 
- call pack_metric(x,metrici)
- call primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_entropy,gamma)
- call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho,pmom,en,ierr,ien_entropy,gamma)
+ u2 = u
+ call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),u2)
+ P2 = pondens2 * dens2
+ v2 = v
 
- call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
- do j=1,3
-    call checkvalbuf(v_out(j),v(j),tol,'[F]: v_out',nfail,ncheck,errmax)
- enddo
- call checkvalbuf(dens_out,dens,tol,'[F]: dens_out',nfail,ncheck,errmax)
- call checkvalbuf(u_out,u,tol,'[F]: u_out',nfail,ncheck,errmax)
- call checkvalbuf(p_out,p,tol,'[F]: p_out',nfail,ncheck,errmax)
+ over_energy_variables: do i = 1,2
+    ! Used for initial guess in conservative2primitive
+    v_out    = v
+    dens_out = dens
+    u_out    = u
+    p_out    = p
+    errmax   = 0.
+    nfailprev = nfail
 
- if (nfail > nfailprev .and. nfail < 10) then
-    print*,'-- cons2prim test failed with'
-    print*,'  - IN:'
-    print*,'     x    =',x
-    print*,'     v    =',v
-    print*,'     dens =',dens
-    print*,'     u    =',u
-    print*,'     p    =',p
-    print*,'  - OUT:'
-    print*,'     v    =',v_out
-    print*,'     dens =',dens_out
-    print*,'     u    =',u_out
-    print*,'     p    =',p_out
-    print*,''
- endif
+    call pack_metric(x,metrici)
+    if (i == 2) then
+       ien_type = ien_entropy
+       toli = 1.5e-11
+    else
+       ien_type = ien_etotal
+       toli = 5.e-10
+    endif
+
+    call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
+    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho2,pmom2,en2,ierr,ien_type)
+
+    gamma2 = 1. + P2/(dens2*u2)
+    gamma_out = 1. + P_out/(dens_out*u_out)
+
+    call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
+    do j=1,3
+       call checkvalbuf(v_out(j),v2(j),toli,'[F]: v_out',nfail,ncheck,errmax)
+    enddo
+    call checkvalbuf(dens_out,dens2,toli,'[F]: dens_out',nfail,ncheck,errmax)
+    call checkvalbuf(u_out,u2,toli,'[F]: u_out',nfail,ncheck,errmax)
+    call checkvalbuf(p_out,p2,toli,'[F]: p_out',nfail,ncheck,errmax)
+    call checkvalbuf(gamma_out,gamma2,toli,'[F]: gamma_out',nfail,ncheck,errmax)
+
+    if (nfail > nfailprev .and. nfail < 10) then
+       print*,'-- cons2prim test failed with'
+       print*,'  - IN:'
+       print*,'     x    =',x
+       print*,'     v    =',v2
+       print*,'     dens =',dens2
+       print*,'     u    =',u2
+       print*,'     p    =',p2
+       print*,'     gamma=',gamma2
+       print*,'  - OUT:'
+       print*,'     v    =',v_out
+       print*,'     dens =',dens_out
+       print*,'     u    =',u_out
+       print*,'     p    =',p_out
+       print*,'     gamma=',gamma_out
+       print*,''
+    endif
+ enddo over_energy_variables
+
 end subroutine test_cons2prim_i
 
 end module testgr
