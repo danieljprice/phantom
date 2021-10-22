@@ -25,19 +25,27 @@ module setup
 !   - Ratm_in       : *inner atmosphere radius (planet radii)*
 !   - Ratm_out      : *outer atmosphere radius (planet radii)*
 !   - accr1         : *single star accretion radius*
+!   - accr1a        : *tight binary 1 primary accretion radius*
+!   - accr1b        : *tight binary 1 secondary accretion radius*
 !   - accr2         : *perturber accretion radius*
-!   - accr2a        : *tight binary primary accretion radius*
-!   - accr2b        : *tight binary secondary accretion radius*
+!   - accr2a        : *tight binary 2 primary accretion radius*
+!   - accr2b        : *tight binary 2 secondary accretion radius*
 !   - alphaSS       : *desired alphaSS*
 !   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
 !   - bhspin        : *black hole spin*
 !   - bhspinangle   : *black hole spin angle (deg)*
-!   - binary2_O     : *tight binary Omega, PA of ascending node (deg)*
-!   - binary2_a     : *tight binary semi-major axis*
-!   - binary2_e     : *tight binary eccentricity*
-!   - binary2_f     : *tight binary f, initial true anomaly (deg,180=apastron)*
-!   - binary2_i     : *tight binary i, inclination (deg)*
-!   - binary2_w     : *tight binary w, argument of periapsis (deg)*
+!   - binary1_O     : *tight binary 1 Omega, PA of ascending node (deg)*
+!   - binary1_a     : *tight binary 1 semi-major axis*
+!   - binary1_e     : *tight binary 1 eccentricity*
+!   - binary1_f     : *tight binary 1 f, initial true anomaly (deg,180=apastron)*
+!   - binary1_i     : *tight binary 1 i, inclination (deg)*
+!   - binary1_w     : *tight binary 1 w, argument of periapsis (deg)*
+!   - binary2_O     : *tight binary 2 Omega, PA of ascending node (deg)*
+!   - binary2_a     : *tight binary 2 semi-major axis*
+!   - binary2_e     : *tight binary 2 eccentricity*
+!   - binary2_f     : *tight binary 2 f, initial true anomaly (deg,180=apastron)*
+!   - binary2_i     : *tight binary 2 i, inclination (deg)*
+!   - binary2_w     : *tight binary 2 w, argument of periapsis (deg)*
 !   - binary_O      : *wide binary Omega, PA of ascending node (deg)*
 !   - binary_a      : *wide binary semi-major axis*
 !   - binary_e      : *wide binary eccentricity*
@@ -60,7 +68,8 @@ module setup
 !   - np            : *number of gas particles*
 !   - nplanets      : *number of planets*
 !   - nsinks        : *number of sinks*
-!   - q2            : *tight binary mass ratio*
+!   - q1            : *tight binary 1 mass ratio*
+!   - q2            : *tight binary 2 mass ratio*
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
@@ -91,7 +100,7 @@ module setup
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,rad,radprop,ikappa,iradxi
- use physcon,          only:au,solarm,jupiterm,earthm,pi,years
+ use physcon,          only:au,solarm,jupiterm,earthm,pi,years,c,gg
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
@@ -114,16 +123,19 @@ module setup
 
  !--central objects
  real    :: mcentral
- real    :: m1,m2,accr1,accr2,m2a,m2b,q2,accr2a,accr2b
+ real    :: m1,m2,m1a,m1b,m2a,m2b,q1,q2,accr1,accr2,accr1a,accr1b,accr2a,accr2b,
+ real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+ real    :: binary1_a,binary1_e,binary1_i,binary1_O,binary1_w,binary1_f
+ real    :: binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
  integer :: icentral,ipotential,ibinary
  integer :: nsinks,subst
- real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
  real    :: flyby_a,flyby_d,flyby_O,flyby_i
  real    :: bhspin,bhspinangle
  logical :: einst_prec
 
  !--discs
  integer, parameter :: maxdiscs = 4
+ real               :: pos1(3),vel1(3)
 
  character(len=20) :: disclabel
  character(len=*), dimension(maxdiscs), parameter :: disctype = &
@@ -793,7 +805,7 @@ subroutine setup_central_objects()
        print "(a,g10.3,a)",'                        Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
-
+       
        if (subst>0) then
           print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
        else
@@ -806,7 +818,6 @@ subroutine setup_central_objects()
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
-
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
@@ -814,6 +825,48 @@ subroutine setup_central_objects()
 
 
        mcentral = m1 + m2
+    case(4)
+       !-- hierarchical quadruple
+       nptmass  = 0
+       print "(/,a)",' Central objects represented by a hierarchical quadruple'
+       print "(a,g10.3,a)",'     First hierarchical level primary mass: ', m1,    trim(mass_unit)
+       print "(a,g10.3,a)",'   First hierarchical level secondary mass: ', m2,    trim(mass_unit)
+       print "(a,g10.3)",  '                    Wide binary mass ratio: ', m2/m1
+       print "(a,g10.3)",  '                 Tight binary 1 mass ratio: ', q1
+       print "(a,g10.3)",  '                 Tight binary 2 mass ratio: ', q2
+       print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+       print "(a,g10.3,a)",'                       Accretion Radius 1a: ', accr1a, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 1b: ', accr1b, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)       
+
+       if (subst>0) then
+          print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
+       endif
+
+       call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
+            posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
+            f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
+      
+      pos1=xyzmh_ptmass(1:3,2)
+      vel1=vxyz_ptmass(1:3,2)
+
+       call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+            posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
+            f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
+
+       call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
+            posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
+            f=binary1_f,accretion_radius1=accr1a,accretion_radius2=accr1b, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
+
+
+       mcentral = m1 + m2
+
     end select
  end select
 
@@ -822,7 +875,8 @@ subroutine setup_central_objects()
  do i=1,maxdiscs
     if (.not.iuse_disc(i)) star_m(i) = 0.
  enddo
-
+ !--setup for HD98800
+ star_m(4) = m2
 end subroutine setup_central_objects
 
 !--------------------------------------------------------------------------
@@ -1008,8 +1062,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        case default
           !--single disc or circumbinary or circumtriple
           !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini  = 0.
-          vorigini  = 0.
+          xorigini  = pos1
+          vorigini  = vel1
           Rochelobe = huge(0.)
        end select
 
@@ -1753,7 +1807,7 @@ subroutine setup_interactive()
     end select
  case (1)
     !--sink particle(s)
-    call prompt('How many sinks?',nsinks,1,3)
+    call prompt('How many sinks?',nsinks,1,4)
     select case (nsinks)
     case (1)
        !--single star
@@ -1819,6 +1873,40 @@ subroutine setup_interactive()
        binary2_f = 180.
        accr2a    = 0.1
        accr2b    = 0.1
+    case(4)
+       !-- hierarchical quadruple --!
+       print "(/,a)",'================================'
+       print "(a)",  '+++   HIERARCHICAL QUADRUPLE    +++'
+       print "(a)",  '================================'
+       ibinary = 0
+       
+       subst    = 12
+
+       !-- Tight binary 1
+       q1        = 1
+       m1a       = m1/(q1+1)
+       m1b       = m1*q1/(q1+1)
+       binary1_a = 10.
+       binary1_e = 0.
+       binary1_i = 0.
+       binary1_O = 0.
+       binary1_w = 270.
+       binary1_f = 180.
+       accr1    = 1.
+
+      !-- Tight binary 2
+      q2       = 1
+      m2a      = m2/(q2+1)
+      m2b      = m2*q2/(q2+1)
+      binary2_a = 1.
+      binary2_e = 0.
+      binary2_i = 0.
+      binary2_O = 0.
+      binary2_w = 270.
+      binary2_f = 180.
+      accr2a    = 0.1
+      accr2b    = 0.1
+
 
     end select
  end select
@@ -1844,7 +1932,7 @@ subroutine setup_interactive()
        iuse_disc(3) = .false.
        call prompt('Do you want a circumprimary disc?',iuse_disc(2))
        call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
-    elseif (nsinks==3) then
+    elseif (nsinks>=3) then
        !--bound binary: circum-triple
        iuse_disc(1) = .false.
        iuse_disc(2) = .false.
@@ -2206,6 +2294,39 @@ subroutine write_setupfile(filename)
        call write_inopt(accr1,'accr1','single star accretion radius',iunit)
        call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
        call write_inopt(accr2b,'accr2b','tight binary secondary accretion radius',iunit)
+    case(4)
+       !-- hierarchical quadruple
+       write(iunit,"(/,a)") '# options for hierarchical quadruple'
+
+       !-- masses
+       call write_inopt(m1,'m1','first hierarchical level primary mass',iunit)
+       call write_inopt(m2,'m2','first hierarchical level secondary mass',iunit)
+       call write_inopt(q1,'q1','tight binary mass ratio',iunit)
+       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
+       call write_inopt(subst,'subst','star to substitute',iunit)
+
+       !-- wide binary parameters
+       call write_inopt(binary1_a,'binary1_a','wide binary semi-major axis',iunit)
+       call write_inopt(binary1_e,'binary1_e','wide binary eccentricity',iunit)
+       call write_inopt(binary1_i,'binary1_i','wide binary i, inclination (deg)',iunit)
+       call write_inopt(binary1_O,'binary1_O','wide binary Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary1_w,'binary1_w','wide binary w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary1_f,'binary1_f','wide binary f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- tight parameters
+       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
+       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
+       call write_inopt(binary2_i,'binary2_i','tight binary i, inclination (deg)',iunit)
+       call write_inopt(binary2_O,'binary2_O','tight binary Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary2_w,'binary2_w','tight binary w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary2_f,'binary2_f','tight binary f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- accretion radii
+       call write_inopt(accr1a,'accr1a','single star accretion radius',iunit)
+       call write_inopt(accr1b,'accr1b','single star accretion radius',iunit)
+       call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
+       call write_inopt(accr2b,'accr2b','tight binary secondary accretion radius',iunit)
+
 
     end select
  end select
@@ -2441,7 +2562,7 @@ subroutine read_setupfile(filename,ierr)
  case (1)
     iexternalforce = 0
     !--sink particles
-    call read_inopt(nsinks,'nsinks',db,min=1,max=3,errcount=nerr)
+    call read_inopt(nsinks,'nsinks',db,min=1,max=4,errcount=nerr)
     select case (nsinks)
     case (1)
        !--single star
@@ -2503,6 +2624,37 @@ subroutine read_setupfile(filename,ierr)
 
        !-- accretion radii
        call read_inopt(accr1,'accr1',db,errcount=nerr)
+       call read_inopt(accr2a,'accr2a',db,errcount=nerr)
+       call read_inopt(accr2b,'accr2b',db,errcount=nerr)
+    case(4)
+       !-- hierarchical quadruple
+
+       !-- masses
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+       call read_inopt(q1,'q1',db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(q2,'q2',db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(subst,'subst',db,errcount=nerr)
+
+       !-- wide binary parameters
+       call read_inopt(binary1_a,'binary1_a',db,errcount=nerr)
+       call read_inopt(binary1_e,'binary1_e',db,errcount=nerr)
+       call read_inopt(binary1_i,'binary1_i',db,errcount=nerr)
+       call read_inopt(binary1_O,'binary1_O',db,errcount=nerr)
+       call read_inopt(binary1_w,'binary1_w',db,errcount=nerr)
+       call read_inopt(binary1_f,'binary1_f',db,errcount=nerr)
+
+       !-- tight parameters
+       call read_inopt(binary2_a,'binary2_a',db,errcount=nerr)
+       call read_inopt(binary2_e,'binary2_e',db,errcount=nerr)
+       call read_inopt(binary2_i,'binary2_i',db,errcount=nerr)
+       call read_inopt(binary2_O,'binary2_O',db,errcount=nerr)
+       call read_inopt(binary2_w,'binary2_w',db,errcount=nerr)
+       call read_inopt(binary2_f,'binary2_f',db,errcount=nerr)
+
+       !-- accretion radii
+       call read_inopt(accr1a,'accr1a',db,errcount=nerr)
+       call read_inopt(accr1b,'accr1b',db,errcount=nerr)
        call read_inopt(accr2a,'accr2a',db,errcount=nerr)
        call read_inopt(accr2b,'accr2b',db,errcount=nerr)
 
