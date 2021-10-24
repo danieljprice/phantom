@@ -123,7 +123,7 @@ module setup
 
  !--central objects
  real    :: mcentral
- real    :: m1,m2,m1a,m1b,m2a,m2b,q1,q2,accr1,accr2,accr1a,accr1b,accr2a,accr2b,
+ real    :: m1,m2,m1a,m1b,m2a,m2b,q1,q2,accr1,accr2,accr1a,accr1b,accr2a,accr2b
  real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
  real    :: binary1_a,binary1_e,binary1_i,binary1_O,binary1_w,binary1_f
  real    :: binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
@@ -834,17 +834,17 @@ subroutine setup_central_objects()
        print "(a,g10.3)",  '                    Wide binary mass ratio: ', m2/m1
        print "(a,g10.3)",  '                 Tight binary 1 mass ratio: ', q1
        print "(a,g10.3)",  '                 Tight binary 2 mass ratio: ', q2
-       print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+      !  print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
        print "(a,g10.3,a)",'                       Accretion Radius 1a: ', accr1a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 1b: ', accr1b, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)       
 
-       if (subst>0) then
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
-       else
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
-       endif
+      !  if (subst>0) then
+      !     print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
+      !  else
+      !     print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
+      !  endif
 
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
@@ -857,12 +857,12 @@ subroutine setup_central_objects()
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=12,ierr=ierr)
 
        call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
             posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
             f=binary1_f,accretion_radius1=accr1a,accretion_radius2=accr1b, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=11,ierr=ierr)
 
 
        mcentral = m1 + m2
@@ -1694,7 +1694,7 @@ subroutine set_tmax_dtmax()
  use setflyby, only:get_T_flyby
  use timestep, only:tmax,dtmax
 
- real :: period, period2
+ real :: period, period1, period2
 
  period2 = 0.
  if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
@@ -1703,6 +1703,13 @@ subroutine set_tmax_dtmax()
  elseif (icentral==1 .and. nsinks==3 .and. ibinary==0) then
     !--wide binary orbital period
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    !--tight binary orbital period
+    period2 = sqrt(4.*pi**2*binary2_a**3/m2)
+ elseif (icentral==1 .and. nsinks==4 .and. ibinary==0) then
+    !--wide binary orbital period
+    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    !--tight binary 1 orbital period
+    period1 = sqrt(4.*pi**2*binary1_a**3/m1)
     !--tight binary orbital period
     period2 = sqrt(4.*pi**2*binary2_a**3/m2)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
@@ -1722,7 +1729,7 @@ subroutine set_tmax_dtmax()
  if (period > 0. .and. nsinks<3) then
     if (deltat > 0.) dtmax = deltat*period
     if (norbits >= 0) tmax = norbits*period
- elseif (period > 0. .and. nsinks==3) then
+ elseif (period > 0. .and. nsinks>=3) then
     if (deltat < 0. .and. period2 > 0.) then
        dtmax = -deltat*period2
     elseif (deltat > 0.) then
@@ -1882,7 +1889,18 @@ subroutine setup_interactive()
        
        subst    = 12
 
-       !-- Tight binary 1
+      !-- Wide binary
+      m1       = 1.
+      m2       = 0.2
+      binary_a = 10.
+      binary_e = 0.
+      binary_i = 0.
+      binary_O = 0.
+      binary_w = 270.
+      binary_f = 180.
+      accr1    = 1.
+
+      !-- Tight binary 1
        q1        = 1
        m1a       = m1/(q1+1)
        m1b       = m1*q1/(q1+1)
@@ -2118,7 +2136,7 @@ subroutine setup_interactive()
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- elseif (icentral==1 .and. nsinks==3 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks>=3 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period'//new_line('A')// &
          '(enter a negative number to refer to the shorter period)',deltat)
     call prompt('Enter number of orbits to simulate'//new_line('A')// &
@@ -2306,20 +2324,28 @@ subroutine write_setupfile(filename)
        call write_inopt(subst,'subst','star to substitute',iunit)
 
        !-- wide binary parameters
-       call write_inopt(binary1_a,'binary1_a','wide binary semi-major axis',iunit)
-       call write_inopt(binary1_e,'binary1_e','wide binary eccentricity',iunit)
-       call write_inopt(binary1_i,'binary1_i','wide binary i, inclination (deg)',iunit)
-       call write_inopt(binary1_O,'binary1_O','wide binary Omega, PA of ascending node (deg)',iunit)
-       call write_inopt(binary1_w,'binary1_w','wide binary w, argument of periapsis (deg)',iunit)
-       call write_inopt(binary1_f,'binary1_f','wide binary f, initial true anomaly (deg,180=apastron)',iunit)
+       call write_inopt(binary_a,'binary_a','wide binary semi-major axis',iunit)
+       call write_inopt(binary_e,'binary_e','wide binary eccentricity',iunit)
+       call write_inopt(binary_i,'binary_i','wide binary i, inclination (deg)',iunit)
+       call write_inopt(binary_O,'binary_O','wide binary Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary_w,'binary_w','wide binary w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary_f,'binary_f','wide binary f, initial true anomaly (deg,180=apastron)',iunit)
 
-       !-- tight parameters
-       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
-       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
-       call write_inopt(binary2_i,'binary2_i','tight binary i, inclination (deg)',iunit)
-       call write_inopt(binary2_O,'binary2_O','tight binary Omega, PA of ascending node (deg)',iunit)
-       call write_inopt(binary2_w,'binary2_w','tight binary w, argument of periapsis (deg)',iunit)
-       call write_inopt(binary2_f,'binary2_f','tight binary f, initial true anomaly (deg,180=apastron)',iunit)
+       !-- tight binary 1 parameters
+       call write_inopt(binary1_a,'binary1_a','tight binary 1 semi-major axis',iunit)
+       call write_inopt(binary1_e,'binary1_e','tight binary 1 eccentricity',iunit)
+       call write_inopt(binary1_i,'binary1_i','tight binary 1 i, inclination (deg)',iunit)
+       call write_inopt(binary1_O,'binary1_O','tight binary 1 Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary1_w,'binary1_w','tight binary 1 w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary1_f,'binary1_f','tight binary 1 f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- tight binary 2 parameters
+       call write_inopt(binary2_a,'binary2_a','tight binary 2 semi-major axis',iunit)
+       call write_inopt(binary2_e,'binary2_e','tight binary 2 eccentricity',iunit)
+       call write_inopt(binary2_i,'binary2_i','tight binary 2 i, inclination (deg)',iunit)
+       call write_inopt(binary2_O,'binary2_O','tight binary 2 Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary2_w,'binary2_w','tight binary 2 w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary2_f,'binary2_f','tight binary 2 f, initial true anomaly (deg,180=apastron)',iunit)
 
        !-- accretion radii
        call write_inopt(accr1a,'accr1a','single star accretion radius',iunit)
@@ -2340,7 +2366,7 @@ subroutine write_setupfile(filename)
        enddo
        call write_inopt(use_global_iso,'use_global_iso',&
             'globally isothermal or Farris et al. (2014)',iunit)
-    elseif (nsinks == 3) then
+    elseif (nsinks >= 3) then
        write(iunit,"(/,a)") '# options for multiple discs'
        do i=4,maxdiscs
           call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
@@ -2637,6 +2663,14 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(subst,'subst',db,errcount=nerr)
 
        !-- wide binary parameters
+       call read_inopt(binary_a,'binary_a',db,errcount=nerr)
+       call read_inopt(binary_e,'binary_e',db,errcount=nerr)
+       call read_inopt(binary_i,'binary_i',db,errcount=nerr)
+       call read_inopt(binary_O,'binary_O',db,errcount=nerr)
+       call read_inopt(binary_w,'binary_w',db,errcount=nerr)
+       call read_inopt(binary_f,'binary_f',db,errcount=nerr)
+
+       !-- tight binary 1 parameters
        call read_inopt(binary1_a,'binary1_a',db,errcount=nerr)
        call read_inopt(binary1_e,'binary1_e',db,errcount=nerr)
        call read_inopt(binary1_i,'binary1_i',db,errcount=nerr)
@@ -2644,7 +2678,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(binary1_w,'binary1_w',db,errcount=nerr)
        call read_inopt(binary1_f,'binary1_f',db,errcount=nerr)
 
-       !-- tight parameters
+       !-- tight binary 2 parameters
        call read_inopt(binary2_a,'binary2_a',db,errcount=nerr)
        call read_inopt(binary2_e,'binary2_e',db,errcount=nerr)
        call read_inopt(binary2_i,'binary2_i',db,errcount=nerr)
@@ -2702,7 +2736,7 @@ subroutine read_setupfile(filename,ierr)
        endif
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
-    elseif (nsinks == 3) then
+    elseif (nsinks >= 3) then
        call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
     endif
  else
