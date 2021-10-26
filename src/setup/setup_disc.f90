@@ -135,7 +135,7 @@ module setup
 
  !--discs
  integer, parameter :: maxdiscs = 4
- real               :: pos1(3),vel1(3)
+ real               :: discpos(3),discvel(3)
 
  character(len=20) :: disclabel
  character(len=*), dimension(maxdiscs), parameter :: disctype = &
@@ -764,6 +764,8 @@ subroutine setup_central_objects()
        xyzmh_ptmass(ihsoft,nptmass) = accr1
        vxyz_ptmass                  = 0.
        mcentral                     = m1
+       discpos                      = 0.
+       discvel                      = 0.
     case (2)
        !--binary
        select case (ibinary)
@@ -793,6 +795,8 @@ subroutine setup_central_objects()
                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1
        end select
+       discpos = 0.
+       discvel = 0.
     case (3)
        !-- hierarchical triple
        nptmass  = 0
@@ -819,8 +823,13 @@ subroutine setup_central_objects()
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-      pos1=xyzmh_ptmass(1:3,2)
-      vel1=vxyz_ptmass(1:3,2)
+       if (iuse_disc(1)) then
+          discpos=xyzmh_ptmass(1:3,2)
+          discvel=vxyz_ptmass(1:3,2)
+       else
+          discpos = 0.
+          discvel = 0.
+       endif
 
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
@@ -862,8 +871,8 @@ subroutine setup_central_objects()
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-      pos1=xyzmh_ptmass(1:3,2)
-      vel1=vxyz_ptmass(1:3,2)
+       discpos=xyzmh_ptmass(1:3,2)
+       discvel=vxyz_ptmass(1:3,2)
 
        call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
          posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
@@ -885,8 +894,7 @@ subroutine setup_central_objects()
  do i=1,maxdiscs
     if (.not.iuse_disc(i)) star_m(i) = 0.
  enddo
- !--setup for HD98800
- star_m(4) = m2
+
 end subroutine setup_central_objects
 
 !--------------------------------------------------------------------------
@@ -1072,8 +1080,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        case default
           !--single disc or circumbinary or circumtriple
           !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini  = pos1
-          vorigini  = vel1
+          xorigini  = discpos
+          vorigini  = discvel
           Rochelobe = huge(0.)
        end select
 
@@ -1961,14 +1969,26 @@ subroutine setup_interactive()
        iuse_disc(3) = .false.
        call prompt('Do you want a circumprimary disc?',iuse_disc(2))
        call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
-    elseif (nsinks>=3) then
-       !--bound binary: circum-triple
-       iuse_disc(1) = .false.
-       iuse_disc(2) = .false.
-       iuse_disc(3) = .false.
-       iuse_disc(4) = .true.
-       print "(/,a)",'Setting circum-triple disc.'
-    endif
+       elseif (nsinks==3) then
+         !--bound binary: circum-triple
+         iuse_disc(1) = .false.
+         iuse_disc(2) = .false.
+         iuse_disc(3) = .false.
+         iuse_disc(4) = .true.
+         call prompt('Do you want a circum-triple disc?',iuse_disc(4))
+         if (.not.iuse_disc(4)) then
+            call prompt('Do you want a circumbinary disc around the first hierarchical level secondary?',iuse_disc(1))
+         else
+            print "(/,a)",'Setting circum-triple disc.'
+         endif
+       elseif (nsinks==4) then
+         !--2 bound binaries: circumbinary
+         iuse_disc(1) = .true.
+         iuse_disc(2) = .false.
+         iuse_disc(3) = .false.
+         iuse_disc(4) = .false.
+         print "(/,a)",'Setting circumbinary disc.'
+       endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
     ndiscs = count(iuse_disc)
@@ -2378,15 +2398,21 @@ subroutine write_setupfile(filename)
        enddo
        call write_inopt(use_global_iso,'use_global_iso',&
             'globally isothermal or Farris et al. (2014)',iunit)
-    elseif (nsinks >= 3) then
-       write(iunit,"(/,a)") '# options for multiple discs'
-       do i=4,maxdiscs
-          call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
-               //trim(disctype(i))//' disc',iunit)
-       enddo
-       call write_inopt(use_global_iso,'use_global_iso',&
+    elseif (nsinks == 3) then
+      write(iunit,"(/,a)") '# options for multiple discs'
+      do i=1,maxdiscs
+         call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
+              //trim(disctype(i))//' disc',iunit)
+      enddo
+      call write_inopt(use_global_iso,'use_global_iso',&
+           'globally isothermal or Farris et al. (2014)',iunit)
+    elseif (nsinks == 4) then
+      write(iunit,"(/,a)") '# options for multiple discs'
+      call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+            //trim(disctype(1))//' disc',iunit)
+      call write_inopt(use_global_iso,'use_global_iso',&
             'globally isothermal or Farris et al. (2014)',iunit)
-    endif
+   endif
  endif
  !--individual disc(s)
  do i=1,maxdiscs
@@ -2749,8 +2775,11 @@ subroutine read_setupfile(filename,ierr)
        endif
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
-    elseif (nsinks >= 3) then
+    elseif (nsinks == 3) then
        call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+    elseif (nsinks == 4) then
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     endif
  else
     iuse_disc(1) = .true.
