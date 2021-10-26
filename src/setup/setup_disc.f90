@@ -100,7 +100,7 @@ module setup
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,rad,radprop,ikappa,iradxi
- use physcon,          only:au,solarm,jupiterm,earthm,pi,years,c,gg
+ use physcon,          only:au,solarm,jupiterm,earthm,pi,years
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
@@ -805,7 +805,7 @@ subroutine setup_central_objects()
        print "(a,g10.3,a)",'                        Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
-       
+
        if (subst>0) then
           print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
        else
@@ -818,6 +818,10 @@ subroutine setup_central_objects()
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
+
+      pos1=xyzmh_ptmass(1:3,2)
+      vel1=vxyz_ptmass(1:3,2)
+
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
@@ -834,23 +838,24 @@ subroutine setup_central_objects()
        print "(a,g10.3)",  '                    Wide binary mass ratio: ', m2/m1
        print "(a,g10.3)",  '                 Tight binary 1 mass ratio: ', q1
        print "(a,g10.3)",  '                 Tight binary 2 mass ratio: ', q2
-      !  print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+       print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+       print "(a,g10.3,a)",'                        Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 1a: ', accr1a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 1b: ', accr1b, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
-       print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)       
+       print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
 
-      !  if (subst>0) then
-      !     print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
-      !  else
-      !     print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
-      !  endif
+       if (subst>0) then
+          print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
+       endif
 
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
-      
+
       pos1=xyzmh_ptmass(1:3,2)
       vel1=vxyz_ptmass(1:3,2)
 
@@ -1710,7 +1715,7 @@ subroutine set_tmax_dtmax()
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
     !--tight binary 1 orbital period
     period1 = sqrt(4.*pi**2*binary1_a**3/m1)
-    !--tight binary orbital period
+    !--tight binary 2 orbital period
     period2 = sqrt(4.*pi**2*binary2_a**3/m2)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
@@ -1886,7 +1891,7 @@ subroutine setup_interactive()
        print "(a)",  '+++   HIERARCHICAL QUADRUPLE    +++'
        print "(a)",  '================================'
        ibinary = 0
-       
+
        subst    = 12
 
       !-- Wide binary
@@ -1904,13 +1909,14 @@ subroutine setup_interactive()
        q1        = 1
        m1a       = m1/(q1+1)
        m1b       = m1*q1/(q1+1)
-       binary1_a = 10.
+       binary1_a = 1.
        binary1_e = 0.
        binary1_i = 0.
        binary1_O = 0.
        binary1_w = 270.
        binary1_f = 180.
-       accr1    = 1.
+       accr1a    = 0.1
+       accr1b    = 0.1
 
       !-- Tight binary 2
       q2       = 1
@@ -2319,8 +2325,8 @@ subroutine write_setupfile(filename)
        !-- masses
        call write_inopt(m1,'m1','first hierarchical level primary mass',iunit)
        call write_inopt(m2,'m2','first hierarchical level secondary mass',iunit)
-       call write_inopt(q1,'q1','tight binary mass ratio',iunit)
-       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
+       call write_inopt(q1,'q1','tight binary 1 mass ratio',iunit)
+       call write_inopt(q2,'q2','tight binary 2 mass ratio',iunit)
        call write_inopt(subst,'subst','star to substitute',iunit)
 
        !-- wide binary parameters
