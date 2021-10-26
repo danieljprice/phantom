@@ -128,7 +128,7 @@ module setup
  real    :: binary1_a,binary1_e,binary1_i,binary1_O,binary1_w,binary1_f
  real    :: binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
  integer :: icentral,ipotential,ibinary
- integer :: nsinks,subst
+ integer :: nsinks,subst,subst1,subst2
  real    :: flyby_a,flyby_d,flyby_O,flyby_i
  real    :: bhspin,bhspinangle
  logical :: einst_prec
@@ -838,18 +838,24 @@ subroutine setup_central_objects()
        print "(a,g10.3)",  '                    Wide binary mass ratio: ', m2/m1
        print "(a,g10.3)",  '                 Tight binary 1 mass ratio: ', q1
        print "(a,g10.3)",  '                 Tight binary 2 mass ratio: ', q2
-       print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+       print "(a,g10.3)",  '              First star to be substituted: ', abs(subst1)
+       print "(a,g10.3)",  '             Second star to be substituted: ', abs(subst2)
        print "(a,g10.3,a)",'                        Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 1a: ', accr1a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 1b: ', accr1b, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
 
-       if (subst>0) then
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
-       else
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
-       endif
+       if (subst1>0) then
+         print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: substituted star orbital plane'
+      else
+         print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: sky'
+      endif
+      if (subst2>0) then
+         print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: substituted star orbital plane'
+      else
+         print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: sky'
+      endif
 
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
@@ -859,16 +865,15 @@ subroutine setup_central_objects()
       pos1=xyzmh_ptmass(1:3,2)
       vel1=vxyz_ptmass(1:3,2)
 
+       call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
+         posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
+         f=binary1_f,accretion_radius1=accr1a,accretion_radius2=accr1b, &
+         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst1,ierr=ierr)
+
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=12,ierr=ierr)
-
-       call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
-            posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
-            f=binary1_f,accretion_radius1=accr1a,accretion_radius2=accr1b, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=11,ierr=ierr)
-
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst2,ierr=ierr)
 
        mcentral = m1 + m2
 
@@ -1892,8 +1897,6 @@ subroutine setup_interactive()
        print "(a)",  '================================'
        ibinary = 0
 
-       subst    = 12
-
       !-- Wide binary
       m1       = 1.
       m2       = 0.2
@@ -1906,6 +1909,7 @@ subroutine setup_interactive()
       accr1    = 1.
 
       !-- Tight binary 1
+       subst1    = 11
        q1        = 1
        m1a       = m1/(q1+1)
        m1b       = m1*q1/(q1+1)
@@ -1919,6 +1923,7 @@ subroutine setup_interactive()
        accr1b    = 0.1
 
       !-- Tight binary 2
+      subst2    = 12
       q2       = 1
       m2a      = m2/(q2+1)
       m2b      = m2*q2/(q2+1)
@@ -2327,7 +2332,8 @@ subroutine write_setupfile(filename)
        call write_inopt(m2,'m2','first hierarchical level secondary mass',iunit)
        call write_inopt(q1,'q1','tight binary 1 mass ratio',iunit)
        call write_inopt(q2,'q2','tight binary 2 mass ratio',iunit)
-       call write_inopt(subst,'subst','star to substitute',iunit)
+       call write_inopt(subst1,'subst1','first star to substitute',iunit)
+       call write_inopt(subst2,'subst2','second star to substitute',iunit)
 
        !-- wide binary parameters
        call write_inopt(binary_a,'binary_a','wide binary semi-major axis',iunit)
@@ -2666,7 +2672,8 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
        call read_inopt(q1,'q1',db,min=0.,max=1.,errcount=nerr)
        call read_inopt(q2,'q2',db,min=0.,max=1.,errcount=nerr)
-       call read_inopt(subst,'subst',db,errcount=nerr)
+       call read_inopt(subst1,'subst1',db,errcount=nerr)
+       call read_inopt(subst2,'subst2',db,errcount=nerr)
 
        !-- wide binary parameters
        call read_inopt(binary_a,'binary_a',db,errcount=nerr)
