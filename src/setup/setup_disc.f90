@@ -837,7 +837,7 @@ subroutine setup_central_objects()
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
 
 
-       mcentral = m1 + m2
+       mcentral = m2
     case(4)
        !-- hierarchical quadruple
        nptmass  = 0
@@ -884,7 +884,7 @@ subroutine setup_central_objects()
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst2,ierr=ierr)
 
-       mcentral = m1 + m2
+       mcentral = m2
 
     end select
  end select
@@ -2404,7 +2404,6 @@ subroutine write_setupfile(filename)
             //trim(disctype(1))//' disc',iunit)
       call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
             //trim(disctype(4))//' disc',iunit)
-      enddo
       call write_inopt(use_global_iso,'use_global_iso',&
            'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 4) then
