@@ -1987,7 +1987,7 @@ subroutine setup_interactive()
          iuse_disc(2) = .false.
          iuse_disc(3) = .false.
          iuse_disc(4) = .false.
-         print "(/,a)",'Setting circumbinary disc.'
+         print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
        endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
@@ -2400,9 +2400,10 @@ subroutine write_setupfile(filename)
             'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 3) then
       write(iunit,"(/,a)") '# options for multiple discs'
-      do i=1,maxdiscs
-         call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
-              //trim(disctype(i))//' disc',iunit)
+      call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+            //trim(disctype(1))//' disc',iunit)
+      call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
+            //trim(disctype(4))//' disc',iunit)
       enddo
       call write_inopt(use_global_iso,'use_global_iso',&
            'globally isothermal or Farris et al. (2014)',iunit)
