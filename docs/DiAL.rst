@@ -49,7 +49,7 @@ Clone a copy of Phantom into your home directory:
 ::
 
    $ cd ~
-   $ git clone https://USERNAME@bitbucket.org/danielprice/phantom.git
+   $ git clone https://github.com/danieljprice/phantom
 
 Performing a calculation
 ------------------------
@@ -144,7 +144,7 @@ and check status using the qstat command and your username, e.g.
 
    $ qstat -u [your username]
    Job ID                  Username  Queue    Jobname  SessID  NDS   TSK   Memory      Time  S  Time
-   22054.master.cm.cluste  [......]  dirac25x dp005    6678     1     36     16gb  01:00:00  Q       
+   22054.master.cm.cluste  [......]  dirac25x dp005    6678     1     36     16gb  01:00:00  Q
 
 When it has started, you can follow what the calculation is doing by
 looking at the .log file:
