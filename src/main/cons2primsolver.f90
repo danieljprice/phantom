@@ -270,7 +270,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
 
     niter = niter + 1
 
-    if (abs(enth-enth_old)/enth0 < tol .and. abs(gamma-gamma_old)/gamma0 < tol) converged = .true.
+    if (abs(enth-enth_old)/enth0 < tol) converged = .true.
  enddo
 
  if (.not.converged) ierr = 1
