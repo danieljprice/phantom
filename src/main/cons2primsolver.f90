@@ -14,7 +14,7 @@ module cons2primsolver
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, utils_gr
+! :Dependencies: eos, io, metric_tools, units, utils_gr
 !
  use eos, only:ieos,polyk
  implicit none
@@ -186,16 +186,16 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
 
     enth = 0.
     if (p > 0.) then
-      ucgs = u*unit_ergg
-      Pcgs = P*unit_pressure
-      denscgs = dens*unit_density
+       ucgs = u*unit_ergg
+       Pcgs = P*unit_pressure
+       denscgs = dens*unit_density
 
-      call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
-      u = ucgs/unit_ergg
+       call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
+       u = ucgs/unit_ergg
 
-      enth = 1. + u + P/dens
-      gamma = 1. + P/(u*dens)
-      gamfac = gamma/(gamma-1.)
+       enth = 1. + u + P/dens
+       gamma = 1. + P/(u*dens)
+       gamfac = gamma/(gamma-1.)
     endif
 
     f = enth-enth_old
