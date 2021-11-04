@@ -14,14 +14,14 @@ module cons2primsolver
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, utils_gr
+! :Dependencies: eos, io, metric_tools, units, utils_gr
 !
  use eos, only:ieos,polyk
  implicit none
 
  public :: conservative2primitive,primitive2conservative
 
- private :: get_u,get_enthalpy
+ private :: get_u
 
  integer, public, parameter :: &
       ien_etotal  = 1, &
@@ -31,7 +31,7 @@ module cons2primsolver
 !!!!!!====================================================
 !
 !
-! NOTE: cons2prim has been written for only adiabatic eos.
+! NOTE: cons2prim has been written for only adiabatic & idealplusrad eos.
 !
 !
 !!!!!!====================================================
@@ -66,21 +66,6 @@ pure subroutine get_u(u,P,dens,gamma)
 
 end subroutine get_u
 
-pure subroutine get_enthalpy(enth,dens,P,gamma)
- real, intent(in)  :: dens,P,gamma
- real, intent(out) :: enth
-
- ! Needed in dust case when dens = 0 causes P/dens = NaN and therefore enth = NaN
- ! or gamma=1 gives divide-by-zero
- if (abs(p) < tiny(p)) then
-    enth = 1.
- else
-    enth = 1.+p/dens*(gamma/(gamma-1.))
- endif
-
-end subroutine get_enthalpy
-!=========================
-
 !----------------------------------------------------------------
 !+
 !  Construct conserved variables from the primitive variables
@@ -88,22 +73,23 @@ end subroutine get_enthalpy
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,gamma)
+subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only:get_u0
  use metric_tools, only:unpack_metric
  use io,           only:error
  real, intent(in)  :: x(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,v(1:3),u,P,gamma
+ real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
+ real :: gam1
  integer :: i, mu, ierror
 
  v4U(0) = 1.
  v4U(1:3) = v(:)
 
- call get_enthalpy(enth,dens,p,gamma) !enth = 1.+ u + P/dens
+ enth = 1. + u + P/dens
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
  sqrtg = 1.
@@ -124,26 +110,35 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,gamm
  enddo
 
  if (ien_type == ien_entropy) then
-    en = P/(dens**gamma)
+    if (u > 0) then
+       gam1 = 1. + P/(dens*u)
+       en = P/(dens**gam1)
+    else
+       ! handle the case for u = 0
+       en = P/dens
+    endif
  else
     en = U0*enth*gvv + (1.+u)/U0
  endif
 
 end subroutine primitive2conservative
 
-pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type,gamma)
- use metric_tools, only: unpack_metric
+subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+ use metric_tools, only:unpack_metric
+ use units,        only:unit_ergg,unit_density,unit_pressure
+ use eos,          only:calc_temp_and_ene,ieos
  real, intent(in)    :: x(1:3),metrici(:,:,:)
- real, intent(inout) :: dens,P
- real, intent(out)   :: v(1:3),u
- real, intent(in)    :: rho,pmom(1:3),en,gamma
+ real, intent(inout) :: dens,P,u
+ real, intent(out)   :: v(1:3)
+ real, intent(in)    :: rho,pmom(1:3),en
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,temp,sqrt_gamma_inv
+ real :: ucgs,Pcgs,denscgs
  integer :: niter, i
- real, parameter :: tol = 1.e-12
+ real, parameter :: tol = 1.e-13
  integer, parameter :: nitermax = 100
  logical :: converged
  ierr = 0
@@ -161,11 +156,17 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
  enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
- call get_enthalpy(enth,dens,p,gamma)
+ enth = 1. + u + P/dens
+ if (u > tiny(0.)) then
+    gamma = 1. + P/(dens*u)
+ else
+    gamma = 5./3. ! use gamma for ideal gas
+ endif
 
  niter = 0
  converged = .false.
- term = rho*alpha*sqrtg_inv
+ sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
+ term = rho*sqrt_gamma_inv
  gamfac = gamma/(gamma-1.)
  pm_dot_b = dot_product(pmom,betaUP)
 
@@ -184,8 +185,18 @@ pure subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien
     endif
 
     enth = 0.
-    if (p > 0.) enth = 1.+p/dens*gamfac
-    !call get_enthalpy(enth,dens,p,gamma)
+    if (p > 0.) then
+       ucgs = u*unit_ergg
+       Pcgs = P*unit_pressure
+       denscgs = dens*unit_density
+
+       call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
+       u = ucgs/unit_ergg
+
+       enth = 1. + u + P/dens
+       gamma = 1. + P/(u*dens)
+       gamfac = gamma/(gamma-1.)
+    endif
 
     f = enth-enth_old
 
