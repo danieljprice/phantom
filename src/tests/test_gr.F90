@@ -16,7 +16,7 @@ module testgr
 !
 ! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
 !   io, metric, metric_tools, part, physcon, step_lf_global, testutils,
-!   utils_gr, vectorutils
+!   units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
