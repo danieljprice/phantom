@@ -127,7 +127,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  integer         :: npart_old
 #endif
- logical         :: fulldump,abortrun,at_dump_time
+ logical         :: fulldump,abortrun,at_dump_time,writedump
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass
  logical         :: use_global_dt
@@ -350,7 +350,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--Determine if this is the correct time to write to the data file
 !
-    at_dump_time = (time >= tmax).or.((mod(nsteps,nout)==0).and.(nout > 0)) &
+    at_dump_time = (time >= tmax) &
                    .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
 #ifdef IND_TIMESTEPS
     if (istepfrac==2**nbinmax) at_dump_time = .true.
@@ -412,11 +412,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
     if (at_dump_time) then
        !--modify evfile and logfile names with new number
-       if (noutput==1) then
-          evfile  = getnextfilename(evfile)
-          logfile = getnextfilename(logfile)
+       if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
+          if (noutput==1) then
+             evfile  = getnextfilename(evfile)
+             logfile = getnextfilename(logfile)
+          endif
+          dumpfile = getnextfilename(dumpfile)
+          writedump = .true.
+       else
+          writedump = .false.
        endif
-       dumpfile = getnextfilename(dumpfile)
 
        !--do not dump dead particles into dump files
        if (ideadhead > 0) call shuffle_part(npart)
@@ -441,7 +446,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
        timer_ev%cpu         = reduce_mpi('+',timer_ev%cpu)
 
-       fulldump = (mod(noutput,nfulldump)==0)
+       fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
 !
 !--if max wall time is set (> 1 sec) stop the run at the last full dump
 !  that will fit into the walltime constraint, based on the wall time between
@@ -483,17 +488,19 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call calculate_mdot(nptmass,time,xyzmh_ptmass)
 #endif
        call get_timings(t1,tcpu1)
-       if (fulldump) then
-          call write_fulldump(time,dumpfile)
-          if (id==master) then
-             call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
+       if (writedump) then
+          if (fulldump) then
+             call write_fulldump(time,dumpfile)
+             if (id==master) then
+                call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef DRIVING
-             call write_forcingdump(time,dumpfile)
+                call write_forcingdump(time,dumpfile)
 #endif
+             endif
+             ncount_fulldumps = ncount_fulldumps + 1
+          else
+             call write_smalldump(time,dumpfile)
           endif
-          ncount_fulldumps = ncount_fulldumps + 1
-       else
-          call write_smalldump(time,dumpfile)
        endif
        call get_timings(t2,tcpu2)
        call increment_timer(timer_io,t2-t1,tcpu2-tcpu1)

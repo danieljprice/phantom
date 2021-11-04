@@ -43,7 +43,7 @@ module readwrite_infile
 !   - nfulldump          : *full dump every n dumps*
 !   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
 !   - nmaxdumps          : *stop after n full dumps (-ve=ignore)*
-!   - nout               : *number of steps between dumps (-ve=ignore)*
+!   - nout               : *write dumpfile every n dtmax (-ve=ignore)*
 !   - overcleanfac       : *factor to increase cleaning speed (decreases time step)*
 !   - psidecayfac        : *div B diffusion parameter*
 !   - ptol               : *tolerance on pmom iterations*
@@ -154,7 +154,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(tmax,'tmax','end time',iwritein)
  call write_inopt(dtmax,'dtmax','time between dumps',iwritein)
  call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
- call write_inopt(nout,'nout','number of steps between dumps (-ve=ignore)',iwritein)
+ call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
  call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
  call write_inopt(real(twallmax),'twallmax','maximum wall time (hhh:mm, 000:00=ignore)',iwritein,time=.true.)
  call write_inopt(real(dtwallmax),'dtwallmax','maximum wall time between dumps (hhh:mm, 000:00=ignore)',iwritein,time=.true.)
