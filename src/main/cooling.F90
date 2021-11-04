@@ -7,6 +7,14 @@
 module cooling
 !
 ! Gas cooling
+!  Current options:
+!     0 = none
+!     1 = 'explicit' cooling [implicitly calculated, ironically] [default]
+!         (not sure what this actually means, but requires a lot of non-default inputs)
+!     2 = Townsend (2009) cooling tables [implicitly calculated]
+!     3 = Gammie cooling [explicitly calculated]
+!     5 = Koyama & Inutuska (2002) [explicitly calculated]
+!     6 = Koyama & Inutuska (2002) [implicitly calculated][not yet implemented; JHW]
 !
 ! :References:
 !   Koyama & Inutsuka (2002), ApJL 564, 97-100
@@ -28,7 +36,7 @@ module cooling
 !   - icool_relax_bowen    : *Bowen (diffusive) relaxation on/off*
 !   - icool_relax_stefan   : *radiative relaxation on/off*
 !   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
-!   - temp_floor           : *Minimum allowed temperature in K*
+!   - temp_floor           : *Minimum allowed temperature in K for Townsend cooling table*
 !
 ! :Dependencies: chem, datafiles, dim, eos, h2cooling, infile_utils, io,
 !   options, part, physcon, timestep, units
@@ -51,17 +59,17 @@ module cooling
  private
  integer, parameter :: nTg = 64
  integer, parameter :: maxt = 1000
- real,    parameter :: Tref = 1.d5, T_floor = 10.
+ real,    parameter :: Tref = 1.d5, T_floor = 10.   ! required for exact_cooling
  integer :: nt
  real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
  real    :: beta_cool  = 3.
  real    :: habund     = 0.7
- real    :: temp_floor = 1.e4
+ real    :: temp_floor = 1.e4                       ! required for exact_cooling_table
  real    :: Tgrid(nTg)
  real    :: crate_coef
  integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
- !--Minimum temperature (failsafe to prevent u < 0)
+ !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0. ! [K]; set in .in file.  On if Tfloor > 0.
  real,    public :: ufloor = 0. ! [code units]; set in init_cooling
 
@@ -694,7 +702,7 @@ subroutine write_options_cooling(iunit)
     case(2)
        call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
        call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
-       call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K',iunit)
+       call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K for Townsend cooling table',iunit)
     case(3)
        call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
     end select
