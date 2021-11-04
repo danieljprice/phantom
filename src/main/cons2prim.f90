@@ -67,7 +67,7 @@ end subroutine prim2consall
 subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
- use eos,             only:equationofstate,ieos,gamma
+ use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i
@@ -96,7 +96,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy,gamma)
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
 
 end subroutine prim2consi
 
@@ -131,7 +131,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        p_guess = pondens*dens(i)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy)
        eos_vars(igasP,i)     = p_guess
        eos_vars(ics,i)       = spsound
        if (ierr > 0) then

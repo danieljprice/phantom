@@ -425,7 +425,7 @@ end subroutine read_eos_mesa
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
-subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
+pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real, intent(in) :: rho, eint
  real, intent(out) :: vout
  integer, intent(in) :: ivout
@@ -475,7 +475,7 @@ end subroutine getvalue_mesa
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
-subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
+pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
 
 ! use mesa_eos_logEs, mesa_eos_logVs
  implicit none
@@ -531,7 +531,7 @@ end subroutine eos_cubic_spline_mesa
 
 
 
-subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
  implicit none
 
