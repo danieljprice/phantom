@@ -1239,11 +1239,11 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local)
  if (present(mu_local)) mu = mu_local
  select case(ieos)
  case(2) ! Adiabatic/polytropic EoS
-    temp = pres / (rho * kb_on_mh) * mu_local
+    temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal plus rad. EoS
-    call get_idealgasplusrad_tempfrompres(pres,rho,mu_local,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,mu_local,ene)
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
  case(10) ! MESA-like EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case default
