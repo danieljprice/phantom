@@ -108,7 +108,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
  use krome_main, only: krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
- use eos,           only:ieos,get_local_temperature,get_local_u_internal!equationofstate
+ use eos,           only:ieos,get_temperature,get_local_u_internal!equationofstate
 
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
@@ -117,7 +117,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
 
  dt_cgs = dt*utime
  rho_cgs = rho*unit_density
- call get_local_temperature(ieos,xyzh(1),xyzh(2),xyzh(3),rho,mu_chem,u,gamma_chem,T_local)
+ T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_chem,mui=mu_chem)
  T_local=max(T_local,20.0d0)
 ! normalise abudances and balance charge conservation with e-
  call krome_consistent_x(xchem)
