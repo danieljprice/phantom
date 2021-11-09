@@ -38,10 +38,11 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
- real, intent(inout)        :: r(:),rho(:),m(:),pres(:)
- real, allocatable          :: phi(:)
- real, intent(in)           :: mcore,rcore
- real                       :: mc,rc,hsoft_cm
+ real, intent(inout):: r(:),rho(:),m(:),pres(:)
+ real, allocatable  :: phi(:)
+ real, intent(in)   :: mcore,rcore
+ real               :: mc,rc,hsoft_cm,msoft
+ integer            :: icore,i
 
  rc       = rcore * solarr      ! Convert to cm
  hsoft_cm = 0.5*rc             ! Convert to cm
@@ -51,7 +52,11 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
 
  call calc_rho_and_m(rho, m, r, mc, rc)
  call calc_phi(r, mc, m-mc, hsoft_cm, phi)
- call calc_pres(r, rho, phi, pres)
+
+ ! Calculate pressure
+ do i = icore,2,-1
+    pres(i-1) = pres(i) + rho(i) * (phi(i) - phi(i-1))
+ enddo
 
 end subroutine set_cubic_core
 
@@ -228,25 +233,5 @@ subroutine calc_phi(r,mc,mgas,hsoft,phi)
  phi = phi_gas + phi_core
 
 end subroutine calc_phi
-
-!----------------------------------------------------------------
-!+
-!  Calculate pressure by integrating the equation of hydrostatic
-!  equilibrium given the gravitational potential and the density
-!  profile
-!+
-!----------------------------------------------------------------
-subroutine calc_pres(r,rho,phi,pres)
- real, intent(in)  :: rho(:),phi(:),r(:)
- real, intent(out) :: pres(:)
- integer           :: i
-
- pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
- do i = 1,size(r)-1
-    ! Reverse Euler
-    pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
- enddo
-
-end subroutine calc_pres
 
 end module setcubiccore
