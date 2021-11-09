@@ -72,7 +72,8 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
  Xcore = yinterp(X,r,rcore*solarr)
  Zcore = 1.-Xcore-yinterp(Y,r,rcore*solarr)
  
- write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',get_mean_molecular_weight(Xcore,Zcore)
+ write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
+                                      ', mu = ',get_mean_molecular_weight(Xcore,Zcore)
  call interpolator(r,rcore*solarr,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rcore*solarr)
