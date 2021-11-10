@@ -35,7 +35,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1200000
+ integer, parameter :: maxp_hard = 10000000
 #endif
 
  ! maximum number of point masses
