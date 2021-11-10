@@ -99,6 +99,10 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
+ !--Minimum temperature (failsafe to prevent u < 0)
+ logical, public, parameter :: use_Tfloor = .true.
+ real,    public            :: Tfloor     = 10. ![K]
+ real,    public            :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope

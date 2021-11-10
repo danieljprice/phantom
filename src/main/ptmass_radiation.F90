@@ -17,7 +17,7 @@ module ptmass_radiation
 ! :Runtime parameters:
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
 !   - iget_tdust      : *method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)*
-!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust)*
+!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=1+2)*
 !
 ! :Dependencies: dust_formation, infile_utils, io, kernel, part, units
 !
@@ -25,8 +25,9 @@ module ptmass_radiation
 
  implicit none
  integer, public  :: isink_radiation = 0
- integer, public  :: iget_tdust = 0
- real,    public  :: alpha_rad = 0.
+ integer, public  :: iget_tdust      = 0
+ real,    public  :: tdust_exp       = 0.5
+ real,    public  :: alpha_rad       = 0.
 
  public :: get_rad_accel_from_ptmass,read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature_from_ptmass
@@ -138,6 +139,14 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
 #endif
     fac = alpha_dust*Mstar_cgs/(umass*r**3)
+ case (3)
+    ! radiation pressure on dust
+#ifdef NUCLEATION
+    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
+#else
+    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
+#endif
+    fac = (alpha_rad+alpha_dust)*Mstar_cgs/(umass*r**3)
  case default
     ! no radiation pressure
     fac = 0.
@@ -153,12 +162,14 @@ end subroutine get_radiative_acceleration_from_star
 !  through the gas, or by simpler approximations
 !+
 !-----------------------------------------------------------------------
-subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff
+subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas
+ use options,        only:ieos
+ use eos,            only:get_temperature
  integer,  intent(in)    :: nptmass,npart
- real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:)
+ real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za
+ real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4)
  integer                 :: i,j
 
  !
@@ -181,18 +192,31 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust
     ! simple T(r) relation
  case (1)
     !$omp parallel  do default(none) &
-    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp) &
+    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
     !$omp private(i,r)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-          dust_temp(i) = T_star*sqrt(R_star/r)
+          dust_temp(i) = T_star*(R_star/r)**tdust_exp
        endif
     enddo
     !$omp end parallel do
  case(2)
     call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- end select
+ case default
+    ! sets Tdust = Tgas
+    pmassi         = massoftype(igas)
+    !$omp parallel  do default(none) &
+    !$omp shared(npart,ieos,xyzh,vxyzu,pmassi,dust_temp) &
+    !$omp private(i,vxyzui)
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          vxyzui= vxyzu(:,i)
+          dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
+       endif
+    enddo
+    !$omp end parallel do
+  end select
 
 end subroutine get_dust_temperature_from_ptmass
 
@@ -459,11 +483,15 @@ subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust)',iunit)
- if (isink_radiation == 1) then
+ call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
+ if (isink_radiation == 1 .or. isink_radiation == 3) then
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
- elseif (isink_radiation == 2) then
-    call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)',iunit)
+ endif
+ if (isink_radiation >= 2) then
+    call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy 3:MCFOST)',iunit)
+ endif
+ if (iget_tdust == 1 ) then
+    call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
  endif
 
 end subroutine write_options_ptmass_radiation
@@ -492,11 +520,14 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('isink_radiation')
     read(valstring,*,iostat=ierr) isink_radiation
     ngot = ngot + 1
-    if (isink_radiation < 0 .or. isink_radiation > 2) call fatal(label,'invalid setting for isink_radiation ([0,2])')
+    if (isink_radiation < 0 .or. isink_radiation > 3) call fatal(label,'invalid setting for isink_radiation ([0,3])')
  case('iget_tdust')
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
-    if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,2])')
+    if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,3])')
+ case('tdust_exp')
+    read(valstring,*,iostat=ierr) tdust_exp
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
