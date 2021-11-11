@@ -68,14 +68,13 @@ module inject
  real :: piston_velocity_km_s = 0.
  real :: dtpulsation = 1.d99
 
-
 ! global variables
  integer, parameter :: wind_emitting_sink = 1
  real :: geodesic_R(0:19,3,3), geodesic_v(0:11,3)
  real :: u_to_temperature_ratio,wind_mass_rate,piston_velocity,wind_velocity,&
-      mass_of_spheres,time_between_spheres,neighbour_distance,&
+      omega_osc,mass_of_spheres,time_between_spheres,neighbour_distance,&
       dr3,Rstar_cgs,Rinject,wind_injection_radius,wind_injection_speed,rho_ini,&
-      omega_osc,deltaR_osc,Mstar_cgs, time_period, orbital_period, mass_of_particles
+      deltaR_osc,Mstar_cgs, time_period,orbital_period,mass_of_particles
  integer :: particles_per_sphere,nwall_particles,iresolution,nwrite
 
  logical :: pulsating_wind
@@ -134,6 +133,7 @@ subroutine init_inject(ierr)
     deltaR_osc       = pulsation_period*piston_velocity/(2.*pi)
     sonic_type       = 1
  else
+    omega_osc        = 0.d0
     deltaR_osc       = 0.d0
     piston_velocity  = 0.d0
  endif
@@ -379,7 +379,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        time_period = 0.
        if (do_molecular_cooling) then
           r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-          call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
+          call fit_spherical_wind(xyzh,vxyzu,r_compOrb,outer_boundary_au*au/udist,npart,fit_rho_inner_new,&
+               fit_rho_power_new,fit_vel_new)
           ! catch poor fit values and revert to previous value
           if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
           if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
