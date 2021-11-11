@@ -108,7 +108,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
-                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,      &
+                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,  &
                           dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig
 #ifdef NUCLEATION
  use part,           only:nucleation
@@ -374,7 +374,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            dens,         & !
                            gamma_chem,   & !
                            mu_chem,      & !
-                           T_gas_cool,       & !
+                           T_gas_cool,   & !
                            nucleation,   & !
                            dust_temp,    & !
                            rad,          & !
@@ -692,7 +692,7 @@ subroutine read_any_dump_hdf5(                                                  
                        pxyzu,         &
                        gamma_chem,    &
                        mu_chem,       &
-                       T_gas_cool,        &
+                       T_gas_cool,    &
                        nucleation,    &
                        dust_temp,     &
                        rad,           &

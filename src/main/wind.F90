@@ -19,7 +19,6 @@ module wind
 !
 
  implicit none
-
  public :: setup_wind
  public :: wind_state,wind_profile,save_windprofile
 
@@ -48,7 +47,7 @@ module wind
 contains
 
 subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
- use ptmass_radiation, only:iget_Tdust
+ use ptmass_radiation, only:iget_tdust
  use units,            only:umass,utime
  use physcon,          only:c,years
  use eos,              only:gamma
@@ -74,7 +73,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  call set_abundances
 #endif
 
- if (iget_Tdust == -12) then
+ if (iget_tdust == -12) then
     !not working
     print *,'get_initial_radius not working'
     call get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
@@ -163,7 +162,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,isink_radiation,iget_Tdust,tdust_exp
+ use ptmass_radiation, only:alpha_rad,isink_radiation,iget_tdust,tdust_exp
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
@@ -198,7 +197,6 @@ subroutine wind_step(state)
  state%r_old = state%r
  call evolve_hydro(state%dt, rvT, state%Rstar, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
       state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
-
  state%r    = rvT(1)
  state%v    = rvT(2)
  state%a    = (state%v-v_old)/(state%dt)
@@ -220,10 +218,10 @@ subroutine wind_step(state)
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
  if (icooling > 0) then
     Q_old = state%Q
-    if (iget_Tdust == 2) then
+    if (iget_tdust == 2) then
        tau_lucy_bounded = max(0., state%tau_lucy)
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
-    elseif (iget_Tdust == 1) then
+    elseif (iget_tdust == 1) then
        state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
     endif
 #ifdef NUCLEATION
@@ -235,7 +233,7 @@ subroutine wind_step(state)
     state%Q = Q_code*unit_ergg
     if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
-    !if cooling disabled or no imposed temperature profile, set Tdust = Tgas
+    !if cooling disabled or temperature profile is not imposed, set Tdust = Tgas
     state%Tdust = state%Tg
  endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
@@ -255,7 +253,7 @@ end subroutine wind_step
 !-----------------------------------------------------------------------
 subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 ! all quantities in cgs
- use ptmass_radiation, only:iget_Tdust
+ use ptmass_radiation, only:iget_tdust
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
  real :: tau_lucy_last
@@ -388,7 +386,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
           exit
@@ -407,7 +405,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,state%spcode
+       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == 1) then
           v0max = v0
           exit
@@ -420,14 +418,14 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        icount = icount+1
     enddo
     if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,state%spcode
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,', spcode = ',state%spcode
 
     ! Find sonic point by dichotomy between v0min and v0max
     do
        v0last = v0
        v0 = (v0min+v0max)/2.
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs,state%spcode
+       if (iverbose>1) print *, 'v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
        elseif (state%spcode == 1) then

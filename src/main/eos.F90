@@ -99,8 +99,7 @@ module eos
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
  !--Minimum temperature (failsafe to prevent u < 0)
- logical, public, parameter :: use_Tfloor = .true.
- real,    public            :: Tfloor     = 10. ![K]
+ real,    public            :: Tfloor = 0. ![K]
  real,    public            :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
@@ -154,7 +153,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  var='eos_type',val=real(eos_type))
 #endif
 
-
  if (present(gamma_local)) then
     gammai = gamma_local
  else
@@ -191,7 +189,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
 #else
     if (present(eni)) then
-!       if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
        if (eni < 0.) eni = ufloor
 
        if (use_entropy) then
