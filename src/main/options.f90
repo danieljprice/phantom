@@ -53,6 +53,9 @@ module options
  ! radiation
  logical,public :: exchange_radiation_energy, limit_radiation_flux
 
+ ! variable composition
+ logical,public :: use_variable_composition
+
  public :: set_default_options
  public :: ieos
  public :: iopacity_type
@@ -153,6 +156,9 @@ subroutine set_default_options
     limit_radiation_flux = .false.
     iopacity_type = 0
  endif
+
+ ! variable composition
+ use_variable_composition = .false.
 
 end subroutine set_default_options
 

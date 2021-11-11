@@ -115,7 +115,7 @@ end subroutine logspace
 !  ordered array
 !+
 !----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
+subroutine interpolator(array,value,valueidx)
  real, intent(in)     :: array(:)
  real, intent(in)     :: value
  integer, intent(out) :: valueidx
