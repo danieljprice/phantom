@@ -114,8 +114,8 @@ subroutine init_cooling(id,master,iprint,ierr)
        icooling = 0
        return
     elseif (icooling == 1 .and. (CO_abun+HCN_abun+H2O_abun/=0)) then
-        ! Initialise cooling tables
-        call init_cooling_molec
+       ! Initialise cooling tables
+       call init_cooling_molec
     endif
 #endif
 
@@ -246,9 +246,9 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0.) then
-   dlnQ_dlnT = 0.
+    dlnQ_dlnT = 0.
  else
-   dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen + Q_col_dust*dlnQ_col_dust&
+    dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen + Q_col_dust*dlnQ_col_dust&
    + Q_relax_Stefan*dlnQ_relax_Stefan + Q_molec*dlnQ_molec)/Q_cgs
  endif
  !limit exponent to prevent overflow
@@ -504,7 +504,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,K2,kappa,Tgas)
  real, intent(inout)        :: dudt                       ! in code units
  real                       :: r
 
-r  = sqrt(xi*xi + yi*yi + zi*zi)
+ r  = sqrt(xi*xi + yi*yi + zi*zi)
 
  select case (icooling)
  case(1)

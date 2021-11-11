@@ -194,12 +194,12 @@ subroutine setup_interactive()
  endif
 #endif
 
-call prompt('Add binary?',icompanion_star,0,1)
+ call prompt('Add binary?',icompanion_star,0,1)
 
-primary_mass = primary_mass_msun * (solarm / umass)
-primary_racc = primary_racc_au * (au / udist)
-secondary_mass = secondary_mass_msun * (solarm / umass)
-secondary_racc = secondary_racc_au * (au / udist)
+ primary_mass = primary_mass_msun * (solarm / umass)
+ primary_racc = primary_racc_au * (au / udist)
+ secondary_mass = secondary_mass_msun * (solarm / umass)
+ secondary_racc = secondary_racc_au * (au / udist)
 
 ! ichoice = 1
 !  iwind = 2
