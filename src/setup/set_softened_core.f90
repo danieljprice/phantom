@@ -42,7 +42,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
  integer, intent(in) :: isoftcore,isofteningopt
  real, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr
- real                :: Xcore,Zcore
+ real                :: Xcore,Zcore,rc
  logical             :: isort_decreasing,iexclude_core_mass
 
  ! Output data to be sorted from stellar surface to interior?
@@ -69,14 +69,15 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
  endif
 
  ! set fixed composition (X, Z, mu) of softened region (take on values at the core boundary)
- Xcore = yinterp(X,r,rcore*solarr)
- Zcore = 1.-Xcore-yinterp(Y,r,rcore*solarr)
+ rc = rcore*solarr
+ Xcore = yinterp(X,r,rc)
+ Zcore = 1.-Xcore-yinterp(Y,r,rc)
  
  write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
                                       ', mu = ',get_mean_molecular_weight(Xcore,Zcore)
- call interpolator(r,rcore*solarr,core_index)  ! find index of core
+ call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
- Y(1:core_index) = yinterp(Y,r,rcore*solarr)
+ Y(1:core_index) = yinterp(Y,r,rc)
  if (ieos==10) then
     X_in = Xcore
     Z_in = Zcore
