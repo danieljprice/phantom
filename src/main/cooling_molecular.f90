@@ -122,7 +122,7 @@ if (r_part <= r_compOrb) then
     rho_H = fit_rho_inner
 else
     rho_H = fit_rho_inner*(r_compOrb/r_part)**fit_rho_power
-end if
+endif
 
 Temp=T
 if ( use_Tfloor .and. T<=Tfloor) Temp=Tfloor
@@ -155,9 +155,9 @@ do i = 1, 3
 
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
         Lambda = Lambda + 10.**lambda_log(i)
-    end if
+    endif
     Qi(i) = -Lambda*abundance*rho_sph/(gmw*mass_proton_cgs)     ! in erg/sec
-end do
+enddo
 
 Q = Qi(1)+Qi(2)+Qi(3)
 
@@ -165,7 +165,7 @@ if (Q /= 0.) then
    call lambdaGradT(coolingTable, params_cool, Q, dlnQdlnT)
 else
    dlnQdlnT = 0
-end if
+endif
 
 end subroutine  calc_cool_molecular
 
@@ -211,7 +211,7 @@ subroutine loadCoolingTable(data_array)
         rewind(unit=iunit)
         do o = 1, headerLines
             read(iunit, *, iostat=istat, IOMSG = imsg)
-        end do
+        enddo
 
 
         ! Read data
@@ -221,7 +221,7 @@ subroutine loadCoolingTable(data_array)
                 if (istat /= 0) exit
                 data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
 
-            end do readdo
+            enddo readdo
 
             if (istat > 0) write(*, *) "Error at line ", i, j, k, " during loading data into array."
 
@@ -229,11 +229,11 @@ subroutine loadCoolingTable(data_array)
             write(*, 100) headerLines
             100 format("Error: Header consists of more than ", I2, " lines.")
             write(*, *) trim(imsg)
-        end if skipheaderif
+        endif skipheaderif
 
     else
         write(*, *) "Error: Radiative cooling table ", trim(filename) ," does not exist."
-    end if openif
+    endif openif
 end subroutine loadCoolingTable
 
 !-----------------------------------------------------------------------
@@ -276,7 +276,7 @@ subroutine loadCDTable(data_array)
         rewind(unit=iunit)
         do o = 1, headerLines
             read(iunit, *, iostat=istat, IOMSG = imsg)
-        end do
+        enddo
 
 
         !!! Read data
@@ -286,7 +286,7 @@ subroutine loadCDTable(data_array)
                 if (istat /= 0) exit
                 data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_compOrb, N_H]
 
-            end do readdo
+            enddo readdo
 
             if (istat > 0) write(*, *) "Error at line ", i, j, k, l, " during loading data into array."
 
@@ -294,11 +294,11 @@ subroutine loadCDTable(data_array)
             write(*, 100) headerLines
             100 format("Error: Header consists of more than ", I2, " lines.")
             write(*, *) trim(imsg)
-        end if skipheaderif
+        endif skipheaderif
 
     else
         write(*, *) "Error: Column density table ", trim(filename)," does not exist."
-    end if openif
+    endif openif
 end subroutine loadCDTable
 
 !-----------------------------------------------------------------------
@@ -409,12 +409,12 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
         outervif: if (params(2) >= widthLine_min) then
             innervif: if (params(2) >= widthLine_max) then
                 j = 102
-            else if (params(2) >= 1.999) then
+            elseif (params(2) >= 1.999) then
                 j = 101
             else
                 j = floor((params(2))/dv) + 1
-            end if innervif
-        end if outervif
+            endif innervif
+        endif outervif
 
         ! Index r_part
         outCompif: if (params(1) >= r_compOrb) then
@@ -423,16 +423,16 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
             else
                 dr_part = (log10(r_part_max) - log10(r_compOrb)) / (N_r_part_sample - N_compZone)
                 i    = floor((log10(params(1)) - log10(r_compOrb)) / dr_part ) + N_compZone
-            end if innerr_partif
+            endif innerr_partif
 
         else
             dr_part = (r_compOrb - r_part_min) / N_compZone
             i    = floor((params(1) - r_part_min) / dr_part ) + 1
             if (params(1) >= r_compOrb / 2.) i = i + 1
-        end if outCompif
+        endif outCompif
 
         index_lower_bound = [i, j, k, l]
-    end if
+    endif
 end subroutine findLower_cd
 
 !-----------------------------------------------------------------------
@@ -497,7 +497,7 @@ subroutine CoolingRate(data_array, params, molecule, lambda)
         else
             i1  = i0 + 1
             x_d = (params(1) - data_array(i0, 1, 1, 1)) / (data_array(i1, 1, 1, 1) - data_array(i0, 1, 1, 1))
-        end if indexiif
+        endif indexiif
 
         ! Index j
         indexjif: if (j0 == 40) then
@@ -506,7 +506,7 @@ subroutine CoolingRate(data_array, params, molecule, lambda)
         else
             j1  = j0 + 1
             y_d = (params(2) - data_array(1, j0, 1, 2)) / (data_array(1, j1, 1, 2) - data_array(1, j0, 1, 2))
-        end if indexjif
+        endif indexjif
 
         ! Index k
         indexkif: if (k0 == 40) then
@@ -515,7 +515,7 @@ subroutine CoolingRate(data_array, params, molecule, lambda)
         else
             k1  = k0 + 1
             z_d = (params(3) - data_array(1, 1, k0, 3)) / (data_array(1, 1, k1, 3) - data_array(1, 1, k0, 3))
-        end if indexkif
+        endif indexkif
 
 
         xyz = [x_d, y_d, z_d]
@@ -524,16 +524,16 @@ subroutine CoolingRate(data_array, params, molecule, lambda)
             c_grid_CO  = data_array(i0:i1, j0:j1, k0:k1, 4)
             call interpolate(xyz, c_grid_CO, lambda)
 
-        else if (molecule == "H2O") then
+        elseif (molecule == "H2O") then
             c_grid_H2O = data_array(i0:i1, j0:j1, k0:k1, 5)
             call interpolate(xyz, c_grid_H2O, lambda)
 
-        else if (molecule == "HCN") then
+        elseif (molecule == "HCN") then
             c_grid_HCN = data_array(i0:i1, j0:j1, k0:k1, 6)
             call interpolate(xyz, c_grid_HCN, lambda)
-        end if moleculesif
+        endif moleculesif
 
-    end if findlowerif
+    endif findlowerif
 
 end subroutine CoolingRate
 
@@ -598,7 +598,7 @@ subroutine ColumnDensity(data_array, params, N_hydrogen)
         else
             i1  = i0 + 1
             x_d = (log10(params(1)) - data_array(i0, 1, 1, l, 1)) / (data_array(i1, 1, 1, l, 1) - data_array(i0, 1, 1, l, 1))
-        end if indexiif
+        endif indexiif
 
         ! Index j
         indexjif: if (j0 == 102) then
@@ -607,7 +607,7 @@ subroutine ColumnDensity(data_array, params, N_hydrogen)
         else
             j1  = j0 + 1
             y_d = (params(2) - data_array(1, j0, 1, l, 2)) / (data_array(1, j1, 1, l, 2) - data_array(1, j0, 1, l, 2))
-        end if indexjif
+        endif indexjif
 
         ! Index k
         indexkif: if (k0 == 6) then
@@ -616,12 +616,12 @@ subroutine ColumnDensity(data_array, params, N_hydrogen)
         else
             k1  = k0 + 1
             z_d = (params(3) - data_array(1, 1, k0, l, 3)) / (data_array(1, 1, k1, l, 3) - data_array(1, 1, k0, l, 3))
-        end if indexkif
+        endif indexkif
 
         c_grid  = data_array(i0:i1, j0:j1, k0:k1, l, 5)
         xyz = [x_d, y_d, z_d]
         call interpolate(xyz, c_grid, N_hydrogen)
-    end if findlowerif
+    endif findlowerif
 
 end subroutine ColumnDensity
 

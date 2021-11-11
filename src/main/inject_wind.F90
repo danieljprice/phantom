@@ -153,7 +153,7 @@ subroutine init_inject(ierr)
     fit_rho_inner  = (3*wind_mass_rate_cgs*(semi_major_axis_cgs/wind_velocity_cgs))/(4*pi*(semi_major_axis_cgs)**3)
     fit_rho_power  = 2.0
     fit_vel        = wind_velocity_cgs
- end if
+ endif
 
 
 #ifdef ISOTHERMAL
@@ -375,7 +375,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
        if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
        if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
-    end if
+    endif
 
     nreleased = nfill_domain
     nboundaries = iboundary_spheres
@@ -564,7 +564,7 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_in
   allV   = sqrt(vxyzu(1,:)*vxyzu(1,:)+vxyzu(2,:)*vxyzu(2,:)+vxyzu(3,:)*vxyzu(3,:))
   do i=1,n_part
     allRho(i) = rhoh(xyzh(4,i),mass_of_particles)
-  end do
+  enddo
 
   ! Initialisation
   radius_cutoff1 = 1.5 * r_compOrb
