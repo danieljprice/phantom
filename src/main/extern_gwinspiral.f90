@@ -124,30 +124,30 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
     ! as determined by their CoM location
     !
     k1 = 0
-!$omp parallel default(none) &
-!$omp shared(nstar,xyzh,com,dirstar1) &
-!$omp private(i,dx,dy,dz,dir) &
-!$omp reduction(+:k1)
-!$omp do
-do i=1,nstar(1)
-dx  = xyzh(1,i) - com(1)
-dy  = xyzh(2,i) - com(2)
-dz  = xyzh(3,i) - com(3)
-dir = dirstar1(1)*dx + dirstar1(2)*dy + dirstar1(3)*dz
-if ( dir < 0.0 ) k1 = k1 + 1
-enddo
-!$omp enddo
-!$omp end parallel
-!
-! Determine how mnay particle are 'in' star 1 when they should be 'in' star 2
-! as determined by their CoM location
-!
-k2 = 0
-!$omp parallel default(none) &
-!$omp shared(nstar,npart,xyzh,com,dirstar1) &
-!$omp private(i,dx,dy,dz,dir) &
-!$omp reduction(+:k2)
-!$omp do
+    !$omp parallel default(none) &
+    !$omp shared(nstar,xyzh,com,dirstar1) &
+    !$omp private(i,dx,dy,dz,dir) &
+    !$omp reduction(+:k1)
+    !$omp do
+    do i=1,nstar(1)
+       dx  = xyzh(1,i) - com(1)
+       dy  = xyzh(2,i) - com(2)
+       dz  = xyzh(3,i) - com(3)
+       dir = dirstar1(1)*dx + dirstar1(2)*dy + dirstar1(3)*dz
+       if ( dir < 0.0 ) k1 = k1 + 1
+    enddo
+    !$omp enddo
+    !$omp end parallel
+    !
+    ! Determine how mnay particle are 'in' star 1 when they should be 'in' star 2
+    ! as determined by their CoM location
+    !
+    k2 = 0
+    !$omp parallel default(none) &
+    !$omp shared(nstar,npart,xyzh,com,dirstar1) &
+    !$omp private(i,dx,dy,dz,dir) &
+    !$omp reduction(+:k2)
+    !$omp do
     do i=nstar(1)+1,nstar(1)+nstar(2)
        dx  = xyzh(1,i) - com(1)
        dy  = xyzh(2,i) - com(2)
@@ -155,8 +155,8 @@ k2 = 0
        dir = dirstar1(1)*dx + dirstar1(2)*dy + dirstar1(3)*dz
        if ( dir > 0.0 ) k2 = k2 + 1
     enddo
-!$omp enddo
-!$omp end parallel
+    !$omp enddo
+    !$omp end parallel
 
     fstar1_coef = -32.0/5.0*mstar1*mstar2**3/c_code**5
     fstar2_coef = -32.0/5.0*mstar2*mstar1**3/c_code**5
@@ -214,8 +214,8 @@ end subroutine get_gw_force
 !+
 !-----------------------------------------------------------------------
 subroutine get_gw_force_i(i,fextxi,fextyi,fextzi,phi)
-integer, intent(in)    :: i
-real,    intent(inout) :: fextxi,fextyi,fextzi,phi
+ integer, intent(in)    :: i
+ real,    intent(inout) :: fextxi,fextyi,fextzi,phi
 
  if (i > 0 .and. isseparate ) then
     if (i <= nstar(1)) then
@@ -249,10 +249,10 @@ end subroutine get_gw_force_i
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_gwinspiral(iunit)
-use infile_utils, only:write_inopt
-integer, intent(in) :: iunit
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
-call write_inopt(stopratio,'stop_ratio','ratio of particles crossing CoM to indicate a merger',iunit)
+ call write_inopt(stopratio,'stop_ratio','ratio of particles crossing CoM to indicate a merger',iunit)
 
 end subroutine write_options_gwinspiral
 !-----------------------------------------------------------------------
@@ -261,24 +261,24 @@ end subroutine write_options_gwinspiral
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_gwinspiral(name,valstring,imatch,igotall,ierr)
-use io, only:fatal
-character(len=*), intent(in)  :: name,valstring
-logical,          intent(out) :: imatch,igotall
-integer,          intent(out) :: ierr
-integer, save                 :: ngot = 0
-character(len=30), parameter  :: where = 'read_options_gwinspiral'
+ use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save                 :: ngot = 0
+ character(len=30), parameter  :: where = 'read_options_gwinspiral'
 
-imatch  = .true.
-igotall = .false.
-select case(trim(name))
-case('stop_ratio')
-read(valstring,*,iostat=ierr) stopratio
-if (stopratio < 0.)  call fatal(where,'Cannot have negative merger percentage of particle overlap')
-if (stopratio > 1.)  call fatal(where,'Cannot have ratio of particle overlap > 1')
-ngot = ngot + 1
-end select
+ imatch  = .true.
+ igotall = .false.
+ select case(trim(name))
+ case('stop_ratio')
+    read(valstring,*,iostat=ierr) stopratio
+    if (stopratio < 0.)  call fatal(where,'Cannot have negative merger percentage of particle overlap')
+    if (stopratio > 1.)  call fatal(where,'Cannot have ratio of particle overlap > 1')
+    ngot = ngot + 1
+ end select
 
-igotall = (ngot >= 1)
+ igotall = (ngot >= 1)
 
 end subroutine read_options_gwinspiral
 
@@ -288,13 +288,13 @@ end subroutine read_options_gwinspiral
 !+
 !-----------------------------------------------------------------------
 subroutine write_headeropts_gwinspiral(hdr,ierr)
-use dump_utils, only:dump_h,add_to_header
-type(dump_h), intent(inout) :: hdr
-integer,      intent(out)   :: ierr
+ use dump_utils, only:dump_h,add_to_header
+ type(dump_h), intent(inout) :: hdr
+ integer,      intent(out)   :: ierr
 
-ierr = 0
-call add_to_header(Nstar(1),'Nstar_1',hdr,ierr)
-call add_to_header(Nstar(2),'Nstar_2',hdr,ierr)
+ ierr = 0
+ call add_to_header(Nstar(1),'Nstar_1',hdr,ierr)
+ call add_to_header(Nstar(2),'Nstar_2',hdr,ierr)
 
 end subroutine write_headeropts_gwinspiral
 
@@ -310,9 +310,9 @@ subroutine read_headeropts_gwinspiral(hdr,nptmass,ierr)
  integer,      intent(out) :: ierr
  integer :: ierr1,ierr2
 
-ierr  = 0
-call extract('Nstar_1',Nstar(1),hdr,ierr1)
-call extract('Nstar_2',Nstar(2),hdr,ierr2)
+ ierr  = 0
+ call extract('Nstar_1',Nstar(1),hdr,ierr1)
+ call extract('Nstar_2',Nstar(2),hdr,ierr2)
 
  if (ierr1 /= 0 .or. ierr2 /= 0) then
     ! if there are two sink particles and Nstar_1
