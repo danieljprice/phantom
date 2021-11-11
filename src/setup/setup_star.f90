@@ -127,7 +127,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,calc_temp_and_ene
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
- use part,            only:eos_vars,itemp,igasP,store_temperature,ihsoft
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
+ use dim,             only:do_radiation
+ use part,            only:rad,eos_vars,itemp,igasP,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type
@@ -390,6 +392,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        end select
     enddo
  endif
+
+ if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 
  call finish_eos(ieos,ierr)
  !
