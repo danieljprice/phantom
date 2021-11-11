@@ -99,7 +99,7 @@ subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
 
  use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
  use eos,     only:gmw, Tfloor, use_Tfloor
- 
+
 ! Data dictionary: Arguments
 real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
 real, intent(in)   :: T                           ! In CGS
@@ -152,7 +152,7 @@ do i = 1, 3
         N_coolant_log      = log10(abundance * fit_n_inner * N_hydrogen)
         ! Calculate cooling rate
         params_cool = [T_log, n_H_log, N_coolant_log]
-    
+
         call CoolingRate(coolingTable, params_cool, moleculeName, lambda_log(i))
         Lambda = Lambda + 10.**lambda_log(i)
     end if
@@ -267,7 +267,7 @@ subroutine loadCDTable(data_array)
     data_array   = -999.
 
     iunit = 1
-    filename = find_phantom_datafile('table_cd.dat','cooling')    
+    filename = find_phantom_datafile('table_cd.dat','cooling')
     open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
 
     ! Begin loading in data
