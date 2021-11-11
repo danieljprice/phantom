@@ -36,7 +36,7 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_ionise,iev_gws(8)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8)
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -49,9 +49,6 @@ module energies
  private :: get_erot,initialise_ev_data,collate_ev_data,finalise_ev_data
  ! Arrays
  real,             public :: ev_data(4,0:inumev),erot_com(6)
-#ifdef GR
-real, allocatable, private :: axyz(:,:)
-#endif
 
 contains
 
@@ -113,8 +110,8 @@ subroutine compute_energies(t)
  real    :: ponrhoi,spsoundi,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
- real    :: tempi,etaart,etaart1,etaohm,etahall,etaambi,vhall,vion,vdrift
- real    :: curlBi(3),vhalli(3),vioni(3),vdrifti(3),data_out(n_data_out)
+ real    :: etaohm,etahall,etaambi,vhall,vion
+ real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3)
  real    :: ethermi
 #ifdef GR
@@ -173,19 +170,7 @@ subroutine compute_energies(t)
  endif
  np_rho      = 0
  call initialise_ev_data(ev_data)
-<<<<<<< HEAD
-#ifdef GR
- if (.not.allocated(axyz)) then
-    allocate(axyz(3,npart))
- elseif (size(axyz(3,:)) < npart) then
-    deallocate(axyz)
-    allocate(axyz(3,npart))
- endif
-#endif
-!
-=======
 
->>>>>>> cbef20c18f9c25d4445a9df12be88554c9553333
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,npartoftype) &
@@ -194,18 +179,7 @@ subroutine compute_energies(t)
 !$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-<<<<<<< HEAD
-!$omp shared(iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
-!$omp shared(iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah) &
-!$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT) &
-!$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat,iev_ionise) &
-!$omp shared(temperature,grainsize,graindens,ndustsmall) &
 !$omp shared(calc_gravitwaves) &
-!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,epoti,vsigi,v2i) &
-#ifdef GR
-!$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
-!$omp shared(metrics,axyz) &
-=======
 !$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
@@ -213,7 +187,6 @@ subroutine compute_energies(t)
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
 #ifdef KROME
 !$omp shared(gamma_chem) &
->>>>>>> cbef20c18f9c25d4445a9df12be88554c9553333
 #endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -665,6 +638,7 @@ subroutine compute_energies(t)
  xcom = xcom * dm
  ycom = ycom * dm
  zcom = zcom * dm
+
  totmom = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
 
  angx = reduceall_mpi('+',angx)

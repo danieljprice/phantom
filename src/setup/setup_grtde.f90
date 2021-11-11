@@ -86,8 +86,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  time  = 0.
  polyk = 1.e-10    ! <== uconst
  gamma = 5./3.
- !gamma = 4./3.
- print*, 'gamma', gamma
  ieos  = 2
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
 

@@ -282,7 +282,6 @@ ifeq ($(SETUP), srpolytrope)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     MODFILE=moddump_polytrope.f90
-    
 endif
 
 ifeq ($(SETUP), grdisc)
@@ -1883,7 +1882,7 @@ libsetup: $(OBJLIBSETUP)
 # these are sources for anything that calls derivs routine--if you want to call derivs in the analysis #file
 SRCDERIV= utils_omp.F90 utils_cpuinfo.f90 utils_timing.f90 checksetup.F90 initial.F90 ptmass.F90 \
           utils_summary.F90 coolfunc.F90 cooling.f90 damping.f90 energies.F90 evwrite.F90 writeheader.f90 \
-          readwrite_infile.f90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 
+          readwrite_infile.f90 dens.F90 force.F90 utils_deriv.f90 deriv.F90
 OBJDERIV1= $(SRCDERIV:.f90=.o)
 OBJDERIV= $(OBJDERIV1:.F90=.o)
 #----------------------------------------------------

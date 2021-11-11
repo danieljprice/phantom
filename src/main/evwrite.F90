@@ -86,8 +86,6 @@ subroutine init_evfile(iunit,evfile,open_file)
  character(len= 27)             :: ev_fmt
  character(len= 11)             :: dustname
  integer                        :: i,j,k
- real :: ccode !!!add c in phantom units--for gws
-
  !
  !--Initialise additional variables
  !
