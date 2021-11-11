@@ -54,8 +54,8 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
  do
     call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
     if (dt_force) then
-      dt_next = dt
-      exit
+       dt_next = dt
+       exit
     endif
     if (err > .01) then
        dt = dt * 0.9

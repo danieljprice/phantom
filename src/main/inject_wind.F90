@@ -186,8 +186,8 @@ subroutine init_inject(ierr)
          wind_temperature,initial_wind_velocity_cgs,rsonic,tsonic,sonic_type)
     initial_Rinject = Rinject/udist
  elseif (pulsating_wind) then
-       !implement background spheres starting from the smallest radius
-       !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
+    !implement background spheres starting from the smallest radius
+    !initial_Rinject = min(initial_Rinject,xyzmh_ptmass(iReff,wind_emitting_sink)-deltaR_osc)
  endif
  Rinject = initial_Rinject
  wind_injection_speed = initial_wind_velocity_cgs/unit_velocity
@@ -539,76 +539,76 @@ end subroutine pulsating_wind_profile
 !-----------------------------------------------------------------------
 subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_inf)
 
-  use part,   only: rhoh
+ use part,   only: rhoh
 
-  ! Data dictionary: Arguments
-  real,intent(in)                        :: xyzh(:,:), vxyzu(:,:)
-  integer, intent(in)                    :: n_part
-  double precision, intent(out)          :: n0, m, v_inf
-  double precision, intent(in)           :: r_compOrb, r_outer
+ ! Data dictionary: Arguments
+ real,intent(in)                        :: xyzh(:,:), vxyzu(:,:)
+ integer, intent(in)                    :: n_part
+ double precision, intent(out)          :: n0, m, v_inf
+ double precision, intent(in)           :: r_compOrb, r_outer
 
-  ! Data dictionary: Additional parameters for calculations
-  double precision, dimension(:), allocatable :: allR, allRho, allV
-  double precision, dimension(:), allocatable :: density_fit_compZone, velocity_cutoff
-  double precision, dimension(:), allocatable :: density_log_noCompZone, density_fit_noCompZone
-  double precision, dimension(:), allocatable :: radius_log_noCompZone, radius_fit_noCompZone
-  double precision, parameter                 :: radius_cutoffFactor2 = 9.D-1
-  integer                                     :: n_velocity, n_density_noCompZone, n_density_compZone,i
-  double precision                            :: radius_cutoff1, radius_cutoff2, radius_cutoffFactor1
+ ! Data dictionary: Additional parameters for calculations
+ double precision, dimension(:), allocatable :: allR, allRho, allV
+ double precision, dimension(:), allocatable :: density_fit_compZone, velocity_cutoff
+ double precision, dimension(:), allocatable :: density_log_noCompZone, density_fit_noCompZone
+ double precision, dimension(:), allocatable :: radius_log_noCompZone, radius_fit_noCompZone
+ double precision, parameter                 :: radius_cutoffFactor2 = 9.D-1
+ integer                                     :: n_velocity, n_density_noCompZone, n_density_compZone,i
+ double precision                            :: radius_cutoff1, radius_cutoff2, radius_cutoffFactor1
 
-  allocate(allR(n_part))
-  allocate(allRho(n_part))
-  allocate(allV(n_part))
+ allocate(allR(n_part))
+ allocate(allRho(n_part))
+ allocate(allV(n_part))
 
-  allR   = sqrt(xyzh(1,:)*xyzh(1,:)+xyzh(2,:)*xyzh(2,:)+xyzh(3,:)*xyzh(3,:))
-  allV   = sqrt(vxyzu(1,:)*vxyzu(1,:)+vxyzu(2,:)*vxyzu(2,:)+vxyzu(3,:)*vxyzu(3,:))
-  do i=1,n_part
+ allR   = sqrt(xyzh(1,:)*xyzh(1,:)+xyzh(2,:)*xyzh(2,:)+xyzh(3,:)*xyzh(3,:))
+ allV   = sqrt(vxyzu(1,:)*vxyzu(1,:)+vxyzu(2,:)*vxyzu(2,:)+vxyzu(3,:)*vxyzu(3,:))
+ do i=1,n_part
     allRho(i) = rhoh(xyzh(4,i),mass_of_particles)
-  enddo
+ enddo
 
-  ! Initialisation
-  radius_cutoff1 = 1.5 * r_compOrb
-  radius_cutoff2 = radius_cutoffFactor2 * r_outer
-  if (radius_cutoffFactor1 > radius_cutoff2) radius_cutoff1 = 0.5 * radius_cutoff2
+ ! Initialisation
+ radius_cutoff1 = 1.5 * r_compOrb
+ radius_cutoff2 = radius_cutoffFactor2 * r_outer
+ if (radius_cutoffFactor1 > radius_cutoff2) radius_cutoff1 = 0.5 * radius_cutoff2
 
-  ! Fit the exponent m outside compZone
-  n_density_noCompZone = count(allR > r_compOrb)
-  allocate(radius_fit_noCompZone(n_density_noCompZone))
-  allocate(radius_log_noCompZone(n_density_noCompZone))
-  allocate(density_fit_noCompZone(n_density_noCompZone))
-  allocate(density_log_noCompZone(n_density_noCompZone))
+ ! Fit the exponent m outside compZone
+ n_density_noCompZone = count(allR > r_compOrb)
+ allocate(radius_fit_noCompZone(n_density_noCompZone))
+ allocate(radius_log_noCompZone(n_density_noCompZone))
+ allocate(density_fit_noCompZone(n_density_noCompZone))
+ allocate(density_log_noCompZone(n_density_noCompZone))
 
-  radius_fit_noCompZone  = pack(allR, allR > r_compOrb)
-  radius_log_noCompZone  = log(radius_fit_noCompZone)
-  density_fit_noCompZone = pack(allRho, allR > r_compOrb)
-  density_log_noCompZone = log(density_fit_noCompZone)
+ radius_fit_noCompZone  = pack(allR, allR > r_compOrb)
+ radius_log_noCompZone  = log(radius_fit_noCompZone)
+ density_fit_noCompZone = pack(allRho, allR > r_compOrb)
+ density_log_noCompZone = log(density_fit_noCompZone)
 
-  m = -( sum(radius_log_noCompZone * density_log_noCompZone) - &
+ m = -( sum(radius_log_noCompZone * density_log_noCompZone) - &
           1.D0/n_density_noCompZone * sum(radius_log_noCompZone) * sum(density_log_noCompZone) ) / &
         ( sum(radius_log_noCompZone**2.D0) - 1.D0/n_density_noCompZone * sum(radius_log_noCompZone)**2. )
 
-  ! Fit n0 inside compZone
-  n_density_compZone = count(allR <= r_compOrb)
-  allocate(density_fit_compZone(n_density_compZone))
+ ! Fit n0 inside compZone
+ n_density_compZone = count(allR <= r_compOrb)
+ allocate(density_fit_compZone(n_density_compZone))
 
-  density_fit_compZone = pack(allRho, allR <= r_compOrb)
-  n0 = sum(density_fit_compZone) / n_density_compZone
+ density_fit_compZone = pack(allRho, allR <= r_compOrb)
+ n0 = sum(density_fit_compZone) / n_density_compZone
 
-  ! Fit velocity profile
-  n_velocity = count((radius_cutoff1 <= allR) .and. (allR <= radius_cutoff2))
-  allocate(velocity_cutoff(n_velocity))
-  velocity_cutoff = pack(allV, (radius_cutoff1 <= allR) .and. (allR <= radius_cutoff2))
-  v_inf = sum(velocity_cutoff)/n_velocity
+ ! Fit velocity profile
+ n_velocity = count((radius_cutoff1 <= allR) .and. (allR <= radius_cutoff2))
+ allocate(velocity_cutoff(n_velocity))
+ velocity_cutoff = pack(allV, (radius_cutoff1 <= allR) .and. (allR <= radius_cutoff2))
+ v_inf = sum(velocity_cutoff)/n_velocity
 
-  deallocate(radius_fit_noCompZone)
-  deallocate(radius_log_noCompZone)
-  deallocate(density_fit_noCompZone)
-  deallocate(density_log_noCompZone)
-  deallocate(density_fit_compZone)
-  deallocate(velocity_cutoff)
-  deallocate(allR)
-  deallocate(allRho)
-  deallocate(allV)
+ deallocate(radius_fit_noCompZone)
+ deallocate(radius_log_noCompZone)
+ deallocate(density_fit_noCompZone)
+ deallocate(density_log_noCompZone)
+ deallocate(density_fit_compZone)
+ deallocate(velocity_cutoff)
+ deallocate(allR)
+ deallocate(allRho)
+ deallocate(allV)
 
 end subroutine fit_spherical_wind
 
@@ -697,14 +697,14 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
     if (wind_mass_rate_Msun_yr < 0.) call fatal(label,'invalid setting for wind_mass_rate (<0)')
- !case('pulsation_period')
- !   read(valstring,*,iostat=ierr) pulsation_period_days
- !   ngot = ngot + 1
- !   if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
- !case('piston_velocity')
- !   read(valstring,*,iostat=ierr) piston_velocity_km_s
- !   !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
- !   ngot = ngot + 1
+    !case('pulsation_period')
+    !   read(valstring,*,iostat=ierr) pulsation_period_days
+    !   ngot = ngot + 1
+    !   if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
+    !case('piston_velocity')
+    !   read(valstring,*,iostat=ierr) piston_velocity_km_s
+    !   !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
+    !   ngot = ngot + 1
  case default
     imatch = .false.
  end select
