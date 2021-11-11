@@ -1,67 +1,70 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: moddump
-!
-!  DESCRIPTION:
-!  test common envelope - put point source star next to gas sphere
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: centreofmass, dim, externalforces, infile_utils, io,
-!    options, part, physcon, prompting, rho_profile, setbinary, units
-!+
-!--------------------------------------------------------------------------
 module moddump
+!
+! test common envelope - put point source star next to gas sphere
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
+!   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
+!   rho_profile, setbinary, table_utils, timestep, units
+!
  implicit none
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
-                             delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,kill_particle
+                             delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,&
+                             kill_particle,copy_particle,igas
  use setbinary,         only:set_binary
  use units,             only:umass,udist,utime
- use physcon,           only:au,solarm,solarr,gg
+ use physcon,           only:au,solarm,solarr,gg,pi
  use centreofmass,      only:reset_centreofmass,get_centreofmass
  use prompting,         only:prompt
  use options,           only:iexternalforce
  use externalforces,    only:omega_corotate,iext_corotate
+ use extern_corotate,   only:icompanion_grav,companion_xpos,companion_mass,primarycore_xpos,&
+                             primarycore_mass,primarycore_hsoft,hsoft
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
- use rho_profile,       only:read_mesa_file
+ use table_utils,       only:yinterp
+ use rho_profile,       only:read_mesa
  use dim,               only:maxptmass
- use io,                only:fatal
+ use io,                only:fatal,idisk1,iprint
+ use timestep,          only:tmax,dtmax
+ use readwrite_dumps,   only:read_dump
 
- integer, intent(inout) :: npart
- integer, intent(inout) :: npartoftype(:)
- real,    intent(inout) :: massoftype(:)
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i, ierr, setup_case, two_sink_case = 1, three_sink_case = 1, npts, irhomax, n
- integer                :: iremove = 2
- real                   :: primary_mass, companion_mass_1, companion_mass_2, mass_ratio
- real                   :: a1, a2, e, omega_vec(3), omegacrossr(3), vr = 0.0, hsoft_default = 3
- real                   :: hacc1,hacc2,hacc3,mcore,comp_shift=100, sink_dist, vel_shift
- real                   :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
- integer, parameter     :: ng_max = 5000
- real                   :: r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),enitab(ng_max)
- logical                :: corotate_answer
- character(len=20)      :: filename = 'binary.in'
- character(len=100)     :: densityfile
+ integer, intent(inout)    :: npart
+ integer, intent(inout)    :: npartoftype(:)
+ real,    intent(inout)    :: massoftype(:)
+ real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                   :: i,ierr,setup_case,two_sink_case = 1,three_sink_case = 1,irhomax,n
+ integer                   :: iremove = 2
+ integer                   :: nstar1,nstar2
+ real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
+ real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
+ real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
+ real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
+ real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
+ real                      :: time2,hfact2
+ real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
+ logical                   :: corotate_answer,iprimary_grav_ans
+ character(len=20)         :: filename = 'binary.in'
+ character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
 
-!control: more than one sink particle already in the code could cause problems
+
  if (nptmass > 3) then
-    stop 'ERROR: Number of sink particles > 1'
+    stop 'ERROR: Number of sink particles > 3'
  elseif (nptmass == 3) then
     print "(1(/,a))",'1) Remove a sink from the simulation'
     call prompt('Select option above : ',three_sink_case)
@@ -137,6 +140,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           vxyz_ptmass(1,i) = 0.0
           vxyz_ptmass(1,i) = 0.0
        enddo
+
     case(3)
        sink_dist = sqrt((xyzmh_ptmass(1,1)-xyzmh_ptmass(1,2))**2 &
                  + (xyzmh_ptmass(2,1)-xyzmh_ptmass(2,2))**2 &
@@ -155,24 +159,26 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     end select
  else
 
-!choose what to do with the star: set a binary or setup a magnetic field
-    print "(5(/,a))",'1) setup a binary system', &
-                  '2) setup a magnetic field in the star', &
-                  '3) manually cut profile to create sink in core', &
-                  '4) manually create sink in core', &
-                  '5) setup trinary system'
+    !choose what to do with the star: set a binary or setup a magnetic field
+    print "(8(/,a))",'1) Set up a binary system by adding a sink companion', &
+                     '2) Set up a magnetic field in the star', &
+                     '3) Manually cut profile to create sink in core', &
+                     '4) Manually create sink in core', &
+                     '5) Set up trinary system', &
+                     '6) Set up star for relaxation in corotating frame with companion potential', &
+                     '7) Set up binary after relaxation in corotating frame with companion potential', &
+                     '8) Set up a binary system with a star from another dumpfile'
 
     setup_case = 1
-    call prompt('Choose a setup option ',setup_case,1,5)
+    call prompt('Choose a setup option ',setup_case,1,8)
 
     select case(setup_case)
 
-    case(1)
-
+    case(1,8)
        !takes necessary inputs from user 1
        print*, 'Current mass unit is ', umass,'g):'
        companion_mass_1 = 0.6
-       call prompt('Enter companion mass in code units',companion_mass_1,0.)
+       call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
 
        print*, 'Current length unit is ', udist ,'cm):'
        a1 = 100.
@@ -183,15 +189,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter companion radial velocity', vr)
 
        print*, 'Current length unit is ', udist ,'cm):'
-       hacc1 = 0.0
-       hacc2 = 0.0
-       call prompt('Enter accretion radius for the primary in code units', hacc1, 0.0)
-       call prompt('Enter accretion radius for the companion in code units', hacc2, 0.0)
+
+       if (nptmass == 1) then ! there is a primary core -> add point mass secondary
+          hacc1 = xyzmh_ptmass(ihacc,1)
+          print*, 'Current accretion radius of primary core is ', hacc1,' code units'
+          call prompt('Enter accretion radius for the primary core in code units', hacc1, 0.0)
+          hacc2 = 0. ! Just a dummy
+          call prompt('Enter accretion radius for the companion in code units', hacc2, 0.0)
+       elseif (nptmass == 0) then ! there is no core -> add coreless secondary
+          ! Just dummy values
+          hacc1 = 0.
+          hacc2 = 0.
+       endif
 
        corotate_answer = .false.
        call prompt('Do you want a corotating frame with a corotating binary?', corotate_answer)
 
-       !resets to (0,0,0) position and velocity of centre of mass for whole system before creating the binary
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
        !removes the dead or accreted particles for a correct total mass computation
@@ -199,22 +212,24 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,' Got ',npart,npartoftype(igas),' after deleting accreted particles'
 
        !sets up the binary system orbital parameters
-       if (nptmass > 0) then
+       if (nptmass == 1) then
           mcore = xyzmh_ptmass(4,1)
-       else
+       elseif (nptmass == 0) then
           mcore = 0.
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
-       mass_ratio = companion_mass_1 / primary_mass
+       print*, 'Current primary mass in code units is ',primary_mass
+
+       !save value of primary core hsoft before setting up binary
+       hsoft_primary = xyzmh_ptmass(ihsoft,1)
 
        !sets the binary
-       !corotating frame
-       if (corotate_answer) then
+       if (corotate_answer) then !corotating frame
           !turns on corotation
           iexternalforce = iext_corotate
 
-          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,omega_corotate)
+          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
 
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 
@@ -225,57 +240,85 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              vxyzu(2,i) = 0.0
              vxyzu(3,i) = 0.0
           enddo
-          !non corotating frame
-       else
-          call set_binary(primary_mass,mass_ratio,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass)
+       else !non corotating frame
+          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+          ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays
        endif
 
-       !"set_binary" newly created sinks shifted to the first and second element of the xyzmh_ptmass array (original sink overwritten)
-       if (nptmass > 2) then
+       if (nptmass == 3) then ! if original star has a point mass core
           !new primary from pos 2 to 1
-          !positions
-          xyzmh_ptmass(1,1) = xyzmh_ptmass(1,2)
-          xyzmh_ptmass(2,1) = xyzmh_ptmass(2,2)
-          xyzmh_ptmass(3,1) = xyzmh_ptmass(3,2)
-
-          !velocities
-          vxyz_ptmass(1,1) = vxyz_ptmass(1,2)
-          vxyz_ptmass(2,1) = vxyz_ptmass(2,2)
-          vxyz_ptmass(3,1) = vxyz_ptmass(3,2)
+          xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
+          vxyz_ptmass(1:3,1) = vxyz_ptmass(1:3,2)
 
           !new companion from pos 3 to 2
-          !positions
           xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3)
+          vxyz_ptmass(1:3,2) = vxyz_ptmass(1:3,3)
+          vxyz_ptmass(1,2) = vxyz_ptmass(1,2) + vr
 
-          !velocities
-          vxyz_ptmass(1,2) = vxyz_ptmass(1,3) + vr
-          vxyz_ptmass(2,2) = vxyz_ptmass(2,3)
-          vxyz_ptmass(3,2) = vxyz_ptmass(3,3)
+          ! Delete third point mass
+          nptmass = nptmass - 1
+
+          !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
+          xyzmh_ptmass(ihsoft,1) = hsoft_primary
+          print*, 'Current softening length of the primary core is ', xyzmh_ptmass(ihsoft,1),' code units'
+          call prompt('Enter softening length for the primary core',xyzmh_ptmass(ihsoft,1),0.)
+          call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
+
+       elseif (nptmass == 2) then ! if original star is coreless
+          ! Just need to delete both point masses
+          nptmass = 0
        endif
 
-       !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
-       xyzmh_ptmass(ihsoft,1) = xyzmh_ptmass(ihsoft,1)
-       xyzmh_ptmass(ihsoft,2) = xyzmh_ptmass(ihsoft,1)
-       call prompt('Enter softening length for primary',xyzmh_ptmass(ihsoft,1),0.)
-       call prompt('Enter softening length for secondary',xyzmh_ptmass(ihsoft,2),0.)
+       if (setup_case == 1) then
+          !shifts gas to the primary point mass created in 'set_binary'
+          do i=1,npart
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
+          enddo
+       elseif (setup_case == 8) then
+          nstar1 = npart ! save npart in star 1
+          dumpname = ''
+          call prompt('Enter name of second dumpfile',dumpname)
+          nstar2 = nstar1
+          call prompt('Enter no. of particles in second dumpfile',nstar2)
 
-       !shifts gas to the primary point mass created in 'set_binary'
-       do i=1,npart
-          !positions
-          xyzh(1,i) = xyzh(1,i) + xyzmh_ptmass(1,1)
-          xyzh(2,i) = xyzh(2,i) + xyzmh_ptmass(2,1)
-          xyzh(3,i) = xyzh(3,i) + xyzmh_ptmass(3,1)
+          ! Move star 1 particles to avoid getting overwritten when reading second dump file.
+          if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar1+i
+             do i=1,nstar1
+                call copy_particle(i,nstar1+i,.false.)
+             enddo
+          else ! Move ith particle of star 1 to nstar2+i
+             do i=1,nstar1
+                call copy_particle(i,nstar2+i,.false.)
+             enddo
+          endif
 
-          !velocities
-          vxyzu(1,i) = vxyzu(1,i) + vxyz_ptmass(1,1)
-          vxyzu(2,i) = vxyzu(2,i) + vxyz_ptmass(2,1)
-          vxyzu(3,i) = vxyzu(3,i) + vxyz_ptmass(3,1)
-       enddo
+          ! read dump file containing star 2
+          call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
+          if (ierr /= 0) stop 'error reading second dump file'
 
-       !deletes third point mass
-       nptmass = 2
+          if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar2+i
+             do i=1,nstar1
+                call copy_particle(nstar1+i,nstar2+i,.false.)
+             enddo
+          endif
 
-       !resets to (0,0,0) position and velocity of centre of mass for whole system after creating the binary
+          npart = nstar1 + nstar2
+          npartoftype(igas) = npart
+
+          ! shift star2 to secondary point mass (deleted)
+          do i=1,nstar2
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,2)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,2)
+          enddo
+          ! shift star1 to primary point mass (deleted)
+          do i=nstar2+1,npart
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
+          enddo
+
+       endif
+
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
     case(2)
@@ -291,7 +334,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter filename of the input stellar profile', densityfile)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
-       call read_mesa_file(trim(densityfile),ng_max,npts,r,den,pres,temp,enitab,Mstar,ierr,mcut,rcut)
+
+       call read_mesa(densityfile,den,r,pres,m,enitab,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
+       rcut = yinterp(r,m,mcut)
 
        irhomax = 1
        do i=1,npart
@@ -310,7 +355,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        xyzmh_ptmass(4,n)   = 0.  ! zero mass
        xyzmh_ptmass(ihsoft,n) = hsoft_default
        vxyz_ptmass(:,n) = 0.     ! zero velocity, get this by accreting
-
 
        do i=1,npart
           radi = sqrt((xyzh(1,i)-xyzh(1,irhomax))**2 + &
@@ -414,8 +458,145 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        !resets to (0,0,0) position and velocity of centre of mass for whole system after creating the binary
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
-    end select
+    case(6)
+       iexternalforce = iext_corotate
+       companion_mass = 1.26
+       call prompt('Enter companion mass in Msun',companion_mass,0.)
+       separation = 865.24
+       call prompt('Enter orbital separation in Rsun',separation,0.)
 
+       if (nptmass == 0) then ! Primary core already replaced with potential
+          print*,'No sinks in dump. Using primary core properties from input file'
+          call prompt('Please write the name of the input file : ',filename)
+          call open_db_from_file(db,filename,20,ierr)
+          call read_inopt(icompanion_grav,'icompanion_grav',db) ! Must have icompanion_grav = 2
+          call read_inopt(primarycore_mass,'primarycore_mass',db)
+          call read_inopt(primarycore_hsoft,'primarycore_hsoft',db)
+          call close_db(db)
+          print*,'Primary core mass is ',primarycore_mass,' Msun'
+          print*,'Primary core softening length is ',primarycore_hsoft,' Rsun'
+       elseif (nptmass == 1) then
+          print*,'One sink found in dump. Assuming to be primary core.'
+          print*,'Primary core mass is ',xyzmh_ptmass(4,1),' Msun'
+          print*,'Primary core softening length is ',xyzmh_ptmass(ihsoft,1),' Rsun'
+          primarycore_mass  = xyzmh_ptmass(4,1)
+          primarycore_hsoft = xyzmh_ptmass(ihsoft,1)
+          call prompt('Replace primary core with fixed gravitational potential?',iprimary_grav_ans)
+          if (iprimary_grav_ans) then
+             icompanion_grav = 2
+             nptmass = nptmass - 1
+          else
+             icompanion_grav = 1
+          endif
+       endif
+
+       ! Centre to new CoM with the companion
+       mass_donor = npartoftype(igas)*massoftype(igas) + primarycore_mass
+       omega_corotate = sqrt((mass_donor + companion_mass)/separation**3)
+       newCoM = companion_mass / (mass_donor + companion_mass) * separation
+       companion_xpos = separation - newCoM
+       if (icompanion_grav == 1) xyzmh_ptmass(1,1) = xyzmh_ptmass(1,1) - newCoM
+       if (icompanion_grav == 2) then
+          primarycore_xpos_old = primarycore_xpos
+          primarycore_xpos = -newCoM
+       endif
+       do i = 1,npart
+          ! Zero all particle velocities in the corotating frame, implying that the star is
+          ! instantaneously spun up to the orbital frequency.
+          vxyzu(1,i) = 0.
+          vxyzu(2,i) = 0.
+          vxyzu(3,i) = 0.
+
+          ! Move star to new primary position
+          xyzh(1,i) = xyzh(1,i) - newCoM!primarycore_xpos_old - newCoM
+       enddo
+       if (icompanion_grav == 1) vxyz_ptmass(1:3,1) = 0.
+
+       ! Calculate softening length, hsoft, of companion gravity. Take hsoft to be 10% of
+       ! the companion Roche radius, evaluated with Eggleton (1983)
+       mass_ratio = companion_mass / mass_donor
+       hsoft = 0.1 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+               log( 1 + mass_ratio**(1./3.) ) ) * separation
+       print*,'Angular velocity of the corotating frame in code units is ',omega_corotate
+       print*,'Orbital period is ',2*pi/omega_corotate * utime / 3.15E+07,' years'
+       print*,'Softening radius of companion gravity is ',hsoft,' Rsun'
+
+    case(7)
+       ! Read information about companion gravity from infile
+       call prompt('Please write the name of the input file : ',filename)
+       call open_db_from_file(db,filename,20,ierr)
+       call read_inopt(icompanion_grav,'icompanion_grav',db)
+       call read_inopt(iexternalforce,'iexternalforce',db)
+       call read_inopt(omega_corotate,'omega_corotate',db)
+       call read_inopt(companion_mass,'companion_mass',db)
+       call read_inopt(companion_xpos,'companion_xpos',db)
+       if (icompanion_grav == 2) then
+          call read_inopt(primarycore_mass,'primarycore_mass',db)
+          call read_inopt(primarycore_xpos,'primarycore_xpos',db)
+          call read_inopt(primarycore_hsoft,'primarycore_hsoft',db)
+       elseif (icompanion_grav == 1) then
+          primarycore_mass = xyzmh_ptmass(4,1)
+       else
+          stop 'ERROR: icompanion_grav not equal to 1 or 2'
+       endif
+       call close_db(db)
+
+       m1 = npartoftype(igas)*massoftype(igas) + primarycore_mass
+       m2 = companion_mass
+       a = abs(companion_xpos) + abs(primarycore_xpos)
+       print*,' Primary mass from existing file = ',m1,' Msun'
+       print*,' Secondary mass from existing file = ',companion_mass,' Msun'
+       print*,' Mass of primary core = ',primarycore_mass,' Msun'
+       print*,' Softening length of primary core = ',primarycore_hsoft,' Rsun'
+       print*,' Orbital separation = ',a,' Rsun'
+       e = 0.
+       call prompt('Enter eccentricity ',e,0.)
+       if (icompanion_grav == 2) hacc1 = xyzmh_ptmass(ihacc,1)
+       hacc2 = 0.
+       hsoft2 = 0.
+       call prompt('Enter accretion radius of secondary in Rsun: ',hacc2,0.)
+       call prompt('Enter softening length of secondary in Rsun: ',hsoft2,0.)
+
+       ! Add companion particle
+       nptmass = nptmass + 1
+       xyzmh_ptmass(1:3,2) = (/ companion_xpos, 0., 0. /)
+       xyzmh_ptmass(4,2) = m2
+       xyzmh_ptmass(ihsoft,2) = hsoft2
+       xyzmh_ptmass(ihacc,2) = hacc2
+       vxyz_ptmass(1:3,2) = 0.
+
+       ! Add primary core
+       if (icompanion_grav == 2) then
+          nptmass = nptmass + 1
+          xyzmh_ptmass(1:3,1) = (/ primarycore_xpos, 0., 0. /)
+          xyzmh_ptmass(4,1) = primarycore_mass
+          xyzmh_ptmass(ihsoft,1) = primarycore_hsoft
+          vxyz_ptmass(1:3,1) = 0.
+       endif
+
+       ! Transform from corotating to inertial frame
+       iexternalforce = 0
+       omega_vec = (/ 0.,0.,omega_corotate /)
+       do i = 1,npart
+          call cross(omega_vec,xyzh(:3,i),omegacrossr)
+          vxyzu(1,i) = vxyzu(1,i) + omegacrossr(1)
+          vxyzu(2,i) = vxyzu(2,i) + omegacrossr(2)
+          vxyzu(3,i) = vxyzu(3,i) + omegacrossr(3)
+       enddo
+       do i = 1,2
+          call cross(omega_vec,xyzmh_ptmass(:3,i),omegacrossr)
+          vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + omegacrossr(1)
+          vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + omegacrossr(2)
+          vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + omegacrossr(3)
+       enddo
+       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+       ! Set tmax and dtmax
+       period = 2.*pi*sqrt(a**3/(m1 + m2))
+       print*,' Orbital period = ',period
+       tmax = 30.*period
+       dtmax = 0.1*period
+    end select
  endif
 
  return
@@ -437,7 +618,6 @@ end subroutine cross
 subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
                       accretion_radius1,accretion_radius2,accretion_radius3,&
                       xyzmh_ptmass,vxyz_ptmass,nptmass)
- use part,    only:ihacc,ihsoft
  real,    intent(in)    :: mprimary,msecondary,mtertiary
  real,    intent(in)    :: semimajoraxis12,semimajoraxis13
  real,    intent(in)    :: accretion_radius1,accretion_radius2,accretion_radius3
@@ -494,12 +674,12 @@ subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajorax
  xyzmh_ptmass(4,i1) = m1
  xyzmh_ptmass(4,i2) = m2
  xyzmh_ptmass(4,i3) = m3
- xyzmh_ptmass(ihacc,i1) = accretion_radius1
- xyzmh_ptmass(ihacc,i2) = accretion_radius2
- xyzmh_ptmass(ihacc,i3) = accretion_radius3
- xyzmh_ptmass(ihsoft,i1) = 0.0
- xyzmh_ptmass(ihsoft,i2) = 0.0
- xyzmh_ptmass(ihsoft,i3) = 0.0
+ xyzmh_ptmass(5,i1) = accretion_radius1
+ xyzmh_ptmass(5,i2) = accretion_radius2
+ xyzmh_ptmass(5,i3) = accretion_radius3
+ xyzmh_ptmass(6,i1) = 0.0
+ xyzmh_ptmass(6,i2) = 0.0
+ xyzmh_ptmass(6,i3) = 0.0
 !
 !--velocities
 !

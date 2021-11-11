@@ -1,13 +1,11 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: mpiutils
+module mpiutils
 !
-!  DESCRIPTION:
 ! This module contains MPI-related quantities and utilities
 ! though most can be called safely from non-MPI code
 ! (but obviously do nothing).
@@ -43,18 +41,14 @@
 !
 !   calls MPI_BARRIER, no-op if called from non-MPI code
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, mpi
 !
-!  DEPENDENCIES: io, mpi
-!+
-!--------------------------------------------------------------------------
-module mpiutils
 #ifdef MPI
  use mpi
  implicit none
@@ -116,7 +110,7 @@ module mpiutils
 !--generic interface fill_buffer
 !
  interface fill_buffer
-  module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_ival
+  module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_i1val,fill_buffer_i8val
  end interface
 !
 !--generic interface unfill_buf
@@ -958,7 +952,7 @@ subroutine reduceloc_mpi_real4(string,xproc,loc)
  real(kind=4) :: xred(2),xsend(2)
 
  xsend(1) = xproc
- xsend(2) = float(id)
+ xsend(2) = real(id,kind=4)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2REAL,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
@@ -1546,7 +1540,7 @@ subroutine fill_buffer_r4val(xbuffer,xval,nbuf)
 
 end subroutine fill_buffer_r4val
 
-subroutine fill_buffer_ival(xbuffer,ival,nbuf)
+subroutine fill_buffer_i1val(xbuffer,ival,nbuf)
  real,            intent(inout) :: xbuffer(:)
  integer(kind=1), intent(in)    :: ival
  integer,         intent(inout) :: nbuf
@@ -1554,7 +1548,17 @@ subroutine fill_buffer_ival(xbuffer,ival,nbuf)
  nbuf = nbuf + 1
  xbuffer(nbuf) = real(ival)
 
-end subroutine fill_buffer_ival
+end subroutine fill_buffer_i1val
+
+subroutine fill_buffer_i8val(xbuffer,ival,nbuf)
+ real,            intent(inout) :: xbuffer(:)
+ integer(kind=8), intent(in)    :: ival
+ integer,         intent(inout) :: nbuf
+
+ nbuf = nbuf + 1
+ xbuffer(nbuf) = real(ival)
+
+end subroutine fill_buffer_i8val
 
 !--------------------------------------------------------------------------
 !+

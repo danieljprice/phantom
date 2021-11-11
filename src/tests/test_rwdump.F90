@@ -1,46 +1,45 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testrwdump
-!
-!  DESCRIPTION:
-!   Unit test of read/write of particle data to/from dump files
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!    part, physcon, readwrite_dumps, testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testrwdump
+!
+! Unit test of read/write of particle data to/from dump files
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
+!   options, part, physcon, readwrite_dumps, testutils, timing, units
+!
  implicit none
  public :: test_rwdump
 
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of reading/writing dump files
+!+
+!-----------------------------------------------------------------------
 subroutine test_rwdump(ntests,npass)
  use part,            only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,&
                            Bevol,Bxyz,Bextx,Bexty,Bextz,alphaind,maxalpha,&
-                           periodic,maxphase,mhd,maxvxyzu,maxBevol,igas,idust,&
+                           periodic,maxphase,mhd,maxvxyzu,igas,idust,&
                            maxp,poten,gravity,use_dust,dustfrac,xyzmh_ptmass,&
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
-                           vxyzu_label,set_particle_type,iphase,ndustsmall
- use dim,             only:maxp,maxdusttypes
+                           vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
+                           iorig,copy_particle_all,norig
+ use dim,             only:maxp,maxdustsmall
  use memory,          only:allocate_memory,deallocate_memory
- use testutils,       only:checkval
+ use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
  use readwrite_dumps, only:read_dump,write_fulldump,write_smalldump,read_smalldump,is_small_dump
  use eos,             only:gamma,polyk
@@ -50,8 +49,9 @@ subroutine test_rwdump(ntests,npass)
  use mpiutils,        only:barrier_mpi
  use dump_utils,      only:read_array_from_file
  use timing,          only:getused,printused
+ use options,         only:use_dustfrac
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(64)
+ integer :: nfailed(67)
  integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
@@ -93,6 +93,7 @@ subroutine test_rwdump(ntests,npass)
     alphawas = real(0.23_4)
     iu = 4
     do i=1,npart
+       iorig(i) = i
        xyzh(1,i) = 1.
        xyzh(2,i) = 2.
        xyzh(3,i) = 3.
@@ -108,16 +109,20 @@ subroutine test_rwdump(ntests,npass)
           Bxyz(1,i) = 10.
           Bxyz(2,i) = 11.
           Bxyz(3,i) = 12.
-          if (maxBevol >= 4) Bevol(4,i) = 13.
+          Bevol(4,i) = 13.
        endif
        if (gravity) then
           poten(i) = 15._4
        endif
        if (use_dust) then
-          ndustsmall = maxdusttypes
-          dustfrac(:,i) = 16._4
+          use_dustfrac = .true.
+          ndustsmall = maxdustsmall
+          ndustlarge = 1
+          ndusttypes = ndustsmall + ndustlarge
+          dustfrac(:,i) = 0.16_4
        endif
     enddo
+    norig   = npart
     nptmass = 10
     do i=1,nptmass
        do j=1,nsinkproperties
@@ -149,6 +154,8 @@ subroutine test_rwdump(ntests,npass)
     endif
     polykwas = polyk
     call set_units(dist=au,mass=solarm,G=1.d0)
+    call copy_particle_all(ngas,2,.false.)   ! Move i=ngas to i=2 (assumes i=2 was killed)
+    call copy_particle_all(1,ngas,.true.)    ! Create new i=ngas based upon i=1
 !
 !--write to file
 !
@@ -191,12 +198,11 @@ subroutine test_rwdump(ntests,npass)
     if (test_speed) call getused(t1)
     if (itest==2) then
        if (id==master) write(*,"(/,a)") '--> checking read_dump'
-       ntests = ntests + 1
        nfailed = 0
        call deallocate_memory
        call read_dump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
        call checkval(ierr,is_small_dump,0,nfailed(1),'read_dump returns is_small_dump error code')
-       if (all(nfailed==0)) npass = npass + 1
+       call update_test_scores(ntests,nfailed,npass)
 
        if (id==master) write(*,"(/,a)") '--> checking read_smalldump'
        call read_smalldump('test.dump',tfile,hfactfile,idisk1,iprint,id,nprocs,ierr)
@@ -237,8 +243,13 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bexty,Bextywas,tiny(Bexty),nfailed(19),'Bexty')
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    if (itest==1) then  ! iorig is not dumped to small dumps
+       call checkval(iorig(2),    int(ngas   ,kind=8), 0,nfailed(65),'iorig(2)')
+       call checkval(iorig(ngas), int(npart+1,kind=8), 0,nfailed(66),'iorig(ngas)')
+       call checkval(iorig(npart),int(npart  ,kind=8), 0,nfailed(67),'iorig(N)')
+    endif
+
+    call update_test_scores(ntests,nfailed,npass)
 
     call barrier_mpi()
 
@@ -259,14 +270,14 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,Bxyz(1,:),10.,tol,nfailed(10),'Bx')
           call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
           call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
-          if (maxBevol >= 4) call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
+          call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
        endif
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
        endif
        if (use_dust) then
           do i = 1,ndustsmall
-             call checkval(npart,dustfrac(i,:),16.,tol,nfailed(16),'dustfrac')
+             call checkval(npart,dustfrac(i,:),0.16,real(epsilon(0._4)),nfailed(16),'dustfrac')
           enddo
        endif
     endif
@@ -274,8 +285,7 @@ subroutine test_rwdump(ntests,npass)
        call checkval(ngas,iphase,igas,0,nfailed(17),'particle type 1')
        call checkval(ndust,iphase(npart-ndust+1:npart),idust,0,nfailed(18),'particle type 2')
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     if (id==master) write(*,"(/,a)") '--> checking sink particle arrays'
     nfailed = 0
@@ -288,8 +298,7 @@ subroutine test_rwdump(ntests,npass)
                         nfailed(nsinkproperties+j),vxyz_ptmass_label(j))
        enddo
     endif
-    ntests = ntests + 1
-    if (all(nfailed==0)) npass = npass + 1
+    call update_test_scores(ntests,nfailed,npass)
 
     call barrier_mpi()
 
@@ -327,9 +336,9 @@ subroutine test_rwdump(ntests,npass)
     endif
  enddo over_tests
 
- if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
  call deallocate_memory
  call allocate_memory(maxp_old)
+ if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump
 

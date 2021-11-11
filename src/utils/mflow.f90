@@ -1,26 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: mflow
-!
-!  DESCRIPTION: None
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  USAGE: mflow[int time] file01.mf file02.mf ...
-!
-!  DEPENDENCIES: mf_write
-!+
-!--------------------------------------------------------------------------
 program mflow
+!
+! None
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Usage: mflow[int time] file01.mf file02.mf ...
+!
+! :Dependencies: mf_write
+!
  use mf_write, only: nradi,ncolsi
  implicit none
 
@@ -95,7 +90,7 @@ program mflow
        print*,trim(filename)//' --> '//trim(outfile)
        nthfile=trim(filename(1:imf))//'-'//trim(nth)//'.mflow'
 
-       if(nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
+       if (nthtime) print*,trim(outfile)//'--->'//trim(nthfile)
        open(unit=iout,file=trim(outfile),status='replace',form='formatted')
 
        ierr=1
@@ -130,10 +125,10 @@ program mflow
 
           datprev(:)=dat(5:ncols)
           tprev=dat(1)
-          if(ierr==0) write(iout,formatout) dat(1),ndump,datflow
+          if (ierr==0) write(iout,formatout) dat(1),ndump,datflow
 
-          if(nthtime) then
-             if(ndump==inttime)then
+          if (nthtime) then
+             if (ndump==inttime) then
                 open(unit=nthoutput,file=trim(nthfile),status='replace',form='formatted')
                 write(nthoutput,"('#',(1x,a17),es18.10)")"time:",dat(1)
                 do nthcount=1,nrad

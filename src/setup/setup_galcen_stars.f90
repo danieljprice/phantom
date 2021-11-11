@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!    Setup for simulations of the Galactic Centre
+! Setup for simulations of the Galactic Centre
 !    Adapted by Daniel Price in collaboration with Jorge Cuadra
 !
-!  REFERENCES: Paumard et al. (2006)
+! :References: Paumard et al. (2006)
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - datafile : *filename for star data (m,x,y,z,vx,vy,vz)*
+!   - h_sink   : *sink particle radii in arcsec at 8kpc*
+!   - m_gas    : *gas mass resolution in solar masses*
 !
-!  RUNTIME PARAMETERS:
-!    datafile -- filename for star data (m,x,y,z,vx,vy,vz)
-!    h_sink   -- sink particle radii in arcsec at 8kpc
-!    m_gas    -- gas mass resolution in solar masses
+! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
+!   prompting, spherical, timestep, units
 !
-!  DEPENDENCIES: datafiles, dim, eos, infile_utils, io, part, physcon,
-!    prompting, spherical, timestep, units
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 
@@ -47,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
  use units,     only:set_units,umass !,udist
  use physcon,   only:solarm,kpc,pi,au
  use io,        only:fatal,iprint,master
@@ -125,6 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  psep = 1.0
  call set_sphere('cubic',id,master,0.,20.,psep,hfact,npart,xyzh)
  vxyzu(4,:) = 5.317e-4
+ npartoftype(igas) = npart
 
  if (nptmass == 0) call fatal('setup','no particles setup')
  if (ierr /= 0) call fatal('setup','ERROR during setup')

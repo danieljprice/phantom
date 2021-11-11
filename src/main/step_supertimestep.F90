@@ -1,13 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: supertimestep
+module supertimestep
 !
-!  DESCRIPTION: This is the module to control super-timestepping.
+! This is the module to control super-timestepping.
 !               If use_sts=true, then this is called from evolve.f rather
 !               than step.
 !               We determine if super-timestepping is required, and if
@@ -24,19 +23,15 @@
 !               5) using Nreal since Nsts > nnu, or Nsts*Nmega>Nreal
 !               The subroutines called are in utils_supertimestep.f
 !
-!  REFERENCES: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
+! :References: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, io_summary, part, step_lf_global, timestep,
+!   timestep_ind, timestep_sts
 !
-!  DEPENDENCIES: io, io_summary, part, step_lf_global, timestep,
-!    timestep_ind, timestep_sts
-!+
-!--------------------------------------------------------------------------
-module supertimestep
  use io_summary,     only: summary_counter,iosum_nsts
  use timestep_sts,   only: iNosts,iNsts,iNmegasts,iNostsSml,iNostsBig,icase_sts, &
                            nbinmaxsts,Nmegasts_now,Nmegasts_next,Nreal,Nsts
@@ -182,9 +177,9 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
  if (iverbose>=1) then
     if (icase_sts==iNsts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNmegasts) then
+    elseif (icase_sts==iNmegasts) then
        write(iprint,10) 'Super-timestepping: Enabled with Nsts*Nmega = ',Nmegasts_next,' at time = ',time,' with Nreal = ',Nreal
-    else if (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
+    elseif (icase_sts==iNostsSml .or. icase_sts==iNostsBig) then
        write(iprint,20)      &
        'Super-timestepping: Disabled.  Using Nreal = ',Nreal,' at time = ',time
     else
@@ -202,16 +197,16 @@ subroutine sts_print_output(nactive_sts,time,nbinmax,iprint)
     call summary_variable('sts',iosumsts  ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnn,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsi ,0,real(Nviaibin)     )
- else if (icase_sts==iNmegasts) then
+ elseif (icase_sts==iNmegasts) then
     call summary_variable('sts',iosumstsm ,0,real(Nmegasts_next))
     call summary_variable('sts',iosumstsr ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnm,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsri,0,real(Nviaibin)     )
- else if (icase_sts==iNostsSml) then
+ elseif (icase_sts==iNostsSml) then
     call summary_variable('sts',iosumstsd ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsns,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsdi,0,real(Nviaibin)     )
- else if (icase_sts==iNostsBig) then
+ elseif (icase_sts==iNostsBig) then
     call summary_variable('sts',iosumstso ,0,real(Nreal)        )
     call summary_variable('sts',iosumstsnl,0,real(nactive_sts)  )
     call summary_variable('sts',iosumstsoi,0,real(Nviaibin)     )

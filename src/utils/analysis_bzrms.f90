@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis calculating magnetic field and wave characteristics.
+! Analysis calculating magnetic field and wave characteristics.
 !  Currently only possible when using fixed, non-calculated coefficients
 !  for ambipolar diffusion and/or the Hall effect
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: infile_utils, io, part, physcon
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'bzrms'
  public :: do_analysis
@@ -161,7 +155,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        omegaR  = 0.5*sqrt( -quadb*quadb - 4.0*quada*quadc )
        hoft    = h0*abs(sin(omegaR*time))*exp(omegaI*time)
        pdiffR  = 0.0
-    else if (halltest) then
+    elseif (halltest) then
        !--Solution to the Hall wave equation (Sano & Stone)
        write(*,*) "Hall effect being tested"
        write(*,*) "Calculating analytical results using (B_0,rho,eta_hall,k/pi,v_amp) = " &
@@ -241,4 +235,4 @@ subroutine read_infile(filename)
  !
 end subroutine read_infile
 !-----------------------------------------------------------------------
-end module
+end module analysis

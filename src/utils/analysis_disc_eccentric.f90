@@ -1,27 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine for discs based on semimajor axis of particles
+! Analysis routine for discs based on semimajor axis of particles
 !  for studying eccentric orbits
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Enrico Ragusa
+! :Owner: Enrico Ragusa
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: infile_utils, io, part, physcon, sortutils
 !
-!  DEPENDENCIES: infile_utils, io, part, physcon, sortutils
-!+
-!--------------------------------------------------------------------------
 
 !--------------------------- N.B. ------------------------------ !
 ! discfrac is not the density, to compute the density one should !
@@ -32,7 +27,6 @@
 ! of e_spur=beta*(H/R)^2. beta=1.5+p+q                           !
 !--------------------------------------------------------------- !
 
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'eccentric'
  public :: do_analysis,nr,createbins,read_discparams
@@ -227,7 +221,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
        z(ii,j(ii))= abs(xx(3))
        j(ii)=j(ii)+1
-       if(j(ii)>ninbin(ii)+1)then
+       if (j(ii)>ninbin(ii)+1) then
           print*, 'out of array limit (ii,j(ii),ninbin(ii):)',ii,j(ii)-1,ninbin(ii)
        endif
     endif
@@ -276,7 +270,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  do i=1,nr
     !if H=0 does not divide
-    if(.not. Hperc(i)==0.) then
+    if (.not. Hperc(i)==0.) then
        honH=h_smooth(i)/Hperc(i)
     else
        honH=0.
@@ -290,7 +284,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
  print*,"Number of particles in each bin:"
 
- if(comment)then
+ if (comment) then
     do i=1, nr
        print*,"i, ninbin(i),Hperc(i):",i,ninbin(i),Hperc(i)
     enddo
@@ -378,7 +372,7 @@ subroutine createbins(rad,nr,rmax,rmin,dr)
  integer, intent(in)      :: nr
  integer                  :: i
 
- if(size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
+ if (size(rad)<nr) call fatal('subroutine createbin','size(rad)<nr')
 
  dr = (rmax-rmin)/real(nr-1)
  do i=1,nr

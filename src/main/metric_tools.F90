@@ -1,20 +1,30 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module metric_tools
- use metric, only:imetric
-
- implicit none
-
-!-------------------------------------------------------------------------------
 !
 ! This module contains wrapper subroutines to get:
 !      - The metric (covariant and contravariant)
 !      - Derivatives of the covariant metric
-! As well as some general tools that are not specfic to each metric:
+!  As well as some general tools that are not specfic to each metric:
 !      - Numerical metric derivatives
 !      - Tensor transformations
 !
-!-------------------------------------------------------------------------------
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: fastmath, inverse4x4, metric
+!
+ use metric, only:imetric
+ implicit none
 
-!--- List of coordinates
+ !--- List of coordinates
  integer, public, parameter :: &
     icoord_cartesian  = 1,     &    ! Cartesian coordinates
     icoord_spherical  = 2           ! Spherical coordinates
@@ -39,15 +49,18 @@ module metric_tools
  public :: get_metric, get_metric_derivs, print_metricinfo, init_metric, pack_metric, unpack_metric
  public :: pack_metricderivs
  public :: imetric
+ public :: numerical_metric_derivs
 
  private
 
 contains
 
 !-------------------------------------------------------------------------------
-
-!--- This is a wrapper subroutine to get the metric tensor in both covariant (gcov) and
-!    contravariant (gcon) form.
+!+
+!  This is a wrapper subroutine to get the metric tensor in both
+!  covariant (gcov) and contravariant (gcon) form.
+!+
+!-------------------------------------------------------------------------------
 pure subroutine get_metric(position,gcov,gcon,sqrtg)
  use metric,     only: get_metric_cartesian,get_metric_spherical,cartesian2spherical
  use inverse4x4, only: inv4x4
@@ -74,16 +87,19 @@ pure subroutine get_metric(position,gcov,gcon,sqrtg)
 
 end subroutine get_metric
 
-! This is a wrapper subroutine to get the derivatives of the covariant metric tensor.
-! The actual analytic metric derivaties are in the metric module, which are different for each type
-! of metric.
+!-------------------------------------------------------------------------------
+!+
+!  This is a wrapper subroutine to get the derivatives of the covariant metric tensor.
+!  The actual analytic metric derivaties are in the metric module, which are different for each type
+!  of metric.
+!+
+!-------------------------------------------------------------------------------
 subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
  use metric, only: metric_cartesian_derivatives, metric_spherical_derivatives, imetric
  real, intent(in)  :: position(3)
  real, intent(out) :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
 
  select case(icoordinate)
-
  case(icoord_cartesian)
     call metric_cartesian_derivatives(position,dgcovdx1, dgcovdx2, dgcovdx3)
  case(icoord_spherical)
@@ -93,41 +109,44 @@ subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
 end subroutine get_metric_derivs
 
 !-------------------------------------------------------------------------------
-! (not being used at the moment)
-!--- The numerical derivatives of the covariant metric tensor
-! pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
-!  real, intent(in) :: position(3)
-!  real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
-!  real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
-!  di = 1.e-8
-!  dx = di
-!  dy = di
-!  dz = di
-!
-!  temp      = position
-!  temp(1)   = temp(1)+dx
-!  call get_metric(temp,gplus,gblah,sqrtgblag)
-!  temp      = position
-!  temp(1)   = temp(1)-dx
-!  call get_metric(temp,gminus,gblah,sqrtgblag)
-!  dgcovdx = 0.5*(gplus-gminus)/dx
-!
-!  temp      = position
-!  temp(2)   = temp(2)+dy
-!  call get_metric(temp,gplus,gblah,sqrtgblag)
-!  temp      = position
-!  temp(2)   = temp(2)-dy
-!  call get_metric(temp,gminus,gblah,sqrtgblag)
-!  dgcovdy = 0.5*(gplus-gminus)/dy
-!
-!  temp      = position
-!  temp(3)   = temp(3)+dz
-!  call get_metric(temp,gplus,gblah,sqrtgblag)
-!  temp      = position
-!  temp(3)   = temp(3)-dz
-!  call get_metric(temp,gminus,gblah,sqrtgblag)
-!  dgcovdz = 0.5*(gplus-gminus)/dz
-! end subroutine numerical_metric_derivs
+!+
+!  Numerical derivatives of the covariant metric tensor
+!+
+!-------------------------------------------------------------------------------
+pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
+ real, intent(in) :: position(3)
+ real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
+ real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
+ di = 1.e-8
+ dx = di
+ dy = di
+ dz = di
+
+ temp      = position
+ temp(1)   = temp(1)+dx
+ call get_metric(temp,gplus,gblah,sqrtgblag)
+ temp      = position
+ temp(1)   = temp(1)-dx
+ call get_metric(temp,gminus,gblah,sqrtgblag)
+ dgcovdx = 0.5*(gplus-gminus)/dx
+
+ temp      = position
+ temp(2)   = temp(2)+dy
+ call get_metric(temp,gplus,gblah,sqrtgblag)
+ temp      = position
+ temp(2)   = temp(2)-dy
+ call get_metric(temp,gminus,gblah,sqrtgblag)
+ dgcovdy = 0.5*(gplus-gminus)/dy
+
+ temp      = position
+ temp(3)   = temp(3)+dz
+ call get_metric(temp,gplus,gblah,sqrtgblag)
+ temp      = position
+ temp(3)   = temp(3)-dz
+ call get_metric(temp,gminus,gblah,sqrtgblag)
+ dgcovdz = 0.5*(gplus-gminus)/dz
+
+end subroutine numerical_metric_derivs
 
 !-------------------------------------------------------------------------------
 

@@ -1,29 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: discanalysisutils
+module discanalysisutils
 !
-!  DESCRIPTION:
-!  Routine to calculate azimuithally averaged properties in a disc
+! Routine to calculate azimuithally averaged properties in a disc
 !  Can handle gas disc, gas disc + sinks and warped discs
 !
-!  REFERENCES:
+! :References:
 !
-!  OWNER: Bec Nealon
+! :Owner: Bec Nealon
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: centreofmass, externalforces, options, physcon, prompting,
+!   vectorutils
 !
-!  DEPENDENCIES: centreofmass, externalforces, options, physcon, prompting,
-!    vectorutils
-!+
-!--------------------------------------------------------------------------
-module discanalysisutils
  implicit none
 
  character(len=20), parameter, public :: analysistype = 'disc'
@@ -40,7 +34,7 @@ contains
 !+
 !----------------------------------------------------------------
 
-subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,q_index,&
+subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
                      tilt,tilt_acc,twist,twistprev,psi,H,bin,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
                      ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass)
  use physcon,        only:pi
@@ -51,7 +45,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  use prompting,      only:prompt
  real, intent(inout)              :: xyzh(:,:),vxyz(:,:),pmass,time
  integer, intent(in)              :: nbin,npart
- real, intent(in)                 :: rmin,rmax,H_R,G,M_star,q_index
+ real, intent(in)                 :: rmin,rmax,G,M_star
  logical, intent(in)              :: assume_Ltot_is_same_as_zaxis
  real, optional, intent(inout)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, optional, intent(inout) :: nptmass
@@ -61,7 +55,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  real, intent(out)                :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
  integer, intent(out)             :: ninbin(nbin)
  real                             :: dbin,angx,angy,angz,unitangz
- real                             :: angtot,Ltot,position_star(3),velocity_star(3)
+ real                             :: angtot,Ltot
  real                             :: rsphi,rcyli,area,Ei,mu,term,ecci
  real                             :: Li(3),xi(3),vi(3),Limag,dtwist
  real                             :: psi_x,psi_y,psi_z,tp(nbin)
@@ -106,8 +100,6 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  twist = 0.0
  twistprev = 0.0
  mu = G*M_star
- position_star = (/0.,0.,0./)
- velocity_star = (/0.,0.,0./)
 
  allocate(zsetgas(npart,nbin),stat=iallocerr)
  ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
@@ -120,19 +112,18 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  endif
 
 ! Move everything so that the centre of mass is at the origin
+! and run everything in CoM frame
+! NB: this is not suitable for discs/flybys
  if (nptmass > 0) then
     call reset_centreofmass(npart,xyzh,vxyz,nptmass,xyzmh_ptmass,vxyz_ptmass)
-    ! Assume that the disc is around the first point mass (normally occurs)
-    position_star(1:3) = xyzmh_ptmass(1:3,1)
-    velocity_star(1:3) = vxyz_ptmass(1:3,1)
  endif
 
 ! Loop over particles putting properties into the correct bin
  do i = 1,npart
 
     ! i for the particle number, ii for the bin number
-    xi = xyzh(1:3,i) - position_star(1:3)
-    vi = vxyz(1:3,i) - velocity_star(1:3)
+    xi = xyzh(1:3,i)
+    vi = vxyz(1:3,i)
 
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
 
@@ -215,7 +206,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  ninbin = 0
  do i = 1,npart
     if (xyzh(4,i)  >  tiny(xyzh)) then ! IF ACTIVE
-       xi = xyzh(1:3,i) - position_star
+       xi = xyzh(1:3,i)
        ii = mybin(i)
 
        if (ii > nbin .or. ii < 1) cycle
@@ -254,7 +245,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nbin
-    if(ninbin(i)==0 .or. ninbin(i)==1) then
+    if (ninbin(i)==0 .or. ninbin(i)==1) then
        lx(i)=0.0
        ly(i)=0.0
        lz(i)=0.0
@@ -267,7 +258,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  enddo
 
  ! Calculate the total angular momentum vector and rotate unitl[x,y,z] if required
- if(rotate) then
+ if (rotate) then
     if (nptmass /= 0) then
        call get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,nptmass)
     else
@@ -276,19 +267,19 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
 
     temp = (/L_tot(1),L_tot(2),0./)
     temp_mag = sqrt(dot_product(temp,temp))
-    rotate_about_z = acos(dot_product((/1.,0.,0./),temp/temp_mag))
+    rotate_about_z = -acos(dot_product((/1.,0.,0./),temp/temp_mag))*temp(2)/abs(temp(2))
 
     ! Rotate second about y-axis
     L_tot_mag = sqrt(dot_product(L_tot,L_tot))
     rotate_about_y = -acos(dot_product((/0.,0.,1./),L_tot/L_tot_mag))
 
-    call rotatevec(L_tot,(/0.,0.,1.0/),-rotate_about_z)
+    call rotatevec(L_tot,(/0.,0.,1.0/),rotate_about_z)
     call rotatevec(L_tot,(/0.,1.0,0./),rotate_about_y)
     do i=1,nbin
        temp(1) = unitlx(i)
        temp(2) = unitly(i)
        temp(3) = unitlz(i)
-       call rotatevec(temp,(/0.,0.,1.0/),-rotate_about_z)
+       call rotatevec(temp,(/0.,0.,1.0/),rotate_about_z)
        call rotatevec(temp,(/0.,1.0,0./),rotate_about_y)
        unitlx(i) = temp(1)
        unitly(i) = temp(2)
@@ -297,13 +288,13 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,H_R,G,M_star,
  endif
 
  do i=1,nbin
-    if(i /= 1.and.i /= nbin) then
+    if (i /= 1.and.i /= nbin) then
        psi_x=(unitlx(i+1)-unitlx(i-1))/(bin(i+1)-bin(i-1))
        psi_y=(unitly(i+1)-unitly(i-1))/(bin(i+1)-bin(i-1))
        psi_z=(unitlz(i+1)-unitlz(i-1))/(bin(i+1)-bin(i-1))
        psi(i)=sqrt(psi_x**2 + psi_y**2 + psi_z**2)*bin(i)
     else
-       psi=0.
+       psi(i)=0.
     endif
     if (ninbin(i) > 0) then
        tilt(i)  = acos(unitlz(i))

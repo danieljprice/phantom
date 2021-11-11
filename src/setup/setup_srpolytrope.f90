@@ -1,27 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2018 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION: Setup a polytrope in flat space, Minkowski metric (special relativity)
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!
-!  DEPENDENCIES: infile_utils, io, part, physcon, setbinary, spherical,
-!    timestep, units, metric, eos
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup a polytrope in flat space, Minkowski metric (special relativity)
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - nr : *resolution (number of radial particles)*
+!
+! :Dependencies: eos, infile_utils, io, options, part, physcon, prompting,
+!   rho_profile, spherical, timestep, units
+!
  implicit none
 
  public :: setpart
@@ -95,18 +91,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !-- Read runtime parameters from setup file
  !
-  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
-  filename = trim(fileprefix)//'.setup'
-  inquire(file=filename,exist=iexist)
-  if (iexist) call read_setupfile(filename,ierr)
-  if (.not. iexist .or. ierr /= 0) then
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' SR polytrope'
+ filename = trim(fileprefix)//'.setup'
+ inquire(file=filename,exist=iexist)
+ if (iexist) call read_setupfile(filename,ierr)
+ if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call prompt('Resolution -- number of radial particles',nr,0)
        call write_setupfile(filename)
        print*,' Edit '//trim(filename)//' and rerun phantomsetup'
     endif
     stop
-  endif
+ endif
 
 !-- resolution
  psep  = rstar/nr

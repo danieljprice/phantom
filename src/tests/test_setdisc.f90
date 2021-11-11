@@ -1,55 +1,52 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testsetdisc
-!
-!  DESCRIPTION:
-!  Unit tests of set_disc module
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: checksetup, deriv, dim, eos, io, options, part, setdisc,
-!    testutils, timing, units
-!+
-!--------------------------------------------------------------------------
 module testsetdisc
+!
+! Unit tests of set_disc module
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: checksetup, deriv, dim, eos, io, options, part, physcon,
+!   setdisc, testutils, timing, units
+!
  implicit none
  public :: test_setdisc
 
  private
 
 contains
-
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of the set_disc routine
+!+
+!-----------------------------------------------------------------------
 subroutine test_setdisc(ntests,npass)
  use dim,        only:maxp
  use io,         only:id,master
- use part,       only:npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,fext,Bevol,mhd, &
-                      alphaind,maxalpha, &
-                      divcurlv,divcurlB,dBevol,periodic,maxvxyzu,dustfrac,ddustevol,dustprop,ddustprop,temperature,&
-                      pxyzu,dens,metrics
+ use part,       only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
+                      alphaind,maxalpha,periodic,maxvxyzu
  use eos,        only:polyk,gamma
  use options,    only:ieos,alpha,alphau,alphaB
- use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end
- use deriv,      only:derivs
+ use testutils,  only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use deriv,      only:get_derivs_global
  use timing,     only:getused,printused
  use setdisc,    only:set_disc
  use checksetup, only:check_setup
  use units,      only:set_units
+ use physcon,    only:au,solarm
  integer, intent(inout) :: ntests,npass
  integer :: nparttot
- integer :: nfailed,ncheck
- integer :: i,nerr,nwarn,nfail
- real :: time,dtext_dum
+ integer :: nfailed(3),ncheck
+ integer :: i,nerr,nwarn
+ real :: time
  real(kind=4) :: t1,t2
  logical :: testall
  real :: runit(3),xi(3)
@@ -63,7 +60,8 @@ subroutine test_setdisc(ntests,npass)
  endif
 
  testall  = .true.
- call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+ call set_units(mass=solarm,dist=au,G=1.d0)
+ call init_part()
 !
 !--test that centrifugal acceleration balances radial forces
 !
@@ -96,7 +94,6 @@ subroutine test_setdisc(ntests,npass)
                    ismooth=.true.,writefile=.false.)
     npartoftype(:) = 0
     npartoftype(1) = npart
-    if (mhd) Bevol(:,:) = 0.
 !
 !--make sure AV is off
 !
@@ -104,22 +101,20 @@ subroutine test_setdisc(ntests,npass)
     alphau = 0.
     alphaB = 0.
     if (maxalpha==maxp)  alphaind = 0.
-    ntests = ntests + 1
 !
 !--check that set_disc passes check_setup routine
 !
-    ntests = ntests + 2
     call check_setup(nerr,nwarn)
-    call checkval(nerr,0,0,nfail,'setup errors')
-    if (nfail==0) npass = npass + 1
-    call checkval(nwarn,0,0,nfail,'setup warnings')
-    if (nfail==0) npass = npass + 1
+    call checkval(nerr,0,0,nfailed(1),'setup errors')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+
+    call checkval(nwarn,0,0,nfailed(1),'setup warnings')
+    call update_test_scores(ntests,nfailed(1:1),npass)
 !
 !--calculate derivatives
 !
     call getused(t1)
-    call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,dustprop,ddustprop,dustfrac,ddustevol,temperature,time,0.,dtext_dum,pxyzu,dens,metrics)
+    call get_derivs_global()
     call getused(t2)
     if (id==master) call printused(t1)
 !
@@ -136,10 +131,10 @@ subroutine test_setdisc(ntests,npass)
        fr    = dot_product(fxyzu(1:3,i),runit) - 1./rcyl**2
        vphi  = vxyzu(1,i)*(-xi(2)/rcyl) + vxyzu(2,i)*(xi(1)/rcyl)
        sum   = (vphi**2)/rcyl + fr
-       call checkvalbuf(sum,0.,3.1e-1,'centrifugal balance vphi**2/r = force_r',nfailed,ncheck,errmax)
+       call checkvalbuf(sum,0.,3.1e-1,'centrifugal balance vphi**2/r = force_r',nfailed(1),ncheck,errmax)
     enddo
-    call checkvalbuf_end('vphi**2/r = force_r',ncheck,nfailed,errmax,3.1e-1)
-    if (nfailed==0) npass = npass + 1
+    call checkvalbuf_end('vphi**2/r = force_r',ncheck,nfailed(1),errmax,3.1e-1)
+    call update_test_scores(ntests,nfailed(1:1),npass)
 
  endif testvelocities
 

@@ -1,38 +1,28 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: sort_particles
-!
-!  DESCRIPTION:
-!  sorts the particles so neighbours are also close in memory
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, io, linklist, part, sortutils
-!+
-!--------------------------------------------------------------------------
 module sort_particles
+!
+! sorts the particles so neighbours are also close in memory
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, io, linklist, part, sortutils
+!
  implicit none
- public :: sort_part_radius
-#ifdef SORT
- public :: sort_part
-#endif
+ public :: sort_part_radius, sort_part_id, sort_part
 
  private
 
 contains
 
-#ifdef SORT
 ! do not even compile with this routine if not sorting
 !----------------------------------------------------------------
 !+
@@ -44,11 +34,12 @@ subroutine sort_part
  use io,       only:iprint,fatal
  use part,     only:reorder_particles,npart,ll,xyzh,vxyzu,isdead
  use linklist, only:set_linklist,ncells,ifirstincell
- integer :: i,icell,ipart,iprev,ifirst
- real    :: t0,t1,t2
+ integer         :: i,ipart,iprev,ifirst
+ integer(kind=8) :: icell
+ real            :: t0,t1,t2
 
  call cpu_time(t0)
- call set_linklist(npart,xyzh,vxyzu)  ! don't include MPI ghosts
+ call set_linklist(npart,npart,xyzh,vxyzu)  ! don't include MPI ghosts
  call cpu_time(t1)
  write(iprint,*) '> sorting particles...',t1-t0,'s for linklist'
 
@@ -119,7 +110,6 @@ subroutine sort_part
  write(iprint,*) '> sort completed in ',t2-t1,'s'
 
 end subroutine sort_part
-#endif
 
 !----------------------------------------------------------------
 !+
@@ -149,5 +139,32 @@ subroutine sort_part_radius(np)
  write(iprint,*) '> sort completed in ',t2-t1,'s'
 
 end subroutine sort_part_radius
+
+!----------------------------------------------------------------
+!+
+!  this version sorts the particles by ID
+!+
+!----------------------------------------------------------------
+subroutine sort_part_id
+ use io,        only:iprint,error
+ use part,      only:reorder_particles,npart,ll,iorig
+ use sortutils, only:indexx
+ real :: t1,t2
+
+ call cpu_time(t1)
+ write(iprint,*) '> sorting particles by ID...'
+
+ call indexx(npart,iorig,ll)
+
+ write(iprint,*) ' copying arrays...'
+ !
+ !--copy arrays into correct order
+ !
+ call reorder_particles(ll,npart)
+
+ call cpu_time(t2)
+ write(iprint,*) '> sort completed in ',t2-t1,'s'
+
+end subroutine sort_part_id
 
 end module sort_particles

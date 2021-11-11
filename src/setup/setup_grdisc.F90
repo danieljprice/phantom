@@ -1,38 +1,38 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!  this module does an accretion disc setup in general relativity
-!
-!  REFERENCES: None
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!     mhole  : mass of the black hole             (solarm)
-!     mdisc  : mass of the accretion disc         (solarm)
-!     r_in   : inner radius of the disc           (GM/c^2 code units)
-!     r_out  : outer radius of the disc           (GM/c^2 code units)
-!     spin   : spin parameter of the black hole   (|a| < 1)
-!     honr   : scale height H/R of disc           (at inner edge)
-!     theta  : inclination angle of the disc      (degrees)
-!     accrad : accretion radius of black hole     (GM/c^2 code units)
-!     np     : number of particles
-!
-!  DEPENDENCIES: setdisc, part, io, externalforces, options, units, physcon,
-!                metric, externalforces, extern_lensethirrin, prompting,
-!                timestep, eos, kernel, infile_utils
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! this module does an accretion disc setup in general relativity
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - accrad  : *accretion radius   (GM/c^2, code units)*
+!   - alpha   : *artificial viscosity*
+!   - gamma   : *adiabatic gamma*
+!   - honr    : *scale height H/R of disc (at r_ref)*
+!   - ismooth : *smooth inner edge of the disc (logical)*
+!   - mdisc   : *mass of disc       (solar mass)*
+!   - mhole   : *mass of black hole (solar mass)*
+!   - np      : *number of particles in disc*
+!   - p_index : *power law index of surface density profile*
+!   - q_index : *power law index of sound speed profile*
+!   - r_in    : *inner edge of disc (GM/c^2, code units)*
+!   - r_out   : *outer edge of disc (GM/c^2, code units)*
+!   - r_ref   : *reference radius   (GM/c^2, code units)*
+!   - spin    : *spin parameter of black hole |a|<1*
+!   - theta   : *inclination of disc (degrees)*
+!
+! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
+!   io, kernel, metric, options, part, physcon, prompting, setdisc,
+!   timestep, units
+!
  use options, only:alpha
  implicit none
  public :: setpart
@@ -124,11 +124,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
  if (.not. iexist .or. ierr /= 0) then
-  if (id==master) then
-     call write_setupfile(filename)
-     print*,' Edit '//trim(filename)//' and rerun phantomsetup'
-  endif
-  stop
+    if (id==master) then
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
  endif
  accradius1 = accrad
  npart = np
@@ -164,7 +164,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
-               ! star_mass     = 1.0,                &
+ ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &

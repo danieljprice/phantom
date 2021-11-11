@@ -1,28 +1,28 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2017 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://users.monash.edu.au/~dprice/phantom                               !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!
-!
-!  REFERENCES:
-!
-!  OWNER: David Liptai
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS:
-!     For GR only: isol -- solution type: 1 = geodesic flow  |  2 = sonic point flow
-!
-!  DEPENDENCIES:
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup for Bondi flow problem, for both relativistic and non-relativistic solution
+!
+! :References: Liptai & Price (2019), MNRAS 485, 819-842
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters:
+!   - isol   : *(1 = geodesic flow  |  2 = sonic point flow)*
+!   - iswind : *wind option (logical)*
+!   - np     : *desired number of particles (stretch-mapping will only give this approx.)*
+!   - rmax   : *outer edge*
+!   - rmin   : *inner edge*
+!
+! :Dependencies: bondiexact, centreofmass, dim, externalforces,
+!   infile_utils, io, kernel, metric, metric_tools, options, part, physcon,
+!   prompting, setup_params, spherical, stretchmap, timestep, units
+!
  use physcon,        only:pi
  use externalforces, only:accradius1,accradius1_hard
  use dim,            only:gr
@@ -41,7 +41,7 @@ module setup
  use units,          only:udist,umass,utime,set_units
  use physcon,        only:pc,solarm,gg
  use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary
- use stretchmap,     only:get_mass_r
+ use stretchmap,     only:get_mass_r,rho_func
  use kernel,         only:radkern
  use prompting,      only:prompt
  use bondiexact,     only:get_bondi_solution,rcrit
@@ -84,6 +84,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer            :: i,ierr,nx,nbound
  character(len=100) :: filename
  logical            :: iexist
+ procedure(rho_func), pointer :: density_func
 !
 !-- Set code units
 !
@@ -113,8 +114,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (iexist) then
     call read_setupfile(filename,ierr)
     if (ierr /= 0) then
-      if (id==master) call write_setupfile(filename)
-      call fatal('setup','failed to read in all the data from .setup.  Aborting')
+       if (id==master) call write_setupfile(filename)
+       call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
@@ -154,7 +155,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call get_rhotab(rhotab,rmin,rmax,mass1,gamma)
 
- totmass  = get_mass_r(rhofunc,rmax,rmin)
+ density_func => rhofunc
+ totmass  = get_mass_r(density_func,rmax,rmin)
  approx_m = totmass/np
  approx_h = hfact*(approx_m/rhofunc(rmin))**(1./3.)
  rhozero  = totmass/vol
@@ -202,17 +204,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  npartoftype(:) = 0
- npartoftype(igas) = npart_total-nbound
+ npartoftype(igas) = int(npart_total-nbound)
  npartoftype(iboundary) = nbound
 
 end subroutine setpart
 
-
+!----------------------------------------------------------------
+!+
+!  functional form of density profile, used as argument
+!  to set_sphere
+!+
+!----------------------------------------------------------------
 real function rhofunc(r)
  real, intent(in) :: r
  real :: rho,v,u
+
  call get_bondi_solution(rho,v,u,r,mass1,gamma_eos)
  rhofunc = rho
+
 end function rhofunc
 
 !----------------------------------------------------------------
@@ -221,7 +230,7 @@ end function rhofunc
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -245,9 +254,9 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use io,           only: error
- use units,        only: select_unit
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use io,           only:error
+ use units,        only:select_unit
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -265,8 +274,12 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
 
+!----------------------------------------------------------------
+!+
+!  construct table of density as a function of radius
+!+
+!----------------------------------------------------------------
 subroutine get_rhotab(rhotab,rmin,rmax,mass1,gamma)
  real, intent(out) :: rhotab(:)
  real, intent(in) :: rmin,rmax,mass1,gamma

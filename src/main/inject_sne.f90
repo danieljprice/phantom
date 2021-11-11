@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: inject
-!
-!  DESCRIPTION:
-!   Routine for injecting supernovae for test from Balsara & Kim (2004)
-!
-!  REFERENCES: Balsara & Kim (2004), ApJ 602, 1079
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: eos, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module inject
+!
+! Routine for injecting supernovae for test from Balsara & Kim (2004)
+!
+! :References: Balsara & Kim (2004), ApJ 602, 1079
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, infile_utils, io, part, partinject, physcon
+!
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
 
@@ -87,14 +81,15 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use io,      only:id,master
  use eos,     only:gamma
- use part,    only:rhoh,massoftype,igas
+ use part,    only:rhoh,massoftype,iphase,igas,iunknown
+ use partinject, only: updated_particle
  real,    intent(in)    :: time, dtlast_u
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer            :: i,i_sn,ipart
- real    :: dx(3),uval,t_sn,r2
+ integer :: i,i_sn,ipart
+ real    :: dx(3),uval,t_sn,r2,rhoi
  logical :: inject_sn
  !
  ! parameters for supernovae injection, as in Balsara & Kim (2004)
@@ -110,6 +105,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  inject_sn = abs(t_sn - i_sn) < 1.e-8
  print*,' time = ',time,' i_sn = ',i_sn,t_sn,' inject = ',inject_sn
  if (i_sn < 1 .or. i_sn > maxsn) return
+ dtinject = dt_sn
  !
  !--inject sn by changing internal energy of particles
  !
@@ -122,19 +118,19 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        dx = xyzh(1:3,i) - xyz_sn(1:3,i_sn)
        r2 = dot_product(dx,dx)
        if (r2 < r_sn**2) then
-          uval = pr_sn / ((gamma - 1.)*rhoh(xyzh(4,i),massoftype(igas)))
-          print*,uval
+          rhoi = rhoh(xyzh(4,i),massoftype(igas))
+          uval = pr_sn / ((gamma - 1.)*rhoi)
+          print*,'New & Old thermal energy: ',uval,vxyzu(4,i)
           vxyzu(4,i) = uval
-          ipart = ipart + 1
+          iphase(i)  = iunknown ! flag this particle to update its timestep
+          ipart      = ipart + 1
+          dtinject   = min(dtinject,0.01*xyzh(4,i)*sqrt(rhoi/(gamma*pr_sn)))
+          updated_particle = .true.
        endif
     enddo
     print*,' energy injected into ',ipart,' particles'
     print*,'--------'
  endif
- !
- !-timestep constraint
- !
- dtinject = dt_sn
 
 end subroutine inject_particles
 
@@ -150,7 +146,7 @@ subroutine write_options_inject(iunit)
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)
 
-end subroutine
+end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -176,6 +172,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  end select
  igotall = (ngot >= 0)
 
-end subroutine
+end subroutine read_options_inject
 
 end module inject

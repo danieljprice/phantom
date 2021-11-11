@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine comparing time between dumps
+! Analysis routine comparing time between dumps
 !
 !  Produces three output files:
 !     radial.out      - rho, kappa, beta calculated on the radial grid
 !     radialinterp.out- the same quantities interpolated onto a Cartesian grid
 !     applied.out     - beta for all the actual particles
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: lumin_nsdisc, physcon, units
 !
-!  DEPENDENCIES: lumin_nsdisc, physcon, units
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'prdrag'
  public :: do_analysis
@@ -55,7 +49,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  print*,' Hello Hauke, time in file = ',time
  open( unit=106, file='radial.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening radial.out'
+ if ( ierr /= 0 ) stop 'error opening radial.out'
 
  call make_beta_grids( xyzh, particlemass, npart )
 
@@ -74,7 +68,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  close( 106 )
  open( unit=106, file='radialinterp.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening radialinterp.out'
+ if ( ierr /= 0 ) stop 'error opening radialinterp.out'
 
  write(106,*), "#r_rad rbin theta thetabin r_cyl z rho tau beta"
  Lstar=1
@@ -100,7 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  close(106)
 
  open( unit=106, file='applied.out', status='replace',  iostat=ierr)
- if( ierr /= 0 ) stop 'error opening applied.out'
+ if ( ierr /= 0 ) stop 'error opening applied.out'
 
  write(106,*), "#x y z r_cyl beta r_bin th_bin"
 
@@ -108,7 +102,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
     r = sqrt(xyzh(1,ipart)**2 + xyzh(2,ipart)**2 + xyzh(3,ipart)**2)
-    if( r>1 ) then
+    if ( r>1 ) then
 
        call get_grid_bins( r, acos(abs(xyzh(3,ipart))/r), rbin, tbin )
        write(106,*), xyzh(1,ipart), xyzh(2,ipart), xyzh(3,ipart), r, &
@@ -122,4 +116,4 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 end subroutine do_analysis
 
-end module
+end module analysis

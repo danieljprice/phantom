@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
-!
-!  DESCRIPTION:
-!   Setup of a linear sound wave in a box
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: boundary, dim, dust, io, kernel, mpiutils, options, part,
-!    physcon, prompting, set_dust, setup_params, unifdis
-!+
-!--------------------------------------------------------------------------
 module setup
+!
+! Setup of a linear sound wave in a box
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, domain, dust, io, kernel, mpiutils,
+!   options, part, physcon, prompting, set_dust, setup_params, unifdis
+!
  implicit none
  public :: setpart
 
@@ -38,10 +32,10 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,idust,dustfrac
+ use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
@@ -49,6 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -67,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
  real    :: kwave,denom,length,uuzero,przero !,dxi
  real    :: xmini,xmaxi,ampl,cs,dtg,massfac
+ procedure(rho_func), pointer :: density_func
 !
 ! default options
 !
@@ -93,7 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        if (use_dustfrac) K_code = 1000. ! for a more sensible better option
        call prompt('Enter dust to gas ratio',dtg,0.)
-       call prompt('Enter constant drag coefficient',K_code,0.)
+       call prompt('Enter constant drag coefficient',K_code(1),0.)
        if (use_dustfrac) then
           massfac = 1. + dtg
        else
@@ -132,6 +128,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
  npartoftype(:) = 0
+ density_func => rhofunc  ! desired density function
 
  overtypes: do itypes=1,ntypes
     select case (itypes)
@@ -164,7 +161,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     if (itype == igas) then
        call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=density_func,mask=i_belong)
        xmin_dust = xmin + dust_shift*deltax
        xmax_dust = xmax + dust_shift*deltax
        ymin_dust = ymin + dust_shift*deltax
@@ -174,7 +171,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        call set_unifdis('closepacked',id,master,xmin_dust,xmax_dust,ymin_dust, &
                          ymax_dust,zmin_dust,zmax_dust,deltax, &
-                         hfact,npart,xyzh,nptot=npart_total,rhofunc=rhofunc)
+                         hfact,npart,xyzh,periodic,nptot=npart_total,rhofunc=density_func,mask=i_belong)
     endif
 
     !--set which type of particle it is
@@ -221,7 +218,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo overtypes
 
 contains
-
+!----------------------------------------------------
+!+
+!  callback function giving desired density profile
+!+
+!----------------------------------------------------
 real function rhofunc(x)
  real, intent(in) :: x
 

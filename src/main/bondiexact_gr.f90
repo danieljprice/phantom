@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module bondiexact
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
 
  implicit none
 
@@ -120,7 +137,7 @@ subroutine Tsolve(T,r)
     its = its+1
  enddo
 
- if(.not.converged) print*,'Bondi exact solution not converged at r = ',r
+ if (.not.converged) print*,'Bondi exact solution not converged at r = ',r
 
 end subroutine Tsolve
 
