@@ -25,8 +25,8 @@ module inject
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
 ! :Dependencies: cooling_molecular, dim, eos, icosahedron, infile_utils,
-!   injectutils, io, options, part, partinject, physcon, timestep, units,
-!   wind, wind_equations
+!   injectutils, io, options, part, partinject, physcon, setbinary,
+!   timestep, units, wind, wind_equations
 !
  use physcon,           only: solarl
 
@@ -378,12 +378,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
        if (do_molecular_cooling) then
-         r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-         call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
-         ! catch poor fit values and revert to previous value
-         if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
-         if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
-         if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
+          r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
+          call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
+          ! catch poor fit values and revert to previous value
+          if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
+          if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
+          if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
        endif
     endif
 
