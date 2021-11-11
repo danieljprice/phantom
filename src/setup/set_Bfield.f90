@@ -1,32 +1,26 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setBfield
+module setBfield
 !
-!  DESCRIPTION:
-!   Interactive setup of magnetic field on the particles
+! Interactive setup of magnetic field on the particles
 !
 !    Can be used to add magnetic field to hydro setups, and
 !   is used by utilities like moddump to add magnetic field
 !   to purely hydrodynamic dump files before continuing the
 !   calculation
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: io, physcon, prompting, setup_params, units
 !
-!  DEPENDENCIES: io, physcon, prompting, setup_params, units
-!+
-!--------------------------------------------------------------------------
-module setBfield
  implicit none
  public :: set_Bfield
 
@@ -170,6 +164,10 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 ! now actually do setup
 !
+ Bxzero = 0.  ! to avoid warnings
+ Byzero = 0.
+ Bzzero = 0.
+
  select case(igeom)
  case(1)
 !
@@ -208,9 +206,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 !--uniform toroidal field
 !
-    Bxzero = 0.
-    Byzero = 0.
-    Bzzero = 0.
     reverse_field_dir = .false.
     if (Bzero >= 0.) then
        ians = .false.
@@ -246,7 +241,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
     endif
     print "(' Alfven speed = ',es12.4,/,' Plasma beta  = ',es12.4)",valfven,betazero
  endif
-
 !
 !--spit out flux to mass ratio (assumes spherical geometry at the moment)
 !

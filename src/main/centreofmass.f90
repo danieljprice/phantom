@@ -1,28 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: centreofmass
+module centreofmass
 !
-!  DESCRIPTION:
-!   Utilities for computing the centre of mass on the particles
+! Utilities for computing the centre of mass on the particles
 !   and correcting the bulk motion (used for turbulent driving)
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
-!  DEPENDENCIES: dim, io, mpiutils, part, vectorutils
-!+
-!--------------------------------------------------------------------------
-module centreofmass
  implicit none
  public :: reset_centreofmass,get_centreofmass,correct_bulk_motion,get_total_angular_momentum
  public :: get_centreofmass_accel
@@ -137,13 +131,15 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  if (id==master .and. present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass)) then
     do i=1,nptmass
        pmassi = xyzmh_ptmass(4,i)
-       totmass = totmass + pmassi
-       xpos  = xpos  + pmassi*xyzmh_ptmass(1,i)
-       ypos  = ypos  + pmassi*xyzmh_ptmass(2,i)
-       zpos  = zpos  + pmassi*xyzmh_ptmass(3,i)
-       vxpos = vxpos + pmassi*vxyz_ptmass(1,i)
-       vypos = vypos + pmassi*vxyz_ptmass(2,i)
-       vzpos = vzpos + pmassi*vxyz_ptmass(3,i)
+       if (pmassi > 0.) then
+          totmass = totmass + pmassi
+          xpos  = xpos  + pmassi*xyzmh_ptmass(1,i)
+          ypos  = ypos  + pmassi*xyzmh_ptmass(2,i)
+          zpos  = zpos  + pmassi*xyzmh_ptmass(3,i)
+          vxpos = vxpos + pmassi*vxyz_ptmass(1,i)
+          vypos = vypos + pmassi*vxyz_ptmass(2,i)
+          vzpos = vzpos + pmassi*vxyz_ptmass(3,i)
+       endif
     enddo
  endif
  xcom = (/xpos,ypos,zpos/)
@@ -300,11 +296,13 @@ subroutine correct_bulk_motion()
 !
 !$omp do
  do i=1,nptmass
-    pmassi  = xyzmh_ptmass(4,i)
-    totmass = totmass + pmassi
-    xmom    = xmom + pmassi*vxyz_ptmass(1,i)
-    ymom    = ymom + pmassi*vxyz_ptmass(2,i)
-    zmom    = zmom + pmassi*vxyz_ptmass(3,i)
+    if (pmassi > 0.) then
+       pmassi  = xyzmh_ptmass(4,i)
+       totmass = totmass + pmassi
+       xmom    = xmom + pmassi*vxyz_ptmass(1,i)
+       ymom    = ymom + pmassi*vxyz_ptmass(2,i)
+       zmom    = zmom + pmassi*vxyz_ptmass(3,i)
+    endif
  enddo
 !$omp enddo
 !$omp end parallel

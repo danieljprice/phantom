@@ -1,92 +1,89 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: io_summary
-!
-!  DESCRIPTION:
-!  Print a summary given parameters every X steps
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: None
-!+
-!--------------------------------------------------------------------------
 module io_summary
+!
+! Print a summary given parameters every X steps
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
- integer, parameter :: maxiosum = 39         ! Number of values to summarise
- integer, parameter :: maxrhomx = 16         ! Number of maximum possible rhomax' per set
- integer, parameter :: maxisink =  5         ! Maximum number of sink particles's accretion details to track
+ integer, parameter :: maxrhomx = 32                ! Number of maximum possible rhomax' per set
+ integer, parameter :: maxisink =  5                ! Maximum number of sink particles's accretion details to track
  !--Array indicies for various parameters
  !  Timesteps
- integer, parameter :: iosumdtf   =  1       ! dtforce (gas particles)
- integer, parameter :: iosumdtfng =  2       ! dtforce (non-gas particles)
- integer, parameter :: iosumdtd   =  3       ! dtdrag (gas)
- integer, parameter :: iosumdtdd  =  4       ! dtdrag (dust)
- integer, parameter :: iosumdtv   =  5       ! dtviscous
- integer, parameter :: iosumdtc   =  6       ! dtcool
- integer, parameter :: iosumdto   =  7       ! dtohmic
- integer, parameter :: iosumdth   =  8       ! dthall
- integer, parameter :: iosumdta   =  9       ! dtambipolar
- integer, parameter :: iosumdte   = 10       ! dtdust
-
+ integer, parameter :: iosumdtf   =  1              ! dtforce (gas particles)
+ integer, parameter :: iosumdtfng =  2              ! dtforce (non-gas particles)
+ integer, parameter :: iosumdtd   =  3              ! dtdrag (gas)
+ integer, parameter :: iosumdtdd  =  4              ! dtdrag (dust)
+ integer, parameter :: iosumdtv   =  5              ! dtviscous
+ integer, parameter :: iosumdtc   =  6              ! dtcool
+ integer, parameter :: iosumdto   =  7              ! dtohmic
+ integer, parameter :: iosumdth   =  8              ! dthall
+ integer, parameter :: iosumdta   =  9              ! dtambipolar
+ integer, parameter :: iosumdte   = 10              ! dtdust
+ integer, parameter :: iosumdtr   = 11              ! dtradiation
+ integer, parameter :: iosumdtB   = 12              ! dtclean
  !  Dust Parameters
- integer, parameter :: iosumdge   = 11       ! Stokes drag regime
- integer, parameter :: iosumdgs   = 12       ! supersonic Epstein regime
- integer, parameter :: iosumdgr   = 13       ! ensuring h < t_s*c_s
+ integer, parameter :: iosumdge   = iosumdtB +  1   ! Stokes drag regime
+ integer, parameter :: iosumdgs   = iosumdtB +  2   ! supersonic Epstein regime
+ integer, parameter :: iosumdgr   = iosumdtB +  3   ! ensuring h < t_s*c_s
  !  Super-timetsepping
- integer, parameter :: iosumstse  = 14       ! STS enabled with N -> Nsts
- integer, parameter :: iosumsts   = 15       ! Nreal for STS enabled with N -> Nsts
- integer, parameter :: iosumstsi  = 16       ! ***Nviaibin for STS enabled with N -> Nsts
- integer, parameter :: iosumstsm  = 17       ! STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsr  = 18       ! Nreal for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsri = 19       ! ***Nviaibin for STS enabled with N -> Nsts*Nmega
- integer, parameter :: iosumstsd  = 20       ! STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsdi = 21       ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstso  = 22       ! STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsoi = 23       ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for large Nreal
- integer, parameter :: iosumstsnn = 24       ! number of particles using Nsts
- integer, parameter :: iosumstsnm = 25       ! number of particles using Nsts*Nmega
- integer, parameter :: iosumstsns = 26       ! number of particles using Nsupersteps=Nreal for small Nreal
- integer, parameter :: iosumstsnl = 27       ! number of particles using Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstse  = iosumdgr +  1   ! STS enabled with N -> Nsts
+ integer, parameter :: iosumsts   = iosumdgr +  2   ! Nreal for STS enabled with N -> Nsts
+ integer, parameter :: iosumstsi  = iosumdgr +  3   ! ***Nviaibin for STS enabled with N -> Nsts
+ integer, parameter :: iosumstsm  = iosumdgr +  4   ! STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsr  = iosumdgr +  5   ! Nreal for STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsri = iosumdgr +  6   ! ***Nviaibin for STS enabled with N -> Nsts*Nmega
+ integer, parameter :: iosumstsd  = iosumdgr +  7   ! STS disabled since Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstsdi = iosumdgr +  8   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstso  = iosumdgr +  9   ! STS disabled since Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstsoi = iosumdgr + 10   ! ***Nviaibin for STS disabled since Nsupersteps=Nreal for large Nreal
+ integer, parameter :: iosumstsnn = iosumdgr + 11   ! number of particles using Nsts
+ integer, parameter :: iosumstsnm = iosumdgr + 12   ! number of particles using Nsts*Nmega
+ integer, parameter :: iosumstsns = iosumdgr + 13   ! number of particles using Nsupersteps=Nreal for small Nreal
+ integer, parameter :: iosumstsnl = iosumdgr + 14   ! number of particles using Nsupersteps=Nreal for large Nreal
  !  Substeps for dtextf < dthydro
- integer, parameter :: iosumextr  = 28       ! ratio due to external force .or. sink-sink
- integer, parameter :: iosumextt  = 29       ! dtmin due to external force .or. sink-sink
- integer, parameter :: iosumexter = 30       ! ratio due to external force
- integer, parameter :: iosumextet = 31       ! dtmin due to external force
- integer, parameter :: iosumextsr = 32       ! ratio due to sink-sink
- integer, parameter :: iosumextst = 33       ! dtmin due to sink-sink
+ integer, parameter :: iosumextr  = iosumstsnl + 1  ! ratio due to sub-stepping
+ integer, parameter :: iosumextt  = iosumstsnl + 2  ! dtmin due to sub-stepping
  !  restricted h jump
- integer, parameter :: iosumhup   = 34       ! jump up
- integer, parameter :: iosumhdn   = 35       ! jump down
+ integer, parameter :: iosumhup   = iosumextt + 1   ! jump up
+ integer, parameter :: iosumhdn   = iosumextt + 2   ! jump down
  !  velocity-dependent force iterations
- integer, parameter :: iosumtvi   = 36       ! number of iterations
- integer, parameter :: iosumtve   = 37       ! errmax
- integer, parameter :: iosumtvv   = 38       ! vmean
+ integer, parameter :: iosumtvi   = iosumhdn + 1    ! number of iterations
+ integer, parameter :: iosumtve   = iosumhdn + 2    ! errmax
+ integer, parameter :: iosumtvv   = iosumhdn + 3    ! vmean
  !  particle waking
- integer, parameter :: iowake     = 39       ! number of woken particles
+ integer, parameter :: iowake     = iosumtvv + 1    ! number of woken particles
  !  Number of steps
- integer, parameter :: iosum_nreal = maxiosum+1  ! number of 'real' steps taken
- integer, parameter :: iosum_nsts  = maxiosum+2  ! number of 'actual' steps (including STS) taken
+ integer, parameter :: iosum_nreal = iowake + 1     ! number of 'real' steps taken
+ integer, parameter :: iosum_nsts  = iowake + 2     ! number of 'actual' steps (including STS) taken
+ !  Number of steps
+ integer, parameter :: iosumflrp   = iosum_nsts + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
+ integer, parameter :: iosumflrps  = iosum_nsts + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
+ integer, parameter :: iosumflrc   = iosum_nsts + 3 ! number of times vxyzu(4,i) is floored in step_leapfrog (corrector loop)
+ ! Maximum number of values to summarise
+ integer, parameter :: maxiosum = iosumflrc         ! Number of values to summarise
+ !
  !  Reason sink particle was not created
- integer, parameter :: inosink_notgas = 1  ! not gas particles
- integer, parameter :: inosink_divv   = 2  ! div v > 0
- integer, parameter :: inosink_h      = 3  ! 2h > h_acc
- integer, parameter :: inosink_active = 4  ! not all particles are active
- integer, parameter :: inosink_therm  = 5  ! E_therm/E_grav > 0.5
- integer, parameter :: inosink_grav   = 6  ! a_grav+b_grav > 1
- integer, parameter :: inosink_Etot   = 7  ! E_tot > 0
- integer, parameter :: inosink_poten  = 8  ! Not minimum potential
- integer, parameter :: inosink_max    = 8  ! Number of failure reasons
+ integer, parameter :: inosink_notgas = 1           ! not gas particles
+ integer, parameter :: inosink_divv   = 2           ! div v > 0
+ integer, parameter :: inosink_h      = 3           ! 2h > h_acc
+ integer, parameter :: inosink_active = 4           ! not all particles are active
+ integer, parameter :: inosink_therm  = 5           ! E_therm/E_grav > 0.5
+ integer, parameter :: inosink_grav   = 6           ! a_grav+b_grav > 1
+ integer, parameter :: inosink_Etot   = 7           ! E_tot > 0
+ integer, parameter :: inosink_poten  = 8           ! Not minimum potential
+ integer, parameter :: inosink_max    = 8           ! Number of failure reasons
  !
  !  Frequency of output based number of steps; 0 to turn off; if < 0 then every 2**{-iosum_nprint} steps
  integer,         parameter :: iosum_nprint  = 0
@@ -101,7 +98,7 @@ module io_summary
  integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(inosink_max,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
- logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake
+ logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake,print_floor
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
  character(len=19), private :: freason(9)
@@ -130,7 +127,7 @@ subroutine summary_initialise
  else
     iosum_print = iosum_nprint
  endif
- freason(inosink_notgas) = 'Not gas:           '
+ freason(inosink_notgas) = 'Not gas or dust:   '
  freason(inosink_divv)   = 'div v > 0:         '
  freason(inosink_h)      = '2h > h_acc:        '
  freason(inosink_active) = 'not all active:    '
@@ -171,6 +168,7 @@ subroutine summary_reset
  print_afail  = .false.
  print_early  = .false.
  print_wake   = .false.
+ print_floor  = .false.
  !
 end subroutine summary_reset
 !----------------------------------------------------------------
@@ -223,6 +221,7 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
  if (trim(cval)=='tolv' ) print_tolv = .true.
  if (trim(cval)=='hupdn') print_h    = .true.
  if (trim(cval)=='wake' ) print_wake = .true.
+ if (trim(cval)=='floor') print_floor= .true.
  !
 end subroutine summary_variable
 !----------------------------------------------------------------
@@ -327,13 +326,16 @@ end subroutine summary_accrete_fail
 !+
 !----------------------------------------------------------------
 logical function summary_printnow()
- !
+
  summary_printnow = .false.
- !
- if ( ( iosum_print /= 0 .and. mod(iosum_nstep(iosum_nreal),iosum_print)==0 ) .or. &
-      ( dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print) )                   &
-   summary_printnow = .true.
- !
+
+ if ( iosum_print /= 0 ) then
+    if (mod(iosum_nstep(iosum_nreal),iosum_print)==0 .or. &
+        (dt_wall_print >  0.0 .and. dtsum_wall > dt_wall_print)) then
+       summary_printnow = .true.
+    endif
+ endif
+
 end function summary_printnow
 !----------------------------------------------------------------
 !+
@@ -354,7 +356,8 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--summarise logicals for cleanliness
  !
- if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. print_h .or. print_wake) then
+ if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. &
+     print_h  .or. print_wake .or. print_floor ) then
     get_averages = .true.
  else
     get_averages = .false.
@@ -389,7 +392,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     if ( dtsum_wall > real(3600.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(3600.0,kind=4),' hours       **|'
-    else if ( dtsum_wall > real(60.0,kind=4) ) then
+    elseif ( dtsum_wall > real(60.0,kind=4) ) then
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall/real(60.0,kind=4),  ' minutes     **|'
     else
        write(iprint,20) '|** Wall time since last summary: ',dtsum_wall,                    ' seconds     **|'
@@ -424,11 +427,15 @@ subroutine summary_printout(iprint,nptmass)
       ,iosum_nstep(iosumdta  ),'|',iosum_rpart(iosumdta  ),'|',iosum_ave(iosumdta  ),'|',iosum_max(iosumdta  ),'|'
     if (iosum_nstep(iosumdte  )/=0) write(iprint,30) '| dtdust             |' &
       ,iosum_nstep(iosumdte  ),'|',iosum_rpart(iosumdte  ),'|',iosum_ave(iosumdte  ),'|',iosum_max(iosumdte  ),'|'
+    if (iosum_nstep(iosumdtr  )/=0) write(iprint,30) '| dtradiation        |' &
+      ,iosum_nstep(iosumdtr  ),'|',iosum_rpart(iosumdtr  ),'|',iosum_ave(iosumdtr  ),'|',iosum_max(iosumdtr  ),'|'
+    if (iosum_nstep(iosumdtB  )/=0) write(iprint,30) '| dtclean            |' &
+      ,iosum_nstep(iosumdtB  ),'|',iosum_rpart(iosumdtB  ),'|',iosum_ave(iosumdtB  ),'|',iosum_max(iosumdtB  ),'|'
 30  format(a,i13,a,3(f13.2,a))
 #else
     write(iprint,'(a)') '| dt                    |       < dt_Courant      |     #times smallest      |'
     if (iosum_nstep(iosumdtf)/=0) &
-     write(iprint,40)   '| dtforce/dtcool/dtdrag | ',iosum_nstep(iosumdtf),' |',iosum_npart(iosumdtf),'   |'
+     write(iprint,40)   '| force/cool/drag/clean | ',iosum_nstep(iosumdtf),' |',iosum_npart(iosumdtf),'   |'
     if (iosum_nstep(iosumdtv)/=0) &
      write(iprint,40)   '| dtvisc                | ',iosum_nstep(iosumdtv),' |',iosum_npart(iosumdtv),'   |'
     if (iosum_nstep(iosumdto)/=0) &
@@ -437,6 +444,10 @@ subroutine summary_printout(iprint,nptmass)
      write(iprint,40)   '| dthall                | ',iosum_nstep(iosumdth),' |',iosum_npart(iosumdth),'   |'
     if (iosum_nstep(iosumdta)/=0) &
      write(iprint,40)   '| dtambi                | ',iosum_nstep(iosumdta),' |',iosum_npart(iosumdta),'   |'
+    if (iosum_nstep(iosumdtr)/=0) &
+     write(iprint,40)   '| dtradiation           | ',iosum_nstep(iosumdtr),' |',iosum_npart(iosumdtr),'   |'
+    if (iosum_nstep(iosumdtB)/=0) &
+     write(iprint,40)   '| dtclean               | ',iosum_nstep(iosumdtB),' |',iosum_npart(iosumdtB),'   |'
 40  format(a,2(i23,a))
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
@@ -500,14 +511,6 @@ subroutine summary_printout(iprint,nptmass)
      '|         |',iosum_nstep(iosumextr ),'|',iosum_rpart(iosumextr ),'|' &
                                               ,iosum_ave(iosumextr   ),'|',    iosum_max(iosumextr ) ,'|' &
                                               ,iosum_ave(iosumextt   ),'|',1.0/iosum_max(iosumextt ) ,'|'
-    if (iosum_nstep(iosumexter)/=0) write(iprint,90) &
-     '|external |',iosum_nstep(iosumexter),'|',iosum_rpart(iosumexter),'|' &
-                                              ,iosum_ave(iosumexter),'|',    iosum_max(iosumexter) ,'|' &
-                                              ,iosum_ave(iosumextet),'|',1.0/iosum_max(iosumextet) ,'|'
-    if (iosum_nstep(iosumextsr)/=0) write(iprint,90) &
-     '|sink     |',iosum_nstep(iosumextsr),'|',iosum_rpart(iosumextsr),'|' &
-                                              ,iosum_ave(iosumextsr),'|',    iosum_max(iosumextsr) ,'|' &
-                                              ,iosum_ave(iosumextst),'|',1.0/iosum_max(iosumextst) ,'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 90 format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)
@@ -552,6 +555,19 @@ subroutine summary_printout(iprint,nptmass)
  endif
 115 format(a,i9,a,f18.2,a,i17,30x,a)
  !
+ !--Summary flooring the energy
+ if ( print_floor ) then
+    write(iprint,'(a)') '|* particles whose internal energies are floored in the labelled loops      *|'
+    write(iprint,'(a)') '|         |  #steps  | mean # part |  max # part                             |'
+    if (iosum_nstep(iosumflrp)/=0) write(iprint,120)  '| predict | ' &
+      ,iosum_nstep(iosumflrp),'|',iosum_ave(iosumflrp),'|',int(iosum_max(iosumflrp)),'|'
+    if (iosum_nstep(iosumflrps)/=0) write(iprint,120) '| pred_sph| ' &
+      ,iosum_nstep(iosumflrps),'|',iosum_ave(iosumflrps),'|',int(iosum_max(iosumflrps)),'|'
+    if (iosum_nstep(iosumflrc )/=0) write(iprint,120) '| correct | ' &
+      ,iosum_nstep(iosumflrc ),'|',iosum_ave(iosumflrc ),'|',int(iosum_max(iosumflrc )),'|'
+    write(iprint,'(a)') '------------------------------------------------------------------------------'
+ endif
+ !
  !--Summary of Restricted h jumps
  if ( print_h ) then
     write(iprint,'(a)') '|* dens: WARNING: restricted h jump                                         *|'
@@ -568,8 +584,9 @@ subroutine summary_printout(iprint,nptmass)
  if (nrhomax > 0) then
     write(iprint,'(a)') '|* ptmass: rhomax values & reasons for not becoming a sink particle         *|'
     write(iprint,'(a)') '| part no |  #times  | # failures |max rho (cgs)|Reason & times failed       |'
-    do i = 1,nrhomax
+    do i = 1,nrhomax  ! the sink candidates
        j = 1
+       ! search for the first reason a sink did not form
        findfail = .true.
        do while( findfail )
           if ( iosum_rxf(j,i)==0 ) then
@@ -580,12 +597,12 @@ subroutine summary_printout(iprint,nptmass)
           endif
        enddo
        if (j == inosink_max+1) then
-          ! only one particle tested and it is accreted
-          write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|','|'
+          ! only one particle tested and it is converted to a sink particle
+          write(iprint,130) '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(:,i)),'|',iosum_rxx(i),'|','|'
        else
           ! list particle and its initial reason to not create a sink
           write(iprint,140) &
-           '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(1:7,i)),'|',iosum_rxx(i),'|',freason(j),iosum_rxf(j,i),'|'
+           '|',iosum_rxi(i),'|',iosum_rxp(i),'|',sum(iosum_rxf(:,i)),'|',iosum_rxx(i),'|',freason(j),iosum_rxf(j,i),'|'
        endif
        ! for the above particle, list the remaining reasons it failed to form a sink
        if (j < inosink_max) then
@@ -632,4 +649,4 @@ subroutine summary_printout(iprint,nptmass)
  !
 end subroutine summary_printout
 !----------------------------------------------------------------
-end module
+end module io_summary

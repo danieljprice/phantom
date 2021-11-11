@@ -1,4 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module extern_gr
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: eos, fastmath, io, metric_tools, part, physcon, timestep,
+!   utils_gr
+!
  implicit none
 
  public :: get_grforce, get_grforce_all, update_grforce_leapfrog
@@ -131,9 +149,9 @@ pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
  ! source term
  fterm = 0.
  do i=0,3
-   fterm(1) =  fterm(1) + dot_product(term(:,i),metricderivsi(:,i,1))
-   fterm(2) =  fterm(2) + dot_product(term(:,i),metricderivsi(:,i,2))
-   fterm(3) =  fterm(3) + dot_product(term(:,i),metricderivsi(:,i,3))
+    fterm(1) =  fterm(1) + dot_product(term(:,i),metricderivsi(:,i,1))
+    fterm(2) =  fterm(2) + dot_product(term(:,i),metricderivsi(:,i,2))
+    fterm(3) =  fterm(3) + dot_product(term(:,i),metricderivsi(:,i,3))
  enddo
 
 end subroutine forcegr

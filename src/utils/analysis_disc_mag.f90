@@ -1,27 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
-!
-!  DESCRIPTION:
-!  Analysis routine for discs by RN, adapted from a routine by CJN
-!
-!  REFERENCES: None
-!
-!  OWNER: Daniel Price
-!
-!  $Id$
-!
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: dim, eos, infile_utils, io, part, physcon
-!+
-!--------------------------------------------------------------------------
 module analysis
+!
+! Analysis routine for discs by RN, adapted from a routine by CJN
+!
+! :References: None
+!
+! :Owner: Daniel Price
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, infile_utils, io, part, physcon
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'MRI'
  public :: do_analysis
@@ -247,7 +241,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
 
 ! Now loop over rings to calculate required quantities
  do i = 1, nr
-    if(ninbin(i)==0) then
+    if (ninbin(i)==0) then
        lx(i)=0.0
        ly(i)=0.0
        lz(i)=0.0
@@ -280,7 +274,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        17,'|B|'
 
  do i=1,nr
-    if(i /= 1.and.i /= nr) then
+    if (i /= 1.and.i /= nr) then
        psi_x=(unitlx(i+1)-unitlx(i-1))/(rad(i+1)-rad(i-1))
        psi_y=(unitly(i+1)-unitly(i-1))/(rad(i+1)-rad(i-1))
        psi_z=(unitlz(i+1)-unitlz(i-1))/(rad(i+1)-rad(i-1))

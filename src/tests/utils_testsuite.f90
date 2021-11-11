@@ -1,45 +1,36 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: testutils
+module testutils
 !
-!  DESCRIPTION:
-!  This routine contains utility functions for use in
+! This routine contains utility functions for use in
 !  the testsuite modules
 !
 !  Requires mpi utility routines to print per-thread results
 !
-!  Also uses isdead routine from part module to identify
-!  dead particles
+! :References: None
 !
-!  REFERENCES: None
+! :Owner: Daniel Price
 !
-!  OWNER: Daniel Price
+! :Runtime parameters: None
 !
-!  $Id$
+! :Dependencies: io, mpiutils
 !
-!  RUNTIME PARAMETERS: None
-!
-!  DEPENDENCIES: io, mpiutils, part
-!+
-!--------------------------------------------------------------------------
-module testutils
- use mpiutils, only:reduce_mpi
+ use mpiutils, only:reduce_mpi,reduceall_mpi,barrier_mpi
  use io,       only:id,master
- use part,     only:isdead
  implicit none
  public :: checkval,checkvalf,checkvalbuf,checkvalbuf_start,checkvalbuf_end
+ public :: update_test_scores
 
  private
 
  interface checkval
   module procedure checkvalconst,checkvalconstr4,checkvalconsti1
   module procedure checkval1_r4,checkval1_r8,checkval1_int,checkval1_int8,checkval1_logical
-  module procedure checkval_r8arr,checkval_r4arr
+  module procedure checkval_r8arr,checkval_r4arr,checkval_i8arr
  end interface checkval
 
  interface checkvalf
@@ -55,7 +46,7 @@ module testutils
  end interface checkvalbuf_end
 
  interface printerr
-  module procedure printerr_real,printerr_int,printerr_logical
+  module procedure printerr_real,printerr_int,printerr_int8,printerr_logical
  end interface
 
  interface printresult
@@ -65,6 +56,23 @@ module testutils
  real, parameter :: smallval = 1.e-6
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  update numbers of tests and number of passes depending
+!  on whether any sub-tests failed
+!+
+!----------------------------------------------------------------
+subroutine update_test_scores(ntests,nfailed,npass)
+ integer, intent(inout) :: ntests
+ integer, intent(in)    :: nfailed(:)
+ integer, intent(inout) :: npass
+
+ ntests = ntests + 1
+ if (all(nfailed==0)) npass = npass + 1
+ call barrier_mpi()
+
+end subroutine update_test_scores
 
 !----------------------------------------------------------------
 !+
@@ -89,16 +97,14 @@ subroutine checkvalconst(n,x,val,tol,ndiff,label,checkmask)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       erri = abs(x(i)-val)
-       if (abs(val) > epsilon(val)) erri = erri/abs(val)
-       errmax = max(errmax,erri)
+    erri = abs(x(i)-val)
+    if (abs(val) > epsilon(val)) erri = erri/abs(val)
+    errmax = max(errmax,erri)
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
-       endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
     endif
  enddo
 
@@ -130,16 +136,14 @@ subroutine checkvalconstr4(n,x,val,tol,ndiff,label,checkmask)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       erri = abs(x(i)-val)
-       if (abs(val) > epsilon(val)) erri = erri/abs(val)
-       errmax = max(errmax,erri)
+    erri = abs(x(i)-val)
+    if (abs(val) > epsilon(val)) erri = erri/abs(val)
+    errmax = max(errmax,erri)
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
-       endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10) call printerr(label,real(x(i)),val,erri,tol,i)
     endif
  enddo
 
@@ -171,15 +175,13 @@ subroutine checkvalconsti1(n,ix,ival,itol,ndiff,label,checkmask)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       erri = abs(ix(i)-ival)
-       errmax = max(errmax,erri)
+    erri = abs(ix(i)-ival)
+    errmax = max(errmax,erri)
 
-       if (erri > itol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10) call printerr(label,int(ix(i)),ival,erri,itol)
-       endif
+    if (erri > itol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10) call printerr(label,int(ix(i)),ival,erri,itol)
     endif
  enddo
 
@@ -214,21 +216,19 @@ subroutine checkvalfuncr8(n,xyzhi,x,func,tol,ndiff,label,checkmask)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       val = func(xyzhi(:,i))
-       erri = abs(x(i)-val)
-       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
-!       if (abs(val) > tol) erri = erri/val
+    val = func(xyzhi(:,i))
+    erri = abs(x(i)-val)
+    if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!      if (abs(val) > tol) erri = erri/val
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10 .or. erri > 2.*errmax) then
-             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
-          endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10 .or. erri > 2.*errmax) then
+          call printerr(label,real(x(i)),real(val),real(erri),tol,i)
        endif
-       errmax = max(errmax,erri)
     endif
+    errmax = max(errmax,erri)
  enddo
 
  errmaxr = real(errmax)
@@ -262,21 +262,19 @@ subroutine checkvalfuncr4(n,xyzhi,x,func,tol,ndiff,label,checkmask)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       val = func(xyzhi(:,i))
-       erri = abs(x(i)-val)
-       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
-!       if (abs(val) > tol) erri = erri/val
+    val = func(xyzhi(:,i))
+    erri = abs(x(i)-val)
+    if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!    if (abs(val) > tol) erri = erri/val
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10 .or. erri > 2.*errmax) then
-             call printerr(label,real(x(i)),val,erri,tol,i)
-          endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10 .or. erri > 2.*errmax) then
+          call printerr(label,real(x(i)),val,erri,tol,i)
        endif
-       errmax = max(errmax,erri)
     endif
+    errmax = max(errmax,erri)
  enddo
 
  call printresult(n,ndiff,errmax,real(tol))
@@ -450,7 +448,6 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
  real :: errmaxr,errl2i
 
  call print_testinfo(trim(label))
-
  ndiff = 0
  errmax = 0.
  errl2  = 0.
@@ -460,24 +457,22 @@ subroutine checkval_r8arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       val = xexact(i)
-       erri = abs(x(i)-val)
-       errl2 = errl2 + erri*erri
-       valmax = max(val,valmax)
-       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
-!       if (abs(val) > tol) erri = erri/val
+    val = xexact(i)
+    erri = abs(x(i)-val)
+    errl2 = errl2 + erri*erri
+    valmax = max(val,valmax)
+    if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!    if (abs(val) > tol) erri = erri/val
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10 .or. erri > 2.*errmax) then
-             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
-          endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10 .or. erri > 2.*errmax) then
+          call printerr(label,real(x(i)),real(val),real(erri),tol,i)
        endif
-       nval = nval + 1
-       errmax = max(errmax,erri)
     endif
+    nval = nval + 1
+    errmax = max(errmax,erri)
  enddo
 
  errmaxr = real(errmax)
@@ -516,24 +511,22 @@ subroutine checkval_r4arr(n,x,xexact,tol,ndiff,label,checkmask,rmserr)
     if (present(checkmask)) then
        if (.not. checkmask(i)) cycle
     endif
-    if (.not.isdead(i)) then
-       val = xexact(i)
-       valmax = max(real(val),valmax)
-       erri = abs(x(i)-val)
-       errl2 = errl2 + erri*erri
-       if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
-!       if (abs(val) > tol) erri = erri/val
+    val = xexact(i)
+    valmax = max(real(val),valmax)
+    erri = abs(x(i)-val)
+    errl2 = errl2 + erri*erri
+    if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+!   if (abs(val) > tol) erri = erri/val
 
-       if (erri > tol .or. erri /= erri) then
-          ndiff = ndiff + 1
-          if (ndiff==1) write(*,*)
-          if (ndiff < 10 .or. erri > 2.*errmax) then
-             call printerr(label,real(x(i)),real(val),real(erri),tol,i)
-          endif
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10 .or. erri > 2.*errmax) then
+          call printerr(label,real(x(i)),real(val),real(erri),tol,i)
        endif
-       nval = nval + 1
-       errmax = max(errmax,erri)
     endif
+    nval = nval + 1
+    errmax = max(errmax,erri)
  enddo
 
  errmaxr = errmax
@@ -545,6 +538,54 @@ end subroutine checkval_r4arr
 
 !----------------------------------------------------------------
 !+
+!  checks an array of integer*8 values against an array of expected answers
+!+
+!----------------------------------------------------------------
+subroutine checkval_i8arr(n,x,xexact,tol,ndiff,label,checkmask)
+ integer,          intent(in)  :: n
+ integer(kind=8),  intent(in)  :: x(:),xexact(:)
+ integer(kind=8),  intent(in)  :: tol
+ integer,          intent(out) :: ndiff
+ character(len=*), intent(in)  :: label
+ logical, optional,intent(in)  :: checkmask(:)
+ integer :: i,nval
+ integer(kind=8) :: val
+ integer(kind=8) :: erri,errmax
+ integer :: itol, ierrmax
+
+ call print_testinfo(trim(label))
+
+ ndiff = 0
+ errmax = 0
+ nval = 0
+ do i=1,n
+    if (present(checkmask)) then
+       if (.not. checkmask(i)) cycle
+    endif
+    val = xexact(i)
+    erri = abs(x(i)-val)
+
+    if (erri > tol .or. erri /= erri) then
+       ndiff = ndiff + 1
+       if (ndiff==1) write(*,*)
+       if (ndiff < 10 .or. erri > 2.*errmax) then
+          call printerr(label,x(i),val,erri,tol)
+       endif
+    endif
+    nval = nval + 1
+    errmax = max(errmax,erri)
+ enddo
+
+ ierrmax = int(errmax)
+ itol = int(tol)
+
+ call printresult(n,ndiff,ierrmax,itol)
+
+ return
+end subroutine checkval_i8arr
+
+!----------------------------------------------------------------
+!+
 !  start a buffered error check
 !+
 !----------------------------------------------------------------
@@ -552,7 +593,7 @@ subroutine checkvalbuf_start(label)
  character(len=*), intent(in) :: label
 
  call print_testinfo(trim(label))
- write(*,"(a)")
+ if (id==master) write(*,"(a)")
 
  return
 end subroutine checkvalbuf_start
@@ -575,7 +616,7 @@ subroutine checkvalbuf_int(ix,ival,itol,label,ndiff,ncheck,ierrmax)
  ncheck = ncheck + 1
  if (erri > itol) then
     ndiff = ndiff + 1
-    if (ndiff < 10 .or. erri > 2*ierrmax) call printerr(label,ix,ival,erri,itol)
+    if (ndiff < 10) call printerr(label,ix,ival,erri,itol)
  endif
  if (present(ierrmax)) ierrmax = max(ierrmax,erri)
 
@@ -724,6 +765,26 @@ end subroutine printerr_int
 !  formatting for printing errors in test results
 !+
 !----------------------------------------------------------------
+subroutine printerr_int8(label,ix,ival,erri,itol)
+ character(len=*), intent(in) :: label
+ integer(kind=8),  intent(in) :: ix, ival, erri, itol
+
+ if (itol > 0) then
+    write(*,"(1x,4(a,i19),a)") &
+        trim(label)//' = ',ix,' should be ',ival,' err =',erri,' (tol =',itol,')'
+ else
+    write(*,"(1x,3(a,i19),a)") &
+        trim(label)//' = ',ix,' should be ',ival,' err =',erri
+ endif
+
+ return
+end subroutine printerr_int8
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing errors in test results
+!+
+!----------------------------------------------------------------
 subroutine printerr_logical(label,lx,lval)
  character(len=*), intent(in) :: label
  logical,          intent(in) :: lx, lval
@@ -774,15 +835,15 @@ subroutine printresult_real(npi,ndiff,errmax,tol,errl2i,valmaxi,nvali)
  integer(kind=8) :: np,nval
  real            :: valmax,errl2
 
- np     = reduce_mpi('+',npi)
- ndiff  = int(reduce_mpi('+',ndiff))
- errmax = reduce_mpi('max',errmax)
+ np     = reduceall_mpi('+',npi)
+ ndiff  = int(reduceall_mpi('+',ndiff))
+ errmax = reduceall_mpi('max',errmax)
 
  if (present(errl2i)) then
-    errl2 = reduce_mpi('+',errl2i)
+    errl2 = reduceall_mpi('+',errl2i)
     if (present(valmaxi) .and. present(nvali)) then
-       valmax = reduce_mpi('max',valmaxi)
-       nval   = reduce_mpi('+',nvali)
+       valmax = reduceall_mpi('max',valmaxi)
+       nval   = reduceall_mpi('+',nvali)
        if (nval > 0 .and. valmax > 0.) then
           errl2 = sqrt(errl2/(real(nval)*valmax*valmax))
        endif

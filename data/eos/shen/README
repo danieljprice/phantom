@@ -1,0 +1,10 @@
+The Shen equation of state data tables are too large to be stored in the Phantom git repository
+They will be downloaded automatically when you run the code
+
+or can be retrieved manually using wget from the phantom website, e.g.:
+
+wget http://users.monash.edu.au/~dprice/phantom/data/eos/shen/eos_binary_table.dat
+
+The files are:
+
+eos_binary_table.dat

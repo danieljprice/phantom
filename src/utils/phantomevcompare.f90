@@ -1,27 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  PROGRAM: phantomevcompare
+program phantomevcompare
 !
-!  DESCRIPTION: For the given input .ev files, will rewrite them using
+! For the given input .ev files, will rewrite them using
 !               common headers
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Usage: phantomevcompare [no arguments]
 !
-!  USAGE: phantomevcompare [no arguments]
+! :Dependencies: evutils, prompting
 !
-!  DEPENDENCIES: evutils, prompting
-!+
-!--------------------------------------------------------------------------
-program phantomevcompare
  use prompting, only: prompt
  use evutils,   only: max_columns,get_column_labels_from_ev,read_evin_file,read_evin_filenames, &
                       write_evin_file,write_columns_to_file
@@ -51,7 +46,7 @@ program phantomevcompare
  evinfile    = ''
  if (nargs > 0) then
     call get_command_argument(1,evinfile)
-    idot = index(evinfile,'.evin')  ! strip .evin if present
+    idot = index(evinfile,'.')  ! strip .evin if present
     if ( idot > 0 ) evinfile = evinfile(1:idot-1)
     evinfile = trim(evinfile)//'.evin'
     inquire(file=trim(evinfile),exist=iexist)
@@ -287,7 +282,7 @@ program phantomevcompare
  !--Write and store labels in proper format for .ev files
  !
  do i = 1,numcol0
-    write(columnsEV(i),"(1x,'[',i2.2,a12,']',2x)")i,columns0(i)
+    write(columnsEV(i),"(1x,'[',i2.2,1x,a11,']',2x)")i,columns0(i)
  enddo
  !
  !--Rewrite all the .ev files using the new columns ordering

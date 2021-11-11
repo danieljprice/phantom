@@ -1,14 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine for discs in binary systems by CJN
+! Analysis routine for discs in binary systems by CJN
 !
 ! Method:
 ! "primary(secondary)" implies tag=1(2) not anything to do with mass or disc hosting etc.
@@ -21,18 +19,14 @@
 !          circumsecondary_*.dat for circumsecondary disc params
 !          circumbinary_*.dat    for circumbinary disc params
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: eos, infile_utils, io, options, part, physcon, setbinary
 !
-!  DEPENDENCIES: eos, infile_utils, io, options, part, physcon, setbinary
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'binaryanalysis'
  public :: do_analysis
@@ -220,7 +214,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     rmin = 0.99*rmin
     rmax = 1.01*rmax
 
-    if(j == ipri)then
+    if (j == ipri) then
        r1=0.1*a
        r2=0.2*a
        r3=0.3*a

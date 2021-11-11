@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module gravwaveutils
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon, units
+!
  implicit none
 
  public :: calculate_strain
@@ -57,6 +74,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
  !$omp private(i,x,y,z,vx,vy,vz,ax,ay,az,r2) &
  !$omp reduction(+:q,ddq)
  do i=1,npart
+<<<<<<< HEAD
     if (xyzh(4,i) > tiny(xyzh)) then  !if not accreted
       x  = xyzh(1,i) - x0(1)
       y  = xyzh(2,i) - x0(2)
@@ -84,6 +102,30 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
 
       ! calculate the second time derivative of the inertia moment
       ! more practicle (and equivalent) than the scond time derivative of Q (Maggiore 2008)
+=======
+    if (xyzh(4,i)>tiny(xyzh)) then  !if not accreted
+       x  = xyzh(1,i)
+       y  = xyzh(2,i)
+       z  = xyzh(3,i)
+       vx = vxyz(1,i)
+       vy = vxyz(2,i)
+       vz = vxyz(3,i)
+       ax = axyz(1,i)
+       ay = axyz(2,i)
+       az = axyz(3,i)
+
+       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+
+       ! calculate the components of the traceless quadrupole--not necessary but maybe useful
+       q(1) = q(1) + pmass*(x*x-0.3*r2) !qxx
+       q(2) = q(2) + pmass*(x*y-0.3*r2) !qxy
+       q(3) = q(3) + pmass*(x*z-0.3*r2) !qxz
+       q(4) = q(4) + pmass*(y*y-0.3*r2) !qyy
+       q(5) = q(5) + pmass*(y*z-0.3*r2) !qyz
+       q(6) = q(6) + pmass*(z*z-0.3*r2) !qzz
+
+       ! calculate the second time derivative of the traceless quadrupole
+>>>>>>> cbef20c18f9c25d4445a9df12be88554c9553333
        ddq(1) = ddq(1) + pmass*(2.*vx*vx+x*ax+x*ax) !ddqxx
        ddq(2) = ddq(2) + pmass*(2.*vx*vy+x*ay+y*ax) !ddqxy
        ddq(3) = ddq(3) + pmass*(2.*vx*vz+x*az+z*ax) !ddqxz

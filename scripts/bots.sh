@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Script to automatically perform various maintenance
-# tasks on Phantom source files and commit the 
+# tasks on Phantom source files and commit the
 # changes to the code
 #
 # Current bots implemented are:
@@ -54,6 +54,20 @@ cd $codedir;
 if [[ $docommit == 1 ]]; then
    git pull;
 fi
+get_only_files_in_git()
+{
+   mylist='';
+   for file in $1; do
+       git ls-files --error-unmatch $file >& /dev/null; giterr=$?;
+       if [ $giterr == 0 ]; then
+          mylist+="$file ";
+       fi
+   done
+   # skip case where no f90 files present, bash returns literal '*.*90'
+   if [[ "$mylist" != '*.*90 ' ]]; then
+      echo $mylist
+   fi
+}
 allfiles='';
 bots_to_run='tabs gt shout header whitespace authors endif indent';
 #bots_to_run='shout';
@@ -72,9 +86,10 @@ for edittype in $bots_to_run; do
     for dir in $dirlist; do
         if [ -d $dir ]; then
            cd $dir;
-           #echo $srcdir;
-           for file in $listoffiles; do
+           myfiles=`get_only_files_in_git "$listoffiles"`
+           for file in $myfiles; do
                out="$tmpdir/$file"
+#               echo "FILE=$file OUT=$out";
                case $edittype in
                'tabs' )
                  sed 's/	/        /g' $file > $out;;
@@ -105,6 +120,8 @@ for edittype in $bots_to_run; do
                      -e 's/EXP(/exp(/g' \
                      -e 's/LOG(/log(/g' \
                      -e 's/READ(/read(/g' \
+                     -e 's/IF (/if (/g' \
+                     -e 's/) THEN/) then/g' \
                      -e 's/ENDDO/enddo/g' \
                      -e 's/END DO/end do/g' \
                      -e 's/END PARALLEL/end parallel/g' \
@@ -130,7 +147,10 @@ for edittype in $bots_to_run; do
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
                  sed -e 's/end if/endif/g' \
-                     -e 's/end do/enddo/g' $file > $out;;
+                     -e 's/end do/enddo/g' \
+                     -e 's/else if/elseif/g' \
+                     -e 's/if(/if (/g' \
+                     -e 's/)then/) then/g' $file > $out;;
                'header' )
                  $scriptdir/header.pl --headerfile=$headerfile --programfile=$programfile --replace $file > $out;;
                'authors' )
@@ -147,7 +167,7 @@ for edittype in $bots_to_run; do
                      cat $file > $out;
                   fi;;
                'indent' )
-                  if type -p findent; then
+                  if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
                   fi;;
                esac
@@ -179,7 +199,7 @@ for edittype in $bots_to_run; do
     'shout' )
       msg='[format-bot] F77-style SHOUTING removed';;
     'endif' )
-      msg='[format-bot] end if -> endif; end do -> enddo';;
+      msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
     'header' )
       msg='[header-bot] updated file headers';;
     'authors' )
@@ -187,7 +207,7 @@ for edittype in $bots_to_run; do
     'indent' )
       msg='[indent-bot] standardised indentation';;
     esac
-    if [[ "X$filelist" != "X" ]]; then 
+    if [[ "X$filelist" != "X" ]]; then
        if [[ $docommit == 0 ]]; then
           echo "$msg";
        fi
@@ -201,7 +221,7 @@ done
 if [[ $docommit == 1 ]]; then
    git push;
 else
-   if [[ "X$allfiles" != "X" ]]; then 
+   if [[ "X$allfiles" != "X" ]]; then
       if [[ $applychanges == 0 ]]; then
          echo; echo "To apply changes use:";
          echo; echo "$0 --apply";

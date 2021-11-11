@@ -1,35 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   Setup for MHD wave tests in 3D
+! Setup for MHD wave tests in 3D
 !
-!  REFERENCES:
+! :References:
 !    Toth G., 2000, J. Comp. Phys., 161, 605
 !    Stone J. M., et al., 2008, ApJS, 178, 137
 !    Gardiner T. A., Stone J. M., 2008, J. Comp. Phys., 227, 4123
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - gamma   : *adiabatic index*
+!   - iselect : * which wave test to run*
+!   - nx      : *resolution (number of particles in x) for -xleft < x < xshock*
+!   - rotated : * rotate wave vector?*
 !
-!  RUNTIME PARAMETERS:
-!    gamma   -- adiabatic index
-!    iselect --  which wave test to run
-!    nx      -- resolution (number of particles in x) for -xleft < x < xshock
-!    rotated --  rotate wave vector?
+! :Dependencies: boundary, dim, domain, geometry, infile_utils, io,
+!   mpiutils, part, physcon, prompting, setup_params, timestep, unifdis
 !
-!  DEPENDENCIES: boundary, dim, geometry, infile_utils, io, mpiutils, part,
-!    physcon, prompting, setup_params, timestep, unifdis
-!+
-!--------------------------------------------------------------------------
-module setup
  implicit none
  public :: setpart
 !
@@ -48,6 +42,8 @@ module setup
         'linear slow wave                           ', &
         'linear entropy wave                        '/)
 
+ public :: set_perturbation,cons_to_prim,untransform_vec ! to avoid compiler warnings
+
  private
 
 contains
@@ -58,17 +54,18 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxp,maxvxyzu
+ use dim,          only:maxvxyzu
  use setup_params, only:rhozero,ihavesetupB
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd
+ use part,         only:Bxyz,mhd,periodic
  use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use geometry,     only:igeom_rotated,igeom_cartesian,set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
+ use domain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -83,10 +80,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,ierr,igeom
  real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
  real :: sina,sinb,cosa,cosb,wk,sinx1,cosx1,rvec(8),uui
- real :: runit(3),gam1,x0(3),xdot0,rhoi,x1
+ real :: runit(3),gam1,x0(3),xdot0,x1
  real :: drho,dv(3),dB(3),du
- real :: q0(8),q(8),vwave,denom,dxi
+ real :: q0(8),vwave
  character(len=len(fileprefix)+6) :: setupfile
+ procedure(rho_func), pointer :: density_func
 !
 !--general parameters
 !
@@ -182,10 +180,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xdot0 = dot_product(x0,runit)
 
  if (rvec(1) > 0.) then
+    density_func => rhofunc
     call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,&
-                     rhofunc=rhofunc,geom=igeom)
+                     periodic,rhofunc=density_func,geom=igeom,mask=i_belong)
  else
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh)
+    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                     deltax,hfact,npart,xyzh,periodic,mask=i_belong)
  endif
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -236,6 +236,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 contains
 
+!-------------------------------------------------
+!+
+!  callback function for desired density profile
+!+
+!-------------------------------------------------
 real function rhofunc(xi)
  real, intent(in) :: xi
 
@@ -247,7 +252,12 @@ end function rhofunc
 
 end subroutine setpart
 
-!----------------------------------------------------------
+!-------------------------------------------------
+!+
+!  simple stretchmapping routine to implement
+!  sinusoidal density perturbation
+!+
+!-------------------------------------------------
 subroutine set_perturbation(xi,xmin,length,kwave,ampl,denom,dxi)
  use io, only:fatal
  real, intent(in)  :: xi,xmin,length,kwave,ampl,denom
@@ -277,6 +287,13 @@ subroutine set_perturbation(xi,xmin,length,kwave,ampl,denom,dxi)
 
 end subroutine set_perturbation
 
+!-------------------------------------------------------
+!+
+!  obtain amplitudes for individual variables from the
+!  amplitude of the velocity perturbation, in order
+!  to setup pure MHD wave modes (slow, alfven or fast)
+!+
+!-------------------------------------------------------
 subroutine get_amplitudes(iwave,B,cs,rho,u,p,amp,drho,dv,dB,du,vwave)
  integer, intent(in) :: iwave
  real, intent(in)  :: B(3),cs,rho,u,p,amp
@@ -337,6 +354,11 @@ subroutine get_amplitudes(iwave,B,cs,rho,u,p,amp,drho,dv,dB,du,vwave)
 
 end subroutine get_amplitudes
 
+!-----------------------------------------------------
+!+
+!  nice printout of amplitudes for various quantities
+!+
+!-----------------------------------------------------
 subroutine print_amplitudes(rho,drho,v,dv,B,dB,u,du)
  real, intent(in) :: rho,drho,v(3),dv(3),B(3),dB(3),u,du
 
@@ -524,4 +546,3 @@ subroutine read_setupfile(filename,gamma,ierr)
 end subroutine read_setupfile
 
 end module setup
-

@@ -1,13 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: timestep_sts
+module timestep_sts
 !
-!  DESCRIPTION: This module contains the subroutines to control super-
+! This module contains the subroutines to control super-
 !               timestepping; the primary control routine, step_STS, is
 !               in step_supertimestep.f.  The control routine is in a
 !               different file due to dependencies and hence compiling
@@ -15,18 +14,14 @@
 !               For independent timesteps, all particles requiring
 !               super-timestepping will be in the largest bin.
 !
-!  REFERENCES: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
+! :References: Alexiades V., Amiez G., Gremaud P.A., 1996, Commun. Numer. Meth. Eng., 12, 31
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters: None
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: dim, io, part, timestep_ind
 !
-!  DEPENDENCIES: dim, io, part, timestep_ind
-!+
-!--------------------------------------------------------------------------
-module timestep_sts
  use dim, only: maxsts
  use part, only: istsactive,ibin_sts
  implicit none
@@ -321,9 +316,6 @@ subroutine sts_get_dtau_array(Nmegasts,dt_next,dtdiff_in,Nmega_in)
  integer                       :: i,j,k,Nmega
  logical                       :: calc_dtau
 
- nu          = 0.2       ! to avoid compiler warnings
- dtdiff_used = dtdiff_in ! to avoid compiler warnings
-
  ! Determine the number of real steps required;
  ! if Nmegasts_done > 0, then this is the real steps remaining
  Nreal = int(dt_next/dtdiff_in) + 1
@@ -386,6 +378,10 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
  real                   :: dtau_local
  logical                :: find_dtdiff
 
+ ! default values, to avoid compiler warnings
+ nu_local = 0.2
+ dtdiff_out = dtdiff_in ! to avoid compiler warnings
+
  ! Determine values for super-timestepping
  if (dt > dtdiff_in .and. dtdiff_in > tiny(dtdiff_in) .and. dtdiff_in < bigdt) then
     find_dtdiff = .true.
@@ -415,15 +411,15 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
     if (Nmega==1) then
        if (Nsts == 1) then
           icase = iNosts
-       else if (Nsts==Nreal) then
+       elseif (Nsts==Nreal) then
           icase = iNostsSml
-       else if (Nsts > nnu .or. Nsts > Nreal) then
+       elseif (Nsts > nnu .or. Nsts > Nreal) then
           icase = iNostsBig
           Nsts  = Nreal
        else
           icase = iNsts
        endif
-    else if (Nmega > 1) then
+    elseif (Nmega > 1) then
        if (Nsts == 1 .or. Nsts*Nmega >= Nreal) then
           icase = iNostsBig
           Nmega = 1
@@ -440,7 +436,7 @@ subroutine sts_get_Ndtdiff(dt,dtdiff_in,dtdiff_out,Nsts,Nmega,nu_local,Nreal,ica
  endif
 
 end subroutine sts_get_Ndtdiff
-!
+
 subroutine sts_update_i_nmega(i,Nmega)
  integer, intent(inout) :: i,Nmega
  i = i + 1
@@ -470,10 +466,11 @@ end function sts_get_dtdiff
 pure function sts_get_dtau(j,N,nu0,dtdiff_in)
  integer, intent(in)  :: j,N
  real,    intent(in)  :: nu0,dtdiff_in
- real                 :: sts_get_dtau,pibytwo
+ real                 :: sts_get_dtau
+ real, parameter      :: pibytwo = 2.*atan(1.)
 
- pibytwo      = 1.5707963268d0
- sts_get_dtau = dtdiff_in /((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
+ sts_get_dtau = dtdiff_in /&
+                ((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
 
 end function sts_get_dtau
 !----------------------------------------------------------------

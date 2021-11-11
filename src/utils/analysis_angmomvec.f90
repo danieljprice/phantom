@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module analysis
+!
+! None
+!
+! :References: None
+!
+! :Owner: David Liptai
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part, physcon, vectorutils
+!
  implicit none
  character(len=20), parameter, public :: analysistype = 'angmomvec'
  public :: do_analysis
@@ -70,4 +87,4 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
 
 end subroutine get_angmomvec
 
-end module
+end module analysis

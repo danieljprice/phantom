@@ -1,0 +1,7 @@
+Note:
+The full NICIL library includes test codes and plotting routines.  Those have not been included here.
+Included in this folder is the primary NICIL code, along with a script to calcuate the values at individuaal points.
+
+The full library, including documentation, additional test scripts and plotting routines,  can be downloaded from 
+https://bitbucket.org/jameswurster/nicil/wiki/Home
+

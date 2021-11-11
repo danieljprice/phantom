@@ -1,33 +1,27 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  Analysis routine to produce accurate volume-weighted
+! Analysis routine to produce accurate volume-weighted
 !  Probability Distribution Functions from SPH particle data
 !  by interpolation to an adaptive mesh
 !
-!  REFERENCES: None
+! :References: None
 !
-!  OWNER: Daniel Price
+! :Owner: Daniel Price
 !
-!  $Id$
+! :Runtime parameters:
+!   - binspacing : * bin width in ln(rho) for PDF*
+!   - rhologmax  : * max ln(rho) for PDF*
+!   - rhologmin  : * min ln(rho) for PDF*
 !
-!  RUNTIME PARAMETERS:
-!    binspacing --  bin width in ln(rho) for PDF
-!    rhologmax  --  max ln(rho) for PDF
-!    rhologmin  --  min ln(rho) for PDF
+! :Dependencies: adaptivemesh, boundary, dim, infile_utils,
+!   interpolations3D_amr, part, pdfs
 !
-!  DEPENDENCIES: adaptivemesh, boundary, dim, infile_utils,
-!    interpolations3D_amr, part, pdfs
-!+
-!--------------------------------------------------------------------------
-module analysis
  implicit none
  character(len=20), parameter, public :: analysistype = 'PDF on AMR mesh'
  public :: do_analysis
@@ -250,7 +244,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 ! write PDF to file
  xval = exp(xval)
  tagline1 = 'Phantomanalysis: '//trim(analysistype)//', part of '//trim(tagline)
- call pdf_write(nbins,xval,pdf,'lnrho',.true.,trim(dumpfile),trim(tagline1))
+ call pdf_write(nbins,xval,pdf,'lnrho',trim(dumpfile),trim(tagline1))
 
  if (allocated(xval)) deallocate(xval)
  if (allocated(pdf)) deallocate(pdf)
@@ -272,7 +266,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call get_pdf_logBsq(1,ifirstlevel,datgrid,Bsqlogmin,Bsqlogmax,binspacing,nbins,pdf)
 
     xval = exp(xval)
-    call pdf_write(nbins,xval,pdf,'logBsq',.true.,trim(dumpfile),trim(tagline1))
+    call pdf_write(nbins,xval,pdf,'logBsq',trim(dumpfile),trim(tagline1))
  endif
 !
 ! cleanup memory
@@ -518,4 +512,4 @@ recursive subroutine get_pdf_logBsq(imesh,level,datgrid,Bsqmin,Bsqmax,binspacing
 
 end subroutine get_pdf_logBsq
 
-end module
+end module analysis
