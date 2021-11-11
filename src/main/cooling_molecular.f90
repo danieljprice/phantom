@@ -58,23 +58,28 @@ subroutine read_options_molecular_cooling(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
+ integer :: ngot = 0
 
  imatch  = .true.
  igotall = .true. ! none of the cooling options are compulsory
- select case(trim(name))
 
+ select case(trim(name))
  case('CO_abun')
     read(valstring,*,iostat=ierr) CO_abun
     if (CO_abun < 0.) CO_abun = 0.
+    ngot = ngot + 1
  case('HCN_abun')
     read(valstring,*,iostat=ierr) HCN_abun
     if (HCN_abun < 0.) HCN_abun = 0.
+    ngot = ngot + 1
  case('H2O_abun')
     read(valstring,*,iostat=ierr) H2O_abun
     if (H2O_abun < 0.) H2O_abun = 0.
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
+ do_molecular_cooling = ngot > 0 .and. CO_abun+H2O_abun+HCN_abun > 0.
 
 end subroutine read_options_molecular_cooling
 
@@ -98,7 +103,7 @@ end subroutine init_cooling_molec
 subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
 
  use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
- use eos,     only:gmw, Tfloor, use_Tfloor
+ use eos,     only:gmw, Tfloor
 
 ! Data dictionary: Arguments
  real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
@@ -107,7 +112,7 @@ subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
 
 ! Data dictionary: Additional parameters for calculations
  integer                                     :: i
- real                                        :: rho_H, n_H, Temp, f, Lambda
+ real                                        :: rho_H, n_H, Temp, Lambda
  real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
  real                                        :: abundance, widthLine_molecule
  real, dimension(3)                          :: lambda_log, params_cool, widthLine,Qi
@@ -125,7 +130,7 @@ subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
  endif
 
  Temp=T
- if ( use_Tfloor .and. T<=Tfloor) Temp=Tfloor
+ if (T<=Tfloor) Temp=Tfloor
 
  n_H                 = rho_H/(gmw*mass_proton_cgs)    ! convert mass density to number density
  fit_n_inner         = fit_rho_inner/(gmw*mass_proton_cgs)
@@ -213,7 +218,6 @@ subroutine loadCoolingTable(data_array)
        read(iunit, *, iostat=istat, IOMSG = imsg)
     enddo
 
-
     ! Read data
     skipheaderif: if ((istat == 0)) then
        readdo: do
@@ -249,22 +253,22 @@ subroutine loadCDTable(data_array)
  integer            :: i, j, k, l, o, iunit, istat
  character(len=80)  :: imsg
  integer, parameter :: headerLines = 8
- real               :: r_part, widthLine, m_exp, r_compOrb, N_H
+ real               :: r_part, widthLine, m_exp, r_sep, N_H
  character(len=120) :: filename
 
 
  ! Initialise variables
- i            = 0
- j            = 0
- k            = 0
- l            = 0
- o            = 0
- r_part       = 0.
- widthLine    = 0.
- m_exp        = 0.
- r_compOrb    = 0.
- N_H          = 0
- data_array   = -999.
+ i           = 0
+ j           = 0
+ k           = 0
+ l           = 0
+ o           = 0
+ r_part      = 0.
+ widthLine   = 0.
+ m_exp       = 0.
+ r_sep       = 0.
+ N_H         = 0
+ data_array  = -999.
 
  iunit = 1
  filename = find_phantom_datafile('table_cd.dat','cooling')
@@ -278,13 +282,12 @@ subroutine loadCDTable(data_array)
        read(iunit, *, iostat=istat, IOMSG = imsg)
     enddo
 
-
     !!! Read data
     skipheaderif: if ((istat == 0)) then
        readdo: do
-          read(iunit, *, iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_compOrb, N_H
+          read(iunit, *, iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
           if (istat /= 0) exit
-          data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_compOrb, N_H]
+          data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
 
        enddo readdo
 
@@ -326,10 +329,10 @@ subroutine lambdaGradT(data_array, params, dudt, dlnQdlnT)
  dlnQdlnT       = 0.
 
  call findLower_cool(data_array, params, index_lower_bound)
- index_T_lower   = index_lower_bound(1)
- index_T_upper   = index_lower_bound(1) + 1
- index_nH        = index_lower_bound(2)
- index_N         = index_lower_bound(3)
+ index_T_lower = index_lower_bound(1)
+ index_T_upper = index_lower_bound(1) + 1
+ index_nH      = index_lower_bound(2)
+ index_N       = index_lower_bound(3)
 
  T            = 10.**params(1)
  T_lower      = 10.**data_array(index_T_lower, index_nH, index_N, 1)
@@ -358,7 +361,6 @@ subroutine findLower_cool(data_array, params, index_lower_bound)
  real, dimension(3) :: params0, dparams
  real, dimension(3) :: real_lower_bound
 
-
  params0(:) = data_array(1, 1, 1, 1:3)
  dparams(:) = data_array(2, 2, 2, 1:3) - params0(:)
 
@@ -381,26 +383,26 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
  real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
 
  ! Data dictionary: Find index values
- real                :: dr_part, r_compOrb
+ real                :: dr_part, r_sep
  real, parameter     :: dv = 0.02, dm = 0.3, widthLine_min = 0.001, widthLine_max = 2., perturbation = 0.0001
  real, parameter     :: N_compZone = 15, N_r_part_sample = 36, r_part_min = 1.1, r_part_max = 250.
  integer             :: i, j, k, l
  real, dimension(4)  :: min_array, max_array
 
- i              = -1
- j              = -1
- k              = -1
- l              = -1
+ i = -1
+ j = -1
+ k = -1
+ l = -1
  index_lower_bound = -1
 
  ! The upper boundary of widthLine is limitless but is minimally equal to zero
- min_array      = [10.**data_array(1, 1, 1, 1, 1), 0., data_array(1, 1, 1, 1, 3), data_array(1, 1, 1, 1, 4)]
- max_array      = [10.**data_array(36, 102, 6, 8, 1), params(2) + 1, data_array(36, 102, 6, 8, 3), data_array(36, 102, 6, 8, 4)]
+ min_array = [10.**data_array(1, 1, 1, 1, 1), 0., data_array(1, 1, 1, 1, 3), data_array(1, 1, 1, 1, 4)]
+ max_array = [10.**data_array(36, 102, 6, 8, 1), params(2) + 1, data_array(36, 102, 6, 8, 3), data_array(36, 102, 6, 8, 4)]
 
  if (all(params <= max_array) .AND. all(min_array <= params)) then
-    ! Index r_compOrb
+    ! Index r_sep
     l   = nint(params(4)) - min_array(4) + 1
-    r_compOrb = params(4)
+    r_sep = params(4)
 
     ! Index m_exp
     k = floor((params(3) - min_array(3)) / dm) + 1
@@ -417,18 +419,18 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
     endif outervif
 
     ! Index r_part
-    outCompif: if (params(1) >= r_compOrb) then
-       innerr_partif: if (params(1) <= r_compOrb + perturbation) then
+    outCompif: if (params(1) >= r_sep) then
+       innerr_partif: if (params(1) <= r_sep + perturbation) then
           i = N_compZone
        else
-          dr_part = (log10(r_part_max) - log10(r_compOrb)) / (N_r_part_sample - N_compZone)
-          i    = floor((log10(params(1)) - log10(r_compOrb)) / dr_part ) + N_compZone
+          dr_part = (log10(r_part_max) - log10(r_sep)) / (N_r_part_sample - N_compZone)
+          i    = floor((log10(params(1)) - log10(r_sep)) / dr_part ) + N_compZone
        endif innerr_partif
 
     else
-       dr_part = (r_compOrb - r_part_min) / N_compZone
+       dr_part = (r_sep - r_part_min) / N_compZone
        i    = floor((params(1) - r_part_min) / dr_part ) + 1
-       if (params(1) >= r_compOrb / 2.) i = i + 1
+       if (params(1) >= r_sep / 2.) i = i + 1
     endif outCompif
 
     index_lower_bound = [i, j, k, l]
@@ -516,7 +518,6 @@ subroutine CoolingRate(data_array, params, molecule, lambda)
        k1  = k0 + 1
        z_d = (params(3) - data_array(1, 1, k0, 3)) / (data_array(1, 1, k1, 3) - data_array(1, 1, k0, 3))
     endif indexkif
-
 
     xyz = [x_d, y_d, z_d]
 

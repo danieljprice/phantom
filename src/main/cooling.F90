@@ -89,7 +89,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use part,      only:h2chemistry
  use h2cooling, only:init_h2cooling
  use chem,      only:init_chem
- use cooling_molecular, only: init_cooling_molec,CO_abun,HCN_abun,H2O_abun
+ use cooling_molecular, only:do_molecular_cooling,init_cooling_molec
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
 
@@ -109,11 +109,11 @@ subroutine init_cooling(id,master,iprint,ierr)
     dust_collision = 0
 #else
     !if no cooling flag activated, disable cooling
-    if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+&
-       relax_Stefan+CO_abun+HCN_abun+H2O_abun== 0)) then
+    if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+relax_Stefan) == 0 &
+       .and. do_molecular_cooling) then
        icooling = 0
        return
-    elseif (icooling == 1 .and. (CO_abun+HCN_abun+H2O_abun/=0)) then
+    elseif (icooling == 1 .and. do_molecular_cooling) then
        ! Initialise cooling tables
        call init_cooling_molec
     endif
@@ -216,12 +216,12 @@ end subroutine init_cooltable
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  use units,             only:unit_ergg,unit_density
- use cooling_molecular, only: CO_abun, HCN_abun, H2O_abun, calc_cool_molecular
+ use cooling_molecular, only:do_molecular_cooling,calc_cool_molecular
 
  real, intent(in) :: rho, T, Teq               !rho in code units
- real, intent(in) :: r                         !in au
- real, intent(in), optional :: mu, K2, kappa      !cgs
- real, intent(out) :: Q, dlnQ_dlnT                !code units
+ real, intent(in) :: r
+ real, intent(in), optional :: mu, K2, kappa   !cgs
+ real, intent(out) :: Q, dlnQ_dlnT             !code units
  real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_molec, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan, dlnQ_molec
 
@@ -242,7 +242,7 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
- if (CO_abun+H2O_abun+HCN_abun /= 0) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
+ if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0.) then
@@ -749,10 +749,10 @@ end subroutine write_options_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
- use part,         only:h2chemistry
- use h2cooling,    only:read_options_h2cooling
- use io,           only:fatal
- use cooling_molecular, only: CO_abun, H2O_abun, HCN_abun, do_molecular_cooling, read_options_molecular_cooling
+ use part,              only:h2chemistry
+ use h2cooling,         only:read_options_h2cooling
+ use io,                only:fatal
+ use cooling_molecular, only:read_options_molecular_cooling
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -807,11 +807,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     if (h2chemistry) then
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
-    if (CO_abun+H2O_abun+HCN_abun /= 0) then
-       do_molecular_cooling = .true.
-       call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
-    endif
  end select
+ if (icooling > 0 ) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
  if (icooling == 1 .and. ngot >= 9) igotall = .true.

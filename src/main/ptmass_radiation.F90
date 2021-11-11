@@ -166,8 +166,8 @@ end subroutine get_radiative_acceleration_from_star
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
  use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas
- use options,        only:ieos
- use eos,            only:get_temperature
+ use options, only:ieos
+ use eos,     only:get_temperature
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
@@ -190,7 +190,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  xa = xyzmh_ptmass(1,j)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
- select case (iget_Tdust)
+ select case (iget_tdust)
     ! simple T(r) relation
  case (1)
     !$omp parallel  do default(none) &
@@ -205,19 +205,6 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
     !$omp end parallel do
  case(2)
     call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- case default
-    ! sets Tdust = Tgas
-    pmassi         = massoftype(igas)
-    !$omp parallel  do default(none) &
-    !$omp shared(npart,ieos,xyzh,vxyzu,pmassi,dust_temp) &
-    !$omp private(i,vxyzui)
-    do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          vxyzui= vxyzu(:,i)
-          dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
-       endif
-    enddo
-    !$omp end parallel do
  end select
 
 end subroutine get_dust_temperature_from_ptmass

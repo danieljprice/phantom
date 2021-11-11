@@ -91,6 +91,7 @@ contains
 subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
+ use setbinary,         only:get_eccentricity_vector
  use timestep,          only:tmax,dtmax
  use wind_equations,    only:init_wind_equations
  use wind,              only:setup_wind,save_windprofile
@@ -98,15 +99,15 @@ subroutine init_inject(ierr)
  use icosahedron,       only:compute_matrices, compute_corners
  use eos,               only:gmw,gamma,polyk
  use units,             only:unit_velocity, umass, utime, udist
- use part,              only:xyzmh_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
+ use part,              only:xyzmh_ptmass,vxyz_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
- use cooling_molecular, only:fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
+ use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
 
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point
- real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point
+ real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
- real :: semi_major_axis_cgs, wind_mass_rate_cgs, wind_velocity_cgs
+ real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -114,11 +115,10 @@ subroutine init_inject(ierr)
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (pulsating_wind .and. ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
 
- Rstar_cgs            = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
- Mstar_cgs            = xyzmh_ptmass(4,wind_emitting_sink)*umass
- semi_major_axis_cgs  = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))*udist
- wind_mass_rate_cgs   = wind_mass_rate_Msun_yr * solarm / years
- wind_velocity_cgs    = wind_velocity_km_s * km
+ Rstar_cgs          = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
+ Mstar_cgs          = xyzmh_ptmass(4,wind_emitting_sink)*umass
+ wind_mass_rate_cgs = wind_mass_rate_Msun_yr * solarm / years
+ wind_velocity_cgs  = wind_velocity_km_s * km
  !
  ! convert input parameters to code units
  !
@@ -148,11 +148,20 @@ subroutine init_inject(ierr)
  time_period    = 0.
  orbital_period = 1.50
  if (nptmass == 2) then
-    r_compOrb      = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-    orbital_period = sqrt(4.*pi**2*semi_major_axis_cgs**3/(Gg*(xyzmh_ptmass(4,1)*solarm+xyzmh_ptmass(4,2)*solarm)))    ! cgs
-    fit_rho_inner  = (3*wind_mass_rate_cgs*(semi_major_axis_cgs/wind_velocity_cgs))/(4*pi*(semi_major_axis_cgs)**3)
-    fit_rho_power  = 2.0
-    fit_vel        = wind_velocity_cgs
+    separation_cgs = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))*udist
+    r_compOrb       = separation_cgs/udist
+    ecc             = get_eccentricity_vector(xyzmh_ptmass,vxyz_ptmass,1,2)
+    eccentricity    = sqrt(sum(ecc(1:3)**2))
+    !stars initially positionned at apastron (see set_binary)
+    semimajoraxis_cgs = separation_cgs/(1.+eccentricity)
+    orbital_period  = sqrt(4.*pi**2*semimajoraxis_cgs**3/(Gg*(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))*solarm))    ! cgs
+    if (do_molecular_cooling) then
+       fit_rho_inner   = (3*wind_mass_rate_cgs*(separation_cgs/wind_velocity_cgs))/(4*pi*(separation_cgs)**3)
+       fit_rho_power   = 2.0
+       fit_vel         = wind_velocity_cgs
+    endif
+    print *,'eccentricity                 = ',eccentricity
+    print *,'orbital_period (days)        = ',orbital_period/86400.
  endif
 
 
@@ -321,11 +330,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use dim,               only:store_dust_temperature
  use wind,              only:wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
-      delete_dead_particles_inside_radius,dust_temp,n_nucleation,massoftype
+      delete_dead_particles_inside_radius,dust_temp,n_nucleation
  use partinject,        only:add_or_update_particle
  use injectutils,       only:inject_geodesic_sphere
  use units,             only:udist, utime
- use cooling_molecular, only: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
+ use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -368,13 +377,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
-       r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-       call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
-
-       ! catch poor fit values and revert to previous value
-       if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
-       if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
-       if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
+       if (do_molecular_cooling) then
+         r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
+         call fit_spherical_wind(xyzh,vxyzu, r_compOrb ,outer_boundary_au, npart, fit_rho_inner_new, fit_rho_power_new, fit_vel_new)
+         ! catch poor fit values and revert to previous value
+         if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
+         if (fit_rho_power_new > 1.4 .and. fit_rho_power_new < 2.9) fit_rho_power = fit_rho_power_new
+         if (fit_vel_new > fit_vel/tolv .and. fit_vel_new < fit_vel*tolv) fit_vel = fit_vel_new
+       endif
     endif
 
     nreleased = nfill_domain
@@ -537,7 +547,7 @@ end subroutine pulsating_wind_profile
 ! Fit an idealistic density and velocity profile of the stellar wind
 !+
 !-----------------------------------------------------------------------
-subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_inf)
+subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 
  use part,   only: rhoh
 
@@ -545,7 +555,7 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_in
  real,intent(in)                        :: xyzh(:,:), vxyzu(:,:)
  integer, intent(in)                    :: n_part
  double precision, intent(out)          :: n0, m, v_inf
- double precision, intent(in)           :: r_compOrb, r_outer
+ double precision, intent(in)           :: r_sep, r_outer
 
  ! Data dictionary: Additional parameters for calculations
  double precision, dimension(:), allocatable :: allR, allRho, allV
@@ -567,20 +577,20 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_in
  enddo
 
  ! Initialisation
- radius_cutoff1 = 1.5 * r_compOrb
+ radius_cutoff1 = 1.5 * r_sep
  radius_cutoff2 = radius_cutoffFactor2 * r_outer
  if (radius_cutoffFactor1 > radius_cutoff2) radius_cutoff1 = 0.5 * radius_cutoff2
 
  ! Fit the exponent m outside compZone
- n_density_noCompZone = count(allR > r_compOrb)
+ n_density_noCompZone = count(allR > r_sep)
  allocate(radius_fit_noCompZone(n_density_noCompZone))
  allocate(radius_log_noCompZone(n_density_noCompZone))
  allocate(density_fit_noCompZone(n_density_noCompZone))
  allocate(density_log_noCompZone(n_density_noCompZone))
 
- radius_fit_noCompZone  = pack(allR, allR > r_compOrb)
+ radius_fit_noCompZone  = pack(allR, allR > r_sep)
  radius_log_noCompZone  = log(radius_fit_noCompZone)
- density_fit_noCompZone = pack(allRho, allR > r_compOrb)
+ density_fit_noCompZone = pack(allRho, allR > r_sep)
  density_log_noCompZone = log(density_fit_noCompZone)
 
  m = -( sum(radius_log_noCompZone * density_log_noCompZone) - &
@@ -588,10 +598,10 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_compOrb, r_outer, n_part, n0, m, v_in
         ( sum(radius_log_noCompZone**2.D0) - 1.D0/n_density_noCompZone * sum(radius_log_noCompZone)**2. )
 
  ! Fit n0 inside compZone
- n_density_compZone = count(allR <= r_compOrb)
+ n_density_compZone = count(allR <= r_sep)
  allocate(density_fit_compZone(n_density_compZone))
 
- density_fit_compZone = pack(allRho, allR <= r_compOrb)
+ density_fit_compZone = pack(allRho, allR <= r_sep)
  n0 = sum(density_fit_compZone) / n_density_compZone
 
  ! Fit velocity profile

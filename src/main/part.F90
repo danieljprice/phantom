@@ -530,7 +530,7 @@ subroutine deallocate_part
 #endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
- if (allocated(T_gas_cool))       deallocate(T_gas_cool)
+ if (allocated(T_gas_cool))   deallocate(T_gas_cool)
  if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
@@ -1188,7 +1188,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
-    T_gas_cool(dst)           = T_gas_cool(src)
+    T_gas_cool(dst)       = T_gas_cool(src)
     dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)

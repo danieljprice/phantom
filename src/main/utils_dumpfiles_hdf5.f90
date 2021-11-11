@@ -332,7 +332,7 @@ subroutine write_hdf5_arrays( &
    dens,                      &
    gamma_chem,                &
    mu_chem,                   &
-   T_gas_cool,                    &
+   T_gas_cool,                &
    nucleation,                &
    dust_temp,                 &
    rad,                       &
@@ -364,7 +364,7 @@ subroutine write_hdf5_arrays( &
                                 dens(:),           &
                                 gamma_chem(:),     &
                                 mu_chem(:),        &
-                                T_gas_cool(:),         &
+                                T_gas_cool(:),     &
                                 nucleation(:,:),   &
                                 dust_temp(:),      &
                                 rad(:,:),          &
@@ -787,7 +787,7 @@ subroutine read_hdf5_arrays( &
    pxyzu,                    &
    gamma_chem,               &
    mu_chem,                  &
-   T_gas_cool,                   &
+   T_gas_cool,               &
    nucleation,               &
    dust_temp,                &
    rad,                      &
@@ -817,7 +817,7 @@ subroutine read_hdf5_arrays( &
                                  pxyzu(:,:),        &
                                  gamma_chem(:),     &
                                  mu_chem(:),        &
-                                 T_gas_cool(:),         &
+                                 T_gas_cool(:),     &
                                  nucleation(:,:),   &
                                  dust_temp(:),      &
                                  rad(:,:),          &

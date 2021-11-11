@@ -35,7 +35,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 10000000
+ integer, parameter :: maxp_hard = 1200000
 #endif
 
  ! maximum number of point masses
@@ -310,10 +310,8 @@ module dim
 !--------------------
 #ifdef NUCLEATION
  integer :: maxsp = maxp_hard
- logical :: use_nucleation = .true.
 #else
  integer :: maxsp = 0
- logical :: use_nucleation = .false.
 #endif
 
 !--------------------
