@@ -28,7 +28,7 @@ module dust_formation
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_alpha_bowen,calc_alpha_dust
+      calc_alpha_bowen,calc_alpha_dust,init_mu
 !
 !--runtime settings for this module
 !
@@ -75,7 +75,7 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 0., 55.847, 0.] ! Atomic weight for S and Ti missing
+ real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
 
@@ -101,7 +101,7 @@ end subroutine set_abundances
 
 !-----------------------------------------------------------------------
 !
-!  set particle dust properties
+!  set particle dust properties (particle's call)
 !
 !-----------------------------------------------------------------------
 subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
@@ -304,6 +304,32 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
 end subroutine evol_K
 
+subroutine init_mu(rho_cgs, T, mu, gamma)
+! all quantities are in cgs
+ use physcon,only:kboltz
+ use io,      only:fatal
+ real, intent(in) :: rho_cgs
+ real, intent(inout) :: T, gamma
+ real, intent(out) :: mu
+ real :: KH2, nH_tot, nH2, pH, pH_tot
+
+!to avoid overflow
+ if (T > 1.d5) then
+    mu = (1.+4.*eps(iHe))/(1.+eps(iHe))
+ elseif (T > 450.) then
+    pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
+    KH2 = calc_Kd(coefs(:,iH2), T)
+    pH = solve_q(2.*KH2, 1., -pH_tot)
+    mu = (1.+4.*eps(iHe))*pH_tot/(pH+KH2*pH**2+eps(iHe)*pH_tot)
+ else
+! Simplified low-temperature chemistry: all hydrogen in H2 molecules
+    nH_tot = rho_cgs/mass_per_H
+    nH2 = nH_tot/2.
+    mu = (1.+4.*eps(iHe))*nH_tot/(nH2+eps(iHe)*nH_tot)
+ endif
+ !call calc_mu(rho_cgs, T, mu, gamma, pH, pH_tot)
+end subroutine init_mu
+
 !---------------------------------------------------------------
 !
 !  Compute carbon chemical equilibrum abundance in the gas phase
@@ -360,8 +386,8 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
             -eps(iN)*pH_tot)
 ! C
     pC = solve_q(2.*(Kd(iC2H)*pH + Kd(iC2H2)*pH**2 + Kd(iC2)), &
-            1.+.02*pO*Kd(iCO)+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C), &
-            .98*pCO-epsC*pH_tot)
+            1.+pO**2*Kd(iCO2)+pH**4*Kd(iCH4)+pSi**2*Kd(iSi2C), &
+            pCO-epsC*pH_tot)
 ! O
     pO = eps(iOx)*pH_tot/(1.+pC*Kd(iCO)+pH*Kd(iOH)+pH**2*Kd(iH2O)+2.*pO*pC*Kd(iCO2)+pSi*Kd(iSiO))
     pCO = Kd(iCO)*pC*pO

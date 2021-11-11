@@ -310,8 +310,10 @@ module dim
 !--------------------
 #ifdef NUCLEATION
  integer :: maxsp = maxp_hard
+ logical :: use_nucleation = .true.
 #else
  integer :: maxsp = 0
+ logical :: use_nucleation = .false.
 #endif
 
 !--------------------

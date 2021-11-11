@@ -37,8 +37,8 @@ module wind
  ! wind properties
  type wind_state
     real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust, mu
-    real :: gamma, alpha, rho, p, c, dalpha_dr, r_old, Q, dQ_dr
-    real :: tau_lucy, kappa
+    real :: gamma, alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
+    real :: tau_lucy, kappa, alpha_dust, dmu_dr
 #ifdef NUCLEATION
     real :: JKmuS(7)
 #endif
@@ -76,6 +76,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
 
  if (iget_Tdust == -12) then
     !not working
+    print *,'get_initial_radius not working'
     call get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
  else
     call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
@@ -95,7 +96,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
  use part,             only:xyzmh_ptmass,iTeff,ilum
- use dust_formation,   only:kappa_gas,evolve_chem
+ use dust_formation,   only:kappa_gas,init_mu !kappa_gas,evolve_chem,calc_kappa_dust
  use units,            only:umass,unit_energ,utime
 
  real, intent(in) :: r0, v0, T0, time_end
@@ -120,8 +121,6 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%a = 0.
  state%Tg = T0
  state%Tdust = T0
- state%alpha = alpha_rad
- state%dalpha_dr = 0.
  state%gamma = wind_gamma
  state%tau_lucy = 2./3.
  state%kappa = kappa_gas
@@ -135,15 +134,20 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
+ state%alpha_dust = 0.
 #ifdef NUCLEATION
  state%JKmuS = 0.
- call evolve_chem(0., T0, state%rho, state%JKmuS)
+ call init_mu(state%rho, state%Tg, state%JKmuS(6), state%gamma)
  state%mu = state%jKmuS(6)
 #else
  state%mu = gmw
 #endif
+ state%alpha = state%alpha_dust + alpha_rad
+ state%dalpha_dr = 0.
+ state%dmu_dr = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
- state%c = sqrt(wind_gamma*Rg*state%Tg/state%mu)
+ state%u = state%p/((state%gamma-1.)*state%rho)
+ state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error = .false.
 
@@ -202,7 +206,7 @@ subroutine wind_step(state)
  state%time = state%time + state%dt
  state%dt   = dt_next
  rho_old    = state%rho
- state%c    = sqrt(wind_gamma*Rg*state%Tg/state%mu)
+ state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
 
@@ -223,7 +227,8 @@ subroutine wind_step(state)
        state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
     endif
 #ifdef NUCLEATION
-    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%JKmuS(6),state%JKmuS(4),state%kappa)
+    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
+         state%JKmuS(6),state%JKmuS(4),state%kappa)
 #else
     call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
 #endif
@@ -282,7 +287,6 @@ end subroutine calc_wind_profile
 subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  !in/out variables in code units (except Jstar,K)
  use units,        only:udist, utime, unit_velocity, unit_density, unit_pressure
- use eos,          only:gamma
  real, intent(in)  :: local_time, GM, T0
  real, intent(inout) :: r, v
  real, intent(out) :: u, rho, e, fdone
@@ -305,8 +309,8 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  v = state%v/unit_velocity
  rho = state%rho/unit_density
  !u = state%Tg * u_to_temperature_ratio
- u = state%p/((gamma-1.)*rho)/unit_pressure
- e = .5*v**2 - GM/r + gamma*u
+ u  = state%p/((state%gamma-1.)*rho)/unit_pressure
+ e = .5*v**2 - GM/r + state%gamma*u
 #ifdef NUCLEATION
  JKmuS(1:7) = state%JKmuS(1:7)
  JKmuS(8) = state%kappa
@@ -624,21 +628,21 @@ subroutine filewrite_header(iunit,nwrite)
 
 #ifdef NUCLEATION
  if (icooling > 0) then
-    nwrite = 20
-    write(iunit,'(20(a12))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Q','Tdust'
+    nwrite = 21
+    write(iunit,'(21(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','Q'
  else
-    nwrite = 18
-    write(iunit,'(18(a12))') 't','r','v','T','c','p','rho','alpha','a',&
-         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa'
+    nwrite = 20
+    write(iunit,'(20(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+         'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust'
  endif
 #else
  if (icooling > 0) then
-    nwrite = 12
-    write(iunit,'(12(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa','Q','Tdust'
+    nwrite = 13
+    write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','Q'
  else
-    nwrite = 10
-    write(iunit,'(11(a12))') 't','r','v','T','c','p','rho','alpha','a','mu','kappa'
+    nwrite = 12
+    write(iunit,'(12(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa'
  endif
 #endif
 end subroutine filewrite_header
@@ -655,24 +659,23 @@ subroutine state_to_array(state,nwrite, array)
  array(4) = state%Tg
  array(5) = state%c
  array(6) = state%p
- array(7) = state%rho
- array(8)  = state%alpha
- array(9) = state%a
+ array(7)  = state%u
+ array(8)  = state%rho
+ array(9)  = state%alpha
+ array(10) = state%a
 #ifdef NUCLEATION
- array(10)  = state%JKmuS(6)
- array(11)  = state%JKmuS(7)
- array(12)  = state%JKmuS(1)
- array(13:16) = state%JKmuS(2:5)
- array(17) = state%tau_lucy
- array(18) = state%kappa
+ array(11) = state%JKmuS(6)
+ array(12) = state%JKmuS(7)
+ array(13) = state%JKmuS(1)
+ array(14:17) = state%JKmuS(2:5)
+ array(18) = state%tau_lucy
+ array(19) = state%kappa
+ array(20) = state%Tdust
 #else
- array(10) = state%mu
- array(11) = state%kappa
+ array(11) = state%mu
+ array(12) = state%kappa
 #endif
- if (icooling > 0) then
-    array(nwrite-1) = state%Q
-    array(nwrite) = state%Tdust
- endif
+ if (icooling > 0) array(nwrite) = state%Q
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)

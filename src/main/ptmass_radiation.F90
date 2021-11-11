@@ -188,7 +188,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  xa = xyzmh_ptmass(1,j)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
- select case (iget_tdust)
+ select case (iget_Tdust)
     ! simple T(r) relation
  case (1)
     !$omp parallel  do default(none) &
