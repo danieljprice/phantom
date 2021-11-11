@@ -16,10 +16,12 @@ module ptmass_radiation
 !
 ! :Runtime parameters:
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
-!   - iget_tdust      : *method for computing dust temperature (0=none 1=T(r) 2=Lucy 3=MCFOST)*
-!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=1+2)*
+!   - iget_tdust      : *method for computing dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy 3:MCFOST)*
+!   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
+!   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dust_formation, infile_utils, io, kernel, part, units
+! :Dependencies: dust_formation, eos, infile_utils, io, kernel, options,
+!   part, units
 !
 
 

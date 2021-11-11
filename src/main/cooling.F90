@@ -22,24 +22,24 @@ module cooling
 !   Townsend (2009), ApJS 181, 391-397
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-! :Owner: Lionel Siess, Ward Homan, Dion Donne
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - C_cool               : *factor controlling cooling timestep*
-!   - Tfloor               : *temperature floor (K); on if > 0*
-!   - beta_cool            : *beta factor in Gammie (2001) cooling*
-!   - bowen_Cprime         : *radiative cooling rate (g.s/cm³)*
-!   - cooltable            : *data file containing cooling function*
-!   - habund               : *Hydrogen abundance assumed in cooling function*
-!   - dust_collision       : *dust collision [1=on/0=off]*
-!   - excitation_HI        : *H0 cooling [1=on/0=off]*
-!   - relax_bowen          : *Bowen (diffusive) relaxation [1=on/0=off]*
-!   - relax_stefan         : *radiative relaxation [1=on/0=off]*
-!   - icooling             : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
-!   - temp_floor           : *Minimum allowed temperature in K for Townsend cooling table*
+!   - C_cool         : *factor controlling cooling timestep*
+!   - Tfloor         : *temperature floor (K); on if > 0*
+!   - beta_cool      : *beta factor in Gammie (2001) cooling*
+!   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
+!   - cooltable      : *data file containing cooling function*
+!   - dust_collision : *dust collision [1=on/0=off]*
+!   - excitation_HI  : *cooling via electron excitation of HI [1=on/0=off]*
+!   - habund         : *Hydrogen abundance assumed in cooling function*
+!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
+!   - relax_bowen    : *Bowen (diffusive) relaxation [1=on/0=off]*
+!   - relax_stefan   : *radiative relaxation [1=on/0=off]*
+!   - temp_floor     : *Minimum allowed temperature in K for Townsend cooling table*
 !
-! :Dependencies: chem, datafiles, dim, eos, h2cooling, infile_utils, io,
-!   options, part, physcon, timestep, units
+! :Dependencies: chem, cooling_molecular, datafiles, dim, eos, h2cooling,
+!   infile_utils, io, options, part, physcon, timestep, units
 !
 
  use options,  only:icooling

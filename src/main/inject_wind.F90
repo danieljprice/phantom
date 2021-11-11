@@ -16,9 +16,7 @@ module inject
 !   - iboundary_spheres  : *number of boundary spheres (integer)*
 !   - iwind_resolution   : *if<>0 set number of particles on the sphere, reset particle mass*
 !   - nfill_domain       : *number of spheres used to set the background density profile*
-!   - outer_boundary     : *kill gas particles outside this radius (au)*
-!   - piston_velocity    : *velocity amplitude of the pulsation (km/s)*
-!   - pulsation_period   : *stellar pulsation period (days)*
+!   - outer_boundary     : *delete gas particles outside this radius (au)*
 !   - sonic_type         : *find transonic solution (1=yes,0=no)*
 !   - wind_inject_radius : *wind injection radius (au, if 0 take Rstar)*
 !   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
@@ -26,9 +24,9 @@ module inject
 !   - wind_temperature   : *wind temperature at the injection point (K)*
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
-! :Dependencies: dim, eos, icosahedron, infile_utils, injectutils, io,
-!   options, part, partinject, physcon, timestep, units, wind,
-!   wind_equations
+! :Dependencies: cooling_molecular, dim, eos, icosahedron, infile_utils,
+!   injectutils, io, options, part, partinject, physcon, timestep, units,
+!   wind, wind_equations
 !
  use physcon,           only: solarl
 
