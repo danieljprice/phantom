@@ -367,7 +367,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     if (outer_boundary_au.gt.Rinject) call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
     if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
-    
+
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
        r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
@@ -626,8 +626,8 @@ subroutine write_options_inject(iunit)
 
  write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
- call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
- call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
+ !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
+ !call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
  call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au, if 0 take Rstar)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
  if (maxvxyzu==4) then
@@ -638,7 +638,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
- call write_inopt(outer_boundary_au,'outer_boundary','kill gas particles outside this radius (au)',iunit)
+ call write_inopt(outer_boundary_au,'outer_boundary','delete gas particles outside this radius (au)',iunit)
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -699,14 +699,14 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
     if (wind_mass_rate_Msun_yr < 0.) call fatal(label,'invalid setting for wind_mass_rate (<0)')
- case('pulsation_period')
-    read(valstring,*,iostat=ierr) pulsation_period_days
-    ngot = ngot + 1
-    if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
- case('piston_velocity')
-    read(valstring,*,iostat=ierr) piston_velocity_km_s
-    !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
-    ngot = ngot + 1
+ !case('pulsation_period')
+ !   read(valstring,*,iostat=ierr) pulsation_period_days
+ !   ngot = ngot + 1
+ !   if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
+ !case('piston_velocity')
+ !   read(valstring,*,iostat=ierr) piston_velocity_km_s
+ !   !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
+ !   ngot = ngot + 1
  case default
     imatch = .false.
  end select
@@ -716,7 +716,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 #elif ISOTHERMAL
  noptions = 8
 #endif
- !debug
+ noptions = noptions -2 ! temporarily remove piston & pulsation
  !print '(a26,i3,i3)',trim(name),ngot,noptions
  igotall = (ngot >= noptions)
  if (trim(name) == '') ngot = 0
