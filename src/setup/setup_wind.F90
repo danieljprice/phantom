@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Lionel Siess
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - T_wind            : *temperature (K)*

@@ -10,8 +10,11 @@ module cooling_molecular
 !
 ! :References: None
 !
-! :Owner: Dion Donne, Lionel Siess, Ward Homan
+! :Owner: Ward Homan
 !
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, eos, infile_utils, physcon
 !
 
  implicit none
