@@ -1,33 +1,47 @@
-Phantom AGB
-===========
+Phantom Wind
+============
 
+Basic git instructions
+----------------------
 
-**+++++ Git instructions +++++**
-
-**1) Commit locally:**
---------------------
+```
+local commit 
 
 - git status
-- git diff
-- git add .
-- git commit -m "<comment>"
+- git diff src/main/eos.F90
+- git add filename
+- git commit -m "these are all the changes I made made"
+- git push
 
-**2) Push to remote repository:**
------------------------------
+getting a specific revision
+- git checkout 536aa21 -b Krome
 
-- git push phantom AGBlab
+undo last commit while keeping the changes
+- git reset --soft HEAD~1
 
-**3) Sync branch with original master:**
--------------------------------------
+getting updates:
+- git stash
+- git pull
+- git stash pop
 
-- git checkout master
-- git fetch upstream
-- git merge upstream/master
+set OMP THREAD number
+-  export OMP_NUM_THREADS=1
+```
 
-  **4) Sync branch with master:**
-  ----------------------------
-  
+Merge official PHANTOM branch with master
+-----------------------------------------
+```
 - git checkout master
 - git pull
-- git checkout AGBlab
+- git fetch upstream
+- git merge upstream/master
+```
+
+Merge local master into wind branch
+-----------------------------------
+```
+- git checkout master
+- git pull
+- git checkout wind
 - git merge master
+```
