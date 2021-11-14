@@ -55,7 +55,7 @@ module eos
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 19
+ integer, parameter, public :: maxeos = 22
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -123,7 +123,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -137,9 +137,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
- real,    intent(in)   , optional :: gamma_local,mu_local
+ real,    intent(in)   , optional :: gamma_local,mu_local,Xlocal,Zlocal
  real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai,temperaturei,mui
+ real :: gammai,temperaturei,mui,imui,X_i,Z_i
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
@@ -152,8 +152,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 #endif
 
  mui = gmw
+ X_i = X_in
+ Z_i = Z_in
  if (present(mu_local)) mui = mu_local
-
+ if (present(Xlocal)) X_i = Xlocal
+ if (present(Zlocal)) Z_i = Zlocal
+ 
  select case(eos_type)
  case(1)
 !
@@ -393,6 +397,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
     endif
 
+ case(20,21,22)
+!
+!--gas + radiation + various forms of recombination (from HORMONE, Hirai+16)
+!
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    imui = 1./mui
+
+    call eos_p(cgsrhoi,cgseni,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
+    ponrhoi = cgspresi / (unit_pressure * rhoi)
+    spsoundi = cgsspsoundi / unit_velocity
+    if (present(tempi)) tempi = temperaturei
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -426,28 +443,34 @@ end function eos_is_non_ideal
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
  integer,      intent(in)      :: eos_type
  real,         intent(in)      :: xyzi(:),rhoi
  real,         intent(inout)   :: vxyzui(:)
  real, intent(inout)   , optional    :: tempi
- real, intent(in)      , optional    :: gammai,mui
- real :: spsoundi,ponrhoi,mu
+ real, intent(in)      , optional    :: gammai,mui,Xi,Zi
+ real :: spsoundi,ponrhoi,mu,X,Z
 
  mu = gmw
+ X = X_in
+ Z = Z_in
  if (present(mui)) mu = mui
+ if (present(Xi)) X = Xi
+ if (present(Zi)) Z = Zi
 
  if (maxvxyzu==4) then
     if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai,mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
     elseif (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi,mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            tempi=tempi,mu_local=mu,Xlocal=X,Zlocal=Z)
     else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu,Xlocal=X,Zlocal=Z)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z)
  endif
  get_spsound = spsoundi
 
@@ -459,26 +482,30 @@ end function get_spsound
 !  position and/or thermal energy
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui) result(tempi)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi) result(tempi)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(:)
- real, intent(in), optional  :: gammai,mui
- real :: spsoundi,ponrhoi,mu
+ real, intent(in), optional  :: gammai,mui,Xi,Zi
+ real :: spsoundi,ponrhoi,mu,X,Z
 
  mu = gmw
+ X = X_in
+ Z = Z_in
  if (present(mui)) mu = mui
+ if (present(Xi)) X = Xi
+ if (present(Zi)) Z = Zi
  if (maxvxyzu==4) then
     if (present(gammai)) then
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            gamma_local=gammai,mu_local=mui,tempi=tempi)
+                            gamma_local=gammai,mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            mu_local=mui,tempi=tempi)
+                            mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mui,tempi=tempi)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
  endif
 
 end function get_temperature
@@ -545,6 +572,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_helmholtz, only:eos_helmholtz_init
  use eos_shen, only:init_eos_shen_NL3
  use dim,      only:maxvxyzu,do_radiation
+ use ionization_mod, only:eion,ionization_setup
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -669,6 +697,14 @@ subroutine init_eos(eos_type,ierr)
  case(16)
 
     call init_eos_shen_NL3(ierr)
+
+ case(20,21,22)
+    call ionization_setup
+    if (eos_type==20) then
+       eion(1:2) = 0.  ! He recombination only
+    elseif (eos_type==21) then
+       eion(1) = 0.  ! H and He recombination only (no recombination to H2)
+    endif
 
  end select
  done_init_eos = .true.
@@ -1343,5 +1379,51 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
  YY = 1.-XX-ZZ
  mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
 end function  get_mean_molecular_weight
+
+
+!-----------------------------------------------------------------------
+!+
+!  EoS from HORMONE (Hirai+16)
+!+
+!-----------------------------------------------------------------------
+subroutine eos_p(d,eint,T,imu,X,Y,p,cf)
+! PURPOSE: To calculate pressure from density and internal energy without B field
+ use ionization_mod, only:get_erec_imurec
+ use physcon, only:radconst,kb_on_mh
+ real,intent(in):: d,eint
+ real,intent(inout):: T,imu ! imu is 1/mu, an output
+ real,intent(in):: X,Y
+ real,intent(out) :: p,cf
+ real:: corr, erec, derecdT, dimurecdT, Tdot, logd, dt, gamma_eff
+ real,parameter:: W4err = 1d-2, eoserr=1d-15
+ integer n
+
+ corr=1d99;Tdot=0d0;logd=log10(d);dt=0.9d0
+ do n = 1, 500
+    call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
+    if(d*erec>=eint)then ! avoid negative thermal energy
+       T = 0.9d0*T; Tdot=0d0;cycle
+    end if
+    corr = (eint-(radconst*T**3+1.5*kb_on_mh*d*imu)*T-d*erec) &
+       / ( -4d0*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
+    if(abs(corr)>W4err*T)then
+       T = T + Tdot*dt
+       Tdot = (1d0-2d0*dt)*Tdot - dt*corr
+    else
+       T = T-corr
+       Tdot = 0d0
+    end if
+    if(abs(corr)<eoserr*T)exit
+    if(n>50)dt=0.5d0
+ end do
+ if(n>500)then
+    print*,'Error in eos_p'
+    print*,'d=',d,'eint=',eint,'mu=',1d0/imu
+    stop
+ end if
+ p = ( kb_on_mh*imu*d + radconst*T**3/3d0 )*T
+ gamma_eff = 1d0+p/(eint-d*erec)
+ cf = sqrt(gamma_eff*p/d)
+end subroutine eos_p
 
 end module eos
