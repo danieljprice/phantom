@@ -735,12 +735,12 @@ subroutine compute_energies(t)
            fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
     !print*, 'show acc', fxyzu
 #else
-   print*,'pmassi', pmassi
-   if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
-      x0 = (/xcom,ycom,zcom/)
-      v0 = (/xmom,ymom,zmom/)
-      call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
-   endif
+    print*,'pmassi', pmassi
+    if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
+       x0 = (/xcom,ycom,zcom/)
+       v0 = (/xmom,ymom,zmom/)
+       call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+    endif
     call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
            fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
 #endif

@@ -211,17 +211,17 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
 !
 ! add acceleration from sink particles
 !
-if (id==master) then
- !$omp do
- do i=1,nptmass
-    pmassi = xyzmh_ptmass(4,i)
-    totmass = totmass + pmassi
-    acom(1) = acom(1) + pmassi*fxyz_ptmass(1,i)
-    acom(2) = acom(2) + pmassi*fxyz_ptmass(2,i)
-    acom(3) = acom(3) + pmassi*fxyz_ptmass(3,i)
- enddo
- !$omp enddo
-endif
+ if (id==master) then
+    !$omp do
+    do i=1,nptmass
+       pmassi = xyzmh_ptmass(4,i)
+       totmass = totmass + pmassi
+       acom(1) = acom(1) + pmassi*fxyz_ptmass(1,i)
+       acom(2) = acom(2) + pmassi*fxyz_ptmass(2,i)
+       acom(3) = acom(3) + pmassi*fxyz_ptmass(3,i)
+    enddo
+    !$omp enddo
+ endif
 !$omp end parallel
 
  acom = reduceall_mpi('+',acom)

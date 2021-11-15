@@ -71,23 +71,23 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  !$omp reduction(+:q,ddq)
  do i=1,npart
     if (xyzh(4,i) > tiny(xyzh)) then  !if not accreted
-      x  = xyzh(1,i) - x0(1)
-      y  = xyzh(2,i) - x0(2)
-      z  = xyzh(3,i) - x0(3)
-      vx = vxyz(1,i) - v0(1)
-      vy = vxyz(2,i) - v0(2)
-      vz = vxyz(3,i) - v0(3)
-      ax = axyz(1,i) - a0(1)
-      ay = axyz(2,i) - a0(2)
-      az = axyz(3,i) - a0(3)
-      if (present(axyz1)) then ! to avoid memory allocation in phantom
-         ax = ax + axyz1(1,i)
-         ay = ay + axyz1(2,i)
-         az = az + axyz1(3,i)
-      endif
-      r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+       x  = xyzh(1,i) - x0(1)
+       y  = xyzh(2,i) - x0(2)
+       z  = xyzh(3,i) - x0(3)
+       vx = vxyz(1,i) - v0(1)
+       vy = vxyz(2,i) - v0(2)
+       vz = vxyz(3,i) - v0(3)
+       ax = axyz(1,i) - a0(1)
+       ay = axyz(2,i) - a0(2)
+       az = axyz(3,i) - a0(3)
+       if (present(axyz1)) then ! to avoid memory allocation in phantom
+          ax = ax + axyz1(1,i)
+          ay = ay + axyz1(2,i)
+          az = az + axyz1(3,i)
+       endif
+       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
 
-      ! calculate the components of the traceless quadrupole moment Q--not necessary but maybe useful
+       ! calculate the components of the traceless quadrupole moment Q--not necessary but maybe useful
        q(1) = q(1) + pmass*(x*x)!-onethird*r2) !qxx
        q(2) = q(2) + pmass*(x*y)!-onethird*r2) !qxy
        q(3) = q(3) + pmass*(x*z)!-onethird*r2) !qxz
@@ -107,7 +107,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
 
  ! add contribution from sink particles
  if (present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass) .and. present(fxyz_ptmass)) then
-      do i=1,nptmass
+    do i=1,nptmass
        xp  = xyzmh_ptmass(1,i) - x0(1)
        yp  = xyzmh_ptmass(2,i) - x0(2)
        zp  = xyzmh_ptmass(3,i) - x0(3)
@@ -124,7 +124,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
        ddq(4) = ddq(4) + mp*(2.*vyp*vyp+yp*ayp+yp*ayp) !ddqyy
        ddq(5) = ddq(5) + mp*(2.*vyp*vzp+yp*azp+zp*ayp) !ddqyz
        ddq(6) = ddq(6) + mp*(2.*vzp*vzp+zp*azp+zp*azp) !ddqzz
-      enddo
+    enddo
  endif
 
  !define some parameters
@@ -136,47 +136,47 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  filename = 'grtde'//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
-  print "(a)",'reading setup options from '//trim(filename)
-  nerr = 0
-  ierr = 0
-  call open_db_from_file(db,filename,iunit,ierr)
-  call read_inopt(ecc,'ecc',db,min=0.,max=1.,errcount=nerr)
-  call read_inopt(theta,'theta',db,errcount=nerr)
-  call close_db(db)
-  print*, "orbit inclination angle", theta
-  theta = theta*pi/180       ! convert theta in radians
-  print*, "cos(theta)", cos(theta) !just a check
-  print*, "sin(theta)", sin(theta) !just a check
-  print*, "eccentricity", ecc      !just a check
+    print "(a)",'reading setup options from '//trim(filename)
+    nerr = 0
+    ierr = 0
+    call open_db_from_file(db,filename,iunit,ierr)
+    call read_inopt(ecc,'ecc',db,min=0.,max=1.,errcount=nerr)
+    call read_inopt(theta,'theta',db,errcount=nerr)
+    call close_db(db)
+    print*, "orbit inclination angle", theta
+    theta = theta*pi/180       ! convert theta in radians
+    print*, "cos(theta)", cos(theta) !just a check
+    print*, "sin(theta)", sin(theta) !just a check
+    print*, "eccentricity", ecc      !just a check
 
-  !I do these change because for elleptic orbits david rotate the orbit wrt y axis
-  !by -theta and not theta
-   if (ecc==1.) then
-    lambda=theta
-   else
-    lambda=-theta
-   endif
+    !I do these change because for elleptic orbits david rotate the orbit wrt y axis
+    !by -theta and not theta
+    if (ecc==1.) then
+       lambda=theta
+    else
+       lambda=-theta
+    endif
 
-  !'rotate back' in the x-y plane the second time derivative of the mass quadrupole
-  !rotation matrix
-  R = transpose(reshape((/ cos(lambda), 0., sin(lambda), 0., 1., 0.,-sin(lambda), 0., cos(lambda) /), shape(R)))
-  print*, 'R elements', R(1,1),R(1,3),R(3,1),R(3,3) !just a check
-  !transpose of the rotation matrix
-  Rt  = transpose(reshape((/ cos(lambda), 0., -sin(lambda), 0., 1., 0.,sin(theta), 0., cos(lambda) /), shape(Rt)))
-  print*, 'Rt elements', Rt(1,1),Rt(1,3),Rt(3,1),Rt(3,3) !just a check
-  ! second time derivative of the mom inertia matrix
-  quadrupole_2deriv =transpose(reshape((/ ddq(1),ddq(2),ddq(3),ddq(2),ddq(4),ddq(5),ddq(3),ddq(5),ddq(6) /), &
-  & shape(quadrupole_2deriv)))
-  intermediate_result = matmul(quadrupole_2deriv, R)
-  !second time derivative rotated back in the x-y plane
-  ddq_xy = matmul(Rt, intermediate_result)
-  print*, ddq_xy
+    !'rotate back' in the x-y plane the second time derivative of the mass quadrupole
+    !rotation matrix
+    R = transpose(reshape((/ cos(lambda), 0., sin(lambda), 0., 1., 0.,-sin(lambda), 0., cos(lambda) /), shape(R)))
+    print*, 'R elements', R(1,1),R(1,3),R(3,1),R(3,3) !just a check
+    !transpose of the rotation matrix
+    Rt  = transpose(reshape((/ cos(lambda), 0., -sin(lambda), 0., 1., 0.,sin(theta), 0., cos(lambda) /), shape(Rt)))
+    print*, 'Rt elements', Rt(1,1),Rt(1,3),Rt(3,1),Rt(3,3) !just a check
+    ! second time derivative of the mom inertia matrix
+    quadrupole_2deriv =transpose(reshape((/ ddq(1),ddq(2),ddq(3),ddq(2),ddq(4),ddq(5),ddq(3),ddq(5),ddq(6) /), &
+    & shape(quadrupole_2deriv)))
+    intermediate_result = matmul(quadrupole_2deriv, R)
+    !second time derivative rotated back in the x-y plane
+    ddq_xy = matmul(Rt, intermediate_result)
+    print*, ddq_xy
 
-  ! Write a file where I append all the values of the strain wrt time
-  if (firstdump) then
-  firstdump = .false.
-  open(newunit=iuu, file='quadrupole_plane_xy.txt',status='replace')
-  write(iuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
+    ! Write a file where I append all the values of the strain wrt time
+    if (firstdump) then
+       firstdump = .false.
+       open(newunit=iuu, file='quadrupole_plane_xy.txt',status='replace')
+       write(iuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
   1, 'time',  &
   2, 'ddm11', &
   3, 'ddm12', &
@@ -184,39 +184,39 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
   5, 'ddm22', &
   6, 'ddm23', &
   7, 'ddm33'
-  else
-  open(newunit=iuu, file='quadrupole_plane_xy.txt',position='append')
-  endif
-  write(iuu,'(7(es18.10,1X))') time, ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),&
+    else
+       open(newunit=iuu, file='quadrupole_plane_xy.txt',position='append')
+    endif
+    write(iuu,'(7(es18.10,1X))') time, ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),&
                                 ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)
-  !maybe write an 'on fly' file with all the components of rotated second time derivative of mom inertia
+    !maybe write an 'on fly' file with all the components of rotated second time derivative of mom inertia
 
-  !derive the quadrupole radiation
-  do i=1,4
-  !define new functions instead of sin and cos
-   sinphi=sin(phi)
-   cosphi=cos(phi)
-   sinphi2=sinphi*sinphi
-   cosphi2=cosphi*cosphi
-   sin2phi=sin(2*phi)
-   cos2phi=cos(2*phi)
-   sineta=sin(eta)
-   coseta=cos(eta)
-   sineta2=sineta*sineta
-   coseta2=coseta*coseta
-   sin2eta=sin(2*eta)
-   cos2eta=cos(2*eta)
+    !derive the quadrupole radiation
+    do i=1,4
+       !define new functions instead of sin and cos
+       sinphi=sin(phi)
+       cosphi=cos(phi)
+       sinphi2=sinphi*sinphi
+       cosphi2=cosphi*cosphi
+       sin2phi=sin(2*phi)
+       cos2phi=cos(2*phi)
+       sineta=sin(eta)
+       coseta=cos(eta)
+       sineta2=sineta*sineta
+       coseta2=coseta*coseta
+       sin2eta=sin(2*eta)
+       cos2eta=cos(2*eta)
 
-  !angular distribution of the quadrupole radiation
-   hp(i) =fac*(ddq_xy(1,1)*(cosphi2 - sinphi2*coseta2)+ddq_xy(2,2)*(sinphi2 &
+       !angular distribution of the quadrupole radiation
+       hp(i) =fac*(ddq_xy(1,1)*(cosphi2 - sinphi2*coseta2)+ddq_xy(2,2)*(sinphi2 &
    -cosphi2*coseta2)-ddq_xy(3,3)*sineta2-ddq_xy(1,2)*(sin2phi)*(1+coseta2) &
    +ddq_xy(1,3)*(sinphi*sin2eta)+ddq_xy(2,3)*cosphi*sin2eta)
-   hx(i)=2.*fac*(0.5*(ddq_xy(1,1)-ddq_xy(2,2))*sin2phi*coseta+ddq_xy(1,2)*(cos2phi*coseta)&
+       hx(i)=2.*fac*(0.5*(ddq_xy(1,1)-ddq_xy(2,2))*sin2phi*coseta+ddq_xy(1,2)*(cos2phi*coseta)&
    -ddq_xy(1,3)*(cosphi*sineta)+ddq_xy(2,3)*sinphi*sineta)
-   eta=eta+pi/6.
-  enddo
+       eta=eta+pi/6.
+    enddo
  elseif (.not. iexist .or. ierr /= 0) then !derive the quadrupole radiation for setup different from grtde
-   print*,'nosetup grtde'
+    print*,'nosetup grtde'
     !maybe write an 'on fly'file with all the components of the second time derivative of the mom inertia
     !i am assuming that for no tde there is no need for all the rotating matrix stuff
     !if (firstdumpa) then
@@ -240,31 +240,31 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
     !open(unit=iu, file='quad_secondderiv_plane_xy_notde.txt',position='append')
     !endif
     !write(iu,'(13(es18.10,1X))') time, q(1),q(2),q(3),q(4),q(5),q(6),&
-  !                                ddq(1),ddq(2),ddq(3),ddq(4),ddq(5),ddq(6)
+    !                                ddq(1),ddq(2),ddq(3),ddq(4),ddq(5),ddq(6)
 
     do i=1,4
-    !define new functions instead of sin and cos
-     sinphi=sin(phi)
-     cosphi=cos(phi)
-     sinphi2=sinphi*sinphi
-     cosphi2=cosphi*cosphi
-     sin2phi=sin(2*phi)
-     cos2phi=cos(2*phi)
-     sineta=sin(eta)
-     coseta=cos(eta)
-     sineta2=sineta*sineta
-     coseta2=coseta*coseta
-     sin2eta=sin(2*eta)
-     cos2eta=cos(2*eta)
+       !define new functions instead of sin and cos
+       sinphi=sin(phi)
+       cosphi=cos(phi)
+       sinphi2=sinphi*sinphi
+       cosphi2=cosphi*cosphi
+       sin2phi=sin(2*phi)
+       cos2phi=cos(2*phi)
+       sineta=sin(eta)
+       coseta=cos(eta)
+       sineta2=sineta*sineta
+       coseta2=coseta*coseta
+       sin2eta=sin(2*eta)
+       cos2eta=cos(2*eta)
 
-    !angular distribution of the quadrupole radiation
-      hp(i) =fac*(ddq(1)*(cosphi2 - sinphi2*coseta2)+ddq(4)*(sinphi2 &
+       !angular distribution of the quadrupole radiation
+       hp(i) =fac*(ddq(1)*(cosphi2 - sinphi2*coseta2)+ddq(4)*(sinphi2 &
       -cosphi2*coseta2)-ddq(6)*sineta2-ddq(2)*(sin2phi)*(1+coseta2) &
       +ddq(3)*(sinphi*sin2eta)+ddq(5)*cosphi*sin2eta)
-      hx(i)=2.*fac*(0.5*(ddq(1)-ddq(4))*sin2phi*coseta+ddq(2)*(cos2phi*coseta)&
+       hx(i)=2.*fac*(0.5*(ddq(1)-ddq(4))*sin2phi*coseta+ddq(2)*(cos2phi*coseta)&
       -ddq(3)*(cosphi*sineta)+ddq(5)*sinphi*sineta)
-      eta=eta+pi/6.
-     enddo
+       eta=eta+pi/6.
+    enddo
  endif
 
 end subroutine calculate_strain
