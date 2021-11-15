@@ -34,7 +34,7 @@ use readwrite_infile, only:read_infile
 use timestep,         only:C_force
 use prompting,        only:prompt
 use units,            only:utime,umass,udist,set_units
-use options,          only:iexternalforce,calc_gravitwaves_gr
+use options,          only:iexternalforce
 use part,             only:isdead_or_accreted,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
                            dustfrac,ddustevol,temperature,dens,metrics,pxyzu,fext,&
                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass

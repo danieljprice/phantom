@@ -75,7 +75,7 @@ subroutine compute_energies(t)
  use eos,            only:polyk,utherm,gamma,equationofstate,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac,calc_gravitwaves,calc_gravitwaves_gr
+ use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac,calc_gravitwaves
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
@@ -729,13 +729,11 @@ subroutine compute_energies(t)
     pmassi = massoftype(igas)
     x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
 #ifdef GR
-     calc_gravitwaves_gr=.true.
     !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
     !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
     call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
            fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
     !print*, 'show acc', fxyzu
-    print*, 'good morning'
 #else
    print*,'pmassi', pmassi
    if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
