@@ -41,21 +41,18 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  real                          :: q(6),ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2,gc4,d
  real                          :: xp,yp,zp,vxp,vyp,vzp,axp,ayp,azp,mp
  real, parameter               :: onethird = 1./3.
- integer                       :: i,f
+ integer                       :: i
  real                          :: eta,phi,sinphi,cosphi,sineta,coseta,cosphi2,sinphi2,&
                                   cos2phi,sin2phi,cos2eta,sin2eta,sineta2,coseta2
- integer                       :: dumpsperorbit,nr
  logical                       :: iexist
  character(len=120)            :: filename
- integer                       :: ierr,iuu,iu
+ integer                       :: ierr,iuu
  integer, parameter            :: iunit = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
  real                          :: theta,ecc,lambda
  real,dimension(3,3)           :: R, Rt, quadrupole_2deriv,intermediate_result
- real,dimension(2,2)           :: A,B,N
  logical, save                 :: firstdump=.true.
- logical, save                 :: firstdumpa=.true.
 
 !change this line if you want to start from a different value of phi and eta
 !you need these angles for the angular distribution of the quadrupole radiation
@@ -178,7 +175,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
   ! Write a file where I append all the values of the strain wrt time
   if (firstdump) then
   firstdump = .false.
-  open(unit=iuu, file='quadrupole_plane_xy.txt',status='replace')
+  open(newunit=iuu, file='quadrupole_plane_xy.txt',status='replace')
   write(iuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
   1, 'time',  &
   2, 'ddm11', &
@@ -188,7 +185,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
   6, 'ddm23', &
   7, 'ddm33'
   else
-  open(unit=iuu, file='quadrupole_plane_xy.txt',position='append')
+  open(newunit=iuu, file='quadrupole_plane_xy.txt',position='append')
   endif
   write(iuu,'(7(es18.10,1X))') time, ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),&
                                 ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)
