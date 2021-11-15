@@ -340,10 +340,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !  otherwise warn that gravitational wave strain calculation is wrong
 !
  if (calc_gravitwaves) then
-   if (any(npartoftype(2:) > 0)) then
-      print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
-      nwarn = nwarn + 1
-   endif
+    if (any(npartoftype(2:) > 0)) then
+       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
+       nwarn = nwarn + 1
+    endif
  endif
 !
 !--sanity checks on magnetic field
