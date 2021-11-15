@@ -25,7 +25,6 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
- use units
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i
  real               :: time
@@ -111,7 +110,6 @@ program phantomanalysis
        print "(a,f6.2,a)",' WARNING! hfact = ',hfact,' from dump file, resetting to 1.2'
        hfact = 1.2
     endif
-    print*,'HERE ',udist,umass,utime
 
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
