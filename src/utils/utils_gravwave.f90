@@ -25,7 +25,8 @@ module gravwaveutils
 contains
 
 ! This subroutine computes the gravitational wave strain at a distance of 1Mpc
-subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axyz1,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
+                            axyz1,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
  use units,                    only:umass,udist,utime
  use physcon,                  only:gg,c,Mpc,pi
  use io,                       only:master,error
@@ -56,8 +57,6 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
  logical, save                 :: firstdump=.true.
  logical, save                 :: firstdumpa=.true.
 
-
-
 !change this line if you want to start from a different value of phi and eta
 !you need these angles for the angular distribution of the quadrupole radiation
 !eta is the angle between the line of sight and the normal to the orbit
@@ -74,7 +73,6 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
  !$omp private(i,x,y,z,vx,vy,vz,ax,ay,az,r2) &
  !$omp reduction(+:q,ddq)
  do i=1,npart
-<<<<<<< HEAD
     if (xyzh(4,i) > tiny(xyzh)) then  !if not accreted
       x  = xyzh(1,i) - x0(1)
       y  = xyzh(2,i) - x0(2)
@@ -100,32 +98,6 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
        q(5) = q(5) + pmass*(y*z)!-onethird*r2) !qyz
        q(6) = q(6) + pmass*(z*z)!-onethird*r2) !qzz
 
-      ! calculate the second time derivative of the inertia moment
-      ! more practicle (and equivalent) than the scond time derivative of Q (Maggiore 2008)
-=======
-    if (xyzh(4,i)>tiny(xyzh)) then  !if not accreted
-       x  = xyzh(1,i)
-       y  = xyzh(2,i)
-       z  = xyzh(3,i)
-       vx = vxyz(1,i)
-       vy = vxyz(2,i)
-       vz = vxyz(3,i)
-       ax = axyz(1,i)
-       ay = axyz(2,i)
-       az = axyz(3,i)
-
-       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-
-       ! calculate the components of the traceless quadrupole--not necessary but maybe useful
-       q(1) = q(1) + pmass*(x*x-0.3*r2) !qxx
-       q(2) = q(2) + pmass*(x*y-0.3*r2) !qxy
-       q(3) = q(3) + pmass*(x*z-0.3*r2) !qxz
-       q(4) = q(4) + pmass*(y*y-0.3*r2) !qyy
-       q(5) = q(5) + pmass*(y*z-0.3*r2) !qyz
-       q(6) = q(6) + pmass*(z*z-0.3*r2) !qzz
-
-       ! calculate the second time derivative of the traceless quadrupole
->>>>>>> cbef20c18f9c25d4445a9df12be88554c9553333
        ddq(1) = ddq(1) + pmass*(2.*vx*vx+x*ax+x*ax) !ddqxx
        ddq(2) = ddq(2) + pmass*(2.*vx*vy+x*ay+y*ax) !ddqxy
        ddq(3) = ddq(3) + pmass*(2.*vx*vz+x*az+z*ax) !ddqxz
@@ -136,8 +108,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,axy
  enddo
  !omp end parallel do
 
-!for sink particles
-!maybe remove this part?
+ ! add contribution from sink particles
  if (present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass) .and. present(fxyz_ptmass)) then
       do i=1,nptmass
        xp  = xyzmh_ptmass(1,i) - x0(1)
