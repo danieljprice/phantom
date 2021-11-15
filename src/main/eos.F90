@@ -405,7 +405,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     cgseni  = eni * unit_ergg
     imui = 1./mui
 
-    call eos_p(cgsrhoi,cgseni,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
+    call eos_p(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi = cgspresi / (unit_pressure * rhoi)
     spsoundi = cgsspsoundi / unit_velocity
     if (present(tempi)) tempi = temperaturei
@@ -1383,7 +1383,7 @@ end function  get_mean_molecular_weight
 
 !-----------------------------------------------------------------------
 !+
-!  EoS from HORMONE (Hirai+16)
+!  EoS from HORMONE (Hirai+16). Note eint is internal energy per unit volume
 !+
 !-----------------------------------------------------------------------
 subroutine eos_p(d,eint,T,imu,X,Y,p,cf)
@@ -1395,7 +1395,7 @@ subroutine eos_p(d,eint,T,imu,X,Y,p,cf)
  real,intent(in):: X,Y
  real,intent(out) :: p,cf
  real:: corr, erec, derecdT, dimurecdT, Tdot, logd, dt, gamma_eff
- real,parameter:: W4err = 1d-2, eoserr=1d-15
+ real,parameter:: W4err = 1d-2, eoserr=1d-13
  integer n
 
  corr=1d99;Tdot=0d0;logd=log10(d);dt=0.9d0
