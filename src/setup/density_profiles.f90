@@ -29,7 +29,7 @@ module rho_profile
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
             rho_evrard,read_mesa,read_kepler_file, &
             rho_bonnorebert,prompt_BEparameters
- public  :: write_softened_profile,calc_mass_enc
+ public  :: write_profile,calc_mass_enc
  private :: integrate_rho_profile,get_dPdrho
 
 contains
@@ -408,7 +408,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
-
  do i = 1,lines
     read(40,*) dat(lines-i+1,1:rows)
  enddo
@@ -417,11 +416,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
              temp(lines),Xfrac(lines),Yfrac(lines))
 
  close(40)
-
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
- do i = 1, rows
+ do i = 1,rows
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
@@ -438,9 +436,9 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        pres = dat(1:lines,i)
     case('temperature')
        temp = dat(1:lines,i)
-    case('x_mass_fraction_h')
+    case('x_mass_fraction_h','xfrac')
        Xfrac = dat(1:lines,i)
-    case('y_mass_fraction_he')
+    case('y_mass_fraction_he','yfrac')
        Yfrac = dat(1:lines,i)
     end select
  enddo
@@ -460,7 +458,7 @@ end subroutine read_mesa
 !  Write stellar profile in format readable by read_mesa;
 !  used in star setup to write softened stellar profile.
 !----------------------------------------------------------------
-subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)
+subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
  real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
  character(len=120), intent(in)  :: outputpath
@@ -491,7 +489,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac,
 
  close(1, status = 'keep')
 
-end subroutine write_softened_profile
+end subroutine write_profile
 
 !-----------------------------------------------------------------------
 !+
