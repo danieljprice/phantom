@@ -42,6 +42,7 @@ subroutine test_eos(ntests,npass)
  call test_barotropic(ntests, npass)
  !call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
+ call test_mesa(ntests, npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -93,17 +94,131 @@ subroutine test_init(ntests, npass)
 
 end subroutine test_init
 
+
 !----------------------------------------------------------------------------
 !+
-!  test ideal gas plus radiation eos
+!  test ideal gas plus radiation eos: Check that P, T calculated from rho, u gives back 
+!  rho, u (assume fixed composition)
 !+
 !----------------------------------------------------------------------------
 subroutine test_idealplusrad(ntests, npass)
+ use io,               only:id,master,stdout
+ use eos,              only:init_eos,equationofstate
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use units,            only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: ntests,npass
+ integer                :: npts,ieos,ierr,i,j,ncheck(1)
+ integer, allocatable   :: nfailed(:)
+ real                   :: logrhomin,logrhomax,logumin,logumax,delta_logrho,delta_logu,&
+                           presi,dum,csound,eni,tempi,ponrhoi,mu,pres2,tol,errmax(1)
+ real, allocatable      :: rhogrid(:),ugrid(:)
 
- ! please insert tests here
+ if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
 
+ ncheck = 0
+ errmax = 1
+ ieos = 12
+ mu = 0.6
+ 
+ ! Initialise grids in rho and u
+ npts = 10
+ logrhomin = -17
+ logrhomax = -1
+ logumin = -8
+ logumax = 1
+ 
+ delta_logrho = (logrhomax-logrhomin)/real(npts-1)
+ delta_logu = (logumax-logumin)/real(npts-1)
+ 
+ allocate(rhogrid(npts),ugrid(npts),nfailed(npts*npts))
+ nfailed = 0
+ do i=1,npts
+    rhogrid(i) = 10.**( logrhomin + real(i-1)*delta_logrho )
+    ugrid(i) = 10.**( logumin + real(i-1)*delta_logu )
+ enddo
+
+ ! Testing
+!  call checkvalbuf_start('Forward-backward test of eos subroutines')
+ dum = 0.
+ tol = 1.e-12
+ call init_eos(ieos,ierr)
+ do i=1,npts
+    do j=1,npts
+       call equationofstate(ieos,ponrhoi,csound,rhogrid(i),dum,dum,dum,ugrid(j),tempi,mu_local=mu)
+       presi = ponrhoi * rhogrid(i)
+       call get_idealplusrad_enfromtemp(rhogrid(i)*unit_density,tempi,mu,eni)
+      !  call checkvalbuf(eni/unit_ergg,ugrid(j),tol*eni,'Check recovery of u from rho, T',nfailed(1),ncheck(1),errmax(1))
+       call checkval(eni/unit_ergg,ugrid(j),tol*eni,nfailed((i-1)*npts+j),'Check recovery of u from rho, T')
+       call get_idealplusrad_pres(rhogrid(i)*unit_density,tempi,mu,pres2)
+      !  call checkvalbuf(pres2/unit_pressure,presi,tol*presi,'Check recovery of P from rho, T',nfailed(1),ncheck(1),errmax(1))
+       call checkval(pres2/unit_pressure,presi,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, T')
+    enddo
+ enddo
+!  call checkvalbuf_end('Forward-backward test of eos subroutines',ncheck(1),nfailed(1),errmax(1),tol)
+ call update_test_scores(ntests,nfailed,npass)
 end subroutine test_idealplusrad
+
+
+!----------------------------------------------------------------------------
+!+
+!  test MESA eos: Check that P, T calculated from rho, u gives back 
+!  rho, u (assume fixed composition)
+!+
+!----------------------------------------------------------------------------
+ subroutine test_mesa(ntests, npass)
+ use io,               only:id,master,stdout
+ use eos,              only:init_eos,equationofstate
+ use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use units,            only:unit_density,unit_pressure,unit_ergg
+ integer, intent(inout) :: ntests,npass
+ integer                :: npts,ieos,ierr,i,j,ncheck(1)
+ integer, allocatable   :: nfailed(:)
+ real                   :: logrhomin,logrhomax,logumin,logumax,delta_logrho,delta_logu,&
+                           presi,dum,csound,eni,tempi,ponrhoi,mu,temp2,tol,errmax(1)
+ real, allocatable      :: rhogrid(:),ugrid(:)
+ 
+ if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
+
+ ncheck = 0
+ errmax = 1
+ ieos = 10
+
+ ! Initialise grids in rho and u
+ npts = 10
+ logrhomin = -17
+ logrhomax = -1
+ logumin = -8
+ logumax = 1
+
+ delta_logrho = (logrhomax-logrhomin)/real(npts-1)
+ delta_logu = (logumax-logumin)/real(npts-1)
+
+ allocate(rhogrid(npts),ugrid(npts),nfailed(npts*npts))
+ nfailed = 0
+ do i=1,npts
+    rhogrid(i) = 10.**( logrhomin + real(i-1)*delta_logrho )
+    ugrid(i) = 10.**( logumin + real(i-1)*delta_logu )
+ enddo
+
+ ! Testing
+ dum = 0.
+ tol = 1.e-12
+ call init_eos(ieos,ierr)
+ do i=1,npts
+    do j=1,npts
+       call equationofstate(ieos,ponrhoi,csound,rhogrid(i),dum,dum,dum,ugrid(j),tempi,mu_local=mu)
+       presi = ponrhoi * rhogrid(i)
+       call get_eos_eT_from_rhop_mesa(rhogrid(i)*unit_density,presi*unit_pressure,eni,temp2)
+       call checkval(eni/unit_ergg,ugrid(j),tol*eni,nfailed((i-1)*npts+j),'Check recovery of u from rho, P')
+       call checkval(temp2,tempi,tol*eni,nfailed((i-1)*npts+j),'Check recovery of T from rho, P')
+    enddo
+ enddo
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_mesa
+
 
 !----------------------------------------------------------------------------
 !+
