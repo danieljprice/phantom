@@ -270,7 +270,7 @@ ifeq ($(SETUP), grtde)
     IND_TIMESTEPS=no
     GRAVITY=yes
 #    ANALYSIS=analysis_tde.f90
-    ANALYSIS=$(OBJDERIV) analysis_gws.f90
+    ANALYSIS=$(LIBPHANTOM) analysis_gws.f90
 endif
 
 ifeq ($(SETUP), srpolytrope)

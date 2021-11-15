@@ -31,16 +31,10 @@ use externalforces,   only:initialise_externalforces,update_externalforce,extern
 use deriv,            only:derivs
 use initial,          only:initialise,startrun,endrun
 use readwrite_infile, only:read_infile
-use timestep,         only:C_force
 use prompting,        only:prompt
 use units,            only:utime,umass,udist,set_units
-use options,          only:iexternalforce
-use part,             only:isdead_or_accreted,fxyzu,divcurlv,divcurlB,Bevol,dBevol,dustprop,ddustprop,&
-                           dustfrac,ddustevol,temperature,dens,metrics,pxyzu,fext,&
-                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
-use io,               only:fatal,idisk1,iprint,nprocs,id
+use part,             only:isdead_or_accreted,fxyzu,fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
 use gravwaveutils,    only:calculate_strain
-use eos,              only:init_eos,ieos
 use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
 integer           :: iunit
 type(inopts), allocatable :: db(:)
@@ -50,14 +44,12 @@ real,                 intent(inout)     :: pmass,time
 integer,              intent(in)        :: iunitone,numfile
 integer,              intent(inout)     :: npart
 character(len=120)    :: infile,logfile,evfile,dfile
-integer               :: ierr,i,n
-real                  :: dtextforce,dtf,poti,fextv(3),dtdum,t,x0(3),v0(3),a0(3),q(6),r2,x,y,z,vx,vy,vz,ax,ay,az
-real                          :: xp,yp,zp,vxp,vyp,vzp,axp,ayp,azp,mp
+integer               :: ierr,i
+real                  :: dtextforce,x0(3),v0(3),a0(3),q(6),r2,x,y,z
 integer, parameter    :: iu = 1993, iuu=1994, iuuu=1995
 real,parameter        :: onethird=1/3.
 logical, save         :: first = .true., firstdump=.true.,firstdumpa=.true.
-real                  :: hp(4),hx(4),shfactfile,ddq_xy(3,3)
-real,save             :: d
+real                  :: hp(4),hx(4),ddq_xy(3,3)
 real                  :: utime_tmp,umass_tmp,udist_tmp,dtmax
 
 !

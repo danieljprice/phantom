@@ -117,7 +117,7 @@ end subroutine initialise
 !  routine which starts a Phantom run
 !+
 !----------------------------------------------------------------
-subroutine startrun(infile,logfile,evfile,dumpfile)
+subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
                             nalpha,mhd,do_radiation,gravity,use_dust
