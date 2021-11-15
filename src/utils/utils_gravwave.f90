@@ -10,11 +10,11 @@ module gravwaveutils
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Martina Toscani
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, units
+! :Dependencies: infile_utils, io, physcon, timestep, units
 !
  implicit none
 

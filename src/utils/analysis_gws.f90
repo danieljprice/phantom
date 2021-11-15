@@ -10,12 +10,12 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Martina Toscani
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, gravwaveutils, io, options, part,
-!   prompting, timestep, units
+! :Dependencies: deriv, externalforces, gravwaveutils, infile_utils,
+!   initial, part, prompting, readwrite_infile, units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'gws'
