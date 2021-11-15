@@ -43,11 +43,8 @@ module options
 ! final maximum density
  real,    public :: rhofinal_cgs,rhofinal1
 
- !!!!!!!!!!!!!! PART FOR THE GWS CALCULATION, ADDITIONAL .EV DATA!!!!!!!!!
+! gravitational wave emission in .ev file
  logical, public :: calc_gravitwaves
- logical, public :: calc_gravitwaves_gr
-!!!!!!!!!!!!!! PART FOR TDES !!!!!!!!!
-!logical, public :: tidal_disruption
 
 ! dust method
  logical, public :: use_dustfrac, use_hybrid
@@ -97,13 +94,8 @@ subroutine set_default_options
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
-!!!!!!!! ADD THIS PART FOR GWS CALCULATION !!!!!!!!
-! To allow gravitational waves to be printed to .ev
+ ! To allow gravitational waves to be printed to .ev
  calc_gravitwaves = .true.
- calc_gravitwaves_gr = .false.
-
-!!!!!!!! ADD THIS OPTION IF WE ARE CONSIDERING A TDE!!!!!!!!
-! tidal_disruption = .true.
 
  ! equation of state
  if (use_krome) then
