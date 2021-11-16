@@ -424,7 +424,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  if (present(phimax)) then
     print "(a)",'Setting up disc sector - not adjusting centre of mass'
- else 
+ else
     call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini,e_0)
  endif
  ! Calculate the total angular momentum of the disc only
@@ -534,7 +534,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  !--reset Rin-Rout for eccentric discs (if e=0, Rin=Rin, Rout=Rout)
  !--R_in and then R_out are re-assigned to the original values at the
  Rin=R_in/(1.-e_0*(R_in/R_ref)**(-e_index))
- Rout=R_out/(1.+e_0*(R_out/R_ref)**(-e_index)) 
+ Rout=R_out/(1.+e_0*(R_out/R_ref)**(-e_index))
  !--same for the dust
  Rindust=R_indust/(1.-e_0*(R_indust/R_ref)**(-e_index))
  Routdust=R_outdust/(1.+e_0*(R_outdust/R_ref)**(-e_index))
@@ -560,14 +560,14 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     endif
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
                                       Rin,Rout,R_c)*distr_corr_max
-                  !--factor (1+e_0)**2 is the maximum value of the 
+                  !--factor (1+e_0)**2 is the maximum value of the
                   !--correction in distr_ecc_corr(....)
     if (do_mixture) then
        if (R>=Rindust .and. R<=Routdust) then
           f_val = f_val + R*sigma_normdust*&
                   scaled_sigma(R,sigmaprofiledust,p_inddust,R_ref,&
                                Rindust,Routdust,R_c_dust)*distr_corr_max
-                  !--factor (1+e_0)**2 is the maximum value of the 
+                  !--factor (1+e_0)**2 is the maximum value of the
                   !--correction in distr_ecc_corr(....)
        endif
     endif
@@ -608,7 +608,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                                                    Routdust,R_c_dust)*&
                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
                         distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
-                                      
+
              f     = f + fmixt
              sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
                                                  e_index,phi_peri))
@@ -664,7 +664,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Setting ellipse properties
        ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
        a_arr(ipart)=R
-       !--set positions -- move to origin below       
+       !--set positions -- move to origin below
        xyzh(1,ipart) = R_ecc*cos(phi)
        xyzh(2,ipart) = R_ecc*sin(phi)
        xyzh(3,ipart) = zi
@@ -856,15 +856,16 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,e_0)
  vcentreofmass = 0.
  totmass       = 0.
  ipart = i1 - 1
- if(e_0 == 0.) then
-    do i=i1,i2
-       if (i_belong_i4(i)) then
-          ipart = ipart + 1
-          xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
-          vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
-          totmass = totmass + particle_mass
-       endif
-    enddo
+ do i=i1,i2
+     if (i_belong_i4(i)) then
+        ipart = ipart + 1
+        if(e_0 == 0.) then
+           xcentreofmass = xcentreofmass + particle_mass*xyzh(1:3,ipart)
+        endif
+        vcentreofmass = vcentreofmass + particle_mass*vxyzu(1:3,ipart)
+        totmass = totmass + particle_mass
+     endif
+  enddo
 
     totmass = reduceall_mpi('+',totmass)
 
@@ -873,8 +874,8 @@ subroutine adjust_centre_of_mass(xyzh,vxyzu,particle_mass,i1,i2,x0,v0,e_0)
 
     xcentreofmass = reduceall_mpi('+',xcentreofmass)
     vcentreofmass = reduceall_mpi('+',vcentreofmass)
- endif
- 
+
+
  ipart = i1 - 1
  do i=i1,i2
     if (i_belong_i4(i)) then
@@ -1235,7 +1236,7 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
             2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
                                               /(1+ea*cos(phi-phi_peri))**2
  distr = ((1-ea**2)/&
-         (1+ea*cos(phi-phi_peri)))*drda 
+         (1+ea*cos(phi-phi_peri)))*drda
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
