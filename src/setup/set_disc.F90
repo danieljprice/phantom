@@ -598,16 +598,16 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        randtest = fr_max*ran2(iseed)
        f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
                                      p_index,R_ref,Rin,Rout,R_c)*&
-                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
-                        distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+    !                    distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
        sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
                                                    p_inddust,R_ref,Rindust,&
                                                    Routdust,R_c_dust)*&
-                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
-                        distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+     !                   distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri)
 
              f     = f + fmixt
              sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
@@ -657,7 +657,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if(ecc_arr(ipart)>0.99) then
        call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.')
     endif
-    R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
+    R_ecc=R/&
             (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
   !  if (i_belong_i4(i)) then
        ipart = ipart + 1
@@ -1230,14 +1230,21 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
  real :: distr,drda,ea,deda
 
+!---NB. Currently implemented with semilatus rectum, all "a"s are l.
     ea = e_0*(a/R_ref)**e_index
   deda = e_index*ea/a
-  drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
-            2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
-                                              /(1+ea*cos(phi-phi_peri))**2
- distr = ((1-ea**2)/&
-         (1+ea*cos(phi-phi_peri)))*drda
- !--distr=1 for e_0=0.
+  drda =1/(1+ea*cos(phi-phi_peri))- &
+       a*deda*cos(phi-phi_peri)/(1+ea*cos(phi-phi_peri))**2 
+!  drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
+!            2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
+ !                                             /(1+ea*cos(phi-phi_peri))**2
+
+!---Again implemented for l.
+ distr = (1/&
+         (1+ea*cos(phi-phi_peri)))*drda 
+! distr = ((1-ea**2)/&
+!         (1+ea*cos(phi-phi_peri)))*drda
+!--distr=1 for e_0=0.
 
 end function distr_ecc_corr
 
