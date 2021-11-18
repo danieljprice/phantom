@@ -65,7 +65,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_p
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
@@ -127,6 +127,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
+ use physcon,       only:kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -404,6 +405,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
     imui = 1./mui
+    if (present(tempi)) then
+       temperaturei = tempi
+    else
+       temperaturei = 0.67 * cgseni * mui / kb_on_mh
+    endif
 
     call eos_p(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi = cgspresi / (unit_pressure * rhoi)
