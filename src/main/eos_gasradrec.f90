@@ -73,7 +73,7 @@ end subroutine equationofstate_gasradrec
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
- use ionization_mod, only:get_imurec,get_erec_imurec
+ use ionization_mod, only:get_imurec,get_erec
  use physcon,        only:radconst,kb_on_mh
  real, intent(in)            :: rhoi,presi,X,Y
  real, intent(inout)         :: T
@@ -81,7 +81,7 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  real, optional, intent(out) :: mui
  integer, intent(out)        :: ierr
  integer                     :: n
- real                        :: logrhoi,imu,dimurecdT,ereconrhoi,dT,Tdot,corr
+ real                        :: logrhoi,imu,dimurecdT,dT,Tdot,corr
  real, parameter:: W4err=1.e-2, eoserr=1.e-13
 
  ierr = 0
@@ -109,8 +109,7 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
     ierr = 1
     return
  end if
- call get_erec_imurec(logrhoi,T,X,Y,ereconrhoi,imu)
- eni = ( 1.5*kb_on_mh*imu + radconst*T**3/rhoi )*T + rhoi*ereconrhoi
+ eni = ( 1.5*kb_on_mh*imu + radconst*T**3/rhoi )*T + get_erec(logrhoi,T,X,Y)
  mui = 1./imu
 
 end subroutine calc_uT_from_rhoP_gasradrec
