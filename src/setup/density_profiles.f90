@@ -458,9 +458,9 @@ end subroutine read_mesa
 !  Write stellar profile in format readable by read_mesa;
 !  used in star setup to write softened stellar profile.
 !----------------------------------------------------------------
-subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound)
+subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
+ real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
  integer                         :: i
 
@@ -473,18 +473,24 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound)
        write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
 101    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
        2x,es13.6,2x,es13.6)
+    elseif (present(mu)) then
+       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
+       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [    mu     ]'
+       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),mu(i),i=1,size(r))
+102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+       2x,es13.6,2x,es13.6)
     else
        write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
        &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
        write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
+103    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
        2x,es13.6)
     endif
  else
     write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
     &[  Density  ]  [   E_int   ]'
     write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
-103 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+104 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  endif
 
  close(1, status = 'keep')

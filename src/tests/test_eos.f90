@@ -38,11 +38,10 @@ subroutine test_eos(ntests,npass)
 
  call set_units(mass=solarm,dist=1.d16,G=1.d0)
 
-!  call test_init(ntests, npass)
-!  call test_barotropic(ntests, npass)
- !call test_helmholtz(ntests, npass)
-!  call test_idealplusrad(ntests, npass)
-!  call test_mesa(ntests, npass)
+ call test_init(ntests, npass)
+ call test_barotropic(ntests, npass)
+!  call test_helmholtz(ntests, npass)
+ call test_idealplusrad(ntests, npass)
  call test_hormone(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
@@ -171,81 +170,13 @@ end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+
-!  test MESA eos: Check that P, T calculated from rho, u gives back 
-!  rho, u (assume fixed composition)
-!+
-!----------------------------------------------------------------------------
-!  subroutine test_mesa(ntests, npass)
-!  use io,               only:id,master,stdout
-!  use eos,              only:init_eos,equationofstate,gmw,X_in,Z_in
-!  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
-!  use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
-!  use units,            only:unit_density,unit_pressure,unit_ergg
-!  integer, intent(inout) :: ntests,npass
-!  integer                :: npts,ieos,ierr,i,j,ncheck(1)
-!  integer, allocatable   :: nfailed(:)
-!  real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,&
-!                            presi,dum,csound,eni,tempi,ponrhoi,temp2,tol
-!  real, allocatable      :: rhogrid(:),ugrid(:)
- 
-!  if (id==master) write(*,"(/,a)") '--> testing MESA equation of state'
-
-!  ncheck = 0
-!  ieos = 10
-!  gmw = 0.6
-!  X_in = 0.7
-!  Z_in = 0.02
-
-!  ! Initialise grids in rho and u
-!  npts = 10
-!  logQmin = -6
-!  logQmax = -2
-!  logTmin = 3
-!  logTmax = 8
-
-!  ! Note: logQ = logrho - 2logT + 12 in cgs units
-!  delta_logQ = (logQmax-logQmin)/real(npts-1)
-!  delta_logT = (logTmax-logTmin)/real(npts-1)
-
-!  allocate(rhogrid(npts),ugrid(npts),nfailed(npts*npts))
-!  nfailed = 0
-!  do i=1,npts
-!     logQi = logQmin + real(i-1)*delta_logQ
-!     logTi = logTmin + real(i-1)*delta_logT
-!     rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
-!     Tgrid(i) = 10.**logTi
-!  enddo
-
-!  ! Testing
-!  dum = 0.
-!  tol = 1.e-12
-!  call init_eos(ieos,ierr)
-!  do i=1,npts
-!     do j=1,npts
-!        ! Get P from rho, T
-!       !  call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
-
-!        call equationofstate(ieos,ponrhoi,csound,rhogrid(i),dum,dum,dum,ugrid(j),tempi)
-!        presi = ponrhoi * rhogrid(i)
-!        call get_eos_eT_from_rhop_mesa(rhogrid(i)*unit_density,presi*unit_pressure,eni,temp2)
-!        call checkval(eni/unit_ergg,ugrid(j),tol*eni,nfailed((i-1)*npts+j),'Check recovery of u from rho, P')
-!        call checkval(temp2,tempi,tol*eni,nfailed((i-1)*npts+j),'Check recovery of T from rho, P')
-!     enddo
-!  enddo
-!  call update_test_scores(ntests,nfailed,npass)
-
-! end subroutine test_mesa
-
-
-!----------------------------------------------------------------------------
-!+
 !  test HORMONE eos's: Check that P, T calculated from rho, u gives back 
 !  rho, u
 !+
 !----------------------------------------------------------------------------
 subroutine test_hormone(ntests, npass)
  use io,        only:id,master,stdout
- use eos,       only:init_eos,equationofstate,eos_p
+ use eos,       only:init_eos,equationofstate,eos_p,done_init_eos
  use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
  use ionization_mod, only:get_erec,get_imurec
  use testutils, only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
@@ -290,7 +221,7 @@ subroutine test_hormone(ntests, npass)
  tol = 1.e-12
  imui = 0.
  tempi = 1.
- call init_eos(ieos,ierr)
+ if (.not. done_init_eos) call init_eos(ieos,ierr)
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T
