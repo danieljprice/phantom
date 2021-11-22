@@ -24,6 +24,7 @@ module eos
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
 !    19 = Variable gamma (requires KROME)
+!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2016)
 !
 ! :References: None
 !
@@ -55,7 +56,7 @@ module eos
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 22
+ integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -65,7 +66,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_p
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
@@ -75,8 +76,9 @@ module eos
 
  private
 
- integer, public :: ieos        = 1
+ integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0 ! used for radiation
+ integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
  !--Default initial parameters for Barotropic Eos
  real,    public :: drhocrit0   = 0.50
  real,    public :: rhocrit0cgs = 1.e-18
@@ -132,6 +134,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
+ use eos_gasradrec, only:equationofstate_gasradrec
 
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
@@ -398,7 +401,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
     endif
 
- case(20,21,22)
+ case(20)
 !
 !--gas + radiation + various forms of recombination (from HORMONE, Hirai+16)
 !
@@ -411,7 +414,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        temperaturei = 0.67 * cgseni * mui / kb_on_mh
     endif
 
-    call eos_p(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
+    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi = cgspresi / (unit_pressure * rhoi)
     spsoundi = cgsspsoundi / unit_velocity
     if (present(tempi)) tempi = temperaturei
@@ -435,13 +438,30 @@ logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(10,12,15)
+ case(10,12,15,20)
     eos_is_non_ideal = .true.
  case default
     eos_is_non_ideal = .false.
  end select
 
 end function eos_is_non_ideal
+
+!----------------------------------------------------------------
+!+
+!  Query function to return whether an EoS outputs mean molecular weight
+!+
+!----------------------------------------------------------------
+logical function eos_outputs_mu(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(20)
+    eos_outputs_mu = .true.
+ case default
+    eos_outputs_mu = .false.
+ end select
+
+end function eos_outputs_mu
 
 !----------------------------------------------------------------
 !+
@@ -704,14 +724,13 @@ subroutine init_eos(eos_type,ierr)
 
     call init_eos_shen_NL3(ierr)
 
- case(20,21,22)
-    call ionization_setup
-    if (eos_type==20) then
-       eion(1:2) = 0.  ! He recombination only
-    elseif (eos_type==21) then
+ case(20)
+    if (irecomb == 1) then 
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
+    elseif (irecomb == 2) then
+       eion(1:2) = 0.  ! He recombination only
     endif
-
+    call ionization_setup
  end select
  done_init_eos = .true.
 
@@ -865,6 +884,8 @@ subroutine write_options_eos(iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
+ case(20)
+   call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He',iunit)
  end select
 
 end subroutine write_options_eos
@@ -966,6 +987,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  case('Z')
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
+    ngot = ngot + 1
+ case('irecomb')
+    read(valstring,*,iostat=ierr) irecomb
+    if ((irecomb <= 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
     ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
@@ -1263,31 +1288,45 @@ end subroutine calc_rec_ene
 !----------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
-!  pressure and density, assuming inputs are in cgs units
+!  pressure and density. Inputs and outputs are in cgs units.
+!
+!  Note on composition:
+!  For ieos=2 and 12, mu_local is an input, X & Z are not used
+!  For ieos=10, mu_local is not used
+!  For ieos=20, mu_local is not used but available as an output
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local)
+subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  real, intent(in)           :: rho,pres
  real, intent(inout)        :: ene,temp
- real, intent(in), optional :: guesseint,mu_local
+ real, intent(in), optional :: guesseint,X_local,Z_local
+ real, intent(inout), optional :: mu_local
  integer, intent(out)       :: ierr
- real                       :: mu
+ real                       :: mu,X,Z
 
  ierr = 0
  mu = gmw
+ X = X_in
+ Z = Z_in
  if (present(mu_local)) mu = mu_local
+ if (present(X_local)) X = X_local
+ if (present(Z_local)) Z = Z_local
  select case(ieos)
- case(2) ! Adiabatic/polytropic EoS
+ case(2) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
- case(12) ! Ideal plus rad. EoS
+ case(12) ! Ideal gas + radiation
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
     call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
- case(10) ! MESA-like EoS
+ case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
+ case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2016)
+    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
+    if (present(mu_local)) mu_local = mu
  case default
     ierr = 1
  end select
@@ -1385,51 +1424,5 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
  YY = 1.-XX-ZZ
  mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
 end function  get_mean_molecular_weight
-
-
-!-----------------------------------------------------------------------
-!+
-!  EoS from HORMONE (Hirai+16). Note eint is internal energy per unit volume
-!+
-!-----------------------------------------------------------------------
-subroutine eos_p(d,eint,T,imu,X,Y,p,cf)
-! PURPOSE: To calculate pressure from density and internal energy without B field
- use ionization_mod, only:get_erec_imurec
- use physcon, only:radconst,kb_on_mh
- real,intent(in):: d,eint
- real,intent(inout):: T,imu ! imu is 1/mu, an output
- real,intent(in):: X,Y
- real,intent(out) :: p,cf
- real:: corr, erec, derecdT, dimurecdT, Tdot, logd, dt, gamma_eff
- real,parameter:: W4err = 1d-2, eoserr=1d-13
- integer n
-
- corr=1d99;Tdot=0d0;logd=log10(d);dt=0.9d0
- do n = 1, 500
-    call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
-    if(d*erec>=eint)then ! avoid negative thermal energy
-       T = 0.9d0*T; Tdot=0d0;cycle
-    end if
-    corr = (eint-(radconst*T**3+1.5*kb_on_mh*d*imu)*T-d*erec) &
-       / ( -4d0*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
-    if(abs(corr)>W4err*T)then
-       T = T + Tdot*dt
-       Tdot = (1d0-2d0*dt)*Tdot - dt*corr
-    else
-       T = T-corr
-       Tdot = 0d0
-    end if
-    if(abs(corr)<eoserr*T)exit
-    if(n>50)dt=0.5d0
- end do
- if(n>500)then
-    print*,'Error in eos_p'
-    print*,'d=',d,'eint=',eint,'mu=',1d0/imu
-    stop
- end if
- p = ( kb_on_mh*imu*d + radconst*T**3/3d0 )*T
- gamma_eff = 1d0+p/(eint-d*erec)
- cf = sqrt(gamma_eff*p/d)
-end subroutine eos_p
 
 end module eos
