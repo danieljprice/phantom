@@ -722,7 +722,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  case(2)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
-    if (.not. use_variable_composition) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if ((isoftcore<=0) .and. (.not. use_variable_composition)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(10,20)
@@ -847,9 +847,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     endif
  case(12)
     ! if softening stellar core, mu is automatically determined at R/2
-    if ( (.not. use_variable_composition) .and. (isoftcore <= 0)) then
-       call read_inopt(gmw,'mu',db,errcount=nerr)
-    endif
+    if ( (.not. use_variable_composition) .and. (isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
  end select
  if (iprofile==ievrard) call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
 

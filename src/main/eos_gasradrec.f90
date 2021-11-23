@@ -6,10 +6,10 @@
 !--------------------------------------------------------------------------!
 module eos_gasradrec
 !
-!  EoS from HORMONE (Hirai+16) that includes internal energy from ideal gas,
-!  radiation, and recombination (H2, H, He)
+!  EoS from HORMONE that includes internal energy from ideal gas,
+!  radiation, and recombination (H2, H, He) (Hirai et al., 2020)
 !
-! :References: https://journals.aps.org/prd/abstract/10.1103/PhysRevD.93.083006
+! :References: Appendix C, https://ui.adsabs.harvard.edu/abs/2020MNRAS.499.1154H/abstract
 !
 ! :Owner: Mike Lau
 !
@@ -22,7 +22,7 @@ module eos_gasradrec
 contains
 !-----------------------------------------------------------------------
 !+
-!  EoS from HORMONE (Hirai+16). Note eint is internal energy per unit volume
+!  EoS from HORMONE (Hirai et al., 2020). Note eint is internal energy per unit volume
 !+
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)

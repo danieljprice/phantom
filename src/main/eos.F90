@@ -24,7 +24,7 @@ module eos
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
 !    19 = Variable gamma (requires KROME)
-!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2016)
+!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !
 ! :References: None
 !
@@ -403,7 +403,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
  case(20)
 !
-!--gas + radiation + various forms of recombination (from HORMONE, Hirai+16)
+!--gas + radiation + various forms of recombination (from HORMONE, Hirai+20)
 !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
@@ -1324,7 +1324,7 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z
     call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
  case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
- case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2016)
+ case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
     if (present(mu_local)) mu_local = mu
  case default
