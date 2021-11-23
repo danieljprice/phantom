@@ -154,6 +154,7 @@ subroutine test_idealplusrad(ntests, npass)
 
        ! Recalculate T, P, from rho, u
        code_eni = eni/unit_ergg
+       temp=0.
        call equationofstate(ieos,ponrhoi,csound,rhogrid(i)/unit_density,dum,dum,dum,code_eni,temp,mu_local=mu)
        pres2 = ponrhoi * rhogrid(i) * unit_pressure / unit_density
 
