@@ -34,34 +34,34 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  real,intent(in):: X,Y
  real,intent(out) :: p,cf
  real:: corr, erec, derecdT, dimurecdT, Tdot, logd, dt, gamma_eff
- real,parameter:: W4err = 1d-2, eoserr=1d-13
+ real,parameter:: W4err = 1.e-2, eoserr=1.e-13
  integer n
 
- corr=1d99;Tdot=0d0;logd=log10(d);dt=0.9d0
+ corr=huge(0.);Tdot=0.;logd=log10(d);dt=0.9
  do n = 1, 500
     call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
     if(d*erec>=eint)then ! avoid negative thermal energy
-       T = 0.9d0*T; Tdot=0d0;cycle
+       T = 0.9*T; Tdot=0.;cycle
     end if
     corr = (eint-(radconst*T**3+1.5*kb_on_mh*d*imu)*T-d*erec) &
-       / ( -4d0*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
+       / ( -4.*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
     if(abs(corr)>W4err*T)then
        T = T + Tdot*dt
-       Tdot = (1d0-2d0*dt)*Tdot - dt*corr
+       Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
        T = T-corr
-       Tdot = 0d0
+       Tdot = 0.
     end if
     if(abs(corr)<eoserr*T)exit
-    if(n>50)dt=0.5d0
+    if(n>50)dt=0.5
  end do
  if(n>500)then
     print*,'Error in eos_p'
-    print*,'d=',d,'eint=',eint,'mu=',1d0/imu
+    print*,'d=',d,'eint=',eint,'mu=',1./imu
     stop
  end if
- p = ( kb_on_mh*imu*d + radconst*T**3/3d0 )*T
- gamma_eff = 1d0+p/(eint-d*erec)
+ p = ( kb_on_mh*imu*d + radconst*T**3/3. )*T
+ gamma_eff = 1.+p/(eint-d*erec)
  cf = sqrt(gamma_eff*p/d)
 end subroutine equationofstate_gasradrec
    
@@ -85,7 +85,7 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  real, parameter:: W4err=1.e-2, eoserr=1.e-13
 
  ierr = 0
- corr = 1.e99
+ corr = huge(0.)
  Tdot = 0.
  dT = 0.9
  logrhoi = log10(rhoi)

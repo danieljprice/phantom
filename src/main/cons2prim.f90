@@ -256,6 +256,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
+       if (use_variable_composition) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           !

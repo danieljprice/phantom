@@ -140,8 +140,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(in)  :: rhoi,xi,yi,zi
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
- real,    intent(inout), optional :: tempi
- real,    intent(in)   , optional :: gamma_local,mu_local,Xlocal,Zlocal
+ real,    intent(inout), optional :: tempi,mu_local
+ real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai,temperaturei,mui,imui,X_i,Z_i
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
@@ -417,6 +417,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi = cgspresi / (unit_pressure * rhoi)
     spsoundi = cgsspsoundi / unit_velocity
+    if (present(mu_local)) mu_local = 1./imui
     if (present(tempi)) tempi = temperaturei
 
  case default
@@ -525,13 +526,13 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi) result
  if (maxvxyzu==4) then
     if (present(gammai)) then
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            gamma_local=gammai,mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
+                            gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
+                            mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mui,Xlocal=X,Zlocal=Z,tempi=tempi)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
  endif
 
 end function get_temperature
