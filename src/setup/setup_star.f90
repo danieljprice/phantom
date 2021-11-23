@@ -124,7 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use rho_profile,     only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,read_mesa,read_kepler_file,write_profile
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,&
-                           calc_temp_and_ene,get_mean_molecular_weight
+                           calc_temp_and_ene,get_mean_molecular_weight,eos_outputs_mu
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use part,            only:eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
- real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene
+ real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene,dum
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -279,13 +279,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(imesa)
     deallocate(r,den,pres,temp,en,mtab)
 
+    mu = 0.
     if (isoftcore > 0) then
        call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore
        ! solve for temperature and energy profile
-       mu = 0.
        do i=1,size(r)
           mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
           if (i==1) then
@@ -310,6 +310,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
+    if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
+       do i = 1,npts
+          call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_density,dum,dum,&
+                                 ierr,guesseint=en(i)*unit_ergg,mu_local=mu(i))
+       enddo
+   endif
  case(ikepler)
     call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
