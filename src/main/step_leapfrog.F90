@@ -739,7 +739,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
- use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
+ use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
  use cons2primsolver,only:conservative2primitive,ien_entropy
@@ -1153,7 +1153,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
           if (merge_n > 0) then
-             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij,merge_n)
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
           endif
           fxyz_ptmass_sinksink=fxyz_ptmass
