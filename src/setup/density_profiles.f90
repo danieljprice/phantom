@@ -636,9 +636,6 @@ end subroutine read_kepler_file
 !+
 !  Option 7:
 !  Calculates a Bonnor-Ebert sphere
-!  An error will be returned if the user is request a normalised
-!  radius > 5x the critical radius or if the density ratio between
-!  centre and edge values is not large enough
 !
 !  Examples:
 !  To reproduce the sphere in Wurster & Bate (2019):
@@ -647,6 +644,7 @@ end subroutine read_kepler_file
 !     iBEparam = 4, normalised radius = 12.9; physical radius = 5300au; fac = 6.98
 !     cs_sphere = 18900cm/s (this is 10K, assuming gamma = 1)
 !     density_contrast = 4.48
+!  To define both physical radius & mass, the overdensity factor is automatically changed
 !+
 !-----------------------------------------------------------------------
 subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,facBE,csBE,npts,iBElast,rtab,rhotab,ierr)
@@ -680,6 +678,13 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  rho            = 1.
  ierr           = 0
 
+ ! initialise variables not required for chosen iBEparam (to avoid errors)
+ if (iBEparam/=1 .and. iBEparam/=2 .and. iBEparam/=3) central_density = 3.8d-18
+ if (iBEparam/=1 .and. iBEparam/=4 .and. iBEparam/=6) rBE   = 7000.*au/udist
+ if (iBEparam/=2 .and. iBEparam/=4 .and. iBEparam/=5) xBE   = 7.45
+ if (iBEparam/=3 .and. iBEparam/=5 .and. iBEparam/=6) mBE   = 1.0*solarm/umass
+ if (iBEparam/=4 .and. iBEparam/=5)                   facBE = 1.0
+
  !--Calculate a normalised BE profile out to 5 critical radii
  do j = 2,npts
     xi    = (j-1)*dxi
@@ -697,30 +702,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Determine scaling factors for the BE
  fac_close = 1000.
- if (iBEparam==4) central_density = (csBE*xBE/rBE)**2/fourpi
+ if (iBEparam==4 .or. iBEparam==6) central_density = (csBE*xBE/rBE)**2/fourpi
  if (iBEparam==5) then
     do j = 1, npts
        if (rtab(j) < xBE) iBElast = j
     enddo
     central_density = (csBE**3*mtab(iBElast)*facBE/mBE)**2/fourpi**3
- endif
- if (iBEparam==6) then
-    do j = 1,npts
-       rho1 = (csBE*rtab(j)/rBE)**2/fourpi
-       rho2 = (csBE**3*mtab(j)/mBE)**2/fourpi**3
-       if (debug) print*, j,rtab(j),rho1,rho2,rho1/rho2
-       if (abs(rho1/rho2 - 1.) < fac_close) then
-          fac_close = abs(rho1/rho2 - 1.)
-          iBElast = j
-       endif
-    enddo
-    central_density = (csBE**3*mtab(iBElast)/mBE)**2/fourpi**3
-    !--Error out if required
-    if (fac_close > 0.1) then
-       print*, 'A BE sphere with the requested mass and radius cannot be constructed.  Aborting.'
-       ierr = 1
-       return
-    endif
  endif
  rBE0 = csBE/sqrt(fourpi*central_density)
 
@@ -732,9 +719,11 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     mtab(j)   = mtab(j) * central_density*rBE0**3
     rhotab(j) = central_density * rhotab(j)
 
-    if (iBEparam == 1 .and. rtab(j) < rBE) iBElast = j
-    if (iBEparam == 4 .and. rtab(j) < rBE) iBElast = j
-    if (iBEparam == 3 .and. mtab(j) < mBE) iBElast = j
+    if ((iBEparam == 1 .or. iBEparam==6 .or. iBEparam == 4) .and. rtab(j) < rBE) then
+       iBElast = j
+    elseif (iBEparam == 3 .and. mtab(j) < mBE) then
+       iBElast = j
+    endif
  enddo
  !--Set the remaining properties
  if (iBEparam==4) then
@@ -743,6 +732,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     rhotab          = rhotab*facBE
  endif
  if (iBEparam==5) then
+    central_density = central_density/sqrt(facBE)
+    mtab(iBElast)   = mtab(iBElast)*facBE
+    rhotab          = rhotab/sqrt(facBE)
+ endif
+ if (iBEparam==6) then
+    facBE           = mBE/mtab(iBElast)
     central_density = central_density/sqrt(facBE)
     mtab(iBElast)   = mtab(iBElast)*facBE
     rhotab          = rhotab/sqrt(facBE)
@@ -762,16 +757,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  print*, ' Radius (au)            = ',rBE*udist/au
  print*, ' Radius (pc)            = ',rBE*udist/pc
  print*, ' Total mass (Msun)      = ',mBE*umass/solarm
+ print*, ' Overdensity factor     = ',facBE
  print*, ' rho_c/rho_outer             = ',central_density/edge_density
  print*, ' Equilibrium temperature (K) = ',mBE*umass*pc/(rBE*udist*solarm*2.02)
  print*, '------------------------------------'
 
  !--Error out if required
- if (iBEparam==6 .and. fac_close > 0.1) then
-    print*, 'A BE sphere with the requested mass and radius cannot be constructed.  Aborting.'
-    ierr = 1
-    return
- endif
  if (central_density/rhotab(iBElast) < 14.1) then
     print*, 'The density ratio between the central and edge densities is too low and the sphere will not collapse.'
     if (.not. override_critical) then
@@ -809,7 +800,7 @@ subroutine prompt_BEparameters(iBEparam,rho_cen,rad_phys,rad_norm,mass_phys,fac,
  print*, '  3: central density & physical mass'
  print*, '  4: normalised radius & physical radius & overdensity factor'
  print*, '  5: normalised radius & physical mass   & overdensity factor'
- print*, '  6: physical mass & physical radius'
+ print*, '  6: physical radius & physical mass'
  iBEparam = 5
  call prompt('Please enter your choice now: ',iBEparam,1,6)
 
