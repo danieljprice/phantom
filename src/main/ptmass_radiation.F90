@@ -165,9 +165,7 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas
- use options, only:ieos
- use eos,     only:get_temperature
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
@@ -175,9 +173,9 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  integer                 :: i,j
 
  !
- ! sanity check, return zero if no sink particles
+ ! sanity check, return zero if no sink particles or dust flag is off
  !
- if (nptmass < 1) then
+ if (nptmass < 1 .or. iget_tdust == 0 ) then
     dust_temp = 0.
     return
  endif
@@ -191,8 +189,8 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
  select case (iget_tdust)
-    ! simple T(r) relation
  case (1)
+    ! simple T(r) relation
     !$omp parallel  do default(none) &
     !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
     !$omp private(i,r)
@@ -470,6 +468,7 @@ end function sq_distance_to_line
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only: write_inopt
+ use dim,          only: store_dust_temperature
  integer, intent(in) :: iunit
 
  call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
@@ -482,6 +481,7 @@ subroutine write_options_ptmass_radiation(iunit)
  if (iget_tdust == 1 ) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
  endif
+ if (iget_tdust > 0) store_dust_temperature = .true.
 
 end subroutine write_options_ptmass_radiation
 

@@ -1174,7 +1174,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-    !$omp shared(eos_vars,dust_temp) &
+    !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_implicit) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
