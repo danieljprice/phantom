@@ -127,9 +127,11 @@ module part
                        ics   = 2, &
                        itemp = 3, &
                        imu   = 4, &
-                       maxeosvars = 4
+                       iX    = 5, &
+                       iZ    = 6, &
+                       maxeosvars = 6
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
 !
 !--one-fluid dust (small grains)
 !

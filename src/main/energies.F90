@@ -66,7 +66,7 @@ subroutine compute_energies(t)
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
                           nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
-                          ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,&
+                          ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi
  use part,           only:pxyzu,fxyzu,fext
@@ -373,16 +373,16 @@ subroutine compute_energies(t)
              ethermi = (alpha_gr/lorentzi)*ethermi
 #endif
              etherm = etherm + ethermi
+
 #ifdef KROME
+            ! NOT SURE THIS #ifdef KROME  IS NEEDED ? 
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                                    gamma_local=gamma_chem(i))
 #else
-             if (store_temperature) then
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i),tempi=eos_vars(itemp,i))
-             else
-                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(iu,i))
-             endif
+             ponrhoi = eos_vars(igasP,i)/rhoi
+             spsoundi = eos_vars(ics,i)
 #endif
+
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
