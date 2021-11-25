@@ -270,7 +270,7 @@ ifeq ($(SETUP), grtde)
     IND_TIMESTEPS=no
     GRAVITY=yes
 #    ANALYSIS=analysis_tde.f90
-    ANALYSIS=$(LIBPHANTOM) analysis_gws.f90
+    ANALYSIS= analysis_gws.f90
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -461,7 +461,7 @@ ifeq ($(SETUP), tde)
 #   tidal disruption simulations
     SETUPFILE= setup_star.f90
 #    ANALYSIS=analysis_tde.f90
-    ANALYSIS=$(OBJDERIV) analysis_gws.f90
+    ANALYSIS=analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
     MODFILE=moddump_tidal.f90
@@ -472,7 +472,7 @@ ifeq ($(SETUP), polytrope)
 #   single (option 2) or binary (option 3) polytrope test
     SETUPFILE= setup_star.f90
 #    ANALYSIS=density_profiles.o analysis_polytropes.f90
-    ANALYSIS=$(OBJDERIV) analysis_gws.f90
+    ANALYSIS= analysis_gws.f90
     GRAVITY=yes
     ISOTHERMAL=yes
     MODFILE=moddump_binarystar.f90
@@ -495,7 +495,7 @@ ifeq ($(SETUP), sphereinbox)
 endif
 
 ifeq ($(SETUP), shock)
-#   sod shock tube test
+#   shock tube tests
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
     KERNEL=quintic
@@ -504,7 +504,7 @@ ifeq ($(SETUP), shock)
 endif
 
 ifeq ($(SETUP), dustyshock)
-#   sod shock tube test
+#   shock tube tests with dust
     PERIODIC=yes
     SETUPFILE= setup_shock.F90
     DUST=yes
@@ -1879,12 +1879,6 @@ libsetup: $(OBJLIBSETUP)
 	@echo ""
 	ar rcs $(LIBSETUP) $^
 
-# these are sources for anything that calls derivs routine--if you want to call derivs in the analysis #file
-SRCDERIV= utils_omp.F90 utils_cpuinfo.f90 utils_timing.f90 checksetup.F90 initial.F90 ptmass.F90 \
-          utils_summary.F90 coolfunc.F90 cooling.f90 damping.f90 energies.F90 evwrite.F90 writeheader.f90 \
-          readwrite_infile.f90 dens.F90 force.F90 utils_deriv.f90 deriv.F90
-OBJDERIV1= $(SRCDERIV:.f90=.o)
-OBJDERIV= $(OBJDERIV1:.F90=.o)
 #----------------------------------------------------
 # these are the sources for phantom setup utility
 #
@@ -1896,7 +1890,7 @@ SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
-	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+	       set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
@@ -2059,21 +2053,20 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 # these are the sources for the phantomanalysis utility
 #
 OBJAN1= ${ANALYSIS:.f90=.o}
-OBJAN2= ${OBJAN1:.F90=.o}
-OBJAN= ${OBJAN2:.f=.o}
-OBJA= leastsquares.o solvelinearsystem.o \
-      ${OBJDUMP} utils_disc.o utils_gravwave.o set_dust.o utils_binary.o set_binary.o ${OBJAN}
+OBJAN= ${OBJAN1:.F90=.o}
+OBJA= leastsquares.o solvelinearsystem.o prompting.o \
+      utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN}
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
 endif
 
 .PHONY: phantomanalysis
-phantomanalysis: checksystem checkparams $(OBJA) phantomanalysis.o
+phantomanalysis: checksystem checkparams libphantom $(OBJA) phantomanalysis.o
 	@echo ""
 	@echo "phantomanalysis: we live to serve you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) phantomanalysis.o $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(LIBPHANTOM) $(OBJA) phantomanalysis.o $(LDFLAGS)
 
 analysis: phantomanalysis
 
