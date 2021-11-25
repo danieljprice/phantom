@@ -324,7 +324,6 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
-
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
  use dim,               only:store_dust_temperature
