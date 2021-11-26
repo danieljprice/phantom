@@ -92,7 +92,7 @@ end subroutine test_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine test_binary(ntests,npass)
- use dim,        only:periodic,gravity
+ use dim,        only:periodic,gravity,ind_timesteps
  use io,         only:id,master,iverbose
  use physcon,    only:pi
  use testutils,  only:checkval,checkvalf,update_test_scores
@@ -272,13 +272,13 @@ subroutine test_binary(ntests,npass)
     nfailed(:) = 0
     select case(itest)
     case(3)
-#ifdef IND_TIMESTEPS
-       call checkval(angtot,angmomin,2.1e-6,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
-#else
-       call checkval(angtot,angmomin,1.2e-6,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
-#endif
+       if (ind_timesteps) then
+          call checkval(angtot,angmomin,2.1e-6,nfailed(3),'angular momentum')
+          call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
+       else
+          call checkval(angtot,angmomin,1.2e-6,nfailed(3),'angular momentum')
+          call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
+       endif
        call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
     case(2)
        call checkval(angtot,angmomin,3.e-7,nfailed(3),'angular momentum')
@@ -687,6 +687,7 @@ subroutine test_merger(ntests,npass)
  use step_lf_global, only:init_step,step
  use timestep,       only:dtmax
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi
+ use energies,       only:compute_energies,angtot,totmom,mtot
  integer, intent(inout) :: ntests,npass
  integer, parameter :: max_to_test = 100
  logical, parameter :: print_sink_paths = .false. ! print sink paths in the merger test
@@ -694,7 +695,7 @@ subroutine test_merger(ntests,npass)
  integer :: nsink0,nsinkf,nsteps
  logical :: merged,merged_expected
  real :: t,dt,dtext,dtnew,dtsinksink,r2,v2
- real :: angmom0,angmomf,mtot0,mtotf,mv0,mvf,dx(3),dv(3)
+ real :: angmom0,mtot0,mv0,dx(3),dv(3)
  real :: fxyz_sinksink(4,max_to_test)
 
  iseed           = -74205
@@ -778,7 +779,9 @@ subroutine test_merger(ntests,npass)
     endif
     !
     ! get initial values
-    call get_momenta(nptmass,nsink0,xyzmh_ptmass,vxyz_ptmass,angmom0,mv0,mtot0,periodic)
+    !
+    call compute_energies(0.)
+    nsink0 = nptmass; angmom0 = angtot; mv0 = totmom; mtot0 = mtot
     !
     ! initialise forces
     !
@@ -808,7 +811,6 @@ subroutine test_merger(ntests,npass)
     dt     = 2.*dt/nsteps
     dtmax  = dt*nsteps
     t      = 0.
-    print*, itest,dt
     call init_step(npart,t,dtmax)
     if (print_sink_paths) then
        write(333,*) itest,0,xyzmh_ptmass(1:4,1),xyzmh_ptmass(1:4,2)
@@ -834,7 +836,9 @@ subroutine test_merger(ntests,npass)
     enddo
     !
     ! check results
-    call get_momenta(nptmass,nsinkF,xyzmh_ptmass,vxyz_ptmass,angmomF,mvF,mtotF,periodic)
+    !
+    call compute_energies(t)
+    nsinkF = count(xyzmh_ptmass(4,1:nptmass) > 0.) ! only count non-merged sinks
     !
     if (xyzmh_ptmass(4,2) < 0.) then
        merged = .true.
@@ -852,9 +856,9 @@ subroutine test_merger(ntests,npass)
           call checkval(sqrt(v2),0.,epsilon(0.),nfailed(4*itest),'final velocity')
        endif
     endif
-    call checkval(mvF,    mv0,    1.e-13,nfailed(5*itest),'conservation of linear momentum')
-    call checkval(angmomF,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
-    call checkval(mtotF,  mtot0,  1.e-13,nfailed(7*itest),'conservation of mass')
+    call checkval(totmom,    mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
+    call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
+    call checkval(mtot,    mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
  enddo
  call update_test_scores(ntests,nfailed(1:56),npass)
 
@@ -866,49 +870,9 @@ end subroutine test_merger
 
 !-----------------------------------------------------------------------
 !+
-!  Utility routine to compute total linear and angular momentum
+!  Helper function used in sink particle creation test
 !+
 !-----------------------------------------------------------------------
-subroutine get_momenta(nptmass,nsnk,xyzmh_ptmass,vxyz_ptmass,ang,mv,mtot,periodic)
- use part, only:ispinx,ispiny,ispinz
- integer, intent(in)  :: nptmass
- integer, intent(out) :: nsnk
- real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,    intent(out) :: ang,mv,mtot
- logical, intent(in)  :: periodic
- integer              :: i
- real                 :: angx,angy,angz,xmom,ymom,zmom
-
- angx = 0.
- angy = 0.
- angz = 0.
- xmom = 0.
- ymom = 0.
- zmom = 0.
- mv   = 0.
- mtot = 0.
- nsnk = 0
- do i = 1,nptmass
-    if (xyzmh_ptmass(4,i) > 0.) then
-       nsnk = nsnk + 1
-       angx = angx + xyzmh_ptmass(4,i)*(xyzmh_ptmass(2,i)*vxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*vxyz_ptmass(2,i))
-       angy = angy + xyzmh_ptmass(4,i)*(xyzmh_ptmass(3,i)*vxyz_ptmass(1,i) - xyzmh_ptmass(1,i)*vxyz_ptmass(3,i))
-       angz = angz + xyzmh_ptmass(4,i)*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
-       angx = angx + xyzmh_ptmass(ispinx,i)
-       angy = angy + xyzmh_ptmass(ispiny,i)
-       angz = angz + xyzmh_ptmass(ispinz,i)
-       xmom = xmom + xyzmh_ptmass(4,i)*vxyz_ptmass(1,i)
-       ymom = ymom + xyzmh_ptmass(4,i)*vxyz_ptmass(2,i)
-       zmom = zmom + xyzmh_ptmass(4,i)*vxyz_ptmass(3,i)
-       mtot = mtot + xyzmh_ptmass(4,i)
-    endif
- enddo
- mv  = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
- ang = sqrt(angx*angx + angy*angy + angz*angz)
- if (periodic) ang = 0. ! since this will not be conserved with periodic boundaries
-
-end subroutine get_momenta
-
 real function gaussianr(r)
  real, intent(in) :: r
 
