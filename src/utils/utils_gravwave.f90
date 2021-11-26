@@ -192,18 +192,18 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
        firstdump = .false.
        open(newunit=iuu, file='quadrupole_plane_xy.txt',status='replace')
        write(iuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
-  1, 'time',  &
-  2, 'ddm11', &
-  3, 'ddm12', &
-  4, 'ddm13', &
-  5, 'ddm22', &
-  6, 'ddm23', &
-  7, 'ddm33'
+             1, 'time',  &
+             2, 'ddm11', &
+             3, 'ddm12', &
+             4, 'ddm13', &
+             5, 'ddm22', &
+             6, 'ddm23', &
+             7, 'ddm33'
     else
        open(newunit=iuu, file='quadrupole_plane_xy.txt',position='append')
     endif
     write(iuu,'(7(es18.10,1X))') time, ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),&
-                                ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)
+                                 ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)
     !maybe write an 'on fly' file with all the components of rotated second time derivative of mom inertia
 
     ! derive the quadrupole radiation
@@ -220,7 +220,6 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
        eta=eta+pi/6.
     enddo
  elseif (.not. iexist .or. ierr /= 0) then !derive the quadrupole radiation for setup different from grtde
-    print*,'nosetup grtde'
     do i=1,4
        ! angular distribution of the quadrupole radiation
        hp(i) = fac*(ddq(1)*(cosphi2 - sinphi2*coseta2) &
