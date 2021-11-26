@@ -733,9 +733,7 @@ subroutine compute_energies(t)
     !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
     call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
            fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
-    !print*, 'show acc', fxyzu
 #else
-    print*,'pmassi', pmassi
     if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
        x0 = (/xcom,ycom,zcom/)
        v0 = (/xmom,ymom,zmom/)

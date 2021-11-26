@@ -77,9 +77,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use options,          only:exchange_radiation_energy
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
-#ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
-#endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
