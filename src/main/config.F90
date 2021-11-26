@@ -333,6 +333,15 @@ module dim
  logical, parameter :: particles_are_injected = .false.
 #endif
 
+!--------------------
+! individual timesteps
+!--------------------
+#ifdef IND_TIMESTEPS
+ logical, parameter :: ind_timesteps = .true.
+#else
+ logical, parameter :: ind_timesteps = .false.
+#endif
+
  !--------------------
  ! Analysis array sizes
  !--------------------
