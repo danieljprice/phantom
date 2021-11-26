@@ -141,6 +141,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  tzero     = time
  dtlast    = 0.
  dtinject  = huge(dtinject)
+ dtrad     = huge(dtrad)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
 
