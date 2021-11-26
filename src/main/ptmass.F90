@@ -1406,11 +1406,11 @@ end subroutine ptmass_create
 !  negative mass.
 !+
 !-----------------------------------------------------------------------
-subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij,merge_n)
+subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master
  use part,  only:ispinx,ispiny,ispinz,imacc
  real,    intent(in)    :: time
- integer, intent(in)    :: nptmass,merge_n,merge_ij(nptmass)
+ integer, intent(in)    :: nptmass,merge_ij(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  integer :: i,j
