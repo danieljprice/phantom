@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module gravwaveutils
 !
-! None
+! Compute gravitational wave emission using the quadrupole formula.
+! Assumes a distance of 1 Mpc
 !
-! :References: None
+! :References: Toscani et al. (2021) https://arxiv.org/abs/2111.05145
 !
 ! :Owner: Martina Toscani
 !
@@ -61,8 +62,22 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
 !more details and sketch in Toscani et al 2021
  phi=0.
  eta=0.
-
-!initialise moment of inertia and its second deriv to zero
+ ! define new functions instead of sin and cos
+ sinphi=sin(phi)
+ cosphi=cos(phi)
+ sinphi2=sinphi*sinphi
+ cosphi2=cosphi*cosphi
+ sin2phi=sin(2*phi)
+ cos2phi=cos(2*phi)
+ sineta=sin(eta)
+ coseta=cos(eta)
+ sineta2=sineta*sineta
+ coseta2=coseta*coseta
+ sin2eta=sin(2*eta)
+ cos2eta=cos(2*eta)
+ !
+ ! initialise moment of inertia and its second deriv to zero
+ !
  q(:)   = 0.
  ddq(:) = 0.
  !$omp parallel do default(none) &
@@ -127,12 +142,12 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
     enddo
  endif
 
- !define some parameters
+ ! define some parameters
  d   = Mpc/udist                            ! 1Mpc in code units
  gc4 = (gg/c**4) / (utime**2/(umass*udist)) ! G/c^4 in code units
  fac = (gc4/d)
 
- !Read inclination angle theta and eccentricity from the setup file
+ ! read inclination angle theta and eccentricity from the setup file
  filename = 'grtde'//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
@@ -149,8 +164,8 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
     print*, "sin(theta)", sin(theta) !just a check
     print*, "eccentricity", ecc      !just a check
 
-    !I do these change because for elleptic orbits david rotate the orbit wrt y axis
-    !by -theta and not theta
+    ! I do these change because for elliptic orbits david rotate the orbit wrt y axis
+    ! by -theta and not theta
     if (ecc==1.) then
        lambda=theta
     else
@@ -191,78 +206,31 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
                                 ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)
     !maybe write an 'on fly' file with all the components of rotated second time derivative of mom inertia
 
-    !derive the quadrupole radiation
+    ! derive the quadrupole radiation
     do i=1,4
-       !define new functions instead of sin and cos
-       sinphi=sin(phi)
-       cosphi=cos(phi)
-       sinphi2=sinphi*sinphi
-       cosphi2=cosphi*cosphi
-       sin2phi=sin(2*phi)
-       cos2phi=cos(2*phi)
-       sineta=sin(eta)
-       coseta=cos(eta)
-       sineta2=sineta*sineta
-       coseta2=coseta*coseta
-       sin2eta=sin(2*eta)
-       cos2eta=cos(2*eta)
-
-       !angular distribution of the quadrupole radiation
-       hp(i) =fac*(ddq_xy(1,1)*(cosphi2 - sinphi2*coseta2)+ddq_xy(2,2)*(sinphi2 &
-   -cosphi2*coseta2)-ddq_xy(3,3)*sineta2-ddq_xy(1,2)*(sin2phi)*(1+coseta2) &
-   +ddq_xy(1,3)*(sinphi*sin2eta)+ddq_xy(2,3)*cosphi*sin2eta)
-       hx(i)=2.*fac*(0.5*(ddq_xy(1,1)-ddq_xy(2,2))*sin2phi*coseta+ddq_xy(1,2)*(cos2phi*coseta)&
-   -ddq_xy(1,3)*(cosphi*sineta)+ddq_xy(2,3)*sinphi*sineta)
+       ! angular distribution of the quadrupole radiation
+       hp(i) = fac*(ddq_xy(1,1)*(cosphi2 - sinphi2*coseta2) &
+                  + ddq_xy(2,2)*(sinphi2 - cosphi2*coseta2) &
+                  - ddq_xy(3,3)*sineta2-ddq_xy(1,2)*(sin2phi)*(1+coseta2) &
+                  + ddq_xy(1,3)*(sinphi*sin2eta)+ddq_xy(2,3)*cosphi*sin2eta)
+       hx(i) = 2.*fac*(0.5*(ddq_xy(1,1)-ddq_xy(2,2))*sin2phi*coseta &
+                       + ddq_xy(1,2)*(cos2phi*coseta) &
+                       - ddq_xy(1,3)*(cosphi*sineta) &
+                       + ddq_xy(2,3)*sinphi*sineta)
        eta=eta+pi/6.
     enddo
  elseif (.not. iexist .or. ierr /= 0) then !derive the quadrupole radiation for setup different from grtde
     print*,'nosetup grtde'
-    !maybe write an 'on fly'file with all the components of the second time derivative of the mom inertia
-    !i am assuming that for no tde there is no need for all the rotating matrix stuff
-    !if (firstdumpa) then
-    !firstdumpa = .false.
-    !open(unit=iu, file='quad_secondderiv_plane_xy_notde.txt',status='replace')
-    !write(iu,"('#',13(1x,'[',i2.2,1x,a11,']',2x))") &
-    !1, 'time',  &
-    !2, 'q11', &
-    !3, 'q12', &
-    !4, 'q13', &
-    !5, 'q22', &
-    !6, 'q23', &
-    !7, 'q33', &
-    !8, 'ddm11', &
-    !9, 'ddm12', &
-    !10, 'ddm13', &
-    !11, 'ddm22', &
-    !12, 'ddm23', &
-    !13, 'ddm33'
-    !else
-    !open(unit=iu, file='quad_secondderiv_plane_xy_notde.txt',position='append')
-    !endif
-    !write(iu,'(13(es18.10,1X))') time, q(1),q(2),q(3),q(4),q(5),q(6),&
-    !                                ddq(1),ddq(2),ddq(3),ddq(4),ddq(5),ddq(6)
-
     do i=1,4
-       !define new functions instead of sin and cos
-       sinphi=sin(phi)
-       cosphi=cos(phi)
-       sinphi2=sinphi*sinphi
-       cosphi2=cosphi*cosphi
-       sin2phi=sin(2*phi)
-       cos2phi=cos(2*phi)
-       sineta=sin(eta)
-       coseta=cos(eta)
-       sineta2=sineta*sineta
-       coseta2=coseta*coseta
-       sin2eta=sin(2*eta)
-       cos2eta=cos(2*eta)
-
-       !angular distribution of the quadrupole radiation
-       hp(i) =fac*(ddq(1)*(cosphi2 - sinphi2*coseta2)+ddq(4)*(sinphi2 &
-      -cosphi2*coseta2)-ddq(6)*sineta2-ddq(2)*(sin2phi)*(1+coseta2) &
-      +ddq(3)*(sinphi*sin2eta)+ddq(5)*cosphi*sin2eta)
-       hx(i)=2.*fac*(0.5*(ddq(1)-ddq(4))*sin2phi*coseta+ddq(2)*(cos2phi*coseta)&
-      -ddq(3)*(cosphi*sineta)+ddq(5)*sinphi*sineta)
+       ! angular distribution of the quadrupole radiation
+       hp(i) = fac*(ddq(1)*(cosphi2 - sinphi2*coseta2) &
+                  + ddq(4)*(sinphi2 - cosphi2*coseta2) &
+                  - ddq(6)*sineta2-ddq(2)*(sin2phi)*(1+coseta2) &
+                  + ddq(3)*(sinphi*sin2eta)+ddq(5)*cosphi*sin2eta)
+       hx(i) = 2.*fac*(0.5*(ddq(1)-ddq(4))*sin2phi*coseta &
+                       + ddq(2)*(cos2phi*coseta) &
+                       - ddq(3)*(cosphi*sineta) &
+                       + ddq(5)*sinphi*sineta)
        eta=eta+pi/6.
     enddo
  endif
