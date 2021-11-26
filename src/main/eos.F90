@@ -23,7 +23,6 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
-!    19 = Variable gamma (requires KROME)
 !
 ! :References: None
 !
@@ -55,7 +54,7 @@ module eos
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 19
+ integer, parameter, public :: maxeos = 16
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -99,6 +98,9 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
+ !--Minimum temperature (failsafe to prevent u < 0)
+ real,    public            :: Tfloor = 0. ![K]
+ real,    public            :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
@@ -151,8 +153,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  var='eos_type',val=real(eos_type))
 #endif
 
- mui = gmw
- if (present(mu_local)) mui = mu_local
+ if (present(gamma_local)) then
+    gammai = gamma_local
+ else
+    gammai = gamma
+ endif
+ if (present(mu_local)) then
+    mui = mu_local
+ else
+    mui = gmw
+ endif
 
  select case(eos_type)
  case(1)
@@ -169,32 +179,34 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !  (polytropic using polyk if energy not stored, adiabatic if utherm stored)
 !
 !   check value of gamma
-    if (gamma < tiny(gamma)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gamma)
+    if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
 #ifdef GR
     if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
-    if (gamma == 1.) then
-       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gamma)
-    elseif (gamma > 1.0001) then
-       pondensi = (gamma-1.)*eni   ! eni is the thermal energy
+    if (gammai == 1.) then
+       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gammai)
+    elseif (gammai > 1.0001) then
+       pondensi = (gammai-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
-       spsoundi = sqrt(gamma*pondensi/enthi)
+       spsoundi = sqrt(gammai*pondensi/enthi)
        ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
     endif
 #else
     if (present(eni)) then
+       if (eni < 0.) eni = ufloor
+
        if (use_entropy) then
-          ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
-       elseif (gamma > 1.0001) then
-          ponrhoi = (gamma-1.)*eni   ! use this if en is thermal energy
+          ponrhoi = eni*rhoi**(gammai-1.)  ! use this if en is entropy
+       elseif (gammai > 1.0001) then
+          ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
        endif
     else
-       ponrhoi = polyk*rhoi**(gamma-1.)
+       ponrhoi = polyk*rhoi**(gammai-1.)
     endif
-    spsoundi = sqrt(gamma*ponrhoi)
+    spsoundi = sqrt(gammai*ponrhoi)
 #endif
 
     if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
@@ -213,7 +225,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
  case(4)
     uthermconst = polyk
-    ponrhoi = (gamma-1.)*uthermconst
+    ponrhoi = (gammai-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
     if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
@@ -378,20 +390,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
-
- case(19)
-!
-!--variable gamma
-!
-    if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1.)*eni
-       spsoundi = sqrt(gamma_local*ponrhoi)
-       if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
-    else
-       ponrhoi = 0.
-       spsoundi = 0.
-       call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
-    endif
 
  case default
     spsoundi = 0. ! avoids compiler warnings
