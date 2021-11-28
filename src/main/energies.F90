@@ -374,8 +374,14 @@ subroutine compute_energies(t)
 #endif
              etherm = etherm + ethermi
 
+#ifdef KROME
+            ! NOT SURE THIS #ifdef KROME  IS NEEDED ? 
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
+                                   gamma_local=gamma_chem(i))
+#else
              ponrhoi = eos_vars(igasP,i)/rhoi
              spsoundi = eos_vars(ics,i)
+#endif
 
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1

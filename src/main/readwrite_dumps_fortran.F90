@@ -239,7 +239,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef KROME
  use krome_user, only:krome_nmols
- use part,       only:gamma_chem,mu_chem,T_chem
+ use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
 #ifdef NUCLEATION
  use part,       only:nucleation,nucleation_label,n_nucleation
@@ -374,7 +374,12 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+#ifdef INJECT_PARTICLES
+       call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+#else
+       if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,&
+       k,ipass,idump,nums,ierrs(12))
+#endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
@@ -423,7 +428,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
        call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
        call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
-       call write_array(1,T_chem,'temp',npart,k,ipass,idump,nums,ierrs(24))
+       call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
 #endif
 #ifdef NUCLEATION
        call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
@@ -1111,7 +1116,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
 #ifdef KROME
  use krome_user, only: krome_nmols
- use part,       only: gamma_chem,mu_chem,T_chem
+ use part,       only: gamma_chem,mu_chem,T_gas_cool
 #endif
 #ifdef NUCLEATION
  use part, only:nucleation,nucleation_label,n_nucleation
@@ -1211,7 +1216,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(abundance,abundance_label,got_krome_mols,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(gamma_chem,'gamma',got_krome_gamma,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(T_chem,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
 #ifdef NUCLEATION
              call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
