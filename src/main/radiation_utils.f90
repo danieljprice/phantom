@@ -57,19 +57,22 @@ end function get_rad_R
 !  set equal gas and radiation temperatures for all particles
 !+
 !-------------------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,mu_local)
  use part,      only:rhoh,igas,iradxi
  use eos,       only:gmw,gamma
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real, intent(in), optional :: mu_local(:)
  real, intent(out)   :: rad(:,:)
- real                :: rhoi,pmassi
+ real                :: rhoi,pmassi,mu
  integer             :: i
 
  pmassi = massoftype(igas)
+ mu = gmw
  do i=1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
-    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,gmw)
+    if (present(mu_local)) mu = mu_local(i)
+    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)
     !print*,i,' Tgas = ',Tgas,'rad=',rad(iradxi,i)
  enddo
 
@@ -202,7 +205,7 @@ end function Tgas_from_ugas
 !  integrate radiation energy exchange terms over a time interval dt
 !+
 !--------------------------------------------------------------------
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
+subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
  use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
  use units,        only:get_steboltz_code,get_c_code,unit_velocity
@@ -210,6 +213,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
  use io,           only:warning
  use dim,          only:maxphase,maxp
  real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
+ real, intent(in), optional :: mu_local(:)
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
  integer, intent(in) :: npart
  real :: ui,pmassi,rhoi,xii
@@ -227,10 +231,11 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
  !$omp parallel do default(none)&
  !$omp private(kappa,ack,rhoi,ui)&
  !$omp private(dudt,xii,etot,unew)&
- !$omp shared(rad,radprop,xyzh,vxyzu)&
+ !$omp firstprivate(cv1)&
+ !$omp shared(rad,radprop,xyzh,vxyzu,mu_local,gamma)&
  !$omp shared(fxyzu,pmassi,maxphase,maxp)&
  !$omp shared(iphase,npart)&
- !$omp shared(dt,cv1,a,steboltz_code)
+ !$omp shared(dt,a,steboltz_code,unit_velocity)
  do i = 1,npart
     if (maxphase==maxp) then
        if (iamtype(iphase(i)) /= igas) cycle
@@ -247,6 +252,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     if (xii < -epsilon(0.)) then
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
+    if (present(mu_local)) cv1 = (gamma-1.)*mu_local(i)/Rg*unit_velocity**2
 !     if (i==584) then
 !        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
 !     endif
