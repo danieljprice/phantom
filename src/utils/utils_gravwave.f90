@@ -19,27 +19,31 @@ module gravwaveutils
 !
  implicit none
 
- public :: calculate_strain
+ public :: calculate_strain, get_G_on_dc4, get_strain_from_circular_binary
 
  private
 
 contains
 
-! This subroutine computes the gravitational wave strain at a distance of 1Mpc
+!--------------------------------------------------------------------------------
+!+
+!  This subroutine computes the gravitational wave strain at a distance of 1Mpc
+!  for an arbitrary collection of particles
+!+
+!--------------------------------------------------------------------------------
 subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
                             axyz1,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
- use units,                    only:umass,udist,utime
- use physcon,                  only:gg,c,Mpc,pi
- use io,                       only:master,error
- use infile_utils,             only:open_db_from_file,inopts,read_inopt,close_db
- use timestep,                 only:time
+ use io,           only:master,error
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use timestep,     only:time
+ use physcon,      only:pi
  real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
  real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
  real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
  integer,intent(in),  optional :: nptmass
  real,   intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer, intent(in)           :: npart
- real                          :: q(6),ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2,gc4,d
+ real                          :: q(6),ddq(6),x,y,z,vx,vy,vz,ax,ay,az,fac,r2
  real                          :: xp,yp,zp,vxp,vyp,vzp,axp,ayp,azp,mp
  real, parameter               :: onethird = 1./3.
  integer                       :: i
@@ -143,9 +147,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  endif
 
  ! define some parameters
- d   = Mpc/udist                            ! 1Mpc in code units
- gc4 = (gg/c**4) / (utime**2/(umass*udist)) ! G/c^4 in code units
- fac = (gc4/d)
+ fac = get_G_on_dc4()
 
  ! read inclination angle theta and eccentricity from the setup file
  filename = 'grtde'//'.setup'
@@ -219,7 +221,10 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
                        + ddq_xy(2,3)*sinphi*sineta)
        eta=eta+pi/6.
     enddo
- elseif (.not. iexist .or. ierr /= 0) then !derive the quadrupole radiation for setup different from grtde
+ elseif (.not. iexist .or. ierr /= 0) then
+    !
+    ! assume default values for the two angles otherwise
+    !
     do i=1,4
        ! angular distribution of the quadrupole radiation
        hp(i) = fac*(ddq(1)*(cosphi2 - sinphi2*coseta2) &
@@ -235,5 +240,52 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  endif
 
 end subroutine calculate_strain
+
+!--------------------------------------------------------------------------------
+!+
+!  Get prefactor for strain calculation (G/(c^4 * distance)) in code units
+!  Involves some unit conversions in the code
+!+
+!--------------------------------------------------------------------------------
+real function get_G_on_dc4() result(fac)
+ use units,   only:umass,udist,utime
+ use physcon, only:gg,c,Mpc
+ real(kind=8) :: d,gc4
+
+ d   = Mpc/udist                            ! 1Mpc in code units
+ gc4 = (gg/c**4) / (utime**2/(umass*udist)) ! G/c^4 in code units
+ fac = (gc4/d)
+
+end function get_G_on_dc4
+
+!--------------------------------------------------------------------------------
+!+
+!   Exact solution for circular binaries (used for unit tests)
+!+
+!--------------------------------------------------------------------------------
+subroutine get_strain_from_circular_binary(t,m1,m2,r,eta,hx,hp)
+ use units,   only:get_G_code,get_c_code,udist
+ use physcon, only:Mpc
+ real, intent(in) :: t,m1,m2,r,eta
+ real, intent(out) :: hx,hp
+ real :: mred,term,d,omega2,omega,fac
+
+ mred = m1*m2/(m1 + m2)   ! reduced mass
+ omega2 = (m1 + m2)/r**3  ! Keplerian speed
+ omega  = sqrt(omega2)
+
+ ! following lines are written a bit differently to the expression
+ ! in calculate_strain as a better check of the code
+ d   = Mpc/udist   ! 1Mpc in code units
+ fac = get_G_code()/(d*get_c_code()**4)
+ term = 4.*mred*r**2*omega2*fac
+
+ ! Eqs 7-8 in Toscani et al. 2021, see e.g. Maggiore (2007)
+ ! the minus sign is presumably because the binary goes
+ ! anticlockwise by default ?
+ hx = -term*cos(eta)*sin(2.*omega*t)
+ hp = -term*0.5*(1. + cos(eta)**2)*cos(2.*omega*t)
+
+end subroutine get_strain_from_circular_binary
 
 end module gravwaveutils

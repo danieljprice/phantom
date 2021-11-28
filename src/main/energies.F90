@@ -29,6 +29,7 @@ module energies
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
+ real,            public    :: hx(4),hp(4),ddq_xy(3,3)
  integer,         public    :: iquantities
  integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
@@ -121,9 +122,6 @@ subroutine compute_energies(t)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
-
- real    :: hx(4),hp(4)
- real    :: ddq_xy(3,3)
 
  ! initialise values
  itype  = igas
