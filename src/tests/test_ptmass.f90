@@ -101,7 +101,7 @@ subroutine test_binary(ntests,npass)
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part
- use energies,   only:angtot,etot,totmom,compute_energies
+ use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use options,    only:calc_gravitwaves
  use kdtree,     only:tree_accuracy
@@ -111,14 +111,17 @@ subroutine test_binary(ntests,npass)
  use units,      only:set_units
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
+ use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4
+ use testutils,      only:checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
- integer :: merge_ij(2),merge_n,nparttot
+ integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
  integer, parameter :: nbinary_tests = 3
- real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,mred,tolen
- real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink
+ real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,mred,tolen,hp_exact,hx_exact
+ real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: fxyz_sinksink(4,2) ! we only use 2 sink particles in the tests here
  character(len=20) :: dumpfile
+ real, parameter :: tolgw = 1.2e-2
  !
  !--no gas particles
  !
@@ -185,6 +188,7 @@ subroutine test_binary(ntests,npass)
     tolv = 1.e3
     iverbose = 0
     ieos = 3
+    fac = 1./get_G_on_dc4()
     !print*,'initial v = ',vxyz_ptmass(:,1)
     !
     ! initialise forces
@@ -249,7 +253,8 @@ subroutine test_binary(ntests,npass)
     endif
     if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
     nsteps = nsteps*norbits
-    errmax = 0.
+    errmax = 0.; errgw = 0.
+    nfailgw = 0; ncheckgw = 0
     dumpfile='test_00000'
     f_acc = 1.
     call init_step(npart,t,dtmax)
@@ -260,12 +265,16 @@ subroutine test_binary(ntests,npass)
        call step(npart,npart,t,dt,dtext,dtnew)
        call compute_energies(t)
        errmax = max(errmax,abs(etot - etotin))
-       if (itest==2) then
-          !   write(1,*) i,t,angtot,totmom,etot,accretedmass,epot
-          !   print*,i,t,angtot,totmom,etot,accretedmass,epot
-       endif
-       if (calc_gravitwaves) then
-          write(1,*)
+       !
+       ! Check the gravitational wave strain if the binary is circular.
+       ! There is a phase error that grows with time, so only check the first 10 orbits
+       !
+       if (calc_gravitwaves .and. abs(ecc) < epsilon(ecc) .and. itest==1 .and. t < 20.*pi/omega) then
+          call get_strain_from_circular_binary(t,m1,m2,a,0.,hx_exact,hp_exact)
+          call checkvalbuf(10.+hx(1)*fac,10.+hx_exact*fac,tolgw,&
+                           'gw strain (x)',nfailgw(1),ncheckgw(1),errgw(1))
+          call checkvalbuf(10.+hp(1)*fac,10.+hp_exact*fac,tolgw,&
+                           'gw strain (+)',nfailgw(2),ncheckgw(2),errgw(2))
        endif
     enddo
     call compute_energies(t)
@@ -287,6 +296,11 @@ subroutine test_binary(ntests,npass)
        if (gravity) tolen = 3.1e-3
        call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
     case default
+       if (calc_gravitwaves) then
+          call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
+          call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
+          call update_test_scores(ntests,nfailgw(1:2),npass)
+       endif
        call checkval(angtot,angmomin,3.e-14,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
        call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
