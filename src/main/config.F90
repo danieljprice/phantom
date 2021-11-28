@@ -62,12 +62,11 @@ module dim
 #endif
 
  integer :: maxTdust = 0
+ logical :: store_dust_temperature = .false.
 #ifdef SINK_RADIATION
  logical, parameter :: sink_radiation = .true.
- logical, parameter :: store_dust_temperature = .true.
 #else
  logical, parameter :: sink_radiation = .false.
- logical, parameter :: store_dust_temperature = .false.
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
