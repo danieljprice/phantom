@@ -43,9 +43,6 @@ module options
 ! final maximum density
  real,    public :: rhofinal_cgs,rhofinal1
 
-! gravitational wave emission in .ev file
- logical, public :: calc_gravitwaves
-
 ! dust method
  logical, public :: use_dustfrac, use_hybrid
 

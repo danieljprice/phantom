@@ -102,7 +102,6 @@ subroutine test_binary(ntests,npass)
                       hfact,igas,epot_sinksink,init_part
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
- use options,    only:calc_gravitwaves
  use kdtree,     only:tree_accuracy
  use eos,        only:gamma,ieos,polyk
  use setbinary,  only:set_binary
@@ -110,7 +109,7 @@ subroutine test_binary(ntests,npass)
  use units,      only:set_units
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
- use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4
+ use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4,calc_gravitwaves
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
