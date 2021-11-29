@@ -37,6 +37,7 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use timestep,     only:time
  use physcon,      only:pi
+ use mpiutils,     only:reduceall_mpi
  real, intent(out)             :: hx(4),hp(4),ddq_xy(3,3)
  real, intent(in)              :: xyzh(:,:), vxyz(:,:), axyz(:,:), pmass,x0(3),v0(3),a0(3)
  real, intent(inout), optional :: axyz1(:,:) !optional, only if there are external forces
@@ -73,12 +74,6 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  cosphi2=cosphi*cosphi
  sin2phi=sin(2*phi)
  cos2phi=cos(2*phi)
- sineta=sin(eta)
- coseta=cos(eta)
- sineta2=sineta*sineta
- coseta2=coseta*coseta
- sin2eta=sin(2*eta)
- cos2eta=cos(2*eta)
  !
  ! initialise moment of inertia and its second deriv to zero
  !
@@ -124,7 +119,10 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  enddo
  !omp end parallel do
 
+ ddq = reduceall_mpi('+',ddq)  ! reduce across MPI threads
+
  ! add contribution from sink particles
+ ! note: sink particles are present on all MPI threads, so no reduceall call
  if (present(xyzmh_ptmass) .and. present(vxyz_ptmass) .and. present(nptmass) .and. present(fxyz_ptmass)) then
     do i=1,nptmass
        xp  = xyzmh_ptmass(1,i) - x0(1)
@@ -210,6 +208,12 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
 
     ! derive the quadrupole radiation
     do i=1,4
+       sineta=sin(eta)
+       coseta=cos(eta)
+       sineta2=sineta*sineta
+       coseta2=coseta*coseta
+       sin2eta=sin(2*eta)
+       cos2eta=cos(2*eta)
        ! angular distribution of the quadrupole radiation
        hp(i) = fac*(ddq_xy(1,1)*(cosphi2 - sinphi2*coseta2) &
                   + ddq_xy(2,2)*(sinphi2 - cosphi2*coseta2) &
@@ -226,6 +230,12 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
     ! assume default values for the two angles otherwise
     !
     do i=1,4
+       sineta=sin(eta)
+       coseta=cos(eta)
+       sineta2=sineta*sineta
+       coseta2=coseta*coseta
+       sin2eta=sin(2*eta)
+       cos2eta=cos(2*eta)
        ! angular distribution of the quadrupole radiation
        hp(i) = fac*(ddq(1)*(cosphi2 - sinphi2*coseta2) &
                   + ddq(4)*(sinphi2 - cosphi2*coseta2) &
