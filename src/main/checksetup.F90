@@ -46,13 +46,14 @@ subroutine check_setup(nerror,nwarn,restart)
                 remove_particle_from_npartoftype
  use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
- use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid,calc_gravitwaves
+ use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
+ use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead

@@ -75,11 +75,12 @@ contains
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
  use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
- use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac,calc_gravitwaves
+ use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
+ use gravwaveutils, only:calc_gravitwaves
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
