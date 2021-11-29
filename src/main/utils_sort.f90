@@ -17,7 +17,7 @@ module sortutils
 ! :Dependencies: None
 !
  implicit none
- public :: indexx,indexxfunc,r2func,r2func_origin,set_r2func_origin
+ public :: indexx,indexxfunc,find_rank,r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
  end interface indexx
@@ -350,5 +350,38 @@ subroutine indexxfunc(n, func, xyzh, indx)
 
  goto 1
 end subroutine indexxfunc
+
+
+!----------------------------------------------------------------
+!+
+!  Same as indexxfunc, except two particles can have the same
+!  order/rank in the array ranki
+!+
+!----------------------------------------------------------------
+subroutine find_rank(npart,func,xyzh,ranki)
+ real, external :: func
+ real, intent(in)  :: xyzh(:,:)
+ integer, intent(in) :: npart
+ integer, allocatable, intent(out) :: ranki(:)
+ integer, allocatable :: iorder(:)
+ real, parameter :: min_diff = tiny(1.)
+ integer :: i,j,k
+
+ ! First call indexxfunc
+ allocate(iorder(npart),ranki(npart))
+ call indexxfunc(npart,func,xyzh,iorder)
+ ranki(iorder(1)) = 1
+
+ do i=2,npart ! Loop over ranks sorted by indexxfunc
+    j = iorder(i)
+    k = iorder(i-1)
+    if (func(xyzh(:,j))/func(xyzh(:,k)) - 1. > min_diff) then ! If particles have distinct radii
+       ranki(j) = i
+    else
+       ranki(j) = ranki(k)       ! Else, give same ranks
+    endif
+ enddo
+
+end subroutine find_rank
 
 end module sortutils

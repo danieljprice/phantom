@@ -14,7 +14,7 @@ module cons2primsolver
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, utils_gr
+! :Dependencies: eos, io, metric_tools, units, utils_gr
 !
  use eos, only:ieos,polyk
  implicit none
@@ -125,6 +125,7 @@ end subroutine primitive2conservative
 
 subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  use eos,     only:ieos
+ use io,      only:fatal
  real, intent(in)     :: x(1:3),metrici(:,:,:)
  real, intent(inout)  :: dens,P,u
  real, intent(out)    :: v(1:3)
@@ -135,6 +136,9 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
 
  select case (ieos)
  case (12)
+    if (ien_type == ien_entropy) then
+       call fatal('cons2primsolver','gasplusrad (ieos=12) only works with ien_type=ien_etotal for the moment')
+    endif
     call conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  case default
     gamma = 5./3.

@@ -23,7 +23,6 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
-!    19 = Variable gamma (requires KROME)
 !
 ! :References: None
 !
@@ -55,7 +54,7 @@ module eos
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 19
+ integer, parameter, public :: maxeos = 16
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -64,7 +63,7 @@ module eos
 
  data qfacdisc /0.75/
 
- public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm
+ public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
@@ -99,6 +98,9 @@ module eos
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
+ !--Minimum temperature (failsafe to prevent u < 0)
+ real,    public            :: Tfloor = 0. ![K]
+ real,    public            :: ufloor
 
  real            :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real            :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
@@ -123,7 +125,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -137,9 +139,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
- real,    intent(in)   , optional :: gamma_local
+ real,    intent(in)   , optional :: gamma_local,mu_local
  real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai,temperaturei
+ real :: gammai,temperaturei,mui
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
@@ -151,6 +153,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  var='eos_type',val=real(eos_type))
 #endif
 
+ if (present(gamma_local)) then
+    gammai = gamma_local
+ else
+    gammai = gamma
+ endif
+ if (present(mu_local)) then
+    mui = mu_local
+ else
+    mui = gmw
+ endif
+
  select case(eos_type)
  case(1)
 !
@@ -158,7 +171,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(2)
 !
@@ -166,35 +179,37 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !  (polytropic using polyk if energy not stored, adiabatic if utherm stored)
 !
 !   check value of gamma
-    if (gamma < tiny(gamma)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gamma)
+    if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
 #ifdef GR
     if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
     if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
-    if (gamma == 1.) then
-       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gamma)
-    elseif (gamma > 1.0001) then
-       pondensi = (gamma-1.)*eni   ! eni is the thermal energy
+    if (gammai == 1.) then
+       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gammai)
+    elseif (gammai > 1.0001) then
+       pondensi = (gammai-1.)*eni   ! eni is the thermal energy
        enthi = 1. + eni + pondensi    ! enthalpy
-       spsoundi = sqrt(gamma*pondensi/enthi)
+       spsoundi = sqrt(gammai*pondensi/enthi)
        ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
     endif
 #else
     if (present(eni)) then
+       if (eni < 0.) eni = ufloor
+
        if (use_entropy) then
-          ponrhoi = eni*rhoi**(gamma-1.)  ! use this if en is entropy
-       elseif (gamma > 1.0001) then
-          ponrhoi = (gamma-1.)*eni   ! use this if en is thermal energy
+          ponrhoi = eni*rhoi**(gammai-1.)  ! use this if en is entropy
+       elseif (gammai > 1.0001) then
+          ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
        endif
     else
-       ponrhoi = polyk*rhoi**(gamma-1.)
+       ponrhoi = polyk*rhoi**(gammai-1.)
     endif
-    spsoundi = sqrt(gamma*ponrhoi)
+    spsoundi = sqrt(gammai*ponrhoi)
 #endif
 
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(3)
 !
@@ -203,16 +218,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
 !
 !--GR isothermal
 !
  case(4)
     uthermconst = polyk
-    ponrhoi = (gamma-1.)*uthermconst
+    ponrhoi = (gammai-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(6)
 !
@@ -221,7 +236,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
                       (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(7)
 !
@@ -241,7 +256,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
     ponrhoi = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(8)
 !
@@ -273,7 +288,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = fac3*(rhoi/rhocrit3)**(gamma3-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(9)
 !
@@ -293,7 +308,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        ponrhoi = k3pwp*rhoi**(gamma3pwp-1.)
     endif
     spsoundi = sqrt(gammai*ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(10)
 !
@@ -315,7 +330,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(12)
 !
@@ -328,8 +343,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei,ierr)
-    call get_idealplusrad_pres(cgsrhoi,temperaturei,gmw,cgspresi)
+    call get_idealplusrad_temp(cgsrhoi,cgseni,mui,temperaturei,ierr)
+    call get_idealplusrad_pres(cgsrhoi,temperaturei,mui,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
     presi = cgspresi / unit_pressure
@@ -346,7 +361,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
     spsoundi=sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(15)
 !
@@ -376,24 +391,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
 
- case(19)
-!
-!--variable gamma
-!
-    if (present(gamma_local)) then
-       ponrhoi  = (gamma_local-1.)*eni
-       spsoundi = sqrt(gamma_local*ponrhoi)
-       if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
-    else
-       ponrhoi = 0.
-       spsoundi = 0.
-       call fatal('eos','invoking KROME to calculate local gamma but variable not passed in equationofstate (bad ieos?)')
-    endif
-
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
-    if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
     call fatal('eos','unknown equation of state')
  end select
 
@@ -423,25 +424,28 @@ end function eos_is_non_ideal
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui)
  use dim, only:maxvxyzu
  integer,      intent(in)      :: eos_type
  real,         intent(in)      :: xyzi(:),rhoi
  real,         intent(inout)   :: vxyzui(:)
  real, intent(inout)   , optional    :: tempi
- real, intent(in)      , optional    :: gammai
- real :: spsoundi,ponrhoi
+ real, intent(in)      , optional    :: gammai,mui
+ real :: spsoundi,ponrhoi,mu
+
+ mu = gmw
+ if (present(mui)) mu = mui
 
  if (maxvxyzu==4) then
     if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai,mu_local=mu)
     elseif (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi,mu_local=mu)
     else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu)
  endif
  get_spsound = spsoundi
 
@@ -453,52 +457,31 @@ end function get_spsound
 !  position and/or thermal energy
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui) result(tempi)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(:)
- real, intent(in), optional  :: gammai
- real :: spsoundi,ponrhoi
+ real, intent(in), optional  :: gammai,mui
+ real :: spsoundi,ponrhoi,mu
 
+ mu = gmw
+ if (present(mui)) mu = mui
  if (maxvxyzu==4) then
     if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            gamma_local=gammai,mu_local=mui,tempi=tempi)
     else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            mu_local=mui,tempi=tempi)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mui,tempi=tempi)
  endif
-
- get_temperature = temperature_coef*gmw*ponrhoi
 
 end function get_temperature
 
 #ifdef KROME
-!-----------------------------------------------------------------------
-!+
-!  query function to return the temperature for calculations with a local
-!  mean molecular weight and local adiabatic index
-!+
-!-----------------------------------------------------------------------
-subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
- use dim, only:maxvxyzu
- integer,      intent(in)    :: eos_type
- real,         intent(in)    :: xi,yi,zi,rhoi,gmwi,gammai
- real,         intent(inout) :: intenerg
- real,         intent(out)   :: local_temperature
- real :: spsoundi,ponrhoi
-
- if (maxvxyzu==4) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=intenerg,gamma_local=gammai)
- else
-    print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
- endif
- local_temperature = temperature_coef*gmwi*ponrhoi
-
-end subroutine get_local_temperature
-
 !----------------------------------------------------------------------------
 !+
 !  query function to return the internal energyfor calculations with a local
@@ -671,7 +654,7 @@ subroutine init_eos(eos_type,ierr)
     !
     ! ideal plus radiation
     !
-    write(*,'(1x,a,f7.5)') 'Initialising ideal plus radiation EoS with mu = ',gmw
+    write(*,'(1x,a,f7.5)') 'Using ideal plus radiation EoS with mu = ',gmw
     if (do_radiation) then
        call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
@@ -1239,23 +1222,26 @@ end subroutine calc_rec_ene
 !  pressure and density, assuming inputs are in cgs units
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
+subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  real, intent(in)           :: rho,pres
  real, intent(inout)        :: ene,temp
- real, intent(in), optional :: guesseint
+ real, intent(in), optional :: guesseint,mu_local
  integer, intent(out)       :: ierr
+ real                       :: mu
 
  ierr = 0
+ mu = gmw
+ if (present(mu_local)) mu = mu_local
  select case(ieos)
  case(2) ! Adiabatic/polytropic EoS
-    temp = pres / (rho * kb_on_mh) * gmw
+    temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal plus rad. EoS
-    call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,gmw,ene)
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
+    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
  case(10) ! MESA-like EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case default
@@ -1270,7 +1256,7 @@ end subroutine calc_temp_and_ene
 !  up to an additive integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
-function entropy(rho,pres,ientropy,ierr)
+function entropy(rho,pres,mu,ientropy,ierr)
  use io,                only:fatal
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
@@ -1279,20 +1265,19 @@ function entropy(rho,pres,ientropy,ierr)
  real, intent(in)               :: rho,pres
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
- real                           :: inv_mu,entropy,logentropy,temp,eint
+ real                           :: mu,entropy,logentropy,temp,eint
 
  if (present(ierr)) ierr=0
- inv_mu = 1/gmw
 
  select case(ientropy)
  case(1) ! Include only gas entropy (up to additive constants)
-    temp = pres * gmw / (rho * kb_on_mh)
-    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho)
+    temp = pres * mu / (rho * kb_on_mh)
+    entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
-    temp = pres * gmw / (rho * kb_on_mh) ! Guess for temp
-    call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp) ! First solve for temp from rho and pres
-    entropy = kb_on_mh * inv_mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+    temp = pres * mu / (rho * kb_on_mh) ! Guess for temp
+    call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
+    entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
@@ -1320,9 +1305,9 @@ end function entropy
 !  method
 !+
 !-----------------------------------------------------------------------
-subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
+subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
  use physcon, only:kb_on_mh
- real, intent(in)    :: pres,S,rhoguess
+ real, intent(in)    :: pres,S,mu,rhoguess
  real, intent(inout) :: rho
  real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
  real(kind=8)        :: corr
@@ -1335,13 +1320,26 @@ subroutine get_rho_from_p_s(pres,S,rho,rhoguess,ientropy)
  do while (abs(corr) > eoserr*abs(srho))
     ! First calculate dS/dsrho
     srho_plus_dsrho = srho * (1. + dfac)
-    S_plus_dS = entropy(srho_plus_dsrho**2, pres, ientropy)
-    dSdsrho = (S_plus_dS - entropy(srho**2,pres,ientropy)) / (srho_plus_dsrho - srho)
-    corr = ( entropy(srho**2,pres,ientropy) - S ) / dSdsrho
+    S_plus_dS = entropy(srho_plus_dsrho**2,pres,mu,ientropy)
+    dSdsrho = (S_plus_dS - entropy(srho**2,pres,mu,ientropy)) / (srho_plus_dsrho - srho)
+    corr = ( entropy(srho**2,pres,mu,ientropy) - S ) / dSdsrho
     srho = srho - corr
  enddo
  rho = srho**2
  return
 end subroutine get_rho_from_p_s
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate mean molecular weight from X and Z, assumming complete
+!  ionisation
+!+
+!-----------------------------------------------------------------------
+real function get_mean_molecular_weight(XX,ZZ) result(mu)
+ real, intent(in) :: XX,ZZ
+ real :: YY
+ YY = 1.-XX-ZZ
+ mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
+end function  get_mean_molecular_weight
 
 end module eos
