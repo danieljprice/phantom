@@ -60,6 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces,only:accradius1,accradius1_hard
  use rho_profile,   only:rho_polytrope,read_kepler_file
  use vectorutils,   only:rotatevec
+ use gravwaveutils, only:theta_gw,calc_gravitwaves
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -237,6 +238,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
+
+ !
+ ! set a few options for the input file
+ !
+ calc_gravitwaves = .true.
+ if (abs(ecc-1.) > epsilon(0.)) then
+    theta_gw = theta*180./pi
+ else
+    theta_gw = -theta*180./pi
+ endif
 
  if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')

@@ -196,9 +196,6 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
 
- ! calculate gravitational wave strain, but only
- ! if code is run in relativistic units (c=1)
- if (c_is_unity()) calc_gravitwaves = .true.
  if (calc_gravitwaves) then
     call fill_ev_tag(ev_fmt,iev_gws(1),'hx_0','0',i,j)
     call fill_ev_tag(ev_fmt,iev_gws(2),'hp_0','0',i,j)

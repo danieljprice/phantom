@@ -97,9 +97,6 @@ subroutine set_default_options
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
  rhofinal_cgs = 0.           ! Final maximum density (0 == ignored)
 
- ! To allow gravitational waves to be printed to .ev
- calc_gravitwaves = .true.
-
  ! equation of state
  if (maxvxyzu==4) then
     ieos = 2
