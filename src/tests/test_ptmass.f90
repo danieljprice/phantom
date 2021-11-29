@@ -95,7 +95,6 @@ subroutine test_binary(ntests,npass)
  use dim,        only:periodic,gravity,ind_timesteps
  use io,         only:id,master,iverbose
  use physcon,    only:pi
- use testutils,  only:checkval,checkvalf,update_test_scores
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas,f_acc
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext,&
@@ -112,7 +111,9 @@ subroutine test_binary(ntests,npass)
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
  use step_lf_global, only:init_step,step
  use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4
- use testutils,      only:checkvalbuf,checkvalbuf_end
+ use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
+ use checksetup,     only:check_setup
+ use deriv,          only:get_derivs_global
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
@@ -205,8 +206,8 @@ subroutine test_binary(ntests,npass)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                 fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dum,dum2)
     enddo
-    if (id==master) fxyz_ptmass(:,:) = fxyz_ptmass(:,:) + fxyz_sinksink(:,:)
-    call reduce_in_place_mpi('+',fxyz_ptmass)
+    if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     !
     !--take the sink-sink timestep specified by the get_forces routine
     !
@@ -806,7 +807,7 @@ subroutine test_merger(ntests,npass)
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
 
-    if (id==master) fxyz_ptmass(:,:) = fxyz_ptmass(:,:) + fxyz_sinksink(:,:)
+    if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     call reduce_in_place_mpi('+',fxyz_ptmass)
     !
     ! integrate
