@@ -63,27 +63,27 @@ subroutine compute_energies(t)
                           lightcurve,use_dust,store_temperature,&
                           maxdusttypes,do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
-                          npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
+                          alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi
- use part,           only:pxyzu,fxyzu,fext
+ use part,           only:fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,utherm,gamma,equationofstate,gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac,calc_gravitwaves
+ use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac,calc_gravitwaves
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
 #ifdef GR
- use part,           only:metrics,metricderivs
+ use part,           only:metrics,metricderivs,pxyzu
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
@@ -171,10 +171,10 @@ subroutine compute_energies(t)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
-!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,npartoftype) &
+!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
-!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
+!$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(calc_gravitwaves) &
@@ -743,15 +743,6 @@ subroutine compute_energies(t)
     call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
            fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
 #endif
-    hx(1)  = reduceall_mpi('+',hx(1))
-    hp(1)  = reduceall_mpi('+',hp(1))
-    hx(2)  = reduceall_mpi('+',hx(2))
-    hp(2)  = reduceall_mpi('+',hp(2))
-    hx(3)  = reduceall_mpi('+',hx(3))
-    hp(3)  = reduceall_mpi('+',hp(3))
-    hx(4)  = reduceall_mpi('+',hx(4))
-    hp(4)  = reduceall_mpi('+',hp(4))
-
     ev_data(iev_sum,iev_gws(1)) = hx(1)
     ev_data(iev_sum,iev_gws(2)) = hp(1)
     ev_data(iev_sum,iev_gws(3)) = hx(2)
