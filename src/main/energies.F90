@@ -375,7 +375,7 @@ subroutine compute_energies(t)
              etherm = etherm + ethermi
 
 #ifdef KROME
-            ! NOT SURE THIS #ifdef KROME  IS NEEDED ? 
+            ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                                    gamma_local=gamma_chem(i))
 #else
@@ -637,6 +637,9 @@ subroutine compute_energies(t)
  ycom = ycom * dm
  zcom = zcom * dm
 
+ xmom = reduceall_mpi('+',xmom)
+ ymom = reduceall_mpi('+',ymom)
+ zmom = reduceall_mpi('+',zmom)
  totmom = sqrt(xmom*xmom + ymom*ymom + zmom*zmom)
 
  angx = reduceall_mpi('+',angx)
