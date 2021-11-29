@@ -2050,18 +2050,18 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN= ${OBJAN1:.F90=.o}
 OBJA= leastsquares.o solvelinearsystem.o prompting.o \
-      utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN}
+      utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
 endif
 
 .PHONY: phantomanalysis
-phantomanalysis: checksystem checkparams libphantom $(OBJA) phantomanalysis.o
+phantomanalysis: checksystem checkparams libphantom $(OBJA)
 	@echo ""
 	@echo "phantomanalysis: we live to serve you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(LIBPHANTOM) $(OBJA) phantomanalysis.o $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LDFLAGS) $(LIBS) $(LIBPHANTOM)
 
 analysis: phantomanalysis
 
