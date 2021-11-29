@@ -130,6 +130,7 @@ subroutine test_binary(ntests,npass)
  iverbose = 0
  tree_accuracy = 0.
  h_soft_sinksink = 0.
+ calc_gravitwaves = .true.
 
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)
