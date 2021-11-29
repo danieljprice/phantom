@@ -1619,7 +1619,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        if (mhd .and. iamgasi) then
           if (getdB) then
-             term = cnormk*pmassi*gradhi*rho1i*hi41
              call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,ndivcurlB)
              divcurlB(:,lli) = real(divcurlBi(:),kind=kind(divcurlB))
           else

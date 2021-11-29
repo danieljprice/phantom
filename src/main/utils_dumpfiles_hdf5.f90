@@ -332,7 +332,7 @@ subroutine write_hdf5_arrays( &
    dens,                      &
    gamma_chem,                &
    mu_chem,                   &
-   T_chem,                    &
+   T_gas_cool,                &
    nucleation,                &
    dust_temp,                 &
    rad,                       &
@@ -364,7 +364,7 @@ subroutine write_hdf5_arrays( &
                                 dens(:),           &
                                 gamma_chem(:),     &
                                 mu_chem(:),        &
-                                T_chem(:),         &
+                                T_gas_cool(:),     &
                                 nucleation(:,:),   &
                                 dust_temp(:),      &
                                 rad(:,:),          &
@@ -480,7 +480,7 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(abundance(:,1:npart), 'abundance', group_id, error)
     call write_to_hdf5(gamma_chem(1:npart), 'gamma_chem', group_id, error)
     call write_to_hdf5(mu_chem(1:npart), 'mu_chem', group_id, error)
-    call write_to_hdf5(T_chem(1:npart), 'T_chem', group_id, error)
+    call write_to_hdf5(T_gas_cool(1:npart), 'T_gas_cool', group_id, error)
  endif
 
  ! Nucleation
@@ -787,7 +787,7 @@ subroutine read_hdf5_arrays( &
    pxyzu,                    &
    gamma_chem,               &
    mu_chem,                  &
-   T_chem,                   &
+   T_gas_cool,               &
    nucleation,               &
    dust_temp,                &
    rad,                      &
@@ -817,7 +817,7 @@ subroutine read_hdf5_arrays( &
                                  pxyzu(:,:),        &
                                  gamma_chem(:),     &
                                  mu_chem(:),        &
-                                 T_chem(:),         &
+                                 T_gas_cool(:),     &
                                  nucleation(:,:),   &
                                  dust_temp(:),      &
                                  rad(:,:),          &
@@ -944,7 +944,7 @@ subroutine read_hdf5_arrays( &
     if (got) got_arrays%got_krome_mols = .true.
     call read_from_hdf5(gamma_chem, 'gamma_chem', group_id, got_arrays%got_krome_gamma, error)
     call read_from_hdf5(mu_chem, 'mu_chem', group_id, got_arrays%got_krome_mu, error)
-    call read_from_hdf5(T_chem, 'T_chem', group_id, got_arrays%got_krome_gamma, error)
+    call read_from_hdf5(T_gas_cool, 'T_gas_cool', group_id, got_arrays%got_krome_gamma, error)
  endif
 
  ! Nucleation
