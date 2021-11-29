@@ -70,7 +70,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi
- use part,           only:fxyzu,fext
+ use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,utherm,gamma,equationofstate,gamma_pwp
@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
 #ifdef GR
- use part,           only:metrics,metricderivs,pxyzu
+ use part,           only:metrics,metricderivs
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
