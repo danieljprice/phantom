@@ -190,7 +190,6 @@ subroutine test_binary(ntests,npass)
     iverbose = 0
     ieos = 3
     fac = 1./get_G_on_dc4()
-    !print*,'initial v = ',vxyz_ptmass(:,1)
     !
     ! initialise forces
     !
@@ -567,6 +566,7 @@ subroutine test_createsink(ntests,npass)
 
  density_func => gaussianr
  t = 0.
+ iverbose = 1
 
  do itest=1,2
     select case(itest)
@@ -575,8 +575,16 @@ subroutine test_createsink(ntests,npass)
     case default
        if (id==master) write(*,"(/,a)") '--> testing sink particle creation (uniform density)'
     end select
+    !
+    ! initialise arrays to zero
+    !
     call init_part()
-    iverbose   = 1
+    vxyzu(:,:) = 0.
+    fxyzu(:,:) = 0.
+    fext(:,:)  = 0.
+    !
+    ! set a boundary that is larger than the sphere size, so test still works with periodic boundaries
+    !
     call set_boundary(-1.,1.,-1.,1.,-1.,1.)
     !
     ! set up gas particles in a uniform sphere with radius R=0.2
@@ -614,7 +622,6 @@ subroutine test_createsink(ntests,npass)
     !
     tree_accuracy = 0.
     icreate_sinks = 1
-    iverbose = 1
     call get_derivs_global()
     !
     ! check that particle being tested is at the maximum density
@@ -641,7 +648,6 @@ subroutine test_createsink(ntests,npass)
     ! check energies before insertion of sink
     !
     call compute_energies(t)
-    !print*,' got ETOT = ',etot,totmom,epot
     etotin   = etot
     totmomin = totmom
     angmomin = angtot
@@ -658,7 +664,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                      massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
     !
     ! check that creation succeeded
     !
@@ -670,17 +676,16 @@ subroutine test_createsink(ntests,npass)
     !
     nfailed(:) = 0
     call compute_energies(t)
-    !print*,' got ETOT = ',etot,totmom,epot
     call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
     call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
     !call checkval(etot,etotin,1.e-6,nfailed(1),'total energy')
     call update_test_scores(ntests,nfailed,npass)
 
-    iverbose = 0
     call finish_ptmass(nptmass)
  enddo
 
  ! reset options
+ iverbose = 0
  icreate_sinks  = 0
 
 end subroutine test_createsink
