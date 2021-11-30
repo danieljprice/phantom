@@ -1885,7 +1885,7 @@ SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
-	       set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
@@ -2018,22 +2018,14 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          set_Bfield.f90 \
-          random.f90 set_disc.F90 set_dust.f90 \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
-          icosahedron.f90 radiation_utils.f90 cons2prim.f90 \
-          partinject.F90 utils_inject.f90 ${SRCINJECT} \
-          density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 checksetup.f90 ${MODFILE:.f90=.o}
-OBJMOD2 = ${OBJMOD1:.F90=.o}
-OBJMOD = ${OBJMOD2:.f90=.o}
-OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD = ${OBJMOD1:.F90=.o}
 
-phantom_moddump: checksystem checkparams $(OBJDA)
+phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJDA) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
 
 moddump: phantom_moddump
 
@@ -2291,7 +2283,7 @@ cleanphantomsinks:
 SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH} \
           units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 setup_params.f90 \
           utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 \
-          viscosity.f90 options.f90 damping.f90 ${SRCEOS} \
+          viscosity.f90 options.f90 damping.f90 ${SRCEOS} utils_gravwave.f90 \
           utils_infiles.f90 utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
           ${SRCCHEM} ${DOMAIN} ${SRCPOT} ptmass.F90 ${LINKLIST} ${SRCTURB} \
           checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
