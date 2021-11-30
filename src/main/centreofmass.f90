@@ -296,8 +296,8 @@ subroutine correct_bulk_motion()
 !
 !$omp do
  do i=1,nptmass
+    pmassi  = xyzmh_ptmass(4,i)
     if (pmassi > 0.) then
-       pmassi  = xyzmh_ptmass(4,i)
        totmass = totmass + pmassi
        xmom    = xmom + pmassi*vxyz_ptmass(1,i)
        ymom    = ymom + pmassi*vxyz_ptmass(2,i)
