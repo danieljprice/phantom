@@ -84,7 +84,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos,rhocrit0cgs,gmw
+ use eos,          only:polyk2,ieos,gmw
+ use eos_barotropic, only:rhocrit0cgs
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
@@ -390,7 +391,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
-    npartoftype(idust) = npart_total - npartoftype(igas)
+    npartoftype(idust) = int(npart_total) - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
 
     do i = npartoftype(igas)+1,npart
