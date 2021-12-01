@@ -376,7 +376,7 @@ subroutine compute_energies(t)
              etherm = etherm + ethermi
 
 #ifdef KROME
-            ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
+             ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                                    gamma_local=gamma_chem(i))
 #else

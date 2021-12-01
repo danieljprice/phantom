@@ -608,8 +608,8 @@ subroutine test_createsink(ntests,npass)
     do i=1,npart
        r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
        if (r2 < r2min) then
-         itestp = i
-         r2min = r2
+          itestp = i
+          r2min = r2
        endif
        xcofm = xcofm + xyzh(1:3,i)
     enddo
@@ -636,11 +636,11 @@ subroutine test_createsink(ntests,npass)
        ipart_rhomax_global = ipart_rhomax
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
        if (id == id_rhomax) then
-         rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
-         call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax')
+          rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
+          call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax')
        else
-         itestp = -1 ! set itest = -1 on other threads
-         call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
+          itestp = -1 ! set itest = -1 on other threads
+          call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax')
        endif
        call update_test_scores(ntests,nfailed(1:1),npass)
     endif
