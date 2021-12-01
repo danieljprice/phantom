@@ -679,8 +679,8 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- if (.not.imatch) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
- if (.not.imatch) call read_options_eos_piecewise(name,valstring,imatch,igotall_piecewise,ierr)
+ if (.not.imatch .and. ieos==8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
+ if (.not.imatch .and. ieos==9) call read_options_eos_piecewise(name,valstring,imatch,igotall_piecewise,ierr)
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic
