@@ -89,8 +89,8 @@ subroutine init_eos_piecewise(ierr)
  !--calculate initial variables for the piecewise polytrope equation of state
  !
  if (unit_density <= 0.0 .or. unit_pressure <= 0.0) then
-     ierr = 3
-     return
+    ierr = 3
+    return
  endif
  rhocrit0pwp = rhocrit0pwpcgs/unit_density
  rhocrit1pwp = rhocrit1pwpcgs/unit_density
