@@ -25,8 +25,9 @@ module setup
 !   - theta           : *inclination of orbit (degrees)*
 !
 ! :Dependencies: dim, eos, extern_densprofile, externalforces,
-!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, spherical, table_utils, timestep, units, vectorutils
+!   gravwaveutils, infile_utils, io, kernel, metric, part, physcon,
+!   rho_profile, setbinary, spherical, table_utils, timestep, units,
+!   vectorutils
 !
  implicit none
  public :: setpart
