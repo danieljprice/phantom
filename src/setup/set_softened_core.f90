@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setsoftenedcore
 !
-! This module solves for a softened density and pressure profile below 
+! This module solves for a softened density and pressure profile below
 ! a softening radius, rcore, of a stellar profile
 !
 ! :References:
@@ -72,7 +72,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
  rc = rcore*solarr
  Xcore = yinterp(X,r,rc)
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
- 
+
  write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
                                       ', mu = ',get_mean_molecular_weight(Xcore,Zcore)
  call interpolator(r,rc,core_index)  ! find index of core
