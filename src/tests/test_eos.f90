@@ -19,6 +19,7 @@ module testeos
 !
  implicit none
  public :: test_eos
+ public :: test_helmholtz ! to avoid compiler warning for unused routine
 
  private
 
@@ -111,11 +112,12 @@ end subroutine test_idealplusrad
 !+
 !----------------------------------------------------------------------------
 subroutine test_barotropic(ntests, npass)
- use eos,       only:equationofstate,rhocrit1cgs,polyk,polyk2,eosinfo,init_eos
- use io,        only:id,master,stdout
- use testutils, only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,     only:unit_density
- use mpiutils,  only:barrier_mpi
+ use eos,            only:equationofstate,polyk,polyk2,eosinfo,init_eos
+ use eos_barotropic, only:rhocrit1cgs
+ use io,             only:id,master,stdout
+ use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
+ use units,          only:unit_density
+ use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: i,ierr,maxpts,ierrmax,ieos
