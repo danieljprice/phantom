@@ -1716,7 +1716,9 @@ OBJDIR=obj
 %.o : %.f
 	$(FC) -c $(FFLAGS) $< -o $@
 
-# these are the sources common to all compilations
+#
+# external forces
+#
 ifeq (X$(SRCPOTS), X)
 SRCPOTS= extern_corotate.f90 \
          extern_binary.f90 \
@@ -1733,7 +1735,9 @@ endif
 ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
-
+#
+# metrics for GR
+#
 ifeq ($(GR),yes)
    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
@@ -1743,11 +1747,15 @@ else
    SRCMETRIC= metric_minkowski.f90
 endif
 SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
-
+#
+# chemistry
+#
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 cooling_molecular.f90 h2chem.f90 cooling.F90
-
+#
+# equations of state
+#
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
+SRCEOS = eos_barotropic.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
 
 ifeq ($(HDF5), yes)
    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
@@ -1885,7 +1893,7 @@ SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
-	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
@@ -2018,7 +2026,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o density_profiles.o ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
