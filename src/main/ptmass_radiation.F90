@@ -169,7 +169,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4)
+ real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
 
  !
