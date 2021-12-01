@@ -12,9 +12,17 @@ module eos_barotropic
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - drhocrit : *transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)*
+!   - gamma1   : *adiabatic index 1 (barotropic eos)*
+!   - gamma2   : *adiabatic index 2 (barotropic eos)*
+!   - gamma3   : *adiabatic index 3 (barotropic eos)*
+!   - rhocrit0 : *critical density 0 in g/cm^3 (barotropic eos)*
+!   - rhocrit1 : *critical density 1 in g/cm^3 (barotropic eos)*
+!   - rhocrit2 : *critical density 2 in g/cm^3 (barotropic eos)*
+!   - rhocrit3 : *critical density 3 in g/cm^3 (barotropic eos)*
 !
-! :Dependencies: units
+! :Dependencies: infile_utils, io, units
 !
  use units, only:unit_density,unit_velocity
  implicit none

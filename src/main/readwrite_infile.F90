@@ -58,9 +58,9 @@ module readwrite_infile
 !   - xtol               : *tolerance on xyz iterations*
 !
 ! :Dependencies: cooling, damping, dim, dust, dust_formation, eos,
-!   externalforces, forcing, growth, infile_utils, inject, io, linklist,
-!   metric, nicil_sup, options, part, photoevap, ptmass, ptmass_radiation,
-!   timestep, viscosity
+!   externalforces, forcing, gravwaveutils, growth, infile_utils, inject,
+!   io, linklist, metric, nicil_sup, options, part, photoevap, ptmass,
+!   ptmass_radiation, timestep, viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &

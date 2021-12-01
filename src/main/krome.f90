@@ -15,7 +15,7 @@ module krome_interface
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, krome_main, krome_user, part, units
+! :Dependencies: dim, eos, krome_main, krome_user, part, units
 !
 
  implicit none

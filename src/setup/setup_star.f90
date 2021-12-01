@@ -46,13 +46,14 @@ module setup
 !   - relax_star        : *relax star automatically during setup*
 !   - ui_coef           : *specific internal energy (units of GM/R)*
 !   - use_exactN        : *find closest particle number to np*
+!   - use_variable_comp : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
-!   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
-!   options, part, physcon, prompting, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
-!   timestep, units
+!   eos_mesa, eos_piecewise, extern_densprofile, externalforces,
+!   infile_utils, io, kernel, options, part, physcon, prompting, relaxstar,
+!   rho_profile, setsoftenedcore, setstellarcore, setup_params, sortutils,
+!   spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity

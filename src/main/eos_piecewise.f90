@@ -12,9 +12,17 @@ module eos_piecewise
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - gamma0pwp   : *adiabatic index 0 (piecewise polytropic eos)*
+!   - gamma1pwp   : *adiabatic index 1 (piecewise polytropic eos)*
+!   - gamma2pwp   : *adiabatic index 2 (piecewise polytropic eos)*
+!   - gamma3pwp   : *adiabatic index 3 (piecewise polytropic eos)*
+!   - p1pwp       : *pressure at cutoff density rhocrit1pwp (piecewise polytropic eos)*
+!   - rhocrit0pwp : *critical density 0 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit1pwp : *critical density 1 in g/cm^3 (piecewise polytropic eos)*
+!   - rhocrit2pwp : *critical density 2 in g/cm^3 (piecewise polytropic eos)*
 !
-! :Dependencies: units
+! :Dependencies: infile_utils, io, units
 !
  use units, only:unit_density,unit_pressure
  implicit none

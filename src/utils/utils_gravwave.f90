@@ -11,11 +11,14 @@ module gravwaveutils
 !
 ! :References: Toscani et al. (2021) https://arxiv.org/abs/2111.05145
 !
-! :Owner: Martina Toscani
+! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - gw       : *calculate gravitational wave strain*
+!   - phi_gw   : *angle betw. projection of los in xy plane and y axis (deg)*
+!   - theta_gw : *rotation of xy plane (deg)*
 !
-! :Dependencies: infile_utils, io, physcon, timestep, units
+! :Dependencies: infile_utils, io, mpiutils, physcon, units
 !
  implicit none
 

@@ -14,10 +14,10 @@ program phantomsetup
 !
 ! :Usage: phantomsetup fileprefix [nprocsfake]
 !
-! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils, io,
-!   krome_interface, memory, mpiutils, options, part, physcon,
-!   readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
-!   units
+! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils,
+!   gravwaveutils, io, krome_interface, memory, mpiutils, options, part,
+!   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
+!   setup_params, units
 !
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,&
