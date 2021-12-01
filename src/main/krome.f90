@@ -15,7 +15,7 @@ module krome_interface
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, krome_main, krome_user, part, units
+! :Dependencies: dim, eos, krome_main, krome_user, part, units
 !
 
  implicit none
@@ -45,7 +45,7 @@ subroutine initialise_krome()
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
  use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
- use dim,        only:maxvxyzu 
+ use dim,        only:maxvxyzu
  real :: wind_temperature
 
  print *, ""
