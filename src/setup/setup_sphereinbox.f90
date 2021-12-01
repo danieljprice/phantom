@@ -84,7 +84,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos,rhocrit0cgs
+ use eos,          only:polyk2,ieos,rhocrit0cgs,gmw
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
@@ -272,7 +272,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iBE = 8192
     allocate(rtab(iBE),rhotab(iBE))
     call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
-                         iBE,iBElast,rtab,rhotab,ierr)
+                         gmw,iBE,iBElast,rtab,rhotab,ierr)
     central_density = BErho_cen
     r_sphere        = BErad_phys
     totmass_sphere  = BEmass

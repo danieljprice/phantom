@@ -73,7 +73,8 @@ subroutine compute_energies(t)
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
- use eos,            only:polyk,utherm,gamma,equationofstate,gamma_pwp
+ use eos,            only:polyk,utherm,gamma,equationofstate
+ use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
  use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac

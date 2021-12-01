@@ -858,7 +858,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  use part,     only:ibin,ibin_wake
 #endif
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use eos,      only:equationofstate,gamma,gamma_pwp,utherm
+ use eos,           only:equationofstate,gamma,utherm
+ use eos_piecewise, only:gamma_pwp
  use options,  only:ieos
  use units,    only:unit_density
  use io_summary, only:summary_variable_rhomax,summary_ptmass_fail, &
