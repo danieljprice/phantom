@@ -147,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,nx,npts,ierr
  real                             :: vol_sphere,psep,rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
- real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene,dum
+ real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
  !
@@ -282,6 +282,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     mu = 0.
     if (isoftcore > 0) then
        call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+       allocate(mu(size(den)))
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore
@@ -297,7 +298,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           en(i) = eni
           temp(i) = tempi
        enddo
-       call write_profile(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu)
+       call write_profile(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
        input_profile = outputfilename ! Have the read_mesa subroutine read the softened profile instead
     else
        call init_eos(ieos,ierr)
@@ -310,12 +311,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
+    allocate(mu(npts))
     if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
        do i = 1,npts
-          call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_density,dum,dum,&
-                                 ierr,guesseint=en(i)*unit_ergg,mu_local=mu(i))
+          eni = en(i)*unit_ergg
+          tempi = temp(i)
+          call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_pressure,eni,tempi,ierr,guesseint=eni,&
+                                 mu_local=mu(i),X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
        enddo
-   endif
+    endif
  case(ikepler)
     call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
@@ -415,7 +419,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           if (store_temperature) eos_vars(itemp,i) = initialtemp
        case default
           if (use_variable_composition) then
-             call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr,mu_local=mu(i))
+             call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
+                                    mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
           else
              call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
           endif
