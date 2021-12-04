@@ -56,7 +56,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if(n>50)dt=0.5
  end do
  if(n>500)then
-    print*,'Error in eos_p'
+    print*,'Error in equationofstate_gasradrec'
     print*,'d=',d,'eint=',eint,'mu=',1./imu
     stop
  end if

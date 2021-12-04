@@ -991,7 +991,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('irecomb')
     read(valstring,*,iostat=ierr) irecomb
-    if ((irecomb <= 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
+    if ((irecomb < 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
     ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,

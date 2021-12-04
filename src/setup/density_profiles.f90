@@ -462,38 +462,49 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
  real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
- integer                         :: i
+ character(len=200)              :: headers
+ integer                         :: i,noptionalcols,j
+ real, allocatable               :: optionalcols(:,:)
 
- open(1, file = outputpath, status = 'new')
-
- if (present(Xfrac) .and. present(Yfrac)) then
-    if (present(csound)) then
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
-       write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
-101    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
-       2x,es13.6,2x,es13.6)
-    elseif (present(mu)) then
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [    mu     ]'
-       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),mu(i),i=1,size(r))
-102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
-       2x,es13.6,2x,es13.6)
-    else
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
-       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-103    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
-       2x,es13.6)
-    endif
- else
-    write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-    &[  Density  ]  [   E_int   ]'
-    write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
-104 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+ headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
+ 
+ ! Add optional columns
+ allocate(optionalcols(size(r),10))
+ noptionalcols = 0
+ if (present(Xfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Xfrac   ]'
+    optionalcols(:,noptionalcols) = Xfrac
+ endif
+ if (present(Yfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Yfrac   ]'
+    optionalcols(:,noptionalcols) = Yfrac
+ endif
+ if (present(mu)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [    mu     ]'
+    optionalcols(:,noptionalcols) = mu
+ endif
+ if (present(csound)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [Sound speed]'
+    optionalcols(:,noptionalcols) = csound
  endif
 
- close(1, status = 'keep')
+ open(1, file = outputpath, status = 'new')
+ write(1,'(a)') headers
+ do i=1,size(r)
+    write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+    101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+    do j=1,noptionalcols
+       if (j==noptionalcols) then
+          write(1,'(2x,es13.6)') optionalcols(i,j)
+       else
+          write(1,'(2x,es13.6)',advance="no") optionalcols(i,j)
+       endif
+    enddo
+ enddo
 
 end subroutine write_profile
 
