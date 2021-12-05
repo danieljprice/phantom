@@ -408,12 +408,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
     imui = 1./mui
-    if (present(tempi)) then
+    if (tempi > 0.) then
        temperaturei = tempi
     else
        temperaturei = 0.67 * cgseni * mui / kb_on_mh
     endif
-
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi = cgspresi / (unit_pressure * rhoi)
     spsoundi = cgsspsoundi / unit_velocity
@@ -859,7 +858,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 #ifndef KROME
- call write_inopt(gmw,'mu','mean molecular weight',iunit)
+ if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
 #endif
  select case(ieos)
  case(8)
