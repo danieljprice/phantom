@@ -1072,21 +1072,23 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use eos,               only:entropy
  use eos_mesa,          only:get_eos_kappa_mesa
  use mesa_microphysics, only:getvalue_mesa
+ use sortutils, only:set_r2func_origin,r2func_origin,indexxfunc
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  integer                      :: i,k,Nquantities,ierr
  integer, save                :: ans,quantities_to_calculate(4)
+ integer, allocatable         :: iorder(:)
  real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi
  real, allocatable, save      :: init_entropy(:)
  real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
- Nquantities = 9
+ Nquantities = 10
  if (dump_number == 0) then
-     print "(9(a,/))",&
+     print "(10(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
@@ -1095,7 +1097,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '6) MESA EoS specific entropy', &
            '7) Fractional entropy gain', &
            '8) Specific recombination energy', &
-           '9) Total energy (kin + pot)'
+           '9) Total energy (kin + pot)', &
+           '10) Mass coordinate'
     ans = 1
     call prompt('Choose first quantity to compute ',ans,1,Nquantities)
     quantities_to_calculate(1) = ans
@@ -1128,6 +1131,10 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        enddo
     case(7)
        if (dump_number==0) allocate(init_entropy(npart))
+    case(10)
+       call set_r2func_origin(0.,0.,0.)
+       allocate(iorder(npart))
+       call indexxfunc(npart,r2func_origin,xyzh,iorder)
     case default
        print*,"Error: Requested quantity is invalid."
        stop
@@ -1201,6 +1208,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
           quant(k,i) = vxyzu(4,i) - ethi / particlemass ! Specific energy
  
+         case(10) ! Mass coordinate
+          quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
+
        case default
           print*,"Error: Requested quantity is invalid."
           stop
