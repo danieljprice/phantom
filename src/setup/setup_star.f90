@@ -291,8 +291,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
           if (i==1) then
              guessene = 1.5*pres(i)/den(i)  ! initial guess
+             tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
           else
              guessene = en(i-1)
+             tempi = temp(i-1)
           endif
           call calc_temp_and_ene(den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
           en(i) = eni
@@ -311,15 +313,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
-    allocate(mu(npts))
-    if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
-       do i = 1,npts
-          eni = en(i)*unit_ergg
-          tempi = temp(i)
-          call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_pressure,eni,tempi,ierr,guesseint=eni,&
-                                 mu_local=mu(i),X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
-       enddo
-    endif
+   !  if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
+   !     allocate(mu(npts))
+   !     do i = 1,npts
+   !        eni = en(i)*unit_ergg
+   !        tempi = temp(i)
+   !        call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_pressure,eni,tempi,ierr,guesseint=eni,&
+   !                               mu_local=mu(i),X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
+   !     enddo
+   !  endif
  case(ikepler)
     call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
@@ -380,14 +382,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set composition of each particle by interpolating from table
  !
- if (use_variable_composition) then
+ if (use_variable_composition .or. eos_outputs_mu(ieos)) then
     call find_rank(npart,r2func,xyzh(1:3,:),iorder)
     do i = 1,nstar
        ri  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
        massri = Mstar * real(iorder(i)-1) / real(npart) ! mass coordinate of particle i
-       eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
-       eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
-       eos_vars(imu,i) = yinterp(mu,mtab,massri)
+       if (use_variable_composition) then
+          eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
+          eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
+       endif
+       if (eos_outputs_mu(ieos)) eos_vars(imu,i) = yinterp(mu,mtab,massri)
     enddo
  endif
  !
