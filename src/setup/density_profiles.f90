@@ -492,7 +492,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
     optionalcols(:,noptionalcols) = csound
  endif
 
- open(1, file = outputpath, status = 'new')
+ open(1, file = outputpath, status = 'replace')
  write(1,'(a)') headers
  do i=1,size(r)
     write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
