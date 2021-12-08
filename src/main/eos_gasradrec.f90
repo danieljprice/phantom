@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module eos_gasradrec
 !
-!  EoS from HORMONE that includes internal energy from ideal gas,
+! EoS from HORMONE that includes internal energy from ideal gas,
 !  radiation, and recombination (H2, H, He) (Hirai et al., 2020)
 !
 ! :References: Appendix C, https://ui.adsabs.harvard.edu/abs/2020MNRAS.499.1154H/abstract
@@ -14,6 +14,8 @@ module eos_gasradrec
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
+!
+! :Dependencies: ionization_mod, physcon
 !
  implicit none
  public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec

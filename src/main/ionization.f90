@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module ionization_mod
+!
+! ionization_mod
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon
+!
  implicit none
 
  real,allocatable,public,dimension(:):: eion

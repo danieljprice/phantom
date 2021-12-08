@@ -32,12 +32,13 @@ module eos
 ! :Runtime parameters:
 !   - X           : *hydrogen mass fraction*
 !   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
+!   - irecomb     : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, eos_barotropic, eos_helmholtz, eos_idealplusrad,
-!   eos_mesa, eos_piecewise, eos_shen, infile_utils, io, mesa_microphysics,
-!   part, physcon, units
+! :Dependencies: dim, eos_barotropic, eos_gasradrec, eos_helmholtz,
+!   eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen, infile_utils, io,
+!   ionization_mod, mesa_microphysics, part, physcon, units
 !
  implicit none
  integer, parameter, public :: maxeos = 20
