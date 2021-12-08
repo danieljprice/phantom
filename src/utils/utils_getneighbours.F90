@@ -311,4 +311,4 @@ subroutine write_neighbours(neighbourfile,npart)
 
 end subroutine write_neighbours
 !-----------------------------------------------------------------------
-end module
+end module getneighbours

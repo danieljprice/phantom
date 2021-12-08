@@ -16,8 +16,9 @@ module unifdis
 !
 ! :Dependencies: random, stretchmap
 !
+ use stretchmap, only:rho_func
  implicit none
- public :: set_unifdis, get_ny_nz_closepacked
+ public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
  public :: is_valid_lattice, is_closepacked
 
  ! following lines of code allow an optional mask= argument
@@ -28,7 +29,7 @@ module unifdis
   end function mask_prototype
  end interface
 
- public :: mask_prototype, mask_true
+ public :: mask_prototype, mask_true, rho_func
 
  private
 
@@ -63,7 +64,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,dir,geom
- real, external,                  optional :: rhofunc
+ procedure(rho_func), pointer,    optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err
@@ -72,7 +73,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
 
  integer            :: i,j,k,l,m,nx,ny,nz,npnew,npin,ierr
  integer            :: jy,jz,ipart,maxp,iseed,icoord,igeom
- integer(kind=8)    :: iparttot
+ integer(kind=8)    :: iparttot,iparttot0
  real               :: delx,dely
  real               :: deltax,deltay,deltaz,dxbound,dybound,dzbound
  real               :: xstart,ystart,zstart,xi,yi,zi,rcyl2,rr2
@@ -143,6 +144,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  else
     iparttot = 0
  endif
+ iparttot0 = iparttot
 
  ! Suppress output to the terminal if wished - handy for setups which call this subroutine frequently
  is_verbose = .true.
@@ -520,7 +522,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
 
-    do i=1,npnew
+    do while (iparttot < iparttot0+npnew)
        xi = xmin + ran2(iseed)*dxbound
        yi = ymin + ran2(iseed)*dybound
        zi = zmin + ran2(iseed)*dzbound
@@ -629,6 +631,75 @@ pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
 
 end subroutine get_ny_nz_closepacked
 
+!-------------------------------------------------------------
+!+
+!  helper routine to figure to adjust boundaries so particle spacing
+!  is exact for periodicity
+!+
+!-------------------------------------------------------------
+pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,ierr,delta_in,nx_in)
+ real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ integer,           intent(out)   :: ierr
+ real,    optional, intent(in)    :: delta_in
+ integer, optional, intent(in)    :: nx_in
+ character(len=*),  intent(in)    :: latticetype
+ integer                          :: nx,ny,nz
+ real                             :: delta,deltax,deltay,deltaz,boxx,boxy,boxz,exact_width,dbounds
+
+ ! set box width
+ boxx = xmax - xmin
+ boxy = ymax - ymin
+ boxz = zmax - zmin
+ ierr = 0
+
+ ! determine delta_x or nx, depending on input
+ if (present(delta_in)) then
+    delta = delta_in
+    nx    = nint(boxx/delta)
+ elseif (present(nx_in)) then
+    nx    = nx_in
+    delta = boxx/nx
+ else
+    ierr = 1 ! Incomplete inputs
+    return
+ endif
+
+ ! calculate remaining delta's
+ select case(trim(latticetype))
+ case ('cubic')
+    deltax = delta
+    deltay = delta
+    deltaz = delta
+ case ('closepacked','hcp','hexagonal')
+    deltax = delta
+    deltay = delta*sqrt(3./4.)
+    deltaz = delta*sqrt(6.)/3.
+ case default
+    ierr = 2 ! not an included lattice
+    return
+ end select
+
+ ! update number of particles in remaining directions
+ ny = nint(boxy/deltay)
+ nz = nint(boxz/deltaz)
+
+ ! adjust boundaries as required
+ exact_width = nx*deltax
+ dbounds     = abs(boxx - exact_width)
+ xmin = xmin - 0.5*dbounds
+ xmax = xmax + 0.5*dbounds
+
+ exact_width = ny*deltay
+ dbounds     = abs(boxy - exact_width)
+ ymin = ymin - 0.5*dbounds
+ ymax = ymax + 0.5*dbounds
+
+ exact_width = nz*deltaz
+ dbounds     = abs(boxz - exact_width)
+ zmin = zmin - 0.5*dbounds
+ zmax = zmax + 0.5*dbounds
+
+end subroutine get_xyzmin_xyzmax_exact
 !---------------------------------------------------------------
 !+
 !  helper routine to sanity check that the latticetype is valid
@@ -638,7 +709,7 @@ pure logical function is_valid_lattice(latticetype)
  character(len=*), intent(in) :: latticetype
 
  select case(trim(latticetype))
- case ('random','cubic','closepacked','hcp')
+ case ('random','cubic','closepacked','hcp','hexagonal')
     is_valid_lattice = .true.
  case default
     is_valid_lattice = .false.

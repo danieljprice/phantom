@@ -29,10 +29,10 @@ module part
                maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-               maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
+               maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -55,11 +55,12 @@ module part
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+ character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
 !
 !--tracking particle IDs
 !
- integer              :: norig
- integer, allocatable :: iorig(:)
+ integer(kind=8)              :: norig
+ integer(kind=8), allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
@@ -126,9 +127,11 @@ module part
                        ics   = 2, &
                        itemp = 3, &
                        imu   = 4, &
-                       maxeosvars = 4
+                       iX    = 5, &
+                       iZ    = 6, &
+                       maxeosvars = 6
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
 !
 !--one-fluid dust (small grains)
 !
@@ -181,8 +184,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real, allocatable :: n_R(:,:)
- real, allocatable :: n_electronT(:)
+ real, allocatable :: nden_nimhd(:,:)
  real, allocatable :: eta_nimhd(:,:)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
@@ -205,7 +207,7 @@ module part
 !
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
- real, allocatable :: T_chem(:)
+ real, allocatable :: T_gas_cool(:)
  real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
@@ -295,29 +297,29 @@ module part
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
-#ifndef CONST_AV
-   +nalpha                              &  ! alphaind
+#if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
+ +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
  +ngradh                              &  ! gradh
 #endif
 #ifdef MHD
  +maxBevol                            &  ! Bevol
-   +maxBevol                            &  ! Bpred
+ +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
-   +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
+ +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
  +maxdusttypes                        &  ! dustfrac
-   +maxdustsmall                        &  ! dustevol
-   +maxdustsmall                        &  ! dustpred
+ +maxdustsmall                        &  ! dustevol
+ +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
-   +1                                   &  ! dustproppred
-   +1                                   &  ! ddustprop
+ +1                                   &  ! dustproppred
+ +1                                   &  ! ddustprop
 #endif
 #endif
 #ifdef H2CHEM
@@ -325,17 +327,17 @@ module part
 #endif
 #ifdef NUCLEATION
  +1                                   &  ! nucleation rate
-   +4                                   &  ! moments
-   +1                                   &  ! mean molecular weight
+ +4                                   &  ! moments
+ +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
-   +1                                   &  ! variable gamma
-   +1                                   &  ! variable mu
-   +1                                   &  ! temperature
-   +1                                   &  ! cooling rate
+ +1                                   &  ! variable gamma
+ +1                                   &  ! variable mu
+ +1                                   &  ! temperature
+ +1                                   &  ! cooling rate
 #endif
-   +maxeosvars                          &  ! eos_vars
+ +maxeosvars                          &  ! eos_vars
 #ifdef GRAVITY
  +1                                   &  ! poten
 #endif
@@ -344,11 +346,12 @@ module part
 #endif
 #ifdef IND_TIMESTEPS
  +1                                   &  ! ibin
-   +1                                   &  ! ibin_old
-   +1                                   &  ! ibin_wake
-   +1                                   &  ! dt_in
-   +1                                   &  ! twas
+ +1                                   &  ! ibin_old
+ +1                                   &  ! ibin_wake
+ +1                                   &  ! dt_in
+ +1                                   &  ! twas
 #endif
+ +1                                   &  ! iorig
  +0
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -426,8 +429,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
- call allocate_array('n_R', n_R, 4, maxmhdni)
- call allocate_array('n_electronT', n_electronT, maxne)
+ call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
@@ -469,7 +471,7 @@ subroutine allocate_part
 #endif
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
- call allocate_array('T_chem', T_chem, maxp_krome)
+ call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('dudt_chem', dudt_chem, maxp_krome)
 
 
@@ -506,8 +508,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
- if (allocated(n_R))          deallocate(n_R)
- if (allocated(n_electronT))  deallocate(n_electronT)
+ if (allocated(nden_nimhd))   deallocate(nden_nimhd)
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
@@ -531,7 +532,7 @@ subroutine deallocate_part
 #endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
- if (allocated(T_chem))       deallocate(T_chem)
+ if (allocated(T_gas_cool))   deallocate(T_gas_cool)
  if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
@@ -976,6 +977,17 @@ pure elemental logical function iamdust(iphasei)
 
 end function iamdust
 
+pure elemental integer function idusttype(iphasei)
+ integer(kind=1), intent(in) :: iphasei
+
+ if (iamdust(iphasei)) then
+    idusttype = iamtype(iphasei) - idust + 1
+ else
+    idusttype = 1
+ endif
+
+end function idusttype
+
 pure integer function get_ntypes(noftype)
  integer, intent(in) :: noftype(:)
  integer :: i
@@ -1056,7 +1068,7 @@ subroutine copy_particle(src,dst,new_part)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
-    Bxyz(:,dst)  = Bxyz(:,dst)
+    Bxyz(:,dst)  = Bxyz(:,src)
  endif
  if (do_radiation) then
     rad(:,dst) = rad(:,src)
@@ -1123,9 +1135,8 @@ subroutine copy_particle_all(src,dst,new_part)
     endif
     Bxyz(:,dst)   = Bxyz(:,src)
     if (maxmhdni==maxp) then
-       n_R(:,dst)       = n_R(:,src)
-       n_electronT(dst) = n_electronT(src)
-       eta_nimhd(:,dst) = eta_nimhd(:,src)
+       nden_nimhd(:,dst) = nden_nimhd(:,src)
+       eta_nimhd(:,dst)  = eta_nimhd(:,src)
     endif
  endif
  if (do_radiation) then
@@ -1179,7 +1190,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
-    T_chem(dst)           = T_chem(src)
+    T_gas_cool(dst)       = T_gas_cool(src)
     dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
@@ -1201,36 +1212,30 @@ end subroutine copy_particle_all
 !------------------------------------------------------------------
 !+
 ! routine which reorders the particles according to an input list
-! (prior to a derivs evaluation - so no derivs required)
-! (allocates temporary arrays for each variable, so use with caution)
-! THIS ROUTINE IS OBSOLETE AND IS SCHEDULED FOR DELETION
 !+
 !------------------------------------------------------------------
 subroutine reorder_particles(iorder,np)
  integer, intent(in) :: iorder(:)
  integer, intent(in) :: np
 
- call copy_array(xyzh(:,1:np), iorder(1:np))
- call copy_array(vxyzu(:,1:np),iorder(1:np))
- call copy_array(fext(:,1:np), iorder(1:np))
- if (mhd) then
-    call copy_array(Bevol(:,1:np),iorder(1:np))
-    !--also copy the Bfield here, as this routine is used in setup routines
-    call copy_array(Bxyz(:,1:np), iorder(1:np))
- endif
- if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
- if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
- if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),   iorder(1:np))
- if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),  iorder(1:np))
- if (maxgrav  ==maxp) call copy_array1(poten(1:np),      iorder(1:np))
-#ifdef IND_TIMESTEPS
- call copy_arrayint1(ibin(1:np),      iorder(1:np))
- call copy_arrayint1(ibin_old(1:np),  iorder(1:np))
- call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
- !call copy_array1(twas(1:np),          iorder(1:np))
-#endif
+ integer :: isrc
+ real    :: xtemp(ipartbufsize)
 
- return
+ do i=1,np
+    isrc = iorder(i)
+
+    ! If particle has already been moved
+    do while (isrc < i)
+       isrc = iorder(isrc)
+    enddo
+
+    ! Swap particles around
+    call fill_sendbuf(i,xtemp)
+    call copy_particle_all(isrc,i,.false.)
+    call unfill_buffer(isrc,xtemp)
+
+ enddo
+
 end subroutine reorder_particles
 
 !-----------------------------------------------------------------------
@@ -1393,6 +1398,7 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
+    call fill_buffer(xtemp,iorig(i),nbuf)
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
 
@@ -1461,6 +1467,7 @@ subroutine unfill_buffer(ipart,xbuf)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif
+ iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then
@@ -1533,7 +1540,7 @@ end subroutine copy_array1
 !----------------------------------------------------------------
 !+
 !  utility to reorder an array
-!  (real4, rank 1 arrays)
+!  (int1, rank 1 arrays)
 !+
 !----------------------------------------------------------------
 
@@ -1547,6 +1554,24 @@ subroutine copy_arrayint1(iarray,ilist)
 
  return
 end subroutine copy_arrayint1
+
+!----------------------------------------------------------------
+!+
+!  utility to reorder an array
+!  (int8, rank 1 arrays)
+!+
+!----------------------------------------------------------------
+
+subroutine copy_arrayint8(iarray,ilist)
+ integer(kind=8), intent(inout) :: iarray(:)
+ integer,         intent(in)    :: ilist(:)
+ integer(kind=8) :: iarraytemp(size(iarray(:)))
+
+ iarraytemp(:) = iarray(ilist(:))
+ iarray = iarraytemp
+
+ return
+end subroutine copy_arrayint8
 
 !----------------------------------------------------------------
 !+
@@ -1679,7 +1704,7 @@ subroutine accrete_particles_outside_sphere(radius)
  enddo
  !$omp end parallel do
 
-end subroutine
+end subroutine accrete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+
@@ -1705,7 +1730,7 @@ real function Omega_k(i)
     m_star = xyzmh_ptmass(4,1)
  else
     do j=1,nptmass
-       m_star = m_star + xyzmh_ptmass(4,j)
+       if (xyzmh_ptmass(4,j) > 0.) m_star = m_star + xyzmh_ptmass(4,j)
     enddo
  endif
 

@@ -38,22 +38,23 @@ module evwrite
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
-!   fileutils, io, nicil, options, part, ptmass, timestep, units, viscosity
+!   fileutils, gravwaveutils, io, nicil, options, part, ptmass, timestep,
+!   units, viscosity
 !
- use io,             only: fatal,iverbose
- use options,        only: iexternalforce
- use timestep,       only: dtmax_dratio
- use externalforces, only: iext_binary,was_accreted
- use energies,       only: inumev,iquantities,ev_data
- use energies,       only: ndead,npartall
- use energies,       only: gas_only,track_mass,track_lum
- use energies,       only: iev_sum,iev_max,iev_min,iev_ave
- use energies,       only: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
-                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
-                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etaar,iev_etao,iev_etah,&
-                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_vdrift,iev_n,iev_nR,iev_nT,&
-                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_ionise,iev_erad,iev_gws
+ use io,             only:fatal,iverbose
+ use options,        only:iexternalforce
+ use timestep,       only:dtmax_dratio
+ use externalforces, only:iext_binary,was_accreted
+ use energies,       only:inumev,iquantities,ev_data
+ use energies,       only:ndead,npartall
+ use energies,       only:gas_only,track_mass,track_lum
+ use energies,       only:iev_sum,iev_max,iev_min,iev_ave
+ use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
+                          iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
+                          iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
+                          iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
+                          iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
+                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -73,13 +74,14 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
- use io,        only: id,master,warning
- use dim,       only: maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve, &
-                      use_CMacIonize,gws
- use options,   only: calc_erot,ishock_heating,ipdv_heating,use_dustfrac
- use part,      only: igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
- use nicil,     only: use_ohm,use_hall,use_ambi,ion_rays,ion_thermal
- use viscosity, only: irealvisc
+ use io,        only:id,master,warning
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
+ use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use units,     only:c_is_unity
+ use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
+ use nicil,     only:use_ohm,use_hall,use_ambi
+ use viscosity, only:irealvisc
+ use gravwaveutils, only:calc_gravitwaves
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
@@ -135,40 +137,26 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,      iev_beta,   'beta_P', 'xan',i,j)
     if (mhd_nonideal) then
        call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
-       call fill_ev_tag(ev_fmt,   iev_etaar,  'eta_ar',   'xan',i,j)
        if (use_ohm) then
-          call fill_ev_tag(ev_fmt,iev_etao(1),'eta_o',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etao(2),'eta_o/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etao,   'eta_o',    'xan',i,j)
        endif
        if (use_hall) then
           call fill_ev_tag(ev_fmt,iev_etah(1),'eta_h',    'xan',i,j)
           call fill_ev_tag(ev_fmt,iev_etah(2),'|eta_h|',  'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etah(3),'eta_h/art','xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etah(4),'|e_h|/art','xan',i,j)
           call fill_ev_tag(ev_fmt,iev_vhall,  'v_hall',   'xan',i,j)
        endif
        if (use_ambi) then
-          call fill_ev_tag(ev_fmt,iev_etaa(1),'eta_a',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_etaa(2),'eta_a/art','xan',i,j)
+          call fill_ev_tag(ev_fmt,iev_etaa,   'eta_a',    'xan',i,j)
           call fill_ev_tag(ev_fmt,iev_vel,    'velocity', 'xan',i,j)
           call fill_ev_tag(ev_fmt,iev_vion,   'v_ion',    'xan',i,j)
-          call fill_ev_tag(ev_fmt,iev_vdrift, 'v_drift',  'xan',i,j)
        endif
        call fill_ev_tag(ev_fmt,   iev_n(1),   'ni/n(i+n)','xan',i,j)
        call fill_ev_tag(ev_fmt,   iev_n(2),   'ne/n(i+n)','xan',i,j)
        call fill_ev_tag(ev_fmt,   iev_n(3),   'n_e',      'xa', i,j)
        call fill_ev_tag(ev_fmt,   iev_n(4),   'n_n',      'xa', i,j)
-       if (ion_rays) then
-          call fill_ev_tag(ev_fmt,iev_nR(1),  'n_ihR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(2),  'n_imR',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(3),  'n_g(Z=-1)','xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(4),  'n_g(Z= 0)','xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nR(5),  'n_g(Z=+1)','xa', i,j)
-       endif
-       if (ion_thermal) then
-          call fill_ev_tag(ev_fmt,iev_nT(1),  'n_isT',    'xa', i,j)
-          call fill_ev_tag(ev_fmt,iev_nT(2),  'n_idT',    'xa', i,j)
-       endif
+       call fill_ev_tag(ev_fmt,   iev_n(5),   'n_g(Z=-1)','xa', i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(6),   'n_g(Z= 0)','xa', i,j)
+       call fill_ev_tag(ev_fmt,   iev_n(7),   'n_g(Z=+1)','xa', i,j)
     endif
  endif
  if (use_dustfrac) then
@@ -209,14 +197,16 @@ subroutine init_evfile(iunit,evfile,open_file)
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
- if (use_CMacIonize) then
-    call fill_ev_tag(ev_fmt,iev_ionise,'ion_frac','xan',i,j)
- endif
- if (gws) then
-    call fill_ev_tag(ev_fmt,iev_gws(1),'hx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(2),'hp','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(3),'hxx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(4),'hpp','0',i,j)
+
+ if (calc_gravitwaves) then
+    call fill_ev_tag(ev_fmt,iev_gws(1),'hx_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(2),'hp_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(3),'hx_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(4),'hp_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(5),'hx_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(6),'hp_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(7),'hx_{90}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(8),'hp_{90}','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)

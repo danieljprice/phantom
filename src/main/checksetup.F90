@@ -15,8 +15,8 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   io, metric_tools, options, part, physcon, sortutils, timestep, units,
-!   utils_gr
+!   gravwaveutils, io, metric_tools, nicil, options, part, physcon,
+!   sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -37,7 +37,8 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth,do_radiation,store_temperature
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
+                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -51,6 +52,8 @@ subroutine check_setup(nerror,nwarn,restart)
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
+ use nicil,           only:n_nden
+ use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
@@ -334,12 +337,28 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
  endif
 !
+!--check that if ccode=1 that all particles are gas particles
+!  otherwise warn that gravitational wave strain calculation is wrong
+!
+ if (calc_gravitwaves) then
+    if (any(npartoftype(2:) > 0)) then
+       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
+       nwarn = nwarn + 1
+    endif
+ endif
+!
 !--sanity checks on magnetic field
 !
  if (mhd) then
     if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
        print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
        nwarn = nwarn + 1
+    endif
+    if (mhd_nonideal) then
+       if (n_nden /= n_nden_phantom) then
+          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90'
+          nerror = nerror + 1
+       endif
     endif
  endif
 !
@@ -514,7 +533,9 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !  or within each others accretion radii
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     do j=i+1,nptmass
+       if (xyzmh_ptmass(4,j) < 0.) cycle
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
@@ -533,21 +554,20 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  n = 0
  do i=1,nptmass
-    if (.not.in_range(xyzmh_ptmass(4,i),0.)) then
+    if (.not.in_range(xyzmh_ptmass(4,i))) then
        nerror = nerror + 1
        print*,' Error in setup: sink ',i,' mass = ',xyzmh_ptmass(4,i)
-    elseif (xyzmh_ptmass(4,i) < tiny(0.)) then
+    elseif (xyzmh_ptmass(4,i) < 0.) then
+       print*,' Sink ',i,' has previously merged with another sink'
        n = n + 1
     endif
  enddo
- if (n > 0) then
-    print*,'WARNING: ',n,' sink particles have zero mass '
-    nwarn = nwarn + 1
- endif
+ if (n > 0) print*,'The ptmass arrays have ',n,' sinks that have previously merged (i.e. have mass < 0)'
  !
  !  check that accretion radii are positive
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
     if (hsink <= 0.) then
        nerror = nerror + 1
