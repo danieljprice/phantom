@@ -42,26 +42,26 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  corr=huge(0.);Tdot=0.;logd=log10(d);dt=0.9
  do n = 1, 500
     call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
-    if(d*erec>=eint)then ! avoid negative thermal energy
+    if (d*erec>=eint) then ! avoid negative thermal energy
        T = 0.9*T; Tdot=0.;cycle
-    end if
+    endif
     corr = (eint-(radconst*T**3+1.5*kb_on_mh*d*imu)*T-d*erec) &
        / ( -4.*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
-    if(abs(corr)>W4err*T)then
+    if (abs(corr)>W4err*T) then
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
        T = T-corr
        Tdot = 0.
-    end if
-    if(abs(corr)<eoserr*T)exit
-    if(n>50)dt=0.5
- end do
- if(n>500)then
+    endif
+    if (abs(corr)<eoserr*T)exit
+    if (n>50)dt=0.5
+ enddo
+ if (n>500) then
     print*,'Error in equationofstate_gasradrec'
     print*,'d=',d,'eint=',eint,'mu=',1./imu
     stop
- end if
+ endif
  p = ( kb_on_mh*imu*d + radconst*T**3/3. )*T
  gamma_eff = 1.+p/(eint-d*erec)
  cf = sqrt(gamma_eff*p/d)
@@ -101,16 +101,16 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
     else
        T = T - corr
        Tdot = 0.
-    end if
+    endif
     if (abs(corr) < eoserr*T) exit
     if (n > 50) dT = 0.5
- end do
+ enddo
  if (n > 500) then
     print*,'Error in calc_uT_from_rhoP_hormone'
     print*,'rho=',rhoi,'P=',presi,'mu=',1./imu
     ierr = 1
     return
- end if
+ endif
  eni = ( 1.5*kb_on_mh*imu + radconst*T**3/rhoi )*T + get_erec(logrhoi,T,X,Y)
  mui = 1./imu
 

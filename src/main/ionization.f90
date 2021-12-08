@@ -39,14 +39,14 @@ contains
   real,intent(in)::x
   real:: a,b,x2,rapid_tanhs
 
-  if(abs(x)>=tanh_edge)then
+  if (abs(x)>=tanh_edge) then
    rapid_tanhs = sign(1.,x)-tanh_c/x
   else
    x2 = x*x
    a = ((x2+105.)*x2+945.)*x
    b = ((x2+28.)*x2+63.)*15.
    rapid_tanhs = a/b
-  end if
+  endif
  end function rapid_tanhs
 
  function rapid_tanhv(x)
@@ -58,15 +58,15 @@ contains
   integer:: i
 
   do i = 1, size(x)
-   if(abs(x(i))>=tanh_edge)then
+   if (abs(x(i))>=tanh_edge) then
     rapid_tanhv(i) = sign(1.,x(i))-tanh_c/x(i)
    else
     x2 = x(i)*x(i)
     a = ((x2+105.)*x2+945.)*x(i)
     b = ((x2+28.)*x2+63.)*15.
     rapid_tanhv(i) = a/b
-   end if
-  end do
+   endif
+  enddo
  end function rapid_tanhv
 ! **************************************************************************
  function rapid_dtanhs(x)
@@ -75,14 +75,14 @@ contains
   real,intent(in)::x
   real:: a,b,x2,rapid_dtanhs
 
-  if(abs(x)>=tanh_edge)then
+  if (abs(x)>=tanh_edge) then
    rapid_dtanhs = dtanh_c/x**2
   else
    x2=x**2
    a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
    b = (x2+28.)*x2+63.
    rapid_dtanhs = a/(15.*b**2)
-  end if
+  endif
  end function rapid_dtanhs
 
  function rapid_dtanhv(x)
@@ -94,15 +94,15 @@ contains
   integer:: i
 
   do i = 1, size(x)
-   if(abs(x(i))>=tanh_edge)then
+   if (abs(x(i))>=tanh_edge) then
     rapid_dtanhv(i) = dtanh_c/(x(i)*x(i))
    else
     x2=x(i)**2
     a = (((x2-21.)*x2+420.)*x2-6615.)*x2+59535.
     b = (x2+28.)*x2+63.
     rapid_dtanhv(i) = a/(15.*b**2)
-   end if
-  end do
+   endif
+  enddo
  end function rapid_dtanhv
 ! **************************************************************************
  subroutine ionization_setup
@@ -144,11 +144,11 @@ contains
   implicit none
   real,intent(in):: x ! logd
 
-  if(x<edge)then
+  if (x<edge) then
    arec1 = arec1c(1)
   else
    arec1 = arec1c(2)
-  end if
+  endif
  end function arec1
 ! ***************************************************************************
  real function brec1(x)
@@ -156,11 +156,11 @@ contains
   implicit none
   real,intent(in):: x
 
-  if(x<edge)then
+  if (x<edge) then
    brec1 = brec1c(1)
   else
    brec1 = brec1c(2)
-  end if
+  endif
  end function brec1
 ! ***************************************************************************
 
@@ -185,7 +185,7 @@ contains
 
   xion(1:4) = 0.5*(rapid_tanh(arg(1:4))+1.)
 
-  if(present(dxion))then
+  if (present(dxion)) then
    dxion(1) = ( width(1)*(1.+2.*brec1(logd)) &
                 + 2.*crec(1)*(logT-Ttra(1))&
                   *(brec1(logd)*(1.+drec(1)*logQ)+drec(1)*Ttra(1)) )&
@@ -194,7 +194,7 @@ contains
                  + 2.*crec(2:4)*(logT-Ttra(2:4))&
                    *(brec(2:4)*(1.+drec(2:4)*logQ)+drec(2:4)*Ttra(2:4)) )&
                 / (2.*T*width(2:4)*width(2:4)) * rapid_dtanh(arg(2:4))
-  end if
+  endif
 
  end subroutine get_xion
 
@@ -216,21 +216,21 @@ contains
   e(3) = eion(3)*Y*0.25
   e(4) = eion(4)*Y*0.25
 
-  if(present(derecdT).or.present(dimurecdT))then
+  if (present(derecdT).or.present(dimurecdT)) then
    call get_xion(logd,T,X,Y,xi,zi)
   else
    call get_xion(logd,T,X,Y,xi)
-  end if
+  endif
 
   erec = sum(e(1:4)*xi(1:4))
-  if(present(derecdT))then
+  if (present(derecdT)) then
    derecdT = sum(e(1:4)*zi(1:4))
-  end if
+  endif
 
   imurec = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
-  if(present(dimurecdT))then
+  if (present(dimurecdT)) then
    dimurecdT = (0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y
-  end if
+  endif
 
   return
  end subroutine get_erec_imurec
@@ -248,16 +248,16 @@ contains
 ! CAUTION: This is only a poor man's way of implementing recombination energy.
 !          It only should be used for -3.5<logQ<-6 where logQ=logrho-2logT+12.
 
-  if(present(dimurecdT))then
+  if (present(dimurecdT)) then
    call get_xion(logd,T,X,Y,xi,zi)
   else
    call get_xion(logd,T,X,Y,xi)
-  end if
+  endif
 
   imurec = (0.5*xi(1)+xi(2))*X+0.25*(xi(3)+xi(4)-1.)*Y+0.5
-  if(present(dimurecdT))then
+  if (present(dimurecdT)) then
    dimurecdT = (0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y
-  end if
+  endif
 
   return
  end subroutine get_imurec
