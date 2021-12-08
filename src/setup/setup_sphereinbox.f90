@@ -43,13 +43,12 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, dim, domain, eos, infile_utils,
-!   io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
-!   setup_params, spherical, timestep, unifdis, units
+! :Dependencies: boundary, centreofmass, dim, domain, eos, eos_barotropic,
+!   infile_utils, io, kernel, options, part, physcon, prompting, ptmass,
+!   rho_profile, setup_params, spherical, timestep, unifdis, units
 !
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic
- use ptmass,  only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  use options, only:calc_erot
  implicit none
  public :: setpart
@@ -61,8 +60,9 @@ module setup
  real :: angvel,Bzero_G,masstoflux,dusttogas,pmass_dusttogas,ang_Bomega
  real :: rho_pert_amp,lbox
  real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
+ real :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup
  real(kind=8)                 :: udist,umass
- integer                      :: np,iBEparam
+ integer                      :: np,iBEparam,icreate_sinks_setup
  logical                      :: BEsphere,binary,mu_not_B,cs_in_code
  character(len=20)            :: dist_unit,mass_unit
  character(len= 1), parameter :: labelx(3) = (/'x','y','z'/)
@@ -84,13 +84,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos,rhocrit0cgs
+ use eos,          only:polyk2,ieos,gmw
+ use eos_barotropic, only:rhocrit0cgs
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
  use domain,       only:i_belong
+ use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -239,13 +241,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
        call prompt('Enter the accretion radius of the sink (with units; e.g. au,pc,kpc,0.1pc) ',h_acc_char)
        call select_unit(h_acc_char,h_acc_in,ierr)
-       h_acc = h_acc_in
+       h_acc_setup = h_acc_in
        if (ierr==0 ) h_acc = h_acc/udist
-       r_crit        = 5.0*h_acc
-       icreate_sinks = 1
-       if (binary) h_soft_sinksink = 0.4*h_acc
+       r_crit_setup        = 5.0*h_acc_setup
+       icreate_sinks_setup = 1
+       if (binary) h_soft_sinksink_setup = 0.4*h_acc_setup
     else
-       icreate_sinks = 0
+       icreate_sinks_setup = 0
     endif
     if (id==master) call write_setupfile(filename)
     stop 'please edit .setup file and rerun phantomsetup'
@@ -271,7 +273,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iBE = 8192
     allocate(rtab(iBE),rhotab(iBE))
     call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
-                         iBE,iBElast,rtab,rhotab,ierr)
+                         gmw,iBE,iBElast,rtab,rhotab,ierr)
     central_density = BErho_cen
     r_sphere        = BErad_phys
     totmass_sphere  = BEmass
@@ -315,7 +317,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! magnetic field
  !
- rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi)
+ rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi) ! code units *see derivation at the end of the file*
  if (mhd) then
     area = pi*r_sphere**2
     if (mu_not_B) then
@@ -389,7 +391,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
-    npartoftype(idust) = npart_total - npartoftype(igas)
+    npartoftype(idust) = int(npart_total) - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
 
     do i = npartoftype(igas)+1,npart
@@ -462,6 +464,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     nfulldump    = 1
     calc_erot    = .true.
     dtmax_dratio = 1.258
+    icreate_sinks   = icreate_sinks_setup
+    r_crit          = r_crit_setup
+    h_acc           = h_acc_setup
+    h_soft_sinksink = h_soft_sinksink_setup
     if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
@@ -576,13 +582,13 @@ subroutine write_setupfile(filename)
  if (binary) then
     call write_inopt(rho_pert_amp,'rho_pert_amp','amplitude of density perturbation',iunit)
  endif
- write(iunit,"(/,a)") '# Sink properties (will overwrite values in .in file if present)'
- call write_inopt(icreate_sinks,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
- if (icreate_sinks==1) then
-    call write_inopt(h_acc,'h_acc','accretion radius (code units)',iunit)
-    call write_inopt(r_crit,'r_crit','critical radius (code units)',iunit)
+ write(iunit,"(/,a)") '# Sink properties (values in .in file, if present, will take precedence)'
+ call write_inopt(icreate_sinks_setup,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
+ if (icreate_sinks_setup==1) then
+    call write_inopt(h_acc_setup,'h_acc','accretion radius (code units)',iunit)
+    call write_inopt(r_crit_setup,'r_crit','critical radius (code units)',iunit)
     if (binary) then
-       call write_inopt(h_soft_sinksink,'h_soft_sinksink','sink-sink softening radius (code units)',iunit)
+       call write_inopt(h_soft_sinksink_setup,'h_soft_sinksink','sink-sink softening radius (code units)',iunit)
     endif
  endif
  close(iunit)
@@ -662,12 +668,12 @@ subroutine read_setupfile(filename,ierr)
  if (binary) then
     call read_inopt(rho_pert_amp,'rho_pert_amp',db,ierr)
  endif
- call read_inopt(icreate_sinks,'icreate_sinks',db,ierr)
- if (icreate_sinks==1) then
-    call read_inopt(h_acc,'h_acc',db,ierr)
-    call read_inopt(r_crit,'r_crit',db,ierr)
+ call read_inopt(icreate_sinks_setup,'icreate_sinks',db,ierr)
+ if (icreate_sinks_setup==1) then
+    call read_inopt(h_acc_setup,'h_acc',db,ierr)
+    call read_inopt(r_crit_setup,'r_crit',db,ierr)
     if (binary) then
-       call read_inopt(h_soft_sinksink,'h_soft_sinksink',db,ierr)
+       call read_inopt(h_soft_sinksink_setup,'h_soft_sinksink',db,ierr)
     endif
  endif
  call close_db(db)
@@ -691,4 +697,24 @@ subroutine read_setupfile(filename,ierr)
 
 end subroutine read_setupfile
 !----------------------------------------------------------------
+ !--Magnetic flux justification
+ !  This shows how the critical mass-to-flux values translates from CGS to code units.
+ !
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)                                ! cgs units of g G^-1 cm^-2
+ ! convert base units from cgs to code:
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *unit_Bfield*udist**2/umass
+ ! where
+ ! unit_Bfield   = umass/(utime*sqrt(umass*udist/4*pi)) = sqrt(4.*pi*umass)/(utime*sqrt(udist))
+ ! therefore
+ ! rmasstoflux_crit = 0.53/(3*pi)*sqrt(5./G)    *sqrt(4.*pi*umass)*udist**2/(utime*sqrt(udist)*umass)
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*sqrt(umass)*udist**2/(utime*sqrt(udist)*umass)
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./(G*pi))*udist**1.5/ (sqrt(umass)*utime)
+ ! where
+ ! G [cgs] = 1 * udist**3/(umass*utime**2)
+ ! therefore
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)    *udist**1.5/ (sqrt(umass)*utime) / sqrt(udist**3/(umass*utime**2))
+ ! rmasstoflux_crit = (2/3)*0.53*sqrt(5./pi)                                ! code units
+
+!----------------------------------------------------------------
+
 end module setup

@@ -83,12 +83,12 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             labeltype,maxtypes
  use eos,              only:eosinfo
- use cooling,          only:cooling_implicit,cooling_explicit
+ use cooling,          only:cooling_implicit,cooling_explicit,Tfloor,ufloor
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
- use units,            only:print_units
+ use units,            only:print_units,unit_ergg
  use dust,             only:print_dustinfo
  use growth,           only:print_growthinfo
 #ifdef GR
@@ -170,11 +170,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
     if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
-    if (cooling_implicit) then
-       write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
-       write(iprint,"(1x,a)") 'WARNING!  Implicit cooling timestep has not been properly initialised!!!'
-       ! The initial cooling timestep is an explicit timestep that neglects heating; all subsequent (non-restart)
-       ! cooling timesteps are correct.  JHW
+    if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
+    if (ufloor > 0.) then
+       write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
+       ufloor*unit_ergg,' erg/g = ',ufloor,' code units'
     endif
     call eosinfo(ieos,iprint)
 

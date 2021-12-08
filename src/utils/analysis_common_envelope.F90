@@ -249,9 +249,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ang_vel = 0.
 
     do i=1,nptmass
-       xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
-       vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
-       ang_vel = ang_vel + (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+       if (xyzmh_ptmass(4,i) > 0.) then
+          xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
+          vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
+          ang_vel = ang_vel + (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+       endif
     enddo
 
     ang_vel = ang_vel / 2.
@@ -582,10 +584,11 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
     encomp(ipot_env) = encomp(ipot_env) + phii1 * particlemass
 
     do j=1,nptmass
-       r_ij = separation(xyzmh_ptmass(1:3,j),xyzh(1:3,i))
-
-       if (r_ij < 80.) then
-          inearsink = .true.
+       if (xyzmh_ptmass(4,j) > 0.) then
+          r_ij = separation(xyzmh_ptmass(1:3,j),xyzh(1:3,i))
+          if (r_ij < 80.) then
+             inearsink = .true.
+          endif
        endif
     enddo
 
@@ -613,23 +616,27 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
  enddo
 
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), rcrossmv)
 
-    call cross(xyzmh_ptmass(1:3,i), xyzmh_ptmass(4,i)*vxyz_ptmass(1:3,i), rcrossmv)
-
-    jz = rcrossmv(3)
-    encomp(ijz_tot) = jz + encomp(ijz_tot)
-    encomp(ijz_orb) = jz + encomp(ijz_orb)
-    encomp(ikin_sink) = encomp(ikin_sink) + 0.5 * xyzmh_ptmass(4,i) * distance(vxyz_ptmass(1:3,i))**2
-    if (i==2) encomp(iorb_comp) = encomp(iorb_comp) + 0.5 * xyzmh_ptmass(4,i) * distance(vxyz_ptmass(1:3,i))**2
+       jz = rcrossmv(3)
+       encomp(ijz_tot) = jz + encomp(ijz_tot)
+       encomp(ijz_orb) = jz + encomp(ijz_orb)
+       encomp(ikin_sink) = encomp(ikin_sink) + 0.5 * xyzmh_ptmass(4,i) * distance(vxyz_ptmass(1:3,i))**2
+       if (i==2) encomp(iorb_comp) = encomp(iorb_comp) + 0.5 * xyzmh_ptmass(4,i) * distance(vxyz_ptmass(1:3,i))**2
+    endif
  enddo
 
  do i=1,nptmass-1
-    do j=i+1,nptmass
-       r_ij = separation(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,j))
-
-       encomp(ipot_sink) = encomp(ipot_sink) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
-       if (i==1 .and. j==2) encomp(iorb_comp) = encomp(iorb_comp) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
-    enddo
+    if (xyzmh_ptmass(4,i) > 0.) then
+       do j=i+1,nptmass
+          if (xyzmh_ptmass(4,j) > 0.) then
+             r_ij = separation(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,j))
+             encomp(ipot_sink) = encomp(ipot_sink) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
+             if (i==1 .and. j==2) encomp(iorb_comp) = encomp(iorb_comp) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
+          endif
+       enddo
+    endif
  enddo
 
  ekin = encomp(ikin_bound) + encomp(ikin_unbound) + encomp(ikin_sink)
@@ -1056,7 +1063,9 @@ subroutine print_simulation_parameters(npart,particlemass)
  write(*,"(2(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist
 
  do i=1,nptmass
-    write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
+    if (xyzmh_ptmass(4,i) > 0.) then
+       write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),' and h_soft = ',xyzmh_ptmass(ihsoft,i)
+    endif
  enddo
  write(*,"(A,ES10.3)")  'Sink-sink separation: ', separation(xyzmh_ptmass(1:3,1), xyzmh_ptmass(1:3,2))
 
@@ -2132,7 +2141,7 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
              '       CoM vz' /)
 
  fxyz_ptmass = 0.
- call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.)
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
  fssxyz_ptmass = fxyz_ptmass
  do i=1,npart
     call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
@@ -2461,6 +2470,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of gas particles
     force_cut_vec = 0.
     fxyz_ptmass = 0.
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
+
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
     call logspace(Rcut,0.4,2.5)

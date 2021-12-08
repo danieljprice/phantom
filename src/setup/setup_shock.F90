@@ -16,7 +16,6 @@ module setup
 !   - C_AD        : *Ambipolar diffusion coefficient*
 !   - C_HE        : *Hall effect coefficient*
 !   - C_OR        : *Ohmic resistivity coefficient*
-!   - C_nimhd     : *non-ideal MHD timestep coefficient*
 !   - K_code      : *Constant drag coefficient*
 !   - dtg         : *Dust to gas ratio*
 !   - dtmax       : *time between dumps*
@@ -46,7 +45,7 @@ module setup
  use dust,      only:K_code
  use eos,       only:ieos,gmw
 #ifdef NONIDEALMHD
- use nicil,     only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,C_nimhd,rho_i_cnst
+ use nicil,     only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,rho_i_cnst
 #endif
 
  implicit none
@@ -509,7 +508,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        gamma_AD   = 1.0
        rho_i_cnst = 1.0d-5
        C_AD       = 1.0/(gamma_AD*rho_i_cnst)
-       C_nimhd    = 0.25/pi
 #endif
     endif
     gamma      =  1.0
@@ -724,7 +722,6 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  call write_inopt(C_OR,'C_OR','Ohmic resistivity coefficient',lu,ierr1)
  call write_inopt(C_HE,'C_HE','Hall effect coefficient',lu,ierr1)
  call write_inopt(C_AD,'C_AD','Ambipolar diffusion coefficient',lu,ierr1)
- call write_inopt(C_nimhd,'C_nimhd','non-ideal MHD timestep coefficient',lu,ierr1)
 #endif
 
  close(unit=lu)
@@ -785,7 +782,6 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(C_OR,'C_OR',db,errcount=nerr)
  call read_inopt(C_HE,'C_HE',db,errcount=nerr)
  call read_inopt(C_AD,'C_AD',db,errcount=nerr)
- call read_inopt(C_nimhd,'C_nimhd',db,errcount=nerr)
 #endif
 
  if (nerr > 0) then

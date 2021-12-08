@@ -12,7 +12,7 @@ Obtaining a stable copy of the code
 
 ::
 
-   $ git clone https://bitbucket.org/danielprice/phantom
+   $ git clone https://github.com/danieljprice/phantom
    $ cd phantom
    $ git checkout stable
 
@@ -33,18 +33,3 @@ Switching back to the developer version
 
    $ cd phantom
    $ git checkout master
-
-What if I accidentally make commits to the stable branch?
----------------------------------------------------------
-
-You can commit to a local copy of the stable branch but you cannot push
-this to bitbucket. If these are changes which should be incorporated,
-you should first merge your stable branch with master, then push as
-usual. That is:
-
-::
-
-   $ cd phantom
-   $ git checkout master
-   $ git merge stable
-   $ git push

@@ -1,27 +1,17 @@
 Forking Phantom
 ===============
 
-Warning
--------
-
-This instructions on this page are out of date.
-
-
 Why fork?
 ---------
 
-You can work on a fork of Phantom if you wish to keep local changes
-without having to push them into the public code. We discourage this in
-general, because it is nearly impossible to merge changes in code which
-diverged from the master code a long time ago. But, warning heeded, here
-is how to do it…
+Working on a fork allows you to work on your own copy of phantom, contributing code back to the main code via a "pull request"
 
 How to fork
 -----------
 
 First, click “Fork this repository” on the main phantom repository in
-bitbucket. You then have your own bitbucket copy of Phantom in
-bitbucket.org/USERNAME/phantom
+github. You then have your own copy of Phantom in
+github.com/USERNAME/phantom
 
 How to work on your fork
 ------------------------
@@ -30,7 +20,7 @@ Clone a copy of your fork onto a local machine
 
 ::
 
-   git clone https://bitbucket.org/USERNAME/phantom
+   git clone https://github.com/USERNAME/phantom
 
 push and pull from your fork as you would with the regular phantom
 repository
@@ -42,7 +32,7 @@ First, make a remote branch that tracks the main repo:
 
 ::
 
-   git remote add upstream https://bitbucket.org/danielprice/phantom
+   git remote add upstream https://github.com/danieljprice/phantom
    git fetch upstream
 
 Then every time you want to update, in your forked copy, type:
