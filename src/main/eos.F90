@@ -129,7 +129,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
- 
+
  select case(eos_type)
  case(1)
 !
@@ -571,7 +571,7 @@ subroutine init_eos(eos_type,ierr)
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
-    if (irecomb == 1) then 
+    if (irecomb == 1) then
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
        eion(1:2) = 0.  ! He recombination only

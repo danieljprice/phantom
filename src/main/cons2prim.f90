@@ -253,12 +253,12 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei,mu_local=mui)
        endif
 
-       
+
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
        if (use_variable_composition) eos_vars(imu,i) = mui
-       
+
       !  if (xi**2+yi**2+zi**2<0.5) then
       !     print*,eos_vars(igasP,i),eos_vars(itemp,i),eos_vars(imu,i)
       !     read*

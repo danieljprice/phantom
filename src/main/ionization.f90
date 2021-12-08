@@ -38,7 +38,7 @@ contains
   implicit none
   real,intent(in)::x
   real:: a,b,x2,rapid_tanhs
-  
+
   if(abs(x)>=tanh_edge)then
    rapid_tanhs = sign(1.,x)-tanh_c/x
   else
@@ -56,7 +56,7 @@ contains
   real,dimension(size(x)):: rapid_tanhv
   real:: a,b,x2
   integer:: i
-  
+
   do i = 1, size(x)
    if(abs(x(i))>=tanh_edge)then
     rapid_tanhv(i) = sign(1.,x(i))-tanh_c/x(i)
@@ -74,7 +74,7 @@ contains
   implicit none
   real,intent(in)::x
   real:: a,b,x2,rapid_dtanhs
-  
+
   if(abs(x)>=tanh_edge)then
    rapid_dtanhs = dtanh_c/x**2
   else
@@ -92,7 +92,7 @@ contains
   real,dimension(size(x)):: rapid_dtanhv
   real:: a,b,x2
   integer:: i
-  
+
   do i = 1, size(x)
    if(abs(x(i))>=tanh_edge)then
     rapid_dtanhv(i) = dtanh_c/(x(i)*x(i))
@@ -163,7 +163,7 @@ contains
   end if
  end function brec1
 ! ***************************************************************************
- 
+
  subroutine get_xion(logd,T,X,Y,xion,dxion)
 ! PURPOSE: Get ionization fractions (and dxdT) given rho and T
   implicit none
@@ -199,7 +199,7 @@ contains
  end subroutine get_xion
 
 ! ***************************************************************************
- 
+
  subroutine get_erec_imurec(logd,T,X,Y,erec,imurec,derecdT,dimurecdT)
 ! PURPOSE: Get recombination energy and mean molecular weight given rho and T
   implicit none
@@ -236,7 +236,7 @@ contains
  end subroutine get_erec_imurec
 
 ! ***************************************************************************
- 
+
  subroutine get_imurec(logd,T,X,Y,imurec,dimurecdT)
 ! PURPOSE: Get the mean molecular weight for partially ionised plasma
   implicit none
@@ -258,7 +258,7 @@ contains
   if(present(dimurecdT))then
    dimurecdT = (0.5*zi(1)+zi(2))*X+0.25*(zi(3)+zi(4))*Y
   end if
-  
+
   return
  end subroutine get_imurec
 

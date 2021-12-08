@@ -66,8 +66,8 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  gamma_eff = 1.+p/(eint-d*erec)
  cf = sqrt(gamma_eff*p/d)
 end subroutine equationofstate_gasradrec
-   
-   
+
+
 !-----------------------------------------------------------------------
 !+
 !  Solve for u and T (and mu) from rho and P (ideal gas + radiation + recombination)
