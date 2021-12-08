@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(28(a,/))", &
+    print "(29(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -112,18 +112,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '26) Envelope binding energy', &
             '27) Print dumps number matching separation', &
             '28) Companion mass coordinate vs. time', &
-            '29) Energy histogram'
+            '29) Energy histogram',&
+            '30) Analyse disk'
 
     analysis_to_perform = 1
 
-    call prompt('Choose analysis type ',analysis_to_perform,1,29)
+    call prompt('Choose analysis type ',analysis_to_perform,1,30)
 
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
 
@@ -187,6 +188,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call m_vs_t(time,npart,particlemass,xyzh)
  case(29) ! Energy histogram
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
+ case(30) ! Analyse disk around companion
+    call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -351,7 +354,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  real                           :: rhopart,ponrhoi,spsoundi,dum
  real, dimension(3)             :: rcrossmv
  real, dimension(28)            :: bound
- integer                        :: i,bound_i,ncols,iorder(npart),j
+ integer                        :: i,bound_i,ncols
  integer, parameter             :: ib=1,ibt=9,ibe=17
  character(len=17), allocatable :: columns(:)
 
@@ -2704,6 +2707,77 @@ subroutine print_dump_numbers(dumpfile)
  endif
 
 end subroutine print_dump_numbers
+
+
+!----------------------------------------------------------------
+!+
+!  Analyse disk
+!+
+!----------------------------------------------------------------
+subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
+ use part, only:eos_vars,itemp
+ use extern_corotate, only:get_companion_force
+ integer, intent(in)             :: num,npart
+ real, intent(in)                :: particlemass
+ real, intent(inout)             :: xyzh(:,:),vxyzu(:,:)
+ character(len=17), allocatable  :: columns(:)
+ real, allocatable               :: data(:,:)
+ real                            :: diskz,diskR2,diskR1,R,omegai,phii,rhopart,ponrhoi,spsoundi,&
+                                    epoti,ekini,ethi,Ji(3),vrel2,fxi,fyi,fzi
+ integer                         :: ncols,i
+
+ ncols = 9
+ allocate(columns(ncols),data(ncols,npart))
+ data = -1.
+ columns = (/'          R',&  ! cylindrical radius w.r.t companion
+             '          E',&  ! specific energy (kin+pot only) w.r.t. companion
+             '      Omega',&  ! angular momentum w.r.t. companion
+             '         Jx',&  ! specific angular momentum components
+             '         Jy',&
+             '         Jz',&
+             '       ekin',&
+             '       epot',&  ! gravitational potential energy due to companion only
+             '     etherm'/)
+
+ ! Set disk dimensions
+ diskz  = 50.  ! disk half-thickness
+ diskR1 = 5.   ! disk inner radius 
+ diskR2 = 150.  ! disk outer radius
+
+ do i=1,npart
+    ! Skip if particle is not within the defined disk
+    if (abs(xyzh(3,i) - xyzmh_ptmass(3,2)) > diskz) cycle
+    R = sqrt( (xyzh(1,i) - xyzmh_ptmass(1,2))**2 + (xyzh(2,i) - xyzmh_ptmass(2,2))**2 )
+    if ( (R > diskR2) .or. (R < diskR1) ) cycle
+
+    vrel2 = (vxyzu(1,i) - vxyz_ptmass(1,2))**2 + (vxyzu(2,i) - vxyz_ptmass(2,2))**2 + (vxyzu(3,i) - vxyz_ptmass(3,2))**2
+    ekini = 0.5*particlemass*vrel2
+
+    ! Calculate gravitational potential due to companion only
+    phii = 0.
+    call get_companion_force(xyzh(1:3,i),fxi,fyi,fzi,phii)
+    epoti = phii*particlemass
+
+    ! Calculate thermal energy
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+
+    call get_gas_omega(xyzmh_ptmass(1:3,2),vxyz_ptmass(1:3,2),xyzh(1:3,i),vxyzu(1:3,i),omegai)
+    call cross(xyzh(1:3,i)-xyzmh_ptmass(1:3,2), vxyzu(1:3,i)-vxyz_ptmass(1:3,2), Ji)
+
+    data(1,i) = R
+    data(2,i) = (ekini+epoti) / particlemass
+    data(3,i) = omegai
+    data(4:6,i) = Ji
+    data(7,i) = ekini
+    data(8,i) = epoti
+    data(9,i) = ethi
+ enddo
+ call write_file('companion_disk','companion_disk',columns,data,npart,ncols,num)
+ deallocate(columns)
+
+end subroutine analyse_disk
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!
