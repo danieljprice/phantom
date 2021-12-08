@@ -319,15 +319,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
-   !  if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
-   !     allocate(mu(npts))
-   !     do i = 1,npts
-   !        eni = en(i)*unit_ergg
-   !        tempi = temp(i)
-   !        call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_pressure,eni,tempi,ierr,guesseint=eni,&
-   !                               mu_local=mu(i),X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
-   !     enddo
-   !  endif
+    !  if ((eos_outputs_mu(ieos)) .and. (isoftcore<=0)) then  ! solve for mu
+    !     allocate(mu(npts))
+    !     do i = 1,npts
+    !        eni = en(i)*unit_ergg
+    !        tempi = temp(i)
+    !        call calc_temp_and_ene(den(i)*unit_density,pres(i)*unit_pressure,eni,tempi,ierr,guesseint=eni,&
+    !                               mu_local=mu(i),X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
+    !     enddo
+    !  endif
  case(ikepler)
     call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
     if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
@@ -598,12 +598,12 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     end select
 
     if ((.not. use_variable_composition) .and. (isoftcore<=0)) then
-      if ( (ieos==12) .or. (ieos==2) ) call prompt('Enter mean molecular weight',gmw,0.)
-      if ( (ieos==10) .or. (ieos==20) ) then
-         call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
-         call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
-      endif
-   endif
+       if ( (ieos==12) .or. (ieos==2) ) call prompt('Enter mean molecular weight',gmw,0.)
+       if ( (ieos==10) .or. (ieos==20) ) then
+          call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
+          call prompt('Enter metals mass fraction (Z)',Z_in,0.,1.)
+       endif
+    endif
  endif
  call prompt('Relax star automatically during setup?',relax_star_in_setup)
 
