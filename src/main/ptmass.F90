@@ -32,11 +32,10 @@ module ptmass
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
-! :Dependencies: boundary, dim, domain, eos, externalforces, fastmath,
-!   infile_utils, io, io_summary, kdtree, kernel, linklist, mpiutils,
-!   options, part, units
+! :Dependencies: boundary, dim, domain, eos, eos_piecewise, externalforces,
+!   fastmath, infile_utils, io, io_summary, kdtree, kernel, linklist,
+!   mpiutils, options, part, units
 !
- use dim,  only:maxptmass
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,iskfile,id,master
  implicit none
@@ -125,9 +124,9 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
- real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi
- real,    optional, intent(inout) :: fxyz_ptmass(4,maxptmass)
+ real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj
@@ -244,8 +243,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use externalforces, only:externalforce
  use kernel,         only:kernel_softening,radkern
  integer, intent(in)  :: nptmass
- real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(out) :: fxyz_ptmass(4,maxptmass)
+ real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(out) :: fxyz_ptmass(4,nptmass)
  real,    intent(out) :: phitot,dtsinksink
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: ti
@@ -443,9 +442,9 @@ end subroutine ptmass_boundary_crossing
 subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dt
- real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(inout) :: vxyz_ptmass(3,maxptmass)
- real,    intent(in)    :: fxyz_ptmass(4,maxptmass)
+ real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(4,nptmass)
  real    :: vxhalfi,vyhalfi,vzhalfi
  integer :: i
 
@@ -479,8 +478,8 @@ subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iext
  use externalforces, only:update_vdependent_extforce_leapfrog,is_velocity_dependent
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dt
- real,    intent(inout) :: vxyz_ptmass(3,maxptmass)
- real,    intent(in)    :: fxyz_ptmass(4,maxptmass), xyzmh_ptmass(nsinkproperties,maxptmass)
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(4,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
  integer, intent(in)    :: iexternalforce
  real :: vxhalfi,vyhalfi,vzhalfi
  real :: fxi,fyi,fzi,fextv(3)
@@ -608,8 +607,8 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  integer,           intent(in)    :: is,nptmass,itypei
  real,              intent(in)    :: xi,yi,zi,pmassi,vxi,vyi,vzi,fxi,fyi,fzi,time,facc
  real,              intent(inout) :: hi
- real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,              intent(in)    :: vxyz_ptmass(3,maxptmass)
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)    :: vxyz_ptmass(3,nptmass)
  logical,           intent(out)   :: accreted
  real,              intent(inout) :: dptmass(:,:)
  integer(kind=1),   intent(in)    :: nbinmax
@@ -848,7 +847,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
- use dim,    only:maxp,maxneigh,maxvxyzu
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
@@ -859,7 +858,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  use part,     only:ibin,ibin_wake
 #endif
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use eos,      only:equationofstate,gamma,gamma_pwp,utherm
+ use eos,           only:equationofstate,gamma,utherm
+ use eos_piecewise, only:gamma_pwp
  use options,  only:ieos
  use units,    only:unit_density
  use io_summary, only:summary_variable_rhomax,summary_ptmass_fail, &
@@ -869,10 +869,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  integer,         intent(inout) :: nptmass
  integer,         intent(in)    :: npart,itest
  real,            intent(inout) :: xyzh(:,:)
- real,            intent(in)    :: vxyzu(:,:), fxyzu(:,:), fext(:,:), massoftype(:)
+ real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
- real,            intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,            intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,            intent(inout) :: xyzmh_ptmass(:,:)
+ real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei
  integer            :: nneigh
@@ -1411,8 +1411,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
  use part,  only:ispinx,ispiny,ispinz,imacc
  real,    intent(in)    :: time
  integer, intent(in)    :: nptmass,merge_ij(nptmass)
- real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass)
- real,    intent(inout) :: vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
+ real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
  integer :: i,j
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1
@@ -1475,13 +1475,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
              ! print success
-             write(iprint,"(/,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
-             write(iprint,"(/, a,I8,a,I8,a,F10.4)") &
+             write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
              'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
-          write(iprint,"(/,a,I8,a,I8,a,F10.4)") &
+          write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
           'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
        endif
     endif

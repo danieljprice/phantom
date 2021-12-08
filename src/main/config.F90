@@ -282,15 +282,6 @@ module dim
 #endif
 
 !--------------------
-! Gravitational wave strain
-!--------------------
-#ifdef GWS
- logical, parameter :: gws = .true.
-#else
- logical, parameter :: gws = .false.
-#endif
-
-!--------------------
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1
@@ -339,6 +330,15 @@ module dim
  logical, parameter :: particles_are_injected = .true.
 #else
  logical, parameter :: particles_are_injected = .false.
+#endif
+
+!--------------------
+! individual timesteps
+!--------------------
+#ifdef IND_TIMESTEPS
+ logical, parameter :: ind_timesteps = .true.
+#else
+ logical, parameter :: ind_timesteps = .false.
 #endif
 
  !--------------------
