@@ -207,7 +207,7 @@ end subroutine read_opacity_mesa
 
 
 
-! Return value of kappa for a value of density and temperature
+! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 
  real, intent(in) :: rho,temp
