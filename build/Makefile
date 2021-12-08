@@ -3039,6 +3039,7 @@ err:
 
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
+	cd $(BINDIR); rm -f phantom phantomsetup
 ifeq ($(KROME),krome)
 	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
 endif
