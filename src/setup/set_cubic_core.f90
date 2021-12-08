@@ -7,7 +7,7 @@
 module setcubiccore
 !
 ! This module softens the core of a MESA stellar profile with a cubic
-!   density profile, given a softening length and core mass, in preparation
+!   density profile, given a core radius core mass, in preparation
 !   for adding a sink particle core.
 !
 ! :References: For cubic spline softening of sink gravity, see Price &
