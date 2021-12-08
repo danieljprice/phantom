@@ -470,7 +470,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  write(1,'(a)') headers
  do i=1,size(r)
     write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
-    101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
     do j=1,noptionalcols
        if (j==noptionalcols) then
           write(1,'(2x,es13.6)') optionalcols(i,j)

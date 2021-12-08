@@ -31,7 +31,7 @@ module timing
     character(len=20) :: label
     real(kind=4) :: wall
     real(kind=4) :: cpu
- end type
+ end type timer
 
  private
 
