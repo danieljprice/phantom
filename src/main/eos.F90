@@ -566,6 +566,10 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_shen_NL3(ierr)
 
  case(20)
+    if (do_radiation) then
+       call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
+       ierr = ierr_option_conflict
+    endif
     if (irecomb == 1) then 
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
