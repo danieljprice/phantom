@@ -553,7 +553,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
 
  if (iprofile==imesa) then
     call prompt('Use variable composition?',use_variable_composition)
-    
+
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &

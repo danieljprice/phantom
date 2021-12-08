@@ -441,7 +441,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, allocatable               :: optionalcols(:,:)
 
  headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
- 
+
  ! Add optional columns
  allocate(optionalcols(size(r),10))
  noptionalcols = 0

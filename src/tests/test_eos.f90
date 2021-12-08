@@ -99,7 +99,7 @@ end subroutine test_init
 
 !----------------------------------------------------------------------------
 !+
-!  test ideal gas plus radiation eos: Check that P, T calculated from rho, u gives back 
+!  test ideal gas plus radiation eos: Check that P, T calculated from rho, u gives back
 !  rho, u (assume fixed composition)
 !+
 !----------------------------------------------------------------------------
@@ -123,18 +123,18 @@ subroutine test_idealplusrad(ntests, npass)
  errmax = 1
  ieos = 12
  mu = 0.6
- 
+
  ! Initialise grids in Q and T (cgs units)
  npts = 10
  logQmin = -6.
  logQmax = -2.
  logTmin = 3.
  logTmax = 8.
- 
+
  ! Note: logQ = logrho - 2logT + 12 in cgs units
  delta_logQ = (logQmax-logQmin)/real(npts-1,kind=kind(mu))
  delta_logT = (logTmax-logTmin)/real(npts-1,kind=kind(mu))
- 
+
  allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
  nfailed = 0
  do i=1,npts
@@ -171,7 +171,7 @@ end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+
-!  test HORMONE eos's: Check that P, T calculated from rho, u gives back 
+!  test HORMONE eos's: Check that P, T calculated from rho, u gives back
 !  rho, u
 !+
 !----------------------------------------------------------------------------
@@ -189,26 +189,26 @@ subroutine test_hormone(ntests, npass)
  real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,imurec,logQi,logTi,mu,eni_code,&
                            presi,pres2,dum,csound,eni,tempi,ponrhoi,X,Z,tol,errmax(1),gasrad_eni,eni2,rhocodei
  real, allocatable      :: rhogrid(:),Tgrid(:)
- 
+
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
- 
+
  ncheck = 0
  errmax = 1
  ieos = 20
  X = 0.7
  Z = 0.02
- 
+
  ! Initialise grids in Q and T (cgs units)
  npts = 10
  logQmin = -6.
  logQmax = -3.5
  logTmin = 3.
  logTmax = 8.
- 
+
  ! Note: logQ = logrho - 2logT + 12 in cgs units
  delta_logQ = (logQmax-logQmin)/real(npts-1)
  delta_logT = (logTmax-logTmin)/real(npts-1)
- 
+
  allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
  nfailed = 0
  do i=1,npts
@@ -217,7 +217,7 @@ subroutine test_hormone(ntests, npass)
     rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
     Tgrid(i) = 10.**logTi
  enddo
- 
+
  ! Testing
  dum = 0.
  tol = 1.e-12
@@ -249,7 +249,7 @@ subroutine test_hormone(ntests, npass)
     enddo
  enddo
  call update_test_scores(ntests,nfailed,npass)
-  
+
 end subroutine test_hormone
 
 
