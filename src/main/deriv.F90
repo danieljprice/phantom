@@ -187,7 +187,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
 #ifdef SINK_RADIATION
  !compute dust temperature
- if (maxvxyzu >= 4) call get_dust_temperature_from_ptmass(npart,xyzh,nptmass,xyzmh_ptmass,dust_temp)
+ call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
 #endif
 !
 ! set new timestep from Courant/forces condition

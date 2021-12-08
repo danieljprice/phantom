@@ -10,7 +10,7 @@ module cons2prim
 !
 ! :References: None
 !
-! :Owner: Elisabeth Borchert
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !

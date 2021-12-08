@@ -104,7 +104,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftype,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use eos,            only:get_spsound
  use cooling,        only:cooling_implicit,ufloor
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
@@ -739,7 +738,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
- use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
+ use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
  use cons2primsolver,only:conservative2primitive,ien_entropy
@@ -1068,7 +1067,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,T_chem,dudt_chem
+ use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
  use krome_interface, only: update_krome
  use eos,             only: get_local_u_internal
 #endif
@@ -1153,7 +1152,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
           if (merge_n > 0) then
-             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij,merge_n)
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
           endif
           fxyz_ptmass_sinksink=fxyz_ptmass
@@ -1175,7 +1174,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-    !$omp shared(eos_vars,dust_temp) &
+    !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_implicit) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
@@ -1184,7 +1183,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(nucleation) &
 #endif
 #ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,T_chem,dudt_chem) &
+    !$omp shared(gamma_chem,mu_chem,dudt_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(fextrad,ui) &
@@ -1290,7 +1289,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
-                               abundance(:,i),gamma_chem(i),mu_chem(i),T_chem(i))
+                               abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
