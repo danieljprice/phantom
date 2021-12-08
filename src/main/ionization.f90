@@ -24,10 +24,10 @@ module ionization_mod
  real, parameter, private                 :: tanh_edge=3.6467
 
  interface rapid_tanh
-    module procedure rapid_tanhs,rapid_tanhv
+  module procedure rapid_tanhs,rapid_tanhv
  end interface rapid_tanh
  interface rapid_dtanh
-    module procedure rapid_dtanhs,rapid_dtanhv
+  module procedure rapid_dtanhs,rapid_dtanhv
  end interface rapid_dtanh
 
 contains
