@@ -120,7 +120,7 @@ end subroutine get_options_from_fileid
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
+                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
@@ -130,17 +130,17 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
- use options,    only:alpha,use_dustfrac
+ use options,    only:alpha,use_dustfrac,use_variable_composition
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:),got_raden(:),got_kappa,got_iorig
  integer(kind=1), intent(inout) :: iphase(:)
- integer,         intent(inout) :: iorig(:)
+ integer(kind=8), intent(inout) :: iorig(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
@@ -250,6 +250,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  if (store_temperature .and. .not.got_temp) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
  endif
+ use_variable_composition = (got_x .and. got_z .and. got_mu)
  if (store_dust_temperature .and. .not.got_Tdust) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
  endif
@@ -320,11 +321,12 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
        if (id==master .and. i1==1) write(*,*) 'WARNING! sink particle velocities not found'
     endif
     if (id==master .and. i1==1) then
-       print "(2(a,i2),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
+       print "(2(a,i4),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
        if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
                               'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
        do i=1,min(nptmass,999)
-          print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i), &
+                                            xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
        enddo
        if (nptmass > 0) print "(1x,47('-'))"
     endif
@@ -335,7 +337,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  if (do_radiation) then
     if (.not.all(got_raden)) then
        if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
-       !ierr = ierr + 1
+       ierr = ierr + 1
     endif
     if (.not.got_kappa) then
        if (id==master .and. i1==1) write(*,*) 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
