@@ -1200,7 +1200,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
              mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas  
-             entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,3,ierr,mu,vxyzu(4,i)*unit_ergg)
+             entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
           else
              print*,"Error: Calculaing MESA EoS entropy but not using MESA EoS"
           endif
@@ -1360,10 +1360,10 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
     endif
     ! MESA ENTROPY
     if (ieos==10) then
-       Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,3,ierr,mu,vxyzu(4,i)*unit_ergg)
+       Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
     endif
     ! MESA ENTROPY
-   !  Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,ientropy,ierr,mu)
+   !  Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
     etoti = ekini + epoti + ethi
@@ -1709,9 +1709,9 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
           mu = gmw
        endif
        if ((ieos==10) .and. (ientropy==3)) then
-          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,ientropy,ierr,mu,vxyzu(4,i)*unit_ergg)
+          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
        else
-          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,ientropy,ierr,mu)
+          quant(i,1) = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,ierr=ierr)
        endif
     case(3) ! Bernoulli energy (per unit mass)
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
@@ -2104,7 +2104,7 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
  real, dimension(4,maxptmass) :: fssxyz_ptmass
  real, dimension(4,maxptmass) :: fxyz_ptmass
  real, dimension(3)           :: com_xyz,com_vxyz 
- integer                      :: i, ncols
+ integer                      :: i,ncols,merge_n,merge_ij(nptmass)
 
  ncols = 31
  allocate(columns(ncols))
@@ -2329,7 +2329,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable        :: columns(:)
  character(len=17)                     :: filename
- integer                               :: i,j,k,iorder(npart),ncols,sizeRcut,vol_npart
+ integer                               :: i,j,k,iorder(npart),ncols,sizeRcut,vol_npart,merge_ij(nptmass),merge_n
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass,fxyz_ptmass_sinksink
@@ -2531,7 +2531,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
 
     ! Calculate core + gas mass based on projected gravitational force
     Fgrav = fxyz_ptmass(1:3,i) * xyzmh_ptmass(4,i) - drag_perp_proj * (-unit_vel)                               ! Ftot,gas + Fsinksink = Fdrag + Fgrav
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,phitot,dtsinksink,0,0.)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,phitot,dtsinksink,0,0.,merge_ij,merge_n)
     Fgrav = Fgrav + fxyz_ptmass_sinksink(1:3,i) * xyzmh_ptmass(4,i)
     Fgrav_mag = distance(Fgrav)
     mass_coregas = Fgrav_mag * sinksinksep**2 / xyzmh_ptmass(4,i)

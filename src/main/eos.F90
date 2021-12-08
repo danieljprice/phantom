@@ -940,7 +940,7 @@ end subroutine calc_temp_and_ene
 !  up to an additive integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
-function entropy(rho,pres,mu,ientropy,ierr)
+function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  use io,                only:fatal
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
@@ -954,6 +954,7 @@ function entropy(rho,pres,mu,ientropy,ierr)
 
  if (present(ierr)) ierr=0
 
+ mu = mu_in
  select case(ientropy)
  case(1) ! Include only gas entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh)
@@ -985,7 +986,7 @@ function entropy(rho,pres,mu,ientropy,ierr)
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
-  
+
 end function entropy
 
 !-----------------------------------------------------------------------
