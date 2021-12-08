@@ -38,13 +38,13 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
- use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz
+ use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz,set_boundaries_to_active
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -73,8 +73,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick,iphase
- !use boundarypart,   only:get_boundary_particle_forces
+ use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
 #ifdef GR
  use cons2prim,      only:cons2primall
@@ -150,6 +149,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+    if (.not. fast_divcurlB) then
+       ! Repeat the call to calculate all the non-density-related quantities in densityiterate.
+       ! This needs to be separate for an accurate calculation of divcurlB which requires an up-to-date rho.
+       ! if fast_divcurlB = .false., then all additional quantities are calculated during the previous call
+       call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
+                           stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+    endif
+    set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
  endif
 
@@ -172,11 +179,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
+
 #ifdef DUSTGROWTH
  ! compute growth rate of dust particles
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
-!call get_boundary_particle_forces(npart,iphase,fxyzu,dBevol,drad,ddustprop,ddustevol)
 
 #ifdef SINK_RADIATION
  !compute dust temperature
