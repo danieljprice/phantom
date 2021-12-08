@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setsoftenedcore
 !
-! This module solves for a softened density and pressure profile below 
+! This module solves for a softened density and pressure profile below
 ! a softening radius, rcore, of a stellar profile
 !
 ! :References:
@@ -61,10 +61,10 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
        call find_rcore_given_mcore(mcore,r,den,m,rcore,ierr)
        if (ierr==1) call fatal('setup','Cannot find softening length that produces nice profile (h/r(mcore) < 1.02 reached)')
     case(3) ! Both rcore and mcore are specified, check if values are sensible
-        call check_rcore_and_mcore(rcore,mcore,r,den,m,ierr)
-        if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
-        if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
-        if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
+       call check_rcore_and_mcore(rcore,mcore,r,den,m,ierr)
+       if (ierr==1) call fatal('setup','mcore cannot exceed m(r=h)')
+       if (ierr==2) call fatal('setup','softenedrho/rho > tolerance')
+       if (ierr==3) call fatal('setup','drho/dr > 0 found in softened profile')
     end select
  endif
 
@@ -72,7 +72,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
  rc = rcore*solarr
  Xcore = yinterp(X,r,rc)
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
- 
+
  write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
                                       ', mu = ',get_mean_molecular_weight(Xcore,Zcore)
  call interpolator(r,rc,core_index)  ! find index of core
@@ -97,12 +97,12 @@ subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
 
  ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
  if (isort_decreasing) then
-   call flip_array(m)
-   call flip_array(pres)
-   call flip_array(r)
-   call flip_array(den)
-   call flip_array(X)
-   call flip_array(Y)
+    call flip_array(m)
+    call flip_array(pres)
+    call flip_array(r)
+    call flip_array(den)
+    call flip_array(X)
+    call flip_array(Y)
  endif
 
  if (iexclude_core_mass) then

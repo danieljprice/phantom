@@ -46,20 +46,21 @@ module setup
 !   - relax_star        : *relax star automatically during setup*
 !   - ui_coef           : *specific internal energy (units of GM/R)*
 !   - use_exactN        : *find closest particle number to np*
+!   - use_variable_comp : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
-!   eos_mesa, extern_densprofile, externalforces, infile_utils, io, kernel,
-!   options, part, physcon, prompting, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, spherical, table_utils,
-!   timestep, units
+!   eos_mesa, eos_piecewise, extern_densprofile, externalforces,
+!   infile_utils, io, kernel, options, part, physcon, prompting, relaxstar,
+!   rho_profile, setsoftenedcore, setstellarcore, setup_params, sortutils,
+!   spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
  use physcon,        only:solarm,solarr,km,pi,c,kb_on_mh,radconst
  use options,        only:nfulldump,iexternalforce,calc_erot,use_variable_composition
  use timestep,       only:tmax,dtmax
- use eos,            only:ieos,p1pwpcgs,gamma1pwp,gamma2pwp,gamma3pwp
+ use eos,            only:ieos
  use externalforces, only:iext_densprofile
  use extern_densprofile, only:nrhotab
  use setsoftenedcore,only:rcore,mcore
@@ -121,11 +122,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use sortutils,       only:find_rank,r2func
  use units,           only:set_units,select_unit,utime,unit_density,unit_pressure,unit_ergg
  use kernel,          only:hfact_default
- use rho_profile,     only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,read_mesa,read_kepler_file,write_profile
+ use rho_profile,     only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,&
+                           read_mesa,read_kepler_file,write_profile,func
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
- use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,&
+ use eos,             only:init_eos,finish_eos,equationofstate,gmw,X_in,Z_in,&
                            calc_temp_and_ene,get_mean_molecular_weight,eos_outputs_mu
  use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
+ use eos_piecewise,   only:init_eos_piecewise_preset,get_dPdrho_piecewise
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use part,            only:eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
@@ -150,6 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene
  logical                          :: calc_polyk,setexists
  character(len=120)               :: setupfile,inname
+ procedure(func), pointer :: get_dPdrho
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -255,7 +259,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set up tabulated density profile
  !
  calc_polyk = .true.
- if (ieos==9) call init_eos_9(EOSopt)
+ if (ieos==9) call init_eos_piecewise_preset(EOSopt)
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
 
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
@@ -270,7 +274,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (ierr > 0)    call fatal('setup','error in reading density file')
     pres = polyk*den**gamma
  case(ibpwpoly)
-    call rho_piecewise_polytrope(r,den,rhocentre,Mstar,npts,ierr)
+    get_dPdrho => get_dPdrho_piecewise
+    call rho_piecewise_polytrope(r,den,rhocentre,Mstar,get_dPdrho,npts,ierr)
     if (ierr == 1) call fatal('setup','ng_max is too small')
     if (ierr == 2) call fatal('setup','failed to converge to a self-consistent density profile')
     rmin  = r(1)
