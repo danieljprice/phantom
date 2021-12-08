@@ -32,6 +32,7 @@ module setup
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp       : *initial temperature of the star*
 !   - input_profile     : *Path to input profile*
+!   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
 !   - isinkcore         : *Add a sink particle stellar core*
 !   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
 !   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*

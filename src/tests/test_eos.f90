@@ -10,12 +10,13 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Terrence Tricco
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, eos_barotropic, eos_helmholtz, io, mpiutils,
-!   physcon, testutils, units
+! :Dependencies: dim, eos, eos_barotropic, eos_gasradrec, eos_helmholtz,
+!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon, testutils,
+!   units
 !
  implicit none
  public :: test_eos
