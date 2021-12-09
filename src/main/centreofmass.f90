@@ -95,10 +95,12 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  vypos = 0.d0
  vzpos = 0.d0
  totmass = 0.d0
+ pmassi = massoftype(igas)
 !$omp parallel default(none) &
 !$omp shared(maxphase,maxp) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype) &
-!$omp private(i,itype,xi,yi,zi,hi,pmassi) &
+!$omp private(i,itype,xi,yi,zi,hi) &
+!$omp firstprivate(pmassi) &
 !$omp reduction(+:xpos,ypos,zpos,vxpos,vypos,vzpos,totmass)
 !$omp do
  do i=1,npart
@@ -114,8 +116,6 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
           else
              pmassi = massoftype(igas)
           endif
-       else
-          pmassi = massoftype(igas)
        endif
        totmass = totmass + pmassi
        xpos    = xpos  + pmassi*xi
@@ -261,13 +261,14 @@ subroutine correct_bulk_motion()
  fmeany = 0.
  fmeanz = 0.
  totmass = 0.
-
+ pmassi = massoftype(igas)
 !$omp parallel default(none) &
 !$omp shared(maxphase,maxp) &
 !$omp shared(xyzh,vxyzu,fxyzu,npart) &
 !$omp shared(massoftype,iphase) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,nptmass) &
-!$omp private(i,pmassi,hi) &
+!$omp private(i,hi) &
+!$omp firstprivate(pmassi) &
 !$omp reduction(+:fmeanx,fmeany,fmeanz) &
 !$omp reduction(+:xmom,ymom,zmom,totmass)
 !$omp do
