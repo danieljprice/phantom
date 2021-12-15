@@ -62,7 +62,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  use part,  only:dust_temp,isdead_or_accreted,ilum
  use units, only:umass,unit_energ,utime
 #ifdef NUCLEATION
- use part,  only:nucleation
+ use part,  only:nucleation, idkappa
 #endif
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:)
@@ -94,7 +94,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
              dz = xyzh(3,i) - za
              r = sqrt(dx**2 + dy**2 + dz**2)
 #ifdef NUCLEATION
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(8,i))
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(idkappa,i))
 #else
              call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
 #endif
@@ -215,7 +215,7 @@ end subroutine get_dust_temperature_from_ptmass
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  use part,  only:isdead_or_accreted
 #ifdef NUCLEATION
- use part,  only:nucleation
+ use part,  only:nucleation,idK3
 #endif
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
@@ -260,7 +260,7 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
 #ifdef NUCLEATION
  call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-      rho_over_r2, dust_temp, Teq, nucleation(5,:), K3)
+      rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
  call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
 #else
  call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
