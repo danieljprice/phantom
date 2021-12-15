@@ -49,22 +49,41 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
  real :: err, new_rvT(3), numerator, denominator,rold
  real, parameter :: num_tol = 1.e-4
  real, parameter :: denom_tol = 1.e-2
+ real, parameter :: rvt_tol = 1.e-2, safety = 0.9, pshrnk = -0.25, errcon = 1.89e-4, pgrow = -0.2
 
  rold = rvT(1)
  do
-    call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-    if (dt_force) then
-       dt_next = dt
-       exit
-    endif
-    if (err > .01) then
-       dt = dt * 0.9
-    else
-       !dt_next = dt * 1.05
-       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
-       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
-       exit
-    endif
+   call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+   if (dt< 1.0) then
+      dt_next = 1.
+      exit
+   endif
+   if (dt_force) then
+      dt_next = 0.
+      exit
+   endif
+   !original
+   if (err > 0.01) then
+      dt = dt * 0.9
+   else
+      !dt_next = dt * 1.05
+      dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+      !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+      exit
+   endif
+   !rkqs version
+   ! errmax = err/rvt_tol
+   ! if (errmax > 1.) then
+   !   dt = max(0.1*dt,safety*dt*(errmax**pshrnk))
+   !   !exit
+   ! else
+   !   if (errmax > errcon) then
+   !      dt_next = safety*dt*(errmax**pgrow)
+   !   else
+   !      dt_next = 5.*dt
+   !   endif
+   !   exit
+   ! endif
  enddo
  rvT = new_rvT
 

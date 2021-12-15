@@ -197,10 +197,20 @@ module part
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
- integer, parameter :: n_nucleation = 8
+ integer, parameter :: n_nucleation = 9
 #ifdef NUCLEATION
  real, allocatable :: nucleation(:,:)
- character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
+ character(len=*), parameter :: nucleation_label(n_nucleation) = &
+      &(/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','gamma','S    ','kappa'/)
+ integer, parameter :: idJstar = 1, &
+                       idK0    = 2, &
+                       idK1    = 3, &
+                       idK2    = 4, &
+                       idK3    = 5, &
+                       idmu    = 6, &
+                       idgamma = 7, &
+                       idsat   = 8, &
+                       idkappa = 9
 #endif
 !
 !--KROME variables
@@ -227,7 +237,7 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       iradP = 8, &
+                       iradP  = 8, &
                        maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
     (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
@@ -329,6 +339,9 @@ module part
  +1                                   &  ! nucleation rate
  +4                                   &  ! moments
  +1                                   &  ! mean molecular weight
+ +1                                   &  ! gamma
+ +1                                   &  ! super saturation ratio
+ +1                                   &  ! kappa dust
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance

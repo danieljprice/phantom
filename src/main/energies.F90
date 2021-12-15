@@ -98,6 +98,9 @@ subroutine compute_energies(t)
 #ifdef KROME
  use part, only: gamma_chem
 #endif
+#ifdef NUCLEATION
+ use part, only: nucleation, idmu, idgamma
+#endif
 #ifdef DUST
  use dust,           only:get_ts,idrag
  integer :: iregime,idusttype
@@ -186,6 +189,9 @@ subroutine compute_energies(t)
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
 #ifdef KROME
 !$omp shared(gamma_chem) &
+#endif
+#ifdef NUCLEATION
+!$omp shared(nucleation) &
 #endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -378,12 +384,16 @@ subroutine compute_energies(t)
 #ifdef KROME
              ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
-                                   gamma_local=gamma_chem(i))
+                           gamma_local=gamma_chem(i))
+#else
+#ifdef NUCLEATION
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
+                           mu_local=nucleation(idmu,i),gamma_local=nucleation(idgamma,i))
 #else
              ponrhoi = eos_vars(igasP,i)/rhoi
              spsoundi = eos_vars(ics,i)
 #endif
-
+#endif
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else

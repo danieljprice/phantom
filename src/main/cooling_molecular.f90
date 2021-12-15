@@ -423,8 +423,9 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
        innerr_partif: if (params(1) <= r_sep + perturbation) then
           i = N_compZone
        else
-          dr_part = (log10(r_part_max) - log10(r_sep)) / (N_r_part_sample - N_compZone)
-          i    = floor((log10(params(1)) - log10(r_sep)) / dr_part ) + N_compZone
+          !dr_part = (log10(r_part_max) - log10(r_sep)) / (N_r_part_sample - N_compZone)
+          dr_part = log10(r_part_max/r_sep) / (N_r_part_sample - N_compZone)
+          i    = floor(log10(params(1)/r_sep) / dr_part ) + N_compZone
        endif innerr_partif
 
     else

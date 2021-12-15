@@ -1063,7 +1063,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
 #ifdef NUCLEATION
- use part,           only:nucleation
+ use part,           only:nucleation,idK2,idmu,idkappa
  use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
@@ -1311,8 +1311,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
 #ifdef NUCLEATION
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
-                        rhoh(xyzh(4,i),pmassi), dt, dust_temp(i),nucleation(6,i),nucleation(4,i),nucleation(8,i))
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),&
+                        dt, dust_temp(i),nucleation(idmu,i),nucleation(idK2,i),nucleation(idkappa,i))
 #else
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
