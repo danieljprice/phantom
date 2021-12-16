@@ -39,7 +39,6 @@ module wind
 
  ! wind properties
  type wind_state
-    !variables mu, gamma & kappa defined twice because they intervene independently of dust
     real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust
     real :: alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
     real :: kappa, mu, gamma, tau_lucy, alpha_dust, dmu_dr
@@ -74,10 +73,11 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
 #ifdef NUCLEATION
  call set_abundances
  rho_cgs = Mdot_cgs/(4.*pi * r0**2 * v0)
- !call init_muGamma(rho_cgs, T0, wind_mu, wind_gamma)
  wind_gamma = gamma
  wind_mu = gmw
  call init_muGamma(rho_cgs, T0, wind_mu, wind_gamma)
+ print *,'reset gamma : ',gamma,wind_gamma
+ print *,'reset gmw   : ',gmw,wind_mu
  gamma = wind_gamma
  gmw = wind_mu
 #endif
@@ -104,12 +104,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
  use part,             only:xyzmh_ptmass,iTeff,ilum
- use dust_formation,   only:kappa_gas,calc_muGamma !kappa_gas,evolve_chem,calc_kappa_dust
+ use dust_formation,   only:kappa_gas,init_muGamma !kappa_gas,evolve_chem,calc_kappa_dust
  use units,            only:umass,unit_energ,utime
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
- real :: pH, pH_tot
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -147,7 +146,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%gamma = wind_gamma
 #ifdef NUCLEATION
  state%JKmuS = 0.
- call calc_muGamma(state%rho, state%Tg, state%mu, state%gamma, pH, pH_tot)
+ call init_muGamma(state%rho, state%Tg, state%mu, state%gamma)
  state%jKmuS(idmu) = state%mu
  state%jKmuS(idgamma) = state%gamma
 #endif

@@ -22,9 +22,8 @@ module dust_formation
 !
 ! :Dependencies: dim, eos, infile_utils, io, options, physcon, units
 !
-#ifdef NUCLEATION
+
  use part,only: idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
-#endif
 
  implicit none
  integer, public :: idust_opacity = 0
