@@ -23,7 +23,7 @@ module wind
 
  implicit none
  public :: setup_wind
- public :: wind_state,wind_profile,save_windprofile !interp_wind_profile
+ public :: wind_state,save_windprofile,interp_wind_profile!,wind_profile
 
  private
  ! Shared variables
@@ -39,6 +39,7 @@ module wind
 
  ! wind properties
  type wind_state
+    !variables mu, gamma & kappa defined twice because they intervene independently of dust
     real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust
     real :: alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
     real :: kappa, mu, gamma, tau_lucy, alpha_dust, dmu_dr
@@ -60,10 +61,10 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
 #endif
 
  integer, intent(in) :: stype
- real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T, T0
- real, intent(inout) :: r0,v0
+ real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
+ real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
- real :: rho, wind_mu
+ real :: rho_cgs, wind_mu!, pH, pH_tot
 
  Mstar_cgs = Mstar_cg
  wind_gamma = gamma
@@ -72,8 +73,11 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
 
 #ifdef NUCLEATION
  call set_abundances
- rho = Mdot_cgs/(4.*pi * r0**2 * v0)
- call init_muGamma(rho, T0, wind_mu, wind_gamma)
+ rho_cgs = Mdot_cgs/(4.*pi * r0**2 * v0)
+ !call init_muGamma(rho_cgs, T0, wind_mu, wind_gamma)
+ wind_gamma = gamma
+ wind_mu = gmw
+ call init_muGamma(rho_cgs, T0, wind_mu, wind_gamma)
  gamma = wind_gamma
  gmw = wind_mu
 #endif
@@ -100,11 +104,12 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
  use part,             only:xyzmh_ptmass,iTeff,ilum
- use dust_formation,   only:kappa_gas,init_muGamma !kappa_gas,evolve_chem,calc_kappa_dust
+ use dust_formation,   only:kappa_gas,calc_muGamma !kappa_gas,evolve_chem,calc_kappa_dust
  use units,            only:umass,unit_energ,utime
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
+ real :: pH, pH_tot
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -138,14 +143,13 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%alpha_dust = 0.
+ state%mu = gmw
+ state%gamma = wind_gamma
 #ifdef NUCLEATION
  state%JKmuS = 0.
- call init_muGamma(state%rho, state%Tg, state%jKmuS(idmu), state%jKmuS(idgamma))
- state%mu = state%jKmuS(idmu)
- state%gamma = state%jKmuS(idgamma)
-#else
- state%mu = gmw
- state%gamma = gamma_wind
+ call calc_muGamma(state%rho, state%Tg, state%mu, state%gamma, pH, pH_tot)
+ state%jKmuS(idmu) = state%mu
+ state%jKmuS(idgamma) = state%gamma
 #endif
  state%alpha = state%alpha_dust + alpha_rad
  state%dalpha_dr = 0.
@@ -184,7 +188,8 @@ subroutine wind_step(state)
  alpha_old = state%alpha
 #ifdef NUCLEATION
  call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
- state%mu  = state%JKmuS(idmu)
+ state%mu    = state%JKmuS(idmu)
+ state%gamma = state%JKmuS(idgamma)
  call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
  call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, alpha_dust)
 #else
@@ -199,7 +204,7 @@ subroutine wind_step(state)
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
- v_old = state%v
+ v_old  = state%v
  state%r_old = state%r
  call evolve_hydro(state%dt, rvT, state%Rstar, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
       state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
@@ -268,7 +273,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  call init_wind(r0, v0, T0, time_end, state)
 
  if (state%v > state%c .and. state%find_sonic_solution) then
-    print *,'[wind_profile] Initial velocity cannot be greater than sound speed'
+    print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed'
     return
  endif
 
@@ -283,6 +288,8 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
 end subroutine calc_wind_profile
 
+
+#ifdef TO_BE_REMOVED
 !-----------------------------------------------------------------------
 !+
 !  integrate wind equation up to time=local_time
@@ -321,6 +328,7 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
 #endif
 
 end subroutine wind_profile
+#endif
 
 !-----------------------------------------------------------------------
 !
@@ -587,38 +595,36 @@ end subroutine get_initial_radius
 !-----------------------------------------------------------------------
 subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKmuS)
  !in/out variables in code units (except Jstar,K)
- use units,      only:udist, utime, unit_velocity, unit_density, unit_ergg
- use eos,        only:gamma
+ use units,    only:udist, utime, unit_velocity, unit_density, unit_ergg
+#ifndef NUCLEATION
+ use eos,      only:gamma
+#else
+ use part,     only:idgamma
+ real :: gamma
+#endif
  real, intent(in)  :: time, local_time, GM
- real, intent(inout) :: r, v
- real, intent(out) :: u, rho, e, fdone
+ !real, intent(inout) :: r, v
+ real, intent(out) :: u, rho, e, r, v, fdone
  real, intent(out), optional :: JKmuS(:)
 
- real    :: trvurho_vals(2,5),rvurho_out(4)
+ real    :: ltime
  integer :: indx,j
+
+ ltime = local_time*utime
+ call find_near_index(trvurho_1D(1,:),ltime,indx)
+
+ r   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(2,indx),trvurho_1D(2,indx+1))/udist
+ v   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(3,indx),trvurho_1D(3,indx+1))/unit_velocity
+ u   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(4,indx),trvurho_1D(4,indx+1))/unit_ergg
+ rho = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(5,indx),trvurho_1D(5,indx+1))/unit_density
+
 #ifdef NUCLEATION
- !index n_nucleation-1 because we do not need to set kappa
- real :: JKmuS_vals(2,n_nucleation-1)
+ do j=1,n_nucleation
+    JKmuS(j) = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),JKmuS_1D(j,indx),JKmuS_1D(j,indx+1))
+ enddo
+ gamma = JKmuS(idgamma)
 #endif
 
- call find_near_index(trvurho_1D(1,:),local_time*utime,indx)
- do j=1,5
-    trvurho_vals(:,j) = (/trvurho_1D(j,indx),trvurho_1D(j,indx+1)/)
- enddo
- do j=1,4
-    call interp_1d(local_time*utime,trvurho_vals(:,1),trvurho_vals(:,j+1),rvurho_out(j))
- enddo
- r   = rvurho_out(1)/udist
- v   = rvurho_out(2)/unit_velocity
- u   = rvurho_out(3)/unit_ergg
- rho = rvurho_out(4)/unit_density
-#ifdef NUCLEATION
- do j=1,n_nucleation-1
-    JKmuS_vals(:,j) = (/JKmuS_1D(j,indx),JKmuS_1D(j,indx+1)/)
-    call interp_1d(local_time*utime,trvurho_vals(:,1),JKmuS_vals(:,j),JKmuS(j))
- enddo
-#endif
- !!!!!!!!!!!!  WARNING one should use local_gamma!
  e = .5*v**2 - GM/r + gamma*u
  if (local_time == 0.) then
     fdone = 1.d0
@@ -660,14 +666,11 @@ end subroutine find_near_index
 !  1D linear interpolation routine
 !+
 !-----------------------------------------------------------------------
-subroutine interp_1d(x,xin,yin,yout)
-  real, intent(in)  :: x, xin(2), yin(2)
-  real, intent(out) :: yout
-  real              :: m
+real function interp_1d(x,x1,x2,y1,y2)
+  real, intent(in)  :: x, x1, x2, y1, y2
 
-  m    = (x - xin(1)) / (xin(2) - xin(1))
-  yout = yin(1) + m*(yin(2) - yin(1))
-end subroutine interp_1d
+  interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
+end function interp_1d
 
 !-----------------------------------------------------------------------
 !
