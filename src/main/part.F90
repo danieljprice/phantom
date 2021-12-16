@@ -209,8 +209,8 @@ module part
                        idK3    = 5, &
                        idmu    = 6, &
                        idgamma = 7, &
-                       idsat   = 8, &
-                       idkappa = 9
+                       idsat   = 8, & !for logging
+                       idkappa = 9    !for logging
 #endif
 !
 !--KROME variables

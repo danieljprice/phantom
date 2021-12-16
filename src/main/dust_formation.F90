@@ -321,14 +321,12 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  real, intent(inout) :: T, mu, gamma
  real, intent(out) :: pH, pH_tot
  real :: KH2, pH2
- real :: T_old, mu_old, gamma_old, T0, mu0
+ real :: T_old, mu_old, gamma_old
  logical :: converged
  integer :: i
  integer, parameter :: itermax = 29
  character(len=30), parameter :: label = 'calc_muGamma'
 
- T0 = T
- mu0 = mu
  if (T > 1.d5) then
     mu = (1.+4.*eps(iHe))/(1.+eps(iHe))
     gamma = 5./3.
@@ -351,13 +349,12 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        gamma = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
        T_old = T
        T = T_old*mu*(gamma-1.)/(mu_old*(gamma_old-1.))
-       !T = T_old    !comment this line to allow iterations
+       !T = T_old    !uncomment this line to cancel iterations
        converged = (abs(T-T_old)/T_old).lt.1.d-3
-       !print *,i,converged,mu_old,mu,T,T_old
     enddo
     if (i>=itermax .and. .not.converged) then
        !print *,T0,mu0,rho_cgs
-       !call fatal(label,'cannot converge on T(mu)')
+       call fatal(label,'cannot converge on T(mu)')
     endif
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
@@ -378,11 +375,11 @@ end subroutine calc_muGamma
 subroutine init_muGamma(rho_cgs, T, mu, gamma)
 ! all quantities are in cgs
  use physcon,only:kboltz
- real, intent(in) :: rho_cgs, T
- real, intent(out) :: mu, gamma
+ real, intent(in) :: rho_cgs
+ real, intent(out) :: T, mu, gamma
  real :: KH2, pH_tot, pH, pH2
 
- pH_tot = rho_cgs*kboltz*T/mass_per_H
+ pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
  if (T > 1.d5) then
     pH2 = 0.
     pH  = pH_tot
@@ -397,6 +394,8 @@ subroutine init_muGamma(rho_cgs, T, mu, gamma)
  endif
  mu    = (1.+4.*eps(iHe))*pH_tot/(pH+pH2+eps(iHe)*pH_tot)
  gamma = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
+ call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
+
 end subroutine init_muGamma
 
 !---------------------------------------------------------------
