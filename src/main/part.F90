@@ -202,6 +202,7 @@ module part
  real, allocatable :: nucleation(:,:)
  character(len=*), parameter :: nucleation_label(n_nucleation) = &
       &(/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','gamma','S    ','kappa'/)
+#endif
  integer, parameter :: idJstar = 1, &
                        idK0    = 2, &
                        idK1    = 3, &
@@ -211,7 +212,6 @@ module part
                        idgamma = 7, &
                        idsat   = 8, & !for logging
                        idkappa = 9    !for logging
-#endif
 !
 !--KROME variables
 !
