@@ -38,10 +38,10 @@ subroutine init_wind_equations (Mstar_in, Tstar_in, u_to_T)
  u_to_temperature_ratio = u_to_T
 end subroutine init_wind_equations
 
-subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
+subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
 !all quantities in cgs
  logical, intent(in) :: dt_force
- real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs
+ real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(inout) :: dt, rvT(3)
  integer, intent(out) :: spcode
  real, intent(out) :: dt_next
@@ -53,7 +53,7 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
 
  rold = rvT(1)
  do
-   call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+   call RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
    if (dt< 1.0) then
       dt_next = 1.
       exit
@@ -66,11 +66,16 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
    if (err > 0.01) then
       dt = dt * 0.9
    else
-      !dt_next = dt * 1.05
-      dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
-      !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+      if (err < 1.d-3) then
+         !dt_next = dt * 1.05
+         dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+         !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+      else
+         dt_next = dt
+      endif
       exit
    endif
+
    !rkqs version
    ! errmax = err/rvt_tol
    ! if (errmax > 1.) then
@@ -99,10 +104,10 @@ end subroutine evolve_hydro
 !  Fourth-order Runge-Kutta integrator
 !
 !--------------------------------------------------------------------------
-subroutine RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
- real, intent(in) ::  dt, rvT(3), Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
+ real, intent(in) ::  dt, rvT(3), Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  real, intent(out) :: err, new_rvT(3), numerator, denominator
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
@@ -111,19 +116,19 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
  v0 = rvT(2)
  T0 = rvT(3)
  H = v0*dt
- call calc_dvT_dr(r0, v0, T0, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv1_dr, dT1_dr, numerator, denominator)
+ call calc_dvT_dr(r0, v0, T0, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv1_dr, dT1_dr, numerator, denominator)
  r = r0+0.5*H
  v = v0+0.5*H*dv1_dr
  T = T0+0.5*H*dT1_dr
- call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv2_dr, dT2_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv2_dr, dT2_dr, numerator, denominator)
  r = r0+0.5*H
  v = v0+0.5*H*dv2_dr
  T = T0+0.5*H*dT2_dr
- call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
  r = r0+H
  v = v0+dv3_dr*H
  T = T0+dT3_dr*H
- call calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
+ call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
  if (dv2_dr == dv1_dr) then
     err = 0.
  else
@@ -142,21 +147,30 @@ end subroutine RK4_step_dr
 !  Space derivative dv/dr and dT/dr, for Runge-Kutta (stationary solution)
 !
 !--------------------------------------------------------------------------
-subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
+subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
  use options, only:icooling,ieos
- real, intent(in) :: r, v, T, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs
+ use dust_formation,   only:calc_muGamma
+ real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
 
- real :: AA, BB, CC, c2, T0
+ real :: AA, BB, CC, c2, T, mu, gamma, pH, pH_tot, rho_cgs
  real, parameter :: denom_tol = 3.d-2 !the solution is very sensitive to this parameter!
+
+ T = T0
+ mu = mu0
+ gamma = gamma0
+#ifdef NUCLEATION
+ rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
+ call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
+#endif
 
 !Temperature law
  if (ieos == 6) then
-    T0 = Tstar*(Rstar_cgs/r)**expT
-    c2 = gamma*Rg*T0/mu
+    T = Tstar*(Rstar_cgs/r)**expT
+    c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
@@ -167,7 +181,7 @@ subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
     else
        dv_dr = numerator/denominator
     endif
-    dT_dr = -expT*T0/r
+    dT_dr = -expT*T/r
  endif
  if (icooling == 0) then
     !isothermal or adiabatic expansion (no cooling)
@@ -184,7 +198,7 @@ subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
     endif
     dT_dr = (1. - gamma)*T*(2.*v + r*dv_dr)/(r*v)
  else
-!expansion and cooling
+    !expansion and cooling
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v) + Q*(1.-gamma)/v**2
