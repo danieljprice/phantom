@@ -104,7 +104,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
  use part,             only:xyzmh_ptmass,iTeff,ilum
- use dust_formation,   only:kappa_gas,init_muGamma !kappa_gas,evolve_chem,calc_kappa_dust
+ use dust_formation,   only:kappa_gas,init_muGamma
  use units,            only:umass,unit_energ,utime
 
  real, intent(in) :: r0, v0, T0, time_end
@@ -205,7 +205,7 @@ subroutine wind_step(state)
  rvT(3) = state%Tg
  v_old  = state%v
  state%r_old = state%r
- call evolve_hydro(state%dt, rvT, state%Rstar, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
+ call evolve_hydro(state%dt, rvT, state%Rstar, Mdot_cgs, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
       state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
  state%r    = rvT(1)
  state%v    = rvT(2)
@@ -241,9 +241,9 @@ subroutine wind_step(state)
     call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
 #endif
     state%Q = Q_code*unit_ergg
-    if (state%time > 0. .and. state%r /= state%r_old) state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+    state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  else
-    !if cooling disabled or temperature profile is not imposed, set Tdust = Tgas
+    !if cooling is disabled or temperature profile is not imposed, set Tdust = Tgas
     state%Tdust = state%Tg
  endif
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
