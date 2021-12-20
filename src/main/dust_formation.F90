@@ -320,10 +320,10 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  real, intent(inout) :: T, mu, gamma
  real, intent(out) :: pH, pH_tot
  real :: KH2, pH2
- real :: T_old, mu_old, gamma_old
+ real :: T_old, mu_old, gamma_old, tol
  logical :: converged
- integer :: i
- integer, parameter :: itermax = 29
+ integer :: i,isolve
+ integer, parameter :: itermax = 100
  character(len=30), parameter :: label = 'calc_muGamma'
 
  if (T > 1.d5) then
@@ -333,7 +333,9 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH = pH_tot
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
+    tol = 1.d-3
     converged = .false.
+    isolve = 0
     !T = atomic_mass_unit*mu*(gamma-1)*u/kboltz
     i = 0
     do while (.not. converged .and. i < itermax)
@@ -349,11 +351,20 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        T_old = T
        T = T_old*mu*(gamma-1.)/(mu_old*(gamma_old-1.))
        !T = T_old    !uncomment this line to cancel iterations
-       converged = (abs(T-T_old)/T_old).lt.1.d-3
+       converged = (abs(T-T_old)/T_old).lt.tol
+       !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
     enddo
     if (i>=itermax .and. .not.converged) then
-       !print *,T0,mu0,rho_cgs
-       call fatal(label,'cannot converge on T(mu)')
+       if (isolve.eq.0) then
+          isolve = isolve+1
+          i = 0
+          tol = 1.d-2
+          print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
+       else
+          print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
+                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
+          call fatal(label,'cannot converge on T(mu,gamma)')
+       endif
     endif
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
