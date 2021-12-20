@@ -167,6 +167,109 @@ end subroutine init_wind
 !  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
+subroutine wind_step1(state)
+! all quantities in cgs
+
+ use wind_equations,   only:evolve_hydro
+ use ptmass_radiation, only:alpha_rad,isink_radiation,iget_tdust,tdust_exp
+ use physcon,          only:pi,Rg
+ use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+      calc_alpha_dust,calc_alpha_bowen,idust_opacity
+ use cooling,          only:calc_cooling_rate
+ use options,          only:icooling
+ use units,            only:unit_ergg,unit_density
+
+ type(wind_state), intent(inout) :: state
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
+ real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, mu_old, dt_old
+
+ rvT(1) = state%r
+ rvT(2) = state%v
+ rvT(3) = state%Tg
+ !rvT(3) = state%u
+ v_old  = state%v
+ dt_old = state%dt
+ state%r_old = state%r
+ call evolve_hydro(state%dt, rvT, state%Rstar, Mdot_cgs, state%mu, state%gamma, state%alpha, state%dalpha_dr, &
+      state%Q, state%dQ_dr, state%spcode, state%dt_force, dt_next)
+ state%r    = rvT(1)
+ state%v    = rvT(2)
+ state%a    = (state%v-v_old)/(state%dt)
+ state%Tg   = rvT(3)
+ !state%u    = rvT(3)
+ rho_old    = state%rho
+ state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
+
+ kappa_old  = state%kappa
+ alpha_old  = state%alpha
+ mu_old     = state%mu
+#ifdef NUCLEATION
+ !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
+ call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
+ !call evolve_chem(state%dt,state%Tg,rho_old,state%JKmuS,state%gamma)
+ state%mu     = state%JKmuS(6)
+ state%gamma = state%JKmuS(idgamma)
+ call calc_kappa_dust(state%JKmuS(5), state%Tdust, state%rho, state%kappa)
+ call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha_dust)
+#else
+ if (idust_opacity > 0) state%kappa = kappa_dust_bowen(state%Tdust)
+ if (isink_radiation == 1 .or. isink_radiation == 3) then
+    call calc_alpha_bowen(Mstar_cgs, Lstar_cgs, state%Tdust, state%alpha_dust)
+ else
+    state%alpha_dust = 0.d0
+ endif
+#endif
+ state%alpha     = state%alpha_dust+alpha_rad
+ state%dalpha_dr = (state%alpha_dust+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+
+ state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
+ state%p    = state%rho*Rg*state%Tg/state%mu
+ state%u    = state%p/((state%gamma-1.)*state%rho)
+ !state%p    = state%u*(state%gamma-1.)*state%rho
+ !state%Tg   = state%p/(state%rho*Rg)*state%mu
+
+ state%tau_lucy = state%tau_lucy &
+      - (state%r-state%r_old) * state%r0**2 &
+      * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
+ if (icooling > 0) then
+    Q_old = state%Q
+    if (iget_tdust == 2) then
+       tau_lucy_bounded = max(0., state%tau_lucy)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    elseif (iget_tdust == 1) then
+       state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
+    endif
+#ifdef NUCLEATION
+    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
+         state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
+#else
+    call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
+#endif
+    state%Q = Q_code*unit_ergg
+    state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+ else
+    !if cooling is disabled or temperature profile is not imposed, set Tdust = Tgas
+    state%Tdust = state%Tg
+ endif
+
+ state%time = state%time + state%dt
+ if (state%time + dt_next > state%time_end) then
+    state%dt = state%time_end-state%time
+    state%dt_force = .true.
+ else
+    state%dt = dt_next
+ endif
+ state%nsteps = mod(state%nsteps, 65536)+1
+ !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
+ if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
+
+end subroutine !wind_step
+
+!-----------------------------------------------------------------------
+!
+!  Integrate chemistry, cooling and hydro over one time step - OLD VERSION
+!
+!-----------------------------------------------------------------------
 subroutine wind_step(state)
 ! all quantities in cgs
 
@@ -254,7 +357,7 @@ subroutine wind_step(state)
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
-end subroutine wind_step
+end subroutine !wind_step
 
 !-----------------------------------------------------------------------
 !
@@ -676,11 +779,11 @@ end function interp_1d
 !  Integrate the steady wind equation and save wind profile to a file
 !
 !-----------------------------------------------------------------------
-subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
+subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  use physcon,  only:au
  use units,    only:utime
  use timestep, only:tmax
- real, intent(in) :: r0, v0, T0, tsonic, tend, rout
+ real, intent(in) :: r0, v0, T0, tend, rout
  real, intent(out) :: tcross
  character(*), intent(in) :: filename
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
@@ -708,7 +811,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
 
  eps       = 0.01
  iter      = 0
- itermax   = 100000
+ itermax   = int(huge(itermax)/10) !this number is huge but may be needed for RK6 solver
  tcross    = 1.d99
  writeline = 0
 
@@ -754,9 +857,12 @@ subroutine save_windprofile(r0, v0, T0, rout, tsonic, tend, tcross, filename)
  if (state%time/time_end < .3) then
     write(*,'("[WARNING] wind integration failed : t/tend = ",f7.5,", dt/tend = ",f7.5,&
     &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
-         state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
+    state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
+ else
+    print *,'integration succesful, #',iter,' iterations required'
  endif
  close(1337)
+ stop
 
  if (allocated(trvurho_1D)) deallocate(trvurho_1D)
  allocate (trvurho_1D(5, writeline))

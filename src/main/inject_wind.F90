@@ -253,7 +253,7 @@ subroutine init_inject(ierr)
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, outer_boundary_au*au, tsonic, tend, tcross, 'windprofile1D.dat')
+         wind_temperature, outer_boundary_au*au, tend, tcross, 'windprofile1D.dat')
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
