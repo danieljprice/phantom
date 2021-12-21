@@ -712,10 +712,6 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) gmw
     ! not compulsory to read in
     if (gmw <= 0.)  call fatal(label,'mu <= 0')
- case('gamma')
-    read(valstring,*,iostat=ierr) gamma
-    if (gamma <= 0.) call fatal(label,'gamma <= 0')
-    ngot = ngot + 1
  case('X')
     read(valstring,*,iostat=ierr) X_in
     if (X_in <= 0.) call fatal(label,'X <= 0.0')
