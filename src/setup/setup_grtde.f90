@@ -25,8 +25,9 @@ module setup
 !   - theta           : *inclination of orbit (degrees)*
 !
 ! :Dependencies: dim, eos, extern_densprofile, externalforces,
-!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, spherical, table_utils, timestep, units, vectorutils
+!   gravwaveutils, infile_utils, io, kernel, metric, part, physcon,
+!   rho_profile, setbinary, spherical, table_utils, timestep, units,
+!   vectorutils
 !
  implicit none
  public :: setpart
@@ -60,6 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces,only:accradius1,accradius1_hard
  use rho_profile,   only:rho_polytrope,read_kepler_file
  use vectorutils,   only:rotatevec
+ use gravwaveutils, only:theta_gw,calc_gravitwaves
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -134,7 +136,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(mass=mhole,c=1.,G=1.) !--Set central mass to M=1 in code units
  mstar         = mstar*solarm/umass
  rstar         = rstar*solarr/udist
-
+ print*, 'mstar', mstar
+ print*, 'rstar', rstar
+ print*, 'umass', umass
+ print*, 'udist', udist
  rtidal          = rstar*(mass1/mstar)**(1./3.)
  rp              = rtidal/beta
  psep            = rstar/nr
@@ -154,6 +159,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
+    print*, 'print period', period
+    print*, 'mass1', mass1
+    print*, 'tidal radisu', rtidal
+    print*, 'beta', beta
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     ! apocentre = rp*(1.+ecc)/(1.-ecc)
@@ -230,6 +239,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
+
+ !
+ ! set a few options for the input file
+ !
+ calc_gravitwaves = .true.
+ if (abs(ecc-1.) > epsilon(0.)) then
+    theta_gw = theta*180./pi
+ else
+    theta_gw = -theta*180./pi
+ endif
 
  if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
