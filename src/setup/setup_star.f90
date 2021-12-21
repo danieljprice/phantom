@@ -152,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr,eos_type
- real                             :: vol_sphere,psep,rmin,presi
+ real                             :: vol_sphere,psep,rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene
  logical                          :: calc_polyk,setexists
@@ -305,7 +305,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              guessene = en(i-1)
              tempi = temp(i-1)
           endif
-          call calc_temp_and_ene(den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+          call calc_temp_and_ene(ieos,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
           en(i) = eni
           temp(i) = tempi
        enddo
