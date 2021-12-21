@@ -31,6 +31,7 @@ module eos
 !
 ! :Runtime parameters:
 !   - X           : *hydrogen mass fraction*
+!   - gamma       : *Adiabatic index*
 !   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
 !   - irecomb     : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !   - metallicity : *metallicity*

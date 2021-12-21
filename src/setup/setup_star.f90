@@ -52,9 +52,10 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   eos_mesa, eos_piecewise, extern_densprofile, externalforces,
-!   infile_utils, io, kernel, options, part, physcon, prompting, relaxstar,
-!   rho_profile, setsoftenedcore, setstellarcore, setup_params, sortutils,
-!   spherical, table_utils, timestep, units
+!   infile_utils, io, kernel, options, part, physcon, prompting,
+!   radiation_utils, relaxstar, rho_profile, setsoftenedcore,
+!   setstellarcore, setup_params, sortutils, spherical, table_utils,
+!   timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity

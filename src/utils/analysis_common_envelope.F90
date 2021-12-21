@@ -10,12 +10,13 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Thomas Reichardt
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, energies, eos, eos_mesa, kernel, part,
-!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
+! :Dependencies: centreofmass, energies, eos, eos_idealplusrad, eos_mesa,
+!   extern_corotate, kernel, mesa_microphysics, part, physcon, prompting,
+!   ptmass, setbinary, sortutils, table_utils, units
 !
 
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&

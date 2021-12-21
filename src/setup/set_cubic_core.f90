@@ -17,7 +17,7 @@ module setcubiccore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, kernel, physcon, table_utils
+! :Dependencies: eos, io, kernel, physcon, table_utils
 !
  use physcon, only:solarm,solarr
  use table_utils, only:interpolator,diff
