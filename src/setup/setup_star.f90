@@ -114,7 +114,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
- use part,            only:igas,isetphase
+ use part,            only:igas,isetphase,iradxi
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp,interpolator
@@ -125,9 +125,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            write_softened_profile
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,init_eos_9,finish_eos,equationofstate,gmw,X_in,Z_in,calc_temp_and_ene
- use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
+ use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
- use radiation_utils, only:set_radiation_and_gas_temperature_equal
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal,ugas_from_Tgas,radE_from_Trad
  use dim,             only:do_radiation
  use part,            only:rad,eos_vars,itemp,igasP,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
@@ -361,6 +361,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set the thermal energy / temperature profile of the star
  !
  if (maxvxyzu==4) then
+    if (do_radiation) then
+       eos_type=12  ! Calculate temperature from both gas and radiation pressure
+    else
+       eos_type=ieos
+    endif
     do i = 1,nstar
        if (relax_star_in_setup) then
           hi = xyzh(4,i)
@@ -386,14 +391,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(4,i) = eni
           if (store_temperature) eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
-          call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
-          vxyzu(4,i) = eni / unit_ergg
+          call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+          if (do_radiation) then
+             vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
+             rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          else
+             vxyzu(4,i) = eni / unit_ergg
+          endif
           if (store_temperature) eos_vars(itemp,i) = tempi
        end select
     enddo
  endif
 
- if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+!  if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 
  call finish_eos(ieos,ierr)
  !
