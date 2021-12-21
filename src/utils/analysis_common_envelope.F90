@@ -273,8 +273,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     call write_file('specific_energy_particles', 'histogram', columns, histogram_data, size(histogram_data(1,:)), ncols, num)
 
-   case(18)
-       call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
+ case(18)
+    call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  end select
  !increase dump number counter
  dump_number = dump_number + 1
@@ -482,13 +482,13 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
 
     ! Bound criterion including HeI + HeII + HI ionisation energy
     if ((epoti + ekini + ethi + E_HeII + E_HeI + E_HI < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
-      bound(27) = bound(27) + particlemass
+       bound(27) = bound(27) + particlemass
     endif
 
     ! Bound criterion including HeI + HeII + HI + H2 ionisation energy
     if ((epoti + ekini + ethi + E_HeII + E_HeI + E_HI + E_H2 < 0.)  .or. isdead_or_accreted(xyzh(4,i))) then
-      bound(28) = bound(28) + particlemass
-   endif
+       bound(28) = bound(28) + particlemass
+    endif
  enddo
 
  call write_time_file('boundunbound_vs_time', columns, time, bound, ncols, dump_number)
@@ -1101,7 +1101,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
  Nquantities = 10
  if (dump_number == 0) then
-     print "(10(a,/))",&
+    print "(10(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
@@ -1215,13 +1215,13 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              quant(k,i) = entropyi
           endif
 
-         case(8) ! Specific recombination energy
+       case(8) ! Specific recombination energy
           rhopart = rhoh(xyzh(4,i), particlemass)
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
           call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
           quant(k,i) = vxyzu(4,i) - ethi / particlemass ! Specific energy
 
-         case(10) ! Mass coordinate
+       case(10) ! Mass coordinate
           quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
 
        case default
@@ -1364,7 +1364,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
        Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
     endif
     ! MESA ENTROPY
-   !  Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
+    !  Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
     etoti = ekini + epoti + ethi
@@ -1586,7 +1586,7 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
     close(unit=unitnum)
  enddo
 
-end subroutine
+end subroutine energy_hist
 
 !----------------------------------------------------------------
 !+
@@ -1626,13 +1626,13 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  nbins = 500
  allocate(hist(nbins))
  if (use_mass_coord) then
-   mincoord  = 3.8405  ! Min. mass coordinate
-   maxcoord  = 12.0 ! Max. mass coordinate
-   ilogbins = .false.
+    mincoord  = 3.8405  ! Min. mass coordinate
+    maxcoord  = 12.0 ! Max. mass coordinate
+    ilogbins = .false.
  else
-   mincoord  = 0.5  ! Min. log(r)
-   maxcoord  = 4.3  ! Max. log(r)
-   ilogbins = .true.
+    mincoord  = 0.5  ! Min. log(r)
+    maxcoord  = 4.3  ! Max. log(r)
+    ilogbins = .true.
  endif
 
  call compute_energies(time)
@@ -2046,14 +2046,14 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
 
     ! H ionisation state
     if (xhe0 > recomb_th) then
-        He_state(i) = 1
-     elseif (xhe1 > recomb_th) then
-        He_state(i) = 2
-     elseif (xhe2 > recomb_th) then
-        He_state(i) = 3
-     else
-        He_state(i) = 0 ! This should not happen
-     endif
+       He_state(i) = 1
+    elseif (xhe1 > recomb_th) then
+       He_state(i) = 2
+    elseif (xhe2 > recomb_th) then
+       He_state(i) = 3
+    else
+       He_state(i) = 0 ! This should not happen
+    endif
  enddo
 
  write(data_formatter, "(a,I5,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
@@ -2664,7 +2664,7 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
        sep = separation(xyzmh_ptmass(1:3,1), xyzh(1:3,k))
        if (sep > maxsep) exit
        ngas = ngas + 1
-   enddo
+    enddo
  endif
 
  print*,'ngas=',ngas
@@ -3123,101 +3123,101 @@ end subroutine orbit_com
 
 subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,icentreonCM,iavgopt,vel,cs,omega,volume,vol_mass,&
                           vol_npart)
-   real,    intent(in) :: xyzh(:,:),vxyzu(:,:),com_xyz(:),com_vxyz(:),particlemass
-   logical, intent(in) :: icentreonCM
-   real,    intent(out) :: vel(:),cs,omega,volume,vol_mass
-   integer, intent(out) :: vol_npart
-   integer, intent(in) :: npart,isink,iavgopt
-   real :: orbit_centre(3),orbit_centre_vel(3),sphere_centre(3),Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),vxyzu_copy(4)
-   real :: Rsphere,sep,omega_out,Rsinksink,dR,dz
-   integer :: i,j,k,iorder(size(xyzh(1,:)))
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:),com_xyz(:),com_vxyz(:),particlemass
+ logical, intent(in) :: icentreonCM
+ real,    intent(out) :: vel(:),cs,omega,volume,vol_mass
+ integer, intent(out) :: vol_npart
+ integer, intent(in) :: npart,isink,iavgopt
+ real :: orbit_centre(3),orbit_centre_vel(3),sphere_centre(3),Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),vxyzu_copy(4)
+ real :: Rsphere,sep,omega_out,Rsinksink,dR,dz
+ integer :: i,j,k,iorder(size(xyzh(1,:)))
 
-   i = isink
-   if (icentreonCM) then   ! Centre on orbit CoM
-      orbit_centre     = com_xyz
-      orbit_centre_vel = com_vxyz
-   else                     ! Centre on primary core
-      orbit_centre     = xyzmh_ptmass(1:3,3-i)
-      orbit_centre_vel = vxyz_ptmass(1:3,3-i)
-   endif
+ i = isink
+ if (icentreonCM) then   ! Centre on orbit CoM
+    orbit_centre     = com_xyz
+    orbit_centre_vel = com_vxyz
+ else                     ! Centre on primary core
+    orbit_centre     = xyzmh_ptmass(1:3,3-i)
+    orbit_centre_vel = vxyz_ptmass(1:3,3-i)
+ endif
 
-   ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
-   if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
-      select case (iavgopt)
-      case(1) ! Use companion position
-         sphere_centre = xyzmh_ptmass(1:3,i)
-      case(2) ! Use companion position on the opposite side of orbit
-         sphere_centre = 2.*orbit_centre - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
-      case(5) ! Averaging twice as far on opposite side of orbit
-         sphere_centre = 2.*(orbit_centre - xyzmh_ptmass(1:3,i)) ! Just r1 - 2(r2 - r1)
-      case(6) ! Averaging half as far on opposite side of orbit
-         sphere_centre = 1.5*orbit_centre - 0.5*xyzmh_ptmass(1:3,i) ! Just r1 - 0.5*(r2 - r1)
-      end select
-      call set_r2func_origin(sphere_centre(1),sphere_centre(2),sphere_centre(3))
-      call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
+ if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
+    select case (iavgopt)
+    case(1) ! Use companion position
+       sphere_centre = xyzmh_ptmass(1:3,i)
+    case(2) ! Use companion position on the opposite side of orbit
+       sphere_centre = 2.*orbit_centre - xyzmh_ptmass(1:3,i) ! Just r1 - (r2 - r1)
+    case(5) ! Averaging twice as far on opposite side of orbit
+       sphere_centre = 2.*(orbit_centre - xyzmh_ptmass(1:3,i)) ! Just r1 - 2(r2 - r1)
+    case(6) ! Averaging half as far on opposite side of orbit
+       sphere_centre = 1.5*orbit_centre - 0.5*xyzmh_ptmass(1:3,i) ! Just r1 - 0.5*(r2 - r1)
+    end select
+    call set_r2func_origin(sphere_centre(1),sphere_centre(2),sphere_centre(3))
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
-      ! Sum velocities, cs, and densities of all particles within averaging sphere
-      Rsphere = 0.2 * separation(orbit_centre, xyzmh_ptmass(1:3,i))
-      do j = 1,npart
-         k = iorder(j) ! Only use particles within the averaging sphere
-         if (.not. isdead_or_accreted(xyzh(4,k))) then
-            sep = separation(xyzh(1:3,k), sphere_centre)
-            if (sep > Rsphere) exit
-            vel(1:3) = vel(1:3) + vxyzu(1:3,k)
-            vxyzu_copy = vxyzu(:,k)
-            cs       = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
-            call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
-            omega    = omega + omega_out
-         endif
-      enddo
-      vol_npart = j-1 ! Number of (unaccreted) particles in the sphere
-      vol_mass  = vol_npart * particlemass
-      if ((iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) vel = -vel ! To-do: get rid of this line
+    ! Sum velocities, cs, and densities of all particles within averaging sphere
+    Rsphere = 0.2 * separation(orbit_centre, xyzmh_ptmass(1:3,i))
+    do j = 1,npart
+       k = iorder(j) ! Only use particles within the averaging sphere
+       if (.not. isdead_or_accreted(xyzh(4,k))) then
+          sep = separation(xyzh(1:3,k), sphere_centre)
+          if (sep > Rsphere) exit
+          vel(1:3) = vel(1:3) + vxyzu(1:3,k)
+          vxyzu_copy = vxyzu(:,k)
+          cs       = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
+          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
+          omega    = omega + omega_out
+       endif
+    enddo
+    vol_npart = j-1 ! Number of (unaccreted) particles in the sphere
+    vol_mass  = vol_npart * particlemass
+    if ((iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) vel = -vel ! To-do: get rid of this line
 
-   ! Averaging in annulus
-   elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
-      Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
-      zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
-      Rsinksink = separation(xyzmh_ptmass(1:2,i), xyzmh_ptmass(1:2,3-i))                          ! [(x2-x1)^2 + (y2-y1)^2]^0.5
-      if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
-      dR = 0.2*Rsinksink
-      dz = 0.2*Rsinksink
-      do k = 1,npart
-         if ( (iavgopt == 4) .and. (separation(xyzh(1:3,k), xyzmh_ptmass(1:3,i)) < Rsphere) ) cycle
-         if ( (abs(Rarray(k) - Rsinksink) < 0.5*dR) .and.&
+    ! Averaging in annulus
+ elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
+    Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
+    zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
+    Rsinksink = separation(xyzmh_ptmass(1:2,i), xyzmh_ptmass(1:2,3-i))                          ! [(x2-x1)^2 + (y2-y1)^2]^0.5
+    if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
+    dR = 0.2*Rsinksink
+    dz = 0.2*Rsinksink
+    do k = 1,npart
+       if ( (iavgopt == 4) .and. (separation(xyzh(1:3,k), xyzmh_ptmass(1:3,i)) < Rsphere) ) cycle
+       if ( (abs(Rarray(k) - Rsinksink) < 0.5*dR) .and.&
               (abs(zarray(k) - xyzmh_ptmass(3,3-i)) < 0.5*dz) ) then
-               vel   = vel + vxyzu(1:3,k)
-               vxyzu_copy = vxyzu(:,k)
-               cs    = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
-               call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
-               omega = omega + omega_out
-               vol_npart = vol_npart + 1
-         endif
-      enddo
-      vol_mass = vol_npart * particlemass
-   endif
+          vel   = vel + vxyzu(1:3,k)
+          vxyzu_copy = vxyzu(:,k)
+          cs    = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
+          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
+          omega = omega + omega_out
+          vol_npart = vol_npart + 1
+       endif
+    enddo
+    vol_mass = vol_npart * particlemass
+ endif
 
-   ! Calculate averaging volume based on averaging option
-   select case (iavgopt)
-   case (1,2,5,6) ! Spheres
-      volume = 4./3.*pi*Rsphere**3
-   case(3) ! Annulus
-      volume  = 2.*pi * Rsinksink * dR * dz
-   case(4) ! Annulus with sphere subtracted
-      volume  = 2.*pi * Rsinksink * dR * dz
-      volume  = volume - 0.4*dR*dz*Rsinksink
-   case default
-      volume = 0.
-      print*,'Unknown averaging option'
-      stop
-   end select
+ ! Calculate averaging volume based on averaging option
+ select case (iavgopt)
+ case (1,2,5,6) ! Spheres
+    volume = 4./3.*pi*Rsphere**3
+ case(3) ! Annulus
+    volume  = 2.*pi * Rsinksink * dR * dz
+ case(4) ! Annulus with sphere subtracted
+    volume  = 2.*pi * Rsinksink * dR * dz
+    volume  = volume - 0.4*dR*dz*Rsinksink
+ case default
+    volume = 0.
+    print*,'Unknown averaging option'
+    stop
+ end select
 
-   ! Calculate volume averages
-   if (vol_npart > 0) then
-      vel(1:3) = vel(1:3) / float(vol_npart)
-      omega  = omega / float(vol_npart)
-      cs     = cs / float(vol_npart)
-   endif
+ ! Calculate volume averages
+ if (vol_npart > 0) then
+    vel(1:3) = vel(1:3) / float(vol_npart)
+    omega  = omega / float(vol_npart)
+    cs     = cs / float(vol_npart)
+ endif
 
 end subroutine average_in_vol
 
@@ -3331,7 +3331,7 @@ subroutine histogram_setup(coord,quant,hist,npart,bin_max,bin_min,nbins,normalis
           hist(i) = hist(i) / real(bincount(i))
        endif
     enddo
-endif
+ endif
 
 end subroutine histogram_setup
 
