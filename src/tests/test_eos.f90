@@ -113,7 +113,7 @@ subroutine test_idealplusrad(ntests, npass)
  integer, intent(inout) :: ntests,npass
  integer                :: npts,ieos,ierr,i,j,ncheck(1)
  integer, allocatable   :: nfailed(:)
- real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,rhocodei,&
+ real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,rhocodei,gamma,&
                            presi,dum,csound,eni,temp,logTi,logQi,ponrhoi,mu,tol,errmax(1),pres2,code_eni
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
@@ -123,6 +123,7 @@ subroutine test_idealplusrad(ntests, npass)
  errmax = 1
  ieos = 12
  mu = 0.6
+ gamma = 5./3.
 
  ! Initialise grids in Q and T (cgs units)
  npts = 10
@@ -150,14 +151,14 @@ subroutine test_idealplusrad(ntests, npass)
  do i=1,npts
     do j=1,npts
        ! Get u, P from rho, T
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,eni)
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,eni)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate T, P, from rho, u
        code_eni = eni/unit_ergg
        temp = eni*mu/kb_on_mh
        rhocodei = rhogrid(i)/unit_density
-       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,code_eni,tempi=temp,mu_local=mu)
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,code_eni,tempi=temp,mu_local=mu,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
 
        call checkval(temp,Tgrid(j),tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
@@ -187,7 +188,7 @@ subroutine test_hormone(ntests, npass)
  integer                :: npts,ieos,ierr,i,j,ncheck(1)
  integer, allocatable   :: nfailed(:)
  real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,imurec,logQi,logTi,mu,eni_code,&
-                           presi,pres2,dum,csound,eni,tempi,ponrhoi,X,Z,tol,errmax(1),gasrad_eni,eni2,rhocodei
+                           presi,pres2,dum,csound,eni,tempi,ponrhoi,X,Z,tol,errmax(1),gasrad_eni,eni2,rhocodei,gamma
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
@@ -197,6 +198,7 @@ subroutine test_hormone(ntests, npass)
  ieos = 20
  X = 0.7
  Z = 0.02
+ gamma = 5./3.
 
  ! Initialise grids in Q and T (cgs units)
  npts = 10
@@ -230,14 +232,14 @@ subroutine test_hormone(ntests, npass)
        mu = 1./imurec
 
        ! Get u, P from rho, T, mu
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gasrad_eni)
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,gasrad_eni)
        eni = gasrad_eni + get_erec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate P, T from rho, u, mu
        eni_code = eni/unit_ergg
        rhocodei = rhogrid(i)/unit_density
-       call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,eni_code,tempi,mu_local=mu,Xlocal=X,Zlocal=Z)
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,eni_code,tempi,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
        call checkval(Tgrid(j),tempi,tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
        call checkval(presi,pres2,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, u')

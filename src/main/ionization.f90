@@ -123,7 +123,7 @@ end function rapid_dtanhv
 !+
 !-----------------------------------------------------------------------
 subroutine ionization_setup
- use physcon, only:kb_on_mh
+ use physcon, only:Rg
  real :: x
 
  allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
@@ -133,7 +133,7 @@ subroutine ionization_setup
  eion(2) = 1.312e13  ! HI   [erg/mol]
  eion(3) = 2.3723e13 ! HeI  [erg/mol]
  eion(4) = 5.2505e13 ! HeII [erg/mol]
- logeion(1:4) = log10(eion(1:4)/kb_on_mh)
+ logeion(1:4) = log10(eion(1:4)/Rg)
 
  ! These fitting parameters are tuned for eosDT in the range X=0.6-0.8
  frec = 0.005
