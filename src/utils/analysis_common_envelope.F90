@@ -22,7 +22,7 @@ module analysis
                         rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
  use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,&
                         unit_pressure,unit_velocity,unit_Bfield,unit_energ
- use physcon,      only:gg,pi,c,kb_on_mh
+ use physcon,      only:gg,pi,c,Rg
  use prompting,    only:prompt
  use centreofmass, only:get_centreofmass, reset_centreofmass
  use energies,     only:compute_energies,ekin,etherm,epot,etot
@@ -763,7 +763,7 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  rhomass = 0.
  nFB = 0
  nR1T = 0
- temp_const = (unit_pressure / unit_density) * 1.34 / kb_on_mh
+ temp_const = (unit_pressure / unit_density) * 1.34 / Rg
 
  if (dump_number == 0) then
     m1 = npart * particlemass + xyzmh_ptmass(4,1)
@@ -1199,7 +1199,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              rhopart = rhoh(xyzh(4,i), particlemass)
              call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
              call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-             mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas  
+             mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas  
              entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
           else
              print*,"Error: Calculaing MESA EoS entropy but not using MESA EoS"
@@ -1354,7 +1354,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
     end select
     if (ieos==10) then
        call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-       mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas
+       mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
     else
        mu = gmw
     endif
@@ -1704,7 +1704,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
     case(2) ! Entropy
        if ((ieos==10) .and. (ientropy==2)) then
           call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-          mu = rhopart*unit_density * kb_on_mh * eos_vars(itemp,i) / pgas
+          mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
        else
           mu = gmw
        endif
@@ -2871,7 +2871,7 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
     densi = rhoh(hi,particlemass)
     
     ! Get mu from pres and temp
-    mui = densi*unit_density * kb_on_mh * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.)
+    mui = densi*unit_density * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.)
 
     call get_idealplusrad_enfromtemp(densi*unit_density,tempi,mui,ethi)
     ethi = particlemass * ethi / unit_ergg

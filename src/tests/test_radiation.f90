@@ -183,7 +183,7 @@ subroutine test_uniform_derivs(ntests,npass)
                            rad,radprop,drad,ifluxx,maxvxyzu,init_part,fxyzu
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
- use units,           only:set_units,unit_opacity,get_c_code,unit_velocity,unit_ergg
+ use units,           only:set_units,unit_opacity,get_c_code,unit_velocity,unit_ergg,get_radconst_code
  use physcon,         only:Rg,pi,seconds
  use eos,             only:gamma,gmw
  use readwrite_dumps, only:write_fulldump

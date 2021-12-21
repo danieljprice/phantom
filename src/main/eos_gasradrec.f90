@@ -29,7 +29,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  use ionization_mod, only:get_erec_imurec
- use physcon,        only:radconst,kb_on_mh
+ use physcon,        only:radconst,Rg
  real, intent(in)    :: d,eint
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
@@ -44,8 +44,8 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if (d*erec>=eint) then ! avoid negative thermal energy
        T = 0.9*T; Tdot=0.;cycle
     endif
-    corr = (eint-(radconst*T**3+1.5*kb_on_mh*d*imu)*T-d*erec) &
-           / ( -4.*radconst*T**3-d*(1.5*kb_on_mh*(imu+dimurecdT*T)+derecdT) )
+    corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
+           / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
     if (abs(corr) > W4err*T) then
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
@@ -61,7 +61,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     print*,'d=',d,'eint=',eint,'mu=',1./imu
     stop
  endif
- p = ( kb_on_mh*imu*d + radconst*T**3/3. )*T
+ p = ( Rg*imu*d + radconst*T**3/3. )*T
  gamma_eff = 1.+p/(eint-d*erec)
  cf = sqrt(gamma_eff*p/d)
 
@@ -76,7 +76,7 @@ end subroutine equationofstate_gasradrec
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  use ionization_mod, only: get_imurec,get_erec
- use physcon,        only: radconst,kb_on_mh
+ use physcon,        only: radconst,Rg
  real, intent(in)            :: rhoi,presi,X,Y
  real, intent(inout)         :: T
  real, intent(out)           :: eni
@@ -93,8 +93,8 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  logrhoi = log10(rhoi)
  do n = 1,500
     call get_imurec(logrhoi,T,X,Y,imu,dimurecdT)
-    corr = ( presi - (rhoi*kb_on_mh*imu + radconst*T**3/3.)*T ) / &
-           ( -rhoi*kb_on_mh * ( imu + T*dimurecdT ) - 4.*radconst*T**3/3. )
+    corr = ( presi - (rhoi*Rg*imu + radconst*T**3/3.)*T ) / &
+           ( -rhoi*Rg * ( imu + T*dimurecdT ) - 4.*radconst*T**3/3. )
     if (abs(corr)>W4err*T) then
        T = T + Tdot*dT
        Tdot = (1.-2.*dT)*Tdot - dT*corr
@@ -111,7 +111,7 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
     ierr = 1
     return
  endif
- eni = ( 1.5*kb_on_mh*imu + radconst*T**3/rhoi )*T + get_erec(logrhoi,T,X,Y)
+ eni = ( 1.5*Rg*imu + radconst*T**3/rhoi )*T + get_erec(logrhoi,T,X,Y)
  mui = 1./imu
 
 end subroutine calc_uT_from_rhoP_gasradrec
