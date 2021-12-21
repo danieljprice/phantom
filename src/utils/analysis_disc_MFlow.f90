@@ -26,7 +26,7 @@ module analysis
 
  interface read_discparams
   module procedure read_discparams, read_discparams2
- end interface
+ end interface read_discparams
 
  private
 

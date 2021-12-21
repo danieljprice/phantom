@@ -44,7 +44,7 @@ module allocutils
       allocate_array_integer1_3d, &
       allocate_array_kdnode_1d, &
       allocate_array_logical
- end interface
+ end interface allocate_array
 
  private
 

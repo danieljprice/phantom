@@ -51,7 +51,7 @@ module mpidens
     logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8))
- endtype
+ end type celldens
 
  type stackdens
     sequence
@@ -60,7 +60,7 @@ module mpidens
     integer                   :: n = 0
     integer                   :: mem_start
     integer                   :: mem_end
- endtype
+ end type stackdens
 
 contains
 

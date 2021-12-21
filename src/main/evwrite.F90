@@ -38,7 +38,8 @@ module evwrite
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
-!   fileutils, io, nicil, options, part, ptmass, timestep, units, viscosity
+!   fileutils, gravwaveutils, io, nicil, options, part, ptmass, timestep,
+!   units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
@@ -74,11 +75,13 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve,gws
+ use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
  use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
+ use gravwaveutils, only:calc_gravitwaves
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
@@ -194,11 +197,16 @@ subroutine init_evfile(iunit,evfile,open_file)
  if (irealvisc /= 0) then
     call fill_ev_tag(ev_fmt,iev_viscrat,'visc_rat','xan',i,j)
  endif
- if (gws) then
-    call fill_ev_tag(ev_fmt,iev_gws(1),'hx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(2),'hp','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(3),'hxx','0',i,j)
-    call fill_ev_tag(ev_fmt,iev_gws(4),'hpp','0',i,j)
+
+ if (calc_gravitwaves) then
+    call fill_ev_tag(ev_fmt,iev_gws(1),'hx_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(2),'hp_0','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(3),'hx_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(4),'hp_{30}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(5),'hx_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(6),'hp_{60}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(7),'hx_{90}','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_gws(8),'hp_{90}','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)
