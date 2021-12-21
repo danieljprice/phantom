@@ -466,7 +466,7 @@ subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac,
  character(len=120), intent(in)  :: outputpath
  integer                         :: i
 
- open(1, file = outputpath, status = 'new')
+ open(1, file = outputpath, status = 'replace')
 
  if (present(Xfrac) .and. present(Yfrac)) then
     if (present(csound)) then
