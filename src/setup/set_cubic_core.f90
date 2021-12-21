@@ -42,7 +42,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
- use eos,         only:calc_temp_and_ene
+ use eos,         only:calc_temp_and_ene,ieos
  use table_utils, only:flip_array
  use io,          only:fatal
  real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
@@ -69,11 +69,11 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
  call calc_phi(r, mc, m-mc, hsoft_cm, phi)
  call calc_pres(r, rho, phi, pres)
 
- call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
+ call calc_temp_and_ene(ieos,rho(1),pres(1),ene(1),temp(1),ierr)
  if (ierr /= 0) call fatal('set_cubic_core','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
  do i = 2,size(rho)-1
     eneguess = ene(i-1)
-    call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
+    call calc_temp_and_ene(ieos,rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
  enddo
  ene(size(rho))  = 0. ! Zero surface internal energy
  temp(size(rho)) = 0. ! Zero surface temperature

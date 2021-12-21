@@ -328,7 +328,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,temperaturei,ierr)
+    call get_idealplusrad_temp(cgsrhoi,cgseni,gmw,gamma,temperaturei,ierr)
     call get_idealplusrad_pres(cgsrhoi,temperaturei,gmw,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
@@ -815,6 +815,8 @@ subroutine write_options_eos(iunit)
  call write_inopt(gmw,'mu','mean molecular weight',iunit)
 #endif
  select case(ieos)
+ case(2,12)
+    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
  case(8)
     call write_inopt(drhocrit0,  'drhocrit','transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)',iunit)
     call write_inopt(rhocrit0cgs,'rhocrit0','critical density 0 in g/cm^3 (barotropic eos)',iunit)
@@ -887,6 +889,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  case('rhocrit3')
     read(valstring,*,iostat=ierr) rhocrit3cgs
     if (rhocrit3cgs <= 0.) call fatal(label,'rhocrit3 <= 0')
+    ngot = ngot + 1
+ case('gamma')
+    read(valstring,*,iostat=ierr) gamma
+    if (gamma <= 0.) call fatal(label,'gamma <= 0')
     ngot = ngot + 1
  case('gamma1')
     read(valstring,*,iostat=ierr) gamma1
@@ -1239,23 +1245,24 @@ end subroutine calc_rec_ene
 !  pressure and density, assuming inputs are in cgs units
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint)
+subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ integer, intent(in)        :: eos_type
  real, intent(in)           :: rho,pres
  real, intent(inout)        :: ene,temp
  real, intent(in), optional :: guesseint
  integer, intent(out)       :: ierr
 
  ierr = 0
- select case(ieos)
+ select case(eos_type)
  case(2) ! Adiabatic/polytropic EoS
     temp = pres / (rho * kb_on_mh) * gmw
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal plus rad. EoS
     call get_idealgasplusrad_tempfrompres(pres,rho,gmw,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,gmw,ene)
+    call get_idealplusrad_enfromtemp(rho,temp,gmw,gamma,ene)
  case(10) ! MESA-like EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case default

@@ -80,11 +80,11 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
  call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
  m(1:icore) = m(1:icore) + mc
 
- call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
+ call calc_temp_and_ene(ieos,rho(1),pres(1),ene(1),temp(1),ierr)
  if (ierr /= 0) call fatal('setfixedentropycore','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
  do i = 2,size(rho)-1
     eneguess = ene(i-1)
-    call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
+    call calc_temp_and_ene(ieos,rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
  enddo
  ene(size(rho))  = 0. ! Zero surface internal energy
  temp(size(rho)) = 0. ! Zero surface temperature
