@@ -146,7 +146,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr
+ integer                          :: i,nx,npts,ierr,eos_type
  real                             :: vol_sphere,psep,rmin,presi
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
@@ -699,6 +699,7 @@ subroutine write_setupfile(filename,gamma,polyk)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
  case(12)
+    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (isoftcore <= 0) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
  if (iprofile==ievrard) then
@@ -810,6 +811,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     endif
  case(12)
     ! if softening stellar core, mu is automatically determined at R/2
+    call read_inopt(gamma,'gamma',db,errcount=nerr)
     if (isoftcore <= 0) call read_inopt(gmw,'mu',db,errcount=nerr)
  end select
  if (iprofile==ievrard) call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
