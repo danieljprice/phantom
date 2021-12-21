@@ -138,7 +138,7 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21195027.055207778,1e-10,nerr(1),'energy exchange for gas cooling')
+ call checkval(laste,21197127.9406196,1e-10,nerr(1),'energy exchange for gas cooling')
  call update_test_scores(ntests,nerr,npass)
 
  do i=1,npart
@@ -165,7 +165,7 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21142367.365743987,1e-10,nerr(1),'energy exchange for gas heating')
+ call checkval(laste,21144463.0313597,1e-10,nerr(1),'energy exchange for gas heating')
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_exchange_terms
