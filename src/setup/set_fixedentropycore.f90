@@ -30,7 +30,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  use eos,         only:ieos
- use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
+ use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
  real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore

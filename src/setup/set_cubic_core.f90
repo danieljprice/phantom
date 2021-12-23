@@ -17,7 +17,7 @@ module setcubiccore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, kernel, physcon, table_utils
+! :Dependencies: eos, io, kernel, physcon, table_utils
 !
  use physcon, only:solarm,solarr
  use table_utils, only:interpolator,diff
@@ -38,6 +38,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
+ use eos,         only:ieos
  real, intent(inout):: r(:),rho(:),m(:),pres(:)
  real, allocatable  :: phi(:)
  real, intent(in)   :: mcore,rcore
