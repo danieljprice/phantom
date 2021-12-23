@@ -31,7 +31,6 @@ module eos
 !
 ! :Runtime parameters:
 !   - X           : *hydrogen mass fraction*
-!   - gamma       : *Adiabatic index*
 !   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
 !   - irecomb     : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !   - metallicity : *metallicity*
@@ -664,8 +663,6 @@ subroutine write_options_eos(iunit)
  if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
 #endif
  select case(ieos)
- case(2,12)
-    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
  case(8)
     call write_options_eos_barotropic(iunit)
  case(9)
