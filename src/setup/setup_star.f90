@@ -129,7 +129,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,finish_eos,equationofstate,gmw,X_in,Z_in,&
                            calc_temp_and_ene,get_mean_molecular_weight,eos_outputs_mu
- use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use eos_piecewise,   only:init_eos_piecewise_preset,get_dPdrho_piecewise
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use radiation_utils, only:set_radiation_and_gas_temperature_equal,ugas_from_Tgas,radE_from_Trad

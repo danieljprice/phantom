@@ -131,7 +131,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     select case(ieos)
     case(2)
-       gamma = 1.6667
+       gamma = 5./3.
        call prompt('Enter gamma for adiabatic EoS:',gamma,0.)
     case(12)
        gmw = 0.618212823
@@ -2874,7 +2874,7 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
     ! Get mu from pres and temp
     mui = densi*unit_density * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.)
 
-    call get_idealplusrad_enfromtemp(densi*unit_density,tempi,mui,ethi)
+    call get_idealplusrad_enfromtemp(densi*unit_density,tempi,mui,gamma,ethi)
     ethi = particlemass * ethi / unit_ergg
  end select
 
