@@ -52,9 +52,10 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
 !   eos_mesa, eos_piecewise, extern_densprofile, externalforces,
-!   infile_utils, io, kernel, options, part, physcon, prompting, relaxstar,
-!   rho_profile, setsoftenedcore, setstellarcore, setup_params, sortutils,
-!   spherical, table_utils, timestep, units
+!   infile_utils, io, kernel, options, part, physcon, prompting,
+!   radiation_utils, relaxstar, rho_profile, setsoftenedcore,
+!   setstellarcore, setup_params, sortutils, spherical, table_utils,
+!   timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -116,7 +117,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,    only:rhozero,npart_total
- use part,            only:igas,isetphase
+ use part,            only:igas,isetphase,iradxi
  use spherical,       only:set_sphere
  use centreofmass,    only:reset_centreofmass
  use table_utils,     only:yinterp
@@ -128,10 +129,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
  use eos,             only:init_eos,finish_eos,equationofstate,gmw,X_in,Z_in,&
                            calc_temp_and_ene,get_mean_molecular_weight,eos_outputs_mu
- use eos_idealplusrad,only:get_idealplusrad_enfromtemp,get_idealgasplusrad_tempfrompres
  use eos_piecewise,   only:init_eos_piecewise_preset,get_dPdrho_piecewise
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
- use part,            only:eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal,ugas_from_Tgas,radE_from_Trad
+ use dim,             only:do_radiation
+ use part,            only:rad,eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
@@ -148,7 +150,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr
+ integer                          :: i,nx,npts,ierr,eos_type
  real                             :: vol_sphere,psep,rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,massri,spsoundi,densi,presi,hi,guessene
@@ -302,7 +304,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              guessene = en(i-1)
              tempi = temp(i-1)
           endif
-          call calc_temp_and_ene(den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+          call calc_temp_and_ene(ieos,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
           en(i) = eni
           temp(i) = tempi
        enddo
@@ -404,6 +406,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set the internal energy, temperature, and composition (X,Z,mu, if using variable composition)
  !
  if (maxvxyzu==4) then
+    if (do_radiation) then
+       eos_type=12  ! Calculate temperature from both gas and radiation pressure
+    else
+       eos_type=ieos
+    endif
     do i = 1,nstar
        if (relax_star_in_setup) then
           hi = xyzh(4,i)
@@ -427,18 +434,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
           vxyzu(4,i) = eni
           if (store_temperature) eos_vars(itemp,i) = initialtemp
-       case default
+       case default ! Recalculate eint and temp for each particle according to EoS
           if (use_variable_composition) then
-             call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
+             call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
                                     mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
           else
-             call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+             call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
           endif
-          vxyzu(4,i) = eni / unit_ergg
+          if (do_radiation) then
+             vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
+             rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          else
+             vxyzu(4,i) = eni / unit_ergg
+          endif
           if (store_temperature) eos_vars(itemp,i) = tempi
        end select
     enddo
  endif
+
+!  if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 
  call finish_eos(ieos,ierr)
  !
@@ -753,6 +767,7 @@ subroutine write_setupfile(filename,gamma,polyk)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
  case(12)
+    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (.not. use_variable_composition) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
  if (iprofile==ievrard) then
@@ -868,6 +883,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     endif
  case(12)
     ! if softening stellar core, mu is automatically determined at R/2
+    call read_inopt(gamma,'gamma',db,errcount=nerr)
     if ( (.not. use_variable_composition) .and. (isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
  end select
  if (iprofile==ievrard) call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)

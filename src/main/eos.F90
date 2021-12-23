@@ -271,7 +271,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    call get_idealplusrad_temp(cgsrhoi,cgseni,mui,temperaturei,ierr)
+    call get_idealplusrad_temp(cgsrhoi,cgseni,mui,gammai,temperaturei,ierr)
     call get_idealplusrad_pres(cgsrhoi,temperaturei,mui,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
@@ -977,11 +977,12 @@ end subroutine calc_rec_ene
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
+subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ integer, intent(in)        :: eos_type
  real, intent(in)           :: rho,pres
  real, intent(inout)        :: ene,temp
  real, intent(in), optional :: guesseint,X_local,Z_local
@@ -1002,7 +1003,7 @@ subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal gas + radiation
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
+    call get_idealplusrad_enfromtemp(rho,temp,mu,gamma,ene)
  case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
