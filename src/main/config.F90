@@ -299,8 +299,10 @@ module dim
 ! Dust formation
 !--------------------
 #ifdef NUCLEATION
+ logical :: nucleation = .true.
  integer :: maxsp = maxp_hard
 #else
+ logical :: nucleation = .false.
  integer :: maxsp = 0
 #endif
 

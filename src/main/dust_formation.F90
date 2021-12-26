@@ -603,23 +603,26 @@ end subroutine calc_alpha_bowen
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_dust_formation(iunit)
- use dim,          only: maxvxyzu
+ use dim,          only: maxvxyzu,nucleation
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling dust'
-#ifdef NUCLEATION
- call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
- call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
-#else
- call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
+ if (nucleation) then
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen), 2 (Gail))',iunit)
+ else
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
+ endif
  if (idust_opacity == 1) then
     call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
     call write_inopt(bowen_kmax,'bowen_kmax','maximum dust opacity (cm²/g)',iunit)
     call write_inopt(bowen_Tcond,'bowen_Tcond','dust condensation temperature (K)',iunit)
     call write_inopt(bowen_delta,'bowen_delta','condensation temperature range (K)',iunit)
  endif
-#endif
+ if (nucleation .and. idust_opacity == 2) then
+    call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
+    call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
+ endif
 end subroutine write_options_dust_formation
 
 !-----------------------------------------------------------------------
@@ -666,13 +669,10 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
-#ifdef NUCLEATION
- igotall = (ngot >= 2)
- idust_opacity = 1
-#else
  igotall = (ngot >= 1)
- if (idust_opacity > 0) igotall = (ngot >= 5)
-#endif
+ if (idust_opacity ==1) igotall = (ngot >= 5)
+ if (idust_opacity ==1) igotall = (ngot >= 3)
+
 end subroutine read_options_dust_formation
 
 end module dust_formation
