@@ -118,11 +118,7 @@ end subroutine get_rad_accel_from_ptmass
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
      ax,ay,az,Tdust,kappa)
  use units,   only: umass
-#ifdef NUCLEATION
- use dust_formation, only:calc_alpha_dust
-#else
- use dust_formation, only:calc_alpha_bowen
-#endif
+ use dust_formation, only:calc_alpha_dust,calc_alpha_bowen,idust_opacity
  real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs
  real, optional, intent(in) :: kappa,Tdust
  real, intent(out)   :: ax,ay,az
@@ -134,19 +130,19 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     fac = alpha_rad*Mstar_cgs/(umass*r**3)
  case (2)
     ! radiation pressure on dust
-#ifdef NUCLEATION
-    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-#else
-    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-#endif
+    if (idust_opacity == 2) then
+       call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
+    else
+       call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
+    endif
     fac = alpha_dust*Mstar_cgs/(umass*r**3)
  case (3)
-    ! radiation pressure on dust
-#ifdef NUCLEATION
-    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-#else
-    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-#endif
+    ! radiation pressure on dust + alpha_wind (=1+2)
+    if (idust_opacity == 2) then
+       call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
+    else
+       call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
+    endif
     fac = (alpha_rad+alpha_dust)*Mstar_cgs/(umass*r**3)
  case default
     ! no radiation pressure

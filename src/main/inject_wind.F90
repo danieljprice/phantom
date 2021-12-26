@@ -334,6 +334,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use injectutils,       only:inject_geodesic_sphere
  use units,             only:udist, utime
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
+ use dust_formation,    only:idust_opacity
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -346,9 +347,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real    :: fit_rho_power_new, fit_rho_inner_new, fit_vel_new, tolv
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
-#ifdef NUCLEATION
  real :: JKmuS(n_nucleation)
-#endif
 
  tolv = 10.
 
@@ -420,13 +419,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, i, &
             inner_sphere,inner_boundary_sphere,dr3,rho_ini)
     else
-#ifdef NUCLEATION
-       call interp_wind_profile(time,local_time, r, v, u, rho, e, GM, fdone, JKmuS)
-       !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
-#else
-       call interp_wind_profile(time,local_time, r, v, u, rho, GM, e, fdone)
-       !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
-#endif
+       if (idust_opacity == 2) then
+          call interp_wind_profile(time,local_time, r, v, u, rho, e, GM, fdone, JKmuS)
+          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
+       else
+          call interp_wind_profile(time,local_time, r, v, u, rho, GM, e, fdone)
+          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
+       endif
        if (iverbose > 0) print '(" ##### boundary sphere ",i4,3(i4),i7,9(1x,es12.5))',i,&
             inner_sphere,nboundaries,outer_sphere,npart,time,local_time,r,v,fdone
     endif
@@ -436,24 +435,24 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
        !print '(" ##### boundary sphere ",i4,i7,3(i4),i7,9(1x,es12.5))',i,first_particle,inner_sphere,nboundaries,&
        !     outer_sphere,npart,time,local_time,r/xyzmh_ptmass(iReff,1),v,u,rho
-#ifdef NUCLEATION
-       call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
-            npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
-#else
-       call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
-            npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
-#endif
+       if (idust_opacity == 2) then
+          call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
+               npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
+       else
+          call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
+               npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
+       endif
        if (store_dust_temperature) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
             xyzmh_ptmass(iTeff,wind_emitting_sink)
     else
        ! ejected particles + create new  inner sphere
-#ifdef NUCLEATION
-       call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
-            npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
-#else
-       call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
-            npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
-#endif
+       if (idust_opacity == 2) then
+          call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
+               npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
+       else
+          call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
+               npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
+       endif
        !initialize dust temperature to star's effective temperature
        if (store_dust_temperature) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
        ! update the sink particle mass

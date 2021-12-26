@@ -215,6 +215,7 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
   real, parameter :: A2=.5,A3=.5,A4=1.
   real, parameter :: B21=.5,B31=0.,B32=.5,B41=0.,B42=0.,B43=1.
   real, parameter :: C1=1./6.,C2=1./3.,C3=1./3.,C4=1./6.
+  real, parameter :: D1=1./6.,D2=2./3.,D3=0.,D4=1./6.
 ! version that mimimizes the error
 ! character(len=3), parameter :: method = 'err'
 ! real, parameter :: A2=.4,A3=.45573725,A4=1.
@@ -225,13 +226,14 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
   ! real, parameter :: A2=1./3.,A3=2./3.,A4=1.
   ! real, parameter :: B21=1./3.,B31=-1./3.,B32=1.,B41=1.,B42=-1.,B43=1.
   ! real, parameter :: C1=1./8.,C2=3./8.,C3=3./8.,C4=1./8.
-  ! character(len=3), parameter :: method = 'BSm'
+  ! character(len=3), parameter :: method = 'BSm'  !Bogacki–Shampine method
   ! real, parameter :: A2=.5,A3=.75,A4=1.
   ! real, parameter :: B21=.5,B31=0.,B32=.75,B41=2./9.,B42=1./3.,B43=4./9.
   ! real, parameter :: C1=2./9.,C2=1./3.,C3=4./9.,C4=0.
   ! real, parameter :: D1=7./24.,D2=.25,D3=1./3.,D4=1./8.
   real            :: errT,errv,deltas
 
+ !determine RK4 solution
  r0 = rvT(1)
  v0 = rvT(2)
  T0 = rvT(3)
@@ -245,7 +247,11 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  v = v0+H*(B31*dv1_dr+B32*dv2_dr)
  T = T0+H*(B31*dT1_dr+B32*dT2_dr)
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
- ! if (method .ne. 'BSm') then
+ ! if (method .eq. 'BSm') then
+ ! new_rvT(1) = r0+H
+ ! new_rvT(2) = v0 + H*(C1*dv1_dr+C2*dv2_dr+C3*dv3_dr)
+ ! new_rvT(3) = T0 + H*(C1*dT1_dr+C2*dT2_dr+C3*dT3_dr)
+ ! else
  r = r0+A4*H
  v = v0+H*(B41*dv1_dr+B42*dv2_dr+B43*dv3_dr)
  T = T0+H*(B41*dv1_dr+B42*dv2_dr+B43*dT3_dr)
@@ -253,33 +259,31 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  new_rvT(1) = r
  new_rvT(2) = v0 + H*(C1*dv1_dr+C2*dv2_dr+C3*dv3_dr+C4*dv4_dr)
  new_rvT(3) = T0 + H*(C1*dT1_dr+C2*dT2_dr+C3*dT3_dr+C4*dT4_dr)
- ! else
- ! new_rvT(1) = r0+H
- ! new_rvT(2) = v0 + H*(C1*dv1_dr+C2*dv2_dr+C3*dv3_dr)
- ! new_rvT(3) = T0 + H*(C1*dT1_dr+C2*dT2_dr+C3*dT3_dr)
  ! endif
  ! imposed temperature profile
  if (ieos == 6) new_rvT(3) = Tstar*(Rstar_cgs/new_rvT(1))**expT
 
  deltas = min(abs(new_rvt(1)-r0)/(1.d-10+r0),abs(new_rvt(2)-v0)/(1.d-10+v0),abs(new_rvt(3)-T0)/(1.d-10+T0))
 
- !if (method .eq. 'BSm') then
- !v = new_rvT(2)
- !T = new_rvT(3)
+ !determine RK3 solution to estimate error
+ ! if (method .eq. 'BSm') then
+ ! v = new_rvT(2)
+ ! T = new_rvT(3)
+ ! else
  v = v0+H*(-dv1_dr+2.*dv2_dr)
  T = T0+H*(-dT1_dr+2.*dT2_dr)
+ ! endif
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
- v = v0 + H/6.*(dv1_dr+4.*dv2_dr+dv4_dr)
- T = T0 + H/6.*(dT1_dr+4.*dT2_dr+dT4_dr)
+ v = v0 + H*(D1*dv1_dr+D2*dv2_dr+D3*dv3_dr+D4*dv4_dr)
+ T = T0 + H*(D1*dT1_dr+D2*dT2_dr+D3*dT3_dr+D4*dT4_dr)
  !estimate errors
  errv = abs((v-new_rvt(2))/new_rvt(2))
  errT = abs((T-new_rvt(3))/new_rvt(3))
  err  = max(deltas,errT,errv)!*100.
  !err = errv!deltas
- print *,'aa'
- new_rvT(2) = v
- new_rvT(3) = T
- print *,r,err,deltas,errv,errt
+ !new_rvT(2) = v
+ !new_rvT(3) = T
+ !print *,r,err,deltas,errv,errt
  !endif
 end subroutine RK4_step_dr
 
@@ -292,7 +296,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
  use options, only:icooling,ieos
- use dust_formation,   only:calc_muGamma
+ use dust_formation,   only:calc_muGamma,idust_opacity
  real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(out) :: dv_dr, dT_dr
  real, intent(out) :: numerator, denominator
@@ -303,10 +307,10 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
  T = T0
  mu = mu0
  gamma = gamma0
-#ifdef NUCLEATION
- rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
- call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
-#endif
+ if (idust_opacity == 2) then
+    rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
+    call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
+ endif
 
 !Temperature law
  if (ieos == 6) then
