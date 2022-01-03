@@ -21,6 +21,10 @@ adds several option blocks in the .in file to control the wind parameters, dust 
 
 ::
 
+Content of the .setup file
+==========================
+
+::
 
    # input file for wind setup routine
            primary_mass =       1.500    ! primary star mass (Msun)
@@ -33,10 +37,16 @@ adds several option blocks in the .in file to control the wind parameters, dust 
              wind_gamma =       1.666    ! adiabatic index (initial if Krome chemistry used)
 
 
-The .setup file contains the properties of the star(s) that are considered as sink particles as well as the mass of the particle (see however  ``iwind_resolution``)
+The .setup file contains the stellar properties and sets the mass of the particle (see however  ``iwind_resolution``).
+Note that the star(s) is(are) considered as sink particles.
 
 ::
 
+
+Content of the .in file
+=======================
+
+::
 
   # options controlling particle injection
              sonic_type =           0    ! find transonic solution (1=yes,0=no)
@@ -105,11 +115,13 @@ This parameters gives the ratio between the distance of 2 particles on an ejecte
 Its value should be kept close to unity that
 
 ::
+
       iboundary_spheres =           5    ! number of boundary spheres (integer)
 
 set the number of shells that serve as inner boundary condition for the wind
 
 ::
+
          outer_boundary =         50.    ! delete gas particles outside this radius (au)
 
 To limit the number of particles, delete from the memory the particles that go beyond ``outer_boundary`` (in astronomical unit).
@@ -172,6 +184,7 @@ parameter entering in the above equation for the effective gravity
 defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but option (1, under development!) should be available soon.
 
 ::
+
               tdust_exp =         0.5    ! exponent of the dust temperature profile
 
 If ``iget_tdust = 1``, the dust temperature profile is then given by
