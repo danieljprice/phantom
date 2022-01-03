@@ -34,7 +34,7 @@ module fastmath
 
  interface finvsqrt
   module procedure fastinvsqrt,dfastinvsqrt
- end interface
+ end interface finvsqrt
 
 contains
 
