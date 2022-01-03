@@ -39,7 +39,7 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  integer:: sonic_type = 1
  real::    wind_velocity_km_s = 0.
  real::    wind_mass_rate_Msun_yr = 1.d-5
@@ -103,7 +103,7 @@ subroutine init_inject(ierr)
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
 
  integer, intent(out) :: ierr
- integer :: ires_min,nzones_per_sonic_point
+ integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
@@ -258,8 +258,13 @@ subroutine init_inject(ierr)
        print *,'simulation time < time to reach the last boundary shell'
     endif
     if (tcross < 1.d98) then
-       nfill_domain = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
-       print *,'reduce number of background shells to',nfill_domain
+       if (tcross/time_between_spheres < 1.d4) then
+          new_nfill = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
+          if (new_nfill /= nfill_domain) then
+            nfill_domain = new_nfill
+            print *,'reduce number of background shells to',nfill_domain
+          endif
+       endif
     endif
  endif
 
@@ -634,6 +639,7 @@ subroutine write_options_inject(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling particle injection'
+ call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
  !call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
@@ -646,7 +652,6 @@ subroutine write_options_inject(iunit)
  call write_inopt(nfill_domain,'nfill_domain','number of spheres used to set the background density profile',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
- call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(outer_boundary_au,'outer_boundary','delete gas particles outside this radius (au)',iunit)
 end subroutine write_options_inject
 
@@ -720,7 +725,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
  noptions = 10
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  noptions = 11
 #elif ISOTHERMAL
  noptions = 8

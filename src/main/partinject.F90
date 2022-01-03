@@ -43,7 +43,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  use part, only:nucleation
 #endif
  use io,   only:fatal
@@ -104,7 +104,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 #ifdef IND_TIMESTEPS
  ibin(particle_number) = nbinmax
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  if (present(JKmus)) nucleation(:,particle_number) = JKmuS(:)
 #endif
 end subroutine add_or_update_particle

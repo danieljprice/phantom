@@ -108,7 +108,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
 #endif
-#ifdef DUSTFORM
+#ifdef DUST_NUCLEATION
  use dust_formation,  only:write_options_dust_formation
 #endif
 #ifdef NONIDEALMHD
@@ -259,7 +259,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
-#ifdef DUSTFORM
+#ifdef DUST_NUCLEATION
  call write_options_dust_formation(iwritein)
 #endif
 
@@ -322,7 +322,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
-#ifdef DUSTFORM
+#ifdef DUST_NUCLEATION
  use dust_formation,  only:read_options_dust_formation,idust_opacity
 #endif
 #ifdef NONIDEALMHD
@@ -524,7 +524,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
-#ifdef DUSTFORM
+#ifdef DUST_NUCLEATION
        if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
 #endif
        if (.not.imatch .and. sink_radiation) then

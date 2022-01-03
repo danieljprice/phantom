@@ -208,7 +208,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
+                 lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr,do_nucleation
  use eos,   only:ieos,eos_is_non_ideal
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
@@ -241,7 +241,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use krome_user, only:krome_nmols
  use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  use part,       only:nucleation,nucleation_label,n_nucleation
 #endif
  real,             intent(in) :: t
@@ -430,8 +430,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
        call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
 #endif
-#ifdef NUCLEATION
-       call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
+#ifdef DUST_NUCLEATION
+       if (do_nucleation) then
+          call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
+       endif
 #endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
@@ -1103,7 +1105,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, &
+ use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, do_nucleation, &
                       store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
@@ -1118,7 +1120,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use krome_user, only: krome_nmols
  use part,       only: gamma_chem,mu_chem,T_gas_cool
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  use part, only:nucleation,nucleation_label,n_nucleation
 #else
  integer, parameter :: n_nucleation = 0
@@ -1218,8 +1220,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
-#ifdef NUCLEATION
-             call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+#ifdef DUST_NUCLEATION
+             if (do_nucleation) then
+                call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
 #endif
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)

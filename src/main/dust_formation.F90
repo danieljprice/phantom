@@ -609,7 +609,7 @@ subroutine write_options_dust_formation(iunit)
 
  write(iunit,"(/,a)") '# options controlling dust'
  if (nucleation) then
-    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen), 2 (Gail))',iunit)
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen), 2 (nucleation))',iunit)
  else
     call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
  endif
@@ -621,7 +621,7 @@ subroutine write_options_dust_formation(iunit)
  endif
  if (nucleation .and. idust_opacity == 2) then
     call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
-    call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio',iunit)
+    call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio (> 1)',iunit)
  endif
 end subroutine write_options_dust_formation
 
@@ -632,6 +632,7 @@ end subroutine write_options_dust_formation
 !-----------------------------------------------------------------------
 subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
+ use dim,     only:do_nucleation,inucleation
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
@@ -645,6 +646,10 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  case('idust_opacity')
     read(valstring,*,iostat=ierr) idust_opacity
     ngot = ngot + 1
+    if (idust_opacity == 2) then
+       do_nucleation = .true.
+       inucleation = 1
+    endif
  case('wind_CO_ratio')
     read(valstring,*,iostat=ierr) wind_CO_ratio
     ngot = ngot + 1
@@ -670,8 +675,8 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
  igotall = (ngot >= 1)
- if (idust_opacity ==1) igotall = (ngot >= 5)
- if (idust_opacity ==1) igotall = (ngot >= 3)
+ if (idust_opacity == 1) igotall = (ngot >= 5)
+ if (idust_opacity == 2) igotall = (ngot >= 3)
 
 end subroutine read_options_dust_formation
 

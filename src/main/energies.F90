@@ -61,7 +61,7 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,store_temperature,&
-                          maxdusttypes,do_radiation
+                          maxdusttypes,do_radiation,do_nucleation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -98,7 +98,7 @@ subroutine compute_energies(t)
 #ifdef KROME
  use part, only: gamma_chem
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  use part, only: nucleation, idmu, idgamma
 #endif
 #ifdef DUST
@@ -190,8 +190,8 @@ subroutine compute_energies(t)
 #ifdef KROME
 !$omp shared(gamma_chem) &
 #endif
-#ifdef NUCLEATION
-!$omp shared(nucleation) &
+#ifdef DUST_NUCLEATION
+!$omp shared(nucleation,do_nucleation) &
 #endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
@@ -386,9 +386,14 @@ subroutine compute_energies(t)
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                            gamma_local=gamma_chem(i))
 #else
-#ifdef NUCLEATION
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
-                           mu_local=nucleation(idmu,i),gamma_local=nucleation(idgamma,i))
+#ifdef DUST_NUCLEATION
+             if (do_nucleation) then
+                call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
+                     mu_local=nucleation(idmu,i),gamma_local=nucleation(idgamma,i))
+             else
+                ponrhoi = eos_vars(igasP,i)/rhoi
+                spsoundi = eos_vars(ics,i)
+             endif
 #else
              ponrhoi = eos_vars(igasP,i)/rhoi
              spsoundi = eos_vars(ics,i)
