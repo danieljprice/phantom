@@ -23,6 +23,7 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
+!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !
 ! :References: None
 !
@@ -31,15 +32,16 @@ module eos
 ! :Runtime parameters:
 !   - X           : *hydrogen mass fraction*
 !   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
+!   - irecomb     : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, eos_barotropic, eos_helmholtz, eos_idealplusrad,
-!   eos_mesa, eos_piecewise, eos_shen, infile_utils, io, mesa_microphysics,
-!   part, physcon, units
+! :Dependencies: dim, eos_barotropic, eos_gasradrec, eos_helmholtz,
+!   eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen, infile_utils, io,
+!   ionization_mod, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 16
+ integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -49,7 +51,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
 #ifdef KROME
  public  :: get_local_temperature, get_local_u_internal
 #endif
@@ -59,8 +61,9 @@ module eos
 
  private
 
- integer, public :: ieos        = 1
+ integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0 ! used for radiation
+ integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
  !--Mean molecular weight if temperature required
  real,    public :: gmw            = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -87,24 +90,26 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
+ use physcon,       only:kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
+ use eos_gasradrec, only:equationofstate_gasradrec
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
  integer, intent(in)  :: eos_type
  real,    intent(in)  :: rhoi,xi,yi,zi
  real,    intent(out) :: ponrhoi,spsoundi
  real,    intent(inout), optional :: eni
- real,    intent(inout), optional :: tempi
- real,    intent(in)   , optional :: gamma_local,mu_local
+ real,    intent(inout), optional :: tempi,mu_local
+ real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
  real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai,temperaturei,mui
+ real :: gammai,temperaturei,mui,imui,X_i,Z_i
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
@@ -116,16 +121,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  var='eos_type',val=real(eos_type))
 #endif
 
- if (present(gamma_local)) then
-    gammai = gamma_local
- else
-    gammai = gamma
- endif
- if (present(mu_local)) then
-    mui = mu_local
- else
-    mui = gmw
- endif
+ gammai = gamma
+ mui = gmw
+ X_i = X_in
+ Z_i = Z_in
+ if (present(gamma_local)) gammai = gamma_local
+ if (present(mu_local)) mui = mu_local
+ if (present(Xlocal)) X_i = Xlocal
+ if (present(Zlocal)) Z_i = Zlocal
 
  select case(eos_type)
  case(1)
@@ -268,7 +271,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    call get_idealplusrad_temp(cgsrhoi,cgseni,mui,temperaturei,ierr)
+    call get_idealplusrad_temp(cgsrhoi,cgseni,mui,gammai,temperaturei,ierr)
     call get_idealplusrad_pres(cgsrhoi,temperaturei,mui,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
@@ -316,6 +319,24 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
 
+ case(20)
+!
+!--gas + radiation + various forms of recombination (from HORMONE, Hirai+20)
+!
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    imui = 1./mui
+    if (tempi > 0.) then
+       temperaturei = tempi
+    else
+       temperaturei = 0.67 * cgseni * mui / kb_on_mh
+    endif
+    call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
+    ponrhoi = cgspresi / (unit_pressure * rhoi)
+    spsoundi = cgsspsoundi / unit_velocity
+    if (present(mu_local)) mu_local = 1./imui
+    if (present(tempi)) tempi = temperaturei
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -336,7 +357,7 @@ logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(10,12,15)
+ case(10,12,15,20)
     eos_is_non_ideal = .true.
  case default
     eos_is_non_ideal = .false.
@@ -346,34 +367,57 @@ end function eos_is_non_ideal
 
 !----------------------------------------------------------------
 !+
+!  Query function to return whether an EoS outputs mean molecular weight
+!+
+!----------------------------------------------------------------
+logical function eos_outputs_mu(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(20)
+    eos_outputs_mu = .true.
+ case default
+    eos_outputs_mu = .false.
+ end select
+
+end function eos_outputs_mu
+
+!----------------------------------------------------------------
+!+
 !  query function to return the sound speed
 !  (called from step for decay timescale in alpha switches)
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui)
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
  integer,      intent(in)      :: eos_type
  real,         intent(in)      :: xyzi(:),rhoi
  real,         intent(inout)   :: vxyzui(:)
  real, intent(inout)   , optional    :: tempi
- real, intent(in)      , optional    :: gammai,mui
- real :: spsoundi,ponrhoi,mu
+ real, intent(in)      , optional    :: gammai,mui,Xi,Zi
+ real :: spsoundi,ponrhoi,mu,X,Z
 
  mu = gmw
+ X = X_in
+ Z = Z_in
  if (present(mui)) mu = mui
+ if (present(Xi)) X = Xi
+ if (present(Zi)) Z = Zi
 
  if (maxvxyzu==4) then
     if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),gamma_local=gammai,mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
     elseif (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),tempi=tempi,mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+                            tempi=tempi,mu_local=mu,Xlocal=X,Zlocal=Z)
     else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu)
+       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu,Xlocal=X,Zlocal=Z)
     endif
  elseif (present(tempi)) then
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi=tempi,mu_local=mu)
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z)
  endif
  get_spsound = spsoundi
 
@@ -385,27 +429,31 @@ end function get_spsound
 !  position and/or thermal energy
 !+
 !-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui) result(tempi)
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi) result(tempi)
  use dim, only:maxvxyzu
  integer,      intent(in)    :: eos_type
  real,         intent(in)    :: xyzi(:),rhoi
  real,         intent(inout) :: vxyzui(:)
- real, intent(in), optional  :: gammai,mui
- real :: spsoundi,ponrhoi,mu
+ real, intent(in), optional  :: gammai,mui,Xi,Zi
+ real :: spsoundi,ponrhoi,mu,X,Z
 
  mu = gmw
+ X = X_in
+ Z = Z_in
  tempi = -1.  ! needed because temperature is an in/out to some equations of state, -ve == use own guess
  if (present(mui)) mu = mui
+ if (present(Xi)) X = Xi
+ if (present(Zi)) Z = Zi
  if (maxvxyzu==4) then
     if (present(gammai)) then
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            gamma_local=gammai,mu_local=mui,tempi=tempi)
+                            gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            mu_local=mui,tempi=tempi)
+                            mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
     endif
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mui,tempi=tempi)
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
  endif
 
 end function get_temperature
@@ -453,6 +501,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen, only:init_eos_shen_NL3
  use dim,      only:maxvxyzu,do_radiation
+ use ionization_mod, only:eion,ionization_setup
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -517,6 +566,17 @@ subroutine init_eos(eos_type,ierr)
 
     call init_eos_shen_NL3(ierr)
 
+ case(20)
+    if (do_radiation) then
+       call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
+       ierr = ierr_option_conflict
+    endif
+    if (irecomb == 1) then
+       eion(1) = 0.  ! H and He recombination only (no recombination to H2)
+    elseif (irecomb == 2) then
+       eion(1:2) = 0.  ! He recombination only
+    endif
+    call ionization_setup
  end select
  done_init_eos = .true.
 
@@ -600,7 +660,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 #ifndef KROME
- call write_inopt(gmw,'mu','mean molecular weight',iunit)
+ if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
 #endif
  select case(ieos)
  case(8)
@@ -612,6 +672,8 @@ subroutine write_options_eos(iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
+ case(20)
+    call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He',iunit)
  end select
 
 end subroutine write_options_eos
@@ -654,6 +716,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  case('Z')
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
+    ngot = ngot + 1
+ case('irecomb')
+    read(valstring,*,iostat=ierr) irecomb
+    if ((irecomb < 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
     ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
@@ -903,31 +969,46 @@ end subroutine calc_rec_ene
 !----------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
-!  pressure and density, assuming inputs are in cgs units
+!  pressure and density. Inputs and outputs are in cgs units.
+!
+!  Note on composition:
+!  For ieos=2 and 12, mu_local is an input, X & Z are not used
+!  For ieos=10, mu_local is not used
+!  For ieos=20, mu_local is not used but available as an output
 !+
 !----------------------------------------------------------------
-subroutine calc_temp_and_ene(rho,pres,ene,temp,ierr,guesseint,mu_local)
+subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ integer, intent(in)        :: eos_type
  real, intent(in)           :: rho,pres
  real, intent(inout)        :: ene,temp
- real, intent(in), optional :: guesseint,mu_local
+ real, intent(in), optional :: guesseint,X_local,Z_local
+ real, intent(inout), optional :: mu_local
  integer, intent(out)       :: ierr
- real                       :: mu
+ real                       :: mu,X,Z
 
  ierr = 0
  mu = gmw
+ X = X_in
+ Z = Z_in
  if (present(mu_local)) mu = mu_local
+ if (present(X_local)) X = X_local
+ if (present(Z_local)) Z = Z_local
  select case(ieos)
- case(2) ! Adiabatic/polytropic EoS
+ case(2) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
- case(12) ! Ideal plus rad. EoS
+ case(12) ! Ideal gas + radiation
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
-    call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
- case(10) ! MESA-like EoS
+    call get_idealplusrad_enfromtemp(rho,temp,mu,gamma,ene)
+ case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
+ case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
+    call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr)
+    if (present(mu_local)) mu_local = mu
  case default
     ierr = 1
  end select

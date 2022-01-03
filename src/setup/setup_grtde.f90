@@ -220,7 +220,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     case (2)
        ri        = sqrt(dot_product(xyzh(1:3,i)-xyzstar,xyzh(1:3,i)-xyzstar))
        presi     = yinterp(pres(1:npts),rtab(1:npts),ri)
-       call calc_temp_and_ene(densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+       call calc_temp_and_ene(ieos,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
        vxyzu(4,i) = eni / unit_ergg
        if (store_temperature) eos_vars(itemp,i) = tempi
     case default
