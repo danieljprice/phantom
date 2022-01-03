@@ -1040,7 +1040,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,do_nucleation
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1062,7 +1062,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use damping,        only:calc_damp,apply_damp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  use part,           only:nucleation,idK2,idmu,idkappa
  use dust_formation, only:evolve_dust
 #endif
@@ -1179,8 +1179,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
-#ifdef NUCLEATION
-    !$omp shared(nucleation) &
+#ifdef DUST_NUCLEATION
+    !$omp shared(nucleation,do_nucleation) &
 #endif
 #ifdef KROME
     !$omp shared(gamma_chem,mu_chem,dudt_chem) &
@@ -1293,9 +1293,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoh(xyzh(4,i),pmassi))
+             if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoh(xyzh(4,i),pmassi))
 #endif
              !
              ! COOLING
@@ -1310,9 +1310,14 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                         gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
-#ifdef NUCLEATION
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),&
-                        dt, dust_temp(i),nucleation(idmu,i),nucleation(idK2,i),nucleation(idkappa,i))
+#ifdef DUST_NUCLEATION
+                   if (do_nucleation) then
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoh(xyzh(4,i),pmassi),&
+                           dt, dust_temp(i),nucleation(idmu,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   else
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
+                           rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
+                   endif
 #else
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
                         rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))

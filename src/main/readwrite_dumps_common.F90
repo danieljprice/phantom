@@ -31,7 +31,7 @@ contains
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature
+ use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation
  use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
@@ -53,9 +53,7 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
  if (store_dust_temperature) string = trim(string)//'+Tdust'
-#ifdef NUCLEATION
- string = trim(string)//'+nucleation'
-#endif
+ if (do_nucleation) string = trim(string)//'+nucleation'
  if (present(codestring)) then
     fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else

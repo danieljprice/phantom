@@ -17,9 +17,8 @@ module wind
 ! :Dependencies: cooling, dust_formation, eos, io, options, part, physcon,
 !   ptmass_radiation, timestep, units, wind_equations
 !
-#ifdef NUCLEATION
+
  use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
-#endif
 
  implicit none
  public :: setup_wind
@@ -199,7 +198,6 @@ subroutine wind_step1(state)
  kappa_old  = state%kappa
  alpha_old  = state%alpha
  mu_old     = state%mu
-#ifdef NUCLEATION
  if (idust_opacity == 2) then
    !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
@@ -209,7 +207,6 @@ subroutine wind_step1(state)
     call calc_kappa_dust(state%JKmuS(5), state%Tdust, state%rho, state%kappa)
     call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha_dust)
  endif
-#endif
  if (idust_opacity == 1) then
     state%kappa = kappa_dust_bowen(state%Tdust)
     if (isink_radiation == 1 .or. isink_radiation == 3) then
@@ -288,7 +285,6 @@ subroutine wind_step(state)
  kappa_old = state%kappa
  alpha_old = state%alpha
  alpha_dust = 0.
-#ifdef NUCLEATION
  if (idust_opacity == 2) then
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
     state%mu    = state%JKmuS(idmu)
@@ -296,7 +292,6 @@ subroutine wind_step(state)
     call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
     call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, alpha_dust)
  endif
-#endif
  if (idust_opacity == 1) then
     if (isink_radiation == 1 .or. isink_radiation == 3) then
        call calc_alpha_bowen(Mstar_cgs, Lstar_cgs, state%Tdust, alpha_dust)
