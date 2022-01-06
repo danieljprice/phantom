@@ -12,12 +12,20 @@ or by sending me an email at lionel.siess@ulb.be
 
 ::
 
-   ~/phantom/scripts/writemake.sh wind > Makefile
+   $PHANTOM_DIR/scripts/writemake.sh wind > Makefile
    make; make setup
+   ./phantomsetup wind
 
-When you run the setup ``./phantomsetup wind``, dusty wind creates a .setup file and
-adds several option blocks in the .in file to control the wind parameters, dust prescription and radiation pressure on dust
+At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
+Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting. 
 
+For an isothermal wind, use SETUP=isowind
+
+::
+
+   $PHANTOM_DIR/scripts/writemake.sh isowind > Makefile
+   make; make setup
+   ./phantomsetup isowind
 
 ::
 
