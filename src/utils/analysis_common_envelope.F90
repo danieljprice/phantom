@@ -3356,11 +3356,11 @@ subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
 
  open(unit=unitnum, file='./'//dir_in//'/'//file_name, status='replace')
 
- write(column_formatter, "(a,I2,a)") "('#',3x,", ncols, "('[',a15,']',5x))"
- write(data_formatter, "(a,I2,a)") "(", ncols, "(3x,es19.11e3,1x))"
+ write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols, "('[',a15,']',3x))"
+ write(data_formatter, "(a,I2.2,a)") "(", ncols, "(2x,es19.11e3))"
 
  do i=1,ncols
-    write(columns(i), "(I2,a)") i, cols(i)
+    write(columns(i), "(I2.2,a)") i, cols(i)
  enddo
 
  !set column headings
@@ -3387,8 +3387,8 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
  real, dimension(ncols), intent(in) :: data_in
  integer                      :: i, unitnum
 
- write(column_formatter, "(a,I2,a)") "('#',3x,", ncols+1, "('[',a15,']',5x))"
- write(data_formatter, "(a,I2,a)") "(", ncols+1, "(3x,es18.11e2,1x))"
+ write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols+1, "('[',a15,']',3x))"
+ write(data_formatter, "(a,I2.2,a)") "(", ncols+1, "(2x,es18.11e2))"
  write(file_name,"(2a,i3.3,a)") name_in, '.ev'
 
  if (num == 0) then
