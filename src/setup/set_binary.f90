@@ -194,7 +194,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  ! positions of each star so centre of mass is at zero
  x1 = -dx*m2/mtot
  x2 =  dx*m1/mtot
-
+ 
  ! velocities
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
  v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
@@ -342,7 +342,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !--- Checks to avoid bad substitutions
  if (present(subst)) then
     write(hier_prefix, *) subst
-    io = 0
+    io=0
     subst_index = 0
     mtot = 0.
     do i=1,lines
@@ -369,7 +369,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              rel_arg_peri = arg_peri
              rel_incl = incl
           endif
-
+          
           mtot = data(i, 3)
           m_comp = data(i, 4)
           a_comp = data(i, 5)
@@ -390,7 +390,12 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           q2=m2/m1
           mprimary = mtot/(1+q2)
           msecondary = mtot*q2/(1+q2)
-
+          
+          ! test Jolien
+          !print "(3(2x,a,g12.3,/),2x,a,g12.3)", &
+          !  'mprimary     :',mprimary, &
+          !  'msecondary   :',msecondary
+    
           io=1
           exit
        endif
@@ -431,10 +436,17 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     nptmass = nptmass-1
     i1 = subst_index
     i2 = nptmass
-
+  
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
 
+    ! test Jolien
+!    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
+!    'i1     :',i1, &
+!     'mass i1:',xyzmh_ptmass(4,i1), &
+!     'i2     :',i2, &
+!     'mass i2:',xyzmh_ptmass(4,i2)
+    
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 
@@ -500,7 +512,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
 
-
        ! Rotate substituting sinks by ascending node longitude around the z axis
        call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
@@ -529,14 +540,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
-!-------------------------------------
+!------------------------------------
 ! Rotate an (x,y,z) point by theta
 ! radiants around an axis with alpha,
 ! beta and gamma eulerian angles
-!-------------------------------------
+!------------------------------------
 pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
  real, intent(inout) :: xyz(3)
- real, intent(in)    :: alpha,beta,gamma,theta
+ real, intent(in)    :: alpha, beta, gamma,theta
  real :: xi,yi,zi,A,B,C,D,E,F,G,H,I,nx,ny,nz
 
  nx=cos(alpha)
