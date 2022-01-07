@@ -227,14 +227,20 @@ subroutine wind_step1(state)
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%r0**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
+
+ !update dust temperature
+ if (iget_tdust == 2) then
+    tau_lucy_bounded = max(0., state%tau_lucy)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 1) then
+    state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
+ else
+    state%Tdust = state%Tg
+ endif
+
+ !apply cooling
  if (icooling > 0) then
     Q_old = state%Q
-    if (iget_tdust == 2) then
-       tau_lucy_bounded = max(0., state%tau_lucy)
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
-    elseif (iget_tdust == 1) then
-       state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
-    endif
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
             state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
@@ -243,9 +249,6 @@ subroutine wind_step1(state)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
- else
-    !if cooling is disabled or temperature profile is not imposed, set Tdust = Tgas
-    state%Tdust = state%Tg
  endif
 
  state%time = state%time + state%dt
@@ -328,14 +331,20 @@ subroutine wind_step(state)
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%r0**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
+
+ !update dust temperature
+ if (iget_tdust == 2) then
+    tau_lucy_bounded = max(0., state%tau_lucy)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 1) then
+    state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
+ else
+    state%Tdust = state%Tg
+ endif
+
+ !apply cooling
  if (icooling > 0) then
     Q_old = state%Q
-    if (iget_tdust == 2) then
-       tau_lucy_bounded = max(0., state%tau_lucy)
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
-    elseif (iget_tdust == 1) then
-       state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
-    endif
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
             state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
@@ -344,10 +353,8 @@ subroutine wind_step(state)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
- else
-    !if cooling is disabled or temperature profile is not imposed, set Tdust = Tgas
-    state%Tdust = state%Tg
  endif
+
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
     state%dt = state%time_end-state%time
     state%dt_force = .true.
