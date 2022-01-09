@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module eos_barotropic
+module eos_barotropic_iso
 !
 ! Implements barotropic equation of state, e.g. for star formation
 !
@@ -21,6 +21,7 @@ module eos_barotropic
 !   - rhocrit1 : *critical density 1 in g/cm^3 (barotropic eos)*
 !   - rhocrit2 : *critical density 2 in g/cm^3 (barotropic eos)*
 !   - rhocrit3 : *critical density 3 in g/cm^3 (barotropic eos)*
+!   - T_iso    : temparature at isothermal regime
 ! :Dependencies: infile_utils, io, units
 !
  use units, only:unit_density,unit_velocity
@@ -34,15 +35,17 @@ module eos_barotropic
  real,    public :: gamma1      = 1.4
  real,    public :: gamma2      = 1.1
  real,    public :: gamma3      = 5./3.
+ real,    public :: T_iso       = 10
+
 
  real :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
  real :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
 
- public :: init_eos_barotropic
- public :: get_eos_barotropic,eos_info_barotropic
- public :: write_options_eos_barotropic,read_options_eos_barotropic
 
- public :: gamma_barotropic
+ public :: init_eos_barotropic_iso
+ public :: get_eos_barotropic_iso,eos_info_barotropic_iso
+ public :: write_options_eos_barotropic_iso,read_options_eos_barotropic_iso
+
 
  private
 
@@ -50,12 +53,12 @@ contains
 
 !-----------------------------------------------------------------------
 !+
-!  Initialise the equation of state
+!  Initialise the equation of state (iso)
 !+
 !-----------------------------------------------------------------------
-subroutine init_eos_barotropic(polyk,polyk2,ierr)
+subroutine init_eos_barotropic_iso(polyk_iso,polyk2,ierr)
  use io, only:warning
- real, intent(in) :: polyk,polyk2
+ real, intent(in) :: polyk_iso,polyk2
  integer, intent(out) :: ierr
  !
  !--calculate initial variables for the barotropic equation of state
@@ -70,7 +73,7 @@ subroutine init_eos_barotropic(polyk,polyk2,ierr)
  rhocrit1 = rhocrit1cgs/unit_density
  rhocrit2 = rhocrit2cgs/unit_density
  rhocrit3 = rhocrit3cgs/unit_density
- fac2     = polyk*(rhocrit2/rhocrit1)**(gamma1-1.)
+ fac2     = polyk_iso*(rhocrit2/rhocrit1)**(gamma1-1.)
  fac3     =  fac2*(rhocrit3/rhocrit2)**(gamma2-1.)
 
  ! verify that the rhocrit's are in the correct order
@@ -78,13 +81,13 @@ subroutine init_eos_barotropic(polyk,polyk2,ierr)
  call verify_less_than(ierr,rhocrit1,rhocrit2)
  call verify_less_than(ierr,rhocrit2,rhocrit3)
  ! Calculate values for the first transition region (no transition if drhocrit0=0)
- if (polyk < tiny(polyk) .or. polyk2 < tiny(polyk2)) drhocrit0 = 0.0
+ if (polyk_iso < tiny(polyk_iso) .or. polyk2 < tiny(polyk2)) drhocrit0 = 0.0
 
  if (drhocrit0 > 0.0) then
     rhocritT       = rhocrit0*(1.0-drhocrit0)
     log10polyk2    = log10(polyk2)
     log10rhocritT  = log10(rhocritT)
-    rhocritT0slope = (log10(polyk)-log10(polyk2)) /(log10(rhocritT)-log10(rhocrit0))
+    rhocritT0slope = (log10(polyk_iso)-log10(polyk2)) /(log10(rhocritT)-log10(rhocrit0))
  else
     rhocritT       = rhocrit0  ! moving the transition boundary to rhocrit0
     rhocrit0       = 0.0       ! removing the valid threshhold to enter the transition region
@@ -102,78 +105,66 @@ subroutine init_eos_barotropic(polyk,polyk2,ierr)
     rhocrit0cgs = 0.0
  endif
 
-end subroutine init_eos_barotropic
+end subroutine init_eos_barotropic_iso
 
 !-----------------------------------------------------------------------
 !+
-!  Main eos routine: calculates pressure at a given density
+!  Main eos routine: calculates pressure at a given density  (iso)
 !+
 !-----------------------------------------------------------------------
-subroutine get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
- real, intent(in)  :: rhoi,polyk,polyk2
+subroutine get_eos_barotropic_iso(rhoi,polyk,polyk2,polyk_iso,isink,xi,yi,zi,qfacdisc, ponrhoi,spsoundi,gammai)
+   use part, only:xyzmh_ptmass
+ real, intent(in)  :: rhoi,polyk,polyk2,polyk_iso,qfacdisc,xi,yi,zi
+ integer, intent(in) :: isink
  real, intent(out) :: ponrhoi,spsoundi,gammai
+ 
+ ! note polyk (made by h/r) is exchanged with polyk_iso (manually set)
 
  ! variables calculated in the eos initialisation routine:
- !    fac2 = polyk*(rhocrit2/rhocrit1)**(gamma1-1.)
+ !    fac2 = polyk_iso*(rhocrit2/rhocrit1)**(gamma1-1.)
  !    fac3 =  fac2*(rhocrit3/rhocrit2)**(gamma2-1.)
  !    rhocritT0slope = (log10(polyk)-log10(polyk2)) &
  !                   /(log10(rhocritT)-log10(rhocrit0)))
  !
+
+!--this is for a locally isothermal disc as in Lodato & Pringle (2007), centered on a sink particle
+    !   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
+
+ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
+                      (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
+spsoundi = sqrt(ponrhoi) 
+
  if (rhoi < rhocritT) then
     gammai  = 1.0
-    ponrhoi = polyk2
+    ponrhoi = max(ponrhoi,polyk2)
  elseif (rhoi < rhocrit0) then
     gammai  = 1.0
-    ponrhoi = 10**(log10polyk2 + rhocritT0slope*(log10rhocritT-log10(rhoi))  )
+    ponrhoi = max(ponrhoi,10**(log10polyk2 + rhocritT0slope*(log10rhocritT-log10(rhoi))))
  elseif (rhoi < rhocrit1) then
     gammai  = 1.0
-    ponrhoi = polyk
+    ponrhoi = max(ponrhoi,polyk_iso)
  elseif (rhoi < rhocrit2) then
     gammai  = gamma1
-    ponrhoi = polyk*(rhoi/rhocrit1)**(gamma1-1.)
+    ponrhoi = max(ponrhoi,polyk_iso*(rhoi/rhocrit1)**(gamma1-1.))
  elseif (rhoi < rhocrit3) then
     gammai  = gamma2
-    ponrhoi = fac2*(rhoi/rhocrit2)**(gamma2-1.)
+    ponrhoi = max(ponrhoi,fac2*(rhoi/rhocrit2)**(gamma2-1.))
  else
     gammai  = gamma3
-    ponrhoi = fac3*(rhoi/rhocrit3)**(gamma3-1.)
+    ponrhoi = max(ponrhoi,fac3*(rhoi/rhocrit3)**(gamma3-1.))
+
  endif
  spsoundi = sqrt(gammai*ponrhoi)
 
-end subroutine get_eos_barotropic
+end subroutine get_eos_barotropic_iso
 
 !-----------------------------------------------------------------------
 !+
-!  Get gamma for thermal energy calculations when using the
-!  piecewise polytrope
+!  print information about the equation of state parameters (iso)
 !+
 !-----------------------------------------------------------------------
-real function gamma_barotropic(rhoi) result(gammai)
- real, intent(in) :: rhoi
-
- if (rhoi < rhocritT) then
-    gammai  = 1.0
- elseif (rhoi < rhocrit0) then
-    gammai  = 1.0
- elseif (rhoi < rhocrit1) then
-    gammai  = 1.0
- elseif (rhoi < rhocrit2) then
-    gammai  = gamma1
- elseif (rhoi < rhocrit3) then
-    gammai  = gamma2
- else
-    gammai  = gamma3
- endif
-
-end function gamma_barotropic
-
-!-----------------------------------------------------------------------
-!+
-!  print information about the equation of state parameters
-!
-!-----------------------------------------------------------------------
-subroutine eos_info_barotropic(polyk,polyk2,iprint)
- real, intent(in) :: polyk,polyk2
+subroutine eos_info_barotropic_iso(polyk,polyk2,polyk_iso,iprint)
+ real, intent(in) :: polyk,polyk2,polyk_iso
  integer, intent(in) :: iprint
  character(len=*), parameter :: cu = ' code units = '
  character(len=*), parameter :: baro = ' Barotropic eq of state: '
@@ -183,6 +174,8 @@ subroutine eos_info_barotropic(polyk,polyk2,iprint)
     write(iprint,"(/,2a,2(es10.3,a))") baro, 'cs_ld            = ',sqrt(polyk2),cu,sqrt(polyk2)*unit_velocity,' cm/s'
  endif
  write(iprint,"(  2a,2(es10.3,a))")    baro, 'cs               = ',sqrt(polyk), cu,sqrt(polyk)*unit_velocity, ' cm/s'
+ write(iprint,"(  2a,2(es10.3,a))")    baro, 'cs_iso               = ',sqrt(polyk_iso), cu,sqrt(polyk_iso)*unit_velocity, ' cm/s'
+ write(iprint,"(  2a,1(es10.3,a))")    baro, 'T_iso                =', T_iso,'K'
  if (drhocrit0 > 0.0) then
     write(iprint,"(  2a,2(es10.3,a))") baro, 'rhocritT == rhoT = ',rhocritT,    cu,rhocritT*unit_density,     ' g/cm^3'
     write(iprint,"(  2a,2(es10.3,a))") baro, 'rhocrit0 == rho0 = ',rhocrit0,    cu,rhocrit0*unit_density,     ' g/cm^3'
@@ -213,8 +206,7 @@ subroutine eos_info_barotropic(polyk,polyk2,iprint)
  write(iprint,"(a,3(a,f5.3),a)")       baro, 'P = cs*rho1*(rho2/rho1)^',gamma1,'*(rho3/rho2)^',gamma2, &
                                                                                '*(rho /rho3)^',gamma3,' for rho3 <= rho'
 
-end subroutine eos_info_barotropic
-
+end subroutine eos_info_barotropic_iso
 !-----------------------------------------------------------------------
 !+
 !  internal routine to verify that val1 < val2
@@ -231,15 +223,16 @@ subroutine verify_less_than(ierr,val1,val2)
  endif
 
 end subroutine verify_less_than
+
 !-----------------------------------------------------------------------
 !+
-!  writes equation of state options to the input file
+!  writes equation of state options to the input file (iso)
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_eos_barotropic(iunit)
+subroutine write_options_eos_barotropic_iso(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
-
+ call write_inopt(T_iso,'T_iso','Temperature at low densities (isothermal region)',iunit)
  call write_inopt(drhocrit0,  'drhocrit','transition size between rhocrit0 & 1 (fraction of rhocrit0; barotropic eos)',iunit)
  call write_inopt(rhocrit0cgs,'rhocrit0','critical density 0 in g/cm^3 (barotropic eos)',iunit)
  call write_inopt(rhocrit1cgs,'rhocrit1','critical density 1 in g/cm^3 (barotropic eos)',iunit)
@@ -249,23 +242,28 @@ subroutine write_options_eos_barotropic(iunit)
  call write_inopt(gamma2,'gamma2','adiabatic index 2 (barotropic eos)',iunit)
  call write_inopt(gamma3,'gamma3','adiabatic index 3 (barotropic eos)',iunit)
 
-end subroutine write_options_eos_barotropic
+end subroutine write_options_eos_barotropic_iso
+
 
 !-----------------------------------------------------------------------
 !+
-!  reads equation of state options from the input file
+!  reads equation of state options from the input file (iso)
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
+subroutine read_options_eos_barotropic_iso(name,valstring,imatch,igotall,ierr)
  use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
- character(len=30), parameter  :: label = 'eos_barotropic'
+ character(len=30), parameter  :: label = 'eos_barotropic_iso'
 
  imatch  = .true.
  select case(trim(name))
+ case('T_iso')
+    read(valstring,*,iostat=ierr) T_iso
+    if (T_iso <= 2.7)  call fatal(label,'T_iso<2.7K')
+    ngot = ngot + 1
  case('drhocrit')
     read(valstring,*,iostat=ierr) drhocrit0
     if (drhocrit0 < 0.)  call fatal(label,'drhocrit0 < 0: Negative transition region is nonsense')
@@ -305,6 +303,5 @@ subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
 
  igotall = (ngot >= 8)
 
-end subroutine read_options_eos_barotropic
-
-end module eos_barotropic
+end subroutine read_options_eos_barotropic_iso
+end module eos_barotropic_iso
