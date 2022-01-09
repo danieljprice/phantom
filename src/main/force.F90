@@ -638,7 +638,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                 !
                 use_part = .true.
                 over_ptmass: do j=1,nptmass
-                   if ((xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
+                   if (xyzmh_ptmass(4,j) > 0. .and.       &
+                       (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
                       use_part = .false.
@@ -2081,6 +2082,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           do j=1,ndustsmall
              if (dustfraci(j) > 1. .or. dustfraci(j) < 0.) call fatal('force','invalid eps',var='dustfrac',val=dustfraci(j))
           enddo
+          if (dustfracisum > 1.) call fatal('force','invalid eps',var='sum of dustfrac',val=dustfracisum)
        else
           dustfraci(:) = 0.
           dustfracisum = 0.
@@ -2840,9 +2842,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
-       ! Note: Why is this not used for *all* energy changes?  Regrettably, Sedov will crash if this timestep is included since eni0 = 0
-       if (maxvxyzu >= 4 .and. cooling_explicit) then
-          if (abs(fxyzu(4,i)) > 0.) dtcool = C_cool*abs(eni/fxyzu(4,i))
+       if (maxvxyzu >= 4) then
+          if (abs(fxyzu(4,i)) > epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
        ! timestep based on non-ideal MHD

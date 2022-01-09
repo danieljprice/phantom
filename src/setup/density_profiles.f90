@@ -23,21 +23,27 @@ module rho_profile
 !
 ! :Dependencies: datafiles, eos, fileutils, physcon, prompting, units
 !
- use physcon, only: pi,fourpi
+ use physcon, only:pi,fourpi
  implicit none
 
  public  :: rho_uniform,rho_polytrope,rho_piecewise_polytrope, &
             rho_evrard,read_mesa,read_kepler_file, &
             rho_bonnorebert,prompt_BEparameters
- public  :: write_softened_profile,calc_mass_enc
- private :: integrate_rho_profile,get_dPdrho
+ public  :: write_profile,calc_mass_enc
+ private :: integrate_rho_profile
+
+ abstract interface
+  real function func(x)
+   real, intent(in) :: x
+  end function func
+ end interface
 
 contains
 
 !-----------------------------------------------------------------------
 !+
 !  Option 1:
-!  Calculate a uniform density profile
+!  Uniform density sphere
 !+
 !-----------------------------------------------------------------------
 subroutine rho_uniform(ng,mass,radius,rtab,rhotab)
@@ -59,11 +65,10 @@ end subroutine rho_uniform
 !-----------------------------------------------------------------------
 !+
 !  Option 2:
-!  Calculate the density profile for a polytrope (recall G==1)
+!  Density profile for a polytrope (assumes G==1)
 !+
 !-----------------------------------------------------------------------
 subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,Rstar)
- implicit none
  integer, intent(out)             :: npts
  real,    intent(in)              :: gamma
  real,    intent(in)              :: Mstar
@@ -143,7 +148,7 @@ end subroutine rho_polytrope
 !  Supervisors: James Wurster & Paul Lasky
 !+
 !-----------------------------------------------------------------------
-subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,npts,ierr)
+subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npts,ierr)
  integer, intent(out)   :: npts,ierr
  real,    intent(in)    :: mstar_in
  real,    intent(out)   :: rhocentre,rtab(:),rhotab(:)
@@ -151,6 +156,7 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,npts,ierr)
  integer                :: iter,lastsign
  real                   :: dr,drho,mstar
  logical                :: iterate,bisect
+ procedure(func), pointer :: get_dPdrho
  !
  !--initialise variables
  iter      = 0
@@ -164,7 +170,7 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,npts,ierr)
  !
  !--Iterate to get the correct density profile
  do while ( iterate )
-    call integrate_rho_profile(rtab,rhotab,rhocentre,dr,npts,ierr)
+    call integrate_rho_profile(rtab,rhotab,rhocentre,get_dPdrho,dr,npts,ierr)
     if (ierr > 0) then
        !--did not complete the profile; reset dr
        dr   = 2.0*dr
@@ -206,13 +212,15 @@ end subroutine rho_piecewise_polytrope
 !  Calculate the density profile using an arbitrary EOS and
 !  given a central density
 !-----------------------------------------------------------------------
-subroutine integrate_rho_profile(rtab,rhotab,rhocentre,dr,npts,ierr)
+subroutine integrate_rho_profile(rtab,rhotab,rhocentre,get_dPdrho,dr,npts,ierr)
  integer, intent(out) :: npts,ierr
  real,    intent(out) :: rtab(:),rhotab(:)
  real,    intent(in)  :: rhocentre,dr
  integer              :: i
  real                 :: drhodr,dPdrho,dPdrho_prev
  logical              :: iterate
+ procedure(func), pointer :: get_dPdrho
+
  !
  !--Initialise variables
  !
@@ -250,43 +258,6 @@ subroutine integrate_rho_profile(rtab,rhotab,rhocentre,dr,npts,ierr)
  rhotab(npts) = 0.0
 
 end subroutine integrate_rho_profile
-!-----------------------------------------------------------------------
-!  Calculates pressure at a given density
-!-----------------------------------------------------------------------
-real function get_dPdrho(rho)
- use units, only: unit_density,unit_pressure
- use eos,   only: rhocrit0pwpcgs,rhocrit1pwpcgs,rhocrit2pwpcgs,p1pwpcgs, &
-                  gamma0pwp,gamma1pwp,gamma2pwp,gamma3pwp
- real, intent(in)  :: rho
- real              :: rhocrit0pwp,rhocrit1pwp,rhocrit2pwp,presscrit
- real              :: polyk0,polyk1,polyk2,polyk3
- real              :: gamma,polyk
-
- rhocrit0pwp = rhocrit0pwpcgs/unit_density
- rhocrit1pwp = rhocrit1pwpcgs/unit_density
- rhocrit2pwp = rhocrit2pwpcgs/unit_density
- presscrit   = p1pwpcgs/unit_pressure
- polyk1      = presscrit/rhocrit1pwp**gamma1pwp
- polyk2      = presscrit/rhocrit1pwp**gamma2pwp
- polyk3      = polyk2*rhocrit2pwp**(gamma2pwp-gamma3pwp)
- polyk0      = polyk1*rhocrit0pwp**(gamma1pwp-gamma0pwp)
-
- if (rho < rhocrit0pwp) then
-    gamma = 5./3.
-    polyk = polyk0
- elseif (rho < rhocrit1pwp) then
-    gamma = gamma1pwp
-    polyk = polyk1
- elseif (rho < rhocrit2pwp) then
-    gamma = gamma2pwp
-    polyk = polyk2
- else
-    gamma = gamma3pwp
-    polyk = polyk3
- endif
- get_dPdrho = gamma * polyk * rho**(gamma-1.0)
-
-end function get_dPdrho
 
 !-----------------------------------------------------------------------
 !  Calculate the enclosed mass of a star
@@ -408,7 +379,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
-
  do i = 1,lines
     read(40,*) dat(lines-i+1,1:rows)
  enddo
@@ -417,11 +387,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
              temp(lines),Xfrac(lines),Yfrac(lines))
 
  close(40)
-
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
- do i = 1, rows
+ do i = 1,rows
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
@@ -438,9 +407,9 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        pres = dat(1:lines,i)
     case('temperature')
        temp = dat(1:lines,i)
-    case('x_mass_fraction_h')
+    case('x_mass_fraction_h','xfrac')
        Xfrac = dat(1:lines,i)
-    case('y_mass_fraction_he')
+    case('y_mass_fraction_he','yfrac')
        Yfrac = dat(1:lines,i)
     end select
  enddo
@@ -454,44 +423,64 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
 
  Mstar = m(lines)
+
 end subroutine read_mesa
 
 !----------------------------------------------------------------
+!+
 !  Write stellar profile in format readable by read_mesa;
 !  used in star setup to write softened stellar profile.
+!+
 !----------------------------------------------------------------
-subroutine write_softened_profile(outputpath, m, pres, temp, r, rho, ene, Xfrac, Yfrac, csound)
+subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
+ real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
- integer                         :: i
+ character(len=200)              :: headers
+ integer                         :: i,noptionalcols,j
+ real, allocatable               :: optionalcols(:,:)
 
- open(1, file = outputpath, status = 'new')
+ headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
 
- if (present(Xfrac) .and. present(Yfrac)) then
-    if (present(csound)) then
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
-       write(1,101) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
-101    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
-       2x,es13.6,2x,es13.6)
-    else
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-       &[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
-       write(1,102) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-102    format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,&
-       2x,es13.6)
-    endif
- else
-    write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  &
-    &[  Density  ]  [   E_int   ]'
-    write(1,103) (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
-103 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+ ! Add optional columns
+ allocate(optionalcols(size(r),10))
+ noptionalcols = 0
+ if (present(Xfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Xfrac   ]'
+    optionalcols(:,noptionalcols) = Xfrac
+ endif
+ if (present(Yfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Yfrac   ]'
+    optionalcols(:,noptionalcols) = Yfrac
+ endif
+ if (present(mu)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [    mu     ]'
+    optionalcols(:,noptionalcols) = mu
+ endif
+ if (present(csound)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [Sound speed]'
+    optionalcols(:,noptionalcols) = csound
  endif
 
- close(1, status = 'keep')
+ open(1, file = outputpath, status = 'replace')
+ write(1,'(a)') headers
+ do i=1,size(r)
+    write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+    do j=1,noptionalcols
+       if (j==noptionalcols) then
+          write(1,'(2x,es13.6)') optionalcols(i,j)
+       else
+          write(1,'(2x,es13.6)',advance="no") optionalcols(i,j)
+       endif
+    enddo
+ enddo
 
-end subroutine write_softened_profile
+end subroutine write_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -542,29 +531,29 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--The first loop calculates the number of rows, columns and comments in kepler file.
  !
  do
-   read(11, '(a)', iostat=ierr) line
-       if (ierr/=0) exit
+    read(11, '(a)', iostat=ierr) line
+    if (ierr/=0) exit
 
-       if (index(line,'#') .ne. 0) then
-         j = j + 1
+    if (index(line,'#')  /=  0) then
+       j = j + 1
 
-       else
-         if (s==1) then
-           !calculate number of columns
-           do m=1, max_cols
+    else
+       if (s==1) then
+          !calculate number of columns
+          do m=1, max_cols
 
              read(line,*,iostat=ierr) test_cols(1:m)
              if (ierr/=0) exit
 
-           enddo
-       end if
+          enddo
+       endif
 
        s = s+1
        !calculate number of rows
        n_rows = n_rows + 1
 
-     end if
- end do
+    endif
+ enddo
  close(11)
 
  n_cols = m-1
@@ -592,8 +581,8 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  open(13, file=trim(fullfilepath))
  do i = 1,j
-   read(13,*,iostat=ierr)
- end do
+    read(13,*,iostat=ierr)
+ enddo
 
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
@@ -638,9 +627,6 @@ end subroutine read_kepler_file
 !+
 !  Option 7:
 !  Calculates a Bonnor-Ebert sphere
-!  An error will be returned if the user is request a normalised
-!  radius > 5x the critical radius or if the density ratio between
-!  centre and edge values is not large enough
 !
 !  Examples:
 !  To reproduce the sphere in Wurster & Bate (2019):
@@ -649,23 +635,22 @@ end subroutine read_kepler_file
 !     iBEparam = 4, normalised radius = 12.9; physical radius = 5300au; fac = 6.98
 !     cs_sphere = 18900cm/s (this is 10K, assuming gamma = 1)
 !     density_contrast = 4.48
+!  To define both physical radius & mass, the overdensity factor is automatically changed
 !+
 !-----------------------------------------------------------------------
-subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,facBE,csBE,npts,iBElast,rtab,rhotab,ierr)
+subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,facBE,csBE,gmw,npts,iBElast,rtab,rhotab,ierr)
  use physcon, only:au,pc,mass_proton_cgs,solarm
  use units,   only:umass,udist
- use eos,     only:gmw
  integer, intent(in)    :: iBEparam,npts
  integer, intent(out)   :: iBElast,ierr
- real,    intent(in)    :: csBE
+ real,    intent(in)    :: csBE,gmw
  real,    intent(inout) :: rBE,mBE,xBE,facBE,central_density
  real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
- integer                :: j
+ integer                :: j,iu
  real                   :: xi,phi,func,containedmass,dxi,dfunc,rho,dphi
- real                   :: rBE0,rho1,rho2,fac_close
+ real                   :: rBE0,fac_close
  real                   :: mtab(npts)
  logical                :: write_BE_profile = .true.
- logical                :: debug = .true.
  logical                :: override_critical = .false.  ! if true, will not error out if the density ratio is too small
 
  !--Initialise variables
@@ -681,6 +666,13 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  rhotab(1)      = 1.  ! initial normalised density
  rho            = 1.
  ierr           = 0
+
+ ! initialise variables not required for chosen iBEparam (to avoid errors)
+ if (iBEparam/=1 .and. iBEparam/=2 .and. iBEparam/=3) central_density = 3.8d-18
+ if (iBEparam/=1 .and. iBEparam/=4 .and. iBEparam/=6) rBE   = 7000.*au/udist
+ if (iBEparam/=2 .and. iBEparam/=4 .and. iBEparam/=5) xBE   = 7.45
+ if (iBEparam/=3 .and. iBEparam/=5 .and. iBEparam/=6) mBE   = 1.0*solarm/umass
+ if (iBEparam/=4 .and. iBEparam/=5)                   facBE = 1.0
 
  !--Calculate a normalised BE profile out to 5 critical radii
  do j = 2,npts
@@ -699,30 +691,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Determine scaling factors for the BE
  fac_close = 1000.
- if (iBEparam==4) central_density = (csBE*xBE/rBE)**2/fourpi
+ if (iBEparam==4 .or. iBEparam==6) central_density = (csBE*xBE/rBE)**2/fourpi
  if (iBEparam==5) then
     do j = 1, npts
        if (rtab(j) < xBE) iBElast = j
     enddo
     central_density = (csBE**3*mtab(iBElast)*facBE/mBE)**2/fourpi**3
- endif
- if (iBEparam==6) then
-    do j = 1,npts
-       rho1 = (csBE*rtab(j)/rBE)**2/fourpi
-       rho2 = (csBE**3*mtab(j)/mBE)**2/fourpi**3
-       if (debug) print*, j,rtab(j),rho1,rho2,rho1/rho2
-       if (abs(rho1/rho2 - 1.) < fac_close) then
-          fac_close = abs(rho1/rho2 - 1.)
-          iBElast = j
-       endif
-    enddo
-    central_density = (csBE**3*mtab(iBElast)/mBE)**2/fourpi**3
-    !--Error out if required
-    if (fac_close > 0.1) then
-       print*, 'A BE sphere with the requested mass and radius cannot be constructed.  Aborting.'
-       ierr = 1
-       return
-    endif
  endif
  rBE0 = csBE/sqrt(fourpi*central_density)
 
@@ -734,9 +708,11 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     mtab(j)   = mtab(j) * central_density*rBE0**3
     rhotab(j) = central_density * rhotab(j)
 
-    if (iBEparam == 1 .and. rtab(j) < rBE) iBElast = j
-    if (iBEparam == 4 .and. rtab(j) < rBE) iBElast = j
-    if (iBEparam == 3 .and. mtab(j) < mBE) iBElast = j
+    if ((iBEparam == 1 .or. iBEparam==6 .or. iBEparam == 4) .and. rtab(j) < rBE) then
+       iBElast = j
+    elseif (iBEparam == 3 .and. mtab(j) < mBE) then
+       iBElast = j
+    endif
  enddo
  !--Set the remaining properties
  if (iBEparam==4) then
@@ -745,6 +721,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     rhotab          = rhotab*facBE
  endif
  if (iBEparam==5) then
+    central_density = central_density/sqrt(facBE)
+    mtab(iBElast)   = mtab(iBElast)*facBE
+    rhotab          = rhotab/sqrt(facBE)
+ endif
+ if (iBEparam==6) then
+    facBE           = mBE/mtab(iBElast)
     central_density = central_density/sqrt(facBE)
     mtab(iBElast)   = mtab(iBElast)*facBE
     rhotab          = rhotab/sqrt(facBE)
@@ -764,16 +746,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  print*, ' Radius (au)            = ',rBE*udist/au
  print*, ' Radius (pc)            = ',rBE*udist/pc
  print*, ' Total mass (Msun)      = ',mBE*umass/solarm
+ print*, ' Overdensity factor     = ',facBE
  print*, ' rho_c/rho_outer             = ',central_density/edge_density
  print*, ' Equilibrium temperature (K) = ',mBE*umass*pc/(rBE*udist*solarm*2.02)
  print*, '------------------------------------'
 
  !--Error out if required
- if (iBEparam==6 .and. fac_close > 0.1) then
-    print*, 'A BE sphere with the requested mass and radius cannot be constructed.  Aborting.'
-    ierr = 1
-    return
- endif
  if (central_density/rhotab(iBElast) < 14.1) then
     print*, 'The density ratio between the central and edge densities is too low and the sphere will not collapse.'
     if (.not. override_critical) then
@@ -785,11 +763,12 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Write the scaled BE profile that is to be used
  if (write_BE_profile) then
-    open(unit = 26393,file='BonnorEbert.txt')
-    write(26393,'(a)') "# [01     r(code)]   [02 M_enc(code)]   [03   rho(code)]"
+    open(newunit=iu,file='BonnorEbert.txt')
+    write(iu,'(a)') "# [01     r(code)]   [02 M_enc(code)]   [03   rho(code)]"
     do j = 1,iBElast
-       write(26393,'(3(1pe18.10,1x))') rtab(j),mtab(j),rhotab(j)
+       write(iu,'(3(1pe18.10,1x))') rtab(j),mtab(j),rhotab(j)
     enddo
+    close(iu)
  endif
 
 end subroutine rho_bonnorebert
@@ -798,7 +777,7 @@ end subroutine rho_bonnorebert
 !  (see setup_sphereinbox for read/write_setup commands)
 !-----------------------------------------------------------------------
 subroutine prompt_BEparameters(iBEparam,rho_cen,rad_phys,rad_norm,mass_phys,fac,umass,udist,au,solarm)
- use prompting,    only:prompt
+ use prompting, only:prompt
  integer,      intent(out) :: iBEparam
  real,         intent(out) :: rho_cen,rad_phys,rad_norm,mass_phys,fac
  real,         intent(in)  :: au,solarm
@@ -811,7 +790,7 @@ subroutine prompt_BEparameters(iBEparam,rho_cen,rad_phys,rad_norm,mass_phys,fac,
  print*, '  3: central density & physical mass'
  print*, '  4: normalised radius & physical radius & overdensity factor'
  print*, '  5: normalised radius & physical mass   & overdensity factor'
- print*, '  6: physical mass & physical radius'
+ print*, '  6: physical radius & physical mass'
  iBEparam = 5
  call prompt('Please enter your choice now: ',iBEparam,1,6)
 
@@ -831,5 +810,5 @@ subroutine prompt_BEparameters(iBEparam,rho_cen,rad_phys,rad_norm,mass_phys,fac,
  rho_cen = rho_cen * udist**3/umass ! convert to code units
 
 end subroutine prompt_BEparameters
-!-----------------------------------------------------------------------
+
 end module rho_profile

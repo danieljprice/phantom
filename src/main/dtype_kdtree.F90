@@ -14,7 +14,7 @@ module dtypekdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi, mpiutils
+! :Dependencies: io, mpi, mpiutils
 !
  implicit none
 
@@ -64,7 +64,7 @@ module dtypekdtree
     real :: xmin(ndimtree)
     real :: xmax(ndimtree)
 #endif
- end type
+ end type kdnode
 
 contains
 

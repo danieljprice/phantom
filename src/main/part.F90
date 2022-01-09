@@ -127,9 +127,11 @@ module part
                        ics   = 2, &
                        itemp = 3, &
                        imu   = 4, &
-                       maxeosvars = 4
+                       iX    = 5, &
+                       iZ    = 6, &
+                       maxeosvars = 6
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
 !
 !--one-fluid dust (small grains)
 !
@@ -205,7 +207,7 @@ module part
 !
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
- real, allocatable :: T_chem(:)
+ real, allocatable :: T_gas_cool(:)
  real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
@@ -469,7 +471,7 @@ subroutine allocate_part
 #endif
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
- call allocate_array('T_chem', T_chem, maxp_krome)
+ call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('dudt_chem', dudt_chem, maxp_krome)
 
 
@@ -530,7 +532,7 @@ subroutine deallocate_part
 #endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
- if (allocated(T_chem))       deallocate(T_chem)
+ if (allocated(T_gas_cool))   deallocate(T_gas_cool)
  if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
@@ -1188,7 +1190,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
-    T_chem(dst)           = T_chem(src)
+    T_gas_cool(dst)       = T_gas_cool(src)
     dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
@@ -1220,17 +1222,17 @@ subroutine reorder_particles(iorder,np)
  real    :: xtemp(ipartbufsize)
 
  do i=1,np
-   isrc = iorder(i)
+    isrc = iorder(i)
 
-   ! If particle has already been moved
-   do while (isrc < i)
-      isrc = iorder(isrc)
-   enddo
+    ! If particle has already been moved
+    do while (isrc < i)
+       isrc = iorder(isrc)
+    enddo
 
-   ! Swap particles around
-   call fill_sendbuf(i,xtemp)
-   call copy_particle_all(isrc,i,.false.)
-   call unfill_buffer(isrc,xtemp)
+    ! Swap particles around
+    call fill_sendbuf(i,xtemp)
+    call copy_particle_all(isrc,i,.false.)
+    call unfill_buffer(isrc,xtemp)
 
  enddo
 
@@ -1561,15 +1563,15 @@ end subroutine copy_arrayint1
 !----------------------------------------------------------------
 
 subroutine copy_arrayint8(iarray,ilist)
-   integer(kind=8), intent(inout) :: iarray(:)
-   integer,         intent(in)    :: ilist(:)
-   integer(kind=8) :: iarraytemp(size(iarray(:)))
+ integer(kind=8), intent(inout) :: iarray(:)
+ integer,         intent(in)    :: ilist(:)
+ integer(kind=8) :: iarraytemp(size(iarray(:)))
 
-   iarraytemp(:) = iarray(ilist(:))
-   iarray = iarraytemp
+ iarraytemp(:) = iarray(ilist(:))
+ iarray = iarraytemp
 
-   return
-  end subroutine copy_arrayint8
+ return
+end subroutine copy_arrayint8
 
 !----------------------------------------------------------------
 !+
@@ -1728,7 +1730,7 @@ real function Omega_k(i)
     m_star = xyzmh_ptmass(4,1)
  else
     do j=1,nptmass
-       m_star = m_star + xyzmh_ptmass(4,j)
+       if (xyzmh_ptmass(4,j) > 0.) m_star = m_star + xyzmh_ptmass(4,j)
     enddo
  endif
 
