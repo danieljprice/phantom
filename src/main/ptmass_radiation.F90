@@ -40,6 +40,9 @@ module ptmass_radiation
 
  private
 
+ real  :: Lstar_lsun      = 5000.
+ real  :: Mstar_msun      = 1.
+
 contains
 !-----------------------------------------------------------------------
 !+
@@ -59,51 +62,82 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
- use part,  only:dust_temp,nucleation,idkappa,isdead_or_accreted,ilum
- use units, only:umass,unit_energ,utime
- use dim,   only:do_nucleation
+ use part,    only:ilum
+ use units,   only:umass,unit_energ,utime
+ use dim,     only:star_radiation
+ use physcon, only:solarl,solarm
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xyzmh_ptmass(:,:)
  real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,xa,ya,za,r,Mstar_cgs,Lstar_cgs,ax,ay,az
- integer                 :: i,j
+ real                    :: xa,ya,za,Mstar_cgs,Lstar_cgs
+ integer                 :: j
 
- do j=1,nptmass
-    if (xyzmh_ptmass(4,j) < 0.) cycle
-    Mstar_cgs  = xyzmh_ptmass(4,j)*umass
-    Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
-    !compute radiative acceleration if sink particle is assigned a non-zero luminosity
+ if (star_radiation) then
+    Lstar_cgs  = Lstar_lsun*solarl
+    Mstar_cgs  = Mstar_msun*solarm
     if (Lstar_cgs > 0.d0) then
        xa = xyzmh_ptmass(1,j)
        ya = xyzmh_ptmass(2,j)
        za = xyzmh_ptmass(3,j)
-       !$omp parallel  do default(none) &
-       !$omp shared(nucleation,do_nucleation)&
-       !$omp shared(dust_temp) &
-       !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
-       !$omp private(i,dx,dy,dz,ax,ay,az,r)
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             dx = xyzh(1,i) - xa
-             dy = xyzh(2,i) - ya
-             dz = xyzh(3,i) - za
-             r = sqrt(dx**2 + dy**2 + dz**2)
-             if (do_nucleation) then
-                call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(idkappa,i))
-             else
-                call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
-             endif
-             fext(1,i) = fext(1,i) + ax
-             fext(2,i) = fext(2,i) + ay
-             fext(3,i) = fext(3,i) + az
-          endif
-       enddo
-       !$omp end parallel do
+       call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
     endif
- enddo
+ else
+    do j=1,nptmass
+       if (xyzmh_ptmass(4,j) < 0.) cycle
+       Mstar_cgs  = xyzmh_ptmass(4,j)*umass
+       Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
+       !compute radiative acceleration if sink particle is assigned a non-zero luminosity
+       if (Lstar_cgs > 0.d0) then
+          xa = xyzmh_ptmass(1,j)
+          ya = xyzmh_ptmass(2,j)
+          za = xyzmh_ptmass(3,j)
+          call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+       endif
+    enddo
+ endif
 
 end subroutine get_rad_accel_from_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  compute radiative acceleration on all particles
+!+
+!-----------------------------------------------------------------------
+subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+ use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa
+ use dim,   only:do_nucleation
+ integer,  intent(in)    :: npart
+ real,     intent(in)    :: xyzh(:,:)
+ real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
+ real,     intent(inout) :: fext(:,:)
+ real                    :: dx,dy,dz,r,ax,ay,az
+ integer                 :: i
+
+ !$omp parallel  do default(none) &
+ !$omp shared(nucleation,do_nucleation)&
+ !$omp shared(dust_temp) &
+ !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
+ !$omp private(i,dx,dy,dz,ax,ay,az,r)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       dx = xyzh(1,i) - xa
+       dy = xyzh(2,i) - ya
+       dz = xyzh(3,i) - za
+       r = sqrt(dx**2 + dy**2 + dz**2)
+       if (do_nucleation) then
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(idkappa,i))
+       else
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
+       endif
+       fext(1,i) = fext(1,i) + ax
+       fext(2,i) = fext(2,i) + ay
+       fext(3,i) = fext(3,i) + az
+    endif
+ enddo
+ !$omp end parallel do
+end subroutine calc_rad_accel_from_ptmass
+
 
 !-----------------------------------------------------------------------
 !+
@@ -465,7 +499,7 @@ end function sq_distance_to_line
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only: write_inopt
- use dim,          only: store_dust_temperature
+ use dim,          only: store_dust_temperature,star_radiation
  integer, intent(in) :: iunit
 
  call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
@@ -473,6 +507,10 @@ subroutine write_options_ptmass_radiation(iunit)
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  endif
  if (isink_radiation >= 2) then
+    if (star_radiation) then
+       call write_inopt(Lstar_lsun,'Lstar','Stellar luminosity (for radiation pressure, in Lsun)',iunit)
+       call write_inopt(Mstar_msun,'Mstar','Stellar mass (in Msun)',iunit)
+    endif
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))',iunit)
  endif
  if (iget_tdust == 1 ) then
@@ -489,16 +527,26 @@ end subroutine write_options_ptmass_radiation
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
+ use dim,     only:star_radiation
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
 
  integer, save :: ngot = 0
+ integer :: ni
  character(len=30), parameter :: label = 'read_options_ptmass_radiation'
 
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
+ case('Lstar')
+    read(valstring,*,iostat=ierr) Lstar_lsun
+    ngot = ngot + 1
+    if (Lstar < 0.) call fatal(label,'invalid setting for Lstar (must be >= 0)')
+ case('Mstar')
+    read(valstring,*,iostat=ierr) Mstar_msun
+    ngot = ngot + 1
+    if (Mstar < 0.) call fatal(label,'invalid setting for Mstar (must be >= 0)')
  case('alpha_rad')
     read(valstring,*,iostat=ierr) alpha_rad
     ngot = ngot + 1
@@ -517,8 +565,12 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- igotall = (ngot >= 1)
- if (isink_radiation > 0) igotall = (ngot >= 2)
+ ni = 1
+ if (isink_radiation > 0) then
+    ni = ni+1
+    if (star_radiation)  ni = ni+2
+ endif
+ igotall = (ngot >= ni)
 
 end subroutine read_options_ptmass_radiation
 

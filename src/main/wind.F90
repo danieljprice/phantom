@@ -18,6 +18,8 @@ module wind
 !   ptmass_radiation, timestep, units, wind_equations
 !
 
+#define CALC_HYDRO_THEN_CHEM
+
  use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
 
  implicit none
@@ -156,13 +158,14 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
 end subroutine init_wind
 
+#ifdef CALC_HYDRO_THEN_CHEM
 
 !-----------------------------------------------------------------------
 !
 !  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
-subroutine wind_step1(state)
+subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
@@ -262,7 +265,9 @@ subroutine wind_step1(state)
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
-end subroutine !wind_step
+end subroutine wind_step
+
+#else
 
 !-----------------------------------------------------------------------
 !
@@ -363,7 +368,9 @@ subroutine wind_step(state)
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
-end subroutine !wind_step
+end subroutine wind_step
+
+#endif
 
 !-----------------------------------------------------------------------
 !

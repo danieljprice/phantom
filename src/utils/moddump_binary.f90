@@ -52,10 +52,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                   :: nstar1,nstar2
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
- real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
+ real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3.
  real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
- real                      :: time2,hfact2
+ real                      :: time2,hfact2,Rstar
  real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
  logical                   :: corotate_answer,iprimary_grav_ans
  character(len=20)         :: filename = 'binary.in'
@@ -180,7 +180,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        companion_mass_1 = 0.6
        call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
 
+       Rstar = 0.
+       do i = 1,npart
+          Rstar  = max(Rstar,sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i))))
+       enddo
        print*, 'Current length unit is ', udist ,'cm):'
+       print*, 'Domain size ', Rstar ,' code cm):'
        a1 = 100.
        call prompt('Enter orbit semi-major axis in code units', a1, 0.0)
 
@@ -370,6 +375,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call shuffle_part(npart)
 
     case(4)
+       mcut = 0.
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
 
