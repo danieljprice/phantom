@@ -884,6 +884,12 @@ ifeq ($(SETUP), wind)
     ANALYSIS= analysis_dustywind.F90 dust_formation.F90
     WIND=yes
 endif
+ifeq ($(SETUP), radwind)
+#   wind setup with dust nucleation
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= utils_getneighbours.f90 utils_healpix.f90 utils_raytracer.f90 analysis_raytracer.f90
+    WIND=yes
+endif
 
 ifeq ($(WIND), yes)
 #   wind particle injection setup
