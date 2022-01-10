@@ -847,7 +847,7 @@ endif
 ifeq ($(SETUP), dustystar)
 #   import stellar model from 1D stellar evolution code
 #   use option 5 of setup_star
-    FPPFLAGS= -DDUST_NUCLEATION -DSINK_RADIATION
+    FPPFLAGS= -DDUST_NUCLEATION -DSINK_RADIATION -DSTAR
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90 dust_formation.F90

@@ -301,9 +301,15 @@ module dim
  logical :: do_nucleation = .false.
  integer :: inucleation = 0
 #ifdef DUST_NUCLEATION
+#ifdef STAR
+ logical :: star_radiation = .true.
+#else
+ logical :: star_radiation = .false.
+#endif
  logical :: nucleation = .true.
  integer :: maxsp = maxp_hard
 #else
+ logical :: star_radiation = .false.
  logical :: nucleation = .false.
  integer :: maxsp = 0
 #endif
