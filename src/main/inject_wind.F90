@@ -332,7 +332,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
  use dim,               only:store_dust_temperature
- use wind,              only:interp_wind_profile !wind_profile !
+ use wind,              only:interp_wind_profile !,wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
       delete_dead_particles_inside_radius,dust_temp,n_nucleation
  use partinject,        only:add_or_update_particle
@@ -425,10 +425,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
             inner_sphere,inner_boundary_sphere,dr3,rho_ini)
     else
        if (idust_opacity == 2) then
-          call interp_wind_profile(time,local_time, r, v, u, rho, e, GM, fdone, JKmuS)
+          call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKmuS)
           !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
        else
-          call interp_wind_profile(time,local_time, r, v, u, rho, GM, e, fdone)
+          call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone)
           !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
        endif
        if (iverbose > 0) print '(" ##### boundary sphere ",i4,3(i4),i7,9(1x,es12.5))',i,&

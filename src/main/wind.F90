@@ -18,6 +18,8 @@ module wind
 !   ptmass_radiation, timestep, units, wind_equations
 !
 
+#define CALC_HYDRO_THEN_CHEM
+
  use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
 
  implicit none
@@ -156,13 +158,14 @@ subroutine init_wind(r0, v0, T0, time_end, state)
 
 end subroutine init_wind
 
+#ifdef CALC_HYDRO_THEN_CHEM
 
 !-----------------------------------------------------------------------
 !
 !  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
-subroutine wind_step1(state)
+subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
@@ -262,7 +265,9 @@ subroutine wind_step1(state)
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
-end subroutine !wind_step
+end subroutine wind_step
+
+#else
 
 !-----------------------------------------------------------------------
 !
@@ -322,6 +327,7 @@ subroutine wind_step(state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
+ state%u    = state%p/((state%gamma-1.)*state%rho)
 
  if (idust_opacity == 2) then
     call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
@@ -363,7 +369,9 @@ subroutine wind_step(state)
  !if  not searching for the sonic point, keep integrating wind equation up to t = time_end
  if (state%time < state%time_end .and. .not.state%find_sonic_solution) state%spcode = 0
 
-end subroutine !wind_step
+end subroutine wind_step
+
+#endif
 
 !-----------------------------------------------------------------------
 !
@@ -405,7 +413,8 @@ end subroutine calc_wind_profile
 !-----------------------------------------------------------------------
 subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  !in/out variables in code units (except Jstar,K)
- use units,        only:udist, utime, unit_velocity, unit_density, unit_pressure
+ use units,           only:udist, utime, unit_velocity, unit_density, unit_pressure
+ use dust_formation,  only:idust_opacity
  real, intent(in)  :: local_time, GM, T0
  real, intent(inout) :: r, v
  real, intent(out) :: u, rho, e, fdone
@@ -738,7 +747,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
  if (local_time == 0.) then
     fdone = 1.d0
  else
-    fdone = time/local_time/utime
+    fdone = ltime/(local_time*utime)
  endif
 end subroutine interp_wind_profile
 
