@@ -156,7 +156,7 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu
  use options, only:ieos
  use eos,     only:get_temperature
  use dim,     only:do_nucleation
@@ -169,7 +169,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  !
  ! sanity check, return zero if no sink particles or dust flag is off
  !
- if (nptmass < 1 .or. iget_tdust == 0 ) then
+ if (nptmass < 1) then
     dust_temp = 0.
     return
  endif
@@ -208,7 +208,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           vxyzui= vxyzu(:,i)
           if (do_nucleation) then
-             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,mui=nucleation(6,i))
+             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,mui=nucleation(idmu,i))
           else
              dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
           endif

@@ -141,15 +141,15 @@ def read_dump(filename, memorymap=False):
   for b in blocks:
     b['data'] = dict()
     for i in range(b['nreal'][0]):
-      c=read_string(f)
-      #print(i,c.strip())
-      #column_name = read_string(f).strip()
-      column_name = c.strip()
+      column_name = read_string(f).strip()
       column_data = read_fortran_record(f, variable_type, memorymap)
+      #print('!! [nreal[0]',i,column_name,type(column_name), variable_type)
       b['data'][column_name] = column_data
     for i in range(b['nreal'][1]):
       column_name = read_string(f).strip()
-      column_data = read_fortran_record(f, 'f4', memorymap)
+      column_data = read_fortran_record(f, variable_type, memorymap)
+      #column_data = read_fortran_record(f, 'f4', memorymap)
+      #print('$$ [nreal[1]',i,column_name,type(column_name), variable_type)
       b['data'][column_name] = column_data
   dump['blocks'] = blocks
 
