@@ -10,7 +10,7 @@ module cooling_molecular
 !
 ! :References: None
 !
-! :Owner: Lionel Siess
+! :Owner: Dion Donne, Ward Homan, Lionel Siess
 !
 ! :Runtime parameters: None
 !
