@@ -860,6 +860,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  if (iprofile==imesa) then
     call read_inopt(use_variable_composition,'use_variable_comp',db,errcount=nerr)
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+    if (isoftcore==2) isofteningopt=3
  endif
 
  ! equation of state
