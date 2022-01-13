@@ -327,6 +327,7 @@ subroutine wind_step(state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
+ state%u    = state%p/((state%gamma-1.)*state%rho)
 
  if (idust_opacity == 2) then
     call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
@@ -412,7 +413,8 @@ end subroutine calc_wind_profile
 !-----------------------------------------------------------------------
 subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  !in/out variables in code units (except Jstar,K)
- use units,        only:udist, utime, unit_velocity, unit_density, unit_pressure
+ use units,           only:udist, utime, unit_velocity, unit_density, unit_pressure
+ use dust_formation,  only:idust_opacity
  real, intent(in)  :: local_time, GM, T0
  real, intent(inout) :: r, v
  real, intent(out) :: u, rho, e, fdone
@@ -745,7 +747,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
  if (local_time == 0.) then
     fdone = 1.d0
  else
-    fdone = time/local_time/utime
+    fdone = ltime/(local_time*utime)
  endif
 end subroutine interp_wind_profile
 
