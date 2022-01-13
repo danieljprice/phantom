@@ -331,7 +331,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
- !use dim,               only:store_dust_temperature
  use wind,              only:interp_wind_profile !,wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
       delete_dead_particles_inside_radius,dust_temp,n_nucleation
@@ -448,7 +447,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
           call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
                npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
        endif
-       !if (store_dust_temperature) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
        if (isink_radiation > 0) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
             xyzmh_ptmass(iTeff,wind_emitting_sink)
     else
@@ -461,7 +459,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
        endif
        !initialize dust temperature to star's effective temperature
-       !if (store_dust_temperature) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
        if (isink_radiation > 0) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
        ! update the sink particle mass
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
