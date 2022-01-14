@@ -391,6 +391,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
+    if (header(i)(1:1) == '#') then
+       print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
+       stop 'read_mesa'
+    endif
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
@@ -479,6 +483,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
        endif
     enddo
  enddo
+ close(1)
 
 end subroutine write_profile
 
