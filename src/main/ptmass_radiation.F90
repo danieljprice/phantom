@@ -562,11 +562,11 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('Lstar')
     read(valstring,*,iostat=ierr) Lstar_lsun
     ngot = ngot + 1
-    if (Lstar < 0.) call fatal(label,'invalid setting for Lstar (must be >= 0)')
+    if (Lstar_lsun < 0.) call fatal(label,'invalid setting for Lstar (must be >= 0)')
  case('Mstar')
     read(valstring,*,iostat=ierr) Mstar_msun
     ngot = ngot + 1
-    if (Mstar < 0.) call fatal(label,'invalid setting for Mstar (must be >= 0)')
+    if (Mstar_msun < 0.) call fatal(label,'invalid setting for Mstar (must be >= 0)')
  case('alpha_rad')
     read(valstring,*,iostat=ierr) alpha_rad
     ngot = ngot + 1

@@ -225,7 +225,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call write_setupfile(setupfile,gamma,polyk)
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
-
  !
  ! Verify correct pre-processor commands
  !
@@ -289,10 +288,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(imesa)
     deallocate(r,den,pres,temp,en,mtab)
 
-    mu = 0.
     if (isoftcore > 0) then
        call read_mesa(input_profile,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
        allocate(mu(size(den)))
+       mu = 0.
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
        call set_softened_core(isoftcore,isofteningopt,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore

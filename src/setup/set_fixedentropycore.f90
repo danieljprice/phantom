@@ -45,7 +45,10 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  mc = mcore*solarm  ! convert to g
  call interpolator(r,rc,icore)  ! find index in r closest to rc
  msoft = m(icore) - mc
- if (msoft<0.) call fatal('setup','mcore cannot exceed m(r=h)')
+ if (msoft<0.) then
+    print *,'mcore=',mcore,', rcore=',rcore,', icore=',icore,', m(icore) =',m(icore)/solarm
+    call fatal('setup','mcore cannot exceed m(r=h)')
+ endif
 
  select case(ieos)
  case(2)
