@@ -399,6 +399,8 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        if (nheaderlines == 6) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
+    case('logrho')
+       rho = 10**(dat(1:lines,i))
     case('energy','e_int')
        ene = dat(1:lines,i)
     case('radius','radius_cm')
