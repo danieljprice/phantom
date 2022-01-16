@@ -727,7 +727,7 @@ end subroutine check_gr
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype
+ use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -748,7 +748,9 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  do i=1,npart
+    if (isdead_or_accreted(xyzh(4,index(i)))) cycle
     j = i+1
+    if (isdead_or_accreted(xyzh(4,index(j)))) cycle
     dx2 = 0.
     if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
@@ -764,6 +766,9 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           endif
        endif
        j = j + 1
+       do while (isdead_or_accreted(xyzh(4,j)) .and. j < npart)
+          j = j + 1
+       enddo
     enddo
  enddo
 
