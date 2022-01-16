@@ -15,8 +15,8 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
-!   units, utils_gr
+!   gravwaveutils, io, metric_tools, nicil, options, part, physcon,
+!   sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -53,6 +53,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
+ use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
@@ -333,6 +334,16 @@ subroutine check_setup(nerror,nwarn,restart)
           print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
+    endif
+ endif
+!
+!--check that if ccode=1 that all particles are gas particles
+!  otherwise warn that gravitational wave strain calculation is wrong
+!
+ if (calc_gravitwaves) then
+    if (any(npartoftype(2:) > 0)) then
+       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
+       nwarn = nwarn + 1
     endif
  endif
 !

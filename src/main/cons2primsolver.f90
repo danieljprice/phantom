@@ -190,7 +190,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
        Pcgs = P*unit_pressure
        denscgs = dens*unit_density
 
-       call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
+       call calc_temp_and_ene(ieos,denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
        u = ucgs/unit_ergg
 
        enth = 1. + u + P/dens
