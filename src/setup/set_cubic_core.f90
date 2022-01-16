@@ -38,6 +38,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
+ use eos,         only:ieos
  real, intent(inout):: r(:),rho(:),m(:),pres(:)
  real, allocatable  :: phi(:)
  real, intent(in)   :: mcore,rcore

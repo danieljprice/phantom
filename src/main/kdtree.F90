@@ -68,7 +68,7 @@ module kdtree
     integer :: npnode
     real    :: xmin(ndimtree)
     real    :: xmax(ndimtree)
- end type
+ end type kdbuildstack
 
  private
 
