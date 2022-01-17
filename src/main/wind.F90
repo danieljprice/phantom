@@ -18,9 +18,9 @@ module wind
 !   ptmass_radiation, timestep, units, wind_equations
 !
 
-#define CALC_HYDRO_THEN_CHEM
+!#define CALC_HYDRO_THEN_CHEM
 
- use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
+ use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa,idalpha
 
  implicit none
  public :: setup_wind
@@ -144,8 +144,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%JKmuS = 0.
  if (idust_opacity == 2) then
     call init_muGamma(state%rho, state%Tg, state%mu, state%gamma)
-    state%jKmuS(idmu) = state%mu
+    state%jKmuS(idmu)    = state%mu
     state%jKmuS(idgamma) = state%gamma
+    state%jKmuS(idalpha) = state%alpha_dust + alpha_rad
  endif
  state%alpha = state%alpha_dust + alpha_rad
  state%dalpha_dr = 0.
@@ -173,6 +174,7 @@ subroutine wind_step(state)
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
+ use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling,          only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
@@ -205,10 +207,11 @@ subroutine wind_step(state)
    !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
    !call evolve_chem(state%dt,state%Tg,rho_old,state%JKmuS,state%gamma)
-    state%mu     = state%JKmuS(6)
+    state%mu    = state%JKmuS(idmu)
     state%gamma = state%JKmuS(idgamma)
-    call calc_kappa_dust(state%JKmuS(5), state%Tdust, state%rho, state%kappa)
+    call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
     call calc_alpha_dust(Mstar_cgs, Lstar_cgs, state%kappa, state%alpha_dust)
+    state%jKmuS(idalpha) = state%alpha_dust+alpha_rad
  endif
  if (idust_opacity == 1) then
     state%kappa = kappa_dust_bowen(state%Tdust)
@@ -282,6 +285,7 @@ subroutine wind_step(state)
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
       calc_alpha_dust,calc_alpha_bowen,idust_opacity
+ use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling,          only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
@@ -904,11 +908,11 @@ subroutine filewrite_header(iunit,nwrite)
     endif
  else
     if (icooling > 0) then
-       nwrite = 13
-       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','Q'
+       nwrite = 14
+       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
     else
-       nwrite = 12
-       write(iunit,'(12(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa'
+       nwrite = 13
+       write(iunit,'(12(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
     endif
  endif
 end subroutine filewrite_header
@@ -932,7 +936,7 @@ subroutine state_to_array(state,nwrite, array)
  array(10) = state%a
  if (idust_opacity == 2) then
     array(11) = state%JKmuS(idmu)
-    array(12) = state%JKmuS(idgamma)
+    array(12) = state%JKmuS(idsat)
     array(13) = state%JKmuS(idJstar)
     array(14) = state%JKmuS(idK0)
     array(15) = state%JKmuS(idK1)
@@ -945,6 +949,7 @@ subroutine state_to_array(state,nwrite, array)
  else
     array(11) = state%mu
     array(12) = state%kappa
+    array(13) = state%gamma
  endif
  if (icooling > 0) array(nwrite) = state%Q
 end subroutine state_to_array

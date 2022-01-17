@@ -29,6 +29,7 @@ def read_fortran_record(f, type, memorymap=False):
     size1 = int(read_binary(f, 1, 'i4'))
   except IOError:
     size1 = int(read_binary(f, 1, 'i4'))
+  #print (size1)
   itemsize = dtype(type).itemsize
   n = int(size1/itemsize)
   if memorymap:
@@ -148,6 +149,7 @@ def read_dump(filename, memorymap=False):
     for i in range(b['nreal'][1]):
       column_name = read_string(f).strip()
       column_data = read_fortran_record(f, variable_type, memorymap)
+      #column_data = read_fortran_record(f, variable_type, True)
       #column_data = read_fortran_record(f, 'f4', memorymap)
       #print('$$ [nreal[1]',i,column_name,type(column_name), variable_type)
       b['data'][column_name] = column_data
