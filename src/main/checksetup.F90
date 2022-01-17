@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   gravwaveutils, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
+!   units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -53,7 +53,6 @@ subroutine check_setup(nerror,nwarn,restart)
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
- use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
@@ -334,16 +333,6 @@ subroutine check_setup(nerror,nwarn,restart)
           print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
-    endif
- endif
-!
-!--check that if ccode=1 that all particles are gas particles
-!  otherwise warn that gravitational wave strain calculation is wrong
-!
- if (calc_gravitwaves) then
-    if (any(npartoftype(2:) > 0)) then
-       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
-       nwarn = nwarn + 1
     endif
  endif
 !
@@ -738,7 +727,7 @@ end subroutine check_gr
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -759,9 +748,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,index(i)))) cycle
     j = i+1
-    if (isdead_or_accreted(xyzh(4,index(j)))) cycle
     dx2 = 0.
     if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
@@ -777,9 +764,6 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           endif
        endif
        j = j + 1
-       do while (isdead_or_accreted(xyzh(4,j)) .and. j < npart)
-          j = j + 1
-       enddo
     enddo
  enddo
 
