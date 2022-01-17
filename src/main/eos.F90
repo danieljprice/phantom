@@ -326,7 +326,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
     imui = 1./mui
-    if (tempi > 0.) then
+    if (present(tempi) .and. (tempi > 0.)) then
        temperaturei = tempi
     else
        temperaturei = 0.67 * cgseni * mui / kb_on_mh
@@ -571,12 +571,13 @@ subroutine init_eos(eos_type,ierr)
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
+    call ionization_setup
     if (irecomb == 1) then
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
        eion(1:2) = 0.  ! He recombination only
     endif
-    call ionization_setup
+    write(*,'(1x,a,i1)') 'Initialising gas+rad+rec EoS with irecomb=',irecomb
  end select
  done_init_eos = .true.
 
@@ -1047,7 +1048,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
-    if (ieos /= 10) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+    if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
 
     if (present(eint_in)) then
        eint = eint_in

@@ -141,6 +141,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        Z_in = 0.01426
        call prompt('Enter hydrogen mass fraction:',X_in,0.)
        call prompt('Enter metallicity:',Z_in,0.)
+    case(20)
+       X_in = 0.69843
+       Z_in = 0.01426
+       call prompt('Enter hydrogen mass fraction:',X_in,0.)
+       call prompt('Enter metallicity:',Z_in,0.)
+    case default
+       print*, "eos not supported"
+       stop
     end select
     call init_eos(ieos,ierr)
  endif
@@ -397,7 +405,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  if (dump_number == 0) then
     Xfrac = 0.69843
     Zfrac = 0.01426
-    if (ieos /= 10) then ! For MESA EoS, just use X_in and Z_in from eos module
+    if (ieos /= 10 .and. ieos /= 20) then ! For MESA EoS, just use X_in and Z_in from eos module
        call prompt('Enter hydrogen mass fraction to assume for recombination:',Xfrac,0.,1.)
        call prompt('Enter metallicity to assume for recombination:',Zfrac,0.,1.)
        Yfrac = 1. - Xfrac - Zfrac
@@ -1562,7 +1570,7 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
-    if (ieos==10) then
+    if (ieos==10 .or. ieos==20) then
        call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
     else
        ethi = einti
@@ -1655,7 +1663,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
        ientropy = 1
     case(12)
        ientropy = 2
-    case(10)
+    case(10,20)
        ientropy = 3
     case default
        ientropy = -1
@@ -2867,7 +2875,7 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
  select case (ieos)
  case (2,12) ! Ideal gas or ideal gas plus radiation
     ethi = particlemass * vxyzu(4) ! This includes both gas and radiation internal energy
- case (10) ! We want just the gas + radiation internal energy
+ case (10,20) ! We want just the gas + radiation internal energy
     hi = xyzh(4)
     densi = rhoh(hi,particlemass)
 
