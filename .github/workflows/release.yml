@@ -43,7 +43,7 @@ jobs:
 #          tar cfz /tmp/$tarfile --exclude ".git*" -s "/./${repo}/" .
 
     - name: build tarball
-      if: matrix.os == 'self-hosted'
+      if: matrix.os == 'ubuntu-latest'
       env:
           tarfile: ${{ steps.get_version.outputs.tarfile }}
           repo: ${{ steps.get_version.outputs.repo }}
