@@ -105,7 +105,7 @@ end subroutine get_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
- use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa
+ use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
@@ -126,9 +126,11 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        dz = xyzh(3,i) - za
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(idkappa,i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,&
+               nucleation(idalpha,i),kappa=nucleation(idkappa,i))
        else
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,&
+               nucleation(idalpha,i),Tdust=dust_temp(i))
        endif
        fext(1,i) = fext(1,i) + ax
        fext(2,i) = fext(2,i) + ay
@@ -146,18 +148,18 @@ end subroutine calc_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     ax,ay,az,Tdust,kappa)
+     ax,ay,az,alpha,Tdust,kappa)
  use units,   only: umass
  use dust_formation, only:calc_alpha_dust,calc_alpha_bowen,idust_opacity
  real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs
  real, optional, intent(in) :: kappa,Tdust
- real, intent(out)   :: ax,ay,az
+ real, intent(out)   :: ax,ay,az,alpha
  real :: fac,alpha_dust
 
  select case (isink_radiation)
  case (1)
     ! alpha wind
-    fac = alpha_rad*Mstar_cgs/(umass*r**3)
+    alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
     if (idust_opacity == 2) then
@@ -165,7 +167,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     else
        call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
     endif
-    fac = alpha_dust*Mstar_cgs/(umass*r**3)
+    alpha = alpha_dust
  case (3)
     ! radiation pressure on dust + alpha_wind (=1+2)
     if (idust_opacity == 2) then
@@ -173,11 +175,12 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     else
        call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
     endif
-    fac = (alpha_rad+alpha_dust)*Mstar_cgs/(umass*r**3)
+    alpha = alpha_rad+alpha_dust
  case default
     ! no radiation pressure
-    fac = 0.
+    alpha = 0.
  end select
+ fac = alpha*Mstar_cgs/(umass*r**3)
  ax = fac*dx
  ay = fac*dy
  az = fac*dz
