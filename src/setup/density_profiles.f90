@@ -470,16 +470,20 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
 
  open(1, file = outputpath, status = 'replace')
  write(1,'(a)') headers
+ 101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  do i=1,size(r)
-    write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
-101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
-    do j=1,noptionalcols
-       if (j==noptionalcols) then
-          write(1,'(2x,es13.6)') optionalcols(i,j)
-       else
-          write(1,'(2x,es13.6)',advance="no") optionalcols(i,j)
-       endif
-    enddo
+    if (noptionalcols <= 0) then
+       write(1,101) m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+    else
+       write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+       do j=1,noptionalcols
+          if (j==noptionalcols) then
+             write(1,'(2x,es13.6)') optionalcols(i,j)
+          else
+             write(1,'(2x,es13.6)',advance="no") optionalcols(i,j)
+          endif
+       enddo
+    endif
  enddo
 
 end subroutine write_profile
