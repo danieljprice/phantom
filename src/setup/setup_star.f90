@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -50,12 +50,11 @@ module setup
 !   - use_variable_comp : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
-! :Dependencies: centreofmass, dim, domain, eos, eos_idealplusrad,
-!   eos_mesa, eos_piecewise, extern_densprofile, externalforces,
-!   infile_utils, io, kernel, options, part, physcon, prompting,
-!   radiation_utils, relaxstar, rho_profile, setsoftenedcore,
-!   setstellarcore, setup_params, sortutils, spherical, table_utils,
-!   timestep, units
+! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
+!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
+!   part, physcon, prompting, radiation_utils, relaxstar, rho_profile,
+!   setsoftenedcore, setstellarcore, setup_params, sortutils, spherical,
+!   table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -863,6 +862,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
  if (iprofile==imesa) then
     call read_inopt(use_variable_composition,'use_variable_comp',db,errcount=nerr)
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
+    if (isoftcore==2) isofteningopt=3
  endif
 
  ! equation of state
