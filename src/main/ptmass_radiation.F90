@@ -193,7 +193,7 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu,idgamma
  use options, only:ieos
  use eos,     only:get_temperature
  use dim,     only:do_nucleation
@@ -245,7 +245,8 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           vxyzui= vxyzu(:,i)
           if (do_nucleation) then
-             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,mui=nucleation(idmu,i))
+             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,&
+                  gammai=nucleation(idgamma,i),mui=nucleation(idmu,i))
           else
              dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
           endif
@@ -522,7 +523,7 @@ end function sq_distance_to_line
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only: write_inopt
- use dim,          only: store_dust_temperature,star_radiation
+ use dim,          only: star_radiation!,store_dust_temperature
  integer, intent(in) :: iunit
 
  call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
@@ -539,7 +540,7 @@ subroutine write_options_ptmass_radiation(iunit)
  if (iget_tdust == 1 ) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
  endif
- if (iget_tdust > 0) store_dust_temperature = .true.
+ !if (iget_tdust > 0) store_dust_temperature = .true.
 
 end subroutine write_options_ptmass_radiation
 

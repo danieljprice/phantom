@@ -18,3 +18,4 @@ patm = 1.013250e6 # 1 atmosphere in cgs units
 au = 1.496e13 #astronomical unit
 # Units
 bar = 1.e6 # dyne/cm²
+mproton = 1.67262158e-24

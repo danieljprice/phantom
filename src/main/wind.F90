@@ -62,21 +62,21 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  real, intent(out)   :: rsonic, tsonic
  real :: rho_cgs, wind_mu!, pH, pH_tot
 
- Mstar_cgs = Mstar_cg
+ Mstar_cgs  = Mstar_cg
  wind_gamma = gamma
- Mdot_cgs = Mdot_code * umass/utime
+ Mdot_cgs   = Mdot_code * umass/utime
  u_to_temperature_ratio = u_to_T
 
  if (idust_opacity == 2) then
     call set_abundances
-    rho_cgs = Mdot_cgs/(4.*pi * r0**2 * v0)
+    rho_cgs    = Mdot_cgs/(4.*pi * r0**2 * v0)
     wind_gamma = gamma
-    wind_mu = gmw
+    wind_mu    = gmw
     call init_muGamma(rho_cgs, T0, wind_mu, wind_gamma)
     print *,'reset gamma : ',gamma,wind_gamma
     print *,'reset gmw   : ',gmw,wind_mu
     gamma = wind_gamma
-    gmw = wind_mu
+    gmw   = wind_mu
  endif
 
  if (iget_tdust == -12) then
@@ -117,29 +117,29 @@ subroutine init_wind(r0, v0, T0, time_end, state)
     state%find_sonic_solution = .true.
     state%time_end = -1.d0
  endif
- state%time = 0.
- state%r_old = 0.
- state%r0 = r0
- state%r = r0
- state%Rstar = r0
- state%v = v0
- state%a = 0.
- state%Tg = T0
- state%Tdust = T0
+ state%time   = 0.
+ state%r_old  = 0.
+ state%r0     = r0
+ state%r      = r0
+ state%Rstar  = r0
+ state%v      = v0
+ state%a      = 0.
+ state%Tg     = T0
+ state%Tdust  = T0
  state%tau_lucy = 2./3.
- state%kappa = kappa_gas
- state%Q = 0.
- state%dQ_dr = 0.
- state%rho = Mdot_cgs/(4.*pi * state%r**2 * state%v)
+ state%kappa  = kappa_gas
+ state%Q      = 0.
+ state%dQ_dr  = 0.
+ state%rho    = Mdot_cgs/(4.*pi * state%r**2 * state%v)
  state%spcode = 0
  state%nsteps = 1
 
- Tstar = xyzmh_ptmass(iTeff,wind_emitting_sink)
+ Tstar     = xyzmh_ptmass(iTeff,wind_emitting_sink)
  Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%alpha_dust = 0.
- state%mu = gmw
+ state%mu    = gmw
  state%gamma = wind_gamma
  state%JKmuS = 0.
  if (idust_opacity == 2) then
@@ -148,9 +148,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
     state%jKmuS(idgamma) = state%gamma
     state%jKmuS(idalpha) = state%alpha_dust + alpha_rad
  endif
- state%alpha = state%alpha_dust + alpha_rad
+ state%alpha     = state%alpha_dust + alpha_rad
  state%dalpha_dr = 0.
- state%dmu_dr = 0.
+ state%dmu_dr    = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
  state%u = state%p/((state%gamma-1.)*state%rho)
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
@@ -186,7 +186,6 @@ subroutine wind_step(state)
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
- !rvT(3) = state%u
  v_old  = state%v
  dt_old = state%dt
  state%r_old = state%r
@@ -206,7 +205,6 @@ subroutine wind_step(state)
  if (idust_opacity == 2) then
    !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
-   !call evolve_chem(state%dt,state%Tg,rho_old,state%JKmuS,state%gamma)
     state%mu    = state%JKmuS(idmu)
     state%gamma = state%JKmuS(idgamma)
     call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
@@ -227,7 +225,6 @@ subroutine wind_step(state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%p    = state%rho*Rg*state%Tg/state%mu
  state%u    = state%p/((state%gamma-1.)*state%rho)
- !state%p    = state%u*(state%gamma-1.)*state%rho
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  state%tau_lucy = state%tau_lucy &
@@ -294,8 +291,8 @@ subroutine wind_step(state)
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded,alpha_dust
 
- kappa_old = state%kappa
- alpha_old = state%alpha
+ kappa_old  = state%kappa
+ alpha_old  = state%alpha
  alpha_dust = 0.
  if (idust_opacity == 2) then
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
@@ -473,7 +470,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
 
  type(wind_state) :: state
 
- real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin
+ real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin, gmax
  integer, parameter :: ncount_max = 10
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
@@ -482,6 +479,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  cs   = sqrt(gamma*Rg*T0/gmw)
  vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
  Rs   = Gg*Mstar_cgs*(1.-alpha_rad)/(2.*cs*cs)
+ gmax = 1.-2.*cs**2*r0/(Gg*Mstar_cgs)  !Eq 3.38 Lamers & Cassinelli
  if (iverbose>0) then
     if (vesc> 1.d-50) then
        alpha_max = 1.-(2.*cs/vesc)**2
@@ -585,7 +583,13 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     if (v0 >= cs) then
        print *,' supersonic wind : v0/cs = ',v0/cs
     else
-       print *,' sub-sonic wind : v0/cs = ',v0/cs
+       !see discussion p72/73 in Lamers & Cassinelli textbook
+       if (r0 > Rs .or. alpha_rad > gmax ) then
+          print *,'r0 = ',r0,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
+          print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
+       else
+          print '(" sub-sonic wind : v0/cs = ",f7.5,", Gamma_max = ",f7.5)',v0/cs,gmax
+       endif
     endif
     !call calc_wind_profile(r0, v0, T0, 0., state)
     rsonic = 0.!state%r
@@ -909,10 +913,10 @@ subroutine filewrite_header(iunit,nwrite)
  else
     if (icooling > 0) then
        nwrite = 14
-       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
+       write(iunit,'(14(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
     else
        nwrite = 13
-       write(iunit,'(12(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
+       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
     endif
  endif
 end subroutine filewrite_header

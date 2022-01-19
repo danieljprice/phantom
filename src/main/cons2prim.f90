@@ -100,11 +100,11 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
 
 end subroutine prim2consi
 
-!-------------------------------------
+!---------------------------------------------
 !
-!  Conservative to primitive routines
+!  Conservative to primitive routines (for GR)
 !
-!-------------------------------------
+!---------------------------------------------
 
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive

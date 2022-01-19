@@ -207,6 +207,7 @@ end subroutine get_dump_size
 !+
 !-------------------------------------------------------------------
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
+ use dust_formation, only:idust_opacity
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr,do_nucleation
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu
@@ -375,7 +376,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
 #ifdef INJECT_PARTICLES
-       call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+       if (idust_opacity == 0) then
+          call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+       endif
 #else
        if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,&
        k,ipass,idump,nums,ierrs(12))
