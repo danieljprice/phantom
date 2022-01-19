@@ -313,14 +313,13 @@ end function get_erec
 !  gas particle. Inputs and outputs in code units
 !+
 !----------------------------------------------------------------
-subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,ethi)
  use part,             only:rhoh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use physcon,          only:radconst,Rg
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
- use eos,              only:gamma
  integer, intent(in) :: ieos
- real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
+ real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
  real, intent(out)   :: ethi
  real                :: hi,densi,mui
 

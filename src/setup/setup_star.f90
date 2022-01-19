@@ -47,7 +47,7 @@ module setup
 !   - relax_star        : *relax star automatically during setup*
 !   - ui_coef           : *specific internal energy (units of GM/R)*
 !   - use_exactN        : *find closest particle number to np*
-!   - use_variable_comp : *Use variable composition (X, Z, mu)*
+!   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
 ! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
@@ -59,7 +59,7 @@ module setup
  use io,             only:fatal,error,master
  use part,           only:gravity
  use physcon,        only:solarm,solarr,km,pi,c,kb_on_mh,radconst
- use options,        only:nfulldump,iexternalforce,calc_erot,use_variable_composition
+ use options,        only:nfulldump,iexternalforce,calc_erot,use_var_comp
  use timestep,       only:tmax,dtmax
  use eos,            only:ieos
  use externalforces, only:iext_densprofile
@@ -388,12 +388,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set composition of each particle by interpolating from table
  !
- if (use_variable_composition .or. eos_outputs_mu(ieos)) then
+ if (use_var_comp .or. eos_outputs_mu(ieos)) then
     call find_rank(npart,r2func,xyzh(1:3,:),iorder)
     do i = 1,nstar
        ri  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
        massri = Mstar * real(iorder(i)-1) / real(npart) ! mass coordinate of particle i
-       if (use_variable_composition) then
+       if (use_var_comp) then
           eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
           eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
        endif
@@ -433,7 +433,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           vxyzu(4,i) = eni
           if (store_temperature) eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
-          if (use_variable_composition) then
+          if (use_var_comp) then
              call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
                                     mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
           else
@@ -564,7 +564,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  endif
 
  if (iprofile==imesa) then
-    call prompt('Use variable composition?',use_variable_composition)
+    call prompt('Use variable composition?',use_var_comp)
 
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
@@ -609,7 +609,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
     end select
 
-    if ((.not. use_variable_composition) .and. (isoftcore<=0)) then
+    if ((.not. use_var_comp) .and. (isoftcore<=0)) then
        if ( (ieos==12) .or. (ieos==2) ) call prompt('Enter mean molecular weight',gmw,0.)
        if ( (ieos==10) .or. (ieos==20) ) then
           call prompt('Enter hydrogen mass fraction (X)',X_in,0.,1.)
@@ -742,8 +742,9 @@ subroutine write_setupfile(filename,gamma,polyk)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','approx number of particles (in box of size 2R)',iunit)
  call write_inopt(use_exactN,'use_exactN','find closest particle number to np',iunit)
-
+ 
  write(iunit,"(/,a)") '# equation of state'
+ call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
  call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
  select case(ieos)
  case(15) ! Helmholtz
@@ -754,18 +755,18 @@ subroutine write_setupfile(filename,gamma,polyk)
  case(2)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
-    if ((isoftcore<=0) .and. (.not. use_variable_composition)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if ((isoftcore<=0) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  case(1)
     if (input_polyk) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
  case(10,20)
     if (ieos==20) call write_inopt(irecomb,'irecomb','Species to include in recombination (0: H2+H+He, 1:H+He, 2:He',iunit)
-    if ( (.not. use_variable_composition) .and. (isoftcore<=0) ) then
+    if ( (.not. use_var_comp) .and. (isoftcore<=0) ) then
        call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
  case(12)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if (.not. use_variable_composition) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if (.not. use_var_comp) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
  if (iprofile==ievrard) then
     call write_inopt(ui_coef,'ui_coef','specific internal energy (units of GM/R)',iunit)
@@ -855,7 +856,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  ! core softening
  if (iprofile==imesa) then
-    call read_inopt(use_variable_composition,'use_variable_comp',db,errcount=nerr)
+    call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
     call read_inopt(isoftcore,'isoftcore',db,errcount=nerr)
     if (isoftcore==2) isofteningopt=3
  endif
@@ -869,20 +870,21 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     call read_inopt(EOSopt,'EOSopt',db,errcount=nerr)
  case(2)
     call read_inopt(gamma,'gamma',db,errcount=nerr)
+    if ( (.not. use_var_comp) .and. (isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(1)
     if (input_polyk) call read_inopt(polyk,'polyk',db,errcount=nerr)
  case(10,20)
     if (ieos==20) call read_inopt(irecomb,'irecomb',db,errcount=nerr)
     ! if softening stellar core, composition is automatically determined at R/2
-    if ( (.not. use_variable_composition) .and. (isoftcore <= 0)) then
+    if ( (.not. use_var_comp) .and. (isoftcore <= 0)) then
        call read_inopt(X_in,'X',db,errcount=nerr)
        call read_inopt(Z_in,'Z',db,errcount=nerr)
     endif
  case(12)
     ! if softening stellar core, mu is automatically determined at R/2
     call read_inopt(gamma,'gamma',db,errcount=nerr)
-    if ( (.not. use_variable_composition) .and. (isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
+    if ( (.not. use_var_comp) .and. (isoftcore <= 0)) call read_inopt(gmw,'mu',db,errcount=nerr)
  end select
  if (iprofile==ievrard) call read_inopt(ui_coef,'ui_coef',db,errcount=nerr)
 
