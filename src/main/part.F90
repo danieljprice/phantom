@@ -201,7 +201,8 @@ module part
  real, allocatable :: nucleation(:,:)
 #ifdef DUST_NUCLEATION
  character(len=*), parameter :: nucleation_label(n_nucleation) = &
-      &(/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','gamma','S    ','kappa','alphw'/)
+       (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
+         'mu   ','gamma','S    ','kappa','alphw'/)
 #endif
  integer, parameter :: idJstar = 1, &
                        idK0    = 2, &
@@ -211,7 +212,7 @@ module part
                        idmu    = 6, &
                        idgamma = 7, &
                        idsat   = 8, & !for logging
-                       idkappa = 9,&  !for logging
+                       idkappa = 9, & !for logging
                        idalpha = 10   !for logging
 !
 !--KROME variables
