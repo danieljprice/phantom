@@ -746,7 +746,6 @@ subroutine write_setupfile(filename,gamma,polyk)
 
  write(iunit,"(/,a)") '# equation of state'
  call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
- call write_inopt(use_variable_composition,'use_variable_comp','Use variable composition (X, Z, mu)',iunit)
  select case(ieos)
  case(15) ! Helmholtz
     call write_inopt(initialtemp,'initialtemp','initial temperature of the star',iunit)
