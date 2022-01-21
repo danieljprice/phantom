@@ -80,18 +80,19 @@ module raytracer
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OUTWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-  subroutine get_all_tau_outwards(primary, npart, points, neighbors, opacities, order, taus, companion, R, maxDist)
-     integer, intent(in) :: primary, npart, neighbors(:,:), order
+  subroutine get_all_tau_outwards(primary, points, neighbors, opacities, order, taus, companion, R, maxDist)
+     integer, intent(in) :: primary, neighbors(:,:), order
      integer, optional   :: companion
      real, intent(in)    :: points(:,:), opacities(:)
      real, optional      :: R, maxDist
      real, intent(out)   :: taus(:)
     
-     integer     :: i, nrays, nsides, index
-     real        :: normCompanion, theta0, unitCompanion(size(points(:,1))), theta, root, dist
-     real, dimension(:,:), allocatable :: dirs
-     integer, dimension(:,:), allocatable :: listsOfPoints
-     real, dimension(:,:), allocatable :: listsOfDists, listsOfTaus
+     integer  :: i, nrays, nsides, index
+     real     :: normCompanion, theta0, unitCompanion(size(points(:,1))), theta, root, dist, dir(size(points(:,1)))
+     real, dimension(:,:), allocatable  :: dirs
+     real, dimension(:,:), allocatable  :: listsOfDists, listsOfTaus
+     real, dimension(:), allocatable    :: tau, dists
+     integer, dimension(:), allocatable :: listOfPoints
      logical     :: threeD
 
      threeD = size(points(:,1)) .eq. 3
@@ -105,39 +106,49 @@ module raytracer
      endif
      
      allocate(dirs(size(points(:,1)), nrays))
-     allocate(listsOfPoints(10000, nrays))
-     allocate(listsOfDists(size(listsOfPoints(:,1)), nrays))
-     allocate(listsOfTaus(size(listsOfPoints(:,1)), nrays))
+     allocate(listsOfDists(200, nrays))
+     allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
+     allocate(tau(size(listsOfDists(:,1))))
+     allocate(dists(size(listsOfDists(:,1))))
+     allocate(listOfPoints(size(listsOfDists(:,1))))
 
      if (present(companion) .and. present(R)) then
       normCompanion = norm2(points(:,companion)-points(:,primary))
       theta0 = asin(R/normCompanion)
       unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
      endif
-
+     
+     !!$omp parallel do private(dir,tau,dists,dist,root,theta,listOfPoints)
      do i = 1, nrays
        if (threeD) then
-          call pix2vec_nest(nsides, i-1, dirs(:,i))
+          call pix2vec_nest(nsides, i-1, dir)
        else
-          call pix2vec_nest_2d(nsides, i-1, dirs(:,i))
+          call pix2vec_nest_2d(nsides, i-1, dir)
        endif
+       listOfPoints=0
        if (present(companion) .and. present(R)) then
-          theta = acos(dot_product(unitCompanion, dirs(:,i)))
+          theta = acos(dot_product(unitCompanion, dir))
           if (theta < theta0) then
              root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
              dist = normCompanion*cos(theta)-root
-             call ray_tracer(primary, dirs(:,i), points, neighbors, listsOfPoints(:,i), listsOfDists(:,i), dist)
+             call ray_tracer(primary, dir, points, neighbors, listOfPoints, dists, dist)
           else
-            call ray_tracer(primary, dirs(:,i), points, neighbors, listsOfPoints(:,i), listsOfDists(:,i), maxDist)
+            call ray_tracer(primary, dir, points, neighbors, listOfPoints, dists, maxDist)
           endif
        else
-          call ray_tracer(primary, dirs(:,i), points, neighbors, listsOfPoints(:,i), listsOfDists(:,i), maxDist)
+          call ray_tracer(primary, dir, points, neighbors, listOfPoints, dists, maxDist)
        endif
-       call get_tau_list(listsOfPoints(:,i), listsOfDists(:,i), opacities, listsOfTaus(:,i))
+       print*,listOfPoints(1:5)
+       call get_tau_list(listOfPoints, dists, opacities, tau)
+       !!$omp critical
+       dirs(:,i) = dir
+       listsOfTaus(:,i) = tau
+       listsOfDists(:,i) = dists
+       !!$omp end critical
      enddo
 
      taus = 0.
-     do i = 1, size(taus)-2
+     do i = 1, size(taus)
        if (threeD) then
           call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
        else
@@ -162,7 +173,7 @@ module raytracer
        enddo
        
        if (dist .gt. listOfDists(i)) then
-          tau = listOfTaus(i-1)!1000.
+          tau = 1000.
        else
           tau = listOfTaus(i-1)+(listOfTaus(i)-listOfTaus(i-1))/(listOfDists(i)-listOfDists(i-1))*(dist-listOfDists(i-1))
        endif
@@ -223,101 +234,75 @@ module raytracer
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!   INWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-    subroutine get_all_tau_inwards(primary, points, neighbors, opacities, taus, companion, R)
-     real, intent(in)    :: points(:,:), opacities(:)
+    subroutine get_all_tau_inwards(primary, points, neighbors, opacities, Rstar, taus, companion, R)
+     real, intent(in)    :: points(:,:), opacities(:), Rstar
      real, optional      :: R
      integer, intent(in) :: primary, neighbors(:,:)
      integer, optional   :: companion
      real, intent(out)   :: taus(:)
     
-     integer :: i, j, n = 10, mod, index
-     real    :: normCompanion, theta0, unitCompanion(size(points(:,1))), norm, theta, root, norm0
-     mod = int(size(taus)/n)+1
-     
+     integer :: i
+     real    :: normCompanion, theta0, unitCompanion(size(points(:,1))), norm, theta, root, norm0, tau
      if (present(companion) .and. present(R)) then
       normCompanion = norm2(points(:,companion)-points(:,primary))
       theta0 = asin(R/normCompanion)
       unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
      endif
     
-     print*,0,'%'
-     do i = 1, n
-       do j = 1, mod
-            index = mod*(i-1)+j
-            if (index <= size(taus)) then
-               if (present(companion) .and. present(R)) then
-                  norm = norm2(points(:,index)-points(:,primary))
-                  theta = acos(dot_product(unitCompanion, points(:,index)-points(:,primary))/norm)
-                  if (theta < theta0) then
-                     root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
-                     norm0 = normCompanion*cos(theta)-root
-                     if (norm > norm0) then
-                           taus(index) = 1000.
-                     else
-                        call get_tau_inwards(index, primary, points, neighbors, opacities, taus(index))
-                     endif
-                  else
-                     call get_tau_inwards(index, primary, points, neighbors, opacities, taus(index))
-                  endif
-               else
-                  call get_tau_inwards(index, primary, points, neighbors, opacities, taus(index))
-               endif
-            end if
-       enddo
-       print*,i*100/n,'%'
+     !$omp parallel do private(tau)
+     do i = 1, size(taus)
+      if (present(companion) .and. present(R)) then
+         norm = norm2(points(:,i)-points(:,primary))
+         theta = acos(dot_product(unitCompanion, points(:,i)-points(:,primary))/norm)
+         if (theta < theta0) then
+            root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
+            norm0 = normCompanion*cos(theta)-root
+            if (norm > norm0) then
+                  tau = 1000.
+            else
+               call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
+            endif
+         else
+            call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
+         endif
+      else
+         call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
+      endif
+      !$omp critical
+      taus(i) = tau 
+      !$omp end critical
      enddo
     end subroutine get_all_tau_inwards
     
-    subroutine get_tau_inwards(secondary, primary, points, neighbors, opacities, tau)
-     real, intent(in)    :: points(:,:), opacities(:)
+    subroutine get_tau_inwards(secondary, primary, points, neighbors, opacities, Rstar, tau)
+     real, intent(in)    :: points(:,:), opacities(:), Rstar
      integer, intent(in) :: primary, secondary, neighbors(:,:)
      real, intent(out)   :: tau
     
-     integer :: listOfPoints(10000), i
-     real    :: listOfDist(size(listOfPoints)), ds, opacity
-     listOfPoints = 0
-     listOfDist = 0.
+     integer :: i, next, previous
+     real    :: ray(size(points(:,1))), nextDist, previousDist, maxDist
+
+     ray = points(:,primary) - points(:,secondary)
+     maxDist = norm2(ray)
+     ray = ray / maxDist
+     maxDist=maxDist-Rstar
+     next=secondary
+     nextDist=0.
      
-     call ray_between_points(secondary, primary, points, neighbors, listOfPoints, listOfDist)
      tau = 0
-     i=2
-     do while (listOfPoints(i) /= 0)
-        ds = listOfDist(i)-listOfDist(i-1)
-        opacity = (opacities(listOfPoints(i))+opacities(listOfPoints(i-1)))/2
-        tau = tau + opacity * ds
-        i = i+1
+     i=1
+     do while (next /= primary .and. next /=0)
+        i = i + 1
+        previous = next
+        previousDist = nextDist
+        call find_next(points(:,secondary), ray, nextDist, points, neighbors(next,:), next)
+        if (nextDist .gt. maxDist) then
+            next = primary
+            nextDist = maxDist
+        end if
+        tau = tau + (nextDist-previousDist)*(opacities(next)+opacities(previous))/2
      enddo
     end subroutine get_tau_inwards
-    
-    subroutine ray_between_points(secondary, primary, points, neighbors, listOfPoints, listOfDist)
-     real, intent(in)     :: points(:,:)
-     integer, intent(in)  :: primary, secondary, neighbors(:,:)
-     real, intent(out)    :: listOfDist(:)
-     integer, intent(out) :: listOfPoints(:)
-    
-     real    :: ray(size(points(:,1)))
-     real    :: dist, maxdist
-     integer :: next, i
-     dist=0.
-     
-     ray = points(:,primary) - points(:,secondary)
-     maxdist = norm2(ray)
-     ray = ray / maxdist
-     next=secondary
-     i=1
-     do while (next /= primary)
-        listOfPoints(i) = next
-        listOfDist(i) = dist
-        i = i + 1
-        call find_next(points(:,secondary), ray, dist, points, neighbors(next,:), next)
-        if (dist .gt. maxdist) then
-            next = primary
-            dist = maxdist
-        end if
-     enddo
-     listOfPoints(i) = next
-     listOfDist(i) = dist
-    end subroutine ray_between_points
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!   COMMON   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
