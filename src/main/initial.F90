@@ -529,7 +529,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--inject particles at t=0, and get timestep constraint on this
 !
 #ifdef INJECT_PARTICLES
- call init_inject(ierr)
+ call init_inject(trim(dumpfile),ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)

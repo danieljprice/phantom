@@ -152,7 +152,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%dalpha_dr = 0.
  state%dmu_dr    = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
+#ifdef ISOTHERMAL
+ state%u = 1.
+#else
  state%u = state%p/((state%gamma-1.)*state%rho)
+#endif
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error    = .false.
@@ -224,7 +228,9 @@ subroutine wind_step(state)
 
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%p    = state%rho*Rg*state%Tg/state%mu
+#ifndef ISOTHERMAL
  state%u    = state%p/((state%gamma-1.)*state%rho)
+#endif
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  state%tau_lucy = state%tau_lucy &
@@ -328,7 +334,9 @@ subroutine wind_step(state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
+#ifndef ISOTHERMAL
  state%u    = state%p/((state%gamma-1.)*state%rho)
+#endif
 
  if (idust_opacity == 2) then
     call calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho, state%kappa)
@@ -438,7 +446,9 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  v = state%v/unit_velocity
  rho = state%rho/unit_density
  !u = state%Tg * u_to_temperature_ratio
+#ifndef ISOTHERMAL
  u  = state%p/((state%gamma-1.)*rho)/unit_pressure
+#endif
  e = .5*v**2 - GM/r + state%gamma*u
  if (idust_opacity == 2) then
     JKmuS(1:n_nucleation-1) = state%JKmuS(1:n_nucleation-1)
@@ -738,7 +748,11 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
 
  r   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(2,indx),trvurho_1D(2,indx+1))/udist
  v   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(3,indx),trvurho_1D(3,indx+1))/unit_velocity
+#ifndef ISOTHERMAL
  u   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(4,indx),trvurho_1D(4,indx+1))/unit_ergg
+#else
+ u   = 0.
+#endif
  rho = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(5,indx),trvurho_1D(5,indx+1))/unit_density
 
  if (idust_opacity == 2) then
