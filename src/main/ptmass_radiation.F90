@@ -77,9 +77,9 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
     Lstar_cgs  = Lstar_lsun*solarl
     Mstar_cgs  = Mstar_msun*solarm
     if (Lstar_cgs > 0.d0) then
-       xa = xyzmh_ptmass(1,j)
-       ya = xyzmh_ptmass(2,j)
-       za = xyzmh_ptmass(3,j)
+       xa = xyzmh_ptmass(1,1)
+       ya = xyzmh_ptmass(2,1)
+       za = xyzmh_ptmass(3,1)
        call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
     endif
  else

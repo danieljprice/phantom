@@ -47,9 +47,9 @@ module inject
  real::    wind_temperature = 2500.
 #elif ISOTHERMAL
  integer:: sonic_type = 1
- real::    wind_velocity_km_s = 20.
- real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 1.1
+ real::    wind_velocity_km_s = 0.
+ real::    wind_mass_rate_Msun_yr = 8.2d-8
+ real::    wind_injection_radius_au = 0.
  real::    wind_temperature
 #else
  integer:: sonic_type = 0
@@ -87,7 +87,7 @@ contains
 !  Initialize reusable variables
 !+
 !-----------------------------------------------------------------------
-subroutine init_inject(ierr)
+subroutine init_inject(dumpfile,ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
  use setbinary,         only:get_eccentricity_vector
@@ -102,11 +102,13 @@ subroutine init_inject(ierr)
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
 
+ character(len=*), intent(in) :: dumpfile
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
+ character(len=len(dumpfile)-3) :: file1D
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -252,8 +254,9 @@ subroutine init_inject(ierr)
 !compute full evolution (to get tcross) and save 1D profile for comparison
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
+    file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, outer_boundary_au*au, tend, tcross, 'windprofile1D.dat')
+         wind_temperature, outer_boundary_au*au, tend, tcross, file1D)
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
@@ -348,13 +351,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
             nreleased, nboundaries
- real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone, dum
  real    :: fit_rho_power_new, fit_rho_inner_new, fit_vel_new, tolv
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
  real :: JKmuS(n_nucleation)
 
  tolv = 10.
+ dum  = 0.
 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     x0 = xyzmh_ptmass(1:3,wind_emitting_sink)
@@ -397,7 +401,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     ipart = igas
     if (.not.released) then
        do i = max(1,npart-nreleased*particles_per_sphere)+1,npart
+#ifdef ISOTHERMAL
+          call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),dum,i,npart,npartoftype,xyzh,vxyzu)
+#else
           call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),i,npart,npartoftype,xyzh,vxyzu)
+#endif
        enddo
        released = .true.
     endif
@@ -724,11 +732,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- noptions = 10
-#ifdef DUST_NUCLEATION
+#ifdef ISOTHERMAL
+ noptions = 9
+#else
  noptions = 11
-#elif ISOTHERMAL
- noptions = 8
 #endif
  noptions = noptions -2 ! temporarily remove piston & pulsation
  !print '(a26,i3,i3)',trim(name),ngot,noptions

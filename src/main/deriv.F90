@@ -62,7 +62,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use growth,         only:get_growth_rate
  use part,           only:VrelVf
 #endif
-#ifdef SINK_RADIATION
+#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
  use part,             only:dust_temp,nptmass,xyzmh_ptmass
 #endif
@@ -185,7 +185,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 
-#ifdef SINK_RADIATION
+#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  !compute dust temperature
  call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
 #endif
