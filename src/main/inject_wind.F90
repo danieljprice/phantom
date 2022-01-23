@@ -101,6 +101,7 @@ subroutine init_inject(dumpfile,ierr)
  use part,              only:xyzmh_ptmass,vxyz_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
+ use ptmass_radiation,  only:alpha_rad
 
  character(len=*), intent(in) :: dumpfile
  integer, intent(out) :: ierr
@@ -109,6 +110,7 @@ subroutine init_inject(dumpfile,ierr)
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
  character(len=len(dumpfile)-3) :: file1D
+ character(len=len(dumpfile)+1) :: file1D
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -255,6 +257,11 @@ subroutine init_inject(dumpfile,ierr)
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
     file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
+    if (dumpfile(len(dumpfile)-3:len(dumpfile)) == 'tmp') then
+       file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
+    else
+       file1D = dumpfile(1:len(dumpfile)-5) // '1D.dat'
+    endif
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
          wind_temperature, outer_boundary_au*au, tend, tcross, file1D)
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
@@ -264,8 +271,10 @@ subroutine init_inject(dumpfile,ierr)
        if (tcross/time_between_spheres < 1.d4) then
           new_nfill = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
           if (new_nfill /= nfill_domain) then
+          if (new_nfill /= nfill_domain .and. new_nfill > 0) then
             nfill_domain = new_nfill
             print *,'reduce number of background shells to',nfill_domain
+            print *,'number of background shells set to',nfill_domain
           endif
        endif
     endif
@@ -284,6 +293,7 @@ subroutine init_inject(dumpfile,ierr)
 
 !logging
  vesc = sqrt(2.*Gg*Mstar_cgs/Rstar_cgs)
+ vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
