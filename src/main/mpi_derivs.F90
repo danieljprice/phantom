@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,27 +30,27 @@ module mpiderivs
 
  interface init_cell_exchange
   module procedure init_celldens_exchange,init_cellforce_exchange
- end interface
+ end interface init_cell_exchange
 
  interface send_cell
   module procedure send_celldens,send_cellforce
- end interface
+ end interface send_cell
 
  interface check_send_finished
   module procedure check_send_finished_dens,check_send_finished_force
- end interface
+ end interface check_send_finished
 
  interface recv_cells
   module procedure recv_celldens,recv_cellforce
- end interface
+ end interface recv_cells
 
  interface finish_cell_exchange
   module procedure finish_celldens_exchange,finish_cellforce_exchange
- end interface
+ end interface finish_cell_exchange
 
  interface recv_while_wait
   module procedure recv_while_wait_force,recv_while_wait_dens
- end interface
+ end interface recv_while_wait
 
  private
 
@@ -85,7 +85,7 @@ module mpiderivs
 
  interface reduce_group
   module procedure reduce_group_real, reduce_group_int
- end interface
+ end interface reduce_group
 
 contains
 

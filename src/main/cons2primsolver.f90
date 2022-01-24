@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -243,7 +243,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
        Pcgs = P*unit_pressure
        denscgs = dens*unit_density
 
-       call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
+       call calc_temp_and_ene(ieos,denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
        if (ierr /= 0) stop 'Did not converge'
        u = ucgs/unit_ergg
 

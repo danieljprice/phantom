@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -16,11 +16,11 @@ module energies
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, eos, externalforces, fastmath, gravwaveutils,
-!   io, metric_tools, mpiutils, nicil, options, part, ptmass, units,
-!   utils_gr, vectorutils, viscosity
+! :Dependencies: centreofmass, dim, dust, eos, eos_piecewise,
+!   externalforces, fastmath, gravwaveutils, io, metric_tools, mpiutils,
+!   nicil, options, part, ptmass, units, utils_gr, vectorutils, viscosity
 !
- use dim, only: maxdusttypes,maxdustsmall
+ use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime
  implicit none
 
@@ -29,6 +29,7 @@ module energies
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
+ real,            public    :: hx(4),hp(4),ddq_xy(3,3)
  integer,         public    :: iquantities
  integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
@@ -36,7 +37,7 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(4)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8)
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -60,21 +61,23 @@ contains
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           lightcurve,use_dust,store_temperature,&
-                          maxdusttypes,gws,do_radiation
+                          maxdusttypes,do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
-                          npartoftype,alphaind,Bxyz,Bevol,divcurlB,iamtype,&
+                          alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,isdeadh,&
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi
  use part,           only:pxyzu,fxyzu,fext
- use gravwaveutils,  only:calculate_strain
- use eos,            only:polyk,utherm,gamma,equationofstate,gamma_pwp
+ use gravwaveutils,  only:calculate_strain,calc_gravitwaves
+ use centreofmass,   only:get_centreofmass_accel
+ use eos,            only:polyk,utherm,gamma,equationofstate
+ use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,calc_erot,alpha,alphaB,ieos,use_dustfrac
+ use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
@@ -111,7 +114,7 @@ subroutine compute_energies(t)
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: etaohm,etahall,etaambi,vhall,vion
  real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
- real    :: erotxi,erotyi,erotzi,fdum(3)
+ real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3)
  real    :: ethermi
 #ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
@@ -120,9 +123,6 @@ subroutine compute_energies(t)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
-
- real    :: hx,hp,hxx,hpp
- real, allocatable :: axyz(:,:)
 
  ! initialise values
  itype  = igas
@@ -172,12 +172,13 @@ subroutine compute_energies(t)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
-!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,npartoftype) &
+!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
-!$omp shared(Bxyz,Bevol,divcurlB,alphaB,iphase,poten,dustfrac,use_dustfrac) &
+!$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
+!$omp shared(calc_gravitwaves) &
 !$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
@@ -375,7 +376,7 @@ subroutine compute_energies(t)
              etherm = etherm + ethermi
 
 #ifdef KROME
-            ! NOT SURE THIS #ifdef KROME  IS NEEDED ? 
+             ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
                                    gamma_local=gamma_chem(i))
 #else
@@ -726,24 +727,31 @@ subroutine compute_energies(t)
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
- if (gws) then
-    allocate(axyz(3,npart))
-#ifdef GR
-    call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
-#else
-    axyz   = fxyzu(1:3,1:npart) + fext(1:3,1:npart)
-#endif
+ if (calc_gravitwaves) then
     pmassi = massoftype(igas)
-    call calculate_strain(hx,hp,hxx,hpp,xyzh,vxyzu(1:3,:),axyz,pmassi,npart)
-    deallocate(axyz)
-    hx  = reduceall_mpi('+',hx)
-    hp  = reduceall_mpi('+',hp)
-    hxx = reduceall_mpi('+',hxx)
-    hpp = reduceall_mpi('+',hpp)
-    ev_data(iev_sum,iev_gws(1)) = hx
-    ev_data(iev_sum,iev_gws(2)) = hp
-    ev_data(iev_sum,iev_gws(3)) = hxx
-    ev_data(iev_sum,iev_gws(4)) = hpp
+    x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
+#ifdef GR
+    !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
+    !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
+    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+#else
+    if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
+       x0 = (/xcom,ycom,zcom/)
+       v0 = (/xmom,ymom,zmom/)
+       call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+    endif
+    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+#endif
+    ev_data(iev_sum,iev_gws(1)) = hx(1)
+    ev_data(iev_sum,iev_gws(2)) = hp(1)
+    ev_data(iev_sum,iev_gws(3)) = hx(2)
+    ev_data(iev_sum,iev_gws(4)) = hp(2)
+    ev_data(iev_sum,iev_gws(5)) = hx(3)
+    ev_data(iev_sum,iev_gws(6)) = hp(3)
+    ev_data(iev_sum,iev_gws(7)) = hx(4)
+    ev_data(iev_sum,iev_gws(8)) = hp(4)
  endif
 
  return
