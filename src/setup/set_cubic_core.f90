@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -38,6 +38,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
+ use eos,         only:ieos
  real, intent(inout):: r(:),rho(:),m(:),pres(:)
  real, allocatable  :: phi(:)
  real, intent(in)   :: mcore,rcore

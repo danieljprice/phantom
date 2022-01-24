@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -120,7 +120,7 @@ module prompting
  interface prompt
   module procedure &
       integer_prompt, real_prompt, string_prompt, double_prompt, logical_prompt, intarr_prompt
- end interface
+ end interface prompt
  public :: prompt,print_logical
 
 contains

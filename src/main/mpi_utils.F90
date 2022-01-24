@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -65,7 +65,7 @@ module mpiutils
   module procedure send_recv_arr2, send_recv_arr2_r4, send_recv_arr1_r4, &
                     send_recv_int, send_recv_arr1_int1, send_recv_arr2_buf, &
                     send_recv_arr1_buf_r4
- end interface
+ end interface send_recv
 
  public :: send_recv, cart_shift_diag
  logical, parameter, public :: use_mpi = .true.
@@ -79,45 +79,45 @@ module mpiutils
  interface reduce_mpi
   module procedure reduce_mpi_real, reduce_mpi_real4, reduce_mpi_int, reduce_mpi_int8, &
                      reduce_mpi_int_arr, reduce_mpi_int8_arr, reduce_mpi_real4arr, reduce_mpi_real8arr
- end interface
+ end interface reduce_mpi
 !
 !--generic interface reduceall_mpi
 !
  interface reduceall_mpi
   module procedure reduceall_mpi_real, reduceall_mpi_real4, reduceall_mpi_int, reduceall_mpi_int8, reduceall_mpi_int1, &
                      reduceall_mpi_realarr, reduceall_mpi_real4arr, reduceall_mpi_int4arr
- end interface
+ end interface reduceall_mpi
  !
  !--generic interface reduceloc_mpi
  !
  interface reduceloc_mpi
   module procedure reduceloc_mpi_real4,reduceloc_mpi_real8,reduceloc_mpi_int
- end interface
+ end interface reduceloc_mpi
 !
 !  generic interface reduce_in_place
 !
  interface reduce_in_place_mpi
   module procedure reduce_in_place_mpi_real8arr2, reduce_in_place_mpi_real4arr2
- end interface
+ end interface reduce_in_place_mpi
 !
 !--generic interface bcast_mpi
 !
  interface bcast_mpi
   module procedure bcast_mpi_int1, bcast_mpi_int, bcast_mpi_int8, bcast_mpi_real4, bcast_mpi_real8, &
                    bcast_mpi_real8arr, bcast_mpi_real4arr, bcast_mpi_real8arr2, bcast_mpi_real4arr2
- end interface
+ end interface bcast_mpi
 !
 !--generic interface fill_buffer
 !
  interface fill_buffer
   module procedure fill_buffer_r8,fill_buffer_r4,fill_buffer_r8val,fill_buffer_r4val,fill_buffer_i1val,fill_buffer_i8val
- end interface
+ end interface fill_buffer
 !
 !--generic interface unfill_buf
 !
  interface unfill_buf
   module procedure unfill_bufarr,unfill_buf1
- end interface
+ end interface unfill_buf
 
  public :: init_mpi, finalise_mpi
  public :: waitmyturn,endmyturn

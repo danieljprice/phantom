@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -77,9 +77,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use options,          only:exchange_radiation_energy
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
-#ifndef IND_TIMESTEPS
  use timestep,         only:dtrad
-#endif
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
@@ -141,6 +139,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  tzero     = time
  dtlast    = 0.
  dtinject  = huge(dtinject)
+ dtrad     = huge(dtrad)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,8 +20,7 @@ module ptmass_radiation
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
 !   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dust_formation, eos, infile_utils, io, kernel, options,
-!   part, units
+! :Dependencies: dim, dust_formation, infile_utils, io, kernel, part, units
 !
 
 
@@ -169,7 +168,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4)
+ real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
 
  !
