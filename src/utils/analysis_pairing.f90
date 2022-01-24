@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, giza, io, kdtree, kernel, linklist
+! :Dependencies: linklist, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'pairing'
@@ -57,7 +57,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           dx = xyzh(1:3,i)-xyzh(1:3,j)
           r2 = dot_product(dx,dx)
           where (r2 < sep_hist(:)**2*h2)
-              nbin(:) = nbin(:) + 1
+             nbin(:) = nbin(:) + 1
           end where
           nneightot = nneightot + 1
           if (r2 < 0.0001*h2 .and. j > i) then

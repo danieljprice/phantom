@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -43,9 +43,9 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, dim, domain, eos, infile_utils,
-!   io, kernel, options, part, physcon, prompting, ptmass, rho_profile,
-!   setup_params, spherical, timestep, unifdis, units
+! :Dependencies: boundary, centreofmass, dim, domain, eos, eos_barotropic,
+!   infile_utils, io, kernel, options, part, physcon, prompting, ptmass,
+!   rho_profile, setup_params, spherical, timestep, unifdis, units
 !
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic
@@ -84,7 +84,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
- use eos,          only:polyk2,ieos,rhocrit0cgs
+ use eos,          only:polyk2,ieos,gmw
+ use eos_barotropic, only:rhocrit0cgs
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
@@ -272,7 +273,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     iBE = 8192
     allocate(rtab(iBE),rhotab(iBE))
     call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
-                         iBE,iBElast,rtab,rhotab,ierr)
+                         gmw,iBE,iBElast,rtab,rhotab,ierr)
     central_density = BErho_cen
     r_sphere        = BErad_phys
     totmass_sphere  = BEmass
@@ -390,7 +391,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     psep = psep*sqrt(2.)**(1./3.)
     call set_unifdis_sphereN('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                     hfact,npart,np,xyzh,r_sphere,vol_sphere,npart_total,ierr)
-    npartoftype(idust) = npart_total - npartoftype(igas)
+    npartoftype(idust) = int(npart_total) - npartoftype(igas)
     massoftype(idust)  = totmass_sphere*dusttogas/npartoftype(idust)
 
     do i = npartoftype(igas)+1,npart

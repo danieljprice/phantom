@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,27 +26,27 @@ module stack
 
  interface allocate_stack
   module procedure allocate_stack_dens,allocate_stack_force
- end interface
+ end interface allocate_stack
 
  interface deallocate_stack
   module procedure deallocate_stack_dens,deallocate_stack_force
- end interface
+ end interface deallocate_stack
 
  interface swap_stacks ! force doesn't require a stack swap
   module procedure swap_stacks_dens
- end interface
+ end interface swap_stacks
 
  interface push_onto_stack
   module procedure push_onto_stack_dens,push_onto_stack_force
- end interface
+ end interface push_onto_stack
 
  interface pop_off_stack
   module procedure pop_off_stack_dens,pop_off_stack_force
- end interface
+ end interface pop_off_stack
 
  interface reserve_stack
   module procedure reserve_stack_dens,reserve_stack_force
- end interface
+ end interface reserve_stack
 
  public :: init_mpi_memory
  public :: finish_mpi_memory

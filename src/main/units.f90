@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ module units
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity
 
  public :: set_units, set_units_extra, print_units
- public :: get_G_code, get_c_code, get_steboltz_code
+ public :: get_G_code, get_c_code, get_radconst_code
  public :: c_is_unity, G_is_unity, in_geometric_units
 
 contains
@@ -295,15 +295,14 @@ end function get_c_code
 
 !---------------------------------------------------------------------------
 !+
-!  Stefan-Boltzmann constant in code units
+!  radiation constant
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_steboltz_code() result(steboltz_code)
- use physcon, only:steboltz
+real(kind=8) function get_radconst_code() result(radconst_code)
+ use physcon, only:radconst
 
- steboltz_code = steboltz/(unit_energ/(udist**2*utime))
-
-end function get_steboltz_code
+ radconst_code = radconst/unit_energ*udist**3
+end function get_radconst_code
 
 !---------------------------------------------------------------------------
 !+

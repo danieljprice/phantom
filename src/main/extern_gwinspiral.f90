@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -124,11 +124,11 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
     ! as determined by their CoM location
     !
     k1 = 0
-!$omp parallel default(none) &
-!$omp shared(nstar,xyzh,com,dirstar1) &
-!$omp private(i,dx,dy,dz,dir) &
-!$omp reduction(+:k1)
-!$omp do
+    !$omp parallel default(none) &
+    !$omp shared(nstar,xyzh,com,dirstar1) &
+    !$omp private(i,dx,dy,dz,dir) &
+    !$omp reduction(+:k1)
+    !$omp do
     do i=1,nstar(1)
        dx  = xyzh(1,i) - com(1)
        dy  = xyzh(2,i) - com(2)
@@ -136,18 +136,18 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
        dir = dirstar1(1)*dx + dirstar1(2)*dy + dirstar1(3)*dz
        if ( dir < 0.0 ) k1 = k1 + 1
     enddo
-!$omp enddo
-!$omp end parallel
+    !$omp enddo
+    !$omp end parallel
     !
     ! Determine how mnay particle are 'in' star 1 when they should be 'in' star 2
     ! as determined by their CoM location
     !
     k2 = 0
-!$omp parallel default(none) &
-!$omp shared(nstar,npart,xyzh,com,dirstar1) &
-!$omp private(i,dx,dy,dz,dir) &
-!$omp reduction(+:k2)
-!$omp do
+    !$omp parallel default(none) &
+    !$omp shared(nstar,npart,xyzh,com,dirstar1) &
+    !$omp private(i,dx,dy,dz,dir) &
+    !$omp reduction(+:k2)
+    !$omp do
     do i=nstar(1)+1,nstar(1)+nstar(2)
        dx  = xyzh(1,i) - com(1)
        dy  = xyzh(2,i) - com(2)
@@ -155,8 +155,8 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
        dir = dirstar1(1)*dx + dirstar1(2)*dy + dirstar1(3)*dz
        if ( dir > 0.0 ) k2 = k2 + 1
     enddo
-!$omp enddo
-!$omp end parallel
+    !$omp enddo
+    !$omp end parallel
 
     fstar1_coef = -32.0/5.0*mstar1*mstar2**3/c_code**5
     fstar2_coef = -32.0/5.0*mstar2*mstar1**3/c_code**5
