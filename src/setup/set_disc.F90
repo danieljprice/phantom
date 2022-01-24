@@ -516,7 +516,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(out)   :: honH
  integer :: i,j,iseed,ninz
  integer :: ipart
- real    :: rand_no,randtest,R,phi,zi
+ real    :: rand_no,randtest,R,phi,zi,ea,Mmean
  real    :: f,fr_max,fz_max,sigma,cs,omega,fmixt,distr_corr_max,distr_corr_val
  real    :: HH,HHsqrt2,z_min,z_max
  real    :: rhopart,rhoz,hpart
@@ -536,8 +536,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  Rin=R_in!/(1.-e_0*(R_in/R_ref)**(-e_index))
  Rout=R_out!/(1.+e_0*(R_out/R_ref)**(-e_index))
  !--same for the dust
- Rindust=R_indust/(1.-e_0*(R_indust/R_ref)**(-e_index))
- Routdust=R_outdust/(1.+e_0*(R_outdust/R_ref)**(-e_index))
+ Rindust=R_indust!/(1.-e_0*(R_indust/R_ref)**(-e_index))
+ Routdust=R_outdust!/(1.+e_0*(R_outdust/R_ref)**(-e_index))
 
  !--set maximum f=R*sigma value
  dR = (Rout-Rin)/real(maxbins-1)
@@ -546,7 +546,9 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
  do i=1,maxbins
     R = Rin + (i-1)*dR
-    if(e_0>0) then
+    !---------This if cycle can be entirely skipped if generating mean anomaly
+     !if(e_0>0) then 
+     if(e_0>1) then !workaround to skip the section
        do j=1,maxbins
           phi=(j-1)*dphi
           distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
@@ -560,7 +562,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        distr_corr_max=1
     endif
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
-                                      Rin,Rout,R_c)*distr_corr_max
+                                      Rin,Rout,R_c)!*distr_corr_max
                   !--distr_corr_max is maximum correction 
                   !--in distr_ecc_corr(....) for eccentric topology
     if (do_mixture) then
@@ -584,33 +586,46 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
-    phi = phi_min + (phi_max - phi_min)*ran2(iseed)
+    phi = 0.! if circular no need of phi! phi_min + (phi_max - phi_min)*ran2(iseed)
     !--now get radius
     f = 0.
     randtest = 1.
     do while (randtest > f)
-       if(e_0 .ne. 0.) phi = phi_min + (phi_max - phi_min)*ran2(iseed)
-       !--This is because rejection must occur on the couple (a,phi)
-       !--and not only on a.
        R = Rin + (Rout - Rin)*ran2(iseed)
        !--Note that here R is the semi-maj axis, if e0=0. R=a
+       ea=ecc_distrib(R,e_0,R_ref,e_index)
+       if(e_0 .ne. 0.) then !-- We generate mean anomalies 
+         Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
+       endif
+       !--This is because rejection must occur on the couple (a,phi)
+       !--and not only on a.
+       !--we convert Mean anomaly to true anomaly, this produces right
+       !--azimuthal density
+       phi=m_to_f(ea,Mmean)
+       ! phi=Mmean
+       !print*,phi,Mmean,ea
+       !phi=Mmean+2.*ea*sin(Mmean)+5./4.*ea**2.*sin(2.*Mmean)+&
+       !      ea**3*(13./12.*sin(3.*Mmean)-1./4.*sin(3.*Mmean))+&
+       !      ea**4*(103./96.*sin(4.*Mmean)-11./24.*sin(4.*Mmean))
+       !-- Eq. 2.88 Murray & Dermott to 4th order
+
        randtest = fr_max*ran2(iseed)
        f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
                                      p_index,R_ref,Rin,Rout,R_c)*&
-                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
-                    distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
-       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+                   ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
+       sigma = f/(R)!*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
                                                    p_inddust,R_ref,Rindust,&
                                                    Routdust,R_c_dust)*&
-                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
-                 distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_inddust)
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+                ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_inddust)
 
              f     = f + fmixt
-             sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
-                                                 e_index,phi_peri))
+             sigmamixt = fmixt/(R)!*distr_ecc_corr(R,phi,R_ref,e_0,&
+                                   !              e_index,phi_peri))
           endif
        endif
     enddo
@@ -656,13 +671,15 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if(ecc_arr(ipart)>0.99) then
        call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.')
     endif
-    R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
-            (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
-  !  if (i_belong_i4(i)) then
+ !  if (i_belong_i4(i)) then
        ipart = ipart + 1
-       !--Setting ellipse properties
-       ecc_arr(ipart)=e_0*(R/R_ref)**(-e_index)
+       !--Setting ellipse properties after MC sampling
+       ecc_arr(ipart)=ea
        a_arr(ipart)=R
+ 
+       R_ecc=R*(1.-ecc_arr(ipart)**2.)/&
+               (1.+ecc_arr(ipart)*cos(phi-phi_perirad))
+
        !--set positions -- move to origin below
        xyzh(1,ipart) = R_ecc*cos(phi)
        xyzh(2,ipart) = R_ecc*sin(phi)
@@ -726,7 +743,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  real,    intent(in)    :: xyzh(:,:),inclination
  real,    intent(in)    :: ecc_arr(:),a_arr(:)
  real,    intent(inout) :: vxyzu(:,:)
- real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc,a_prov
+ real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
  integer :: i,itable,ipart,ierr
  real :: rg,vkep
  logical :: isecc
@@ -1224,18 +1241,41 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
 end function scaled_sigma
 !-------------------------------
 
-!--This function corrects the distribution to account for eccentricity
-function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+function ecc_distrib(a,e_0,R_ref,e_index) result(eccval)
+ real, intent(in) :: a,e_0,R_ref,e_index
+ real :: eccval
+
+ eccval=e_0*(a/R_ref)**(-e_index)
+
+end function ecc_distrib
+
+!--This function corrects the distribution to account for eccentricity when
+!--sampling both a and true anomaly
+function distr_ecc_corr_az(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
  real :: distr,drda,ea,deda
 
-    ea = e_0*(a/R_ref)**(-e_index)
+    ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
   deda = -e_index*ea/a
   drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
             2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
                                               /(1+ea*cos(phi-phi_peri))**2
  distr = ((1-ea**2)/&
          (1+ea*cos(phi-phi_peri)))*drda
+ !--distr=1 for e_0=0.
+
+end function distr_ecc_corr_az
+
+!--This function corrects the distribution to account for eccentricity when
+!--sampling a and uniform mean anomaly
+function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+ real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ real :: distr,ea,deda
+
+    ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
+  deda = -e_index*ea/a
+  
+ distr = 2*pi*a*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
@@ -1245,7 +1285,7 @@ function distr_ecc_azimuth(a,phi,R_ref,e_0,e_index,&
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri,p_index
  real :: distr,ea,drda,deda
 
- ea=e_0*(a/R_ref)**(-e_index)
+ ea=ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
  deda = -e_index*ea/a
  drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
             2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
@@ -1294,5 +1334,35 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
  enc_m = enc_m + star_m
 
 end subroutine get_disc_mass
+
+function m_to_f(ecc,M) result(F)
+
+   integer          :: i
+   real             :: E,A
+   real             :: F
+   real, intent(in)  :: ecc,M
+   !--First find eccentric anomaly
+   if(ecc < 1.) then
+        if(ecc < 0.8) then
+           E=M
+        else
+           E=pi
+        endif
+        A = E - ecc*sin(E) - M;
+        do i=0,200
+            E = E - A/(1.-ecc*cos(E));
+            A = E - ecc*sin(E) - M;
+            if(abs(A) < 1.E-16) then
+                exit
+            endif
+        enddo
+        !--then convert to true anomaly
+        F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
+        F=mod(2*pi + mod(f, 2*pi), 2*pi)
+    else
+        call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.') 
+    endif
+
+end function m_to_f
 
 end module setdisc
