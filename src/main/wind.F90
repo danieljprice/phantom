@@ -42,7 +42,6 @@ module wind
  type wind_state
     real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust
     real :: alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
-    real :: kappa, mu, gamma, tau_lucy, alpha_dust, dmu_dr
     real :: kappa, mu, gamma, tau_lucy, alpha_dust
     real :: JKmuS(n_nucleation)
     integer :: spcode, nsteps
@@ -408,7 +407,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
     call wind_step(state)
     if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
-    if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     !if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     if (state%r == state%r_old) state%error = .true.
  enddo
@@ -585,8 +583,6 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     enddo
 
     write (*,'("Sonic point properties  cs (km/s) =",f9.3,", Rs/r0 = ",f7.3,&
-    &", v0/cs = ",f9.6,", ts =",f8.1)') &
-         state%v/1e5,state%r/r0,v0/state%v,state%time/utime
     &", v0/cs = ",f9.6,", ts =",f8.1,", (Rs-r0)/ts (km/s) = ",f8.4)') &
          state%v/1e5,state%r/r0,v0/state%v,state%time/utime,(state%r-state%r0)/state%time/1.e5
 
@@ -840,7 +836,6 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,8192))
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,8192))
 
- write (*,'("Saving 1D model : ")')
  write (*,'("Saving 1D model to ",A)') trim(filename)
  time_end = tmax*utime
  call init_wind(r0, v0, T0, tend, state)
