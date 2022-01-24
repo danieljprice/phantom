@@ -109,7 +109,6 @@ subroutine init_inject(dumpfile,ierr)
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
- character(len=len(dumpfile)-3) :: file1D
  character(len=len(dumpfile)+1) :: file1D
 
  if (icooling > 0) nwrite = nwrite+1
@@ -256,7 +255,6 @@ subroutine init_inject(dumpfile,ierr)
 !compute full evolution (to get tcross) and save 1D profile for comparison
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
-    file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
     if (dumpfile(len(dumpfile)-3:len(dumpfile)) == 'tmp') then
        file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
     else
@@ -270,10 +268,8 @@ subroutine init_inject(dumpfile,ierr)
     if (tcross < 1.d98) then
        if (tcross/time_between_spheres < 1.d4) then
           new_nfill = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
-          if (new_nfill /= nfill_domain) then
           if (new_nfill /= nfill_domain .and. new_nfill > 0) then
             nfill_domain = new_nfill
-            print *,'reduce number of background shells to',nfill_domain
             print *,'number of background shells set to',nfill_domain
           endif
        endif
