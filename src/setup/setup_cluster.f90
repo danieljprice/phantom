@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -8,6 +8,7 @@ module setup
 !
 ! Setup for star cluster formation calculations following
 !   Bate, Bonnell & Bromm (2003). Requires pre-calculated velocity cubes.
+!   This is open boundary conditions, so not valid for MHD
 !
 ! :References: None
 !
@@ -26,7 +27,7 @@ module setup
 !   io, kernel, part, physcon, prompting, ptmass, setup_params, setvfield,
 !   spherical, timestep, units, velfield
 !
- use dim, only: maxvxyzu
+ use dim, only: maxvxyzu,mhd
  implicit none
  public :: setpart
 
@@ -77,6 +78,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120)           :: filex,filey,filez,filein,fileset
  logical                      :: inexists,setexists
  logical                      :: BBB03 = .true. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
+
+ !--Ensure this is pure hydro
+ if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
 
  !--Check for existence of the .in and .setup files
  filein=trim(fileprefix)//'.in'

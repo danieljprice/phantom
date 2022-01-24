@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -105,7 +105,7 @@ module utils_dumpfiles_hdf5
                           umass,                         &
                           utime,                         &
                           unit_Bfield
- end type
+ end type header_hdf5
 
  type externalforce_hdf5
     ! extern_binary
@@ -119,7 +119,7 @@ module utils_dumpfiles_hdf5
                direction
     ! extern_gwinspiral
     integer :: Nstar(2)
- end type
+ end type externalforce_hdf5
 
  type got_arrays_hdf5
     logical :: got_iphase,                           &
@@ -150,7 +150,7 @@ module utils_dumpfiles_hdf5
                got_krome_mu,                         &
                got_krome_T,                          &
                got_orig
- end type
+ end type got_arrays_hdf5
 
  type arrays_options_hdf5
     logical :: isothermal,             &
@@ -176,7 +176,7 @@ module utils_dumpfiles_hdf5
                ndivcurlv,         &
                ndustsmall,        &
                ndustlarge
- end type
+ end type arrays_options_hdf5
 
  private
 

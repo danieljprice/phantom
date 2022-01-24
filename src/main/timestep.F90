@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -138,6 +138,14 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
           write(iprint,'(1x,a)')  &
              "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
        endif
+    elseif (twallperdump < 0.5*dtwallmax) then
+       dtmax_ifactor_time = 2
+       do while(dtmax_ifactor_time*twallperdump < 0.5*dtwallmax .and. dtmax*dtmax_ifactor_time <= dtmax_max)
+          dtmax_ifactor_time = dtmax_ifactor_time * 2
+       enddo
+       write(iprint,'(1x,a,2(es10.3,a))') &
+          "modifying dtmax: ",dtmax," -> ",dtmax*dtmax_ifactor_time," due to wall time constraint"
+       dtmax_ifactor_time = -dtmax_ifactor_time
     endif
  endif
 
@@ -168,7 +176,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  endif
 
  ! Decreasing due to time constraint trumps change due to density
- if (dtmax_ifactor_time > 0) then
+ if (dtmax_ifactor_time /= 0) then
     dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
  endif
 

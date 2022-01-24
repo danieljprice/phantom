@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ module testutils
 
  interface checkvalf
   module procedure checkvalfuncr8,checkvalfuncr4
- end interface
+ end interface checkvalf
 
  interface checkvalbuf
   module procedure checkvalbuf_int,checkvalbuf_logical,checkvalbuf_real
@@ -47,11 +47,11 @@ module testutils
 
  interface printerr
   module procedure printerr_real,printerr_int,printerr_int8,printerr_logical
- end interface
+ end interface printerr
 
  interface printresult
   module procedure printresult_real,printresult_int
- end interface
+ end interface printresult
 
  real, parameter :: smallval = 1.e-6
 

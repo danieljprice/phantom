@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -138,7 +138,7 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21195027.055207778,1e-10,nerr(1),'energy exchange for gas cooling')
+ call checkval(laste,21197127.9406196,1e-10,nerr(1),'energy exchange for gas cooling')
  call update_test_scores(ntests,nerr,npass)
 
  do i=1,npart
@@ -165,7 +165,7 @@ subroutine test_exchange_terms(ntests,npass)
     endif
     i = i + 1
  enddo
- call checkval(laste,21142367.365743987,1e-10,nerr(1),'energy exchange for gas heating')
+ call checkval(laste,21144463.0313597,1e-10,nerr(1),'energy exchange for gas heating')
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_exchange_terms
@@ -183,7 +183,7 @@ subroutine test_uniform_derivs(ntests,npass)
                            rad,radprop,drad,ifluxx,maxvxyzu,init_part,fxyzu
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
- use units,           only:set_units,unit_opacity,get_c_code,get_steboltz_code,unit_velocity,unit_ergg
+ use units,           only:set_units,unit_opacity,get_c_code,unit_velocity,unit_ergg,get_radconst_code
  use physcon,         only:Rg,pi,seconds
  use eos,             only:gamma,gmw
  use readwrite_dumps, only:write_fulldump
@@ -194,7 +194,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use mpiutils,        only:reduceall_mpi
  use domain,          only:i_belong
  integer, intent(inout) :: ntests,npass
- real :: psep,hfact,a,c_code,cv1,rhoi,steboltz_code
+ real :: psep,hfact,a,c_code,cv1,rhoi
  real :: dtext,pmassi, dt,t,kappa_code
  real :: Tref,xi0,D0,rho0,l0
  real :: dtnew,tmax
@@ -221,11 +221,10 @@ subroutine test_uniform_derivs(ntests,npass)
  nactive = npart
 
  c_code = get_c_code()
- steboltz_code = get_steboltz_code()
  gamma = 5./3.
  gmw = 2.0
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
- a   = 4.*steboltz_code/c_code
+ a   = get_radconst_code()
  pmassi = massoftype(igas)
  kappa_code = 1.0/unit_opacity
  Tref = 100.

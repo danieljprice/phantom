@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,10 +14,10 @@ program phantomsetup
 !
 ! :Usage: phantomsetup fileprefix [nprocsfake]
 !
-! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils, io,
-!   krome_interface, memory, mpiutils, options, part, physcon,
-!   readwrite_dumps, readwrite_infile, setBfield, setup, setup_params,
-!   units
+! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils,
+!   gravwaveutils, io, krome_interface, memory, mpiutils, options, part,
+!   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
+!   setup_params, units
 !
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,&
@@ -35,11 +35,12 @@ program phantomsetup
  use setup_params,    only:ihavesetupB,npart_total
  use checksetup,      only:check_setup
  use physcon,         only:pi
- use units,           only:set_units,print_units
+ use units,           only:set_units,print_units,c_is_unity
  use mpiutils,        only:init_mpi,finalise_mpi,use_mpi,reduceall_mpi
  use domain,          only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
+ use gravwaveutils,   only:calc_gravitwaves
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
 #endif
@@ -163,6 +164,10 @@ program phantomsetup
     else
        ntotal = reduceall_mpi('+',npart)
     endif
+    ! calculate gravitational wave strain automatically
+    ! if code is run in relativistic units (c=1)
+    if (c_is_unity()) calc_gravitwaves = .true.
+
     if (id==master) call print_units()
 !
 !--dumpfile name should end in .tmp unless density has been calculated
