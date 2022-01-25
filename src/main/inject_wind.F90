@@ -255,7 +255,7 @@ subroutine init_inject(dumpfile,ierr)
 !compute full evolution (to get tcross) and save 1D profile for comparison
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
-    if (dumpfile(len(dumpfile)-3:len(dumpfile)) == 'tmp') then
+    if (dumpfile(len(dumpfile)-2:len(dumpfile)) == 'tmp') then
        file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
     else
        file1D = dumpfile(1:len(dumpfile)-5) // '1D.dat'
