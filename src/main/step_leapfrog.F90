@@ -1069,7 +1069,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 #ifdef KROME
  use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
  use krome_interface, only: update_krome
- use eos,             only: get_local_u_internal
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time

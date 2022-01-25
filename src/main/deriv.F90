@@ -44,7 +44,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax
  use externalforces, only:externalforce
- use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz,set_boundaries_to_active
+ use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -163,7 +163,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef GR
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 #else
- call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+ call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
 #endif
 
 !
