@@ -548,11 +548,11 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     R = Rin + (i-1)*dR
     !---------This if cycle can be entirely skipped if generating mean anomaly
      !if(e_0>0) then 
-     if(e_0>1) then !workaround to skip the section
+     if(e_0<1) then 
        do j=1,maxbins
           phi=(j-1)*dphi
-          distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)*&
-                distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
+          distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+                !distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
           if(distr_corr_val<0) then
              call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
           endif
@@ -562,7 +562,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        distr_corr_max=1
     endif
     f_val = R*sigma_norm*scaled_sigma(R,sigmaprofile,p_index,R_ref,&
-                                      Rin,Rout,R_c)!*distr_corr_max
+                                      Rin,Rout,R_c)*distr_corr_max
                   !--distr_corr_max is maximum correction 
                   !--in distr_ecc_corr(....) for eccentric topology
     if (do_mixture) then
@@ -595,14 +595,15 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index)
        if(e_0 .ne. 0.) then !-- We generate mean anomalies 
-         Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
-       endif
+          Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
        !--we convert Mean anomaly to true anomaly, this produces right
        !--azimuthal density
-       phi=m_to_f(ea,Mmean)
-       ! phi=Mmean
+          phi=m_to_f(ea,Mmean)
+       else
+          phi=phi_min + (phi_max - phi_min)*ran2(iseed)
+       endif
        !print*,phi,Mmean,ea
        !phi=Mmean+2.*ea*sin(Mmean)+5./4.*ea**2.*sin(2.*Mmean)+&
        !      ea**3*(13./12.*sin(3.*Mmean)-1./4.*sin(3.*Mmean))+&
@@ -614,7 +615,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                                      p_index,R_ref,Rin,Rout,R_c)*&
                         distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
                    ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
-       sigma = f/(R)!*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
+       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
+    !   print*, p_index
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
@@ -624,8 +626,8 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                 ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_inddust)
 
              f     = f + fmixt
-             sigmamixt = fmixt/(R)!*distr_ecc_corr(R,phi,R_ref,e_0,&
-                                   !              e_index,phi_peri))
+             sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
+                                                 e_index,phi_peri))
           endif
        endif
     enddo
@@ -1271,11 +1273,11 @@ end function distr_ecc_corr_az
 function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
  real :: distr,ea,deda
-
-    ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
+  
+  ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
   deda = -e_index*ea/a
   
- distr = 2*pi*a*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
+ distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
  !--distr=1 for e_0=0.
 
 end function distr_ecc_corr
