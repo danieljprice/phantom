@@ -211,11 +211,10 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
+ logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
- logical, parameter :: store_gamma = .true.
 #else
- logical, parameter :: store_gamma = .false.
  logical, parameter :: use_krome = .false.
 #endif
 

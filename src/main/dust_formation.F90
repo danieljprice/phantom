@@ -603,7 +603,7 @@ end subroutine calc_alpha_bowen
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_dust_formation(iunit)
- use dim,          only: store_dust_temperature,maxvxyzu,nucleation
+ use dim,          only: store_dust_temperature,maxvxyzu,nucleation,store_gamma
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
@@ -624,6 +624,7 @@ subroutine write_options_dust_formation(iunit)
     call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio (> 1)',iunit)
  endif
  if (idust_opacity > 0) store_dust_temperature = .true.
+ if (idust_opacity == 2) store_gamma = .true.
 end subroutine write_options_dust_formation
 
 !-----------------------------------------------------------------------
