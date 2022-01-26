@@ -2,13 +2,15 @@
 Running a simulation with stellar wind and dust formation
 =========================================================
 
-The wind and dust formation algorithms are described in `Siess et al. (in prep)`.
+The wind and dust formation algorithms are described in `Siess et al. (2022, in prep)`.
 
-Given the mass loss rate and particle's mass, spheres of particles are recurrently injected in the simulation. This means that the number of particle keeps increasing during the run.
+If you find a bug, please send me an email at lionel.siess@ulb.be
 
 
-If you find a bug, please report it either on the phantom slack channel
-or by sending me an email at lionel.siess@ulb.be
+Initial setup
+-------------
+
+Note that given the mass loss rate and particle's mass, spheres of particles will be periodically injected, meaning that the number of particles in the simulation will keep increasing.
 
 ::
 
@@ -16,21 +18,22 @@ or by sending me an email at lionel.siess@ulb.be
    make; make setup
    ./phantomsetup wind
 
-At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
-Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting. 
-
 For an isothermal wind, use SETUP=isowind
 
 ::
 
    $PHANTOM_DIR/scripts/writemake.sh isowind > Makefile
    make; make setup
-   ./phantomsetup isowind
+   ./phantomsetup wind
+
+
+At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
+Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting. 
 
 ::
 
 Content of the .setup file
-==========================
+--------------------------
 
 ::
 
@@ -46,13 +49,25 @@ Content of the .setup file
 
 
 The .setup file contains the stellar properties and sets the mass of the particle (see however  ``iwind_resolution``).
-Note that the star(s) is(are) considered as sink particles.
+Each star is considered as a sink particles and its properties, e.g. its luminosity, will be used to calculate the radiation pressure.
+
+Note also that 
+
+::
+
+      primary_lum = 4*pi*primary_Reff**2*sigma*primary_Teff**4 
+      
+so you only need to provide 2 out of these 3 variables. 
+
+- If you set one of these variables to zero, it will be  recalculated according to the previous formula. 
+
+- If you provide all the quantites, the radius will be recalculated
 
 ::
 
 
 Content of the .in file
-=======================
+-----------------------
 
 ::
 
