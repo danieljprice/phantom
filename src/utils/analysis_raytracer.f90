@@ -22,6 +22,7 @@ module analysis
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                               neighcount,neighb,neighmax
    use dust_formation,   only:kappa_dust_bowen
+   use linklist, only:set_linklist
    implicit none
    character(len=20), parameter, public :: analysistype = 'raytracer'
    public :: do_analysis
@@ -38,13 +39,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    
    logical :: existneigh
    character(100) :: neighbourfile
-   real           :: primsec(4,2), rho(npart), kappa(npart), temp(npart), xyzh2(4,npart)
+   real           :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), xyzh2(4,npart)
    real(kind=8), dimension(:), allocatable :: tau
    integer :: i,j,ierr,iu1,iu2,iu3, npart2
-   integer            :: nums(8,4)
    integer :: start, finish
    real :: timeNeigh, timeTau
 
+   print*,'("Reading kappa from file")'
    call read_array_from_file(123,dumpfile,'kappa',kappa(:),ierr, 1)
    print*,(ierr)
    if (ierr/=0) then
@@ -55,7 +56,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    endif
 
    if (kappa(1) <= 0. .and. kappa(2) <= 0. .and. kappa(2) <= 0.) then
+      print*,'("Reading temperature from file")'
       call read_array_from_file(123,dumpfile,'temperature',temp(:),ierr, 1)
+      if (temp(1) <= 0. .and. temp(2) <= 0. .and. temp(2) <= 0.) then
+         print*,'("Reading internal energy from file")'
+         call read_array_from_file(123,dumpfile,'u',u(:),ierr, 1)
+         do i=1,npart
+            temp(i)=(1.2-1)*2.381*u(i)*1.6735337254999998e-24*1.380649e-16
+         enddo
+      endif
       do i=1,npart
          kappa(i)=kappa_dust_bowen(temp(i))
       enddo
@@ -80,7 +89,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    enddo
 
    call read_array_from_file(123,dumpfile,'x',primsec(1,:),ierr, 2)
-   print*,(ierr)
    call read_array_from_file(123,dumpfile,'y',primsec(2,:),ierr, 2)
    call read_array_from_file(123,dumpfile,'z',primsec(3,:),ierr, 2)
    call read_array_from_file(123,dumpfile,'h',primsec(4,:),ierr, 2)
@@ -113,10 +121,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
    endif
 
+   call set_linklist(npart2,npart2,xyzh2,vxyzu)
+
    print*,''
    print*, 'Start calculating optical depth'
    call system_clock(start)
-   call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), neighb, rho*kappa, 2.37686663, tau, npart2+2,0.1)
+   call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, 2.37686663, 7, tau, npart2+2,0.1)
    call system_clock(finish)
    timeTau = (finish-start)/1000.
    print*,'Time = ',timeTau,' seconds.'
