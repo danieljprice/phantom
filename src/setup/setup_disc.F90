@@ -168,6 +168,7 @@ module setup
  real    :: pindex_dust(maxdiscs,maxdusttypes),qindex_dust(maxdiscs,maxdusttypes)
  real    :: H_R_dust(maxdiscs,maxdusttypes)
  real    :: e0(maxdiscs),eindex(maxdiscs),phiperi(maxdiscs) 
+ integer :: eccprofile(maxdiscs)
  logical :: iecc(maxdiscs)
  !--planets
  integer, parameter :: maxplanets = 9
@@ -1092,6 +1093,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         e0               = e0(i),                &
                         eindex           = eindex(i),            &
                         phiperi          = phiperi(i),           &
+                        eccprofile       = eccprofile(i),        &
                         bh_spin          = bhspin,               &
                         prefix           = prefix)
 
@@ -1146,9 +1148,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               inclination    = incl(i),            &
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
-                              e0               = e0(i),                &
-                              eindex           = eindex(i),            &
-                              phiperi          = phiperi(i),           &
+                              e0             = e0(i),              &
+                              eindex         = eindex(i),          &
+                              phiperi        = phiperi(i),         &
+                              eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               prefix         = dustprefix(j))
 
@@ -1190,9 +1193,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         inclination     = incl(i),            &
                         rwarp           = R_warp(i),          &
                         warp_smoothl    = H_warp(i),          &
-                        e0               = e0(i),             &
-                        eindex           = eindex(i),         &
-                        phiperi          = phiperi(i),        &
+                        e0              = e0(i),              &
+                        eindex          = eindex(i),          &
+                        phiperi         = phiperi(i),         &
+                        eccprofile      = eccprofile(i),      &
                         bh_spin         = bhspin,             &
                         prefix          = prefix)
 
@@ -1245,9 +1249,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               inclination    = incl(i),            &
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
-                              e0               = e0(i),            &
-                              eindex           = eindex(i),        &
-                              phiperi          = phiperi(i),       &
+                              e0             = e0(i),              &
+                              eindex         = eindex(i),          &
+                              phiperi        = phiperi(i),         &
+                              eccprofile     = eccprofile(i),      &
                               bh_spin        = bhspin,             &
                               prefix         = dustprefix(j))
 
@@ -1993,6 +1998,7 @@ subroutine setup_interactive()
           e0=0.1
           eindex = 1.
           phiperi = 0.
+          eccprofile = 0
        endif    
     endif
  enddo
@@ -2332,6 +2338,8 @@ subroutine write_setupfile(filename)
           call write_inopt(e0(i),'e0'//trim(disclabel),'eccentricity at disc edge',iunit)
           call write_inopt(eindex(i),'eindex'//trim(disclabel),'power of eccentricity profile',iunit)
           call write_inopt(phiperi(i),'phiperi'//trim(disclabel),'longitude of pericentre',iunit)
+          call write_inopt(eccprofile(i),'eccprofile'//trim(disclabel),'type of eccentricity profile',iunit)
+
        endif
        if (.not.done_alpha) then
           if (maxalpha==0) call write_inopt(alphaSS,'alphaSS','desired alphaSS',iunit)
@@ -2649,6 +2657,7 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(e0(i),'e0'//trim(disclabel),db,min=0.,errcount=nerr)
           call read_inopt(eindex(i),'eindex'//trim(disclabel),db,min=0.,errcount=nerr)
           call read_inopt(phiperi(i),'phiperi'//trim(disclabel),db,min=0.,errcount=nerr)
+          call read_inopt(eccprofile(i),'eccprofile'//trim(disclabel),db,min=0,max=4,errcount=nerr)
        endif
        !--dust disc
        if (use_dust) then

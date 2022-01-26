@@ -69,7 +69,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     rc,rcdust,p_index,p_indexdust,q_index,q_indexdust,HoverR,HoverRdust,gamma, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
-                    position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl,e0,eindex,phiperi, &
+                    position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl,e0,eindex,phiperi,eccprofile, &
                     bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
@@ -91,6 +91,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real, optional,    intent(in)    :: position_angle,inclination
  real, optional,    intent(in)    :: rwarp,warp_smoothl,bh_spin,bh_spin_angle
  real, optional,    intent(in)    :: e0,eindex,phiperi
+ integer, optional, intent(in)    :: eccprofile
  logical, optional, intent(in)    :: ismooth,mixture
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
@@ -106,6 +107,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: honH,alphaSS_min,alphaSS_max,rminav,rmaxav,honHmin,honHmax
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
  real    :: e_0,e_index,phi_peri
+ integer :: ecc_profile
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
  logical :: smooth_surface_density,do_write,do_mixture
@@ -336,6 +338,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--set particle positions and smoothing lengths
  !
+ ecc_profile=0
  e_0=0.
  e_index=0.
  phi_peri=0.
@@ -349,7 +352,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,&
+                         q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,eccprofile,&
                          star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
  !
  !--set particle velocities
@@ -499,7 +502,7 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,&
+                              q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,eccprofile,&
                               star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
  use io,             only:id,master
  use part,           only:set_particle_type
@@ -512,7 +515,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: e_0,e_index,phi_peri
  real,    intent(inout) :: ecc_arr(:),a_arr(:)
  logical, intent(in)    :: do_mixture,verbose
- integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
+ integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust,eccprofile
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
  integer :: i,j,iseed,ninz
