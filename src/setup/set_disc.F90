@@ -501,9 +501,10 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
                               q_index,q_inddust,e_0,e_index,phi_peri,ecc_arr,a_arr,&
                               star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
- use io,      only:id,master
- use part,    only:set_particle_type
- use random,  only:ran2
+ use io,             only:id,master
+ use part,           only:set_particle_type
+ use random,         only:ran2
+ use load_from_file, only: load_data_file
  integer, intent(in)    :: npart_start_count,npart_tot
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
@@ -1235,6 +1236,8 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
+ case(6) 
+    sigma = load_sigma_from_file(R,R_ref)
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
@@ -1242,6 +1245,15 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
 
 end function scaled_sigma
 !-------------------------------
+
+function load_sigma_from_file(R,R_ref) result(sigmaval)
+   real, intent(in) :: R,R_ref
+   character(len=20) :: name_sigma_file
+   real :: sigmaval
+
+   name_sigma_file = 'sigma_dens.dat' 
+   
+end function load_sigma_from_file
 
 function ecc_distrib(a,e_0,R_ref,e_index) result(eccval)
  real, intent(in) :: a,e_0,R_ref,e_index
