@@ -86,5 +86,6 @@ eVtoK = 1.1604519e4                 #Degrees kelvin per eV     K/eV
 
 
 # Additionnal Constants not in physcon
-patm = 1.013250e6   # 1 atmosphere in cgs units
-bar = 1.e6          # dyne/cm²
+patm = 1.013250e6                   # 1 atmosphere in cgs units
+bar = 1.e6                          # dyne/cm²
+golden_number = 1.618033988749895   #(1+sqrt(5))/2
