@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -178,7 +178,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     !
     ! invert to get mass coordinate from radial coordinate, i.e. r(m)
     !
-    rr = mr**(1./3.)*rmax ! uniform density
+    rr = (rmin**3+mr*(rmax**3-rmin**3))**(1./3.) ! uniform density
     !
     ! get a random position on sphere
     !

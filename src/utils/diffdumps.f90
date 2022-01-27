@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ program diffdumps
 !
 ! :Usage: diffdumps firstdumpfilename seconddumpfilename [tolerance]
 !
-! :Dependencies: dim, io, part, readwrite_dumps, testutils
+! :Dependencies: dim, io, part, readwrite_dumps, sort_particles, testutils
 !
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact,iorig

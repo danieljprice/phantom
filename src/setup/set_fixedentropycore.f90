@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,38 +28,33 @@ contains
 !  Main subroutine that calculates the constant entropy softened profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
- use eos,         only:calc_temp_and_ene,ieos
- use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
- use table_utils, only:interpolator,flip_array
+subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
+ use eos,         only:ieos
+ use physcon,     only:pi,gg,solarm,solarr
+ use table_utils, only:interpolator
  use io,          only:fatal
- real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:),mcore
- real, allocatable          :: r_alloc(:),rho_alloc(:),pres_alloc(:)
- real, intent(in)           :: rcore
- integer, intent(out)       :: ierr
- real                       :: mc,msoft,rc,eneguess
- logical                    :: isort_decreasing,iexclude_core_mass
- integer                    :: i,icore
+ real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
+ real, allocatable    :: r_alloc(:),rho_alloc(:),pres_alloc(:)
+ real, intent(in)     :: rcore,Xcore,Ycore
+ integer, intent(out) :: ierr
+ real                 :: mc,msoft,rc
+ integer              :: icore
 
- ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
- ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
-
- rc = rcore * solarr     ! Convert to cm
- mc = mcore * solarm     ! Convert to g
- call interpolator(r,rc,icore)   ! Find index in r closest to rc
+ ierr = 0
+ rc = rcore*solarr  ! convert to cm
+ mc = mcore*solarm  ! convert to g
+ call interpolator(r,rc,icore)  ! find index in r closest to rc
  msoft = m(icore) - mc
+ if (msoft<0.) call fatal('setup','mcore cannot exceed m(r=h)')
 
  select case(ieos)
  case(2)
     ientropy = 1
- case(12)
-    ientropy = 2
- case(10)
+ case(10,12,20)
     ientropy = 2
  case default
-    call fatal('setfixedentropycore','ieos not one of 2 (adiabatic), 12 (ideal plus rad.), or 10 (MESA)')
+    call fatal('setfixedentropycore',&
+               'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
  end select
 
  ! Make allocatable copies, see instructions of calc_rho_and_pres
@@ -70,38 +65,14 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
  rho_alloc(icore) = rho(icore)
  allocate(pres_alloc(0:icore+1))
  pres_alloc(icore:icore+1) = pres(icore:icore+1)
- call calc_rho_and_pres(r_alloc,mc,m(icore),rho_alloc,pres_alloc)
+ call calc_rho_and_pres(r_alloc,mc,m(icore),rho_alloc,pres_alloc,Xcore,Ycore)
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
  write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
  rho(1:icore)  = rho_alloc(1:icore)
  pres(1:icore) = pres_alloc(1:icore)
-
  call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
  m(1:icore) = m(1:icore) + mc
-
- call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
- if (ierr /= 0) call fatal('setfixedentropycore','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
- do i = 2,size(rho)-1
-    eneguess = ene(i-1)
-    call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
- enddo
- ene(size(rho))  = 0. ! Zero surface internal energy
- temp(size(rho)) = 0. ! Zero surface temperature
-
- ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
- if (isort_decreasing) then
-    call flip_array(m)
-    call flip_array(pres)
-    call flip_array(temp)
-    call flip_array(r)
-    call flip_array(rho)
-    call flip_array(ene)
- endif
-
- if (iexclude_core_mass) then
-    m = m - mc
- endif
 
 end subroutine set_fixedS_softened_core
 
@@ -111,14 +82,14 @@ end subroutine set_fixedS_softened_core
 !  Returns softened core profile with fixed entropy
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rho_and_pres(r,mcore,mh,rho,pres)
- use eos, only:entropy
+subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore)
+ use eos, only:entropy,get_mean_molecular_weight
  real, allocatable, dimension(:), intent(in)    :: r
- real, intent(in)                               :: mh
+ real, intent(in)                               :: mh,Xcore,Ycore
  real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  integer                                        :: Nmax
- real                                           :: Sc,mass,mold,msoft,fac
+ real                                           :: Sc,mass,mold,msoft,fac,mu
 
 ! INSTRUCTIONS
 
@@ -132,7 +103,8 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres)
 
  msoft = mh - mcore
  Nmax  = size(rho)-1 ! Index corresponding to r = h
- Sc = entropy(rho(Nmax),pres(Nmax),ientropy)
+ mu = get_mean_molecular_weight(Xcore,1.-Xcore-Ycore)
+ Sc = entropy(rho(Nmax),pres(Nmax),mu,ientropy)
 
  ! Start shooting method
  fac  = 0.05
@@ -140,7 +112,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres)
 
  do
     mold = mass
-    call one_shot(Sc,r,mcore,msoft,rho,pres,mass) ! returned mass is m(r=0)
+    call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass) ! returned mass is m(r=0)
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
        msoft = mh - mcore
@@ -167,9 +139,10 @@ end subroutine calc_rho_and_pres
 !  Calculate a hydrostatic structure for a given entropy
 !+
 !-----------------------------------------------------------------------
-subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
+subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
  use physcon, only:gg,pi
- real, intent(in)                               :: Sc,mcore,msoft
+ use eos, only:get_rho_from_p_s
+ real, intent(in)                               :: Sc,mcore,msoft,mu
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  real, intent(out)                              :: mass
@@ -193,12 +166,8 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
                 * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),rcore)) &
                 + dr(i)**2 * pres(i+1) &
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
-    if (i == Nmax) then
-       rhoguess = 1.e8
-    else
-       rhoguess = rho(i)
-    endif
-    call get_rho_from_p_s(pres(i-1),Sc,rho(i-1))
+    rhoguess = rho(i)
+    call get_rho_from_p_s(pres(i-1),Sc,rho(i-1),mu,rhoguess,ientropy)
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
     if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
  enddo
@@ -206,37 +175,6 @@ subroutine one_shot(Sc,r,mcore,msoft,rho,pres,mass)
  return
 
 end subroutine one_shot
-
-
-!-----------------------------------------------------------------------
-!+
-!  Calculate density given pressure and entropy using Newton-Raphson
-!  method
-!+
-!-----------------------------------------------------------------------
-subroutine get_rho_from_p_s(pres,S,rho)
- use eos, only:entropy
- real, intent(in)  :: pres,S
- real, intent(out) :: rho
- real              :: corr,dSdrho,S_plus_dS,rho_plus_drho
- real, parameter   :: eoserr=1d-9,dfac=1d-12
-
- rho = 1d-8 ! Initial guess
- corr = huge(corr)
-
- do while (abs(corr) > eoserr*rho)
-    ! First calculate dS/drho
-    rho_plus_drho = rho * (1. + dfac)
-    S_plus_dS = entropy(rho_plus_drho, pres, ientropy)
-    dSdrho = (S_plus_dS - entropy(rho,pres,ientropy)) / (rho_plus_drho - rho)
-    corr = ( entropy(rho,pres,ientropy) - S ) / dSdrho
-    rho = rho - corr
- enddo
-
- return
-
-end subroutine get_rho_from_p_s
-
 
 !-----------------------------------------------------------------------
 !+

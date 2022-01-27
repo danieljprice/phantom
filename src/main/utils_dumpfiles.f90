@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -2383,6 +2383,8 @@ subroutine print_arrays_in_file(iunit,filename)
  real(kind=4)    :: x4(ndisplay)
  integer(kind=1) :: i1(ndisplay)
  logical         :: singleprec
+
+ singleprec = .false.
 
  ! open file for read
  call open_dumpfile_rh(iunit,filename,nblocks,narraylengths,ierr,id=fileid)

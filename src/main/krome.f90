@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -11,11 +11,11 @@ module krome_interface
 !
 ! :References: None
 !
-! :Owner: Lionel
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, krome_main, krome_user, part, units
+! :Dependencies: dim, eos, krome_main, krome_user, part, units
 !
 
  implicit none
@@ -44,7 +44,8 @@ subroutine initialise_krome()
        krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
- use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_chem
+ use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
+ use dim,        only:maxvxyzu
  real :: wind_temperature
 
  print *, ""
@@ -99,25 +100,28 @@ subroutine initialise_krome()
  !set initial wind temperature to star's effective temperature
  mu_chem(:)    = krome_get_mu_x(abundance(:,1))
  gamma_chem(:) = krome_get_gamma_x(abundance(:,1),wind_temperature)
- T_chem(:)     = wind_temperature
+ T_gas_cool(:) = wind_temperature
+ if (maxvxyzu < 4) then
+    print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
+ endif
 
 end subroutine initialise_krome
 
-subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
+subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
 
- use krome_main, only: krome
+ use krome_main,    only: krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
- use eos,           only:ieos,get_local_temperature,get_local_u_internal!equationofstate
+ use eos,           only:ieos,get_temperature,get_local_u_internal!equationofstate
 
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
- real, intent(out)   :: T_chem
+ real, intent(out)   :: T_gas_cool
  real :: T_local, dt_cgs, rho_cgs
 
  dt_cgs = dt*utime
  rho_cgs = rho*unit_density
- call get_local_temperature(ieos,xyzh(1),xyzh(2),xyzh(3),rho,mu_chem,u,gamma_chem,T_local)
+ T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_chem,mui=mu_chem)
  T_local=max(T_local,20.0d0)
 ! normalise abudances and balance charge conservation with e-
  call krome_consistent_x(xchem)
@@ -128,7 +132,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_chem)
 ! update the particle's adiabatic index
  gamma_chem = krome_get_gamma_x(xchem,T_local)
 ! update the particle's temperature
- T_chem = T_local
+ T_gas_cool = T_local
 ! get the new internal energy
  u = get_local_u_internal(gamma_chem,mu_chem,T_local)
 
@@ -161,20 +165,4 @@ subroutine write_KromeSetupFile
 
 end subroutine write_KromeSetupFile
 
-! subroutine get_local_temperature(eos_type,xi,yi,zi,rhoi,gmwi,intenerg,gammai,local_temperature)
-!  use dim, only:maxvxyzu
-!  integer,      intent(in)    :: eos_type
-!  real,         intent(in)    :: xi,yi,zi,rhoi,gmwi,gammai
-!  real,         intent(inout) :: intenerg
-!  real,         intent(out)   :: local_temperature
-!  real :: spsoundi,ponrhoi
-
-!  if (maxvxyzu==4) then
-!     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=intenerg,gamma_local=gammai)
-!  else
-!     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
-!  endif
-!  local_temperature = temperature_coef*gmwi*ponrhoi
-
-! end subroutine get_local_temperature
 end module krome_interface

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,12 +10,12 @@ module cons2prim
 !
 ! :References: None
 !
-! :Owner: Elisabeth Borchert
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
-!   options, part, radiation_utils, units, utils_gr
+!   options, part, radiation_utils, utils_gr
 !
  use cons2primsolver, only:ien_entropy
  implicit none
@@ -67,7 +67,7 @@ end subroutine prim2consall
 subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
- use eos,             only:equationofstate,ieos,gamma
+ use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i
@@ -96,7 +96,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),ui)
  pi = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy,gamma)
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
 
 end subroutine prim2consi
 
@@ -131,7 +131,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        p_guess = pondens*dens(i)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy,gamma)
+                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy)
        eos_vars(igasP,i)     = p_guess
        eos_vars(ics,i)       = spsound
        if (ierr > 0) then
@@ -154,17 +154,17 @@ end subroutine cons2primall
 
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
- use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,&
+ use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa
- use eos,               only:equationofstate,ieos,get_temperature,done_init_eos,init_eos
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,get_temperature,done_init_eos,init_eos,gmw,X_in,Z_in
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
- use io,                only:fatal,real4
+ use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
- use options,           only:alpha,alphamax,use_dustfrac,iopacity_type
+ use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_variable_composition
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -174,7 +174,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
  real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
- real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei
+ real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,mui,X_i,Z_i
  real         :: xi,yi,zi,hi
  logical      :: iactivei,iamgasi,iamdusti
 
@@ -187,17 +187,20 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
     call init_eos(ieos,ierr)
     if (ierr /= 0) call fatal('eos','could not initialise equation of state')
  endif
+ mui = gmw
+ X_i = X_in
+ Z_i = Z_in
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
 !$omp shared(ieos,gamma_chem,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type) &
+!$omp shared(iopacity_type,use_variable_composition) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
-!$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti) &
+!$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,X_i,Z_i) &
 !$omp reduction(+:ierrlist)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -230,21 +233,31 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        !--Calling Equation of state
        !
+       temperaturei = eos_vars(itemp,i) ! needed for initial guess for idealplusrad
+       if (use_variable_composition) then
+          mui = eos_vars(imu,i)
+          X_i = eos_vars(iX,i)
+          Z_i = eos_vars(iZ,i)
+       endif
        if (maxvxyzu >= 4) then
+          if (vxyzu(4,i) < 0.) call warning('cons2prim','Internal energy < 0',i,'u',vxyzu(4,i))
           if (store_gamma) then
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i),&
-                                  tempi=temperaturei)
+                                  tempi=temperaturei,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
           else
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
+             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),&
+                                  tempi=temperaturei,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
           endif
        else
           !isothermal
-          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei)
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei,mu_local=mui)
        endif
+
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
+       if (use_variable_composition .or. eos_outputs_mu(ieos)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           !
