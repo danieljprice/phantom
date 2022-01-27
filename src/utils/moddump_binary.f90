@@ -221,6 +221,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           mcore = xyzmh_ptmass(4,1)
        elseif (nptmass == 0) then
           mcore = 0.
+       else
+          print *,'[S-moddump_binary] mcore not defined! nptmass = ',nptmass
+          stop '[S-moddump_binary]'
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
