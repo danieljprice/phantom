@@ -48,7 +48,7 @@ jobs:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
     name: bench (SETUP=${{ matrix.setup }})
-
+    if: github.repository == 'danieljprice/phantom'
     runs-on: self-hosted
 
     steps:
