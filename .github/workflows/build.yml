@@ -25,13 +25,25 @@ env:
   RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
 
 jobs:
+  matrix_prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v2
+    - id: set-matrix
+      uses: conradtchan/conditional-build-matrix@0.0.2
+      with:
+        inputFile: '.github/workflows/matrix_system.json'
+        filter: '["${{ github.repository }}", "always"]'
+
   build:
+    needs: matrix_prep
     strategy:
       fail-fast: false
       matrix:
-        system:
-          - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
+        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
 
     name: build (SYSTEM=${{ matrix.system[1] }})
 
@@ -73,11 +85,11 @@ jobs:
         ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
     - name: "Copy new build logs to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' && github.repository == 'danieljprice/phantom'}}
       run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
 
     - name: "Copy HTML files to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+      if: ${{ (success() || failure()) && github.event_name == 'schedule' && github.repository == 'danieljprice/phantom'}}
       run: |
         export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
         ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
