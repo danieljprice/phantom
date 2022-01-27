@@ -16,13 +16,25 @@ env:
   OMP_STACKSIZE: 512M
 
 jobs:
+  matrix_prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v2
+    - id: set-matrix
+      uses: conradtchan/conditional-build-matrix@0.0.2
+      with:
+        inputFile: '.github/workflows/matrix_system.json'
+        filter: '["${{ github.repository }}", "always"]'
+
   test:
+    needs: matrix_prep
     strategy:
       fail-fast: false
       matrix:
-        system:
-          - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
+        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
         debug:
           - no
           - yes
