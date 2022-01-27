@@ -375,14 +375,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-#ifdef INJECT_PARTICLES
-       if (idust_opacity == 0) then
-          call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
-       endif
-#else
-       if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,&
-       k,ipass,idump,nums,ierrs(12))
-#endif
+       if (store_temperature .or. idust_opacity == 0) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),&
+            npart,k,ipass,idump,nums,ierrs(12))
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
        if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
