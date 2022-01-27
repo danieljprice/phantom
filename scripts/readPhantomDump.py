@@ -133,25 +133,32 @@ def read_dump(filename, memorymap=False):
   for iblock in range(nblocks):
     block = dict()
     n = read_fortran_record(f, 'i4')
+    #print('reading block',iblock,' n=',n)
     block['dim'] = n[0]
-    block['nint'] = n[1:6]
-    block['nreal'] = n[7:11]
+    block['nint'] = n[1:5]
+    block['nintdb'] = n[6]
+    block['ndouble'] = n[7]
+    block['nsingle'] = n[8]
     blocks.append(block)
 
   # Read blocks
   for b in blocks:
     b['data'] = dict()
-    for i in range(b['nreal'][0]):
+    #print(b['nintdb'],'x',b['nint'],b['ndouble'],b['nsingle'])
+    for i in range(b['nintdb']):
       column_name = read_string(f).strip()
-      column_data = read_fortran_record(f, variable_type, memorymap)
-      #print('!! [nreal[0]',i,column_name,type(column_name), variable_type)
+      column_data = read_fortran_record(f, 'i8', memorymap)
+      #print('[nintdb ] ',i,column_name,type(column_name), variable_type)
       b['data'][column_name] = column_data
-    for i in range(b['nreal'][1]):
+    for i in range(b['ndouble']):
       column_name = read_string(f).strip()
-      column_data = read_fortran_record(f, variable_type, memorymap)
-      #column_data = read_fortran_record(f, variable_type, True)
-      #column_data = read_fortran_record(f, 'f4', memorymap)
-      #print('$$ [nreal[1]',i,column_name,type(column_name), variable_type)
+      column_data = read_fortran_record(f, 'f8', memorymap)
+      #print('[ndouble] ',i,column_name,type(column_name), variable_type)
+      b['data'][column_name] = column_data
+    for i in range(b['nsingle']):
+      column_name = read_string(f).strip()
+      column_data = read_fortran_record(f, 'f4', memorymap)
+      #print('[nsingle] ',i,column_name,type(column_name), variable_type)
       b['data'][column_name] = column_data
   dump['blocks'] = blocks
 
