@@ -11,8 +11,12 @@ module load_from_file
 
  implicit none
 
- public :: load_data_file
- 
+ public :: load_data_file,write_in_file
+
+ interface write_in_file
+    module procedure  write_in_file_1d,write_in_file_2d,write_in_file_1dx2
+ end interface
+
  private
  
  contains
@@ -52,6 +56,48 @@ module load_from_file
 
  end subroutine load_data_file
 
+ subroutine write_in_file_1d(namefile,arraytowrite)
+    character(len=*), intent(in) :: namefile
+    real, intent(in), dimension(:) :: arraytowrite
+    integer :: iunit,i
+ 
+    open(unit=iunit,file=namefile,status='replace',action='write')
+    do i=1,size(arraytowrite(:))
+       write(iunit,*) arraytowrite(i)
+    enddo
+    close(unit=iunit)
+
+ end subroutine write_in_file_1d    
+ 
+
+subroutine write_in_file_2d(namefile,arraytowrite)
+    character(len=*), intent(in) :: namefile
+    real, intent(in), dimension(:,:) :: arraytowrite
+    integer :: iunit,i
+ 
+    open(unit=iunit,file=namefile,status='replace',action='write')
+
+    do i=1,size(arraytowrite(:,1))
+       write(iunit,*) arraytowrite(i,:)
+    enddo
+
+    close(unit=iunit)
+
+ end subroutine write_in_file_2d    
+
+ subroutine write_in_file_1dx2(namefile,arraytowrite1,arraytowrite2)
+    character(len=*), intent(in) :: namefile
+    real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
+    integer :: iunit,i
+ 
+    open(unit=iunit,file=namefile,status='replace',action='write')
+    do i=1,size(arraytowrite1(:))
+       write(iunit,*) arraytowrite1(i),arraytowrite2(i)
+    enddo
+    close(unit=iunit)
+
+ end subroutine write_in_file_1dx2    
+ 
 
  integer function number_of_columns(s,nhead)
     !! version: experimental
