@@ -1885,7 +1885,7 @@ SRCSETUP= utils_omp.F90 utils_sort.f90 utils_timing.f90 utils_summary.F90 utils_
           utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 load_from_file.f90 interpolate_grid.f90 \
-          set_disc.F90 relax_star.f90 \
+          grids_for_setup.f90 set_disc.F90 relax_star.f90 \
 	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_vfield.f90 sort_particles.F90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
