@@ -322,10 +322,6 @@ module part
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
-#ifdef DUSTGROWTH
- +1                                   &  ! dustproppred
- +1                                   &  ! ddustprop
-#endif
 #endif
 #ifdef H2CHEM
    +nabundances                         &  ! abundance
