@@ -1280,6 +1280,8 @@ function ecc_distrib(a,e_0,R_ref,e_index,eccprofile) result(eccval)
  real :: eccval
  
  select case (eccprofile)
+ case(0)
+    eccval=0.
  case(1)
     eccval=e_0*(a/R_ref)**(-e_index)
  case(4)

@@ -907,7 +907,6 @@ subroutine calculate_disc_mass()
     if (iuse_disc(i)) then
        !--initialise the sigma grid file
        if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
-print*,'done'
 
        !--gas discs
        select case(isetgas(i))
@@ -2009,11 +2008,16 @@ subroutine setup_interactive()
        
        call prompt('Do you want the disc to be eccentric?',iecc(i))
        if (iecc(i)) then
-          e0=0.1
-          eindex = 1.
-          phiperi = 0.
-          eccprofile = 1
-       endif    
+          e0(i)=0.1
+          eindex(i) = 1.
+          phiperi(i) = 0.
+          eccprofile(i) = 1
+       else
+          e0(:)=0.
+          eindex(:)=0.
+          phiperi(:)=0.   
+          eccprofile(:)=0.
+       endif
     endif
  enddo
 
