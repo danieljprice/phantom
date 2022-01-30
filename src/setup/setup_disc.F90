@@ -142,6 +142,7 @@ module setup
  integer :: isetgas(maxdiscs)
  logical :: iuse_disc(maxdiscs)
  integer :: sigmaprofilegas(maxdiscs)
+ logical :: use_sigma_file(maxdiscs)
  logical :: ismoothgas(maxdiscs)
  logical :: itapergas(maxdiscs)
  integer :: itapersetgas(maxdiscs)
@@ -158,6 +159,7 @@ module setup
  real    :: Q_min(maxdiscs)
 
  integer :: sigmaprofiledust(maxdiscs,maxdusttypes)
+ logical :: use_sigmadust_file(maxdiscs,maxdusttypes)
  logical :: ismoothdust(maxdiscs,maxdusttypes)
  logical :: itaperdust(maxdiscs,maxdusttypes)
  integer :: itapersetdust(maxdiscs,maxdusttypes)
@@ -377,42 +379,44 @@ subroutine set_default_options()
  call set_dust_default_options()
 
  !--gas disc
- R_in         = 1.
- R_out        = 150.
- R_ref        = 1.
- R_c          = 150.
- R_warp       = 0.
- H_warp       = 0.
- isetgas      = 0
- itapergas    = .false.
- itapersetgas = 0
- ismoothgas   = .true.
- iwarp        = .false.
- iecc         = .false.
- pindex       = 1.
- qindex       = 0.25
- alphaSS      = 0.005
- posangl      = 0.
- incl         = 0.
- H_R          = 0.05
- disc_m       = 0.05
- sig_norm     = 1.e-02
- sig_ref      = 1.e-02
- Q_min        = 1.0
- annulus_m    = 0.05
- R_inann      = 1.
- R_outann     = 150.
+ R_in           = 1.
+ R_out          = 150.
+ R_ref          = 1.
+ R_c            = 150.
+ R_warp         = 0.
+ H_warp         = 0.
+ isetgas        = 0
+ use_sigma_file = .false.
+ itapergas      = .false.
+ itapersetgas   = 0
+ ismoothgas     = .true.
+ iwarp          = .false.
+ iecc           = .false.
+ pindex         = 1.
+ qindex         = 0.25
+ alphaSS        = 0.005
+ posangl        = 0.
+ incl           = 0.
+ H_R            = 0.05
+ disc_m         = 0.05
+ sig_norm       = 1.e-02
+ sig_ref        = 1.e-02
+ Q_min          = 1.0
+ annulus_m      = 0.05
+ R_inann        = 1.
+ R_outann       = 150.
 
  !--dust disc
- R_indust      = 1.
- R_outdust     = 150.
- pindex_dust   = 1.
- qindex_dust   = 0.25
- H_R_dust      = 0.05
- itaperdust    = .false.
- itapersetdust = 0
- ismoothdust   = .true.
- R_c_dust      = 150.
+ R_indust           = 1.
+ R_outdust          = 150.
+ pindex_dust        = 1.
+ qindex_dust        = 0.25
+ H_R_dust           = 0.05
+ use_sigmadust_file = .false.
+ itaperdust         = .false.
+ itapersetdust      = 0
+ ismoothdust        = .true.
+ R_c_dust           = 150.
 
  !--dust growth
  ifrag = 1
@@ -668,7 +672,6 @@ end subroutine equation_of_state
 !
 !--------------------------------------------------------------------------
 subroutine surface_density_profile()
-
  integer :: i,j
 
  !--gas profile
@@ -679,6 +682,7 @@ subroutine surface_density_profile()
     if (itapergas(i) .and. ismoothgas(i)) sigmaprofilegas(i) = 3
     if (itapersetgas(i)==1) sigmaprofilegas(i) = 4
     if (itapersetgas(i)==1 .and. ismoothgas(i)) sigmaprofilegas(i) = 5
+    if (use_sigma_file(i)) sigmaprofilegas(i) = 6
  enddo
 
  !--dust profile
@@ -691,6 +695,7 @@ subroutine surface_density_profile()
           if (itaperdust(i,j) .and. ismoothdust(i,j)) sigmaprofiledust(i,j) = 3
           if (itapersetdust(i,j)==1) sigmaprofiledust(i,j) = 4
           if (itapersetdust(i,j)==1 .and. ismoothdust(i,j)) sigmaprofiledust(i,j) = 5
+          if (use_sigmadust_file(i,j)) sigmaprofiledust(i,j) = 6
        enddo
        !--swap radii to keep dust profile the same as gas within [R_indust,R_outdust]
        if (isetdust == 2) then
@@ -889,7 +894,7 @@ end subroutine setup_dust_grain_distribution
 !
 !--------------------------------------------------------------------------
 subroutine calculate_disc_mass()
-
+ use grids_for_setup, only: init_grid_sigma,deallocate_sigma
  integer :: i,j
  integer, parameter :: maxbins = 4096
 
@@ -900,6 +905,9 @@ subroutine calculate_disc_mass()
 
  do i=1,maxdiscs
     if (iuse_disc(i)) then
+       !--initialise the sigma grid file
+       if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+print*,'done'
 
        !--gas discs
        select case(isetgas(i))
@@ -961,6 +969,9 @@ subroutine calculate_disc_mass()
           enddo
        endif
     endif
+ !--deallocating datasigma if density profile is read from file, 
+ !--will be re-initialised with right Rin/out if needed
+ if(sigmaprofilegas(i)==6) call deallocate_sigma()
  enddo
 
 end subroutine calculate_disc_mass
@@ -1042,6 +1053,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        iprofilegas = 0
        if (itapergas(i)) iprofilegas = 1
        if (itapersetgas(i) == 1) iprofilegas = 2
+       if (use_sigma_file(i)) iprofilegas = 3
 
        !--set disc(s)
        if (use_dust .and. use_dustfrac) then
@@ -1050,6 +1062,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           iprofiledust = 0
           if (itaperdust(i,1)) iprofiledust = 1
           if (itapersetdust(i,1) == 1) iprofiledust = 2
+          if (use_sigmadust_file(i,1)) iprofiledust = 3
 
           !--gas and dust mixture disc
           npingasdisc = int(disc_m(i)/totmass_gas*np)
@@ -1923,7 +1936,7 @@ subroutine setup_interactive()
        ! one of the circumbinary if cb disc is present, otherwise it uses the
        ! circumprimary. The values of H_R used for the other discs are set using
        ! the equations below, however changing them here is not enough. They need
-       ! to be changed also in the the setpart function.
+       ! to be changed also in the the equation_of_state function in this module.
        !--------------------------------------------------------------------------
        if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
@@ -1972,6 +1985,7 @@ subroutine setup_interactive()
                   ' 3=surface density at reference radius'//new_line('A')// &
                   ' 4=minimum Toomre Q'//new_line('A'),isetgas(i),0,4)
        call prompt('Do you want to exponentially taper the outer gas disc profile?',itapergas(i))
+       call prompt('Do you want to read the sigma profile from a grid file?',use_sigma_file(i))
        call prompt('Do you want to warp the disc?',iwarp(i))
        select case (isetgas(i))
        case (0)
@@ -2286,9 +2300,11 @@ subroutine write_setupfile(filename)
        call write_inopt(isetgas(i),'isetgas'//trim(disclabel),'how to set gas density profile' // &
           ' (0=total disc mass,1=mass within annulus,2=surface density normalisation,' // &
           '3=surface density at reference radius,4=minimum Toomre Q)',iunit)
+       call write_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel), &
+           'reading gas profile from file sigma_grid.dat',iunit)
        call write_inopt(itapergas(i),'itapergas'//trim(disclabel), &
           'exponentially taper the outer disc profile',iunit)
-       if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
+      if (itapergas(i)) call write_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel), &
           'how to set taper (0=exp[-(R/R_c)^(2-p)], 1=[1-exp(R-R_out)]',iunit)
        call write_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),'smooth inner disc',iunit)
        call write_inopt(iwarp(i),'iwarp'//trim(disclabel),'warp disc',iunit)
@@ -2619,6 +2635,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(R_in(i),'R_in'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
        call read_inopt(R_ref(i),'R_ref'//trim(disclabel),db,min=R_in(i),errcount=nerr)
+       call read_inopt(use_sigma_file(i),'use_sigma_file'//trim(disclabel),db,errcount=nerr)
        call read_inopt(itapergas(i),'itapergas'//trim(disclabel),db,errcount=nerr)
        if (itapergas(i)) call read_inopt(itapersetgas(i),'itapersetgas'//trim(disclabel),db,errcount=nerr)
        call read_inopt(ismoothgas(i),'ismoothgas'//trim(disclabel),db,errcount=nerr)
@@ -2672,6 +2689,7 @@ subroutine read_setupfile(filename,ierr)
                 pindex_dust(i,j) = pindex(i)
                 qindex_dust(i,j) = qindex(i)
                 H_R_dust(i,j)    = H_R(i)
+                use_sigmadust_file(i,j) = use_sigma_file(i)
                 itaperdust(i,j)  = itapergas(i)
                 ismoothdust(i,j) = ismoothgas(i)
                 R_c_dust(i,j)    = R_c(i)
@@ -2684,6 +2702,7 @@ subroutine read_setupfile(filename,ierr)
                 if (ierr /= 0) R_outdust(i,j) = R_out(i)
                 call read_inopt(pindex_dust(i,j),'pindex_'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (ierr /= 0) pindex_dust(i,j) = pindex(i)
+                call read_inopt(use_sigmadust_file(i,j),'use_sigmadust_file'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 call read_inopt(itaperdust(i,j),'itaper'//trim(tmpstr),db,err=ierr,errcount=nerr)
                 if (itaperdust(i,j)) call read_inopt(itapersetdust(i,j),'itapersetdust'//trim(tmpstr),db,errcount=nerr)
                 call read_inopt(ismoothdust(i,j),'ismooth'//trim(tmpstr),db,err=ierr,errcount=nerr)

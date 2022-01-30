@@ -75,6 +75,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
  use allocutils, only:allocate_array
+ use grids_for_setup, only: init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
  integer,           intent(in)    :: id,master
  integer, optional, intent(in)    :: nparttot
  integer,           intent(inout) :: npart
@@ -113,6 +114,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical :: smooth_surface_density,do_write,do_mixture
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
+ logical :: use_sigma_file,use_sigmadust_file
  real :: ecc_arr(maxp),a_arr(maxp)
 
  !
@@ -161,16 +163,26 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  exponential_taper = .false.
  exponential_taper_alternative = .false.
+ use_sigma_file = .false.
  if (present(indexprofile)) then
     if (indexprofile==1) exponential_taper = .true.
     if (indexprofile==2) exponential_taper_alternative = .true.
+    if (indexprofile==3) use_sigma_file = .true.
  endif
+
+ !--loading grids for initialising sigma and eccentricity from file
+ if(indexprofile==3) call init_grid_sigma(R_in,R_out)
+ if(eccprofile==4) call init_grid_ecc(R_in,R_out)
+
+
 
  exponential_taper_dust = .false.
  exponential_taper_dust_alternative = .false.
+ use_sigmadust_file = .false.
  if (present(indexprofiledust)) then
     if (indexprofiledust==1) exponential_taper_dust = .true.
     if (indexprofiledust==2) exponential_taper_dust_alternative = .true.
+    if (indexprofiledust==3) use_sigmadust_file = .true.
  endif
 
  aspin = 0.
@@ -267,6 +279,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  if (smooth_surface_density .and. exponential_taper) sigmaprofile = 3
  if (exponential_taper_alternative) sigmaprofile = 4
  if (exponential_taper_alternative .and. smooth_surface_density) sigmaprofile = 5
+ if (use_sigma_file) sigmaprofile = 6
  !--mixture
  if (do_mixture) then
     sigmaprofiledust = 0
@@ -282,6 +295,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     if (smooth_surface_density .and. exponential_taper_dust) sigmaprofiledust = 3
     if (exponential_taper_dust_alternative) sigmaprofiledust = 4
     if (exponential_taper_dust_alternative .and. smooth_surface_density) sigmaprofiledust = 5
+    if (use_sigmadust_file) sigmaprofiledust = 6
  endif
  !
  !--disc mass and sigma normalisation
@@ -478,6 +492,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     endif
  endif
 
+ if(indexprofile==3) call deallocate_sigma()
+ if(eccprofile==4) call deallocate_ecc()
+
  return
 end subroutine set_disc
 
@@ -531,7 +548,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  iseed = -34598 + (itype - igas)
  honH = 0.
  ninz = 0
-
+ 
  !--converting phi_peri to radians
  phi_perirad=phi_peri*3.1415/180.
 
@@ -555,7 +572,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
      if(e_0<1) then 
        do j=1,maxbins
           phi=(j-1)*dphi
-          distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+          distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
                 !distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
           if(distr_corr_val<0) then
              call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
@@ -597,7 +614,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     do while (randtest > f)
        R = Rin + (Rout - Rin)*ran2(iseed)
        !--Note that here R is the semi-maj axis, if e0=0. R=a
-       ea=ecc_distrib(R,e_0,R_ref,e_index)
+       ea=ecc_distrib(R,e_0,R_ref,e_index,eccprofile)
        if(e_0 .ne. 0.) then !-- We generate mean anomalies 
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
@@ -617,21 +634,21 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        randtest = fr_max*ran2(iseed)
        f = R*sigma_norm*scaled_sigma(R,sigmaprofile,&
                                      p_index,R_ref,Rin,Rout,R_c)*&
-                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+                        distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
                    ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
-       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri))
+       sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile))
     !   print*, p_index
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
                                                    p_inddust,R_ref,Rindust,&
                                                    Routdust,R_c_dust)*&
-                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri)!*&
+                       distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
                 ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_inddust)
 
              f     = f + fmixt
              sigmamixt = fmixt/(R*distr_ecc_corr(R,phi,R_ref,e_0,&
-                                                 e_index,phi_peri))
+                                                 e_index,phi_peri,eccprofile))
           endif
        endif
     enddo
@@ -1220,6 +1237,8 @@ end subroutine get_honH
 !
 !------------------------------------------------------------------------
 function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
+ use interpolate_grid, only: interpolate_1d
+ use grids_for_setup, only: datasigma,sigma_initialised,dsigmadx
  real,    intent(in)  :: R,R_ref,pindex
  real,    intent(in)  :: R_in,R_out,R_c
  integer, intent(in)  :: sigmaprofile
@@ -1239,8 +1258,12 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
- case(6) 
-    sigma = load_sigma_from_file(R,R_ref)
+ case (6) 
+    if(sigma_initialised) then
+       sigma = interpolate_1d(R,datasigma,dsigmadx)
+    else
+       call fatal('set_disc', 'sigma grid not initialised, something went wrong')
+    endif
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
@@ -1249,30 +1272,37 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
 end function scaled_sigma
 !-------------------------------
 
-function load_sigma_from_file(R,R_ref) result(sigmaval)
-   real, intent(in) :: R,R_ref
-   character(len=20) :: name_sigma_file
-   real :: sigmaval
-
-   name_sigma_file = 'sigma_dens.dat' 
-   
-end function load_sigma_from_file
-
-function ecc_distrib(a,e_0,R_ref,e_index) result(eccval)
+function ecc_distrib(a,e_0,R_ref,e_index,eccprofile) result(eccval)
+ use interpolate_grid, only: interpolate_1d
+ use grids_for_setup, only: dataecc,ecc_initialised,deda
  real, intent(in) :: a,e_0,R_ref,e_index
+ integer, intent(in) :: eccprofile
  real :: eccval
-
- eccval=e_0*(a/R_ref)**(-e_index)
+ 
+ select case (eccprofile)
+ case(1)
+    eccval=e_0*(a/R_ref)**(-e_index)
+ case(4)
+    if(ecc_initialised) then
+       eccval=interpolate_1d(a,dataecc,deda)
+     else
+       call fatal('set_disc', 'ecc grid not initialised, something went wrong')
+     endif
+ case default
+    call error('set_disc','unavailable eccentricity profile, eccentricity is set to zero')
+    eccval = 0.
+ end select
 
 end function ecc_distrib
 
 !--This function corrects the distribution to account for eccentricity when
 !--sampling both a and true anomaly
-function distr_ecc_corr_az(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+function distr_ecc_corr_az(a,phi,R_ref,e_0,e_index,phi_peri,eccprofile) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ integer,  intent(in) :: eccprofile
  real :: distr,drda,ea,deda
 
-    ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
+    ea = ecc_distrib(a,e_0,R_ref,e_index,eccprofile) !e_0*(a/R_ref)**(-e_index)
   deda = -e_index*ea/a
   drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
             2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &
@@ -1285,11 +1315,12 @@ end function distr_ecc_corr_az
 
 !--This function corrects the distribution to account for eccentricity when
 !--sampling a and uniform mean anomaly
-function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
+function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri,eccprofile) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri
+ integer,  intent(in) :: eccprofile
  real :: distr,ea,deda
   
-  ea = ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
+  ea = ecc_distrib(a,e_0,R_ref,e_index,eccprofile) !e_0*(a/R_ref)**(-e_index)
   deda = -e_index*ea/a
   
  distr = 2*pi*(sqrt(1-ea**2)-(a*ea*deda)/2/sqrt(1-ea**2))
@@ -1298,11 +1329,13 @@ function distr_ecc_corr(a,phi,R_ref,e_0,e_index,phi_peri) result(distr)
 end function distr_ecc_corr
 
 function distr_ecc_azimuth(a,phi,R_ref,e_0,e_index,&
-                           phi_peri,p_index) result(distr)
+                           phi_peri,p_index,eccprofile) result(distr)
  real,     intent(in) :: a,phi,R_ref,e_0,e_index,phi_peri,p_index
+ integer,  intent(in) :: eccprofile 
  real :: distr,ea,drda,deda
 
- ea=ecc_distrib(a,e_0,R_ref,e_index) !e_0*(a/R_ref)**(-e_index)
+
+ ea=ecc_distrib(a,e_0,R_ref,e_index,eccprofile) !e_0*(a/R_ref)**(-e_index)
  deda = -e_index*ea/a
  drda = ((1-ea**2)*(1+ea*cos(phi-phi_peri)-a*deda*cos(phi-phi_peri))+ &
             2*a*deda*ea*(1+ea*cos(phi-phi_peri))) &

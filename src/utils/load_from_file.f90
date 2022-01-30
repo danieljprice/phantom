@@ -51,7 +51,6 @@ module load_from_file
  do i=1, nrows-nheadlines
     read(iunit,*) datafile(i,:) 
  enddo
- 
  close(iunit)
 
  end subroutine load_data_file
@@ -60,6 +59,8 @@ module load_from_file
     character(len=*), intent(in) :: namefile
     real, intent(in), dimension(:) :: arraytowrite
     integer :: iunit,i
+
+    iunit=1
  
     open(unit=iunit,file=namefile,status='replace',action='write')
     do i=1,size(arraytowrite(:))
@@ -75,6 +76,8 @@ subroutine write_in_file_2d(namefile,arraytowrite)
     real, intent(in), dimension(:,:) :: arraytowrite
     integer :: iunit,i
  
+    iunit=1
+ 
     open(unit=iunit,file=namefile,status='replace',action='write')
 
     do i=1,size(arraytowrite(:,1))
@@ -89,7 +92,9 @@ subroutine write_in_file_2d(namefile,arraytowrite)
     character(len=*), intent(in) :: namefile
     real, intent(in), dimension(:) :: arraytowrite1,arraytowrite2
     integer :: iunit,i
- 
+
+    iunit=1 
+
     open(unit=iunit,file=namefile,status='replace',action='write')
     do i=1,size(arraytowrite1(:))
        write(iunit,*) arraytowrite1(i),arraytowrite2(i)
