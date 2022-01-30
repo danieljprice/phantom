@@ -1283,7 +1283,7 @@ function ecc_distrib(a,e_0,R_ref,e_index,eccprofile) result(eccval)
  case(1)
     eccval=e_0*(a/R_ref)**(-e_index)
  case(4)
-    if(ecc_initialised) then
+     if(ecc_initialised) then
        eccval=interpolate_1d(a,dataecc,deda)
      else
        call fatal('set_disc', 'ecc grid not initialised, something went wrong')

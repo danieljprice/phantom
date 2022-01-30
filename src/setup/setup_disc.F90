@@ -2012,7 +2012,7 @@ subroutine setup_interactive()
           e0=0.1
           eindex = 1.
           phiperi = 0.
-          eccprofile = 0
+          eccprofile = 1
        endif    
     endif
  enddo
@@ -2674,7 +2674,7 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(e0(i),'e0'//trim(disclabel),db,min=0.,errcount=nerr)
           call read_inopt(eindex(i),'eindex'//trim(disclabel),db,min=0.,errcount=nerr)
           call read_inopt(phiperi(i),'phiperi'//trim(disclabel),db,min=0.,errcount=nerr)
-          call read_inopt(eccprofile(i),'eccprofile'//trim(disclabel),db,min=0,max=4,errcount=nerr)
+          call read_inopt(eccprofile(i),'eccprofile'//trim(disclabel),db,min=1,max=4,errcount=nerr)
        endif
        !--dust disc
        if (use_dust) then
