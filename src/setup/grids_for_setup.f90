@@ -41,7 +41,6 @@ module grids_for_setup
 
     Nsize=size(dataset(:,1))
     x(:)=dataset(:,1)
-    print*,'ok so far'
     xin=x(1)
     xout=x(Nsize)
     dataset(:,1)=(x(:)-xin)/(xout-xin)*(Rout-Rin)+Rin
@@ -53,7 +52,7 @@ module grids_for_setup
         deallocate(datasigma)
         deallocate(dsigmadx)
         sigma_initialised=.false.
-        write(*,*) 'deallocating datasigma and dsigmadx'
+        write(*,*) '(grids_for_setup) Deallocating: datasigma, dsigmadx'
     else
        call error('grids_for_setup','Trying to deallocate dataecc without having initialised it')
     endif
@@ -64,7 +63,7 @@ module grids_for_setup
          deallocate(dataecc)
          deallocate(deda)
          ecc_initialised=.false.
-         write(*,*) 'deallocating dataecc and deda'
+         write(*,*) '(grids_for_setup) Deallocating: dataecc, deda'
     else
       call error('grids_for_setup','Trying to deallocate dataecc without having initialised it')
     endif
