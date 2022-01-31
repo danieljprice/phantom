@@ -1,81 +1,164 @@
 module raytracer
    use healpix
    implicit none
-   public :: get_all_tau_outwards, get_all_tau_inwards
+   public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_optimised
    private
   contains
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OUTWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OPTIMISED   !!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-  subroutine get_all_tau_optimised(primary, points, xyzh, neighbors, opacities, Rstar, &
-                                   minOrder, refineLevel, taus, companion, R, maxDist)
-     integer, intent(in) :: primary, neighbors(:,:), minOrder, refineLevel
-     integer, optional   :: companion
-     real, intent(in)    :: points(:,:), opacities(:), Rstar, xyzh(:,:)
-     real, optional      :: R, maxDist
-     real, intent(out)   :: taus(:)
-    
-     integer     :: i, nrays, nsides, index
-     real        :: normCompanion, theta0, unitCompanion(size(points(:,1))), theta, root, dist
-     real, dimension(:,:), allocatable :: dirs
-     integer, dimension(:,:), allocatable :: listsOfPoints
-     real, dimension(:,:), allocatable :: listsOfDists, listsOfTaus
-     logical     :: threeD
-     
-     threeD = size(points(:,1)) .eq. 3
-    
-     if (threeD) then
-       nrays = 12*4**minOrder
-       nsides = 2**minOrder
-     else
-       nrays = 12*4**minOrder
-       nsides = 2**minOrder
-     endif
-     
-     allocate(dirs(size(points(:,1)), nrays))
-     allocate(listsOfPoints(10000, nrays))
-     allocate(listsOfDists(size(listsOfPoints(:,1)), nrays))
-     allocate(listsOfTaus(size(listsOfPoints(:,1)), nrays))
+  subroutine get_all_tau_optimised(primary, points, xyzh, neighbors, opacities, &
+                                   Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
+   integer, intent(in) :: primary, neighbors(:,:), minOrder, refineLevel
+   integer, optional   :: companion
+   real, intent(in)    :: points(:,:), opacities(:), xyzh(:,:), Rstar
+   real, optional      :: R, maxDist
+   real, intent(out)   :: taus(:)
+  
+   integer     :: i, nrays, nsides, index
+   real        :: normCompanion, theta0, unitCompanion(size(points(:,1))), theta, root, dist
+   real, dimension(:,:), allocatable :: dirs
+   real, dimension(:,:), allocatable :: listsOfDists, listsOfTaus
+   integer, dimension(:), allocatable :: indices
+   real, dimension(:), allocatable    :: tau, dists
+   integer, dimension(:), allocatable :: listOfPoints
 
+   if (present(companion) .and. present(R)) then
+    normCompanion = norm2(points(:,companion)-points(:,primary))
+    theta0 = asin(R/normCompanion)
+    unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
+    nrays = 12*4**minOrder + 12*refineLevel-9 + int(24*2**(refineLevel+log(theta0)/log(2.)))
+    nsides = 2**(minOrder+refineLevel)
+    allocate(dirs(size(points(:,1)), nrays))
+    allocate(indices(12*4**(minOrder+refineLevel)))
+    allocate(listsOfDists(200, nrays))
+    allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
+    allocate(tau(size(listsOfDists(:,1))))
+    allocate(dists(size(listsOfDists(:,1))))
+    allocate(listOfPoints(size(listsOfDists(:,1))))
+    call get_rays(normCompanion,R,minOrder,refineLevel,dirs, indices, nrays)
+
+    !$omp parallel do private(tau,dists,dist,root,theta,listOfPoints)
+    do i = 1, nrays
+      listOfPoints=0
+      tau=0.
+      dists=0.
+      if (present(companion) .and. present(R)) then
+         theta = acos(dot_product(unitCompanion, dirs(:,i)))
+         if (theta < theta0) then
+            root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
+            dist = normCompanion*cos(theta)-root
+            call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listOfPoints, dists, dist)
+         else
+           call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+         endif
+      else
+         call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+      endif
+      call get_tau_list(listOfPoints, dists, opacities, tau)
+      !$omp critical
+      listsOfTaus(:,i) = tau
+      listsOfDists(:,i) = dists
+      !$omp end critical
+   enddo
+   
+   taus = 0.
+   !$omp parallel do private(index)
+   do i = 2, size(points(1,:))
+     call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
+     index = index + 1
      if (present(companion) .and. present(R)) then
-      normCompanion = norm2(points(:,companion)-points(:,primary))
-      theta0 = asin(R/normCompanion)
-      unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
+       index = indices(index)
      endif
-     
-     do i = 1, nrays
-       if (threeD) then
-          call pix2vec_nest(nsides, i-1, dirs(:,i))
-       else
-          call pix2vec_nest_2d(nsides, i-1, dirs(:,i))
-       endif
-       if (present(companion) .and. present(R)) then
-          theta = acos(dot_product(unitCompanion, dirs(:,i)))
-          if (theta < theta0) then
-             root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
-             dist = normCompanion*cos(theta)-root
-             call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listsOfPoints(:,i), listsOfDists(:,i), dist)
+     if (index /= 0) then
+     call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
+     endif
+   enddo
+   else
+      call get_all_tau_outwards(primary, points, xyzh, neighbors, opacities, &
+      Rstar, minOrder+refineLevel, taus, companion, R, maxDist)
+   endif
+  end subroutine get_all_tau_optimised
+
+  subroutine get_rays(d,R,minOrder,refineLevel, vecs, indices, nrays)
+    real, intent(in)     :: d, R
+    integer, intent(in)  :: minOrder, refineLevel
+    real, intent(out)    :: vecs(:,:)
+    integer, intent(out) :: indices(:),nrays
+
+    real    :: theta, dist
+    real, dimension(:,:), allocatable  :: circ
+    integer :: i, j, k, minNsides, minNrays, ind, ind2,n
+    integer, dimension(:), allocatable  :: refine,refine2
+
+  minNsides = 2**minOrder
+  minNrays = 12*4**minOrder
+  if (refineLevel == 0) then
+    do i=1, minNrays
+      call pix2vec_nest(minNsides,i-1, vecs(:,i))
+      indices(i) = i
+    enddo
+    nrays = minNrays
+    return
+  endif
+ theta = asin(R/d)
+ dist = d*cos(theta)
+ n = int(theta*6*2**(minOrder+refineLevel))+4
+ allocate(circ(n,3))
+ allocate(refine(n))
+ allocate(refine2(n))
+ do i=1, n
+    circ(i,1) = dist*cos(theta)
+    circ(i,2) = dist*sin(theta)*cos(2*PI*i/size(circ(:,i)))
+    circ(i,3) = dist*sin(theta)*sin(2*PI*i/size(circ(:,i)))
+ enddo
+ 
+ do i=1, size(circ(:,i))
+    call vec2pix_nest(minNsides,circ(i,:),refine(i))
+ enddo
+ 
+ ind = 1
+ ind2 = 1
+ do i = 1, minNrays
+    if (any(i-1 == refine)) then
+       refine2(ind2) = i-1
+       ind2 = ind2+1
+    else
+       call pix2vec_nest(minNsides,i-1,vecs(:,ind))
+       indices(4**(refineLevel)*(i-1)+1:4**(refineLevel)*(i)) = ind
+       ind = ind+1
+    endif
+ enddo
+
+ i=1
+ do k=1,refineLevel-1
+    do j=1, size(circ(:,1))
+       call vec2pix_nest(2**(minOrder+k),circ(j,:),refine(j))
+    enddo
+    do i = i, ind2-1
+       do j = 1,4
+          if (any(4*refine2(mod(i-1,n)+1)+j-1 == refine)) then
+             refine2(mod(ind2-1,n)+1) = 4*refine2(mod(i-1,n)+1)+j-1
+             ind2 = ind2+1
           else
-            call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listsOfPoints(:,i), listsOfDists(:,i), maxDist)
+             call pix2vec_nest(2**(minOrder+k),4*refine2(mod(i-1,n)+1)+j-1,vecs(:,ind))
+             indices(4**(refineLevel-k)*(4*refine2(mod(i-1,n)+1)+j-1)+1:4**(refineLevel-k)*(4*(refine2(mod(i-1,n)+1))+j)) = ind
+             ind = ind+1
           endif
-       else
-          call ray_tracer(primary, dirs(:,i), points, xyzh, neighbors, Rstar, listsOfPoints(:,i), listsOfDists(:,i), maxDist)
-       endif
-       call get_tau_list(listsOfPoints(:,i), listsOfDists(:,i), opacities, listsOfTaus(:,i))
-     enddo
-     taus = 0.
-     do i = 2, size(points(1,:))
-       if (threeD) then
-          call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
-       else
-          call vec2pix_nest_2d(nsides, points(:,i)-points(:,primary), index)
-       endif
-       index = index + 1
-       call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
-     enddo
-    end subroutine get_all_tau_optimised
+       enddo
+    enddo
+ enddo
+ do i = i, ind2-1
+    do j = 1,4
+       call pix2vec_nest(2**(minOrder+refineLevel),4*refine2(mod(i-1,n)+1)+j-1,vecs(:,ind))
+       indices(4*(refine2(mod(i-1,n)+1))+j) = ind
+       ind = ind+1
+    enddo
+ enddo
+ nrays = ind-1
+  end subroutine get_rays
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OUTWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -94,17 +177,8 @@ module raytracer
      real, dimension(:,:), allocatable  :: listsOfDists, listsOfTaus
      real, dimension(:), allocatable    :: tau, dists
      integer, dimension(:), allocatable :: listOfPoints
-     logical     :: threeD
-
-     threeD = size(points(:,1)) .eq. 3
-    
-     if (threeD) then
-       nrays = 12*4**order
-       nsides = 2**order
-     else
-       nrays = 12*4**order
-       nsides = 2**order
-     endif
+     nrays = 12*4**order
+     nsides = 2**order
      
      allocate(dirs(size(points(:,1)), nrays))
      allocate(listsOfDists(200, nrays))
@@ -119,17 +193,12 @@ module raytracer
       unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
      endif
      
-     !$omp parallel do default(none) &
-     !$omp private(dir,tau,dists,dist,root,theta,listOfPoints) &
-     !$omp shared(threeD,nsides,companion,R,unitCompanion,theta0, &
-     !$omp normCompanion,points,xyzh,neighbors,Rstar,primary,maxDist,opacities,dirs,listsOfTaus,listsOfDists)
+     !$omp parallel do private(dir,tau,dists,dist,root,theta,listOfPoints)
      do i = 1, nrays
-       if (threeD) then
-          call pix2vec_nest(nsides, i-1, dir)
-       else
-          call pix2vec_nest_2d(nsides, i-1, dir)
-       endif
+       call pix2vec_nest(nsides, i-1, dir)
        listOfPoints=0
+       tau=0.
+       dists=0.
        if (present(companion) .and. present(R)) then
           theta = acos(dot_product(unitCompanion, dir))
           if (theta < theta0) then
@@ -153,11 +222,7 @@ module raytracer
      taus = 0.
      !$omp parallel do private(index)
      do i = 1, size(taus)
-       if (threeD) then
-          call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
-       else
-          call vec2pix_nest_2d(nsides, points(:,i)-points(:,primary), index)
-       endif
+       call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
        index = index + 1
        call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
      enddo
@@ -171,17 +236,18 @@ module raytracer
        real    :: dist
        
        dist = dot_product(point-primary, ray)
-       i = 1
-       do while (dist .gt. listOfDists(i) .and. listOfDists(i) .gt. 0.)
-          i = i+1
-       enddo
-       
-       if (dist .gt. listOfDists(i)) then
-          tau = 1e10
-       else if (i == 1) then
-          tau = 0.
+       if (dist .gt. listOfDists(1)) then
+         i = 2
+         do while (dist .gt. listOfDists(i) .and. listOfDists(i) .gt. 0.)
+            i = i+1
+         enddo
+         if (dist .gt. listOfDists(i)) then
+            tau = 10
+         else
+            tau = listOfTaus(i-1)+(listOfTaus(i)-listOfTaus(i-1))/(listOfDists(i)-listOfDists(i-1))*(dist-listOfDists(i-1))
+         endif
        else
-          tau = listOfTaus(i-1)+(listOfTaus(i)-listOfTaus(i-1))/(listOfDists(i)-listOfDists(i-1))*(dist-listOfDists(i-1))
+         tau = 0.
        endif
     end subroutine get_tau_outwards
     
