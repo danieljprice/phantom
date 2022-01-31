@@ -282,19 +282,19 @@ module raytracer
      real :: dist, r
      integer :: next, i
 
+     dist = Rstar
+     listOfPoints(1)=point
+     listOfDist(1)=dist
      r = Rstar/100.
-     call getneigh_pos(points(:,point)+Rstar*ray,0.,r,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-     do while (nneigh==0)
+
+     next=0
+     do while (next==0)
       r = r*2.
       call getneigh_pos(points(:,point)+Rstar*ray,0.,r,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+      call find_next(points(:,point), ray, dist, points, listneigh, next)
      enddo
-     next = point
-     dist = Rstar
 
      i = 1
-     listOfPoints(i) = next
-     listOfDist(i)=dist
-     call find_next(points(:,point), ray, dist, points, listneigh, next)
      do while (hasNext(next,dist,maxDist))
         i = i + 1
         listOfPoints(i) = next
