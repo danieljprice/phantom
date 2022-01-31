@@ -39,15 +39,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    
    logical :: existneigh
    character(100) :: neighbourfile
+   character(100)   :: jstring
    real           :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), xyzh2(4,npart)
    real(kind=8), dimension(:), allocatable :: tau
-   integer :: i,j,ierr,iu1,iu2,iu3, npart2
+   integer :: i,j,ierr,iu1,iu2,iu3,iu4, npart2
    integer :: start, finish
-   real :: timeNeigh, timeTau
+   real :: totalTime, timeTau
 
    print*,'("Reading kappa from file")'
    call read_array_from_file(123,dumpfile,'kappa',kappa(:),ierr, 1)
-   print*,(ierr)
    if (ierr/=0) then
       print*,''
       print*,'("WARNING: could not read kappa from file. It will be set to zero")'
@@ -87,6 +87,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       rho(i) = rhoh(xyzh2(4,i), particlemass)
       write(iu3, *) rho(i)
    enddo
+   close(iu3)
 
    call read_array_from_file(123,dumpfile,'x',primsec(1,:),ierr, 2)
    call read_array_from_file(123,dumpfile,'y',primsec(2,:),ierr, 2)
@@ -101,6 +102,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    do i=1, npart2+2
       write(iu1, *) xyzh2(1:3,i)
    enddo
+   close(iu1)
 
    ! get neighbours
    neighbourfile = 'neigh_'//TRIM(dumpfile)
@@ -115,8 +117,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       call system_clock(start)
       call generate_neighbour_lists(xyzh2,vxyzu,npart2+2,dumpfile,.false.)
       call system_clock(finish)
-      timeNeigh = (finish-start)/1000.
-      print*,'Time = ',timeNeigh,' seconds.'
+      totalTime = (finish-start)/1000.
+      print*,'Time = ',totalTime,' seconds.'
       call write_neighbours(neighbourfile, npart2+2)
       print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
    endif
@@ -124,19 +126,44 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
    print*,''
-   print*, 'Start calculating optical depth'
+   print*, 'Start calculating optical depth inwards'
    call system_clock(start)
-   call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, 2.37686663, 7, tau, npart2+2,0.1)
+   call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, 2.37686663, tau, npart2+2,0.1)
    call system_clock(finish)
    timeTau = (finish-start)/1000.
    print*,'Time = ',timeTau,' seconds.'
-
+   open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+   write(iu4, *) timeTau
+   close(iu4)
+   totalTime = totalTime + timeTau
    open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
    do i=1, size(tau)
       write(iu2, *) tau(i)
    enddo
+   close(iu2)
+
+   do j = 0, 9
+      write(jstring,'(i0)') j
+      print*,''
+      print*, 'Start calculating optical depth outwards: ', trim(jstring)
+      call system_clock(start)
+      call get_all_tau_outwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, 2.37686663, j, tau, npart2+2,0.1)
+      call system_clock(finish)
+      timeTau = (finish-start)/1000.
+      print*,'Time = ',timeTau,' seconds.'
+      open(newunit=iu4, file='times_'//dumpfile//'.txt',position='append', status='old', action='write')
+      write(iu4, *) timeTau
+      close(iu4)
+      totalTime = totalTime + timeTau
+      print*,char(j)
+      open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+      do i=1, size(tau)
+         write(iu2, *) tau(i)
+      enddo
+      close(iu2)
+   enddo
    print*,''
-   print*,'Total time of the calculation = ',timeNeigh+timeTau,' seconds.'
+   print*,'Total time of the calculation = ',totalTime,' seconds.'
  
 end subroutine do_analysis
 end module analysis
