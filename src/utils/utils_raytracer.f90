@@ -222,10 +222,13 @@ module raytracer
       r = r*2.
       call getneigh_pos(points(:,point)+Rstar*ray,0.,r,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
      enddo
-     next = listneigh(1)
-     dist = dot_product(points(:,next) - points(:,point),ray)
-     
-     i = 0
+     next = point
+     dist = Rstar
+
+     i = 1
+     listOfPoints(i) = next
+     listOfDist(i)=dist
+     call find_next(points(:,point), ray, dist, points, listneigh, next)
      do while (hasNext(next,dist,maxDist))
         i = i + 1
         listOfPoints(i) = next
@@ -249,10 +252,10 @@ module raytracer
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!   INWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-    subroutine get_all_tau_inwards(primary, points, xyzh, neighbors, opacities, Rstar, order, taus, companion, R)
+    subroutine get_all_tau_inwards(primary, points, xyzh, neighbors, opacities, Rstar, taus, companion, R)
      real, intent(in)    :: points(:,:), opacities(:), Rstar, xyzh(:,:)
      real, optional      :: R
-     integer, intent(in) :: primary, neighbors(:,:), order
+     integer, intent(in) :: primary, neighbors(:,:)
      integer, optional   :: companion
      real, intent(out)   :: taus(:)
     
