@@ -260,6 +260,7 @@ ifeq ($(SETUP), disc)
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     IND_TIMESTEPS=yes
+    MODDUMP=moddump_removeparticles_radius.f90
 endif
 
 ifeq ($(SETUP), grtde)
@@ -1913,7 +1914,8 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
+         test_step.F90 test_indtstep.F90 load_from_file.f90 interpolate_grid.f90 \
+         grids_for_setup.f90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.F90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          test_sedov.F90 test_radiation.F90 \
@@ -2021,7 +2023,8 @@ MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
           utils_sort.f90 set_Bfield.f90 \
-          random.f90 set_disc.F90 set_dust.f90 \
+          random.f90 load_from_file.f90 interpolate_grid.f90 \
+          grids_for_setup.f90 set_disc.F90 set_dust.f90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
           icosahedron.f90 radiation_utils.f90 cons2prim.f90 \
           partinject.F90 utils_inject.f90 ${SRCINJECT} \
