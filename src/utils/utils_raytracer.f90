@@ -187,6 +187,9 @@ module raytracer
      allocate(dists(size(listsOfDists(:,1))))
      allocate(listOfPoints(size(listsOfDists(:,1))))
 
+     normCompanion = 0.
+     theta0 = 0.
+     unitCompanion = 0.
      if (present(companion) .and. present(R)) then
       normCompanion = norm2(points(:,companion)-points(:,primary))
       theta0 = asin(R/normCompanion)
@@ -279,18 +282,18 @@ module raytracer
      integer, parameter :: maxcache = 0
      real, allocatable  :: xyzcache(:,:)
      integer :: nneigh
-     real :: dist, r
+     real :: dist, h
      integer :: next, i
 
      dist = Rstar
      listOfPoints(1)=point
      listOfDist(1)=dist
-     r = Rstar/100.
+     h = Rstar/100.
 
      next=0
-     do while (next==0)
-      r = r*2.
-      call getneigh_pos(points(:,point)+Rstar*ray,0.,r,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+     do while (next==0 .or. nneigh==0)
+      h = h*2.
+      call getneigh_pos(points(:,point)+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
       call find_next(points(:,point), ray, dist, points, listneigh, next)
      enddo
 
@@ -327,6 +330,10 @@ module raytracer
     
      integer :: i
      real    :: normCompanion, theta0, unitCompanion(size(points(:,1))), norm, theta, root, norm0, tau
+
+     normCompanion = 0.
+     theta0 = 0.
+     unitCompanion = 0.
      if (present(companion) .and. present(R)) then
       normCompanion = norm2(points(:,companion)-points(:,primary))
       theta0 = asin(R/normCompanion)
@@ -407,6 +414,7 @@ module raytracer
      read(inf,*) min
      
      next=0
+     nextDist=dist
      trace_point = inpoint + dist*ray
      i = 1
      do while (i <= size(neighbors) .and. neighbors(i) /= 0)
