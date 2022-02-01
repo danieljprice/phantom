@@ -125,7 +125,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
-   if (.false.) then
+   if (.true.) then
       print*,''
       print*, 'Start calculating optical depth inwards'
       call system_clock(start)
@@ -158,7 +158,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          write(iu4, *) timeTau
          close(iu4)
          totalTime = totalTime + timeTau
-         print*,char(j)
          open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
          do i=1, size(tau)
             write(iu2, *) tau(i)
