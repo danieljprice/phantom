@@ -5,9 +5,9 @@ module raytracer
    private
   contains
   
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OPTIMISED   !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !*********************************************************************!
+  !***************************   OPTIMISED   ***************************!
+  !*********************************************************************!
   
   subroutine get_all_tau_optimised(primary, points, xyzh, neighbors, opacities, &
                                    Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
@@ -66,7 +66,7 @@ module raytracer
    
    taus = 0.
    !$omp parallel do private(index)
-   do i = 2, size(points(1,:))
+   do i = 1, size(taus(:))
      call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
      index = index + 1
      if (present(companion) .and. present(R)) then
@@ -76,6 +76,7 @@ module raytracer
      call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
      endif
    enddo
+
    else
       call get_all_tau_outwards(primary, points, xyzh, neighbors, opacities, &
       Rstar, minOrder+refineLevel, taus, companion, R, maxDist)
@@ -160,9 +161,9 @@ module raytracer
  nrays = ind-1
   end subroutine get_rays
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!   OUTWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !*********************************************************************!
+  !***************************   OUTWARDS   ****************************!
+  !*********************************************************************!
   
   subroutine get_all_tau_outwards(primary, points, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
      integer, intent(in) :: primary, neighbors(:,:), order
@@ -291,10 +292,10 @@ module raytracer
      h = Rstar/100.
 
      next=0
-     do while (next==0 .or. nneigh==0)
+     do while (next==0)
       h = h*2.
       call getneigh_pos(points(:,point)+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-      call find_next(points(:,point), ray, dist, points, listneigh, next)
+      call find_next(points(:,point), ray, dist, points, listneigh, next, nneigh)
      enddo
 
      i = 1
@@ -317,9 +318,9 @@ module raytracer
       endif
     end function hasNext
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!   INWARDS   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !*********************************************************************!
+    !****************************   INWARDS   ****************************!
+    !*********************************************************************!
     
     subroutine get_all_tau_inwards(primary, points, xyzh, neighbors, opacities, Rstar, taus, companion, R)
      real, intent(in)    :: points(:,:), opacities(:), Rstar, xyzh(:,:)
@@ -397,27 +398,34 @@ module raytracer
      enddo
     end subroutine get_tau_inwards
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!   COMMON   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !*********************************************************************!
+    !****************************   COMMON   *****************************!
+    !*********************************************************************!
     
-    subroutine find_next(inpoint, ray, dist, points, neighbors, next)
+    subroutine find_next(inpoint, ray, dist, points, neighbors, next, nneighin)
      integer, intent(in)  :: neighbors(:)
      real, intent(in)     :: points(:,:), inpoint(:), ray(:)
      integer, intent(out) :: next
      real, intent(inout)  :: dist
+     integer, optional    :: nneighin
     
      real                 :: trace_point(size(inpoint)), min, vec(size(inpoint)), tempdist, raydist
      real                 :: nextdist
-     integer              :: i
+     integer              :: i, nneigh
      character(len=3)     :: inf="INF"
      read(inf,*) min
-     
+     if (present(nneighin)) then
+      nneigh = nneighin
+     else
+      nneigh = size(neighbors)
+     endif
+
      next=0
      nextDist=dist
      trace_point = inpoint + dist*ray
+
      i = 1
-     do while (i <= size(neighbors) .and. neighbors(i) /= 0)
+     do while (i <= nneigh .and. neighbors(i) /= 0)
         vec=points(:,neighbors(i)) - trace_point
         tempdist = dot_product(vec,ray)
         if (tempdist>0) then
