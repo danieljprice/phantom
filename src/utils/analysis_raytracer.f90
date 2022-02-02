@@ -189,18 +189,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    if (.true.) then
       open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
       close(iu4)
-      do i=0, int(log(real(omp_get_num_procs()))/log(2.))
-         call omp_set_num_threads(2**i)
+      do i=1, omp_get_num_procs()!int(log(real(omp_get_num_procs()))/log(2.))
+         call omp_set_num_threads(i)
          call deallocate_linklist
          call allocate_linklist
          call set_linklist(npart2,npart2,xyzh2,vxyzu)
-         print*,i,2**i
          call system_clock(start)
          call get_all_tau_outwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-                                    real(2.37686663,8), 5, tau, npart2+2,real(0.1,8))
+                                    real(2.37686663,8), 6, tau, npart2+2,real(0.1,8))
          call system_clock(finish)
          timeTau = (finish-start)/1000.
-         print*,'Time = ',timeTau,' seconds.'
+         print*,'nthread = ',i,': Time = ',timeTau,' seconds.'
          open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt',position='append', status='old', action='write')
          write(iu4, *) i, timeTau
          close(iu4)
