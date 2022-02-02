@@ -68,10 +68,7 @@ module raytracer
    !$omp parallel do private(index)
    do i = 1, size(taus(:))
      call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
-     index = index + 1
-     if (present(companion) .and. present(R)) then
-       index = indices(index)
-     endif
+     index = indices(index + 1)
      if (index /= 0) then
      call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
      endif
@@ -221,7 +218,7 @@ module raytracer
        listsOfTaus(:,i) = tau
        listsOfDists(:,i) = dists
        !$omp end critical
-     enddo
+      enddo
 
      taus = 0.
      !$omp parallel do private(index)
@@ -363,7 +360,7 @@ module raytracer
       !$omp critical
       taus(i) = tau 
       !$omp end critical
-     enddo
+   enddo
     end subroutine get_all_tau_inwards
     
     subroutine get_tau_inwards(secondary, primary, points, neighbors, opacities, Rstar, tau)
