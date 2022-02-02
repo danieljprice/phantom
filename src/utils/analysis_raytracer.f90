@@ -22,7 +22,7 @@ module analysis
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                               neighcount,neighb,neighmax
    use dust_formation,   only:kappa_dust_bowen
-   use linklist, only:set_linklist
+   use linklist, only:set_linklist,allocate_linklist,deallocate_linklist
    implicit none
    character(len=20), parameter, public :: analysistype = 'raytracer'
    public :: do_analysis
@@ -32,6 +32,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
+   Use omp_lib
    character(len=*), intent(in) :: dumpfile
    integer,          intent(in) :: num,npart,iunit
    real(kind=8),     intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -125,7 +126,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
-   if (.true.) then
+   if (.false.) then
       print*,''
       print*, 'Start calculating optical depth inwards'
       call system_clock(start)
@@ -172,17 +173,39 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       print*,''
       print*, 'Start calculating optical depth optimised'
       call system_clock(start)
-      call get_all_tau_outwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-                                 real(2.37686663,8), 7, tau, npart2+2,real(0.1,8))
+      call get_all_tau_optimised(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+                                 real(2.37686663,8),0 , 7, tau, npart2+2,real(0.1,8))
       call system_clock(finish)
       timeTau = (finish-start)/1000.
       print*,'Time = ',timeTau,' seconds.'
       totalTime = totalTime + timeTau
-      open(newunit=iu2, file='taus_'//dumpfile//'_7.txt', status='replace', action='write')
+      open(newunit=iu2, file='taus_'//dumpfile//'_optimised.txt', status='replace', action='write')
       do i=1, size(tau)
          write(iu2, *) tau(i)
       enddo
       close(iu2)
    endif
+
+   if (.true.) then
+      open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
+      close(iu4)
+      do i=0, int(log(real(omp_get_num_procs()))/log(2.))
+         call omp_set_num_threads(2**i)
+         call deallocate_linklist
+         call allocate_linklist
+         call set_linklist(npart2,npart2,xyzh2,vxyzu)
+         print*,i,2**i
+         call system_clock(start)
+         call get_all_tau_outwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+                                    real(2.37686663,8), 5, tau, npart2+2,real(0.1,8))
+         call system_clock(finish)
+         timeTau = (finish-start)/1000.
+         print*,'Time = ',timeTau,' seconds.'
+         open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt',position='append', status='old', action='write')
+         write(iu4, *) i, timeTau
+         close(iu4)
+      enddo
+   endif
+
 end subroutine do_analysis
 end module analysis
