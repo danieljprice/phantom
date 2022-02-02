@@ -78,19 +78,22 @@ subroutine init_evfile(iunit,evfile,open_file)
  use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
  use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use units,     only:c_is_unity
- use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftypetot,ndusttypes
+ use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
  use gravwaveutils, only:calc_gravitwaves
+ use mpiutils,  only:reduceall_mpi
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
  character(len= 11)             :: dustname
  integer                        :: i,j,k
+ integer(kind=8)                :: npartoftypetot(maxtypes)
  !
  !--Initialise additional variables
  !
+ npartoftypetot = reduceall_mpi('+', npartoftype)
  gas_only  = .true.
  do i = 2,maxtypes
     if (npartoftypetot(i) > 0) gas_only = .false.
