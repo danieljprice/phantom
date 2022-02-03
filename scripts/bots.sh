@@ -43,12 +43,43 @@ if [ ! -s $codedir/$authorsfile ]; then
 fi
 docommit=0;
 applychanges=0;
-if [[ "$1" == "--apply" ]]; then
-   applychanges=1;
+doindent=1
+
+while [[ "$1" == --* ]]; do
+  case $1 in
+    --apply)
+      applychanges=1;
+      ;;
+
+    --commit)
+      docommit=1;
+      applychanges=1;
+      ;;
+
+    --no-indent)
+      doindent=0;
+      ;;
+
+    *)
+      badflag=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$badflag" != "" ]]; then
+   echo "ERROR: Unknown flag $badflag"
+   exit
 fi
-if [[ "$1" == "--commit" ]]; then
-   docommit=1;
-   applychanges=1;
+
+if [[ $doindent == 1 ]]; then
+   if ! command -v findent > /dev/null; then
+      echo "ERROR: findent not found, please install:                   ";
+      echo "       https://www.ratrabbit.nl/ratrabbit/findent/index.html";
+      echo "                                                            ";
+      echo "       or disable indent-bot using --no-indent              ";
+      exit
+   fi
 fi
 cd $codedir;
 if [[ $docommit == 1 ]]; then
@@ -69,7 +100,10 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif indent';
+bots_to_run='tabs gt shout header whitespace authors endif';
+if [[ $doindent == 1 ]]; then
+   bots_to_run="${bots_to_run} indent";
+fi
 #bots_to_run='shout';
 for edittype in $bots_to_run; do
     filelist='';
