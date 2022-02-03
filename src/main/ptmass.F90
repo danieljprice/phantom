@@ -1691,7 +1691,7 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  real,    intent(in) :: xyzh(:,:)
  integer             :: i,j,ncount
  real                :: drj2
- 
+
  do i = 1,nptmass
     ncount = 0
     do j = 1,npart

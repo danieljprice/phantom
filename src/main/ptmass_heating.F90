@@ -54,8 +54,8 @@ end subroutine energ_sinkheat
 !+
 !-----------------------------------------------------------------------
 ! subroutine nuc_heating()
- 
-  
+
+
 ! end subroutine nuc_heating
 
 
