@@ -43,17 +43,35 @@ if [ ! -s $codedir/$authorsfile ]; then
 fi
 docommit=0;
 applychanges=0;
-if [[ "$1" == "--apply" ]]; then
-   applychanges=1;
-fi
-if [[ "$1" == "--commit" ]]; then
-   docommit=1;
-   applychanges=1;
-fi
 doindent=1
-if [[ "$1" == "--no-indent" || "$2" == "--no-indent" ]]; then
-   doindent=0;
+
+while [[ "$1" == --* ]]; do
+  case $1 in
+    --apply)
+      applychanges=1;
+      ;;
+
+    --commit)
+      docommit=1;
+      applychanges=1;
+      ;;
+
+    --no-indent)
+      doindent=0;
+      ;;
+
+    *)
+      badflag=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$badflag" != "" ]]; then
+   echo "ERROR: Unknown flag $badflag"
+   exit
 fi
+
 if [[ $doindent == 1 ]]; then
    if ! command -v findent > /dev/null; then
       echo "ERROR: findent not found, please install:                   ";
