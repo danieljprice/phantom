@@ -28,7 +28,7 @@ module part
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               use_dust,use_dustgrowth,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
@@ -317,6 +317,10 @@ module part
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
+#ifdef DUSTGROWTH
+   +2                                   &  ! dustprop
+   +2                                   &  ! dustproppred
+#endif
 #endif
 #ifdef H2CHEM
  +nabundances                         &  ! abundance
@@ -1376,6 +1380,10 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustfrac(:,i),nbuf)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
+       if (use_dustgrowth) then
+         call fill_buffer(xtemp, dustprop(:,i),nbuf)
+         call fill_buffer(xtemp, dustproppred(:,i),nbuf)
+       endif
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1445,6 +1453,10 @@ subroutine unfill_buffer(ipart,xbuf)
     dustfrac(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
+    if (use_dustgrowth) then
+      dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
+      dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
+    endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
