@@ -28,7 +28,11 @@ jobs:
           - ['test2', '']
           - ['testcyl', '']
 
-    name: MPI DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}
+    name: |
+      test (SETUP=${{ matrix.input[0] }},
+            targets=${{ matrix.input[1] }},
+            DEBUG=${{ matrix.debug }},
+            OPENMP=${{ matrix.openmp }})
 
     runs-on: ubuntu-latest
 
