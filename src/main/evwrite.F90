@@ -38,8 +38,8 @@ module evwrite
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
-!   fileutils, gravwaveutils, io, nicil, options, part, ptmass, timestep,
-!   units, viscosity
+!   fileutils, gravwaveutils, io, mpiutils, nicil, options, part, ptmass,
+!   timestep, units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
