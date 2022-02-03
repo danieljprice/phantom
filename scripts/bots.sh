@@ -43,7 +43,8 @@ if [ ! -s $codedir/$authorsfile ]; then
 fi
 docommit=0;
 applychanges=0;
-doindent=1
+doindent=1;
+gitstaged=0;
 
 while [[ "$1" == --* ]]; do
   case $1 in
@@ -60,6 +61,10 @@ while [[ "$1" == --* ]]; do
       doindent=0;
       ;;
 
+   --staged-files-only)
+      gitstaged=1;
+      ;;
+
     *)
       badflag=$1
       ;;
@@ -69,6 +74,12 @@ done
 
 if [[ "$badflag" != "" ]]; then
    echo "ERROR: Unknown flag $badflag"
+   exit
+fi
+
+if [[ $gitstaged == 1 && $docommit == 1 ]]; then
+   echo "--staged-files-only and --commit cannot both be used because "
+   echo "this will commit your git changes with the automated commit message"
    exit
 fi
 
@@ -111,16 +122,21 @@ for edittype in $bots_to_run; do
     'authors' )
        dirlist=".";
        goback='-';
-       listoffiles="$authorsfile";;
+       filenamepattern="$authorsfile";;
     * )
        dirlist="src/*";
        goback="../../";
-       listoffiles="*.*90";;
+       filenamepattern="*.*90";;
     esac
     for dir in $dirlist; do
         if [ -d $dir ]; then
            cd $dir;
-           myfiles=`get_only_files_in_git "$listoffiles"`
+           if [[ $gitstaged == 1 && "$filenamepattern" == "*.*90" ]]; then
+             files=`git diff --name-only --cached --relative -- "./*.*90" | tr '\n' ' '`;
+           else
+             files=$filenamepattern
+           fi
+           myfiles=`get_only_files_in_git "$files"`
            for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
