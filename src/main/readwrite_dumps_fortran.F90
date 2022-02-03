@@ -777,7 +777,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+       call allocate_memory(int(min(nprocs,3)*nparttot/nprocs))
 #endif
     endif
 !
@@ -969,7 +969,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+ call allocate_memory(int(min(nprocs,3)*nparttot/nprocs))
 #endif
 
 !
