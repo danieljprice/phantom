@@ -12,9 +12,9 @@ module ptmass_heating
 !
 ! :Owner: Mike Lau
 !
-! :Runtime parameters:
+! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: kernel, part
 !
 
  implicit none

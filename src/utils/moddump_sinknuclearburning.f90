@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: part, ptmass_heating, units
 !
  implicit none
 
