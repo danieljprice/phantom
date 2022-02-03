@@ -1,0 +1,4 @@
+{
+    "always": ["ubuntu-latest", "gfortran"],
+    "danieljprice/phantom": ["self-hosted", "ifort"]
+}
