@@ -157,7 +157,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa
- use eos,               only:equationofstate,ieos,get_temperature,done_init_eos,init_eos,gmw,X_in,Z_in
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,get_temperature,done_init_eos,init_eos,gmw,X_in,Z_in
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal
@@ -257,7 +257,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_variable_composition) eos_vars(imu,i) = mui
+       if (use_variable_composition .or. eos_outputs_mu(ieos)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           !

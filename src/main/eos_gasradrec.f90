@@ -86,6 +86,7 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  real                        :: logrhoi,imu,dimurecdT,dT,Tdot,corr
  real, parameter             :: W4err=1.e-2,eoserr=1.e-13
 
+ if (T <= 0.) T = min((3.*presi/radconst)**0.25, presi/(rhoi*Rg))  ! initial guess for temperature
  ierr = 0
  corr = huge(0.)
  Tdot = 0.
