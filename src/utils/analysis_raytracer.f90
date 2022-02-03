@@ -142,24 +142,24 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
-   if (.false..and..not.tess) then
+   if (.true..and..not.tess) then
       print*,''
       print*, 'Start calculating optical depth inwards'
-      call system_clock(start)
-      call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-                                 real(2.37686663,8), tau, npart2+2,real(0.1,8))
-      call system_clock(finish)
-      timeTau = (finish-start)/1000.
-      print*,'Time = ',timeTau,' seconds.'
+      ! call system_clock(start)
+      ! call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+      !                            real(2.37686663,8), tau, npart2+2,real(0.1,8))
+      ! call system_clock(finish)
+      ! timeTau = (finish-start)/1000.
+      ! print*,'Time = ',timeTau,' seconds.'
       open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
-      write(iu4, *) timeTau
+      ! write(iu4, *) timeTau
       close(iu4)
-      totalTime = totalTime + timeTau
-      open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
-      do i=1, size(tau)
-         write(iu2, *) tau(i)
-      enddo
-      close(iu2)
+      ! totalTime = totalTime + timeTau
+      ! open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+      ! do i=1, size(tau)
+      !    write(iu2, *) tau(i)
+      ! enddo
+      ! close(iu2)
 
       do j = 0, 9
          write(jstring,'(i0)') j
@@ -227,23 +227,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    endif
 
    if (.false.) then
-      print*,''
-      print*, 'Start calculating optical depth optimised'
-      call system_clock(start)
-      call get_all_tau_optimised(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-                                 real(2.37686663,8),0 , 7, tau, npart2+2,real(0.1,8))
-      call system_clock(finish)
-      timeTau = (finish-start)/1000.
-      print*,'Time = ',timeTau,' seconds.'
-      totalTime = totalTime + timeTau
-      open(newunit=iu2, file='taus_'//dumpfile//'_optimised.txt', status='replace', action='write')
-      do i=1, size(tau)
-         write(iu2, *) tau(i)
-      enddo
-      close(iu2)
-   endif
-
-   if (.false.) then
       open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
       close(iu4)
       do i=0, omp_get_num_procs()-1!int(log(real(omp_get_num_procs()))/log(2.))
@@ -262,6 +245,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          write(iu4, *) omp_get_max_threads(), timeTau
          close(iu4)
       enddo
+   endif
+
+   if (.false.) then
+      print*,''
+      print*, 'Start calculating optical depth optimised'
+      call system_clock(start)
+      call get_all_tau_optimised(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+                                 real(2.37686663,8),0 , 7, tau, npart2+2,real(0.1,8))
+      call system_clock(finish)
+      timeTau = (finish-start)/1000.
+      print*,'Time = ',timeTau,' seconds.'
+      totalTime = totalTime + timeTau
+      open(newunit=iu2, file='taus_'//dumpfile//'_optimised.txt', status='replace', action='write')
+      do i=1, size(tau)
+         write(iu2, *) tau(i)
+      enddo
+      close(iu2)
    endif
 
 end subroutine do_analysis
