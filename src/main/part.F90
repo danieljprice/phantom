@@ -314,7 +314,7 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +maxdusttypes                        &  ! dustfrac
+ +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
