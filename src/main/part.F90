@@ -389,9 +389,12 @@ module part
  interface hrho
   module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
  end interface hrho
+ interface get_ntypes
+  module procedure get_ntypes_i4, get_ntypes_i8
+ end interface get_ntypes
 
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
-
+ private :: get_ntypes_i4,get_ntypes_i8
 contains
 
 subroutine allocate_part
@@ -984,8 +987,9 @@ pure elemental integer function idusttype(iphasei)
 
 end function idusttype
 
-pure integer function get_ntypes(noftype)
+pure function get_ntypes_i4(noftype) result(get_ntypes)
  integer, intent(in) :: noftype(:)
+ integer :: get_ntypes
  integer :: i
 
  get_ntypes = 0
@@ -993,7 +997,19 @@ pure integer function get_ntypes(noftype)
     if (noftype(i) > 0) get_ntypes = i
  enddo
 
-end function get_ntypes
+end function get_ntypes_i4
+
+pure function get_ntypes_i8(noftype) result(get_ntypes)
+ integer(kind=8), intent(in) :: noftype(:)
+ integer :: get_ntypes
+ integer :: i
+
+ get_ntypes = 0
+ do i=1,size(noftype)
+    if (noftype(i) > 0) get_ntypes = i
+ enddo
+
+end function get_ntypes_i8
 
 !-----------------------------------------------------------------------
 !+
