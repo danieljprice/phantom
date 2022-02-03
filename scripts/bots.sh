@@ -50,6 +50,19 @@ if [[ "$1" == "--commit" ]]; then
    docommit=1;
    applychanges=1;
 fi
+doindent=1
+if [[ "$1" == "--no-indent" || "$2" == "--no-indent" ]]; then
+   doindent=0;
+fi
+if [[ $doindent == 1 ]]; then
+   if ! command -v findent > /dev/null; then
+      echo "ERROR: findent not found, please install:                   ";
+      echo "       https://www.ratrabbit.nl/ratrabbit/findent/index.html";
+      echo "                                                            ";
+      echo "       or disable indent-bot using --no-indent              ";
+      exit
+   fi
+fi
 cd $codedir;
 if [[ $docommit == 1 ]]; then
    git pull;
@@ -69,7 +82,10 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif indent';
+bots_to_run='tabs gt shout header whitespace authors endif';
+if [[ $doindent == 1 ]]; then
+   bots_to_run="${bots_to_run} indent";
+fi
 #bots_to_run='shout';
 for edittype in $bots_to_run; do
     filelist='';
@@ -169,9 +185,6 @@ for edittype in $bots_to_run; do
                'indent' )
                   if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
-                  else
-                     echo "WARNING: findent not found so indent-bot has not run";
-                     echo "         (https://www.ratrabbit.nl/ratrabbit/findent/index.html)";
                   fi;;
                esac
                if [ -s $out ]; then
