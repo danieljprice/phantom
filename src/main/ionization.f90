@@ -321,14 +321,14 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,et
  integer, intent(in) :: ieos
  real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
  real, intent(out)   :: ethi
- real                :: hi,densi,mui
+ real                :: hi,densi_cgs,mui
 
  select case (ieos)
  case(10,20) ! calculate just gas + radiation thermal energy
     hi = xyzh(4)
-    densi = rhoh(hi,particlemass)
-    mui = densi*unit_density * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
-    call get_idealplusrad_enfromtemp(densi*unit_density,tempi,mui,gamma,ethi)
+    densi_cgs = rhoh(hi,particlemass)*unit_density
+    mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
+    call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,gamma,ethi)
     ethi = particlemass * ethi / unit_ergg
  case default ! assuming internal energy = thermal energy
     ethi = particlemass * vxyzu(4)

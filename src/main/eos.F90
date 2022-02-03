@@ -576,6 +576,8 @@ subroutine init_eos(eos_type,ierr)
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
        eion(1:2) = 0.  ! He recombination only
+    elseif (irecomb == 3) then
+       eion(1:4) = 0.  ! No recombination energy
     endif
     write(*,'(1x,a,i1)') 'Initialising gas+rad+rec EoS with irecomb=',irecomb
  end select
