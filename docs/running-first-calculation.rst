@@ -4,7 +4,7 @@ Running your first calculation
 First steps
 -----------
 
-After unpacking the tarball or a fresh :doc:`git clone <gitinfo>`, enter
+After obtaining a fresh :doc:`git clone <gitinfo>`, enter
 the root-level phantom directory:
 
 ::
