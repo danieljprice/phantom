@@ -42,9 +42,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use ptmass,         only:ipart_rhomax
+ use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass
  use externalforces, only:externalforce
- use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz,set_boundaries_to_active
+ use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz,set_boundaries_to_active,&
+                          nptmass,xyzmh_ptmass,sinks_have_heating
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -64,11 +65,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #endif
 #ifdef SINK_RADIATION
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
- use part,             only:dust_temp,nptmass,xyzmh_ptmass
+ use part,             only:dust_temp
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
- use part,           only:nptmass,xyzmh_ptmass
 #endif
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
@@ -175,6 +175,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call do_timing('driving',tlast,tcpulast)
 #endif
  stressmax = 0.
+ if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
