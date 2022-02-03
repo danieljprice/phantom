@@ -170,7 +170,8 @@ module raytracer
      real, intent(out)   :: taus(:)
     
      integer  :: i, nrays, nsides, index
-     real     :: normCompanion, theta0, unitCompanion(size(points(:,1))), theta, root, dist, dir(size(points(:,1)))
+     real     :: normCompanion = 0., theta0 = 0., unitCompanion(3) = 0., vec(3)
+     real     :: theta, root, dist, dir(size(points(:,1))), phi = 0., cosphi = 0., sinphi = 0.
      real, dimension(:,:), allocatable  :: dirs
      real, dimension(:,:), allocatable  :: listsOfDists, listsOfTaus
      real, dimension(:), allocatable    :: tau, dists
@@ -185,18 +186,20 @@ module raytracer
      allocate(dists(size(listsOfDists(:,1))))
      allocate(listOfPoints(size(listsOfDists(:,1))))
 
-     normCompanion = 0.
-     theta0 = 0.
-     unitCompanion = 0.
      if (present(companion) .and. present(R)) then
-      normCompanion = norm2(points(:,companion)-points(:,primary))
+      unitCompanion = points(:,companion)-points(:,primary)
+      normCompanion = norm2(unitCompanion)
       theta0 = asin(R/normCompanion)
-      unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
+      unitCompanion = unitCompanion/normCompanion
+      phi = atan(unitCompanion(2)/unitCompanion(1))
+      cosphi = cos(phi)
+      sinphi = sin(phi)
      endif
      
      !$omp parallel do private(dir,tau,dists,dist,root,theta,listOfPoints)
      do i = 1, nrays
        call pix2vec_nest(nsides, i-1, dir)
+      !  dir = (/cosphi*dir(1) - sinphi*dir(2),sinphi*dir(1) + cosphi*dir(2), dir(3)/)
        listOfPoints=0
        tau=0.
        dists=0.
@@ -221,9 +224,11 @@ module raytracer
       enddo
 
      taus = 0.
-     !$omp parallel do private(index)
+     !$omp parallel do private(index,vec)
      do i = 1, size(taus)
-       call vec2pix_nest(nsides, points(:,i)-points(:,primary), index)
+       vec = points(:,i)-points(:,primary)
+      !  vec = (/cosphi*vec(1) + sinphi*vec(2),-sinphi*vec(1) + cosphi*vec(2), vec(3)/)
+       call vec2pix_nest(nsides, vec, index)
        index = index + 1
        call get_tau_outwards(points(:,i), points(:,primary), listsOfTaus(:,index), listsOfDists(:,index), dirs(:,index), taus(i))
      enddo
@@ -243,7 +248,7 @@ module raytracer
             i = i+1
          enddo
          if (dist .gt. listOfDists(i)) then
-            tau = 10
+            tau = 1e10
          else
             tau = listOfTaus(i-1)+(listOfTaus(i)-listOfTaus(i-1))/(listOfDists(i)-listOfDists(i-1))*(dist-listOfDists(i-1))
          endif
