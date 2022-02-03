@@ -169,6 +169,9 @@ for edittype in $bots_to_run; do
                'indent' )
                   if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
+                  else
+                     echo "WARNING: findent not found so indent-bot has not run";
+                     echo "         (https://www.ratrabbit.nl/ratrabbit/findent/index.html)";
                   fi;;
                esac
                if [ -s $out ]; then
