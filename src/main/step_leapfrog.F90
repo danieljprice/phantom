@@ -171,7 +171,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! velocity predictor step, using dtsph
 !--------------------------------------
  itype   = igas
- ntypes  = get_ntypes(npartoftype)
+ ntypes  = get_ntypes(reduceall_mpi('+',npartoftype))
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2

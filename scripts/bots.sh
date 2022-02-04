@@ -43,12 +43,54 @@ if [ ! -s $codedir/$authorsfile ]; then
 fi
 docommit=0;
 applychanges=0;
-if [[ "$1" == "--apply" ]]; then
-   applychanges=1;
+doindent=1;
+gitstaged=0;
+
+while [[ "$1" == --* ]]; do
+  case $1 in
+    --apply)
+      applychanges=1;
+      ;;
+
+    --commit)
+      docommit=1;
+      applychanges=1;
+      ;;
+
+    --no-indent)
+      doindent=0;
+      ;;
+
+   --staged-files-only)
+      gitstaged=1;
+      ;;
+
+    *)
+      badflag=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$badflag" != "" ]]; then
+   echo "ERROR: Unknown flag $badflag"
+   exit
 fi
-if [[ "$1" == "--commit" ]]; then
-   docommit=1;
-   applychanges=1;
+
+if [[ $gitstaged == 1 && $docommit == 1 ]]; then
+   echo "--staged-files-only and --commit cannot both be used because "
+   echo "this will commit your git changes with the automated commit message"
+   exit
+fi
+
+if [[ $doindent == 1 ]]; then
+   if ! command -v findent > /dev/null; then
+      echo "ERROR: findent not found, please install:                   ";
+      echo "       https://www.ratrabbit.nl/ratrabbit/findent/index.html";
+      echo "                                                            ";
+      echo "       or disable indent-bot using --no-indent              ";
+      exit
+   fi
 fi
 cd $codedir;
 if [[ $docommit == 1 ]]; then
@@ -69,7 +111,10 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif indent';
+bots_to_run='tabs gt shout header whitespace authors endif';
+if [[ $doindent == 1 ]]; then
+   bots_to_run="${bots_to_run} indent";
+fi
 #bots_to_run='shout';
 for edittype in $bots_to_run; do
     filelist='';
@@ -77,16 +122,21 @@ for edittype in $bots_to_run; do
     'authors' )
        dirlist=".";
        goback='-';
-       listoffiles="$authorsfile";;
+       filenamepattern="$authorsfile";;
     * )
        dirlist="src/*";
        goback="../../";
-       listoffiles="*.*90";;
+       filenamepattern="*.*90";;
     esac
     for dir in $dirlist; do
         if [ -d $dir ]; then
            cd $dir;
-           myfiles=`get_only_files_in_git "$listoffiles"`
+           if [[ $gitstaged == 1 && "$filenamepattern" == "*.*90" ]]; then
+             files=`git diff --name-only --cached --relative -- "./*.*90" | tr '\n' ' '`;
+           else
+             files=$filenamepattern
+           fi
+           myfiles=`get_only_files_in_git "$files"`
            for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
