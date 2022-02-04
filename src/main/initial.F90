@@ -362,7 +362,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        endif
        if (use_dustfrac) then
           !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
-          dustevol(:,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
+          dustevol(:,i) = 0.
+          dustevol(1:ndustsmall,i) = sqrt(dustfrac(1:ndustsmall,i)/(1.-dustfrac(1:ndustsmall,i)))
        endif
     enddo
  endif

@@ -222,7 +222,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_dustfrac) then
           !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
           if (.not.(use_dustgrowth .and. this_is_a_test)) &
-             dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
+             dustfrac(1:ndustsmall,i) = dustevol(1:ndustsmall,i)**2/(1.+dustevol(1:ndustsmall,i)**2)
           gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
           rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
        else
