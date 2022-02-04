@@ -142,25 +142,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
-   if (.true..and..not.tess) then
+   if (.True..and..not.tess) then
       print*,''
       print*, 'Start calculating optical depth inwards'
-      ! call system_clock(start)
-      ! call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-      !                            real(2.37686663,8), tau, npart2+2,real(0.1,8))
-      ! call system_clock(finish)
-      ! timeTau = (finish-start)/1000.
-      ! print*,'Time = ',timeTau,' seconds.'
-      open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+       call system_clock(start)
+       call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+                                  real(2.37686663,8), tau, npart2+2,real(0.1,8))
+       call system_clock(finish)
+       timeTau = (finish-start)/1000.
+       print*,'Time = ',timeTau,' seconds.'
+      !open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
       ! write(iu4, *) timeTau
-      close(iu4)
-      ! totalTime = totalTime + timeTau
-      ! open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
-      ! do i=1, size(tau)
-      !    write(iu2, *) tau(i)
-      ! enddo
-      ! close(iu2)
-
+      !close(iu4)
+       totalTime = totalTime + timeTau
+       open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+       do i=1, size(tau)
+          write(iu2, *) tau(i)
+       enddo
+       close(iu2)
+      stop 'message'
       do j = 0, 9
          write(jstring,'(i0)') j
          print*,''
@@ -236,8 +236,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          call allocate_linklist
          call set_linklist(npart2,npart2,xyzh2,vxyzu)
          call system_clock(start)
-         call get_all_tau_outwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
-                                    real(2.37686663,8), 6, tau, npart2+2,real(0.1,8))
+         call get_all_tau_inwards(npart2+1, xyzh2(1:3,:), xyzh2, neighb, rho*kappa*1.496e+13, &
+                                    real(2.37686663,8), tau, npart2+2,real(0.1,8))
          call system_clock(finish)
          timeTau = (finish-start)/1000.
          print*,'nthread = ',omp_get_max_threads(),': Time = ',timeTau,' seconds.'

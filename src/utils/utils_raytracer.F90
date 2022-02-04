@@ -3,6 +3,9 @@ module raytracer
    implicit none
    public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_optimised
    private
+   
+!#define INLINE
+!#define INLINE2
   contains
   
   !*********************************************************************!
@@ -332,8 +335,14 @@ module raytracer
      real, intent(out)   :: taus(:)
     
      integer :: i
-     real    :: normCompanion, theta0, unitCompanion(size(points(:,1))), norm, theta, root, norm0, tau
-
+     real    :: normCompanion, theta0, unitCompanion(3), norm, theta, root, norm0, tau
+     integer :: k, next, previous
+     real    :: ray(3), nextDist, previousDist, maxDist
+#ifdef INLINE2
+     real :: vec(3),trace_point(3),tempdist,raydist,dmin,dist
+     integer :: j,nneigh,nextj
+#endif
+     
      normCompanion = 0.
      theta0 = 0.
      unitCompanion = 0.
@@ -343,7 +352,20 @@ module raytracer
       unitCompanion = (points(:,companion)-points(:,primary))/normCompanion
      endif
     
-     !$omp parallel do private(tau)
+    !$omp parallel do &
+    !$omp default(none)&
+    !$omp private(tau,norm,theta,root,norm0)&
+#ifdef INLINE2
+    !$omp private(j,vec,trace_point,nneigh,tempdist,raydist,dmin,dist,nextj) &
+#endif
+    !$omp shared(taus,companion,R,theta0,primary,opacities,Rstar,&
+#ifdef INLINE
+    !$omp        neighbors,points,unitCompanion,normCompanion) &
+    !$omp private(ray,maxDist,next,nextDist,k,previous,previousDist)
+#else
+     !$omp        neighbors,points,unitCompanion,normCompanion)
+#endif   
+
      do i = 1, size(taus)
       if (present(companion) .and. present(R)) then
          norm = norm2(points(:,i)-points(:,primary))
@@ -357,15 +379,65 @@ module raytracer
                call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
             endif
          else
+#ifdef INLINE
+            ray = points(:,primary) - points(:,i)
+            maxDist = norm2(ray)
+            ray = ray / maxDist
+            maxDist=max(maxDist-Rstar,0.)
+            next=i
+            nextDist=0.
+            
+            tau = 0.
+            k=1
+            do while (next /= primary .and. next /=0)
+                k = k + 1
+                previous = next
+                previousDist = nextDist
+
+#ifdef INLINE2               
+!    subroutine find_next(inpoint, ray, dist, points, neighbors, next, nneighin)
+                dmin = huge(0.)
+                nneigh = size(neighbors(next,:))
+                Dist=nextdist
+                nextj = next
+                next=0
+                trace_point = points(:,i) + nextDist*ray
+
+                j = 1
+                dist = nextdist
+                do while (j <= nneigh .and. neighbors(nextj,j) /= 0)
+                    vec=points(:,neighbors(nextj,j)) - trace_point
+                    tempdist = dot_product(vec,ray)
+                    if (tempdist>0.) then
+                        raydist = dot_product(vec,vec) - tempdist**2
+                        if (raydist < dmin) then
+                            dmin = raydist
+                            next = neighbors(nextj,j)
+                            nextdist = dist+tempdist
+                        end if
+                    end if
+                    j = j+1
+                enddo
+#else                
+                
+                call find_next(points(:,i), ray, nextDist, points, neighbors(next,:), next)
+#endif
+                if (nextDist .gt. maxDist) then
+                    next = primary
+                    nextDist = maxDist
+                end if
+                tau = tau + (nextDist-previousDist)*(opacities(next)+opacities(previous))/2
+            enddo
+#else
             call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
+#endif
          endif
       else
          call get_tau_inwards(i, primary, points, neighbors, opacities, Rstar, tau)
       endif
-      !$omp critical
-      taus(i) = tau 
-      !$omp end critical
-   enddo
+      taus(i) = tau
+    enddo
+    !$omp  end parallel do
     end subroutine get_all_tau_inwards
     
     subroutine get_tau_inwards(secondary, primary, points, neighbors, opacities, Rstar, tau)
@@ -383,7 +455,7 @@ module raytracer
      next=secondary
      nextDist=0.
      
-     tau = 0
+     tau = 0.
      i=1
      do while (next /= primary .and. next /=0)
         i = i + 1
@@ -395,8 +467,6 @@ module raytracer
             nextDist = maxDist
         end if
         tau = tau + (nextDist-previousDist)*(opacities(next)+opacities(previous))/2
-        if (tau<0) then
-        endif
      enddo
     end subroutine get_tau_inwards
 
@@ -411,11 +481,11 @@ module raytracer
      real, intent(inout)  :: dist
      integer, optional    :: nneighin
     
-     real                 :: trace_point(size(inpoint)), min, vec(size(inpoint)), tempdist, raydist
+     real                 :: trace_point(3), dmin, vec(3), tempdist, raydist
      real                 :: nextdist
      integer              :: i, nneigh
-     character(len=3)     :: inf="INF"
-     read(inf,*) min
+     
+     dmin = huge(0.)
      if (present(nneighin)) then
       nneigh = nneighin
      else
@@ -430,10 +500,10 @@ module raytracer
      do while (i <= nneigh .and. neighbors(i) /= 0)
         vec=points(:,neighbors(i)) - trace_point
         tempdist = dot_product(vec,ray)
-        if (tempdist>0) then
+        if (tempdist>0.) then
             raydist = dot_product(vec,vec) - tempdist**2
-            if (raydist < min) then
-                min = raydist
+            if (raydist < dmin) then
+                dmin = raydist
                 next = neighbors(i)
                 nextdist = dist+tempdist
             end if
