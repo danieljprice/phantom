@@ -1604,18 +1604,22 @@ end subroutine delete_particles_outside_sphere
 !  Delete particles outside of a defined cylinder
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_cylinder(center, radius, zmax)
- real, intent(in) :: center(3), radius, zmax
- integer :: i
- real :: x, y, z, rcyl
+subroutine delete_particles_outside_cylinder(center,radius,zmax,npoftype)
+ use io, only:fatal
+ real, intent(in) :: center(3),radius,zmax
+ integer :: i,npoftype(:)
+ real :: x,y,z,rcyl
 
  do i=1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
     rcyl=sqrt((x-center(1))**2 + (y-center(2))**2)
-    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npartoftype)
+    if (rcyl > radius .or. abs(z) > zmax) call kill_particle(i,npoftype)
  enddo
+ call shuffle_part(npart)
+ if (npart /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
+
 
 end subroutine delete_particles_outside_cylinder
 
