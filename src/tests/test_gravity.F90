@@ -332,11 +332,11 @@ subroutine test_directsum(ntests,npass)
        do i=1,npart
           epoti = epoti + poten(i)
        enddo
-       call checkval(epoti,phitot,5.1e-4,nfailed(4),'potential')
+       call checkval(epoti,phitot,5.2e-4,nfailed(4),'potential')
        call checkval(epoti,-3./5.*totmass**2/rmax,3.6e-2,nfailed(5),'potential=-3/5 GMM/R')
        ! check that potential energy computed via compute_energies is also correct
        call compute_energies(0.)
-       call checkval(epot,phitot,5.1e-4,nfailed(6),'epot in compute_energies')
+       call checkval(epot,phitot,5.2e-4,nfailed(6),'epot in compute_energies')
        call update_test_scores(ntests,nfailed(1:6),npass)
     endif
  enddo
