@@ -14,8 +14,9 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree, options,
-!   part, physcon, ptmass, spherical, testutils, timing
+! :Dependencies: balance, deriv, dim, directsum, energies, eos, io, kdtree,
+!   linklist, mpiutils, options, part, physcon, ptmass, sort_particles,
+!   spherical, testutils, timing
 !
  use io, only:id,master
  implicit none
@@ -289,7 +290,7 @@ subroutine test_directsum(ntests,npass)
        npart    = 0
        ! only set up particles on master, otherwise we will end up with n duplicates
        if (id==master) then
-        call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
+          call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh)
        endif
        np       = npart
 !
@@ -329,33 +330,26 @@ subroutine test_directsum(ntests,npass)
 !
        fxyzu = 0.0
 !
-!--move particles to master for direct summation
+!--move particles to master and sort for direct summation
 !
        ibelong(:) = 0
        call balancedomains(npart)
+       call sort_part_id
+!
+!--allocate array for storing direct sum gravitational force
+!
+       allocate(fgrav(maxvxyzu,npart))
+       fgrav = 0.0
 !
 !--compute gravitational forces by direct summation
 !
        if (id == master) then
-        call directsum_grav(xyzh,gradh,fxyzu,phitot,npart)
+          call directsum_grav(xyzh,gradh,fgrav,phitot,npart)
        endif
 !
 !--send phitot to all tasks
 !
        call bcast_mpi(phitot)
-!
-!--call linklist to move particles to the task that derivs will move them to
-!
-       call set_linklist(npart,npart,xyzh,vxyzu)
-!
-!--allocate an array to write the directsum results into
-!
-      allocate(fgrav(maxvxyzu,npart))
-      fgrav(:,1:npart) = fxyzu(:,1:npart)
-!
-!--reset force to zero
-!
-      fxyzu = 0.0
 !
 !--calculate derivatives
 !
@@ -363,6 +357,12 @@ subroutine test_directsum(ntests,npass)
        call get_derivs_global()
        call getused(t2)
        if (id==master) call printused(t1)
+!
+!--move particles to master and sort for test comparison
+!
+       ibelong(:) = 0
+       call balancedomains(npart)
+       call sort_part_id
 !
 !--compare the results
 !
@@ -502,8 +502,8 @@ subroutine test_directsum(ntests,npass)
     if (id == master) nfgrav = size(fgrav,dim=2)
     call bcast_mpi(nfgrav)
     if (id /= master) then
-      deallocate(fgrav)
-      allocate(fgrav(maxvxyzu,nfgrav))
+       deallocate(fgrav)
+       allocate(fgrav(maxvxyzu,nfgrav))
     endif
     call bcast_mpi(fgrav)
 
@@ -545,8 +545,8 @@ subroutine copy_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
 end subroutine copy_gas_particles_to_sinks
 
 subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,massi)
-  use io,       only: id,master,fatal
-  use mpiutils, only: bcast_mpi
+ use io,       only: id,master,fatal
+ use mpiutils, only: bcast_mpi
  integer, intent(inout) :: npart
  integer, intent(out)   :: nptmass
  real, intent(in)  :: xyzh(:,:),massi
@@ -559,33 +559,33 @@ subroutine copy_half_gas_particles_to_sinks(npart,nptmass,xyzh,xyzmh_ptmass,mass
  call bcast_mpi(nparthalf)
 
  if (id==master) then
-  ! Assuming all gas particles are already on master,
-  ! create sinks here and send them to other tasks
+    ! Assuming all gas particles are already on master,
+    ! create sinks here and send them to other tasks
 
-  ! remove half the particles by changing npart
-  npart = nparthalf
+    ! remove half the particles by changing npart
+    npart = nparthalf
 
-  do i=npart+1,2*npart
-      nptmass = nptmass + 1
-      call bcast_mpi(nptmass)
-      ! make a sink particle with the position of each SPH particle
-      xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
-      xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
-      xyzmh_ptmass(5:,nptmass) = 0.
-      call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
-  enddo
-else
-  ! Assuming there are no gas particles here,
-  ! get sinks from master
+    do i=npart+1,2*npart
+       nptmass = nptmass + 1
+       call bcast_mpi(nptmass)
+       ! make a sink particle with the position of each SPH particle
+       xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
+       xyzmh_ptmass(4,nptmass)  =  massi ! same mass as SPH particles
+       xyzmh_ptmass(5:,nptmass) = 0.
+       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+    enddo
+ else
+    ! Assuming there are no gas particles here,
+    ! get sinks from master
 
-  if (npart /= 0) call fatal("copy_half_gas_particles_to_sinks","there are particles on a non-master task")
+    if (npart /= 0) call fatal("copy_half_gas_particles_to_sinks","there are particles on a non-master task")
 
-  ! Get nparthalf from master, but don't change npart from zero
-  do i=nparthalf+1,2*nparthalf
-    call bcast_mpi(nptmass)
-    call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
-  enddo
-endif
+    ! Get nparthalf from master, but don't change npart from zero
+    do i=nparthalf+1,2*nparthalf
+       call bcast_mpi(nptmass)
+       call bcast_mpi(xyzmh_ptmass(1:5,nptmass))
+    enddo
+ endif
 
 end subroutine copy_half_gas_particles_to_sinks
 
