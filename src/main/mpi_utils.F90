@@ -85,7 +85,7 @@ module mpiutils
 !
  interface reduceall_mpi
   module procedure reduceall_mpi_real, reduceall_mpi_real4, reduceall_mpi_int, reduceall_mpi_int8, reduceall_mpi_int1, &
-                     reduceall_mpi_realarr, reduceall_mpi_real4arr, reduceall_mpi_int4arr
+                     reduceall_mpi_realarr, reduceall_mpi_realarr2, reduceall_mpi_real4arr, reduceall_mpi_int4arr
  end interface reduceall_mpi
  !
  !--generic interface reduceloc_mpi
@@ -651,6 +651,43 @@ function reduceall_mpi_realarr(string,xproc)
 #endif
 
 end function reduceall_mpi_realarr
+
+!--------------------------------------------------------------------------
+!+
+!  function performing MPI reduction operations (+,max,min) on 2-d array
+!  of real*8 numbers. Can be called from non-MPI routines.
+!  Sends result to all threads.
+!+
+!--------------------------------------------------------------------------
+function reduceall_mpi_realarr2(string,xproc)
+#ifdef MPI
+   use io, only:fatal
+#endif
+   character(len=*), intent(in) :: string
+   real(kind=8),     intent(in) :: xproc(:,:)
+   real(kind=8) :: reduceall_mpi_realarr2(size(xproc,1),size(xproc,2))
+#ifdef MPI
+   real(kind=8) :: xred(size(xproc,1),size(xproc,2)),xsend(size(xproc,1),size(xproc,2))
+
+   xsend(:,:) = xproc(:,:)  ! mpi calls don't like it if send and receive addresses are the same
+   select case(trim(string))
+   case('+')
+      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+   case('max')
+      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+   case('min')
+      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+   case default
+      call fatal('reduceall (mpi)','unknown reduction operation')
+   end select
+   if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
+
+   reduceall_mpi_realarr2(:,:) = xred(:,:)
+#else
+   reduceall_mpi_realarr2(:,:) = xproc(:,:)
+#endif
+
+end function reduceall_mpi_realarr2
 
 !--------------------------------------------------------------------------
 !+
