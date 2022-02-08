@@ -1397,8 +1397,8 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
        if (use_dustgrowth) then
-         call fill_buffer(xtemp, dustprop(:,i),nbuf)
-         call fill_buffer(xtemp, dustproppred(:,i),nbuf)
+          call fill_buffer(xtemp, dustprop(:,i),nbuf)
+          call fill_buffer(xtemp, dustproppred(:,i),nbuf)
        endif
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
@@ -1470,8 +1470,8 @@ subroutine unfill_buffer(ipart,xbuf)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     if (use_dustgrowth) then
-      dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
-      dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
+       dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
+       dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
     endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
