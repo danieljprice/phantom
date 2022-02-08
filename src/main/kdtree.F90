@@ -207,7 +207,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     ! construct node
     call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list)
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, .false.)
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -257,7 +257,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
           ! construct node
           call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
               il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list)
+              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, .false.)
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -467,7 +467,7 @@ end subroutine pop_off_stack
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
-            groupsize)
+            global_build)
  use dim,       only:maxtypes
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
@@ -480,7 +480,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real,              intent(inout) :: xmini(ndim), xmaxi(ndim)
  integer,           intent(in)    :: npnode
  logical,           intent(in)    :: doparallel
- integer, optional, intent(in)    :: groupsize ! used for global node construction
  integer,           intent(out)   :: il, ir, nl, nr
  real,              intent(out)   :: xminl(ndim), xmaxl(ndim), xminr(ndim), xmaxr(ndim)
  integer(kind=8),   intent(inout) :: ncells
@@ -489,6 +488,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real,              intent(in)    :: xyzh(:,:)
  logical,           intent(out)   :: wassplit
  integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
+ logical,           intent(in)    :: global_build
 
  real                           :: xyzcofm(ndim)
  real                           :: totmass_node
@@ -535,7 +535,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  nl = 0
  nr = 0
  wassplit = .false.
- if ((.not. present(groupsize)) .and. (npnode  <  1)) return ! node has no particles, just quit
+ if ((.not. global_build) .and. (npnode  <  1)) return ! node has no particles, just quit
 
  r2max = 0.
  hmax  = 0.
@@ -619,7 +619,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
 #ifdef MPI
  ! if this is global node construction
- if (present(groupsize)) then
+ if (global_build) then
     call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
     totmass_node = totmassg
@@ -674,7 +674,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !!$omp end parallel do
 
 #ifdef MPI
- if (present(groupsize)) then
+ if (global_build) then
     r2max    = reduce_group(r2max,'max',level)
     hmax     = reduce_group(hmax,'max',level)
     xmini(1) = reduce_group(xmini(1),'min',level)
@@ -693,7 +693,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
  endif
 
- if (present(groupsize)) then
+ if (global_build) then
     npnodetot = reduce_group(npnode,'+',level)
  else
 #endif
@@ -744,7 +744,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
     ! create two children nodes and point to them from current node
     ! always use G&R indexing for global tree
-    if ((level < maxlevel_indexed) .or. (present(groupsize))) then
+    if ((level < maxlevel_indexed) .or. global_build) then
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
@@ -781,7 +781,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells
-       if ( (.not. present(groupsize)) .and. ((nl==npnode) .or. (nr==npnode)) ) then
+       if ( (.not. global_build) .and. ((nl==npnode) .or. (nr==npnode)) ) then
           ! no need to move particles because if they all ended up in one node,
           ! then they are still in the original order
           nl = npnode / 2
@@ -1529,7 +1529,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
-            groupsize)
+            .true.)
 
     if (.not.wassplit) then
        call fatal('maketreeglobal','insufficient particles for splitting at the global level: '// &
