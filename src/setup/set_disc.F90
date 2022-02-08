@@ -266,6 +266,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !    3 = both tapered and smoothed
  !    4 = alternative taper
  !    5 = alternative taper with smoothing
+ !    6 = density profile from file
  sigmaprofile = 0
  if (exponential_taper) then
     sigmaprofile = 1
@@ -568,13 +569,12 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  do i=1,maxbins
     R = Rin + (i-1)*dR
     !---------This if cycle can be entirely skipped if generating mean anomaly
-     !if(e_0>0) then 
-     if(e_0<1) then 
+    if(e_0 < 1.) then 
        do j=1,maxbins
           phi=(j-1)*dphi
           distr_corr_val=distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
                 !distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
-          if(distr_corr_val<0) then
+          if(distr_corr_val < 0.) then
              call fatal('set_disc','set_disc_positions: distr_corr<0, choose a shallower eccentricity profile')
           endif
           distr_corr_max=max(distr_corr_max,distr_corr_val)
@@ -602,8 +602,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  ipart = npart_start_count - 1
 
  !--loop over particles
-! do i=npart_start_count,npart_tot,2
-  do i=npart_start_count,npart_tot,1
+ do i=npart_start_count,npart_tot,1
     if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
@@ -615,7 +614,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        R = Rin + (Rout - Rin)*ran2(iseed)
        !--Note that here R is the semi-maj axis, if e0=0. R=a
        ea=ecc_distrib(R,e_0,R_ref,e_index,eccprofile)
-       if(e_0 .ne. 0.) then !-- We generate mean anomalies 
+       if((e_0 .ne. 0.) .or. (eccprofile == 4)) then !-- We generate mean anomalies 
           Mmean = phi_min + (phi_max - phi_min)*ran2(iseed)
        !--This is because rejection must occur on the couple (a,phi)
        !--and not only on a.
@@ -625,7 +624,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        else
           phi=phi_min + (phi_max - phi_min)*ran2(iseed)
        endif
-       !print*,phi,Mmean,ea
        !phi=Mmean+2.*ea*sin(Mmean)+5./4.*ea**2.*sin(2.*Mmean)+&
        !      ea**3*(13./12.*sin(3.*Mmean)-1./4.*sin(3.*Mmean))+&
        !      ea**4*(103./96.*sin(4.*Mmean)-11./24.*sin(4.*Mmean))
@@ -637,7 +635,6 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
                         distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile)!*&
                    ! distr_ecc_azimuth(R,phi,R_ref,e_0,e_index,phi_peri,p_index)
        sigma = f/(R*distr_ecc_corr(R,phi,R_ref,e_0,e_index,phi_peri,eccprofile))
-    !   print*, p_index
        if (do_mixture) then
           if (R>=Rindust .and. R<=Routdust) then
              fmixt = R*sigma_normdust*scaled_sigma(R,sigmaprofiledust,&
@@ -996,12 +993,15 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  use part,         only:igas
  use physcon,      only:kb_on_mh
  use units,        only:unit_velocity
+ use grids_for_setup, only: init_grid_sigma,deallocate_sigma
+
  integer, intent(in) :: iunit,npart,itype,sigmaprofile
  real,    intent(in) :: R_in,R_out,R_ref,Q,p_index,q_index,star_m,disc_m,sigma_norm,L_tot_mag
  real,    intent(in) :: alphaSS_min,alphaSS_max,R_warp,psimax,R_c,inclination,honH,cs0
  integer :: i
  real    :: T0,T_ref,sig,dR,R
 
+! if(sigmaprofile==6) call init_grid_sigma(R_in,R_out) 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
@@ -1085,6 +1085,7 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') (1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
  endif
  write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
+! if(sigmaprofile==6) call deallocate_sigma()
 
  return
 end subroutine write_discinfo
@@ -1412,7 +1413,7 @@ function m_to_f(ecc,M) result(F)
         F = 2.*atan(sqrt((1.+ecc)/(1.-ecc))*tan(0.5*E))
         F=mod(2*pi + mod(f, 2*pi), 2*pi)
     else
-        call fatal('set_disc', 'set_disc_positions: some particles have ecc >1.') 
+        call fatal('set_disc', 'm_to_f: some particles have ecc >1.') 
     endif
 
 end function m_to_f

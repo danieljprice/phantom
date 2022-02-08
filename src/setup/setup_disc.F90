@@ -904,10 +904,10 @@ subroutine calculate_disc_mass()
  totmass_gas  = 0.
 
  do i=1,maxdiscs
-    if (iuse_disc(i)) then
-       !--initialise the sigma grid file
-       if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
+    !--initialise the sigma grid file
+    if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
 
+    if (iuse_disc(i)) then
        !--gas discs
        select case(isetgas(i))
        case (0)
@@ -1128,10 +1128,13 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
-
+            
                 !--taper dust disc
                 iprofiledust = 0
                 if (itaperdust(i,j)) iprofiledust = 1
+                if (itapersetdust(i,j) == 1) iprofiledust = 2
+                if (use_sigmadust_file(i,j)) iprofiledust = 3
+
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1230,9 +1233,12 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
 
-                !--taper dust disc
-                iprofiledust = 0
-                if (itaperdust(i,j)) iprofiledust = 1
+             !--taper dust disc
+             iprofiledust = 0
+             if (itaperdust(i,j)) iprofiledust = 1
+             if (itapersetdust(i,j) == 1) iprofiledust = 2
+             if (use_sigmadust_file(i,j)) iprofiledust = 3
+
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -1488,6 +1494,7 @@ end subroutine print_angular_momentum
 !--------------------------------------------------------------------------
 subroutine print_dust()
 
+ use grids_for_setup, only: init_grid_sigma,deallocate_sigma
  character(len=20) :: duststring(maxdusttypes)
  integer           :: i,j
  real              :: Sigma
@@ -1517,6 +1524,7 @@ subroutine print_dust()
 
     do i=1,maxdiscs
        if (iuse_disc(i)) then
+          if(sigmaprofilegas(i)==6) call init_grid_sigma(R_in(i),R_out(i))
           R_midpoint = (R_in(i) + R_out(i))/2
           Sigma = sig_norm(i) * &
                   scaled_sigma(R_midpoint,sigmaprofilegas(i),pindex(i),R_ref(i),R_in(i),R_out(i),R_c(i))
@@ -1535,6 +1543,7 @@ subroutine print_dust()
           do j=1,ndusttypes
              print*,'',adjustr(duststring(j))//' : ',Stokes(j)
           enddo
+          if(sigmaprofilegas(i)==6) call deallocate_sigma()
        endif
     enddo
     print "(1x,54('-'),/)"
@@ -2765,6 +2774,8 @@ end subroutine read_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
+
+ use grids_for_setup, only: init_grid_sigma,deallocate_sigma
  integer, intent(in) :: disc_index
  integer, intent(in) :: ipart_start
  integer, intent(in) :: ipart_end
@@ -2779,6 +2790,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real    :: sigma_dust
 
  dust_to_gas = 0.
+ if(sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(i),R_out(i))
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -2811,7 +2823,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
     dustfrac(1:ndustsmall,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(1:ndustsmall)
 
  enddo
-
+ if(sigmaprofilegas(disc_index)==6) call deallocate_sigma()
 end subroutine set_dustfrac
 
 !--------------------------------------------------------------------------
