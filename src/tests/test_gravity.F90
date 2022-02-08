@@ -233,26 +233,28 @@ end subroutine test_taylorseries
 !+
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
- use io,        only:id,master
- use dim,       only:maxp,maxptmass
- use part,      only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
-                     gradh,poten,iphase,isetphase,maxphase,labeltype,&
-                     nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong
- use eos,       only:polyk,gamma
- use options,   only:ieos,alpha,alphau,alphaB,tolh
- use spherical, only:set_sphere
- use deriv,     only:get_derivs_global
- use physcon,   only:pi
- use timing,    only:getused,printused
- use directsum, only:directsum_grav
- use energies,  only:compute_energies,epot
- use kdtree,    only:tree_accuracy
- use testutils, only:checkval,checkvalbuf_end,update_test_scores
- use ptmass,    only:get_accel_sink_sink,get_accel_sink_gas,h_soft_sinksink
- use mpiutils,  only:reduceall_mpi,bcast_mpi
- use linklist,  only:set_linklist
- use balance,   only:balancedomains
- use sort_particles, only:sort_part_id
+ use io,              only:id,master
+ use dim,             only:maxp,maxptmass
+ use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
+                           gradh,poten,iphase,isetphase,maxphase,labeltype,&
+                           nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong
+ use eos,             only:polyk,gamma
+ use options,         only:ieos,alpha,alphau,alphaB,tolh
+ use spherical,       only:set_sphere
+ use deriv,           only:get_derivs_global
+ use physcon,         only:pi
+ use timing,          only:getused,printused
+ use directsum,       only:directsum_grav
+ use energies,        only:compute_energies,epot
+ use kdtree,          only:tree_accuracy
+ use testutils,       only:checkval,checkvalbuf_end,update_test_scores
+ use ptmass,          only:get_accel_sink_sink,get_accel_sink_gas,h_soft_sinksink
+ use mpiutils,        only:reduceall_mpi,bcast_mpi
+ use linklist,        only:set_linklist
+ use sort_particles,  only:sort_part_id
+#ifdef MPI
+ use balance,         only:balancedomains
+#endif
 
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
@@ -332,8 +334,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master and sort for direct summation
 !
+#ifdef MPI
        ibelong(:) = 0
        call balancedomains(npart)
+#endif
        call sort_part_id
 !
 !--allocate array for storing direct sum gravitational force
@@ -360,8 +364,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master and sort for test comparison
 !
+#ifdef MPI
        ibelong(:) = 0
        call balancedomains(npart)
+#endif
        call sort_part_id
 !
 !--compare the results
@@ -393,8 +399,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master for sink creation
 !
+#ifdef MPI
     ibelong(:) = 0
     call balancedomains(npart)
+#endif
 !
 !--sort particles so that they can be compared at the end
 !
@@ -487,8 +495,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master for comparison
 !
+#ifdef MPI
     ibelong(:) = 0
     call balancedomains(npart)
+#endif
     call sort_part_id
 
     call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-2,nfailed(1),'fgrav(x)')
