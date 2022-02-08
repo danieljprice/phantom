@@ -96,6 +96,7 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
  !--Create a sphere of uniform density
  !
  if (lattice=='random' .and. present(np_requested)) then
+    print*, 'Calling set_sphere_mc'
     call set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh,ierr,nptot,my_mask)
  elseif ( use_sphereN ) then
     vol_sphere = 4.0/3.0*pi*rmax**3
