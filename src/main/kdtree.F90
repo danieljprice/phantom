@@ -795,23 +795,49 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        xminl(1) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
        xminl(2) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
        xminl(3) = minval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+
        xmaxl(1) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),1))
        xmaxl(2) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),2))
        xmaxl(3) = maxval(xyzh_soa(inoderange(1,il):inoderange(2,il),3))
+
        xminr(1) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
        xminr(2) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
        xminr(3) = minval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
+
        xmaxr(1) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),1))
        xmaxr(2) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),2))
        xmaxr(3) = maxval(xyzh_soa(inoderange(1,ir):inoderange(2,ir),3))
     else
        nl = 0
        nr = 0
-       xminl = xmini
-       xmaxl = xmaxi
-       xminr = xmini
-       xmaxr = xmaxi
+       xminl = 0.0
+       xmaxl = 0.0
+       xminr = 0.0
+       xmaxr = 0.0
     endif
+
+#ifdef MPI
+    ! Reduce node limits of children across MPI tasks belonging to this group.
+    ! The synchronisation needs to happen here, not at the next level, because
+    ! the groups will be independent by then.
+    if (global_build) then
+       xminl(1) = reduce_group(xminl(1),'min',level)
+       xminl(2) = reduce_group(xminl(2),'min',level)
+       xminl(3) = reduce_group(xminl(3),'min',level)
+
+       xmaxl(1) = reduce_group(xmaxl(1),'max',level)
+       xmaxl(2) = reduce_group(xmaxl(2),'max',level)
+       xmaxl(3) = reduce_group(xmaxl(3),'max',level)
+
+       xminr(1) = reduce_group(xminr(1),'min',level)
+       xminr(2) = reduce_group(xminr(2),'min',level)
+       xminr(3) = reduce_group(xminr(3),'min',level)
+
+       xmaxr(1) = reduce_group(xmaxr(1),'max',level)
+       xmaxr(2) = reduce_group(xmaxr(2),'max',level)
+       xmaxr(3) = reduce_group(xmaxr(3),'max',level)
+    endif
+#endif
 
  endif
 
