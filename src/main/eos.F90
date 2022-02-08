@@ -55,7 +55,7 @@ module eos
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 19
+ integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -123,7 +123,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,vxi,vyi,vzi)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -138,8 +138,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi
  real,    intent(in)   , optional :: gamma_local
+ real,    intent(in)   , optional :: vxi,vyi,vzi
  real :: r,omega,bigH,polyk_new,r1,r2
  real :: gammai,temperaturei
+ real :: ai,entoti
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
@@ -390,6 +392,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        call fatal('eos','invoking KROME to calculate local gamma but variable '&
                         'not passed in equationofstate (bad value for eos?)')
     endif
+ case(20)
+!
+!--locally isothermal disc for eccentric discs (i.e. as a function of the semi-major axis)
+!
+    r = sqrt(xi**2 + yi**2 + zi**2)
+    entoti = 0.5*(vxi**2+vyi**2+vzi**2)  - xyzmh_ptmass(4,1)/r
+    ai = xyzmh_ptmass(4,1)/(2.*entoti)
+    ponrhoi = polyk*ai**(-2.*qfacdisc)
+    spsoundi = sqrt(ponrhoi)
+     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -441,6 +453,9 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
     endif
+ elseif (eos_type==33) then
+    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3), &
+                                vxi=vxyzui(1),vyi=vxyzui(2),vzi=vxyzui(3))
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
