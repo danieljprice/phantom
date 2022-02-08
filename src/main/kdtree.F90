@@ -922,6 +922,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real :: rcut,rcut2,r2
  real :: xoffset,yoffset,zoffset,tree_acc2
  logical :: open_tree_node
+ logical :: global_walk
 #ifdef GRAVITY
  real :: quads(6)
  real :: dr,totmass_node
@@ -943,7 +944,12 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
     maxcache = 0
  endif
 
- if (present(remote_export)) remote_export = .false.
+ if (present(remote_export)) then
+    remote_export = .false.
+    global_walk = .true.
+ else
+    global_walk = .false.
+ endif
 
  nneigh = 0
  istack = 1
@@ -993,7 +999,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #endif
     if ((r2 < rcut2) .or. open_tree_node) then
        if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
-          if_global_walk: if (present(remote_export)) then
+          if_global_walk: if (global_walk) then
              ! id is stored in ipart as id + 1
              if (ifirstincell(n) /= (id + 1)) then
                 remote_export(ifirstincell(n)) = .true.
@@ -1056,7 +1062,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           endif
        endif if_leaf
 #ifdef GRAVITY
-    elseif (present(fnode) .and. ((.not. present(remote_export)) .or. n < 2*nprocs-1)) then
+    elseif (present(fnode) .and. ((.not. global_walk) .or. n < 2*nprocs-1)) then
 !
 !--long range force on node due to distant node, along node centres
 !  along with derivatives in order to perform series expansion
