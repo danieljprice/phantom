@@ -612,13 +612,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     xyzcofm = (/xcofm,ycofm,zcofm/)
  endif
 
- ! if we have no particles, then cofm is zero anyway
+ ! if there are no particles in this node, then the cofm will
+ ! remain at zero
  if (totmass_node > 0.) then
     xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
  endif
 
 #ifdef MPI
- ! if this is global node construction
+ ! if this is global node construction, get the cofm and total mass
+ ! of all particles in this node (some on other MPI tasks)
  if (global_build) then
     call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
@@ -674,12 +676,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !!$omp end parallel do
 
 #ifdef MPI
+ ! reduce node limits and quads across MPI tasks belonging to this group
  if (global_build) then
     r2max    = reduce_group(r2max,'max',level)
     hmax     = reduce_group(hmax,'max',level)
+
     xmini(1) = reduce_group(xmini(1),'min',level)
     xmini(2) = reduce_group(xmini(2),'min',level)
     xmini(3) = reduce_group(xmini(3),'min',level)
+
     xmaxi(1) = reduce_group(xmaxi(1),'max',level)
     xmaxi(2) = reduce_group(xmaxi(2),'max',level)
     xmaxi(3) = reduce_group(xmaxi(3),'max',level)
@@ -766,15 +771,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-       !call sort_old(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-       !                         inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
-       !print*,ir,inodeparts(inoderange(1,il):inoderange(2,il))
        call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
                                   inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
-       !if (il==8) print*,nnode,il,iaxis,nl,nr,xpivot,inodeparts(inoderange(1,il):inoderange(2,il))
-
-       !if (any(xyzh_soa(inoderange(1,il):inoderange(2,il),iaxis) > xpivot)) print*,' ERROR x > xpivot on left'
-       !if (any(xyzh_soa(inoderange(1,ir):inoderange(2,ir),iaxis) <= xpivot)) print*,' ERROR x <= xpivot on right'
 
        if (nr + nl  /=  npnode) then
           call error('maketree','number of left + right != parent while splitting (likely cause: NaNs in position arrays)')
@@ -1509,26 +1507,19 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
-
  integer                       :: minlevel, maxlevel
-
  integer                       :: idleft, idright
  integer                       :: groupsize,ifirstingroup,groupsplit
-
  integer(kind=8), intent(out)  :: ncells
-
  type(kdnode)                  :: mynode(1)
-
  integer                       :: nl, nr
  integer                       :: il, ir, iself, parent
  integer                       :: level
  integer                       :: nnodestart, nnodeend,locstart,locend
  integer                       :: npcounter
-
  integer                       :: i, k, offset, roffset, roffset_prev, coffset
  integer                       :: inode
  integer                       :: npnode
-
  logical                       :: wassplit
 
  irootnode = 1
@@ -1568,11 +1559,11 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ! record parent for next round
     parent = iself
 
-    ! which half of the tree this proc is on
+    ! which half of the tree this task is on
     if (id < groupsplit) then
        ! i for the next node we construct
        iself = il
-       ! the left and right procIDs
+       ! the left and right task IDs
        idleft = id
        idright = id + 2**(globallevel - level - 1)
        xmini = xminl
