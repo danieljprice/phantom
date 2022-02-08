@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,7 +10,7 @@ module wind_equations
 !
 ! :References: Introduction to stellar winds (Lamers & Cassinelli)
 !
-! :Owner: Lionel
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
@@ -53,18 +53,20 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
  rold = rvT(1)
  do
     call RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-    if (dt_force) exit
+    if (dt_force) then
+       dt_next = dt
+       exit
+    endif
     if (err > .01) then
-       dt = dt * .9
+       dt = dt * 0.9
     else
-       !dt = dt * 1.05
-       dt = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
-       !dt = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+       !dt_next = dt * 1.05
+       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-3+rvT(2)))
+       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
        exit
     endif
  enddo
  rvT = new_rvT
- dt_next = dt
 
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
@@ -73,6 +75,11 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_d
 
 end subroutine evolve_hydro
 
+!--------------------------------------------------------------------------
+!
+!  Fourth-order Runge-Kutta integrator
+!
+!--------------------------------------------------------------------------
 subroutine RK4_step_dr(dt, rvT, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
  use physcon, only:Gg,Rg,pi
  use options, only:ieos
@@ -135,8 +142,8 @@ subroutine calc_dvT_dr(r, v, T, Rstar_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
     if (abs(denominator) < denom_tol) then
        AA = 2.*c2/v**3
-       BB = expT*c2/(r*v)
-       CC = ((2.+expT)*(1.+expT)*r*v*c2-Gg*Mstar_cgs*v*(2.-2.*alpha+r*dalpha_dr))/(r**3)
+       BB = (expT*c2+c2*(2.+expT)-Gg*Mstar_cgs*(1.-alpha)/r)/(r*v**2)
+       CC = ((2.+expT)*(1.+expT)*c2-Gg*Mstar_cgs*(2.*(1.-alpha)/r+dalpha_dr))/(v*r**2)
        dv_dr = solve_q(AA, BB, CC)
     else
        dv_dr = numerator/denominator

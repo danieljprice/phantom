@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -57,20 +57,22 @@ end function get_rad_R
 !  set equal gas and radiation temperatures for all particles
 !+
 !-------------------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,mu_local)
  use part,      only:rhoh,igas,iradxi
  use eos,       only:gmw,gamma
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real, intent(in), optional :: mu_local(:)
  real, intent(out)   :: rad(:,:)
- real                :: rhoi,pmassi
+ real                :: rhoi,pmassi,mu
  integer             :: i
 
  pmassi = massoftype(igas)
+ mu = gmw
  do i=1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
-    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,gmw)
-    !print*,i,' Tgas = ',Tgas,'rad=',rad(iradxi,i)
+    if (present(mu_local)) mu = mu_local(i)
+    rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
@@ -81,19 +83,15 @@ end subroutine set_radiation_and_gas_temperature_equal
 !+
 !-------------------------------------------------
 real function radiation_and_gas_temperature_equal(rho,u_gas,gamma,gmw) result(xi)
- use physcon,   only:Rg,steboltz,c
- use units,     only:unit_ergg,get_steboltz_code,get_c_code
+ use physcon,   only:Rg
+ use units,     only:unit_ergg,get_radconst_code
  real, intent(in) :: rho,u_gas,gamma,gmw
- real :: temp,cv1,a,Erad,steboltz_code,c_code
+ real :: temp,cv1,Erad
 
- steboltz_code = get_steboltz_code()
- c_code        = get_c_code()
-
- a   = 4.*steboltz_code/c_code
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
 
  temp = u_gas*cv1
- Erad = temp**4*a
+ Erad = temp**4*get_radconst_code()
  xi   = Erad /rho
 
 end function radiation_and_gas_temperature_equal
@@ -106,16 +104,13 @@ end function radiation_and_gas_temperature_equal
 !---------------------------------------------------------
 real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  use physcon,   only:Rg
- use units,     only:unit_ergg,get_steboltz_code,get_c_code
+ use units,     only:unit_ergg,get_radconst_code
  real, intent(in)    :: rho,etot,gamma,gmw
- real                :: steboltz_code,c_code,a,cv1
+ real                :: a,cv1
  real                :: numerator,denominator,correction
  real, parameter     :: tolerance = 1d-15
 
- steboltz_code = get_steboltz_code()
- c_code        = get_c_code()
-
- a   = 4.*steboltz_code/c_code
+ a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
 
  temp = etot*cv1  ! Take gas temperature as initial guess
@@ -131,38 +126,28 @@ end function T_from_Etot
 
 !---------------------------------------------------------
 !+
-!  get the radiation energy from the raditaion temperature
+!  get the radiation energy from the radiation temperature
 !+
 !---------------------------------------------------------
 real function radE_from_Trad(Trad) result(radE)
- use units,     only:get_steboltz_code,get_c_code
- real, intent(in)  :: Trad
- real              :: a,steboltz_code,c_code
+ use units, only:get_radconst_code
+ real, intent(in) :: Trad
 
- steboltz_code = get_steboltz_code()
- c_code        = get_c_code()
+ radE = Trad**4*get_radconst_code()
 
- a = 4. * steboltz_code/c_code
-
- radE = Trad**4*a
 end function radE_from_Trad
 
 !---------------------------------------------------------
 !+
-!  get the radiation temperature from the radiation energy
+!  get the radiation temperature from the radiation energy per unit volume
 !+
 !---------------------------------------------------------
 real function Trad_from_radE(radE) result(Trad)
- use units,     only:get_steboltz_code,get_c_code
- real, intent(in)    :: radE
- real                :: a,steboltz_code,c_code
+ use units, only:get_radconst_code
+ real, intent(in) :: radE
 
- steboltz_code = get_steboltz_code()
- c_code        = get_c_code()
+ Trad = (radE/get_radconst_code())**0.25
 
- a = 4. * steboltz_code/c_code
-
- Trad = (radE/a)**0.25
 end function Trad_from_radE
 
 !---------------------------------------------------------
@@ -202,41 +187,40 @@ end function Tgas_from_ugas
 !  integrate radiation energy exchange terms over a time interval dt
 !+
 !--------------------------------------------------------------------
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
+subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
  use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
- use units,        only:get_steboltz_code,get_c_code,unit_velocity
+ use units,        only:get_radconst_code,get_c_code,unit_velocity
  use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
  real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
+ real, intent(in), optional :: mu_local(:)
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
  integer, intent(in) :: npart
  real :: ui,pmassi,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
- real :: c_code,steboltz_code
  integer :: i
 
  pmassi        = massoftype(igas)
- steboltz_code = get_steboltz_code()
- c_code        = get_c_code()
 
- a   = 4.*steboltz_code/c_code
+ a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
 
  !$omp parallel do default(none)&
  !$omp private(kappa,ack,rhoi,ui)&
  !$omp private(dudt,xii,etot,unew)&
- !$omp shared(rad,radprop,xyzh,vxyzu)&
+ !$omp firstprivate(cv1)&
+ !$omp shared(rad,radprop,xyzh,vxyzu,mu_local,gamma)&
  !$omp shared(fxyzu,pmassi,maxphase,maxp)&
  !$omp shared(iphase,npart)&
- !$omp shared(dt,cv1,a,steboltz_code)
+ !$omp shared(dt,a,unit_velocity)
  do i = 1,npart
     if (maxphase==maxp) then
        if (iamtype(iphase(i)) /= igas) cycle
     endif
     kappa = radprop(ikappa,i)
-    ack = 4.*steboltz_code*kappa
+    ack = get_radconst_code()*get_c_code()*kappa
 
     rhoi = rhoh(xyzh(4,i),pmassi)
     ui   = vxyzu(4,i)
@@ -247,6 +231,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt)
     if (xii < -epsilon(0.)) then
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
+    if (present(mu_local)) cv1 = (gamma-1.)*mu_local(i)/Rg*unit_velocity**2
 !     if (i==584) then
 !        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
 !     endif

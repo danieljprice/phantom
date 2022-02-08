@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -638,7 +638,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                 !
                 use_part = .true.
                 over_ptmass: do j=1,nptmass
-                   if ((xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
+                   if (xyzmh_ptmass(4,j) > 0. .and.       &
+                       (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
                       use_part = .false.
@@ -1263,9 +1264,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           ! Particle j is a neighbour of an active particle;
           ! flag it to see if it needs to be woken up next step.
           if (.not.iamboundary(iamtypej)) then
-! #ifndef MPI
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
-! #endif
              ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
 #endif
@@ -2083,6 +2082,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           do j=1,ndustsmall
              if (dustfraci(j) > 1. .or. dustfraci(j) < 0.) call fatal('force','invalid eps',var='dustfrac',val=dustfraci(j))
           enddo
+          if (dustfracisum > 1.) call fatal('force','invalid eps',var='sum of dustfrac',val=dustfracisum)
        else
           dustfraci(:) = 0.
           dustfracisum = 0.
@@ -2842,9 +2842,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
        ! cooling timestep dt < fac*u/(du/dt)
-       ! Note: Why is this not used for *all* energy changes?  Regrettably, Sedov will crash if this timestep is included since eni0 = 0
-       if (maxvxyzu >= 4 .and. cooling_explicit) then
-          if (abs(fxyzu(4,i)) > 0.) dtcool = C_cool*abs(eni/fxyzu(4,i))
+       if (maxvxyzu >= 4) then
+          if (abs(fxyzu(4,i)) > epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
        ! timestep based on non-ideal MHD

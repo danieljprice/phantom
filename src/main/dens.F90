@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -1619,7 +1619,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        if (mhd .and. iamgasi) then
           if (getdB) then
-             term = cnormk*pmassi*gradhi*rho1i*hi41
              call calculate_divcurlB_from_sums(rhosum,term,divcurlBi,ndivcurlB)
              divcurlB(:,lli) = real(divcurlBi(:),kind=kind(divcurlB))
           else

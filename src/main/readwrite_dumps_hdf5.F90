@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -108,7 +108,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
-                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_chem,      &
+                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,  &
                           dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig
 #ifdef NUCLEATION
  use part,           only:nucleation
@@ -374,7 +374,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            dens,         & !
                            gamma_chem,   & !
                            mu_chem,      & !
-                           T_chem,       & !
+                           T_gas_cool,   & !
                            nucleation,   & !
                            dust_temp,    & !
                            rad,          & !
@@ -490,7 +490,7 @@ subroutine read_any_dump_hdf5(                                                  
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,    &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
                           dustgasprop,VrelVf,eos_vars,abundance,               &
-                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_chem, &
+                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_gas_cool, &
                           dust_temp,rad,radprop,igasP,itemp,iorig
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
@@ -692,7 +692,7 @@ subroutine read_any_dump_hdf5(                                                  
                        pxyzu,         &
                        gamma_chem,    &
                        mu_chem,       &
-                       T_chem,        &
+                       T_gas_cool,    &
                        nucleation,    &
                        dust_temp,     &
                        rad,           &

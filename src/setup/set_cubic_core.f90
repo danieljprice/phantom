@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,16 +19,11 @@ module setcubiccore
 !
 ! :Dependencies: eos, io, kernel, physcon, table_utils
 !
- use physcon,          only:pi,gg,solarm,solarr,kb_on_mh
- use table_utils,      only:interpolator,diff
+ use physcon, only:solarm,solarr
+ use table_utils, only:interpolator,diff
 
  implicit none
- real    :: rcore,msoft,mcore
- integer :: icore
 
- ! rcore: Radius below which we replace the original profile with a
- !        softened profile.
- ! mcore: Mass of core particle
  ! msoft: Softened mass (mass at softening length minus mass of core
  !        particle)
  ! hsoft: Softening length for the point particle potential, defined in
@@ -41,23 +36,14 @@ contains
 !  Main subroutine that calculates the cubic core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_cubic_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
- use eos,         only:calc_temp_and_ene
- use table_utils, only:flip_array
+subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
- real, intent(inout)        :: r(:),rho(:),m(:),pres(:),ene(:),temp(:)
- real, allocatable          :: phi(:)
- real, intent(in)           :: mcore,rcore
- integer, intent(out)       :: ierr
- real                       :: mc,rc,hsoft_cm,eneguess
- logical                    :: isort_decreasing,iexclude_core_mass
- integer                    :: i
-
- ! Output data to be sorted from stellar surface to interior?
- isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
- !
- ! Exclude core mass in output mass coordinate?
- iexclude_core_mass = .true.   ! Needs to be true if to be read by Phantom
+ use eos,         only:ieos
+ real, intent(inout):: r(:),rho(:),m(:),pres(:)
+ real, allocatable  :: phi(:)
+ real, intent(in)   :: mcore,rcore
+ real               :: mc,rc,hsoft_cm,msoft
+ integer            :: icore,i
 
  rc       = rcore * solarr      ! Convert to cm
  hsoft_cm = 0.5*rc             ! Convert to cm
@@ -67,30 +53,11 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m,ene,temp,ierr)
 
  call calc_rho_and_m(rho, m, r, mc, rc)
  call calc_phi(r, mc, m-mc, hsoft_cm, phi)
- call calc_pres(r, rho, phi, pres)
 
- call calc_temp_and_ene(rho(1),pres(1),ene(1),temp(1),ierr)
- if (ierr /= 0) call fatal('set_cubic_core','EoS not one of: adiabatic, ideal gas plus radiation, MESA in set_softened_core')
- do i = 2,size(rho)-1
-    eneguess = ene(i-1)
-    call calc_temp_and_ene(rho(i),pres(i),ene(i),temp(i),ierr,eneguess)
+ ! Calculate pressure
+ do i = icore,2,-1
+    pres(i-1) = pres(i) + rho(i) * (phi(i) - phi(i-1))
  enddo
- ene(size(rho))  = 0. ! Zero surface internal energy
- temp(size(rho)) = 0. ! Zero surface temperature
-
- ! Reverse arrays so that data is sorted from stellar surface to stellar centre.
- if (isort_decreasing) then
-    call flip_array(m)
-    call flip_array(pres)
-    call flip_array(temp)
-    call flip_array(r)
-    call flip_array(rho)
-    call flip_array(ene)
- endif
-
- if (iexclude_core_mass) then
-    m = m - mc
- endif
 
 end subroutine set_cubic_core
 
@@ -110,7 +77,7 @@ subroutine find_mcore_given_rcore(rcore,r,rho0,m0,mcore,ierr)
  integer              :: icore,counter=0
 
  rc = rcore * solarr ! Convert to cm
- call interpolator(r, rc, icore) ! Find index in r closest to rcore
+ call interpolator(r,rc,icore) ! Find index in r closest to rcore
  mc = 0.7*m0(icore) ! Initialise profile to have very large softened mass
  tolerance = 1.3 ! How much we allow the softened density to exceed the original profile by
  ierr = 0
@@ -209,6 +176,7 @@ end subroutine check_rcore_and_mcore
 
 
 subroutine calc_rho_and_m(rho,m,r,mc,rc)
+ use physcon, only:pi
  real, intent(in)    :: r(:)
  real, intent(inout) :: rho(:),m(:)
  real, intent(in)    :: mc,rc
@@ -234,6 +202,7 @@ end subroutine calc_rho_and_m
 
 subroutine calc_phi(r,mc,mgas,hsoft,phi)
  use kernel, only:kernel_softening
+ use physcon, only:gg
  real, intent(in)               :: r(:),mgas(:),mc,hsoft
  real, allocatable              :: q(:),q2(:),phi_core(:),phi_gas(:)
  real, allocatable, intent(out) :: phi(:)
@@ -265,25 +234,5 @@ subroutine calc_phi(r,mc,mgas,hsoft,phi)
  phi = phi_gas + phi_core
 
 end subroutine calc_phi
-
-!----------------------------------------------------------------
-!+
-!  Calculate pressure by integrating the equation of hydrostatic
-!  equilibrium given the gravitational potential and the density
-!  profile
-!+
-!----------------------------------------------------------------
-subroutine calc_pres(r,rho,phi,pres)
- real, intent(in)  :: rho(:),phi(:),r(:)
- real, intent(out) :: pres(:)
- integer           :: i
-
- pres(size(r)) = 0 ! Set boundary condition of zero pressure at stellar surface
- do i = 1,size(r)-1
-    ! Reverse Euler
-    pres(size(r)-i) = pres(size(r)-i+1) + rho(size(r)-i+1) * (phi(size(r)-i+1) - phi(size(r)-i))
- enddo
-
-end subroutine calc_pres
 
 end module setcubiccore

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -527,10 +527,10 @@ subroutine test_etaval(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi
+                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi,eos_vars,itemp
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
- use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
+ use eos,            only:ieos,init_eos,polyk,polyk2,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic
@@ -638,7 +638,7 @@ subroutine test_etaval(ntests,npass)
     !
     rhoi  = rhoh(xyzh(4,itmp),massoftype(igas))
     Bi    = sqrt(dot_product(Bevol(1:3,itmp),Bevol(1:3,itmp)))*rhoi
-    tempi = get_temperature(ieos,xyzh(1:3,itmp),rhoi,vxyzu(:,itmp))
+    tempi = eos_vars(itemp,itmp)
 
     if (id==master) then
        write(*,*) ' '

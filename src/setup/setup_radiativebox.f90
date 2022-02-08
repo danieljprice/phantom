@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
- use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_steboltz_code
+ use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_radconst_code
  use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa,periodic
  use eos,           only:gmw
  use kernel,        only:hfact_default
@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,ierr
  logical :: iexist
 
- real :: a,c_code,cv1,kappa_code,pmassi,steboltz_code,Tref,xi0
+ real :: a,c_code,cv1,kappa_code,pmassi,Tref,xi0
  real :: rhoi,h0,rho0
 
  filename=trim(fileprefix)//'.setup'
@@ -139,9 +139,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(1:3,:) = 0.
 
  c_code = get_c_code()
- steboltz_code = get_steboltz_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
- a   = 4.*steboltz_code/c_code
+ a   = get_radconst_code()
  pmassi = massoftype(igas)
 
  Tref = 100

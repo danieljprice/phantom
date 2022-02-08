@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,15 +10,17 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Terrence Tricco
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, eos_helmholtz, io, mpiutils, physcon, testutils,
+! :Dependencies: dim, eos, eos_barotropic, eos_gasradrec, eos_helmholtz,
+!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon, testutils,
 !   units
 !
  implicit none
  public :: test_eos
+ public :: test_helmholtz ! to avoid compiler warning for unused routine
 
  private
 
@@ -40,8 +42,9 @@ subroutine test_eos(ntests,npass)
 
  call test_init(ntests, npass)
  call test_barotropic(ntests, npass)
- !call test_helmholtz(ntests, npass)
+!  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
+ call test_hormone(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -86,24 +89,171 @@ subroutine test_init(ntests, npass)
     if (ieos==10 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip mesa
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
-    if (do_radiation .and. (ieos==10 .or. ieos==12)) correct_answer = ierr_option_conflict
+    if (do_radiation .and. (ieos==10 .or. ieos==12 .or. ieos==20)) correct_answer = ierr_option_conflict
     call checkval(ierr,correct_answer,0,nfailed(ieos),'eos initialisation')
  enddo
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_init
 
+
 !----------------------------------------------------------------------------
 !+
-!  test ideal gas plus radiation eos
+!  test ideal gas plus radiation eos: Check that P, T calculated from rho, u gives back
+!  rho, u (assume fixed composition)
 !+
 !----------------------------------------------------------------------------
 subroutine test_idealplusrad(ntests, npass)
+ use io,               only:id,master,stdout
+ use eos,              only:init_eos,equationofstate
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use units,            only:unit_density,unit_pressure,unit_ergg
+ use physcon,          only:kb_on_mh
  integer, intent(inout) :: ntests,npass
+ integer                :: npts,ieos,ierr,i,j,ncheck(1)
+ integer, allocatable   :: nfailed(:)
+ real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,rhocodei,gamma,&
+                           presi,dum,csound,eni,temp,logTi,logQi,ponrhoi,mu,tol,errmax(1),pres2,code_eni
+ real, allocatable      :: rhogrid(:),Tgrid(:)
 
- ! please insert tests here
+ if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
 
+ ncheck = 0
+ errmax = 1
+ ieos = 12
+ mu = 0.6
+ gamma = 5./3.
+
+ ! Initialise grids in Q and T (cgs units)
+ npts = 10
+ logQmin = -6.
+ logQmax = -2.
+ logTmin = 3.
+ logTmax = 8.
+
+ ! Note: logQ = logrho - 2logT + 12 in cgs units
+ delta_logQ = (logQmax-logQmin)/real(npts-1,kind=kind(mu))
+ delta_logT = (logTmax-logTmin)/real(npts-1,kind=kind(mu))
+
+ allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
+ nfailed = 0
+ do i=1,npts
+    logQi = logQmin + real(i-1,kind=kind(mu))*delta_logQ
+    logTi = logTmin + real(i-1,kind=kind(mu))*delta_logT
+    rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
+    Tgrid(i) = 10.**logTi
+ enddo
+
+ dum = 0.
+ tol = 1.e-12
+ call init_eos(ieos,ierr)
+ do i=1,npts
+    do j=1,npts
+       ! Get u, P from rho, T
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,eni)
+       call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
+
+       ! Recalculate T, P, from rho, u
+       code_eni = eni/unit_ergg
+       temp = eni*mu/kb_on_mh
+       rhocodei = rhogrid(i)/unit_density
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,code_eni,tempi=temp,mu_local=mu,gamma_local=gamma)
+       pres2 = ponrhoi * rhocodei * unit_pressure
+
+       call checkval(temp,Tgrid(j),tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
+       call checkval(pres2,presi,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, u')
+    enddo
+ enddo
+!  call checkvalbuf_end('Forward-backward test of eos subroutines',ncheck(1),nfailed(1),errmax(1),tol)
+ call update_test_scores(ntests,nfailed,npass)
 end subroutine test_idealplusrad
+
+
+!----------------------------------------------------------------------------
+!+
+!  test HORMONE eos's: Check that P, T calculated from rho, u gives back
+!  rho, u
+!+
+!----------------------------------------------------------------------------
+subroutine test_hormone(ntests, npass)
+ use io,        only:id,master,stdout
+ use eos,       only:init_eos,equationofstate,done_init_eos
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use eos_gasradrec, only:calc_uT_from_rhoP_gasradrec
+ use ionization_mod, only:get_erec,get_imurec
+ use testutils, only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ use units,     only:unit_density,unit_pressure,unit_ergg
+ integer, intent(inout) :: ntests,npass
+ integer                :: npts,ieos,ierr,i,j,ncheck(1)
+ integer, allocatable   :: nfailed(:)
+ real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,imurec,logQi,logTi,mu,eni_code,&
+                           presi,pres2,dum,csound,eni,tempi,ponrhoi,X,Z,tol,errmax(1),gasrad_eni,eni2,rhocodei,gamma
+ real, allocatable      :: rhogrid(:),Tgrid(:)
+
+ if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
+
+ ncheck = 0
+ errmax = 1
+ ieos = 20
+ X = 0.7
+ Z = 0.02
+ gamma = 5./3.
+
+ ! Initialise grids in Q and T (cgs units)
+ npts = 10
+ logQmin = -6.
+ logQmax = -3.5
+ logTmin = 3.
+ logTmax = 8.
+
+ ! Note: logQ = logrho - 2logT + 12 in cgs units
+ delta_logQ = (logQmax-logQmin)/real(npts-1)
+ delta_logT = (logTmax-logTmin)/real(npts-1)
+
+ allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
+ nfailed = 0
+ do i=1,npts
+    logQi = logQmin + real(i-1)*delta_logQ
+    logTi = logTmin + real(i-1)*delta_logT
+    rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
+    Tgrid(i) = 10.**logTi
+ enddo
+
+ ! Testing
+ dum = 0.
+ tol = 1.e-12
+ tempi = 1.
+ if (.not. done_init_eos) call init_eos(ieos,ierr)
+ do i=1,npts
+    do j=1,npts
+       ! Get mu from rho, T
+       call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imurec)
+       mu = 1./imurec
+
+       ! Get u, P from rho, T, mu
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,gasrad_eni)
+       eni = gasrad_eni + get_erec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z)
+       call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
+
+       ! Recalculate P, T from rho, u, mu
+       eni_code = eni/unit_ergg
+       rhocodei = rhogrid(i)/unit_density
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,eni_code,tempi,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
+       pres2 = ponrhoi * rhocodei * unit_pressure
+       call checkval(Tgrid(j),tempi,tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
+       call checkval(presi,pres2,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, u')
+
+       ! Recalculate u, T, mu from rho, P
+       call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu,ierr)
+       call checkval(Tgrid(j),tempi,tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, P')
+       call checkval(eni,eni2,tol*eni,nfailed((i-1)*npts+j),'Check recovery of u from rho, P')
+    enddo
+ enddo
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_hormone
+
 
 !----------------------------------------------------------------------------
 !+
@@ -111,11 +261,12 @@ end subroutine test_idealplusrad
 !+
 !----------------------------------------------------------------------------
 subroutine test_barotropic(ntests, npass)
- use eos,       only:equationofstate,rhocrit1cgs,polyk,polyk2,eosinfo,init_eos
- use io,        only:id,master,stdout
- use testutils, only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
- use units,     only:unit_density
- use mpiutils,  only:barrier_mpi
+ use eos,            only:equationofstate,polyk,polyk2,eosinfo,init_eos
+ use eos_barotropic, only:rhocrit1cgs
+ use io,             only:id,master,stdout
+ use testutils,      only:checkvalbuf,checkvalbuf_start,checkvalbuf_end,update_test_scores
+ use units,          only:unit_density
+ use mpiutils,       only:barrier_mpi
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: i,ierr,maxpts,ierrmax,ieos

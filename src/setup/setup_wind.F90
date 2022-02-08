@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -46,30 +46,29 @@ module setup
  real, public :: T_wind = 3000.
 #endif
  integer, public :: icompanion_star = 0
- real :: semi_major_axis
- real :: eccentricity = 0.
-
- real :: primary_Teff = 3000.
+ real :: semi_major_axis       = 4.0
+ real :: eccentricity          = 0.
+ real :: primary_Teff          = 3000.
  real :: primary_Reff
  real :: primary_lum
  real :: primary_mass
  real :: primary_racc
- real :: secondary_Teff = 0.
+ real :: secondary_Teff        = 0.
  real :: secondary_Reff
  real :: secondary_lum
  real :: secondary_mass
  real :: secondary_racc
- real :: semi_major_axis_au = 3.7
+ real :: semi_major_axis_au    = 4.0
  real :: default_particle_mass = 1.e-11
- real :: primary_lum_lsun = 5315.
- real :: primary_mass_msun = 1.2
- real :: primary_Reff_au = 0.
- real :: primary_racc_au = 1.
- real :: secondary_lum_lsun = 0.
- real :: secondary_mass_msun=0.6
- real :: secondary_Reff_au = 0.
- real :: secondary_racc_au = 0.1
- real :: temp_exponent = 0.
+ real :: primary_lum_lsun      = 20000.
+ real :: primary_mass_msun     = 1.5
+ real :: primary_Reff_au       = 1.
+ real :: primary_racc_au       = 1.
+ real :: secondary_lum_lsun    = 0.
+ real :: secondary_mass_msun   = 1.0
+ real :: secondary_Reff_au     = 0.
+ real :: secondary_racc_au     = 0.1
+ real :: temp_exponent         = 0.5
 
 
 contains
@@ -173,20 +172,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
  endif
 
-
-!
-! add low density background medium
-!
-! sphere of 20^3 particles, density will be determined when mass is set
-! call set_sphere('cubic',id,master,primary_racc,20.*primary_racc,primary_racc,hfact,npart,xyzh,rhofunc=rhor)
-! npartoftype(igas) = npart
-
-! contains
-!  real function rhor(r)
-!    real, intent(in) :: r
-!    rhor = 1./r**2
-!  end function rhor
-
 end subroutine setpart
 
 !----------------------------------------------------------------
@@ -199,82 +184,98 @@ subroutine setup_interactive()
  use physcon,   only:au,solarm
  use units,     only:umass,udist
  use io,        only:fatal
- integer :: ichoice,iwind
+ integer :: iwind
 
- ichoice = 1
- iwind = 2
- call prompt('Type of wind: 1=isoT, 2=adia, 3=T(r)',iwind,1,3)
- if (iwind == 1 .or. iwind == 3) wind_gamma = 1.
- if (iwind == 3) temp_exponent = 0.5
+ iwind = 1
+ call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
 #ifndef ISOTHERMAL
- if (iwind == 1 .or. iwind == 3) then
-    call fatal('setup','If you choose options 1 or 3, the code must be compiled with SETUP=isowind')
+ if (iwind == 2 .or. iwind == 3) then
+    call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
  endif
 #endif
 
  call prompt('Add binary?',icompanion_star,0,1)
- if (icompanion_star > 0) then
-    print "(a)",'Primary star parameters'
- else
-    print "(a)",'Stellar parameters'
- endif
- print "(a)",' 2: Mass: 1.2 Msun, accretion radius: 0.2568 au',&
-      ' 1: Mass: 1.0 Msun, accretion radius: 1.2568 au', &
-      ' 0: custom'
- call prompt('select mass and radius of primary',ichoice,0,2)
- select case(ichoice)
- case(2)
-    primary_mass = 1.2 * (solarm / umass)
-    primary_racc = 0.2568 * (au / udist)
- case(1)
-    primary_mass = 1. * (solarm / umass)
-    primary_racc = 1.2568 * (au / udist)
- case default
-    primary_mass_msun = 1.
-    primary_racc_au = 1.
-    call prompt('enter primary mass',primary_mass_msun,0.,100.)
-    call prompt('enter accretion radius in au ',primary_racc_au,0.)
-    primary_mass = primary_mass_msun * (solarm / umass)
-    primary_racc = primary_racc_au * (au / udist)
- end select
- primary_racc_au   = primary_racc*udist/au
- primary_mass_msun = primary_mass * (umass /solarm)
- ichoice = 1
- if (icompanion_star > 0) then
-    print "(a)",'Primary star parameters'
-    print "(a)",' 1: Mass: 1.0 Msun, accretion radius: 0.1 au',' 0: custom'
-    call prompt('select mass and radius of secondary',ichoice,0,1)
-    select case(ichoice)
-    case(1)
-       secondary_mass = 1. * (solarm / umass)
-       secondary_racc = 0.1 * (au / udist)
-    case default
-       secondary_mass_msun = 1.
-       secondary_racc_au = 0.1
-       call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
-       call prompt('enter accretion radius in au ',secondary_racc_au,0.)
-       secondary_mass = secondary_mass_msun * (solarm / umass)
-       secondary_racc = secondary_racc_au * (au / udist)
-    end select
-    secondary_racc_au   = secondary_racc*udist/au
-    secondary_mass_msun = secondary_mass * (umass /solarm)
-    ichoice = 1
-    print "(a)",'Orbital parameters'
-    print "(a)",' 1: semi-axis: 3.7 au, eccentricity: 0',' 0: custom'
-    call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
-    select case(ichoice)
-    case(1)
-       semi_major_axis = 3.7 * au / udist
-       eccentricity = 0.
-    case default
-       semi_major_axis_au = 1.
-       eccentricity = 0.
-       call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
-       call prompt('enter eccentricity',eccentricity,0.)
-       semi_major_axis = semi_major_axis_au * au / udist
-    end select
-    semi_major_axis_au = semi_major_axis * udist / au
- endif
+
+ primary_mass = primary_mass_msun * (solarm / umass)
+ primary_racc = primary_racc_au * (au / udist)
+ secondary_mass = secondary_mass_msun * (solarm / umass)
+ secondary_racc = secondary_racc_au * (au / udist)
+
+! ichoice = 1
+!  iwind = 2
+!  call prompt('Type of wind: 1=isoT, 2=adia, 3=T(r)',iwind,1,3)
+!  if (iwind == 1 .or. iwind == 3) wind_gamma = 1.
+!  if (iwind == 3) temp_exponent = 0.5
+! #ifndef ISOTHERMAL
+!  if (iwind == 1 .or. iwind == 3) then
+!     call fatal('setup','If you choose options 1 or 3, the code must be compiled with SETUP=isowind')
+!  endif
+! #endif
+!
+!  call prompt('Add binary?',icompanion_star,0,1)
+!  if (icompanion_star > 0) then
+!     print "(a)",'Primary star parameters'
+!  else
+!     print "(a)",'Stellar parameters'
+!  endif
+!  print "(a)",' 2: Mass: 1.2 Msun, accretion radius: 0.2568 au',&
+!       ' 1: Mass: 1.0 Msun, accretion radius: 1.2568 au', &
+!       ' 0: custom'
+!  call prompt('select mass and radius of primary',ichoice,0,2)
+!  select case(ichoice)
+!  case(2)
+!     primary_mass = 1.2 * (solarm / umass)
+!     primary_racc = 0.2568 * (au / udist)
+!  case(1)
+!     primary_mass = 1. * (solarm / umass)
+!     primary_racc = 1.2568 * (au / udist)
+!  case default
+!     primary_mass_msun = 1.
+!     primary_racc_au = 1.
+!     call prompt('enter primary mass',primary_mass_msun,0.,100.)
+!     call prompt('enter accretion radius in au ',primary_racc_au,0.)
+!     primary_mass = primary_mass_msun * (solarm / umass)
+!     primary_racc = primary_racc_au * (au / udist)
+!  end select
+!  primary_racc_au   = primary_racc*udist/au
+!  primary_mass_msun = primary_mass * (umass /solarm)
+!  ichoice = 1
+!  if (icompanion_star > 0) then
+!     print "(a)",'Primary star parameters'
+!     print "(a)",' 1: Mass: 1.0 Msun, accretion radius: 0.1 au',' 0: custom'
+!     call prompt('select mass and radius of secondary',ichoice,0,1)
+!     select case(ichoice)
+!     case(1)
+!        secondary_mass = 1. * (solarm / umass)
+!        secondary_racc = 0.1 * (au / udist)
+!     case default
+!        secondary_mass_msun = 1.
+!        secondary_racc_au = 0.1
+!        call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
+!        call prompt('enter accretion radius in au ',secondary_racc_au,0.)
+!        secondary_mass = secondary_mass_msun * (solarm / umass)
+!        secondary_racc = secondary_racc_au * (au / udist)
+!     end select
+!     secondary_racc_au   = secondary_racc*udist/au
+!     secondary_mass_msun = secondary_mass * (umass /solarm)
+!     ichoice = 1
+!     print "(a)",'Orbital parameters'
+!     print "(a)",' 1: semi-axis: 3.7 au, eccentricity: 0',' 0: custom'
+!     call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
+!     select case(ichoice)
+!     case(1)
+!        semi_major_axis = 3.7 * au / udist
+!        eccentricity = 0.
+!     case default
+!        semi_major_axis_au = 1.
+!        eccentricity = 0.
+!        call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
+!        call prompt('enter eccentricity',eccentricity,0.)
+!        semi_major_axis = semi_major_axis_au * au / udist
+!     end select
+!     semi_major_axis_au = semi_major_axis * udist / au
+!  endif
+
 end subroutine setup_interactive
 
 !----------------------------------------------------------------

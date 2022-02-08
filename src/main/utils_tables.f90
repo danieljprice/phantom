@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -115,7 +115,7 @@ end subroutine logspace
 !  ordered array
 !+
 !----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
+subroutine interpolator(array,value,valueidx)
  real, intent(in)     :: array(:)
  real, intent(in)     :: value
  integer, intent(out) :: valueidx
