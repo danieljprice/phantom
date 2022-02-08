@@ -997,7 +997,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #ifdef GRAVITY
     open_tree_node = tree_acc2*r2 < xsizej*xsizej    ! tree opening criterion for self-gravity
 #endif
-    if ((r2 < rcut2) .or. open_tree_node) then
+    if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
        if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (global_walk) then
              ! id is stored in ipart as id + 1
@@ -1062,7 +1062,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           endif
        endif if_leaf
 #ifdef GRAVITY
-    elseif (present(fnode) .and. ((.not. global_walk) .or. n < 2*nprocs-1)) then
+    elseif (present(fnode) .and. ((.not. global_walk) .or. n < 2*nprocs-1)) then ! if_open_node
 !
 !--long range force on node due to distant node, along node centres
 !  along with derivatives in order to perform series expansion
@@ -1074,7 +1074,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 #endif
        call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
 #endif
-    endif
+    endif if_open_node
  enddo over_stack
 
 end subroutine getneigh
