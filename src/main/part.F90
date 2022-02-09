@@ -200,6 +200,7 @@ module part
  integer, parameter :: n_nucleation = 10
  real, allocatable :: nucleation(:,:)
 #ifdef DUST_NUCLEATION
+ ! please note that in nucleation, we save the *normalized* moments, i.e. \hat{K}_i = K_i/n<H>
  character(len=*), parameter :: nucleation_label(n_nucleation) = &
        (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
          'mu   ','gamma','S    ','kappa','alphw'/)
@@ -339,7 +340,7 @@ module part
 #endif
 #ifdef DUST_NUCLEATION
  +1                                   &  ! nucleation rate
- +4                                   &  ! moments
+ +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
  +1                                   &  ! mean molecular weight
  +1                                   &  ! gamma
  +1                                   &  ! super saturation ratio
