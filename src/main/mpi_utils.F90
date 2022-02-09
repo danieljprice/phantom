@@ -736,33 +736,33 @@ end function reduceall_mpi_real4arr
 !--------------------------------------------------------------------------
 function reduceall_mpi_real4arr2(string,xproc)
 #ifdef MPI
-   use io, only:fatal
+ use io, only:fatal
 #endif
-   character(len=*), intent(in) :: string
-   real(kind=4),     intent(in) :: xproc(:,:)
-   real(kind=4) :: reduceall_mpi_real4arr2(size(xproc,1),size(xproc,2))
+ character(len=*), intent(in) :: string
+ real(kind=4),     intent(in) :: xproc(:,:)
+ real(kind=4) :: reduceall_mpi_real4arr2(size(xproc,1),size(xproc,2))
 #ifdef MPI
-   real(kind=4) :: xred(size(xproc,1),size(xproc,2)),xsend(size(xproc,1),size(xproc,2))
+ real(kind=4) :: xred(size(xproc,1),size(xproc,2)),xsend(size(xproc,1),size(xproc,2))
 
-   xsend(:,:) = xproc(:,:)  ! mpi calls don't like it if send and receive addresses are the same
-   select case(trim(string))
-   case('+')
-      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
-   case('max')
-      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
-   case('min')
-      call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
-   case default
-      call fatal('reduceall (mpi)','unknown reduction operation')
-   end select
-   if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
+ xsend(:,:) = xproc(:,:)  ! mpi calls don't like it if send and receive addresses are the same
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+ case('max')
+    call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduceall (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduceall','error in mpi_reduce call')
 
-   reduceall_mpi_real4arr2(:,:) = xred(:,:)
+ reduceall_mpi_real4arr2(:,:) = xred(:,:)
 #else
-   reduceall_mpi_real4arr2(:,:) = xproc(:,:)
+ reduceall_mpi_real4arr2(:,:) = xproc(:,:)
 #endif
 
-   end function reduceall_mpi_real4arr2
+end function reduceall_mpi_real4arr2
 
 !--------------------------------------------------------------------------
 !+
