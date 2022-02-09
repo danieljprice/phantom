@@ -2,5 +2,5 @@
     hooks:
     -   id: bots
         name: Run bots
-        entry: scripts/bots.sh --staged-files-only --apply
+        entry: scripts/bots.sh --apply --file
         language: script
