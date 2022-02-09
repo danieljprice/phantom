@@ -42,6 +42,7 @@ docommit=0;
 applychanges=0;
 doindent=1;
 gitstaged=0;
+input_file='';
 
 while [[ "$1" == --* ]]; do
   case $1 in
@@ -60,6 +61,12 @@ while [[ "$1" == --* ]]; do
 
    --staged-files-only)
       gitstaged=1;
+      ;;
+
+   --file)
+      shift
+      input_file=$1
+      break;
       ;;
 
     *)
@@ -134,7 +141,16 @@ for edittype in $bots_to_run; do
            else
              files=$filenamepattern
            fi
-           myfiles=`get_only_files_in_git "$files"`
+           if [[ "$input_file" != "" && "$edittype" != "authors" ]]; then
+           # Only process the input file
+             if [[ "$dir" == "$(dirname $input_file)" ]]; then
+               myfiles=$(basename $input_file)
+             else
+               myfiles=""
+             fi
+           else
+             myfiles=`get_only_files_in_git "$files"`
+           fi
            for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
