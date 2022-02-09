@@ -20,13 +20,13 @@ pwd=$PWD;
 phantomdir="$pwd/../";
 if [ ! -s $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
-   exit;
+   exit 100;
 fi
 scriptdir="$phantomdir/scripts";
 codedir="../";
 if [ ! -d $codedir ]; then
    echo "Error running bots: $codedir does not exist";
-   exit;
+   exit 100;
 fi
 headerfile="$scriptdir/HEADER-module";
 programfile="$scriptdir/HEADER-program";
@@ -116,6 +116,7 @@ if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
 #bots_to_run='shout';
+modified=0
 for edittype in $bots_to_run; do
     filelist='';
     case $edittype in
@@ -262,6 +263,7 @@ for edittype in $bots_to_run; do
           echo "$msg";
        fi
        echo "Modified files = $filelist";
+       modified=$((modified + 1))
     fi
     if [[ $docommit == 1 ]]; then
        git commit -m "$msg" $filelist;
@@ -282,3 +284,4 @@ else
       echo "No changes";
    fi
 fi
+exit $modified
