@@ -1024,7 +1024,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
     if_open_node: if ((r2 < rcut2) .or. open_tree_node) then
        if_leaf: if (ifirstincell(n) /= 0) then ! once we hit a leaf node, retrieve contents into trial neighbour cache
           if_global_walk: if (global_walk) then
-             ! id is stored in ipart as id + 1
+             ! id is stored in cellatid (passed through into ifirstincell) as id + 1
              if (ifirstincell(n) /= (id + 1)) then
                 remote_export(ifirstincell(n)) = .true.
              endif
