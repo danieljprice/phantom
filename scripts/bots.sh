@@ -15,13 +15,10 @@
 #
 # Written by Daniel Price 2014-
 #
+cd "${0%/*}"
 tmpdir="/tmp/";
 pwd=$PWD;
 phantomdir="$pwd/../";
-if [ ! -s $phantomdir/scripts/$0 ]; then
-   echo "Error: This script needs to be run from the phantom/scripts directory";
-   exit 100;
-fi
 scriptdir="$phantomdir/scripts";
 codedir="../";
 if [ ! -d $codedir ]; then
