@@ -396,20 +396,25 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
 !--locally isothermal disc for eccentric discs (i.e. as a function of the semi-major axis)
 !
-    r = sqrt(xi**2 + yi**2 + zi**2)
-    entoti = 0.5*(vxi**2+vyi**2+vzi**2)  - xyzmh_ptmass(4,1)/r
-    ai = xyzmh_ptmass(4,1)/(2.*entoti)
-    ponrhoi = polyk*ai**(-2.*qfacdisc)
-    spsoundi = sqrt(ponrhoi)
-     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
 
+    if(present(vxi) .and. present(vyi) .and. present(vzi)) then
+       r = sqrt(xi**2 + yi**2 + zi**2)
+       entoti = 0.5*(vxi**2+vyi**2+vzi**2)  - xyzmh_ptmass(4,1)/r
+       ai = -xyzmh_ptmass(4,1)/(2.*entoti)
+       ponrhoi = polyk*ai**(-2.*qfacdisc)
+       spsoundi = sqrt(ponrhoi)
+       if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
+    else 
+        call fatal('eos','Calling ieos=20 but vxyz variable '&
+                         'not passed (bad value for eos?)')
+    endif
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     call fatal('eos','unknown equation of state')
  end select
-
+! print*,spsoundi,r,entoti,ai
  return
 end subroutine equationofstate
 
@@ -453,13 +458,14 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai)
     else
        call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4))
     endif
- elseif (eos_type==33) then
+ elseif (eos_type == 20) then
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3), &
                                 vxi=vxyzui(1),vyi=vxyzui(2),vzi=vxyzui(3))
  else
     call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3))
  endif
  get_spsound = spsoundi
+ 
 
 end function get_spsound
 

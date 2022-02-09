@@ -384,6 +384,12 @@ subroutine compute_energies(t)
 #endif
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
+          elseif (ieos == 20) then
+             !eccentric isothermal
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,&
+                                xi,yi,zi,&
+                                vxi=vxyzu(1,i),vyi=vxyzu(2,i),vzi=vxyzu(3,i))
+
           else
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then

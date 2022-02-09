@@ -210,7 +210,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        yi      = xyzh(2,i)
        zi      = xyzh(3,i)
        hi      = xyzh(4,i)
-
        if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
 
        pmassi  = massoftype(iamtypei)
@@ -239,6 +238,13 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           else
              call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),tempi=temperaturei)
           endif
+
+       elseif (ieos == 20) then
+          !eccentric isothermal
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,&
+                                xi,yi,zi,&
+                                vxi=vxyzu(1,i),vyi=vxyzu(2,i),vzi=vxyzu(3,i),&
+                                tempi=temperaturei)
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei)

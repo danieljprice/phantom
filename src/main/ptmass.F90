@@ -1071,6 +1071,13 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           rhoj = rhoh(xyzh(4,j),pmassj)
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassj*utherm(vxyzu(4,j),rhoj)
+
+          elseif (ieos == 20) then
+             !eccentric isothermal
+             call equationofstate(ieos,ponrhoj,spsoundj,rhoj,&
+                                xj,yj,zj,&
+                                vxi=vxyzu(1,j),vyi=vxyzu(2,j),vzi=vxyzu(3,j))
+
           else
              call equationofstate(ieos,ponrhoj,spsoundj,rhoj,xj,yj,zj)
              if (ieos==2 .and. gamma > 1.001) then
