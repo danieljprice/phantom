@@ -576,6 +576,8 @@ subroutine init_eos(eos_type,ierr)
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
        eion(1:2) = 0.  ! He recombination only
+    elseif (irecomb == 3) then
+       eion(1:4) = 0.  ! No recombination energy
     endif
     write(*,'(1x,a,i1)') 'Initialising gas+rad+rec EoS with irecomb=',irecomb
  end select
@@ -998,7 +1000,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(mu_local)) mu = mu_local
  if (present(X_local)) X = X_local
  if (present(Z_local)) Z = Z_local
- select case(ieos)
+ select case(eos_type)
  case(2) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
