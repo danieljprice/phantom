@@ -1107,7 +1107,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
 ! The solution is to not count the parts of the local tree that have been
 ! added onto the global tree.
 
-       if ( global_walk .or. (n > irefine) ) then
+       count_gravity: if ( global_walk .or. (n > irefine) ) then
 !
 !--long range force on node due to distant node, along node centres
 !  along with derivatives in order to perform series expansion
@@ -1118,8 +1118,9 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           dr = 1./sqrt(r2)
 #endif
           call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
+
+       endif count_gravity
 #endif
-       endif
 
     endif if_open_node
  enddo over_stack
