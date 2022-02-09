@@ -1,0 +1,6 @@
+-   repo: local
+    hooks:
+    -   id: bots
+        name: Run bots
+        entry: scripts/bots.sh --staged-files-only --apply
+        language: script
