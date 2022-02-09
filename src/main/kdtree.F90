@@ -1615,7 +1615,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     nnodeend = 2**(level + 1) - 1
 
     ! synchronize tree with other owners if this proc is the first in group
-    call tree_sync(mynode, 1,nodeglobal(nnodestart:nnodeend), ifirstingroup, groupsize, level)
+    call tree_sync(mynode,1,nodeglobal(nnodestart:nnodeend),nprocs/groupsize,ifirstingroup,level)
 
     ! at level 0, tree_sync already 'broadcasts'
     if (level > 0) then
@@ -1661,7 +1661,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     roffset_prev = roffset
     ! sync, replacing level with globallevel, since all procs will get synced
     ! and deeper comms do not exist
-    call tree_sync(refinementnode(locstart:locend),roffset,nodeglobal(nnodestart:nnodeend),id,1,globallevel)
+    call tree_sync(refinementnode(locstart:locend),roffset, &
+                   nodeglobal(nnodestart:nnodeend),nnodestart-nnodeend, &
+                   id,globallevel)
 
     ! get the mapping from the local tree to the global tree, for future hmax updates
     do inode = locstart,locend
