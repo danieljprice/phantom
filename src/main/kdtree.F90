@@ -49,6 +49,10 @@ module kdtree
  logical, private :: already_warned = .false.
  integer, private :: numthreads
 
+! Index of the last node in the local tree that has been copied to
+! the global tree
+ integer :: irefine
+
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree, getneigh, kdnode
 #ifdef MPI
@@ -1086,18 +1090,37 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           endif
        endif if_leaf
 #ifdef GRAVITY
-    elseif (present(fnode) .and. ((.not. global_walk) .or. n < 2*nprocs-1)) then ! if_open_node
+    elseif (present(fnode)) then ! if_open_node
+! When searching for neighbours of this node, the tree walk may encounter
+! nodes on the global tree that it does not need to open, so it should
+! just add the contribution to fnode. However, when walking a different
+! part of the tree, it may then become necessary to export this node to
+! a remote task. When it arrives at the remote task, it will then walk
+! the remote tree.
+!
+! The complication arises when tree refinment is enabled, which puts part
+! of the remote tree onto the global tree. fnode will be double counted
+! if a contribution is made on the global tree and a separate branch
+! causes it to be sent to a remote task, where that contribution is
+! counted again.
+!
+! The solution is to not count the parts of the local tree that have been
+! added onto the global tree.
+
+       if ( global_walk .or. (n > irefine) ) then
 !
 !--long range force on node due to distant node, along node centres
 !  along with derivatives in order to perform series expansion
 !
 #ifdef FINVSQRT
-       dr = finvsqrt(r2)
+          dr = finvsqrt(r2)
 #else
-       dr = 1./sqrt(r2)
+          dr = 1./sqrt(r2)
 #endif
-       call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
+          call compute_fnode(dx,dy,dz,dr,totmass_node,quads,fnode)
 #endif
+       endif
+
     endif if_open_node
  enddo over_stack
 
@@ -1632,6 +1655,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
  roffset_prev = 1
 
+ irefine = 0
  do i = 1,refinelevels
     offset = 2**(globallevel + i)
     roffset = 2**i
@@ -1670,6 +1694,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        nodemap(inode) = nnodestart + (id * roffset) + (inode - locstart)
     enddo
  enddo
+!  The index up to which the local tree is copied to the global tree
+ irefine = 2*roffset-1
 
  ! cellatid is zero by default
  cellatid = 0
