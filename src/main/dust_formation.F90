@@ -276,7 +276,7 @@ end subroutine nucleation
 !
 !------------------------------------
 subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
-! all quantities are in cgs
+! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
  real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
