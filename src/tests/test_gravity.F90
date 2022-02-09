@@ -484,7 +484,7 @@ subroutine test_directsum(ntests,npass)
 !  prevent double counting the sink contribution when calling reduceall_mpi
 !
     fxyz_ptmass_gas = reduceall_mpi('+',fxyz_ptmass_gas)
-    fxyz_ptmass = fxyz_ptmass + fxyz_ptmass_gas
+    fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_ptmass_gas(:,1:nptmass)
     deallocate(fxyz_ptmass_gas)
 !
 !--sum up potentials across MPI tasks
