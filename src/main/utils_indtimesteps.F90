@@ -25,6 +25,7 @@ module timestep_ind
  integer            :: istepfrac
  integer            :: nactive
  integer(kind=8)    :: nactivetot
+ logical            :: dt_too_small
  integer, parameter :: maxbins = 30 ! limit of 2**(n+1) with reals
  integer, parameter :: itdt    = 1
  integer, parameter :: ithdt   = 2
@@ -211,7 +212,7 @@ end subroutine change_nbinmax
 !+
 !----------------------------------------------------------------
 subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
- use io, only:fatal
+ use io, only:warning
  real,            intent(in)    :: dti,dtmax
  integer(kind=1), intent(inout) :: ibini
  logical,         intent(in), optional :: allow_decrease,limit_maxbin
@@ -249,7 +250,8 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
        write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(max) = ', dtmax/2**(maxbins-1)
        write(*,'(2a)'      ) 'get_newbin: dt = ', dtchar
     endif
-    call fatal('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
+    dt_too_small = .true.
+    call warning('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
  endif
 
  if (ibin_newi > ibin_oldi) then
