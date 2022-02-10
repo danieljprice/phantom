@@ -22,7 +22,7 @@ env:
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
   RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
-  NPARALLEL: 10
+  NPARALLEL: 32
 
 jobs:
   matrix_prep:
