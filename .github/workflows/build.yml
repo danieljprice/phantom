@@ -2,7 +2,6 @@ name: build
 
 on:
   push:
-    branches: [ master ]
     paths-ignore:
       - 'docs/**'
       - 'README.md'
@@ -23,6 +22,7 @@ env:
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
   RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
+  NPARALLEL: 10
 
 jobs:
   matrix_prep:
@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      batch: ${{ steps.set-sequence.outputs.batch }}
+      nbatch: ${{ steps.set-sequence.outputs.nbatch }}
     steps:
     - name: Check out repo
       uses: actions/checkout@v2
@@ -38,6 +40,17 @@ jobs:
       with:
         inputFile: '.github/workflows/matrix_system.json'
         filter: '["${{ github.repository }}", "always"]'
+    - name: Generate sequence of batch numbers for normal tests, or run sequentially for scheduled tests
+      id: set-sequence
+      run: |
+        if [[ ${{ github.event_name == 'schedule' }} ]]; then
+          range=$(jq -ncR "[range(1;${NPARALLEL}+1)]")
+          echo "::set-output name=batch::${range}"
+          echo "::set-output name=nbatch::${NPARALLEL}"
+        else
+          echo "::set-output name=batch::[1]"
+          echo "::set-output name=nbatch::1"
+        fi
 
   build:
     needs: matrix_prep
@@ -45,8 +58,10 @@ jobs:
       fail-fast: false
       matrix:
         system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
+        batch: ${{ fromJson(needs.matrix_prep.outputs.batch) }}
 
-    name: build (SYSTEM=${{ matrix.system[1] }})
+
+    name: build (batch ${{ matrix.batch }}/${{ needs.matrix_prep.outputs.nbatch }}, SYSTEM=${{ matrix.system[1] }})
 
     runs-on: ${{ matrix.system[0] }}
 
@@ -73,7 +88,7 @@ jobs:
       run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
 
     - name: "Run buildbot.sh"
-      run: ./buildbot.sh 17000000 http://${WEB_SERVER}/${BUILD_LOG_DIR}
+      run: ./buildbot.sh --maxdim 17000000 --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system[1] }}
