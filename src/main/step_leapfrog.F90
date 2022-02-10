@@ -1298,13 +1298,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! evolve chemical composition and determine new internal energy
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
-             call update_krome(dt,xyzh(:,i),ui,rhoi,pmassi),abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
+             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
 #ifdef NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
+             call evolve_dust(dt,xyzh(:,i),vxyzu(4,i),nucleation(:,i),dust_temp(i),rhoi)
 #endif
              !
              ! COOLING
