@@ -80,6 +80,7 @@ jobs:
         path: splash
 
     - name: "Create logs directory"
+      if: github.event_name == 'schedule'
       run: mkdir logs
 
     - name: "Grab previous build logs from web server"
