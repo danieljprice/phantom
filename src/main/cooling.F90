@@ -33,7 +33,7 @@ module cooling
 !   - dust_collision : *dust collision [1=on/0=off]*
 !   - excitation_HI  : *cooling via electron excitation of HI [1=on/0=off]*
 !   - habund         : *Hydrogen abundance assumed in cooling function*
-!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
+!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)*
 !   - relax_bowen    : *Bowen (diffusive) relaxation [1=on/0=off]*
 !   - relax_stefan   : *radiative relaxation [1=on/0=off]*
 !   - temp_floor     : *Minimum allowed temperature in K for Townsend cooling table*
