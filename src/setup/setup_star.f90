@@ -742,7 +742,7 @@ subroutine write_setupfile(filename,gamma,polyk)
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','approx number of particles (in box of size 2R)',iunit)
  call write_inopt(use_exactN,'use_exactN','find closest particle number to np',iunit)
- 
+
  write(iunit,"(/,a)") '# equation of state'
  call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
  call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
