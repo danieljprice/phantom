@@ -10,7 +10,7 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Terrence Tricco
 !
 ! :Runtime parameters: None
 !

@@ -539,7 +539,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
 #ifdef GRAVITY
-                         f=cell%fgrav, local_gravity=.true., &
+                         f=cell%fgrav, &
 #endif
                          cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
@@ -2781,10 +2781,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
-            !  if (nuclear_burning) then
-            !     call energ_nuclear(xi,yi,zi,vxyzu(4,i),dudtnuc,rhoi,0.,Tgas=tempi)
-            !     fxyz4 = fxyz4 + fac*dudtnuc
-            !  endif
+             !  if (nuclear_burning) then
+             !     call energ_nuclear(xi,yi,zi,vxyzu(4,i),dudtnuc,rhoi,0.,Tgas=tempi)
+             !     fxyz4 = fxyz4 + fac*dudtnuc
+             !  endif
              if (sinks_have_heating(nptmass,xyzmh_ptmass)) then
                 call energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheat)
                 fxyz4 = fxyz4 + fac*dudtheat
