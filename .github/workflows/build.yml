@@ -129,12 +129,6 @@ jobs:
         SYSTEM: ${{ matrix.system[1] }}
         RETURN_ERR: yes
 
-    - name: Update label temporarily for status checking
-      uses: actions-ecosystem/action-add-labels@v1
-      if: failure()
-      with:
-        labels: build-fail-${{ matrix.system[1] }})
-
     - name: "Install SSH Key"
       if: github.event_name == 'schedule'
       uses: webfactory/ssh-agent@v0.5.3
@@ -170,33 +164,24 @@ jobs:
           echo ::endgroup::
         done
 
-# Gather results using this hack since github actions can't get status of
-# a subset of a matrix:
-# https://github.community/t/status-check-for-a-matrix-jobs/127354/12
+  # Gather results into a dummy job that will fail if the previous job fails
   gather_results:
     if: always()
     needs:
-    - matrix_prep
     - build
-    strategy:
-      fail-fast: false
-      matrix:
-        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
 
     # This name matches the branch protection requirement
-    name: build (SYSTEM=${{ matrix.system[1] }})
+    name: build
 
     # Always run on github runner; no need to use custom runner for the check
     runs-on: ubuntu-latest
 
     steps:
-      - uses: mheap/github-action-required-labels@v1
-        with:
-          mode: exactly
-          count: 0
-          labels: build-fail-${{ matrix.system[1] }})
-      - name: Clean up labels
-        uses: actions-ecosystem/action-remove-labels@v1
-        if: always()
-        with:
-          labels: build-fail-${{ matrix.system[1] }})
+    - name: Check all builds succeeded
+      run: |
+        if [[ "${{ needs.build.result }}" == "success" ]]; then
+          echo "All build succeeded"
+        else
+          echo "At least one build failed"
+          exit 1
+        fi
