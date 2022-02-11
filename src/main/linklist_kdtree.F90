@@ -190,7 +190,7 @@ end subroutine set_linklist
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
-                              cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
+                              cell_xpos,cell_xsizei,cell_rcuti)
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
 #ifdef PERIODIC
@@ -206,11 +206,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real,    intent(out), optional :: f(lenfgrav)
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
- logical, intent(in),  optional :: local_gravity
  real :: xpos(3)
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
- logical :: get_j
+ logical :: get_j,global_search
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
 !
@@ -220,6 +219,12 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     rcuti = cell_rcuti
  else
     call get_cell_location(inode,xpos,xsizei,rcuti)
+ endif
+
+ if (present(remote_export)) then
+    global_search = .true.
+ else
+    global_search = .false.
  endif
 
 #ifdef PERIODIC
@@ -238,28 +243,30 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (present(f)) then
     fgrav_global = 0.0
+
 #ifdef MPI
-    if (present(remote_export)) then
+    if (global_search) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                 cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
 #endif
+
     call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
-    if (present(local_gravity)) then
-       f = fgrav
-    else
-       f = fgrav + fgrav_global
-    endif
+
+    f = fgrav + fgrav_global
+
  else
+
 #ifdef MPI
-    if (present(remote_export)) then
+    if (global_search) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               cellatid,get_j,remote_export=remote_export)
     endif
 #endif
+
     call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                ifirstincell,get_j)
  endif
