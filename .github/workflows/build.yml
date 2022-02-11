@@ -68,7 +68,6 @@ jobs:
 
     - name: Cache intel installation
       id: cache-intel
-      needs:
       uses: actions/cache@v2
       with:
         path: |
