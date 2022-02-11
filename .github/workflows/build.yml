@@ -56,6 +56,7 @@ jobs:
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
     - name: Setup Intel repo
+      id: intel-repo
       run: |
         wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
         sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
@@ -63,15 +64,16 @@ jobs:
         sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         sudo apt-get update
         INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
-        echo "::set-env name=INTELVERSION::$INTELVERSION"
+        echo "::set-output name=intelversion::$INTELVERSION"
 
     - name: Cache intel installation
       id: cache-intel
+      needs:
       uses: actions/cache@v2
       with:
         path: |
           /opt/intel
-        key: ${{ runner.os }}-${{ env.INTELVERSION }}
+        key: ${{ runner.os }}-${{ steps.intel-repo.outputs.intelversion }}
 
     - name: Install Intel compilers
       if: steps.cache-intel.outputs.cache-hit != 'true'
