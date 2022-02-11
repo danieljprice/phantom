@@ -72,7 +72,7 @@ jobs:
       with:
         path: |
           /opt/intel
-        key: ${{ matrix.system[0] }} ${{ steps.intel-repo.outputs.intelversion }}
+        key: ${{ runner.os }} ${{ matrix.system[0] }} ${{ steps.intel-repo.outputs.intelversion }}
 
     - name: Install Intel compilers
       if: steps.cache-intel.outputs.cache-hit != 'true'
