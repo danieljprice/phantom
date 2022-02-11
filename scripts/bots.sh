@@ -15,18 +15,15 @@
 #
 # Written by Daniel Price 2014-
 #
+cd "${0%/*}"
 tmpdir="/tmp/";
 pwd=$PWD;
 phantomdir="$pwd/../";
-if [ ! -s $phantomdir/scripts/$0 ]; then
-   echo "Error: This script needs to be run from the phantom/scripts directory";
-   exit;
-fi
 scriptdir="$phantomdir/scripts";
 codedir="../";
 if [ ! -d $codedir ]; then
    echo "Error running bots: $codedir does not exist";
-   exit;
+   exit 100;
 fi
 headerfile="$scriptdir/HEADER-module";
 programfile="$scriptdir/HEADER-program";
@@ -45,6 +42,7 @@ docommit=0;
 applychanges=0;
 doindent=1;
 gitstaged=0;
+input_file='';
 
 while [[ "$1" == --* ]]; do
   case $1 in
@@ -63,6 +61,12 @@ while [[ "$1" == --* ]]; do
 
    --staged-files-only)
       gitstaged=1;
+      ;;
+
+   --file)
+      shift
+      input_file=$1
+      break;
       ;;
 
     *)
@@ -116,6 +120,7 @@ if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
 #bots_to_run='shout';
+modified=0
 for edittype in $bots_to_run; do
     filelist='';
     case $edittype in
@@ -136,7 +141,16 @@ for edittype in $bots_to_run; do
            else
              files=$filenamepattern
            fi
-           myfiles=`get_only_files_in_git "$files"`
+           if [[ "$input_file" != "" && "$edittype" != "authors" ]]; then
+           # Only process the input file
+             if [[ "$dir" == "$(dirname $input_file)" ]]; then
+               myfiles=$(basename $input_file)
+             else
+               myfiles=""
+             fi
+           else
+             myfiles=`get_only_files_in_git "$files"`
+           fi
            for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
@@ -262,6 +276,7 @@ for edittype in $bots_to_run; do
           echo "$msg";
        fi
        echo "Modified files = $filelist";
+       modified=$((modified + 1))
     fi
     if [[ $docommit == 1 ]]; then
        git commit -m "$msg" $filelist;
@@ -282,3 +297,4 @@ else
       echo "No changes";
    fi
 fi
+exit $modified
