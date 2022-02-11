@@ -71,6 +71,10 @@ jobs:
         sudo apt-get install -y intel-oneapi-mpi
         sudo apt-get install -y intel-oneapi-mpi-devel
 
+    - name: Check env
+        source /opt/intel/oneapi/setvars.sh
+        printenv
+
     # - name: "Clone phantom"
     #   uses: actions/checkout@v2
 
