@@ -891,10 +891,10 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
     &" Tgas = ",f6.0,", r/rout = ",f7.5," iter = ",i7,/)') &
     state%time/time_end,state%dt/time_end,state%Tg,state%r/rout,iter
  else
-    print *,'integration succesful, #',iter,' iterations required'
-    print *,'integration succesful, #',iter,' iterations required, rout = ',state%r/au
+    print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif
  close(1337)
+ !stop 'save_windprofile'
 
  if (allocated(trvurho_1D)) deallocate(trvurho_1D)
  allocate (trvurho_1D(5, writeline))
