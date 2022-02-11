@@ -97,6 +97,12 @@ jobs:
         SYSTEM: ${{ matrix.system[1] }}
         RETURN_ERR: yes
 
+    - name: Update label temporarily for status checking
+      uses: actions-ecosystem/action-add-labels@v1
+      if: failure()
+      with:
+        labels: build-fail-${{ matrix.system[1] }})
+
     - name: "Install SSH Key"
       if: github.event_name == 'schedule'
       uses: webfactory/ssh-agent@v0.5.3
@@ -131,3 +137,26 @@ jobs:
           cat $item
           echo ::endgroup::
         done
+
+# Gather results (https://github.community/t/status-check-for-a-matrix-jobs/127354/12)
+  gather_results:
+    if: always()
+    needs:
+    - matrix_prep
+    - build
+    strategy:
+      fail-fast: false
+      matrix:
+        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
+
+    name: build (SYSTEM=${{ matrix.system[1] }})
+
+    # Always run on github runner; no need to use custom runner for the check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: mheap/github-action-required-labels@v1
+        with:
+          mode: exactly
+          count: 0
+          labels: build-fail-${{ matrix.system[1] }})
