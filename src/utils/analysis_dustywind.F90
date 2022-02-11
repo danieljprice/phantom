@@ -124,7 +124,7 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,kappa_dust_bowen,idust_opacity
+ use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -161,12 +161,12 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
     do i=N-1,istart+1,-1
        if (idust_opacity == 2) then
           if (rho(i) > 0.) then
-             call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
+             kappa(i) = calc_kappa_dust(K3(i),Teq(i),rho(i))
           else
              kappa(i) = 0.d0
           endif
        elseif (idust_opacity == 1) then
-          kappa(i) = kappa_dust_bowen(Teq(i))
+          kappa(i) = calc_kappa_bowen(Teq(i))
        endif
        rho_on_r2(i) = rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2)
        !if (iter >= 1) print *,'teq loop',i,K3(i),Teq(i),kappa(i),rho_on_r2(i)

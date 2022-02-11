@@ -674,6 +674,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef WIND
     if (((isink_radiation == 1 .and. idust_opacity == 0 ) .or. isink_radiation == 3 ) .and. alpha_rad < 1.d-10) &
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
+    if (isink_radiation > 1 .and. idust_opacity == 0 ) &
+         call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
 #endif
  endif
  return
