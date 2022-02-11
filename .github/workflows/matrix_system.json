@@ -1,4 +1,3 @@
 {
-    // "always": ["ubuntu-latest", "gfortran"],
     "always": ["ubuntu-latest", "ifort"]
 }
