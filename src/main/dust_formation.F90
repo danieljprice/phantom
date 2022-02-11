@@ -590,11 +590,11 @@ end function kappa_dust_bowen
 !-----------------------------------------------------------------------
 subroutine calc_alpha_bowen(Mstar_cgs, Lstar_cgs, Teq, alpha)
 !all quantities in cgs
- use physcon, only:pi,c
+ use physcon, only:pi,c,Gg
  real, intent(in)  :: Mstar_cgs, Lstar_cgs, Teq
  real, intent(out) :: alpha
 
- alpha = Lstar_cgs/(4.*pi*c*Mstar_cgs) * kappa_dust_bowen(Teq)
+ alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_dust_bowen(Teq)
 end subroutine calc_alpha_bowen
 
 !-----------------------------------------------------------------------

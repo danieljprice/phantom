@@ -111,14 +111,14 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
  real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,r,ax,ay,az
+ real                    :: dx,dy,dz,r,ax,ay,az, alpha
  integer                 :: i
 
  !$omp parallel  do default(none) &
  !$omp shared(nucleation,do_nucleation)&
  !$omp shared(dust_temp) &
  !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
- !$omp private(i,dx,dy,dz,ax,ay,az,r)
+ !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        dx = xyzh(1,i) - xa
@@ -130,7 +130,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
                nucleation(idalpha,i),kappa=nucleation(idkappa,i))
        else
           call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,&
-               nucleation(idalpha,i),Tdust=dust_temp(i))
+               alpha,Tdust=dust_temp(i))
        endif
        fext(1,i) = fext(1,i) + ax
        fext(2,i) = fext(2,i) + ay
