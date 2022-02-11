@@ -62,7 +62,7 @@ jobs:
         rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
         sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
         sudo apt-get update
-        INTELVERSION=$(apt-cache show <packageName> | grep Version | head -1)
+        INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
         echo "::set-env name=INTELVERSION::$INTELVERSION"
 
     - name: Cache intel installation
