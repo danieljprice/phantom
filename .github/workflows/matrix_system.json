@@ -1,3 +1,0 @@
-{
-    "always": ["ubuntu-latest", "ifort"]
-}
