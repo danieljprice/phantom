@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check all builds succeeded
+    - name: Check all tests
       run: |
         if [[ "${{ needs.test.result }}" == "success" ]]; then
           echo "All tests succeeded"

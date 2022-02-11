@@ -145,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check all builds succeeded
+    - name: Check all builds
       run: |
         if [[ "${{ needs.build.result }}" == "success" ]]; then
           echo "All build succeeded"
