@@ -55,61 +55,77 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: "Clone phantom"
-      uses: actions/checkout@v2
-
-    - name: "Grab a copy of splash source code"
-      uses: actions/checkout@v2
-      with:
-        repository: danieljprice/splash
-        path: splash
-
-    - name: "Create logs directory"
-      run: mkdir logs
-
-    - name: "Grab previous build logs from web server"
-      env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
-
-    - name: "Run buildbot.sh"
-      run: ./buildbot.sh 17000000 http://${WEB_SERVER}/${BUILD_LOG_DIR}
-      working-directory: scripts
-      env:
-        SYSTEM: ${{ matrix.system[1] }}
-        RETURN_ERR: yes
-
-    - name: "Install SSH Key"
-      if: github.event_name == 'schedule'
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-
-    - name: "Copy new build logs to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
-      run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
-
-    - name: "Copy HTML files to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+    - name: Setup Intel repo
       run: |
-        export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
-        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
-        rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
+        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
 
-    - name: logs/build-failures-${{ matrix.system[1] }}.txt
-      if: always()
-      run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
-
-    - name: logs/setup-failures-${{ matrix.system[1] }}.txt
-      if: always()
-      run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
-
-    - name: logs/make-*-${{ matrix.system[1] }}.txt
-      if: always()
+    - name: Install Intel compilers
       run: |
-        echo
-        for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
-          echo ::group::"${item}"
-          cat $item
-          echo ::endgroup::
-        done
+        sudo apt-get install -y intel-oneapi-common-vars
+        sudo apt-get install -y intel-oneapi-compiler-fortran
+        sudo apt-get install -y intel-oneapi-mkl
+        sudo apt-get install -y intel-oneapi-mpi
+        sudo apt-get install -y intel-oneapi-mpi-devel
+
+    # - name: "Clone phantom"
+    #   uses: actions/checkout@v2
+
+    # - name: "Grab a copy of splash source code"
+    #   uses: actions/checkout@v2
+    #   with:
+    #     repository: danieljprice/splash
+    #     path: splash
+
+    # - name: "Create logs directory"
+    #   run: mkdir logs
+
+    # - name: "Grab previous build logs from web server"
+    #   env:
+    #     WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+    #   run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
+
+    # - name: "Run buildbot.sh"
+    #   run: ./buildbot.sh 17000000 http://${WEB_SERVER}/${BUILD_LOG_DIR}
+    #   working-directory: scripts
+    #   env:
+    #     SYSTEM: ${{ matrix.system[1] }}
+    #     RETURN_ERR: yes
+
+    # - name: "Install SSH Key"
+    #   if: github.event_name == 'schedule'
+    #   uses: webfactory/ssh-agent@v0.5.3
+    #   with:
+    #     ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+
+    # - name: "Copy new build logs to web server"
+    #   if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+    #   run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
+
+    # - name: "Copy HTML files to web server"
+    #   if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+    #   run: |
+    #     export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
+    #     ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
+    #     rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
+
+    # - name: logs/build-failures-${{ matrix.system[1] }}.txt
+    #   if: always()
+    #   run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
+
+    # - name: logs/setup-failures-${{ matrix.system[1] }}.txt
+    #   if: always()
+    #   run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
+
+    # - name: logs/make-*-${{ matrix.system[1] }}.txt
+    #   if: always()
+    #   run: |
+    #     echo
+    #     for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
+    #       echo ::group::"${item}"
+    #       cat $item
+    #       echo ::endgroup::
+    #     done
