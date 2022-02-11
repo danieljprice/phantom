@@ -35,6 +35,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !-SET-EOS-OF-INPUT-DUMP--------
  ieos = 12
+ gamma = 5./3.
  gmw = 0.61821
  !--------------------------
  print*,'Assuming input dump has ieos = ',ieos
@@ -52,11 +53,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
  ieos = 20
+ irecomb = 2
  if (ieos == 10) then
     X_in = 0.69843
     Z_in = 0.01426
- elseif (ieos == 20) then
-    irecomb = 1
  endif
  !--------------------------
  call init_eos(ieos,ierr)

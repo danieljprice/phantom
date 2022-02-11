@@ -307,4 +307,33 @@ real function get_erec(logd,T,X,Y)
  return
 end function get_erec
 
+!----------------------------------------------------------------
+!+
+!  Calculate thermal (gas + radiation internal energy) energy of a
+!  gas particle. Inputs and outputs in code units
+!+
+!----------------------------------------------------------------
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,ethi)
+ use part,             only:rhoh
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use physcon,          only:radconst,Rg
+ use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
+ integer, intent(in) :: ieos
+ real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
+ real, intent(out)   :: ethi
+ real                :: hi,densi_cgs,mui
+
+ select case (ieos)
+ case(10,20) ! calculate just gas + radiation thermal energy
+    hi = xyzh(4)
+    densi_cgs = rhoh(hi,particlemass)*unit_density
+    mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
+    call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,gamma,ethi)
+    ethi = particlemass * ethi / unit_ergg
+ case default ! assuming internal energy = thermal energy
+    ethi = particlemass * vxyzu(4)
+ end select
+
+end subroutine calc_thermal_energy
+
 end module ionization_mod

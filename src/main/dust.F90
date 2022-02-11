@@ -277,12 +277,14 @@ end subroutine get_ts
 !--------------------------------------------------------------------------
 !+
 !  writes input dust options to the input file
+!  Note: ndustypes & use_dustfract are read from the dump file, so will
+!  not be correctly printed in the header, where iunit=iprint
 !+
 !--------------------------------------------------------------------------
 subroutine write_options_dust(iunit)
  use fileutils,    only:make_tags_unique
  use infile_utils, only:write_inopt
- use io,           only:warning
+ use io,           only:warning,iprint
  use options,      only:use_dustfrac
  integer, intent(in) :: iunit
  character(len=10)   :: numdust
@@ -290,36 +292,42 @@ subroutine write_options_dust(iunit)
  integer             :: i
 
  write(numdust,'(I10)') ndusttypes
- write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
+ if (iunit==iprint) then
+    write(iunit,"(/,a)") '# options controlling dust (incomplete list)'
+ else
+    write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
+ endif
 
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
 
- select case(idrag)
- case(1)
-    if (ndusttypes <= 1) then
-       if (use_dustgrowth) then
-          call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
-       else
-          call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
+ if (iunit/=iprint) then
+    select case(idrag)
+    case(1)
+       if (ndusttypes <= 1) then
+          if (use_dustgrowth) then
+             call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
+          else
+             call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
+          endif
+          call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
        endif
-       call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
-    endif
- case(2,3)
-    if (ndusttypes > 1) then
-       duststring='K_code'
-       call make_tags_unique(ndusttypes,duststring)
-       do i=1,ndusttypes
-          call write_inopt(K_code(i),duststring(i),'drag constant when constant drag is used',iunit)
-       enddo
-    else
-       call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
-    endif
- end select
+    case(2,3)
+       if (ndusttypes > 1) then
+          duststring='K_code'
+          call make_tags_unique(ndusttypes,duststring)
+          do i=1,ndusttypes
+             call write_inopt(K_code(i),duststring(i),'drag constant when constant drag is used',iunit)
+          enddo
+       else
+          call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
+       endif
+    end select
 
- if (use_dustfrac) then
-    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
- else
-    call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
+    if (use_dustfrac) then
+       call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
+    else
+       call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
+    endif
  endif
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
