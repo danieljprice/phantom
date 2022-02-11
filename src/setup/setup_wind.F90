@@ -46,6 +46,7 @@ module setup
  real :: primary_mass_msun     = 1.5
  real :: primary_lum_lsun      = 0.
  real :: primary_Reff_au       = 0.465240177008 !100 Rsun
+ real :: temp_exponent         = 0.5
 #else
  real, public :: T_wind = 3000.
  real :: primary_racc_au       = 1.
@@ -73,7 +74,6 @@ module setup
  real :: secondary_mass_msun   = 1.0
  real :: secondary_Reff_au     = 0.
  real :: secondary_racc_au     = 0.1
- real :: temp_exponent         = 0.5
 
 
 contains

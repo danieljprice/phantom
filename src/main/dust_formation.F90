@@ -23,14 +23,15 @@ module dust_formation
 ! :Dependencies: dim, eos, infile_utils, io, options, physcon, units
 !
 
- use part,only: idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
+ use part,    only: idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
+ use physcon, only: kboltz,pi,atomic_mass_unit
 
  implicit none
  integer, public :: idust_opacity = 0
 
- public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,kappa_dust_bowen,&
+ public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_alpha_bowen,calc_alpha_dust,calc_muGamma,init_muGamma
+      calc_Eddington_factor,calc_muGamma,init_muGamma
 !
 !--runtime settings for this module
 !
@@ -80,6 +81,8 @@ module dust_formation
  real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
+ real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
+ !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  real :: mass_per_H, eps(nElements)
 
@@ -87,7 +90,6 @@ contains
 
 subroutine set_abundances
 ! all quantities in cgs
- use physcon, only:atomic_mass_unit
  eps(iH)  = 1.d0
  eps(iHe) = 1.04d-1
  eps(iOx) = 6.d-4
@@ -120,9 +122,9 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  dt        = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
- T = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
+ T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
  call evolve_chem(dt, T, rho_cgs, JKmuS)
- call calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs, JKmuS(idkappa))
+ JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 end subroutine evolve_dust
 
 !-----------------------------------------------------------------------
@@ -132,7 +134,6 @@ end subroutine evolve_dust
 !-----------------------------------------------------------------------
 subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
 !all quantities in cgs
- use physcon, only:pi,kboltz,atomic_mass_unit
  real, intent(in)    :: dt, rho_cgs
  real, intent(inout) :: T, JKmuS(:)
 
@@ -142,7 +143,6 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  real :: nH, nH2, v1
  real, parameter :: A0 = 20.7d-16
  real, parameter :: alpha2 = 0.34
- real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  nH_tot = rho_cgs/mass_per_H
  epsC   = eps(iC) - JKmuS(idK3)
@@ -159,16 +159,15 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
        K_new(0:3) = JKmuS(idK0:idK3)
     endif
  else
-! Simplified low-temperature chemistry: all hydrogen in H2 molecules
+! Simplified low-temperature chemistry: all hydrogen in H2 molecules, all O in CO
     nH  = 0.
     nH2 = nH_tot/2.
-    JKmuS(idmu) = (1.+4.*eps(iHe))*nH_tot/(nH+nH2+eps(iHe)*nH_tot)
+    JKmuS(idmu)    = (1.+4.*eps(iHe))*nH_tot/(nH+nH2+eps(iHe)*nH_tot)
     JKmuS(idgamma) = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
     pC2H2 = .5*(epsC-eps(iOx))*nH_tot * kboltz * T
     pC2H  = 0.
-    S = 0.
-    v1 = sqrt(kboltz*T/(8.*pi*atomic_mass_unit*12.01))
-    !v1 = vfactor*sqrt(T)
+    S     = 1.d-3
+    v1    = vfactor*sqrt(T)
     taugr = kboltz*T/(A0*v1*sqrt(2.)*alpha2*(pC2H+pC2H2))
     call evol_K(0., JKmuS(idK0:idK3), 0., 1., taugr, dt, Jstar_new, K_new)
  endif
@@ -177,50 +176,55 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  JKmuS(idsat)     = S
 end subroutine evolve_chem
 
+
+!------------------------------------
+!
+!  Bowen dust opacity formula
+!
+!------------------------------------
+pure real function calc_kappa_bowen(Teq)
+!all quantities in cgs
+ real,    intent(in)  :: Teq
+ calc_kappa_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta)) + kappa_gas
+end function calc_kappa_bowen
+
 !-----------------------------------------------------------------------
 !
 !  calculate dust opacity
 !
 !-----------------------------------------------------------------------
-subroutine calc_kappa_dust(K3, Tdust, rho_cgs, kappa_cgs)
+pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
 !all quantities in cgs
- use physcon, only:pi,atomic_mass_unit
  real, intent(in) :: K3, Tdust, rho_cgs
- real, intent(out) :: kappa_cgs
 
- real :: kappa, fac
+ real :: kappa_cgs, fac
  real, parameter :: rho_Cdust = 2.62, mc = 12.*atomic_mass_unit
  real, parameter :: Qplanck_abs = 1.6846124267740528e+04
  real, parameter :: Qross_ext = 9473.2722815583311
 
- !carbon fraction
- !fC = max(1.d-15,K3/eps(iC))
  fac = max(0.75*K3*mc/(mass_per_H*rho_Cdust),1.e-15)
-
- !kappa = Qplanck_abs *fac ! planck
- !kappa = Qross_ext * fac  ! Rosseland
+ !kappa_cgs = Qplanck_abs *fac ! planck
+ !kappa_cgs = Qross_ext * fac  ! Rosseland
 
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
- ! kappa = 6.7d0 * fac * Tdust ! planck
- kappa = 5.9d0 * fac * Tdust  ! Rosseland
+ !kappa_cgs = 6.7d0 * fac * Tdust  ! planck
+ kappa_cgs = 5.9d0 * fac * Tdust  ! Rosseland
 
- kappa_cgs = kappa + kappa_gas
-
-end subroutine calc_kappa_dust
+ calc_kappa_dust = kappa_cgs + kappa_gas
+end function calc_kappa_dust
 
 !-----------------------------------------------------------------------
 !
 !  calculate alpha, reduced gravity factor
 !
 !-----------------------------------------------------------------------
-subroutine calc_alpha_dust(Mstar_cgs, Lstar_cgs, kappa_cgs, alpha)
+pure real function calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa_cgs)
 !all quantities in cgs
- use physcon, only:pi,c,Gg
+ use physcon, only:c,Gg
  real, intent(in) :: Mstar_cgs,Lstar_cgs,kappa_cgs
- real, intent(out) :: alpha
 
- alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
-end subroutine calc_alpha_dust
+ calc_Eddington_factor = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+end function calc_Eddington_factor
 
 !----------------------------
 !
@@ -229,7 +233,6 @@ end subroutine calc_alpha_dust
 !----------------------------
 subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
 ! all quantities are in cgs
- use physcon, only:kboltz,pi,atomic_mass_unit
  real, intent(in)  :: T, pC, pC2, pC3, pC2H, pC2H2, S
  real, intent(out) :: Jstar, taustar, taugr
  real, parameter   :: A0 = 20.7d-16
@@ -245,29 +248,26 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  real :: dtheta_dNstar, d2lnc_dN2star, Z, A_Nstar, v1, beta, c_star, expon
 
  ln_S_g = log(S)
- Nstar_inf_13 = 2.*theta_inf/(3.*T*ln_S_g)
- Nstar = 1. + (Nstar_inf_13**3)/8. * (1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13)**3
- Nstar_m1_13 = (Nstar - 1.)**(1./3.)
- Nstar_m1_23 = Nstar_m1_13**2
- theta_Nstar = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
+ Nstar_inf_13  = 2.*theta_inf/(3.*T*ln_S_g)
+ Nstar         = 1. + (Nstar_inf_13**3)/8. * (1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13)**3
+ Nstar_m1_13   = (Nstar - 1.)**(1./3.)
+ Nstar_m1_23   = Nstar_m1_13**2
+ theta_Nstar   = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
  dtheta_dNstar = Nl**(1./3.)/3. * theta_Nstar**2/(theta_inf * Nstar_m1_23**2)
  d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
- Z = sqrt(d2lnc_dN2star/(2.*pi))
- A_Nstar = A0 * Nstar**(2./3.)
- !v1 = sqrt(kboltz*T/(8.*pi*12.01*mproton))
- v1 = sqrt(kboltz*T/(2.*pi*12.01*mproton))
- beta = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
- expon = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
+ Z             = sqrt(d2lnc_dN2star/(2.*pi))
+ A_Nstar       = A0 * Nstar**(2./3.)
+ v1            = vfactor*sqrt(T)
+ beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
+ expon         = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
  if (expon < -100.) then
     c_star = 1.d-99
  else
     c_star = pC/(kboltz*T) * exp(expon)
  endif
- Jstar = beta * A_Nstar * Z * c_star
+ Jstar   = beta * A_Nstar * Z * c_star
  taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
- !v1 = sqrt(kboltz*T/(8.*pi*12.01*atomic_mass_unit))
- v1 = sqrt(kboltz*T/(2.*pi*12.01*atomic_mass_unit))
- taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
+ taugr   = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
 
 !------------------------------------
@@ -313,8 +313,7 @@ end subroutine evol_K
 !----------------------------------------
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
- use physcon, only:kboltz,atomic_mass_unit
- use io,      only:fatal
+ use io, only:fatal
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
@@ -327,38 +326,38 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  character(len=30), parameter :: label = 'calc_muGamma'
 
  if (T > 1.d5) then
-    mu = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    gamma = 5./3.
+    mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
+    gamma  = 5./3.
     pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
-    pH = pH_tot
+    pH     = pH_tot
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
-    tol = 1.d-3
+    tol       = 1.d-3
     converged = .false.
-    isolve = 0
+    isolve    = 0
     !T = atomic_mass_unit*mu*(gamma-1)*u/kboltz
     i = 0
     do while (.not. converged .and. i < itermax)
        i = i+1
-       pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
-       KH2 = calc_Kd(coefs(:,iH2), T)
-       pH  = solve_q(2.*KH2, 1., -pH_tot)
-       pH2 = KH2*pH**2
-       mu_old = mu
-       mu = (1.+4.*eps(iHe))*pH_tot/(pH+pH2+eps(iHe)*pH_tot)
+       pH_tot    = rho_cgs*T*kboltz/(patm*mass_per_H)
+       KH2       = calc_Kd(coefs(:,iH2), T)
+       pH        = solve_q(2.*KH2, 1., -pH_tot)
+       pH2       = KH2*pH**2
+       mu_old    = mu
+       mu        = (1.+4.*eps(iHe))*pH_tot/(pH+pH2+eps(iHe)*pH_tot)
        gamma_old = gamma
-       gamma = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
-       T_old = T
-       T = T_old*mu*(gamma-1.)/(mu_old*(gamma_old-1.))
-       !T = T_old    !uncomment this line to cancel iterations
+       gamma     = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
+       T_old     = T
+       T         = T_old*mu*(gamma-1.)/(mu_old*(gamma_old-1.))
+       !T        = T_old    !uncomment this line to cancel iterations
        converged = (abs(T-T_old)/T_old).lt.tol
        !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
     enddo
     if (i>=itermax .and. .not.converged) then
        if (isolve.eq.0) then
           isolve = isolve+1
-          i = 0
-          tol = 1.d-2
+          i      = 0
+          tol    = 1.d-2
           print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
        else
           print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
@@ -384,7 +383,6 @@ end subroutine calc_muGamma
 !--------------------------------------------
 subroutine init_muGamma(rho_cgs, T, mu, gamma)
 ! all quantities are in cgs
- use physcon,only:kboltz
  real, intent(in) :: rho_cgs
  real, intent(out) :: T, mu, gamma
  real :: KH2, pH_tot, pH, pH2
@@ -526,7 +524,7 @@ end function solve_q
 !  Compute saturation pressure of carbon clusters C_1, ..., C_5 over graphite
 !
 !-------------------------------------------------------------------------
-real function psat_C(T)
+pure real function psat_C(T)
 ! all quantities are in cgs
  real, intent(in) :: T
 
@@ -572,31 +570,6 @@ pure real function calc_Kd_TiS(T)
  calc_Kd_TiS = 10.**(-logKd)*patm
 end function calc_Kd_TiS
 
-!------------------------------------
-!
-!  Bowen dust opacity formula
-!
-!------------------------------------
-real function kappa_dust_bowen(Teq)
-!all quantities in cgs
- real,    intent(in)  :: Teq
- kappa_dust_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta))+kappa_gas
-end function kappa_dust_bowen
-
-!-----------------------------------------------------------------------
-!
-!  calculate alpha, reduced gravity factor using Bowen formula
-!
-!-----------------------------------------------------------------------
-subroutine calc_alpha_bowen(Mstar_cgs, Lstar_cgs, Teq, alpha)
-!all quantities in cgs
- use physcon, only:pi,c,Gg
- real, intent(in)  :: Mstar_cgs, Lstar_cgs, Teq
- real, intent(out) :: alpha
-
- alpha = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_dust_bowen(Teq)
-end subroutine calc_alpha_bowen
-
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -609,9 +582,9 @@ subroutine write_options_dust_formation(iunit)
 
  write(iunit,"(/,a)") '# options controlling dust'
  if (nucleation) then
-    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen), 2 (nucleation))',iunit)
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1 (bowen), 2 (nucleation))',iunit)
  else
-    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1=on (bowen))',iunit)
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1 (bowen))',iunit)
  endif
  if (idust_opacity == 1) then
     call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)

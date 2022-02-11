@@ -107,18 +107,19 @@ end subroutine get_rad_accel_from_ptmass
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation
+ use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
  real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,r,ax,ay,az, alpha
+ real                    :: dx,dy,dz,r,ax,ay,az,alpha,kappa
  integer                 :: i
 
  !$omp parallel  do default(none) &
  !$omp shared(nucleation,do_nucleation)&
  !$omp shared(dust_temp) &
  !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
- !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha)
+ !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        dx = xyzh(1,i) - xa
@@ -126,11 +127,12 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        dz = xyzh(3,i) - za
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,&
-               nucleation(idalpha,i),kappa=nucleation(idkappa,i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
        else
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,&
-               alpha,Tdust=dust_temp(i))
+          kappa = calc_kappa_bowen(dust_temp(i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               kappa,ax,ay,az,alpha)
        endif
        fext(1,i) = fext(1,i) + ax
        fext(2,i) = fext(2,i) + ay
@@ -148,13 +150,12 @@ end subroutine calc_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     ax,ay,az,alpha,Tdust,kappa)
- use units,   only: umass
- use dust_formation, only:calc_alpha_dust,calc_alpha_bowen,idust_opacity
- real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs
- real, optional, intent(in) :: kappa,Tdust
+     kappa,ax,ay,az,alpha)
+ use units,          only:umass
+ use dust_formation, only:calc_Eddington_factor
+ real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
  real, intent(out)   :: ax,ay,az,alpha
- real :: fac,alpha_dust
+ real :: fac
 
  select case (isink_radiation)
  case (1)
@@ -162,20 +163,10 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
-    if (idust_opacity == 2) then
-       call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-    else
-       call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-    endif
-    alpha = alpha_dust
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa)
  case (3)
-    ! radiation pressure on dust + alpha_wind (=1+2)
-    if (idust_opacity == 2) then
-       call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-    else
-       call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-    endif
-    alpha = alpha_rad+alpha_dust
+    ! radiation pressure on dust + alpha_rad (=1+2)
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa) + alpha_rad
  case default
     ! no radiation pressure
     alpha = 0.
@@ -332,8 +323,8 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dim, only:do_nucleation
- use dust_formation, only : calc_kappa_dust,kappa_dust_bowen
+ use dim,            only:do_nucleation
+ use dust_formation, only:calc_kappa_dust,calc_kappa_bowen
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -367,12 +358,12 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
     do i=N-1,istart+1,-1
        if (do_nucleation) then
           if (rho(i) > 0.) then
-             call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
+             kappa(i) = calc_kappa_dust(K3(i),Teq(i),rho(i))
           else
              kappa(i) = 0.d0
           endif
        else
-          kappa(i) = kappa_dust_bowen(Teq(i))
+          kappa(i) = calc_kappa_bowen(Teq(i))
        endif
        rho_m = (rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2))
        tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas)*rho_m
