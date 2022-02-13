@@ -22,7 +22,7 @@ jobs:
       matrix:
         system:
           - gfortran
-          - intel
+          - ifort
         debug:
           - no
           - yes
