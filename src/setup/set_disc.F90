@@ -938,7 +938,13 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- if (itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if (itype == igas) then
+    if (T_ref < 1.0d3) then
+       write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)")  '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+    else
+       write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+    endif
+ endif
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'
