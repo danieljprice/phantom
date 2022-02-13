@@ -72,3 +72,24 @@ jobs:
 
     - name: "Run phantom tests"
       run: ./bin/phantomtest ${{ matrix.input[1] }}
+
+  # Gather results into a dummy job that will fail if the previous job fails
+  gather_results:
+    if: always()
+    needs:
+    - test
+
+    # This name matches the branch protection requirement
+    name: test
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check all tests
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" ]]; then
+          echo "All tests succeeded"
+        else
+          echo "At least one test failed"
+          exit 1
+        fi
