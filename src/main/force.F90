@@ -42,8 +42,8 @@ module forces
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
 !   mpiderivs, mpiforce, mpiutils, nicil, options, part, physcon, ptmass,
-!   radiation_utils, stack, timestep, timestep_ind, timestep_sts, units,
-!   utils_gr, viscosity
+!   ptmass_heating, radiation_utils, stack, timestep, timestep_ind,
+!   timestep_sts, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -2412,11 +2412,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use fastmath,       only:finvsqrt
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
- use eos,            only:use_entropy,gamma,ieos
+ use eos,            only:use_entropy,gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
- use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP
+ use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
+ use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
  use timestep_ind,   only:get_newbin,check_dtmin
@@ -2515,7 +2516,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  integer :: ireg
 #endif
  integer               :: ip,i
- real                  :: densi, vxi,vyi,vzi,u0i,dudtcool
+ real                  :: densi, vxi,vyi,vzi,u0i,dudtcool,dudtheat
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
 
@@ -2780,6 +2781,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
+             !  if (nuclear_burning) then
+             !     call energ_nuclear(xi,yi,zi,vxyzu(4,i),dudtnuc,rhoi,0.,Tgas=tempi)
+             !     fxyz4 = fxyz4 + fac*dudtnuc
+             !  endif
+             if (sinks_have_heating(nptmass,xyzmh_ptmass)) then
+                call energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheat)
+                fxyz4 = fxyz4 + fac*dudtheat
+             endif
              ! extra terms in du/dt from one fluid dust
              if (use_dustfrac) then
                 !fxyz4 = fxyz4 + 0.5*fac*rho1i*fsum(idudtdusti)
@@ -2937,17 +2946,22 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
        else
-          drad(iradxi,i) = fsum(idradi) + radprop(iradP,i)*drhodti*rho1i*rho1i
-          c_code     = c/unit_velocity
-          radkappai  = xpartveci(iradkappai)
-          radlambdai = xpartveci(iradlambdai)
-          ! eq30 Whitehouse & Bate 2004
-          dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
-          ! additional timestep constraint to ensure that
-          ! radiation energy is positive after the integration
-          if ((rad(iradxi,i) + dtradi*drad(iradxi,i)) < 0) then
-             if (rad(iradxi,i) > 0.) dtradi = -rad(iradxi,i)/drad(iradxi,i)/1e1
-             call warning('force','radiation may become negative, limiting timestep')
+          if (iopacity_type == 0) then
+             drad(iradxi,i) = radprop(iradP,i)*drhodti*rho1i*rho1i
+             dtradi = bignumber
+          else
+             drad(iradxi,i) = fsum(idradi) + radprop(iradP,i)*drhodti*rho1i*rho1i
+             c_code     = c/unit_velocity
+             radkappai  = xpartveci(iradkappai)
+             radlambdai = xpartveci(iradlambdai)
+             ! eq30 Whitehouse & Bate 2004
+             dtradi = C_rad*hi*hi*rhoi*radkappai/c_code/radlambdai
+             ! additional timestep constraint to ensure that
+             ! radiation energy is positive after the integration
+             if ((rad(iradxi,i) + dtradi*drad(iradxi,i)) < 0) then
+                if (rad(iradxi,i) > 0.) dtradi = -rad(iradxi,i)/drad(iradxi,i)/1e1
+                call warning('force','radiation may become negative, limiting timestep')
+             endif
           endif
        endif
     endif
