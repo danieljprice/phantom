@@ -166,6 +166,7 @@ module part
  integer, parameter :: imloss = 15 ! mass loss rate
  integer, parameter :: imdotav = 16 ! accretion rate average
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
+ integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -175,7 +176,7 @@ module part
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    '/)
+    'mdotav   ','mprev    ','massenc  '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -751,9 +752,23 @@ logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
  real, intent(in) :: xyzmh_ptmass(:,:)
 
  sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
-                              xyzmh_ptmass(iLum,1:nptmass) > 0.)
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
 
 end function sinks_have_luminosity
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sinks_have_heating(nptmass,xyzmh_ptmass)
+ integer, intent(in) :: nptmass
+ real, intent(in) :: xyzmh_ptmass(:,:)
+
+ sinks_have_heating = any(xyzmh_ptmass(iTeff,1:nptmass) <= 0. .and. &
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
+
+end function sinks_have_heating
 
 !----------------------------------------------------------------
 !+

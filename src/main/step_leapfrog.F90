@@ -121,6 +121,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive
 #endif
+ use timestep_ind,   only:dt_too_small
 #ifdef GR
  use part,           only:metricderivs
  use metric_tools,   only:imet_minkowski,imetric
@@ -379,11 +380,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
+    dt_too_small = .false.
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
+    if (dt_too_small) then
+       ! dt < dtmax/2**nbinmax and exit
+       ! Perform this here rather than in get_newbin so that we can get some diagnostic info
+       ! This is only used for individual timesteps
+       call summary_printout(iprint,nptmass)
+       call fatal('step','step too small: bin would exceed maximum')
+    endif
  endif
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
@@ -1083,7 +1092,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real            :: dudtcool,fextv(3),poti,fextrad(3),ui
+ real            :: dudtcool,fextv(3),poti,fextrad(3),ui,rhoi
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
@@ -1186,7 +1195,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(gamma_chem,mu_chem,dudt_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
-    !$omp private(fextrad,ui) &
+    !$omp private(fextrad,ui,rhoi) &
     !$omp private(i,ichem,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
@@ -1273,6 +1282,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !       calculated in force and requires a cooling timestep.
 
              dudtcool = 0.
+             rhoi = rhoh(xyzh(4,i),pmassi)
              !
              ! CHEMISTRY
              !
@@ -1281,21 +1291,20 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 ! Get updated abundances of all species, updates 'chemarrays',
                 !
                 dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                call update_abundances(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),abundance(:,i),&
+                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),&
                       nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
-             call update_krome(dt,xyzh(:,i),ui,rhoh(xyzh(4,i),pmassi),&
-                               abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
+             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
 #ifdef NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoh(xyzh(4,i),pmassi))
+             call evolve_dust(dt,xyzh(:,i),vxyzu(4,i),nucleation(:,i),dust_temp(i),rhoi)
 #endif
              !
              ! COOLING
@@ -1306,21 +1315,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    ! Call cooling routine, requiring total density, some distance measure and
                    ! abundances in the 'abund' format
                    !
-                   call energ_h2cooling(vxyzu(4,i),rhoh(xyzh(4,i),pmassi),divcurlv(1,i),&
-                        gmwvar,abundi,dudtcool)
+                   call energ_h2cooling(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
 #ifdef NUCLEATION
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
-                        rhoh(xyzh(4,i),pmassi), dt, dust_temp(i),nucleation(6,i),nucleation(4,i),nucleation(8,i))
+                        rhoi,dt,dust_temp(i),nucleation(6,i),nucleation(4,i),nucleation(8,i))
 #else
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
-                        rhoh(xyzh(4,i),pmassi), dt, dust_temp(i))
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
 #endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
-                        rhoh(xyzh(4,i),pmassi), dt)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt)
                 endif
              endif
 #endif
