@@ -22,6 +22,7 @@ module load_from_file
  contains
 
  subroutine load_data_file(namefile,datafile,nhead)
+ use io,      only:fatal
  character(len=*), intent(in) :: namefile
  integer, intent(in), optional :: nhead
  integer           :: nrows,mcolumns,nheadlines,iunit,ierr,i
@@ -29,20 +30,23 @@ module load_from_file
  real, dimension(:,:), allocatable, intent(inout) :: datafile
 
  ierr=0
- iunit=1
+ iunit=155
  !--specify number of headlines
  nheadlines=1
+
+ write(*,*) 'Loading data from file:',namefile
+ write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
+
  if(present(nhead)) then
     nheadlines=nhead
  endif
  write(*,*) 'Skipping ',nheadlines,' head lines'
 
- open(unit=iunit,file=namefile,status='old',action='read')
+ open(unit=iunit,file=namefile,status='old',action='read',iostat=ierr)
+ if (ierr /= 0) call fatal('load_from_file','could not open/read '//trim(namefile))
 
  mcolumns=number_of_columns(iunit,nheadlines)
  nrows=number_of_rows(iunit)
- write(*,*) 'Loading data from file:',namefile
- write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
 
  allocate(datafile(nrows-nheadlines,mcolumns))
  do i=1,nheadlines
@@ -60,7 +64,7 @@ module load_from_file
     real, intent(in), dimension(:) :: arraytowrite
     integer :: iunit,i
 
-    iunit=1
+    iunit=155
  
     open(unit=iunit,file=namefile,status='replace',action='write')
     do i=1,size(arraytowrite(:))
