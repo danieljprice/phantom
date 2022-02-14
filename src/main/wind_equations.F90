@@ -247,7 +247,7 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  v = v0+H*(B31*dv1_dr+B32*dv2_dr)
  T = T0+H*(B31*dT1_dr+B32*dT2_dr)
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv3_dr, dT3_dr, numerator, denominator)
- ! if (method .eq. 'BSm') then
+ ! if (method == 'BSm') then
  ! new_rvT(1) = r0+H
  ! new_rvT(2) = v0 + H*(C1*dv1_dr+C2*dv2_dr+C3*dv3_dr)
  ! new_rvT(3) = T0 + H*(C1*dT1_dr+C2*dT2_dr+C3*dT3_dr)
@@ -266,7 +266,7 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  deltas = min(abs(new_rvt(1)-r0)/(1.d-10+r0),abs(new_rvt(2)-v0)/(1.d-10+v0),abs(new_rvt(3)-T0)/(1.d-10+T0))
 
  !determine RK3 solution to estimate error
- ! if (method .eq. 'BSm') then
+ ! if (method == 'BSm') then
  ! v = new_rvT(2)
  ! T = new_rvT(3)
  ! else

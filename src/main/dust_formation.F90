@@ -350,11 +350,11 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        T_old     = T
        T         = T_old*mu*(gamma-1.)/(mu_old*(gamma_old-1.))
        !T        = T_old    !uncomment this line to cancel iterations
-       converged = (abs(T-T_old)/T_old).lt.tol
+       converged = (abs(T-T_old)/T_old) < tol
        !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
     enddo
     if (i>=itermax .and. .not.converged) then
-       if (isolve.eq.0) then
+       if (isolve==0) then
           isolve = isolve+1
           i      = 0
           tol    = 1.d-2
