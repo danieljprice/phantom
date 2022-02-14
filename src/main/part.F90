@@ -858,6 +858,23 @@ subroutine remove_particle_from_npartoftype(i,npoftype)
 
 end subroutine remove_particle_from_npartoftype
 
+!----------------------------------------------------------------
+!+
+!  recount particle types, useful after particles have moved
+!  between MPI tasks
+!+
+!----------------------------------------------------------------
+subroutine recount_npartoftype
+   integer :: itype
+
+   npartoftype(:) = 0
+   do i=1,npart
+      itype = iamtype(iphase(i))
+      npartoftype(itype) = npartoftype(itype) + 1
+   enddo
+
+end subroutine recount_npartoftype
+
 !----------------------------------------------
 !+
 !  functions to deconstruct iphase
