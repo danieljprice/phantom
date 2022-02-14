@@ -243,7 +243,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  enddo
  npartoftype(itype)    = npart - npart_previous
  npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
- massoftype(itype)     = totmass/npartoftype(itype)
+ massoftype(itype)     = totmass/npartoftypetot(itype)
 
  !- setting dust particles if not one fluid
  if (.not. use_dustfrac) then
