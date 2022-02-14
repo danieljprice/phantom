@@ -627,54 +627,54 @@ end subroutine modify_dump
 
 subroutine set_sinkproperties(xyzmh_ptmass)
 
-  use part,       only:nptmass,ihacc,ihsoft,igas,imacc,ilum,ireff,imacc,ihacc,ihsoft,xyzmh_ptmass_label
-  use units,      only:umass,udist,utime,unit_energ
-  use physcon,    only:solarm,solarr,solarl
-  use prompting,  only:prompt
-  use dim,        only:nsinkproperties
-  use io,         only:iprint
-  integer :: i,j,iselect,ioption
-  real    :: fac,var
-  real,    intent(inout) :: xyzmh_ptmass(:,:)
-  character(len=100)        :: dumpname
+ use part,       only:nptmass,ihacc,ihsoft,igas,imacc,ilum,ireff,imacc,ihacc,ihsoft,xyzmh_ptmass_label
+ use units,      only:umass,udist,utime,unit_energ
+ use physcon,    only:solarm,solarr,solarl
+ use prompting,  only:prompt
+ use dim,        only:nsinkproperties
+ use io,         only:iprint
+ integer :: i,j,iselect,ioption
+ real    :: fac,var
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ character(len=100)        :: dumpname
 
-  do i = 1,nptmass
-     print '("sink properties for #",i2," (in code units)")',i
-     do j = 1,nsinkproperties
-        write(iprint,"(3x,i2,1x,a,es10.3)")  j,xyzmh_ptmass_label(j),xyzmh_ptmass(j,i)
-     enddo
-  enddo
-  if (nptmass == 1) then
-     iselect = 1
-  else
-     iselect = 1
-     call prompt('Select sink particle : ',iselect,1,nptmass)
-     if (iselect < 1 .or. iselect > nptmass) stop 'wrong sink particle number'
-  endif
+ do i = 1,nptmass
+    print '("sink properties for #",i2," (in code units)")',i
+    do j = 1,nsinkproperties
+       write(iprint,"(3x,i2,1x,a,es10.3)")  j,xyzmh_ptmass_label(j),xyzmh_ptmass(j,i)
+    enddo
+ enddo
+ if (nptmass == 1) then
+    iselect = 1
+ else
+    iselect = 1
+    call prompt('Select sink particle : ',iselect,1,nptmass)
+    if (iselect < 1 .or. iselect > nptmass) stop 'wrong sink particle number'
+ endif
 
-  ioption =1
-  do while (ioption > 0 .and. ioption < 17)
-     call prompt('Select sink property (0 to exit): ',ioption,0,nsinkproperties)
-     if (ioption == 0) exit
-     var = xyzmh_ptmass(ioption,iselect)
-     dumpname = '  o what value for ' // trim(xyzmh_ptmass_label(ioption)) // ' (in solar unit)'
-     call prompt(dumpname,var)
-     select case (ioption)
-     case (ihacc,ihsoft,iReff)
-        fac =  solarr / udist
-     case (ilum)
-        fac =  solarl * utime / unit_energ
-     case (imacc,4)
-        fac = solarm / umass
-     case default
-        fac = 1.
-     end select
-     xyzmh_ptmass(ioption,iselect) = var*fac
-  enddo
-  print *,'summary'
-  do j = 1,nsinkproperties
-     write(iprint,"(3x,i2,1x,a,es10.3)")  j,xyzmh_ptmass_label(j),xyzmh_ptmass(j,iselect)
-  enddo
+ ioption =1
+ do while (ioption > 0 .and. ioption < 17)
+    call prompt('Select sink property (0 to exit): ',ioption,0,nsinkproperties)
+    if (ioption == 0) exit
+    var = xyzmh_ptmass(ioption,iselect)
+    dumpname = '  o what value for ' // trim(xyzmh_ptmass_label(ioption)) // ' (in solar unit)'
+    call prompt(dumpname,var)
+    select case (ioption)
+    case (ihacc,ihsoft,iReff)
+       fac =  solarr / udist
+    case (ilum)
+       fac =  solarl * utime / unit_energ
+    case (imacc,4)
+       fac = solarm / umass
+    case default
+       fac = 1.
+    end select
+    xyzmh_ptmass(ioption,iselect) = var*fac
+ enddo
+ print *,'summary'
+ do j = 1,nsinkproperties
+    write(iprint,"(3x,i2,1x,a,es10.3)")  j,xyzmh_ptmass_label(j),xyzmh_ptmass(j,iselect)
+ enddo
 
 end subroutine set_sinkproperties
 

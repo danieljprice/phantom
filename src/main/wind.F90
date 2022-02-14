@@ -206,7 +206,7 @@ subroutine wind_step(state)
  alpha_old = state%alpha
  mu_old    = state%mu
  if (idust_opacity == 2) then
-   !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
+    !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
     state%mu             = state%JKmuS(idmu)
     state%gamma          = state%JKmuS(idgamma)
@@ -568,7 +568,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
           exit
        endif
        if (abs(v0-v0last)/v0last < 1.e-12) then
-       !if (v0 == v0last) then
+          !if (v0 == v0last) then
           exit
        endif
     enddo
@@ -769,17 +769,17 @@ end subroutine interp_wind_profile
 !+
 !-----------------------------------------------------------------------
 subroutine find_near_index(arr,val,indx)
-  real, intent(in)     :: arr(:), val
-  integer, intent(out) :: indx
-  integer              :: istart,istop,i
+ real, intent(in)     :: arr(:), val
+ integer, intent(out) :: indx
+ integer              :: istart,istop,i
 
-  istart = 1
-  istop  = size(arr)
-  if (val >= arr(istop)) then
-     indx = istop
-  elseif (val <= arr(istart)) then
-     indx = istart
-  else
+ istart = 1
+ istop  = size(arr)
+ if (val >= arr(istop)) then
+    indx = istop
+ elseif (val <= arr(istart)) then
+    indx = istart
+ else
     i = istart
     do while (i <= istop)
        if (arr(i)>val) then
@@ -797,9 +797,9 @@ end subroutine find_near_index
 !+
 !-----------------------------------------------------------------------
 real function interp_1d(x,x1,x2,y1,y2)
-  real, intent(in)  :: x, x1, x2, y1, y2
+ real, intent(in)  :: x, x1, x2, y1, y2
 
-  interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
+ interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
 end function interp_1d
 
 !-----------------------------------------------------------------------

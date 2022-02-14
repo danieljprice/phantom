@@ -56,34 +56,34 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
  rold = rvT(1)
  err = 1.
  do while (err > rvt_tol)
-   if (RK_solver == 'RK4') then
-     call RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-   else
-     call RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
-  endif
+    if (RK_solver == 'RK4') then
+       call RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+    else
+       call RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
+    endif
 !  print *,dt,err,err/rvt_tol
 !my method, requires slightly less iterations
-   if (dt < 1.0) then
-     dt_next = 1.
-     exit
-   endif
-   if (dt_force) then
-      dt_next = 0.
-      exit
-   endif
-   !original
-   ! if (err > 0.01) then
-   !    dt = dt * 0.9
-   ! else
-   !    if (err < 1.d-3) then
-   !       !dt_next = dt * 1.05
-   !       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
-   !       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
-   !    else
-   !       dt_next = dt
-   !    endif
-   !    exit
-   ! endif
+    if (dt < 1.0) then
+       dt_next = 1.
+       exit
+    endif
+    if (dt_force) then
+       dt_next = 0.
+       exit
+    endif
+    !original
+    ! if (err > 0.01) then
+    !    dt = dt * 0.9
+    ! else
+    !    if (err < 1.d-3) then
+    !       !dt_next = dt * 1.05
+    !       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
+    !       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+    !    else
+    !       dt_next = dt
+    !    endif
+    !    exit
+    ! endif
 !    if (err > rvt_tol) then
 !       dt = dt * 0.9
 !    else
@@ -95,20 +95,20 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
 !       ! dt_tol*dt*abs(rvt(3)/(1.d-10+new_rvt(3)-rvt(3))))
 !    endif
 
-   !rkqs version
-   errmax = err/rvt_tol
-   if (errmax > 1.) then
-     dt = max(0.1*dt,safety*dt*(errmax**pshrnk))
-     !exit
-   else
-     if (errmax > errcon) then
-        dt_next = safety*dt*(errmax**pgrow)
-     else
-        dt_next = 5.*dt
-     endif
-    !print *,'solver = ',RK_solver,dt,dt_next
-     exit
-   endif
+    !rkqs version
+    errmax = err/rvt_tol
+    if (errmax > 1.) then
+       dt = max(0.1*dt,safety*dt*(errmax**pshrnk))
+       !exit
+    else
+       if (errmax > errcon) then
+          dt_next = safety*dt*(errmax**pgrow)
+       else
+          dt_next = 5.*dt
+       endif
+       !print *,'solver = ',RK_solver,dt,dt_next
+       exit
+    endif
 
  enddo
  rvT = new_rvT
@@ -211,27 +211,27 @@ subroutine RK4_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
 
  real :: dv1_dr,dT1_dr,dv2_dr,dT2_dr,dv3_dr,dT3_dr,dv4_dr,dT4_dr,H,r0,v0,T0,r,v,T
 ! default RK4 parameters
-  character(len=3), parameter :: method = 'std'
-  real, parameter :: A2=.5,A3=.5,A4=1.
-  real, parameter :: B21=.5,B31=0.,B32=.5,B41=0.,B42=0.,B43=1.
-  real, parameter :: C1=1./6.,C2=1./3.,C3=1./3.,C4=1./6.
-  real, parameter :: D1=1./6.,D2=2./3.,D3=0.,D4=1./6.
+ character(len=3), parameter :: method = 'std'
+ real, parameter :: A2=.5,A3=.5,A4=1.
+ real, parameter :: B21=.5,B31=0.,B32=.5,B41=0.,B42=0.,B43=1.
+ real, parameter :: C1=1./6.,C2=1./3.,C3=1./3.,C4=1./6.
+ real, parameter :: D1=1./6.,D2=2./3.,D3=0.,D4=1./6.
 ! version that mimimizes the error
 ! character(len=3), parameter :: method = 'err'
 ! real, parameter :: A2=.4,A3=.45573725,A4=1.
 ! real, parameter :: B21=.4,B31=.29697761,B32=.15875964,B41=.21810040,B42=-3.05096516,B43=3.83286476
 ! real, parameter :: C1=.17476028,C2=-.55148066,c3=1.20553560,c4=.17118478
 ! 3/8-rule fourth-order method
-  ! character(len=3), parameter :: method = '3/8'
-  ! real, parameter :: A2=1./3.,A3=2./3.,A4=1.
-  ! real, parameter :: B21=1./3.,B31=-1./3.,B32=1.,B41=1.,B42=-1.,B43=1.
-  ! real, parameter :: C1=1./8.,C2=3./8.,C3=3./8.,C4=1./8.
-  ! character(len=3), parameter :: method = 'BSm'  !Bogacki–Shampine method
-  ! real, parameter :: A2=.5,A3=.75,A4=1.
-  ! real, parameter :: B21=.5,B31=0.,B32=.75,B41=2./9.,B42=1./3.,B43=4./9.
-  ! real, parameter :: C1=2./9.,C2=1./3.,C3=4./9.,C4=0.
-  ! real, parameter :: D1=7./24.,D2=.25,D3=1./3.,D4=1./8.
-  real            :: errT,errv,deltas
+ ! character(len=3), parameter :: method = '3/8'
+ ! real, parameter :: A2=1./3.,A3=2./3.,A4=1.
+ ! real, parameter :: B21=1./3.,B31=-1./3.,B32=1.,B41=1.,B42=-1.,B43=1.
+ ! real, parameter :: C1=1./8.,C2=3./8.,C3=3./8.,C4=1./8.
+ ! character(len=3), parameter :: method = 'BSm'  !Bogacki–Shampine method
+ ! real, parameter :: A2=.5,A3=.75,A4=1.
+ ! real, parameter :: B21=.5,B31=0.,B32=.75,B41=2./9.,B42=1./3.,B43=4./9.
+ ! real, parameter :: C1=2./9.,C2=1./3.,C3=4./9.,C4=0.
+ ! real, parameter :: D1=7./24.,D2=.25,D3=1./3.,D4=1./8.
+ real            :: errT,errv,deltas
 
  !determine RK4 solution
  r0 = rvT(1)
