@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, kernel, part, units
+! :Dependencies: dim, dust_formation, kernel, part, units
 !
 
  implicit none

@@ -10,11 +10,11 @@ module wind_equations
 !
 ! :References: Introduction to stellar winds (Lamers & Cassinelli)
 !
-! :Owner: Lionel
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, options, physcon
+! :Dependencies: dust_formation, eos, options, physcon
 !
 
  implicit none
