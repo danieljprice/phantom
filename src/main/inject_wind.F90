@@ -24,9 +24,9 @@ module inject
 !   - wind_temperature   : *wind temperature at the injection point (K)*
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
-! :Dependencies: cooling_molecular, dim, eos, icosahedron, infile_utils,
-!   injectutils, io, options, part, partinject, physcon, setbinary,
-!   timestep, units, wind, wind_equations
+! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
+!   infile_utils, injectutils, io, options, part, partinject, physcon,
+!   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
 !
  use physcon,           only: solarl
 

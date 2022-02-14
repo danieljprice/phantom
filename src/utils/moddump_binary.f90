@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

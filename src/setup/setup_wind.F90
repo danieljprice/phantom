@@ -13,10 +13,10 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - T_wind            : *temperature (K)*
+!   - T_wind            : *wind temperature (K)*
 !   - eccentricity      : *eccentricity of the binary system*
 !   - icompanion_star   : *set to 1 for a binary system*
-!   - mass_of_particles : *mass resolution (Msun)*
+!   - mass_of_particles : *particle mass (Msun, overwritten if iwind_resolution <>0)*
 !   - primary_Reff      : *primary star effective radius (au)*
 !   - primary_Teff      : *primary star effective temperature (K)*
 !   - primary_lum       : *primary star luminosity (Lsun)*
@@ -28,7 +28,7 @@ module setup
 !   - secondary_mass    : *secondary star mass (Msun)*
 !   - secondary_racc    : *secondary star accretion radius (au)*
 !   - semi_major_axis   : *semi-major axis of the binary system (au)*
-!   - temp_exponent     : *temperature profile T = R^-p (0 = isothermal)*
+!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
 ! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
