@@ -220,7 +220,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,iorig,iX,iZ,imu
- use options,    only:use_dustfrac,use_variable_composition
+ use options,    only:use_dustfrac,use_var_comp
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -385,7 +385,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        ! write X, Z, mu to file
        if (eos_outputs_mu(ieos)) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=imu)
-          if (use_variable_composition) then
+          if (use_var_comp) then
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iX)
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iZ)
           endif
@@ -776,7 +776,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 #ifdef INJECT_PARTICLES
        call allocate_memory(maxp_hard)
 #else
-       call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+       call allocate_memory(int(min(nprocs,3)*nparttot/nprocs))
 #endif
     endif
 !
@@ -968,7 +968,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+ call allocate_memory(int(min(nprocs,3)*nparttot/nprocs))
 #endif
 
 !
@@ -1496,7 +1496,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
                           idust,grainsize,graindens,ndusttypes
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
+ use timestep,       only:dtmax,dtmax0,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
@@ -1538,6 +1538,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  ! default real variables
  call add_to_rheader(t,'time',hdr,ierr)
  call add_to_rheader(dtmax,'dtmax',hdr,ierr)
+ if (dtmax0 > 0.) then
+    call add_to_rheader(dtmax0,'dtmax0',hdr,ierr)
+ else
+    call add_to_rheader(dtmax, 'dtmax0',hdr,ierr)
+ endif
  call add_to_rheader(gamma,'gamma',hdr,ierr)
  call add_to_rheader(rhozero,'rhozero',hdr,ierr)
  call add_to_rheader(1.5*polyk,'RK2',hdr,ierr)
@@ -1630,6 +1635,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dump_utils,     only:extract
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
+ use timestep,       only:dtmax0
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile,nptmass
@@ -1646,6 +1652,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
+ call extract('dtmax0',dtmax0,hdr,ierr)
  call extract('gamma',gamma,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
  call extract('RK2',rk2,hdr,ierr)

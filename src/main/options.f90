@@ -54,7 +54,7 @@ module options
  logical,public :: exchange_radiation_energy, limit_radiation_flux
 
  ! variable composition
- logical,public :: use_variable_composition
+ logical,public :: use_var_comp
 
  public :: set_default_options
  public :: ieos
@@ -156,7 +156,7 @@ subroutine set_default_options
  endif
 
  ! variable composition
- use_variable_composition = .false.
+ use_var_comp = .false.
 
 end subroutine set_default_options
 

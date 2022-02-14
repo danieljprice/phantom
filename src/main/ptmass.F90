@@ -51,6 +51,7 @@ module ptmass
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
  public :: calculate_mdot
+ public :: ptmass_calc_enclosed_mass
 #ifdef PERIODIC
  public :: ptmass_boundary_crossing
 #endif
@@ -1677,6 +1678,32 @@ subroutine calculate_mdot(nptmass,time,xyzmh_ptmass)
     endif
  enddo
 end subroutine calculate_mdot
+
+!-----------------------------------------------------------------------
+!+
+!  calculate mass enclosed in sink softening radius
+!+
+!-----------------------------------------------------------------------
+subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
+ use part,   only:imassenc,ihsoft,massoftype,igas,xyzmh_ptmass
+ use kernel, only:radkern2
+ integer, intent(in) :: nptmass,npart
+ real,    intent(in) :: xyzh(:,:)
+ integer             :: i,j,ncount
+ real                :: drj2
+
+ do i = 1,nptmass
+    ncount = 0
+    do j = 1,npart
+       drj2 = (xyzh(1,j)-xyzmh_ptmass(1,i))**2 + (xyzh(2,j)-xyzmh_ptmass(2,i))**2 + (xyzh(3,j)-xyzmh_ptmass(3,i))**2
+       if (drj2 < radkern2*xyzmh_ptmass(ihsoft,i)**2) then
+          ncount = ncount + 1
+       endif
+    enddo
+    xyzmh_ptmass(imassenc,i) = ncount * massoftype(igas)
+ enddo
+
+end subroutine ptmass_calc_enclosed_mass
 
 !-----------------------------------------------------------------------
 !+
