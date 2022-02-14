@@ -10,7 +10,7 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Terrence Tricco
 !
 ! :Runtime parameters: None
 !
@@ -111,42 +111,20 @@ subroutine test_idealplusrad(ntests, npass)
  use units,            only:unit_density,unit_pressure,unit_ergg
  use physcon,          only:kb_on_mh
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,ncheck(1)
- integer, allocatable   :: nfailed(:)
- real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,rhocodei,gamma,&
-                           presi,dum,csound,eni,temp,logTi,logQi,ponrhoi,mu,tol,errmax(1),pres2,code_eni
+ integer                :: npts,ieos,ierr,i,j,nfail(2),ncheck(2)
+ real                   :: rhocodei,gamma,presi,dum,csound,eni,temp,ponrhoi,mu,tol,errmax(2),pres2,code_eni
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
 
- ncheck = 0
- errmax = 1
  ieos = 12
  mu = 0.6
  gamma = 5./3.
 
- ! Initialise grids in Q and T (cgs units)
- npts = 10
- logQmin = -6.
- logQmax = -2.
- logTmin = 3.
- logTmax = 8.
-
- ! Note: logQ = logrho - 2logT + 12 in cgs units
- delta_logQ = (logQmax-logQmin)/real(npts-1,kind=kind(mu))
- delta_logT = (logTmax-logTmin)/real(npts-1,kind=kind(mu))
-
- allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
- nfailed = 0
- do i=1,npts
-    logQi = logQmin + real(i-1,kind=kind(mu))*delta_logQ
-    logTi = logTmin + real(i-1,kind=kind(mu))*delta_logT
-    rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
-    Tgrid(i) = 10.**logTi
- enddo
-
+ call get_rhoT_grid(npts,rhogrid,Tgrid)
  dum = 0.
  tol = 1.e-12
+ nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
  do i=1,npts
     do j=1,npts
@@ -161,14 +139,15 @@ subroutine test_idealplusrad(ntests, npass)
        call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,code_eni,tempi=temp,mu_local=mu,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
 
-       call checkval(temp,Tgrid(j),tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
-       call checkval(pres2,presi,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, u')
+       call checkvalbuf(temp,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(1),ncheck(1),errmax(1))
+       call checkvalbuf(pres2,presi,tol,'Check recovery of P from rho, u',nfail(2),ncheck(2),errmax(2))
     enddo
  enddo
-!  call checkvalbuf_end('Forward-backward test of eos subroutines',ncheck(1),nfailed(1),errmax(1),tol)
- call update_test_scores(ntests,nfailed,npass)
-end subroutine test_idealplusrad
+ call checkvalbuf_end('Check recovery of T from rho, u',ncheck(1),nfail(1),errmax(1),tol)
+ call checkvalbuf_end('Check recovery of P from rho, u',ncheck(2),nfail(2),errmax(2),tol)
+ call update_test_scores(ntests,nfail,npass)
 
+end subroutine test_idealplusrad
 
 !----------------------------------------------------------------------------
 !+
@@ -185,45 +164,25 @@ subroutine test_hormone(ntests, npass)
  use testutils, only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use units,     only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,ncheck(1)
- integer, allocatable   :: nfailed(:)
- real                   :: delta_logQ,delta_logT,logQmin,logQmax,logTmin,logTmax,imurec,logQi,logTi,mu,eni_code,&
-                           presi,pres2,dum,csound,eni,tempi,ponrhoi,X,Z,tol,errmax(1),gasrad_eni,eni2,rhocodei,gamma
+ integer                :: npts,ieos,ierr,i,j,nfail(4),ncheck(4)
+ real                   :: imurec,mu,eni_code,presi,pres2,dum,csound,eni,tempi
+ real                   :: ponrhoi,X,Z,tol,errmax(4),gasrad_eni,eni2,rhocodei,gamma
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
 
- ncheck = 0
- errmax = 1
  ieos = 20
  X = 0.7
  Z = 0.02
  gamma = 5./3.
 
- ! Initialise grids in Q and T (cgs units)
- npts = 10
- logQmin = -6.
- logQmax = -3.5
- logTmin = 3.
- logTmax = 8.
-
- ! Note: logQ = logrho - 2logT + 12 in cgs units
- delta_logQ = (logQmax-logQmin)/real(npts-1)
- delta_logT = (logTmax-logTmin)/real(npts-1)
-
- allocate(rhogrid(npts),Tgrid(npts),nfailed(npts*npts))
- nfailed = 0
- do i=1,npts
-    logQi = logQmin + real(i-1)*delta_logQ
-    logTi = logTmin + real(i-1)*delta_logT
-    rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
-    Tgrid(i) = 10.**logTi
- enddo
+ call get_rhoT_grid(npts,rhogrid,Tgrid)
 
  ! Testing
  dum = 0.
  tol = 1.e-12
  tempi = 1.
+ nfail = 0; ncheck = 0; errmax = 0.
  if (.not. done_init_eos) call init_eos(ieos,ierr)
  do i=1,npts
     do j=1,npts
@@ -241,19 +200,55 @@ subroutine test_hormone(ntests, npass)
        rhocodei = rhogrid(i)/unit_density
        call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,eni_code,tempi,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
-       call checkval(Tgrid(j),tempi,tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, u')
-       call checkval(presi,pres2,tol*presi,nfailed((i-1)*npts+j),'Check recovery of P from rho, u')
+       call checkvalbuf(tempi,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(1),ncheck(1),errmax(1))
+       call checkvalbuf(pres2,presi,tol,'Check recovery of P from rho, u',nfail(2),ncheck(2),errmax(2))
 
        ! Recalculate u, T, mu from rho, P
        call calc_uT_from_rhoP_gasradrec(rhogrid(i),presi,X,1.-X-Z,tempi,eni2,mu,ierr)
-       call checkval(Tgrid(j),tempi,tol*Tgrid(j),nfailed((i-1)*npts+j),'Check recovery of T from rho, P')
-       call checkval(eni,eni2,tol*eni,nfailed((i-1)*npts+j),'Check recovery of u from rho, P')
+       call checkvalbuf(tempi,Tgrid(j),tol,'Check recovery of T from rho, P',nfail(3),ncheck(3),errmax(3))
+       call checkvalbuf(eni2,eni,tol,'Check recovery of u from rho, P',nfail(4),ncheck(4),errmax(4))
     enddo
  enddo
- call update_test_scores(ntests,nfailed,npass)
+ call checkvalbuf_end('Check recovery of T from rho, u',ncheck(1),nfail(1),errmax(1),tol)
+ call checkvalbuf_end('Check recovery of P from rho, u',ncheck(2),nfail(2),errmax(2),tol)
+ call checkvalbuf_end('Check recovery of T from rho, P',ncheck(3),nfail(3),errmax(3),tol)
+ call checkvalbuf_end('Check recovery of u from rho, P',ncheck(4),nfail(4),errmax(4),tol)
+ call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_hormone
 
+!----------------------------------------------------------------------------
+!+
+!  Helper routine to allocate density and temperature grids
+!+
+!----------------------------------------------------------------------------
+subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
+ integer, intent(out) :: npts
+ real, allocatable, intent(out) :: rhogrid(:),Tgrid(:)
+ integer :: i
+ real :: logQmin,logQmax,logTmin,logTmax
+ real :: delta_logQ,delta_logT,logQi,logTi
+
+ ! Initialise grids in Q and T (cgs units)
+ npts = 10
+ logQmin = -6.
+ logQmax = -2.
+ logTmin = 3.
+ logTmax = 8.
+
+ ! Note: logQ = logrho - 2logT + 12 in cgs units
+ delta_logQ = (logQmax-logQmin)/real(npts-1)
+ delta_logT = (logTmax-logTmin)/real(npts-1)
+
+ allocate(rhogrid(npts),Tgrid(npts))
+ do i=1,npts
+    logQi = logQmin + (i-1)*delta_logQ
+    logTi = logTmin + (i-1)*delta_logT
+    rhogrid(i) = 10.**( logQi + 2.*logTi - 12. )
+    Tgrid(i) = 10.**logTi
+ enddo
+
+end subroutine get_rhoT_grid
 
 !----------------------------------------------------------------------------
 !+

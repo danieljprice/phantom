@@ -48,7 +48,7 @@ contains
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,periodic, &
                        rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
-                       nptot,npy,npz,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
+                       nptot,npy,npz,npnew_in,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  !use domain,     only:i_belong
@@ -63,7 +63,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(in),    optional :: rcylmin,rcylmax
  real,             intent(in),    optional :: rellipsoid(3)
  integer(kind=8),  intent(inout), optional :: nptot
- integer,          intent(in),    optional :: npy,npz,dir,geom
+ integer,          intent(in),    optional :: npy,npz,npnew_in,dir,geom
  procedure(rho_func), pointer,    optional :: rhofunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
@@ -521,6 +521,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
     ny = nint(dybound/delta)
     nz = nint(dzbound/delta)
     npnew = nx*ny*nz
+    if (present(npnew_in)) npnew = npnew_in
 
     do while (iparttot < iparttot0+npnew)
        xi = xmin + ran2(iseed)*dxbound
@@ -685,17 +686,17 @@ pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zma
 
  ! adjust boundaries as required
  exact_width = nx*deltax
- dbounds     = abs(boxx - exact_width)
+ dbounds     = exact_width - boxx
  xmin = xmin - 0.5*dbounds
  xmax = xmax + 0.5*dbounds
 
  exact_width = ny*deltay
- dbounds     = abs(boxy - exact_width)
+ dbounds     = exact_width - boxy
  ymin = ymin - 0.5*dbounds
  ymax = ymax + 0.5*dbounds
 
  exact_width = nz*deltaz
- dbounds     = abs(boxz - exact_width)
+ dbounds     = exact_width - boxz
  zmin = zmin - 0.5*dbounds
  zmax = zmax + 0.5*dbounds
 

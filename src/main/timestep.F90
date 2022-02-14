@@ -22,11 +22,13 @@ module timestep
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
+ real    :: dtmax0 = -1.  ! save the original dtmax; require when modifying dtmax due to density or time constraints
 
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
  integer :: dtmax_ifactor
+ logical :: allow_increase = .false.  ! to permit dtmax to increase based upon walltime
 
  public
 
@@ -117,7 +119,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(in)    :: change_dtmax_now
- real                        :: ratio
+ real                        :: ratio,dtmax_global
  integer                     :: ipower,ifactor,dtmax_ifactor_time
  integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
  integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
@@ -125,6 +127,11 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  ! initialise variables
  dtmax_ifactor      = 0
  dtmax_ifactor_time = 0
+ if (dtmax_max > 0.) then
+    dtmax_global = min(dtmax_max,dtmax0)
+ else
+    dtmax_global = dtmax0 ! dtmax never be the default negative value
+ endif
 
  ! modify dtmax based upon wall time constraint, if requested
  if ( dtwallmax > 0.0 ) then
@@ -138,9 +145,9 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
           write(iprint,'(1x,a)')  &
              "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
        endif
-    elseif (twallperdump < 0.5*dtwallmax) then
+    elseif (twallperdump < 0.5*dtwallmax .and. dtmax < dtmax_global .and. allow_increase) then
        dtmax_ifactor_time = 2
-       do while(dtmax_ifactor_time*twallperdump < 0.5*dtwallmax .and. dtmax*dtmax_ifactor_time <= dtmax_max)
+       do while(dtmax_ifactor_time*twallperdump < 0.5*dtwallmax .and. dtmax*dtmax_ifactor_time < dtmax_global)
           dtmax_ifactor_time = dtmax_ifactor_time * 2
        enddo
        write(iprint,'(1x,a,2(es10.3,a))') &
@@ -175,9 +182,13 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
     rhomaxold = rhomaxnew
  endif
 
- ! Decreasing due to time constraint trumps change due to density
- if (dtmax_ifactor_time /= 0) then
-    dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
+ ! Compare modifications based upon time & density; select largest decrease and/or smallest increase
+ if (dtmax_ifactor == 0) then
+    dtmax_ifactor = dtmax_ifactor_time
+ else
+    if (dtmax_ifactor_time /= 0) then
+       dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
+    endif
  endif
 
  if (change_dtmax_now) then

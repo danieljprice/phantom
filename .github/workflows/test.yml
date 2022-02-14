@@ -16,13 +16,25 @@ env:
   OMP_STACKSIZE: 512M
 
 jobs:
+  matrix_prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v2
+    - id: set-matrix
+      uses: conradtchan/conditional-build-matrix@0.0.2
+      with:
+        inputFile: '.github/workflows/matrix_system.json'
+        filter: '["${{ github.repository }}", "always"]'
+
   test:
+    needs: matrix_prep
     strategy:
       fail-fast: false
       matrix:
-        system:
-          - ['self-hosted', 'ifort']
-          - ['ubuntu-latest', 'gfortran']
+        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
         debug:
           - no
           - yes
@@ -60,3 +72,24 @@ jobs:
 
     - name: "Run phantom tests"
       run: ./bin/phantomtest ${{ matrix.input[1] }}
+
+  # Gather results into a dummy job that will fail if the previous job fails
+  gather_results:
+    if: always()
+    needs:
+    - test
+
+    # This name matches the branch protection requirement
+    name: test
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check all tests
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" ]]; then
+          echo "All tests succeeded"
+        else
+          echo "At least one test failed"
+          exit 1
+        fi

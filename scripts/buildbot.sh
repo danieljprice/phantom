@@ -18,31 +18,74 @@ if [ X$SYSTEM == X ]; then
    echo "Usage: $0 [max idim to check] [url]";
    exit;
 fi
-if [ $# -gt 0 ]; then
-   maxdim=$1;
-   if (($maxdim > 0)) && (($maxdim < 2000000000)); then
-      echo "Using maxdim = $maxdim";
-   else
-      echo "Usage: $0 [max idim to check] [url]";
-      exit;
-   fi
-else
-   maxdim=11000000;
+
+# Default arguments
+maxdim=11000000;
+url='';
+batch=1;
+nbatch=1;
+
+while [[ "$1" == --* ]]; do
+  case $1 in
+    --maxdim)
+      shift;
+      maxdim=$1; # max idim to check
+      ;;
+
+    --url)
+      shift;
+      url=$1; # url for results
+      ;;
+
+    --parallel)
+      shift;
+      batch=$1; # the batch number being run
+      shift;
+      nbatch=$1; # total number of batches to divide work into
+      # Example:
+      # --parallel 1 10
+      # will divide the tests into 10 batches, and "1" specifies that the first batch is being run
+      ;;
+
+    *)
+      badflag=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$badflag" != "" ]]; then
+   echo "ERROR: Unknown flag $badflag"
+   exit
 fi
+
+
+if (($maxdim > 0)) && (($maxdim < 2000000000)); then
+   echo "Using maxdim = $maxdim";
+else
+   echo "Usage: $0 [max idim to check] [url]";
+   exit;
+fi
+
+echo "url = $url";
+
 pwd=$PWD;
 phantomdir="$pwd/../";
 listofcomponents='main utils setup';
-#listofcomponents='setup';
+
+#
+# get list of targets, components and setups to check
+#
+allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+setuparr=($allsetups)
+batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
+offset=$(( ($batch-1) * $batchsize ))
+allsetups=${setuparr[@]:$offset:$batchsize}
+echo "Batch ${batch}: ${allsetups}"
 #
 # change the line below to exclude things that depend on external libraries from the build
 #
 nolibs='MESAEOS=no'
-if [ $# -gt 1 ]; then
-   url=$2;
-   echo "url = $url";
-else
-   url='';
-fi
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
@@ -151,10 +194,6 @@ check_phantomsetup ()
       echo $setup >> $faillogsetup;
    fi
 }
-#
-# get list of targets, components and setups to check
-#
-allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
 for component in $listofcomponents; do
 case $component in
  'setup')

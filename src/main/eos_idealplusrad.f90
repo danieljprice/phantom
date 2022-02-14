@@ -20,7 +20,7 @@ module eos_idealplusrad
 !
  use physcon,  only:Rg,radconst
  implicit none
- real, parameter :: tolerance = 1d-15
+ real, parameter :: tolerance = 1e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
