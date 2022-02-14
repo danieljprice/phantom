@@ -35,7 +35,6 @@ module load_from_file
  nheadlines=1
 
  write(*,*) 'Loading data from file:',namefile
- write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
 
  if(present(nhead)) then
     nheadlines=nhead
@@ -47,6 +46,9 @@ module load_from_file
 
  mcolumns=number_of_columns(iunit,nheadlines)
  nrows=number_of_rows(iunit)
+
+ write(*,*) 'Found nrows, mcolumns:',nrows,mcolumns
+
 
  allocate(datafile(nrows-nheadlines,mcolumns))
  do i=1,nheadlines
