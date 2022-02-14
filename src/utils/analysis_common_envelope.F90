@@ -14,8 +14,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, energies, eos, eos_idealplusrad, eos_mesa,
-!   extern_corotate, kernel, mesa_microphysics, part, physcon, prompting,
+! :Dependencies: centreofmass, energies, eos, eos_mesa, extern_corotate,
+!   ionization_mod, kernel, mesa_microphysics, part, physcon, prompting,
 !   ptmass, setbinary, sortutils, table_utils, units
 !
 

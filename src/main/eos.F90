@@ -855,7 +855,11 @@ subroutine eosinfo(eos_type,iprint)
 
  select case(eos_type)
  case(1,11)
-    write(iprint,"(/,a,f10.6)") ' Isothermal equation of state:     cs^2 = ',polyk
+    if (1.0d-5 < polyk .and. polyk < 1.0d3) then
+       write(iprint,"(/,a,f10.6)")  ' Isothermal equation of state:     cs^2 = ',polyk
+    else
+       write(iprint,"(/,a,Es13.6)") ' Isothermal equation of state:     cs^2 = ',polyk
+    endif
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
     if (use_entropy) then
