@@ -53,10 +53,11 @@ subroutine check_setup(nerror,nwarn,restart)
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
+ use mpiutils,        only:reduceall_mpi
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
- integer      :: ncount(maxtypes)
+ integer      :: ncount(maxtypes),ncounttot(maxtypes),npartoftypetot(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
@@ -162,9 +163,11 @@ subroutine check_setup(nerror,nwarn,restart)
        print*,'ERROR: unknown value of particle type on ',nbad,' particles'
        nerror = nerror + 1
     endif
-    if (any(ncount /= npartoftype)) then
-       print*,'n(via iphase)=',ncount
-       print*,'npartoftype  =',npartoftype
+    ncounttot      = reduceall_mpi('+',ncount(:))
+    npartoftypetot = reduceall_mpi('+',npartoftype(:))
+    if (any(ncounttot /= npartoftypetot)) then
+       print*,'n(via iphase)=',ncounttot
+       print*,'npartoftype  =',npartoftypetot
        print*,'ERROR: sum of types in iphase is not equal to npartoftype'
        nerror = nerror + 1
     endif
