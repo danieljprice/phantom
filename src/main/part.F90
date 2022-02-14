@@ -866,13 +866,13 @@ end subroutine remove_particle_from_npartoftype
 !+
 !----------------------------------------------------------------
 subroutine recount_npartoftype
-   integer :: itype
+ integer :: itype
 
-   npartoftype(:) = 0
-   do i=1,npart
-      itype = iamtype(iphase(i))
-      npartoftype(itype) = npartoftype(itype) + 1
-   enddo
+ npartoftype(:) = 0
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    npartoftype(itype) = npartoftype(itype) + 1
+ enddo
 
 end subroutine recount_npartoftype
 
