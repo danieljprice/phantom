@@ -247,7 +247,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
        endif
     enddo
     !$omp end parallel do
-  end select
+ end select
 
 end subroutine get_dust_temperature_from_ptmass
 

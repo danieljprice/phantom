@@ -269,8 +269,8 @@ subroutine init_inject(dumpfile,ierr)
        if (tcross/time_between_spheres < 1.d4) then
           new_nfill = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
           if (new_nfill /= nfill_domain .and. new_nfill > 0) then
-            nfill_domain = new_nfill
-            print *,'number of background shells set to',nfill_domain
+             nfill_domain = new_nfill
+             print *,'number of background shells set to',nfill_domain
           endif
        endif
     endif
