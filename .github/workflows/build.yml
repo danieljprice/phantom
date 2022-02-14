@@ -27,20 +27,15 @@ env:
 
 jobs:
   matrix_prep:
+    # Skip schedueld runs on forks
     if: ${{ github.event_name != 'schedule' || github.repository == 'danieljprice/phantom' }}
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
       batch: ${{ steps.set-sequence.outputs.batch }}
       nbatch: ${{ steps.set-sequence.outputs.nbatch }}
     steps:
     - name: Check out repo
       uses: actions/checkout@v2
-    - id: set-matrix
-      uses: conradtchan/conditional-build-matrix@0.0.2
-      with:
-        inputFile: '.github/workflows/matrix_system.json'
-        filter: '["${{ github.repository }}", "always"]'
     - name: Generate sequence of batch numbers for normal tests, or run sequentially for scheduled tests
       id: set-sequence
       run: |
@@ -58,18 +53,54 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        system: ${{ fromJson(needs.matrix_prep.outputs.matrix).include }}
+        system:
+          - gfortran
+          - ifort
         batch: ${{ fromJson(needs.matrix_prep.outputs.batch) }}
 
+    name: build (batch ${{ matrix.batch }}/${{ needs.matrix_prep.outputs.nbatch }}, SYSTEM=${{ matrix.system }})
 
-    name: build (batch ${{ matrix.batch }}/${{ needs.matrix_prep.outputs.nbatch }}, SYSTEM=${{ matrix.system[1] }})
-
-    runs-on: ${{ matrix.system[0] }}
+    runs-on: ubuntu-latest
 
     steps:
 
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
+
+    - name: Setup Intel repo
+      if: matrix.system == 'ifort'
+      id: intel-repo
+      run: |
+        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+        sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
+        INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
+        echo "::set-output name=intelversion::$INTELVERSION"
+
+    - name: Cache intel installation
+      if: matrix.system == 'ifort'
+      id: cache-intel
+      uses: actions/cache@v2
+      with:
+        path: |
+          /opt/intel
+        key: ${{ steps.intel-repo.outputs.intelversion }}
+
+    - name: Install Intel compilers
+      if: ${{ steps.cache-intel.outputs.cache-hit != 'true' && matrix.system == 'ifort' }}
+      run: |
+        sudo apt-get install -y intel-oneapi-common-vars
+        sudo apt-get install -y intel-oneapi-compiler-fortran
+        sudo apt-get install -y intel-oneapi-mpi
+        sudo apt-get install -y intel-oneapi-mpi-devel
+
+    - name: Setup Intel oneAPI environment
+      if: matrix.system == 'ifort'
+      run: |
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
 
     - name: "Clone phantom"
       uses: actions/checkout@v2
@@ -94,7 +125,7 @@ jobs:
       run: ./buildbot.sh --maxdim 17000000 --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
       working-directory: scripts
       env:
-        SYSTEM: ${{ matrix.system[1] }}
+        SYSTEM: ${{ matrix.system }}
         RETURN_ERR: yes
 
     - name: "Install SSH Key"
@@ -114,19 +145,19 @@ jobs:
         ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
         rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
 
-    - name: logs/build-failures-${{ matrix.system[1] }}.txt
+    - name: logs/build-failures-${{ matrix.system }}.txt
       if: always()
-      run: cat logs/build-failures-${{ matrix.system[1] }}.txt || true
+      run: cat logs/build-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/setup-failures-${{ matrix.system[1] }}.txt
+    - name: logs/setup-failures-${{ matrix.system }}.txt
       if: always()
-      run: cat logs/setup-failures-${{ matrix.system[1] }}.txt || true
+      run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
-    - name: logs/make-*-${{ matrix.system[1] }}.txt
+    - name: logs/make-*-${{ matrix.system }}.txt
       if: always()
       run: |
         echo
-        for item in $(ls logs/make-*-${{ matrix.system[1] }}.txt); do
+        for item in $(ls logs/make-*-${{ matrix.system }}.txt); do
           echo ::group::"${item}"
           cat $item
           echo ::endgroup::
@@ -145,7 +176,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check all builds
+    - name: Check all builds succeeded
       run: |
         if [[ "${{ needs.build.result }}" == "success" ]]; then
           echo "All build succeeded"
