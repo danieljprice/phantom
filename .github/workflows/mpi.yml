@@ -17,6 +17,9 @@ jobs:
         openmp:
           - no
           - yes
+        ntasks:
+          - 1
+          - 4
         input: # [SETUP, phantom_tests]
           - ['test', '']
           - ['testkd', '']
@@ -56,7 +59,7 @@ jobs:
         SYSTEM: gfortran
 
     - name: Test with MPI
-      run: mpirun --allow-run-as-root -np 2 ./bin/phantomtest ${{ matrix.input[1] }}
+      run: mpirun --allow-run-as-root -np ${{ matrix.ntasks }} ./bin/phantomtest ${{ matrix.input[1] }}
 
   # Gather results into a dummy job that will fail if the previous job fails
   gather_results:
