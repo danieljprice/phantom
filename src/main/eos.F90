@@ -863,7 +863,8 @@ subroutine eosinfo(eos_type,iprint)
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
     if (use_entropy) then
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,' gamma = ',gamma
+       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,&
+                                                   ' gamma = ',gamma,' gmw = ',gmw
 !
 !--run a unit test on the en-> utherm and utherm-> en conversion utilities
 !
@@ -877,12 +878,13 @@ subroutine eosinfo(eos_type,iprint)
        endif
     elseif (maxvxyzu >= 4) then
        if (gr) then
-          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma
+          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma,' gmw = ',gmw
        else
-          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',&
+                                              gamma,' gmw = ',gmw
        endif
     else
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
+       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma,' gmw = ',gmw
     endif
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
