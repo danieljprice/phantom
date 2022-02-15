@@ -587,7 +587,7 @@ subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,
     vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + omegacrossr(3)
  enddo
 
-end subroutine
+end subroutine transform_from_corotating_to_inertial_frame
 
 subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
                       accretion_radius1,accretion_radius2,accretion_radius3,&
