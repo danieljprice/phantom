@@ -895,6 +895,10 @@ subroutine eosinfo(eos_type,iprint)
     call eos_info_barotropic(polyk,polyk2,iprint)
  case(9)
     call eos_info_piecewise(iprint)
+ case(10)
+    write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6,a)") ' MESA EoS: X = ',X_in,' Z = ',Z_in,' (1-X-Z = ',1.-X_in-Z_in,')'
+ case(12)
+    write(iprint,"(/,a,f10.6,a,f10.6)") ' Gas + radiation equation of state: gmw = ',gmw,' gamma = ',gamma
  case(15)
     call eos_helmholtz_eosinfo(iprint)
  end select
