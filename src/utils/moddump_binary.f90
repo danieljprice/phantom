@@ -204,7 +204,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           iexternalforce = iext_corotate  !turns on corotation
           call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
-          
+
           ! set all the gas velocities in corotating frame to 0, implying that the binary is corotating
           ! at the moment, only a corotating binary can be set up in the corotating frame
           do i=1,npart
@@ -269,7 +269,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           ! read dump file containing star 2
           nptmass1 = nptmass  ! stash nptmass for dump 1, as read_dumps overwrites it
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
-          nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2 
+          nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2
           if (ierr /= 0) stop 'error reading second dump file'
 
           if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar2+i
