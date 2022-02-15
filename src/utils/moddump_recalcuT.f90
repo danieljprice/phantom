@@ -15,7 +15,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, part, units
+! :Dependencies: eos, io, part, units
 !
  implicit none
 
