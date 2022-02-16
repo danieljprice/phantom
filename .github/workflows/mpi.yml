@@ -35,7 +35,9 @@ jobs:
       MPI test (SETUP=${{ matrix.input[0] }},
             targets=${{ matrix.input[1] }},
             DEBUG=${{ matrix.debug }},
-            OPENMP=${{ matrix.openmp }})
+            OPENMP=${{ matrix.openmp }},
+            ntasks=${{ matrix.ntasks }})
+
 
     runs-on: ubuntu-latest
 
@@ -59,7 +61,7 @@ jobs:
         SYSTEM: gfortran
 
     - name: Test with MPI
-      run: mpirun --allow-run-as-root -np ${{ matrix.ntasks }} ./bin/phantomtest ${{ matrix.input[1] }}
+      run: mpirun --allow-run-as-root -np ${{ matrix.ntasks }} --oversubscribe ./bin/phantomtest ${{ matrix.input[1] }}
 
   # Gather results into a dummy job that will fail if the previous job fails
   gather_results:
