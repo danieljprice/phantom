@@ -16,7 +16,7 @@ module moddump
 !
 ! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
 !   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
-!   rho_profile, setbinary, table_utils, timestep, units
+!   rho_profile, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
 
@@ -47,12 +47,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout)    :: npartoftype(:)
  real,    intent(inout)    :: massoftype(:)
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
- integer                   :: i,ierr,setup_case,two_sink_case = 1,three_sink_case = 1,irhomax,n
+ integer                   :: i,ierr,setup_case,ioption=1,irhomax,n
  integer                   :: iremove = 2
- integer                   :: nstar1,nstar2
+ integer                   :: nstar1,nstar2,nptmass1
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
- real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3
+ real                      :: a1,a2,e,vr = 0.0,hsoft_default = 3
  real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  real                      :: time2,hfact2
@@ -66,9 +66,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (nptmass > 3) then
     stop 'ERROR: Number of sink particles > 3'
  elseif (nptmass == 3) then
+    print*, 'Three sink particles are present. Choose option below:'
     print "(1(/,a))",'1) Remove a sink from the simulation'
-    call prompt('Select option above : ',three_sink_case)
-    select case(three_sink_case)
+    call prompt('Select option above : ',ioption)
+    select case(ioption)
 
     case(1)
        do i=1,nptmass
@@ -88,38 +89,26 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     end select
 
  elseif (nptmass == 2) then
-    print*, 'Two sinks present. If this is intentional, then choose option below.'
+    print*, 'Two sinks particles are present. Choose option below:'
 
-    print "(2(/,a))",'1) Switch from corotating frame to normal frame', &
-                     '2) Change the position of the companion'
-    call prompt('Select option above : ',two_sink_case)
-    select case(two_sink_case)
+    print "(3(/,a))",'1) Transform from corotating frame to inertial frame', &
+                     '2) Shift companion position in the co-rotating frame', &
+                     '3) Add velocity to companion'
+    call prompt('Select option above : ',ioption)
+    select case(ioption)
 
     case(1)
        call prompt('Please write the name of the input file : ',filename)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(omega_corotate,'omega_corotate',db)
        call close_db(db)
-       iexternalforce = 0
-       omega_vec = (/ 0.,0.,omega_corotate /)
-       do i=1,npart
-          call cross(omega_vec,xyzh(:3,i),omegacrossr)
-          vxyzu(1,i) = vxyzu(1,i) + omegacrossr(1)
-          vxyzu(2,i) = vxyzu(2,i) + omegacrossr(2)
-          vxyzu(3,i) = vxyzu(3,i) + omegacrossr(3)
-       enddo
-       do i=1,nptmass
-          call cross(omega_vec,xyzmh_ptmass(:3,i),omegacrossr)
-          vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + omegacrossr(1)
-          vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + omegacrossr(2)
-          vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + omegacrossr(3)
-       enddo
+       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
 
     case(2)
        call prompt('How many code units to shift companion (+ve is towards primary)?',comp_shift)
        sink_dist = sqrt((xyzmh_ptmass(1,1)-xyzmh_ptmass(1,2))**2 &
-                 + (xyzmh_ptmass(2,1)-xyzmh_ptmass(2,2))**2 &
-                 + (xyzmh_ptmass(3,1)-xyzmh_ptmass(3,2))**2)
+                      + (xyzmh_ptmass(2,1)-xyzmh_ptmass(2,2))**2 &
+                      + (xyzmh_ptmass(3,1)-xyzmh_ptmass(3,2))**2)
 
        xyzmh_ptmass(1,2) = -(comp_shift/sink_dist * (xyzmh_ptmass(1,2)-xyzmh_ptmass(1,1)) - xyzmh_ptmass(1,2))
        xyzmh_ptmass(2,2) = -(comp_shift/sink_dist * (xyzmh_ptmass(2,2)-xyzmh_ptmass(2,1)) - xyzmh_ptmass(2,2))
@@ -157,9 +146,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
     end select
- else
 
-    !choose what to do with the star: set a binary or setup a magnetic field
+ else
     print "(8(/,a))",'1) Set up a binary system by adding a sink companion', &
                      '2) Set up a magnetic field in the star', &
                      '3) Manually cut profile to create sink in core', &
@@ -173,96 +161,81 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Choose a setup option ',setup_case,1,8)
 
     select case(setup_case)
-
     case(1,8)
-       !takes necessary inputs from user 1
-       print*, 'Current mass unit is ', umass,'g):'
+       ! set binary defaults
        companion_mass_1 = 0.6
-       call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
-
-       print*, 'Current length unit is ', udist ,'cm):'
        a1 = 100.
-       call prompt('Enter orbit semi-major axis in code units', a1, 0.0)
-
        e = 0.0
-       call prompt('Enter orbit eccentricity', e, 0.0, 1.0)
+       mcore = 0.
+       hacc1 = 0.
+       hacc2 = 0.
+       print*, 'Current mass unit is ', umass,'g):'
+       call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
+       print*, 'Current length unit is ', udist ,'cm):'
+       call prompt('Enter orbit semi-major axis in code units', a1, 0.)
+       call prompt('Enter orbit eccentricity', e, 0., 1.)
        call prompt('Enter companion radial velocity', vr)
 
-       print*, 'Current length unit is ', udist ,'cm):'
-
-       if (nptmass == 1) then ! there is a primary core -> add point mass secondary
+       if (nptmass == 1) then ! there is a sink stellar core
+          mcore = xyzmh_ptmass(4,1)
           hacc1 = xyzmh_ptmass(ihacc,1)
           print*, 'Current accretion radius of primary core is ', hacc1,' code units'
-          call prompt('Enter accretion radius for the primary core in code units', hacc1, 0.0)
-          hacc2 = 0. ! Just a dummy
-          call prompt('Enter accretion radius for the companion in code units', hacc2, 0.0)
-       elseif (nptmass == 0) then ! there is no core -> add coreless secondary
-          ! Just dummy values
-          hacc1 = 0.
+          call prompt('Enter accretion radius for the primary core in code units', hacc1, 0.)
           hacc2 = 0.
+          call prompt('Enter accretion radius for the companion in code units', hacc2, 0.)
        endif
 
        corotate_answer = .false.
-       call prompt('Do you want a corotating frame with a corotating binary?', corotate_answer)
-
+       call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', corotate_answer)
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
        !removes the dead or accreted particles for a correct total mass computation
        call delete_dead_or_accreted_particles(npart,npartoftype)
        print*,' Got ',npart,npartoftype(igas),' after deleting accreted particles'
 
-       !sets up the binary system orbital parameters
-       if (nptmass == 1) then
-          mcore = xyzmh_ptmass(4,1)
-       elseif (nptmass == 0) then
-          mcore = 0.
-       endif
-
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
        print*, 'Current primary mass in code units is ',primary_mass
 
-       !save value of primary core hsoft before setting up binary
+       ! stash primary core hsoft before calling set_binary, which resets the softening lengths
        hsoft_primary = xyzmh_ptmass(ihsoft,1)
 
-       !sets the binary
-       if (corotate_answer) then !corotating frame
-          !turns on corotation
-          iexternalforce = iext_corotate
-
+       ! set the binary
+       if (corotate_answer) then ! corotating frame
+          iexternalforce = iext_corotate  !turns on corotation
           call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
-
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 
-          !sets all the gas velocities in corotating frame to 0, implying that the binary is corotating
-          !for the moment only a corotating binary can be built in the corotating frame
+          ! set all the gas velocities in corotating frame to 0, implying that the binary is corotating
+          ! at the moment, only a corotating binary can be set up in the corotating frame
           do i=1,npart
-             vxyzu(1,i) = 0.0
-             vxyzu(2,i) = 0.0
-             vxyzu(3,i) = 0.0
+             vxyzu(1:3,i) = 0.
           enddo
-       else !non corotating frame
+       else ! non corotating frame
           call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
           ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays
        endif
 
        if (nptmass == 3) then ! if original star has a point mass core
-          !new primary from pos 2 to 1
+          !move primary core from pos 2 to 1
           xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
           vxyz_ptmass(1:3,1) = vxyz_ptmass(1:3,2)
 
-          !new companion from pos 3 to 2
+          !move companion point mass from pos 3 to 2
           xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3)
           vxyz_ptmass(1:3,2) = vxyz_ptmass(1:3,3)
           vxyz_ptmass(1,2) = vxyz_ptmass(1,2) + vr
 
-          ! Delete third point mass
-          nptmass = nptmass - 1
+          if (setup_case == 1) then  ! Assume companion should be a sink particle
+             nptmass = nptmass - 1  ! Delete point mass 3 (duplicate of companion)
+          elseif (setup_case == 8) then  ! Companion does not contain a sink particle and is read from second dumpfile
+             nptmass = nptmass - 2  ! Delete point masses 2 and 3, leaving just the primary core
+          endif
 
           !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
           xyzmh_ptmass(ihsoft,1) = hsoft_primary
           print*, 'Current softening length of the primary core is ', xyzmh_ptmass(ihsoft,1),' code units'
           call prompt('Enter softening length for the primary core',xyzmh_ptmass(ihsoft,1),0.)
-          call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
+          if (setup_case == 1) call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
 
        elseif (nptmass == 2) then ! if original star is coreless
           ! Just need to delete both point masses
@@ -294,7 +267,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           endif
 
           ! read dump file containing star 2
+          nptmass1 = nptmass  ! stash nptmass for dump 1, as read_dumps overwrites it
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
+          nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2
           if (ierr /= 0) stop 'error reading second dump file'
 
           if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar2+i
@@ -318,7 +293,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
 
        endif
-
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
     case(2)
@@ -574,21 +548,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           vxyz_ptmass(1:3,1) = 0.
        endif
 
-       ! Transform from corotating to inertial frame
-       iexternalforce = 0
-       omega_vec = (/ 0.,0.,omega_corotate /)
-       do i = 1,npart
-          call cross(omega_vec,xyzh(:3,i),omegacrossr)
-          vxyzu(1,i) = vxyzu(1,i) + omegacrossr(1)
-          vxyzu(2,i) = vxyzu(2,i) + omegacrossr(2)
-          vxyzu(3,i) = vxyzu(3,i) + omegacrossr(3)
-       enddo
-       do i = 1,2
-          call cross(omega_vec,xyzmh_ptmass(:3,i),omegacrossr)
-          vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + omegacrossr(1)
-          vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + omegacrossr(2)
-          vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + omegacrossr(3)
-       enddo
+       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
        ! Set tmax and dtmax
@@ -602,18 +562,32 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  return
 end subroutine modify_dump
 
-subroutine cross(a,b,c)
 
- ! Return the vector cross product of two 3d vectors
- implicit none
- real,intent(in),dimension(3)  :: a,b
- real,intent(out),dimension(3) :: c
+subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
+ use options,     only:iexternalforce
+ use vectorutils, only:cross_product3D
+ integer, intent(in) :: npart,nptmass
+ real, intent(in) :: omega_corotate,xyzh(:,:),xyzmh_ptmass(:,:)
+ real, intent(inout) :: vxyzu(:,:),vxyz_ptmass(:,:)
+ real, dimension(3) :: omega_vec,omegacrossr
+ integer :: i
 
- c(1) = a(2)*b(3)-b(2)*a(3)
- c(2) = a(3)*b(1)-b(3)*a(1)
- c(3) = a(1)*b(2)-b(1)*a(2)
+ iexternalforce = 0
+ omega_vec = (/ 0.,0.,omega_corotate /)
+ do i=1,npart
+    call cross_product3D(omega_vec,xyzh(1:3,i),omegacrossr)
+    vxyzu(1,i) = vxyzu(1,i) + omegacrossr(1)
+    vxyzu(2,i) = vxyzu(2,i) + omegacrossr(2)
+    vxyzu(3,i) = vxyzu(3,i) + omegacrossr(3)
+ enddo
+ do i=1,nptmass
+    call cross_product3D(omega_vec,xyzmh_ptmass(1:3,i),omegacrossr)
+    vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + omegacrossr(1)
+    vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + omegacrossr(2)
+    vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + omegacrossr(3)
+ enddo
 
-end subroutine cross
+end subroutine transform_from_corotating_to_inertial_frame
 
 subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
                       accretion_radius1,accretion_radius2,accretion_radius3,&
