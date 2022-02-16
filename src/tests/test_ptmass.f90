@@ -554,7 +554,7 @@ subroutine test_createsink(ntests,npass)
  use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc
  use energies,   only:compute_energies,angtot,etot,totmom
- use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
+ use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
  use stretchmap, only:rho_func
  integer, intent(inout) :: ntests,npass
@@ -590,14 +590,18 @@ subroutine test_createsink(ntests,npass)
     ! set up gas particles in a uniform sphere with radius R=0.2
     !
     psep = 0.05  ! required as a variable since this may change under conditions not requested here
-    if (itest==2) then
-       ! use random so particle with maximum density is unique
-       call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
+    if (id == master) then
+       if (itest==2) then
+          ! use random so particle with maximum density is unique
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
+       else
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
+       endif
     else
-       call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
+       npartoftype(igas) = 0
     endif
     totmass = 1.0
-    massoftype(igas) = totmass/real(npartoftype(igas))
+    massoftype(igas) = totmass/real(reduceall_mpi('+',npartoftype(igas)))
     npart = npartoftype(igas)
     !
     ! give inward radial velocities
