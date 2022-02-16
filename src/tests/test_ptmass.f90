@@ -560,7 +560,7 @@ subroutine test_createsink(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: i,itest,itestp,nfailed(3),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
- real :: psep,totmass,r2min,r2,xcofm(3),t
+ real :: psep,totmass,r2min,r2,t
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
  procedure(rho_func), pointer :: density_func
 
@@ -603,22 +603,7 @@ subroutine test_createsink(ntests,npass)
     totmass = 1.0
     massoftype(igas) = totmass/real(reduceall_mpi('+',npartoftype(igas)))
     npart = npartoftype(igas)
-    !
-    ! give inward radial velocities
-    !
-    itestp = npart
-    r2min = huge(r2min)
-    xcofm(:) = 0.
-    do i=1,npart
-       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-       if (r2 < r2min) then
-          itestp = i
-          r2min = r2
-       endif
-       xcofm = xcofm + xyzh(1:3,i)
-    enddo
 
-    xcofm = massoftype(igas)*xcofm/totmass
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     !
     ! set up tree for neighbour finding
@@ -626,7 +611,23 @@ subroutine test_createsink(ntests,npass)
     !
     tree_accuracy = 0.
     icreate_sinks = 1
+
     call get_derivs_global()
+
+    !
+    ! calculate itest after calling derivs because particles will
+    ! rebalance across tasks
+    !
+    r2min = huge(r2min)
+    itestp = npart
+    do i=1,npart
+       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+       if (r2 < r2min) then
+          itestp = i
+          r2min = r2
+       endif
+    enddo
+
     !
     ! check that particle being tested is at the maximum density
     !
