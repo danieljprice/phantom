@@ -498,8 +498,8 @@ subroutine test_standingshock(ntests,npass)
  endif
  npts = int(reduceall_mpi('+',npts))
  L2d  = reduceall_mpi('+',L2d)
- L2v  = reduceall_mpi('+',L2d)
- L2b  = reduceall_mpi('+',L2d)
+ L2v  = reduceall_mpi('+',L2v)
+ L2b  = reduceall_mpi('+',L2b)
  if (npts > 0) then
     L2d = sqrt(L2d/npts)
     L2v = sqrt(L2v/npts)
