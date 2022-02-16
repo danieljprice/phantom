@@ -264,7 +264,8 @@ end subroutine send_part
 !+
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
- use io,  only:id,nprocs,fatal,iverbose
+ use io,    only:id,nprocs,fatal,iverbose
+ use part,  only:recount_npartoftype
  implicit none
  integer, intent(out)            :: npart
  logical, intent(in), optional   :: replace
@@ -314,6 +315,11 @@ subroutine balance_finish(npart,replace)
 !--double check that all receives are complete and free request handle
  call MPI_WAIT(irequestrecv(1),status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
+
+ !
+ !--update npartoftype
+ !
+ call recount_npartoftype
 
 end subroutine balance_finish
 
