@@ -30,7 +30,7 @@ contains
 !----------------------------------------------------------
 subroutine test_externf(ntests,npass)
  use io,       only:id,master
- use part,     only:npart,xyzh,hfact,massoftype,igas,periodic
+ use part,     only:npart,xyzh,hfact,massoftype,igas,periodic,npartoftype
  use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use externalforces, only:externalforcetype,externalforce,accrete_particles, &
                           was_accreted,iexternalforce_max,initialise_externalforces,&
@@ -74,6 +74,8 @@ subroutine test_externf(ntests,npass)
  !dhi   = 0.001*hfact*psep
  dhi   = 1.e-8*psep
  massoftype(igas) = 1./real(npart)
+ npartoftype(igas) = npart
+
 !
 !--Test 1: check that external force is the derivative of potential
 !
