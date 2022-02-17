@@ -134,4 +134,8 @@ program diffdumps
     print "(/,a)",' FILES ARE IDENTICAL '
  endif
 
+ if (ndiff > 0) then
+    call exit(1)
+ endif
+
 end program diffdumps
