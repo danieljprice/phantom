@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
 
- real    :: r,L_star,T_star,R_star,xa,ya,za
+ real    :: L_star,T_star,R_star,xa,ya,za
  integer :: j
 
  call set_abundances
@@ -65,7 +65,7 @@ end subroutine do_analysis
 !+
 !-------------------------------------------------------------------------------
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- use part,  only:isdead_or_accreted,nucleation
+ use part,  only:isdead_or_accreted,nucleation,idK3
  use dim,   only:do_nucleation
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
@@ -108,10 +108,11 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
  if (do_nucleation) then
     call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-         rho_over_r2, dust_temp, Teq,nucleation(5,:), K3)
+         rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  else
-    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2, dust_temp, Teq)
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
  endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
