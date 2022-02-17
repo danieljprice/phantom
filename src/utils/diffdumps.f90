@@ -134,7 +134,8 @@ program diffdumps
     print "(/,a)",' FILES ARE IDENTICAL '
  endif
 
-!  Exit code = number of lines that differ
- call exit(ndiff)
+ if (ndiff > 0) then
+    call exit(1)
+ endif
 
 end program diffdumps
