@@ -87,7 +87,7 @@ contains
 !  Initialize reusable variables
 !+
 !-----------------------------------------------------------------------
-subroutine init_inject(dumpfile,ierr)
+subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
  use setbinary,         only:get_eccentricity_vector
@@ -103,13 +103,11 @@ subroutine init_inject(dumpfile,ierr)
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
  use ptmass_radiation,  only:alpha_rad
 
- character(len=*), intent(in) :: dumpfile
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
- character(len=len(dumpfile)+1) :: file1D
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -255,13 +253,8 @@ subroutine init_inject(dumpfile,ierr)
 !compute full evolution (to get tcross) and save 1D profile for comparison
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
-    if (dumpfile(len(dumpfile)-2:len(dumpfile)) == 'tmp') then
-       file1D = dumpfile(1:len(dumpfile)-9) // '1D.dat'
-    else
-       file1D = dumpfile(1:len(dumpfile)-5) // '1D.dat'
-    endif
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, outer_boundary_au*au, tend, tcross, file1D)
+         wind_temperature, outer_boundary_au*au, tend, tcross, 'wind_profile1D.dat')
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
@@ -288,7 +281,6 @@ subroutine init_inject(dumpfile,ierr)
 
 
 !logging
- vesc = sqrt(2.*Gg*Mstar_cgs/Rstar_cgs)
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
