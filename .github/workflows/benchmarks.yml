@@ -15,6 +15,7 @@ on:
     - cron: "0 0 * * *"
 
 env:
+  BENCH_VERSION: v1.0.0
   OMP_STACKSIZE: 512M
   WEB_SERVER: data.phantom.cloud.edu.au
   WEB_USER: github
@@ -36,6 +37,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: phantomSPH/phantom-benchmarks
+          ref:  $${ env.BENCH_VERSION }}
 
       - name: "Extract setups from directory"
         id: extract_step
@@ -64,6 +66,7 @@ jobs:
       with:
         repository: phantomSPH/phantom-benchmarks
         path: phantom-benchmarks
+        ref:  $${ env.BENCH_VERSION }}
 
     - name: "Get number of CPU cores"
       run: echo "::set-output name=count::$(nproc)"
