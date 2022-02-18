@@ -619,30 +619,29 @@ end function reduce_group_int
 !  synchronize the global tree, placing nodes in the correct position
 !+
 !----------------------------------------------------------------
-subroutine tree_sync(nodeentry, nnodes, node, ifirstingroup, groupsize, level)
+subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
  use dtypekdtree, only:get_mpitype_of_kdnode
 
- integer, intent(in)         :: ifirstingroup, groupsize, level
- integer, intent(in)         :: nnodes ! nodes sent per proc
- type(kdnode), intent(in)    :: nodeentry(nnodes)
- type(kdnode), intent(inout) :: node(nprocs/groupsize)
+ integer, intent(in)         :: ifirstingroup,level
+ integer, intent(in)         :: n_in      ! nodes sent per proc
+ integer, intent(in)         :: n_synced  ! nodes in the synchronised array
+ type(kdnode), intent(in)    :: node_in(n_in)
+ type(kdnode), intent(inout) :: node_synced(n_synced)
 
  integer                     :: dtype_kdnode
 
- integer                     :: nowners
-
- nowners = nprocs / groupsize
-
- ! only exchange if there is more than 1 owner (every level except top)
- if (nowners > 1) then
+!  If there is only 1 owner, do a direct copy
+ if (n_in == n_synced) then
+    node_synced(:) = node_in(:)
+ else
     call get_mpitype_of_kdnode(dtype_kdnode)
     ! skip if we are not an owner
     if (id == ifirstingroup) then
        ! perform node exchange
-       call MPI_ALLGATHER(nodeentry,nnodes,dtype_kdnode,node,nnodes,dtype_kdnode,comm_owner(level+1),mpierr)
+       call MPI_ALLGATHER(node_in,n_in,dtype_kdnode, &
+                          node_synced,n_in,dtype_kdnode, &
+                          comm_owner(level+1),mpierr)
     endif
- else
-    node = nodeentry(1)
  endif
 
 end subroutine tree_sync

@@ -166,6 +166,7 @@ module part
  integer, parameter :: imloss = 15 ! mass loss rate
  integer, parameter :: imdotav = 16 ! accretion rate average
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
+ integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -175,7 +176,7 @@ module part
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    '/)
+    'mdotav   ','mprev    ','massenc  '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -320,6 +321,7 @@ module part
 #ifdef DUSTGROWTH
    +2                                   &  ! dustprop
    +2                                   &  ! dustproppred
+   +4                                   &  ! dustgasprop
 #endif
 #endif
 #ifdef H2CHEM
@@ -751,9 +753,23 @@ logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
  real, intent(in) :: xyzmh_ptmass(:,:)
 
  sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
-                              xyzmh_ptmass(iLum,1:nptmass) > 0.)
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
 
 end function sinks_have_luminosity
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sinks_have_heating(nptmass,xyzmh_ptmass)
+ integer, intent(in) :: nptmass
+ real, intent(in) :: xyzmh_ptmass(:,:)
+
+ sinks_have_heating = any(xyzmh_ptmass(iTeff,1:nptmass) <= 0. .and. &
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
+
+end function sinks_have_heating
 
 !----------------------------------------------------------------
 !+
@@ -842,6 +858,23 @@ subroutine remove_particle_from_npartoftype(i,npoftype)
  npoftype(itype) = npoftype(itype) - 1
 
 end subroutine remove_particle_from_npartoftype
+
+!----------------------------------------------------------------
+!+
+!  recount particle types, useful after particles have moved
+!  between MPI tasks
+!+
+!----------------------------------------------------------------
+subroutine recount_npartoftype
+ integer :: itype
+
+ npartoftype(:) = 0
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    npartoftype(itype) = npartoftype(itype) + 1
+ enddo
+
+end subroutine recount_npartoftype
 
 !----------------------------------------------
 !+
@@ -1397,8 +1430,9 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
        if (use_dustgrowth) then
-         call fill_buffer(xtemp, dustprop(:,i),nbuf)
-         call fill_buffer(xtemp, dustproppred(:,i),nbuf)
+          call fill_buffer(xtemp, dustprop(:,i),nbuf)
+          call fill_buffer(xtemp, dustproppred(:,i),nbuf)
+          call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
@@ -1470,8 +1504,9 @@ subroutine unfill_buffer(ipart,xbuf)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     if (use_dustgrowth) then
-      dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
-      dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
+       dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
+       dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
+       dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
     endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then

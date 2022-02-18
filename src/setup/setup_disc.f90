@@ -716,7 +716,7 @@ subroutine setup_central_objects()
        print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
        mass1       = m1
-       binarymassr = m1/m2
+       binarymassr = m2/(m1+m2)
        accradius1  = accr1
        accradius2  = accr2
        if (iexternalforce == iext_corot_binary) then

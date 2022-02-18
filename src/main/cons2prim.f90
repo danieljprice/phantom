@@ -164,7 +164,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
- use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_variable_composition
+ use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -196,7 +196,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma_chem,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_variable_composition) &
+!$omp shared(iopacity_type,use_var_comp) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
@@ -222,7 +222,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_dustfrac) then
           !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
           if (.not.(use_dustgrowth .and. this_is_a_test)) &
-             dustfrac(1:ndustsmall,i) = dustevol(:,i)**2/(1.+dustevol(:,i)**2)
+             dustfrac(1:ndustsmall,i) = dustevol(1:ndustsmall,i)**2/(1.+dustevol(1:ndustsmall,i)**2)
           gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
           rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
        else
@@ -234,7 +234,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !--Calling Equation of state
        !
        temperaturei = eos_vars(itemp,i) ! needed for initial guess for idealplusrad
-       if (use_variable_composition) then
+       if (use_var_comp) then
           mui = eos_vars(imu,i)
           X_i = eos_vars(iX,i)
           Z_i = eos_vars(iZ,i)
@@ -257,7 +257,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_variable_composition .or. eos_outputs_mu(ieos)) eos_vars(imu,i) = mui
+       if (use_var_comp .or. eos_outputs_mu(ieos)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           !

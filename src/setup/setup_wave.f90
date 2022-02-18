@@ -109,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  fac = 6.*(int((1.-epsilon(0.))*radkern/6.) + 1)
  deltay = fac*deltax*sqrt(0.75)
  deltaz = fac*deltax*sqrt(6.)/3.
- call set_boundary(xmin,xmax,-deltay,deltay,-deltaz,deltaz)
+ call set_boundary(xmini,xmaxi,-deltay,deltay,-deltaz,deltaz)
 !
 ! general parameters
 !
