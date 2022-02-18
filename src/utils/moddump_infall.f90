@@ -14,21 +14,24 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, eos, infile_utils, io, part, partinject,
-!   physcon, prompting, setdisc, vectorutils
+! :Dependencies: centreofmass, io, part, partinject,
+!   physcon, prompting, set_sphere, vectorutils, units
 !
  implicit none
 
  integer,parameter :: nr = 200
+ real              :: r_slope = 0.0
+ real              :: r_soft = 100.0
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use partinject, only:add_or_update_particle
- use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,vxyz_ptmass,nptmass
- use eos,        only:gamma,polyk
+ use part,       only:igas,isdead_or_accreted,xyzmh_ptmass
+ use units,      only:udist,utime,get_G_code
  use io,         only:id,master,fatal
  use spherical,  only:set_sphere
+ use stretchmap, only:rho_func
  use physcon,    only:pi
  use vectorutils,only:rotatevec
  use prompting,      only:prompt
@@ -39,20 +42,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add(:,:)
- integer :: in_shape,in_orbit,ii,ipart,n_killed,i,sigmaprofile,n_add,ii_match,ierr,jj,np
+ integer :: in_shape,in_orbit,ipart,i,n_add,np
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
- real    :: r_close,in_mass,hfact,pmass,ecc,delta,r_init,r_in
- real    :: vp(3), xp(3)
- real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot
-! real    :: R_in,R_out,R_ref,q_value,p_value,HonR
-! real    :: radius,R_c,add_mass_disc,R_ext
-! real    :: sigma_norm,star_m,toomre_min,enc_m(4096),dummy(4096)
-! real    :: Ltot(3,nr),Lunit(3,nr),rad(nr),dr,area,sigma_match
-! real    :: sigma(nr),tilt(nr),twist(nr),rotate_about_z,rotate_about_y
-! real    :: L_match(3),L_mag,term(3),termmag
- logical :: iexist
- type(inopts), allocatable :: db(:)
+ real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_in,inc,big_omega
+ real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc
+ real    :: vp(3), xp(3), rot_axis(3)
+ real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number
+ real    :: unit_velocity, G
+ logical :: lrhofunc
+ procedure(rho_func), pointer :: prhofunc
 
  r_close = 100.
  in_mass = 0.01
@@ -60,171 +59,191 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  r_init = 1000.0
  in_orbit = 1
  in_shape = 0
+ r_slope = 0.0
+ inc = 0.
+ big_omega = 0.
+ tiny_number = 1e-4
+ lrhofunc = .false.
+ v_inf = 1.0
+ theta_def = 90.0
+ b_frac = 1.0
+
+ ! udist default is cm
+ unit_velocity = udist/utime ! cm/s
+ G = get_G_code()
+
+ ! Gas particle properties
+ pmass = massoftype(igas)
+
+ #ifdef GRAVITY
+   write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
+   mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
+ #else
+   mtot=sum(xyzmh_ptmass(4,:))
+ #endif
 
  ! Prompt user for infall material shape
  call prompt('Enter the infall material shape (0=sphere, 1=cylinder)',in_shape,0,1)
- call prompt('Enter radius of shape:', r_in, 0.1)
 
- ! Prompt user for the infall material orbit
- call prompt('Enter orbit type (0=bound, 1=parabolic, 2=hyperbolic)', in_orbit,0) 
- if (in_orbit == 1) then
-   ecc = 1.0
-   call prompt('Enter closest approach in au:', r_close, 0.) 
-   call prompt('Enter infall mass in Msun:', in_mass, 0.01) 
-   call prompt('Enter initial radial distance in au:', r_init, 0.0) 
+ if (in_shape == 1) then
+   write(*,*), "Cylinder not yet implemented."
+   stop
  endif
 
+ call prompt('Enter radius of shape:', r_in, 0.1)
+ call prompt('Enter infall mass in Msun:', in_mass, 0.01)
+ call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
+ call prompt('Enter initial radial distance in au:', r_init, 0.0)
 
- dma = r_close
- n0  = r_init/r_close
+ if (r_slope > tiny_number) then
+    prhofunc => rhofunc
+    lrhofunc = .true.
+    call prompt('Enter softening radius:', r_soft, 0.1)
+ endif
 
- mtot=sum(xyzmh_ptmass(4,:))
+ ! Prompt user for the infall material orbit
+ call prompt('Enter orbit type (0=bound, 1=parabolic, 2=hyperbolic)', in_orbit,0)
 
- !--focal parameter dma = pf/2
- pf = 2*dma
+ if (in_orbit == 0) then
+   write(*,*), "Bound orbit not yet implemented."
+   stop
+ endif
 
- !--define m0 = -x0/dma such that r0 = n0*dma
- !  companion starts at negative x and y
- !  positive root of 1/8*m**4 + m**2 + 2(1-n0**2) = 0
- !  for n0 > 1
- m0 = 2*sqrt(n0-1.0)
+ if (in_orbit == 1) then
+   print*, "Parabolic orbit"
+   call prompt('Enter closest approach in au:', r_close, 0.)
+endif
 
- !--perturber initial position
- x0 = -m0*dma
- y0 = dma*(1.0-(x0/pf)**2)
- z0 = 0.0
- xp = (/x0,y0,z0/)
- print*, 'Initial cloud centre is: ', xp
+if (in_orbit == 2) then
+  write(*,*), "Hyperbolic orbit, see Dullemond+2019 for parameter definitions."
+  call prompt('Enter cloud velocity at infinity, v_inf, in km/s:', v_inf, 0.0)
 
- !--perturber initial velocity
- r0  = sqrt(x0**2+y0**2+z0**2)
- vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
- vy0 = -(x0/r0)*sqrt(mtot/pf)
- vz0 = 0.0
- vp  = (/vx0,vy0,vz0/)
+  v_inf = v_inf * (100 * 1000) ! to cm/s
+  v_inf =  v_inf / unit_velocity ! Change to code units
+  b_crit = mtot * G / v_inf**2
+  write(*,*), "Critical impact parameter, b_crit, is ", b_crit, " au"
 
+  call prompt('Enter impact parameter b as a ratio of b_crit:', b_frac, 0.0)
+  b = b_frac * b_crit
+  ecc = sqrt(1 + b**2/b_crit**2)
+  r_close = b * sqrt((ecc-1)/(ecc+1))
+  write(*,*), "Eccentricity of the cloud is ", ecc
+  write(*,*), "Closest approach of cloud center will be ", r_close, " au."
+endif
+
+! Incline the infall
+write(*,*), "Notation: 0 degrees is prograde on xy-plane. 180 degrees is retrograde."
+call prompt('Enter inclination of infall:', inc, 0., 360.)
+call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
+
+if (in_orbit == 1) then
+   ! Parabolic orbit, taken from set_flyby
+   dma = r_close
+   n0  = r_init/r_close
+
+   !--focal parameter dma = pf/2
+   pf = 2*dma
+
+   !--define m0 = -x0/dma such that r0 = n0*dma
+   !  companion starts at negative x and y
+   !  positive root of 1/8*m**4 + m**2 + 2(1-n0**2) = 0
+   !  for n0 > 1
+   m0 = 2*sqrt(n0-1.0)
+
+   !--perturber initial position
+   x0 = -m0*dma
+   y0 = dma*(1.0-(x0/pf)**2)
+   z0 = 0.0
+   xp = (/x0,y0,z0/)
+
+   !--perturber initial velocity
+   r0  = sqrt(x0**2+y0**2+z0**2)
+   vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+   vy0 = -(x0/r0)*sqrt(mtot/pf)
+   vz0 = 0.0
+   vp  = (/vx0,vy0,vz0/)
+
+ elseif (in_orbit == 2) then
+   ! Dullemond+2019
+   ! Initial position is x=r_init and y=b (impact parameter)
+   x0 = r_init
+   y0 = b
+   z0 = 0.0
+   xp = (/x0, y0, z0/)
+
+   ! Initial velocity, all initially in x direction
+   a = -mtot/v_inf**2
+   print*, "a is ", a
+   vx0 = sqrt(mtot*(2/r_init - 1/a))
+   print*, "r_init is", r_init
+   print*, "vx0 is ", vx0
+   vy0 = 0.0
+   vz0 = 0.0
+   vp = (/vx0, vy0, vz0/)
+
+ endif
+
+ write(*,*), "Initial cloud centre is: ", xp
+ write(*,*), "Initial velocity velocity is ", vp
 
  ! Number of injected particles is given by existing particle mass and total
  ! added disc mass
- pmass = massoftype(igas)
+
  n_add = int(in_mass/pmass)
- print* , 'Number of particles to add ', n_add
+ write(*,*), "Number of particles that will be added ", n_add
  allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
  hfact = 1.2
  delta = 1.0 ! no idea what this is
- nptot= n_add + npartoftype(igas) 
+ nptot = n_add + npartoftype(igas)
  np = 0
- call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=(/x0, y0, z0/),&
-      np_requested=n_add, nptot=nptot) 
- print*, 'We have set the sphere'
- ! Initiate initial velocity of the partiles in the shape
+ if (in_shape == 0) then
+    if (lrhofunc) then
+      call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=(/x0, y0, z0/),&
+        np_requested=n_add, nptot=nptot,rhofunc=prhofunc)
+    else
+       call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=(/x0, y0, z0/),&
+          np_requested=n_add, nptot=nptot)
+    endif
+ endif
+ write(*,*), "The sphere has been succesfully initialised."
+
+ ! Initiate initial velocity of the particles in the shape
  vxyzu_add(1, :) = vx0
  vxyzu_add(2, :) = vy0
  vxyzu_add(3, :) = vz0
  vxyzu_add(4, :) = vxyzu(4, 1)
 
-!subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
-!                      rhofunc,rhotab,rtab,xyz_origin,nptot,dir,exactN,np_requested,mask)
-! use stretchmap, only:set_density_profile,rho_func
-! character(len=*), intent(in)    :: lattice
-! integer,          intent(in)    :: id,master
-! integer,          intent(inout) :: np
-! real,             intent(in)    :: rmin,rmax,hfact
-! real,             intent(out)   :: xyzh(:,:)
-! real,             intent(inout) :: delta
-! procedure(rho_func), pointer, optional :: rhofunc
-! real,             intent(in),    optional :: rhotab(:), rtab(:)
-! integer,          intent(in),    optional :: dir
-! integer,          intent(in),    optional :: np_requested
-! integer(kind=8),  intent(inout), optional :: nptot
-! real,             intent(in),    optional :: xyz_origin(3)
-! logical,          intent(in),    optional :: exactN
+ ! Now rotate and add those new particles to existing disc
+ ! Default is prograde orbit
+ inc = pi-inc*pi/180.
+ big_omega = big_omega*pi/180.
 
-
- ! Run a basic disc analysis to determine tilt and twist as a function of radius
- !sigma = 0.
- !tilt = 0.
- !twist = 0.
- !Ltot = 0.
- !n_killed = 0
- !Lunit = 0.
- !ii_match = -1
-
- !dr = (R_out - R_in)/real(nr-1)
- !do i=1,nr
- !   rad(i)=R_in + real(i-1)*dr
- !   if (ii_match < 0 .and. rad(i) > R_match) ii_match = i
- !enddo
-
- !if (ii_match < 0) then
- !   call fatal('moddump_extenddisc','cannot match the discs')
- !endif
-
- !R_match = rad(ii_match)
-
- !do i = 1,npart
- !   ! i for particle number, ii for radial bin
- !   radius = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
- !   ii = int((radius-rad(1))/dr + 1)
- !   if (xyzh(4,i) > 0. .and. ii <=nr .and. ii > 0) then
- !      area = (pi*((rad(ii)+dr/2.)**2-(rad(ii)- dr/2.)**2))
- !      sigma(ii) = sigma(ii) + pmass/area
- !      Ltot(1,ii) = Ltot(1,ii) + pmass*(xyzh(2,i)*vxyzu(3,i)-xyzh(3,i)*vxyzu(2,i))
- !      Ltot(2,ii) = Ltot(2,ii) + pmass*(xyzh(3,i)*vxyzu(1,i)-xyzh(1,i)*vxyzu(3,i))
- !      Ltot(3,ii) = Ltot(3,ii) + pmass*(xyzh(1,i)*vxyzu(2,i)-xyzh(2,i)*vxyzu(1,i))
- !   endif
- !   if (radius > R_match) then
- !      xyzh(4,i) = -1.0
-!       call kill_particle(i)
-  !     n_killed = n_killed + 1
- !   endif
- !enddo
-
-! call shuffle_part(npart)
-
- ! Average a little
- !sigma_match = (sigma(ii_match - 1) + sigma(ii_match) + sigma(ii_match + 1))/3.
- !sigma_norm = scaled_sigma(R_match,sigmaprofile,p_value,R_ref,R_in,R_out,R_c)
- !sigma_norm = sigma_match/sigma_norm
-
-
- ! Tilt and twist the particles
- ! The tilt could be set by set_warp instead but this way gives tilt AND twist
- ! We also have to rotate velocities (for accurate L)
- ! NB: these rotations are (correctly) in the opposite order than
- ! when these rotations are used elsewhere in the code
-
- !L_match = (Ltot(:,ii_match - 1) + Ltot(:,ii_match) + Ltot(:,ii_match + 1))/3.
- !L_mag = sqrt(dot_product(L_match,L_match))
- !term = (/L_match(1),L_match(2),0./)
- !termmag = sqrt(dot_product(term,term))
-
- !rotate_about_z = acos(dot_product((/1.,0.,0./),term/termmag))
- !rotate_about_y = acos(dot_product((/0.,0.,1./),L_match/L_mag))
-
- ! Now add those new particles to existing disc
+ ! Convention: clock-wise rotation in the zx-plane
+ rot_axis = (/sin(big_omega),-cos(big_omega),0./)
  ipart = npart ! The initial particle number (post shuffle)
- do ii = 1,n_add
+ do i = 1,n_add
     ! Rotate particle to correct position and velocity
-    !call rotatevec(xyzh_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
-    !call rotatevec(xyzh_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-    !call rotatevec(vxyzu_add(1:3,ii),(/0.,1.0,0./),rotate_about_y)
-    !call rotatevec(vxyzu_add(1:3,ii),(/0.,0.,1.0/),rotate_about_z)
-    !radius = sqrt(xyzh_add(1,ii)**2 + xyzh_add(2,ii)**2 + xyzh_add(3,ii)**2)
-    !jj = int((radius-rad(1))/dr + 1)
-    !if (jj > ii_match-1) then
-       ! Add the particle
-       ipart = ipart + 1
-       call  add_or_update_particle(igas, xyzh_add(1:3,ii), vxyzu_add(1:3,ii), xyzh_add(4,ii), &
-            vxyzu_add(4,ii), ipart, npart, npartoftype, xyzh, vxyzu)
-    !endif
+    call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
+    call rotatevec(vxyzu_add(1:3,i), rot_axis,inc)
+
+    ! Add the particle
+    ipart = ipart + 1
+    call  add_or_update_particle(igas, xyzh_add(1:3,i), vxyzu_add(1:3,i), xyzh_add(4,i), &
+                         vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
  enddo
 
- print "(a,f5.1,/)",' Added sphere successfully '
+ write(*,*),  " ###### Added infall successfully ###### "
 
  deallocate(xyzh_add,vxyzu_add)
 
  return
 end subroutine modify_dump
+
+real function rhofunc(r)
+ real, intent(in) :: r
+
+ rhofunc = 1./(r + r_soft)**(r_slope)
+
+end function rhofunc
 
 end module moddump
