@@ -101,7 +101,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftype,&
+                          iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
  use cooling,        only:cooling_implicit,ufloor
@@ -172,7 +172,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! velocity predictor step, using dtsph
 !--------------------------------------
  itype   = igas
- ntypes  = get_ntypes(reduceall_mpi('+',npartoftype))
+ ntypes  = get_ntypes(npartoftypetot)
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
@@ -422,7 +422,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     np      = 0
     itype   = igas
     pmassi  = massoftype(igas)
-    ntypes  = get_ntypes(npartoftype)
+    ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &

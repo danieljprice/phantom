@@ -81,6 +81,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
+                            npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
@@ -134,10 +135,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (present(ntot)) then
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
-          npartoftypetoti = reduceall_mpi('+', npartoftype(i))
-          if (npartoftypetoti > 0) then
+          if (npartoftypetot(i) > 0) then
              write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",labeltype(i)," particles: ", npartoftypetoti,", ",massoftype(i)
+                "Number & mass of ",labeltype(i)," particles: ", npartoftypetot(i),", ",massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
