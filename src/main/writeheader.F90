@@ -15,8 +15,8 @@ module writeheader
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, gitinfo, growth, io,
-!   kernel, metric_tools, options, part, physcon, readwrite_infile, units,
-!   viscosity
+!   kernel, metric_tools, mpiutils, options, part, physcon,
+!   readwrite_infile, units, viscosity
 !
  implicit none
  public :: write_header,write_codeinfo
@@ -82,6 +82,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,npartoftype,massoftype,&
                             labeltype,maxtypes
+ use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
  use cooling,          only:cooling_implicit,cooling_explicit,Tfloor,ufloor
  use readwrite_infile, only:write_infile
@@ -94,7 +95,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef GR
  use metric_tools,     only:print_metricinfo
 #endif
- integer                      :: Nneigh,i
+ integer                      :: Nneigh,i,npartoftypetoti
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
  integer(kind=8),  intent(in), optional :: ntot
@@ -133,9 +134,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (present(ntot)) then
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
-          if (npartoftype(i) > 0) then
+          npartoftypetoti = reduceall_mpi('+', npartoftype(i))
+          if (npartoftypetoti > 0) then
              write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",labeltype(i)," particles: ", npartoftype(i),", ",massoftype(i)
+                "Number & mass of ",labeltype(i)," particles: ", npartoftypetoti,", ",massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
