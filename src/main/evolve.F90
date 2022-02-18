@@ -174,7 +174,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
 #else
  use_global_dt = .true.
- nskip   = npart
+ nskip   = ntot
  nactive = npart
  istepfrac = 0 ! dummy values
  nbinmax   = 0
@@ -251,6 +251,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--print summary of timestep bins
     if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+#else
+    !--If not using individual timestepping, set nskip to the total number of particles
+    !  across all nodes
+    nskip = int(ntot)
 #endif
 
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
