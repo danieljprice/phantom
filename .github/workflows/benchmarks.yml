@@ -64,7 +64,6 @@ jobs:
       with:
         repository: phantomSPH/phantom-benchmarks
         path: phantom-benchmarks
-        lfs: true
 
     - name: "Get number of CPU cores"
       run: echo "::set-output name=count::$(nproc)"
