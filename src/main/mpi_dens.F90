@@ -202,12 +202,7 @@ subroutine get_mpitype_of_celldens(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(cell)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+   call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 end subroutine get_mpitype_of_celldens

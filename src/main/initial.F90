@@ -405,9 +405,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  fext(:,:)  = 0.
 
 #ifdef GR
-! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,metrics,metricderivs)
 #ifdef PRIM2CONS_FIRST
+ ! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  ! -- The conserved quantites (momentum and entropy) are being computed
  ! -- directly from the primitive values in the starting dumpfile.
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -423,6 +423,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
+! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
