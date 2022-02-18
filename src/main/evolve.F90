@@ -174,7 +174,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
 #else
  use_global_dt = .true.
- nskip   = ntot
+ nskip   = int(ntot)
  nactive = npart
  istepfrac = 0 ! dummy values
  nbinmax   = 0
