@@ -272,13 +272,13 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #else
  if (present(ntotal)) then
     nparttot = ntotal
-    npartoftypetot = npartoftype
+    call update_npartoftypetot
     if (all(npartoftypetot==0)) then
        npartoftypetot(1) = ntotal
     endif
  else
     nparttot = npart
-    npartoftypetot = npartoftype
+    call update_npartoftypetot
  endif
 #endif
  nblocks = nprocs
