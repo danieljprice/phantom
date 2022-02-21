@@ -107,7 +107,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic
+                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic, &
+                          npartoftypetot,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use energies,       only:compute_energies
@@ -129,8 +130,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: frag,onefluid
-
- integer(kind=8) :: npartoftypetot(maxtypes)
 
  integer :: nx,nerror,nwarn
  integer :: itype,npart_previous,i,j,nsteps,modu,noutputs
@@ -242,7 +241,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     call set_particle_type(i,itype)
  enddo
  npartoftype(itype)    = npart - npart_previous
- npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
+ call update_npartoftypetot
  massoftype(itype)     = totmass/npartoftypetot(itype)
 
  !- setting dust particles if not one fluid
