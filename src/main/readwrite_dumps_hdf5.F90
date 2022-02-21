@@ -708,6 +708,7 @@ subroutine read_any_dump_hdf5(                                                  
  if (.not.smalldump) then
     call check_arrays(1,                          &
                       npart,                      &
+                      0,                          &
                       npartoftype,                &
                       npart,                      &
                       nptmass,                    &

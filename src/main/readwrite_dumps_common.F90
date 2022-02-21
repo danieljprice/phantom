@@ -118,7 +118,7 @@ end subroutine get_options_from_fileid
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
-subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
+subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
@@ -132,7 +132,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use io,   only:warning,id,master
  use options,    only:alpha,use_dustfrac,use_var_comp
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
- integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
+ integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
@@ -372,7 +372,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 !
  if (.not.got_iorig) then
     do i=i1,i2
-       iorig(i) = i
+       iorig(i) = i + noffset
     enddo
     norig = i2
     if (id==master .and. i1==1) write(*,*) 'WARNING: Particle IDs not in dump; resetting IDs'
