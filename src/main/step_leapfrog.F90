@@ -1355,7 +1355,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     ! reduction of sink-gas forces from each MPI thread
     !
-    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    if (nptmass > 0) call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
 
     !---------------------------
     ! corrector during substeps
@@ -1443,16 +1443,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     ! reduction of sink particle changes across MPI
     !
-    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+    if (nptmass > 0) then
+       call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    naccreted = int(reduceall_mpi('+',naccreted))
-    nfail = int(reduceall_mpi('+',nfail))
+       naccreted = int(reduceall_mpi('+',naccreted))
+       nfail = int(reduceall_mpi('+',nfail))
 
-    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+       if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
-    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
-    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
-    call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+       call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+    endif
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
