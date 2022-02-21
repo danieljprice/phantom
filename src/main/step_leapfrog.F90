@@ -663,6 +663,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
  enddo iterations
+
+ ! MPI reduce summary variables
+ nwake     = int(reduceall_mpi('+', nwake))
+ nvfloorp  = int(reduceall_mpi('+', nvfloorp))
+ nvfloorps = int(reduceall_mpi('+', nvfloorps))
+ nvfloorc  = int(reduceall_mpi('+', nvfloorc))
+
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )
  if (nvfloorp > 0) call summary_variable('floor',iosumflrp, 0,real(nvfloorp) )
