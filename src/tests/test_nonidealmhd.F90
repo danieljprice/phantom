@@ -377,6 +377,12 @@ subroutine test_standingshock(ntests,npass)
        Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
     endif
  enddo
+
+ !
+ ! reduce types across MPI tasks
+ !
+ call update_npartoftypetot
+
  !
  ! initialise runtime parameters
  !
