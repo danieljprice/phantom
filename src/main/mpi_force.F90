@@ -209,7 +209,7 @@ subroutine get_mpitype_of_cellforce(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-   call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
+    call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 end subroutine get_mpitype_of_cellforce

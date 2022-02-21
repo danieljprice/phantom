@@ -1806,10 +1806,10 @@ real function Omega_k(i)
 end function Omega_k
 
 subroutine update_npartoftypetot
-   use mpiutils, only:reduceall_mpi
+ use mpiutils, only:reduceall_mpi
 
-   npartoftypetot = reduceall_mpi('+',npartoftype)
+ npartoftypetot = reduceall_mpi('+',npartoftype)
 
-end subroutine
+end subroutine update_npartoftypetot
 
 end module part
