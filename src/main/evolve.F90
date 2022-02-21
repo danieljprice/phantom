@@ -311,7 +311,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,npart)
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,ntot)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -337,7 +337,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
 #endif
 
 !   check that MPI threads are synchronised in time
