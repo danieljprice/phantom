@@ -16,7 +16,7 @@ module mpidens
 !
 ! :Dependencies: dim, io, mpi, mpiutils
 !
- use io,       only:nprocs,fatal
+ use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
 #ifdef MPI
  use mpiutils, only:mpierr
@@ -202,7 +202,7 @@ subroutine get_mpitype_of_celldens(dtype)
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-   call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
+    call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 end subroutine get_mpitype_of_celldens
