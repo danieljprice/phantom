@@ -196,13 +196,13 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
  !omp end parallel do
 
  if (present(metricderivs)) then
-   !$omp parallel do default(none) &
-   !$omp shared(npart,xyzh,metricderivs) &
-   !$omp private(i)
-   do i=1,npart
-      call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
-   enddo
-   !omp end parallel do
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,metricderivs) &
+    !$omp private(i)
+    do i=1,npart
+       call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
+    enddo
+    !omp end parallel do
  endif
 
 end subroutine init_metric
