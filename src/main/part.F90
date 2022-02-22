@@ -288,13 +288,18 @@ module part
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
 !
-!--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
+!--size of the buffer required for transferring particle
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
+#ifdef GR
+   +maxvxyzu                            &  ! pxyzu
+   +maxvxyzu                            &  ! ppred
+   +1                                   &  ! dens
+#endif
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
@@ -306,7 +311,7 @@ module part
 #endif
 #ifdef MHD
  +maxBevol                            &  ! Bevol
- +maxBevol                            &  ! Bpred
+   +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
  +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
@@ -329,29 +334,29 @@ module part
 #endif
 #ifdef NUCLEATION
  +1                                   &  ! nucleation rate
- +4                                   &  ! moments
- +1                                   &  ! mean molecular weight
+   +4                                   &  ! moments
+   +1                                   &  ! mean molecular weight
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
- +1                                   &  ! variable gamma
- +1                                   &  ! variable mu
- +1                                   &  ! temperature
- +1                                   &  ! cooling rate
+   +1                                   &  ! variable gamma
+   +1                                   &  ! variable mu
+   +1                                   &  ! temperature
+   +1                                   &  ! cooling rate
 #endif
- +maxeosvars                          &  ! eos_vars
+   +maxeosvars                          &  ! eos_vars
+#ifdef SINK_RADIATION
+   +1                                   &  ! dust temperature
+#endif
 #ifdef GRAVITY
  +1                                   &  ! poten
 #endif
-#ifdef SINK_RADIATION
- +1                                   &  ! dust temperature
-#endif
 #ifdef IND_TIMESTEPS
  +1                                   &  ! ibin
- +1                                   &  ! ibin_old
- +1                                   &  ! ibin_wake
- +1                                   &  ! dt_in
- +1                                   &  ! twas
+   +1                                   &  ! ibin_old
+   +1                                   &  ! ibin_wake
+   +1                                   &  ! dt_in
+   +1                                   &  ! twas
 #endif
  +1                                   &  ! iorig
  +0
@@ -361,8 +366,9 @@ module part
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0
 
- integer :: npartoftype(maxtypes)
- real    :: massoftype(maxtypes)
+ integer         :: npartoftype(maxtypes)
+ integer(kind=8) :: npartoftypetot(maxtypes)
+ real            :: massoftype(maxtypes)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -564,6 +570,7 @@ subroutine init_part
  npart = 0
  nptmass = 0
  npartoftype(:) = 0
+ npartoftypetot(:) = 0
  massoftype(:)  = 0.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
@@ -1194,7 +1201,14 @@ subroutine copy_particle_all(src,dst,new_part)
     radprop(:,dst) = radprop(:,src)
     drad(:,dst) = drad(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+    pxyzu(:,dst) = pxyzu(:,src)
+    if (maxgran==maxp) then
+       ppred(:,dst) = ppred(:,src)
+    endif
+    dens(dst) = dens(src)
+ endif
+
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
@@ -1401,6 +1415,11 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
     call fill_buffer(xtemp,vpred(:,i),nbuf)
+    if (gr) then
+       call fill_buffer(xtemp,pxyzu(:,i),nbuf)
+       call fill_buffer(xtemp,ppred(:,i),nbuf)
+       call fill_buffer(xtemp,dens(i),nbuf)
+    endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
     if (ndivcurlv > 0) then
@@ -1475,6 +1494,11 @@ subroutine unfill_buffer(ipart,xbuf)
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ if (gr) then
+    pxyzu(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    ppred(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    dens(ipart)          = unfill_buf(xbuf,j)
+ endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv > 0) then
@@ -1802,5 +1826,12 @@ real function Omega_k(i)
  endif
 
 end function Omega_k
+
+subroutine update_npartoftypetot
+ use mpiutils, only:reduceall_mpi
+
+ npartoftypetot = reduceall_mpi('+',npartoftype)
+
+end subroutine update_npartoftypetot
 
 end module part

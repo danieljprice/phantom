@@ -96,7 +96,7 @@ end subroutine balance_init
 !----------------------------------------------------------------
 subroutine balancedomains(npart)
  use io,     only:id,master,iverbose,fatal
- use part,   only:shuffle_part,count_dead_particles,ibelong
+ use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
  implicit none
@@ -144,6 +144,10 @@ subroutine balancedomains(npart)
     print*,id,'ntot_start',ntot_start
     call fatal('balance','number of particles before and after balance not equal')
  endif
+
+ !  Update particle types
+ call update_npartoftypetot
+
  if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return
