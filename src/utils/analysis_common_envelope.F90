@@ -51,30 +51,26 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
-
  !general variables
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: particlemass,time
- integer                      :: unitnum,i,ierr,ncols
-
+ real,             intent(in)    :: particlemass,time
+ integer                         :: unitnum,i,ierr,ncols
 
  !case 5 variables
  real                         :: rhopart
 
  !case 7 variables
- character(len=17), dimension(:), allocatable :: columns
+ character(len=17), allocatable :: columns(:)
 
  !case 12 variables
  real                         :: etoti, ekini, einti, epoti, phii
-
 
  real, dimension(3)           :: com_xyz, com_vxyz
  real, dimension(3)           :: xyz_a, vxyz_a
  real, dimension(6,npart)     :: histogram_data
  real                         :: ang_vel
-
 
  real, dimension(npart)      :: pres_1, proint_1, peint_1, temp_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
 
@@ -85,7 +81,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(29(a,/))", &
+    print "(30(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -114,18 +110,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '27) Print dumps number matching separation', &
             '28) Companion mass coordinate vs. time', &
             '29) Energy histogram',&
-            '30) Analyse disk'
-
+            '30) Analyse disk',&
+            '31) Recombination energy vs time'
     analysis_to_perform = 1
-
-    call prompt('Choose analysis type ',analysis_to_perform,1,30)
-
+    call prompt('Choose analysis type ',analysis_to_perform,1,31)
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
     select case(ieos)
@@ -196,6 +190,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(30) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
+ case(31) ! Recombination energy vs. time
+    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -2816,19 +2812,29 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-subroutine erec_vs_t(num,npart,particlemass,xyzh,vxyzu)
+subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
  use ionization_mod, only:get_erec_components
- integer, intent(in)             :: num,npart
- real, intent(in)                :: particlemass
- real, intent(inout)             :: xyzh(:,:),vxyzu(:,:)
- real :: ereci(4),erec(4),tempi
+ integer, intent(in) :: npart
+ real, intent(in)    :: time,particlemass
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=17)   :: filename,columns(4)
+ integer             :: ncols,i
+ real                :: ereci(4),erec(4),tempi,rhoi
+
+ columns = (/'          H2', &
+             '          HI', &
+             '         HeI', &
+             '        HeII'/)
 
  erec = 0.
  do i = 1,npart
     rhoi = rhoh(xyzh(4,i), particlemass)
-    call get_erec_components( log10(rhoi*unit_density), tempi, X_in, Y_in, ereci)
+    call get_erec_components( log10(rhoi*unit_density), tempi, X_in, 1.-X_in-Z_in, ereci)
     erec = erec + ereci
  enddo
+
+ write (filename, "(A16,I0)") "erec_vs_t"
+ call write_time_file(trim(adjustl(filename)),columns,time,erec,4,dump_number)
 
 end subroutine erec_vs_t
 
