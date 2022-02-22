@@ -109,7 +109,8 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
                           ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,  &
-                          dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig
+                          dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig,    &
+                          npartoftypetot,update_npartoftypetot
 #ifdef NUCLEATION
  use part,           only:nucleation
 #endif
@@ -135,7 +136,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 
  integer            :: i
  integer            :: ierr
- integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8)    :: nparttot
  logical            :: ind_timesteps,const_av,prdrag,isothermal
  real, allocatable  :: dtin(:),beta_pr(:)
  character(len=200) :: fileid,fstr,sstr
@@ -167,7 +168,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 !--allow non-MPI calls to create MPI dump files
 #ifdef MPI
  nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ call update_npartoftypetot
 #else
  if (present(ntotal)) then
     nparttot = ntotal
@@ -619,7 +620,7 @@ subroutine read_any_dump_hdf5(                                                  
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int(min(nprocs,4)*nparttot/nprocs))
 #endif
 
  if (periodic) then
@@ -707,6 +708,7 @@ subroutine read_any_dump_hdf5(                                                  
  if (.not.smalldump) then
     call check_arrays(1,                          &
                       npart,                      &
+                      0,                          &
                       npartoftype,                &
                       npart,                      &
                       nptmass,                    &
