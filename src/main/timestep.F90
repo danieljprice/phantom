@@ -68,10 +68,10 @@ end subroutine set_defaults_timestep
 !-----------------------------------------------------------------
 subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
                        dtrad,dtprint,dtinj,np)
- integer, intent(in) :: iprint
- real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
- real,    intent(in), optional :: dtprint,dtinj
- integer, intent(in) :: np
+ integer,         intent(in) :: iprint
+ real,            intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
+ real,            intent(in), optional :: dtprint,dtinj
+ integer(kind=8), intent(in) :: np
  character(len=20) :: str
  integer, save :: nplast = 0
 
