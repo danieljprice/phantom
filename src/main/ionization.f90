@@ -307,6 +307,27 @@ real function get_erec(logd,T,X,Y)
  return
 end function get_erec
 
+!-----------------------------------------------------------------------
+!+
+!  Get recombination energy components
+!+
+!-----------------------------------------------------------------------
+subroutine get_erec_components(logd,T,X,Y,erec)
+ real, intent(in)     :: logd,T,X,Y
+ real, intent(out)    :: erec(4)
+ real, dimension(1:4) :: e,xi
+
+ e(1) = eion(1)*X*0.5
+ e(2) = eion(2)*X
+ e(3) = eion(3)*Y*0.25
+ e(4) = eion(4)*Y*0.25
+
+ call get_xion(logd,T,X,Y,xi)
+
+ erec = sum(erec(1:4)*xi(1:4))
+
+end subroutine get_erec_components
+
 !----------------------------------------------------------------
 !+
 !  Calculate thermal (gas + radiation internal energy) energy of a
