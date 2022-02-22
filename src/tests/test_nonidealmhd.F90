@@ -277,7 +277,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:init_part,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           Bevol,fext,igas,iboundary,set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,&
-                          iamtype,iamboundary
+                          iamtype,iamboundary,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
@@ -377,6 +377,12 @@ subroutine test_standingshock(ntests,npass)
        Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
     endif
  enddo
+
+ !
+ ! reduce types across MPI tasks
+ !
+ call update_npartoftypetot
+
  !
  ! initialise runtime parameters
  !
