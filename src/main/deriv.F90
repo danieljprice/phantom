@@ -38,7 +38,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -75,10 +75,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use forces,         only:force
  use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
-#ifdef GR
- use cons2prim,      only:cons2primall
-#endif
- use cons2prim,      only:cons2prim_everything
+ use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
+ use metric_tools,   only:init_metric
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -101,7 +99,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
- real,         intent(in)    :: metrics(:,:,:,:)
+ real,         intent(inout) :: metrics(:,:,:,:)
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
  t1    = 0.
@@ -126,6 +124,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
  if (icall==1 .or. icall==0) then
     call set_linklist(npart,nactive,xyzh,vxyzu)
+
+    if (gr) then
+      ! Recalculate the metric after moving particles to their new tasks
+      call init_metric(npart,xyzh,metrics)
+      call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    endif
+
 #ifdef PERIODIC
     if (nptmass > 0) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
 #endif
