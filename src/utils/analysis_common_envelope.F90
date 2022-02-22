@@ -2810,6 +2810,28 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine analyse_disk
 
+
+!----------------------------------------------------------------
+!+
+!  Recombination energy vs. time
+!+
+!----------------------------------------------------------------
+subroutine erec_vs_t(num,npart,particlemass,xyzh,vxyzu)
+ use ionization_mod, only:get_erec_components
+ integer, intent(in)             :: num,npart
+ real, intent(in)                :: particlemass
+ real, intent(inout)             :: xyzh(:,:),vxyzu(:,:)
+ real :: ereci(4),erec(4),tempi
+
+ erec = 0.
+ do i = 1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    call get_erec_components( log10(rhoi*unit_density), tempi, X_in, Y_in, ereci)
+    erec = erec + ereci
+ enddo
+
+end subroutine erec_vs_t
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
