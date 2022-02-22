@@ -47,6 +47,9 @@ jobs:
       fail-fast: false
       matrix:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
+        mpi:
+          - yes
+          - no
 
     name: bench (SETUP=${{ matrix.setup }})
     runs-on: self-hosted
@@ -83,7 +86,7 @@ jobs:
         systems="gfortran ifort"
         for SYSTEM in $systems; do
           echo ::group::SYSTEM=$SYSTEM
-          SYSTEM=${SYSTEM} ./run-benchmarks.sh  ${{ matrix.setup }}
+          SYSTEM=${SYSTEM} MPI=${{ matrix.mpi }} STACKSIZE=5000000 ./run-benchmarks.sh  ${{ matrix.setup }}
           echo ::endgroup::
         done
       env:
