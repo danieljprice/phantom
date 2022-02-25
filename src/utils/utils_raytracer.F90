@@ -4,6 +4,8 @@ module raytracer
    public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_optimised
    private
    contains
+
+#define REALTIME
    
    !*********************************************************************!
    !***************************   OPTIMISED   ***************************!
@@ -55,9 +57,17 @@ module raytracer
             if (theta < theta0) then
                root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
                dist = normCompanion*cos(theta)-root
+#ifdef REALTIME
+               call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, dist)
+#else
                call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, dist)
+#endif
             else
+#ifdef REALTIME
+               call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+#else
                call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+#endif
             endif
             call get_tau_list(listOfPoints, dists, opacities, tau)
             listsOfTaus(:,i) = tau
@@ -77,8 +87,13 @@ module raytracer
          !$omp end parallel do
 
       else
+#ifdef REALTIME
+         call get_all_tau_outwards_single(primary, xyzh, opacities, &
+         Rstar, minOrder+refineLevel, taus, maxDist)
+#else
          call get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, &
          Rstar, minOrder+refineLevel, taus, maxDist)
+#endif
       endif
    end subroutine get_all_tau_optimised
 
@@ -167,22 +182,40 @@ module raytracer
    !***************************   OUTWARDS   ****************************!
    !*********************************************************************!
 
+#ifdef REALTIME
+   subroutine get_all_tau_outwards(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
+      integer, intent(in) :: primary, order
+#else
    subroutine get_all_tau_outwards(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
       integer, intent(in) :: primary, neighbors(:,:), order
+#endif
       integer, optional   :: companion
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       real, optional      :: R, maxDist
       real, intent(out)   :: taus(:)
 
       if (present(companion) .and. present(R)) then
+#ifdef REALTIME
+         call get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
+#else
          call get_all_tau_outwards_companion(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
+#endif
       else
+#ifdef REALTIME
+         call get_all_tau_outwards_single(primary, xyzh, opacities, Rstar, order, taus, maxDist)
+#else
          call get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, Rstar, order, taus, maxDist)
+#endif
       endif
    end subroutine get_all_tau_outwards
    
+#ifdef REALTIME
+   subroutine get_all_tau_outwards_single(primary, xyzh, opacities, Rstar, order, taus, maxDist)
+      integer, intent(in) :: primary, order
+#else
    subroutine get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, Rstar, order, taus, maxDist)
       integer, intent(in) :: primary, neighbors(:,:), order
+#endif
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       real, optional      :: maxDist
       real, intent(out)   :: taus(:)
@@ -210,8 +243,11 @@ module raytracer
          dists=0.
          call pix2vec_nest(nsides, i-1, dir)
          dirs(:,i) = dir
-
+#ifdef REALTIME
+         call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+#else
          call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+#endif
          call get_tau_list(listOfPoints, dists, opacities, tau)
          listsOfTaus(:,i) = tau
          listsOfDists(:,i) = dists
@@ -229,8 +265,13 @@ module raytracer
       !$omp end parallel do
    end subroutine get_all_tau_outwards_single
 
+#ifdef REALTIME
+   subroutine get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
+      integer, intent(in) :: primary, order, companion
+#else
    subroutine get_all_tau_outwards_companion(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
       integer, intent(in) :: primary, neighbors(:,:), order, companion
+#endif
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:), R, maxDist
       real, intent(out)   :: taus(:)
       
@@ -271,9 +312,17 @@ module raytracer
          if (theta < theta0) then
             root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
             dist = normCompanion*cos(theta)-root
+#ifdef REALTIME
+            call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, dist)
+#else
             call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, dist)
+#endif
          else
+#ifdef REALTIME
+            call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+#else
             call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+#endif
          endif
          call get_tau_list(listOfPoints, dists, opacities, tau)
          listsOfTaus(:,i) = tau
@@ -331,11 +380,22 @@ module raytracer
       enddo
    end subroutine get_tau_list
     
+#ifdef REALTIME
+   subroutine ray_tracer(point, ray, xyzh, Rstar, listOfPoints, listOfDist, maxDist)
+#else
    subroutine ray_tracer(point, ray, xyzh, neighbors, Rstar, listOfPoints, listOfDist, maxDist)
+#endif
       use linklist, only:getneigh_pos,ifirstincell,listneigh
+#ifdef REALTIME
+      use kernel,   only:radkern
+#endif
       real, intent(in)     :: ray(3), Rstar, xyzh(:,:)
       real, optional       :: maxDist
+#ifdef REALTIME
+      integer, intent(in)  :: point
+#else
       integer, intent(in)  :: point, neighbors(:,:)
+#endif
       real, intent(out)    :: listOfDist(:)
       integer, intent(out) :: listOfPoints(:)
       
@@ -362,7 +422,13 @@ module raytracer
          i = i + 1
          listOfPoints(i) = next
          listOfDist(i)=dist
+#ifdef REALTIME
+         call getneigh_pos(xyzh(1:3,point) + dist*ray,0.,xyzh(4,next)*radkern/2, &
+                           3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+         call find_next(xyzh(1:3,point), ray, dist, xyzh, listneigh, next,nneigh)
+#else
          call find_next(xyzh(1:3,point), ray, dist, xyzh, neighbors(next,:), next)
+#endif
       enddo
    end subroutine ray_tracer
 
@@ -483,13 +549,13 @@ module raytracer
    subroutine find_next(inpoint, ray, dist, xyzh, neighbors, next, nneighin)
       integer, intent(in)  :: neighbors(:)
       real, intent(in)     :: xyzh(:,:), inpoint(:), ray(:)
-      integer, intent(out) :: next
+      integer, intent(inout) :: next
       real, intent(inout)  :: dist
       integer, optional    :: nneighin
       
       real                 :: trace_point(3), dmin, vec(3), tempdist, raydist
       real                 :: nextdist
-      integer              :: i, nneigh
+      integer              :: i, nneigh, prev
       
       dmin = huge(0.)
       if (present(nneighin)) then
@@ -498,22 +564,25 @@ module raytracer
          nneigh = size(neighbors)
       endif
 
+      prev=next
       next=0
       nextDist=dist
       trace_point = inpoint + dist*ray
 
       i = 1
       do while (i <= nneigh .and. neighbors(i) /= 0)
-         vec=xyzh(1:3,neighbors(i)) - trace_point
-         tempdist = dot_product(vec,ray)
-         if (tempdist>0.) then
+         if (neighbors(i) .ne. prev) then
+            vec=xyzh(1:3,neighbors(i)) - trace_point
+            tempdist = dot_product(vec,ray)
+            if (tempdist>0.) then
                raydist = dot_product(vec,vec) - tempdist**2
                if (raydist < dmin) then
                   dmin = raydist
                   next = neighbors(i)
                   nextdist = dist+tempdist
                end if
-         end if
+            end if
+         endif
          i = i+1
       enddo
       dist=nextdist
