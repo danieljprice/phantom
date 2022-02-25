@@ -11,9 +11,15 @@ module raytracer
    !***************************   OPTIMISED   ***************************!
    !*********************************************************************!
   
+#ifdef REALTIME
+   subroutine get_all_tau_optimised(primary, xyzh, opacities, &
+                                   Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
+      integer, intent(in) :: primary, minOrder, refineLevel
+#else
    subroutine get_all_tau_optimised(primary, xyzh, neighbors, opacities, &
                                    Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
       integer, intent(in) :: primary, neighbors(:,:), minOrder, refineLevel
+#endif
       integer, optional   :: companion
       real, intent(in)    :: opacities(:), xyzh(:,:), Rstar
       real, optional      :: R, maxDist
@@ -25,7 +31,6 @@ module raytracer
       real, dimension(:,:), allocatable :: listsOfDists, listsOfTaus
       integer, dimension(:), allocatable :: indices
       real, dimension(:), allocatable    :: tau, dists
-      integer, dimension(:), allocatable :: listOfPoints
 
       if (present(companion) .and. present(R)) then
          unitCompanion = xyzh(1:3,companion)-xyzh(1:3,primary)
@@ -44,11 +49,10 @@ module raytracer
          allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
          allocate(tau(size(listsOfDists(:,1))))
          allocate(dists(size(listsOfDists(:,1))))
-         allocate(listOfPoints(size(listsOfDists(:,1))))
+
          call get_rays(normCompanion,R,minOrder,refineLevel,dirs, indices, nrays)
-         !$omp parallel do private(tau,dist,dir,dists,root,theta,listOfPoints)
+         !$omp parallel do private(tau,dist,dir,dists,root,theta)
          do i = 1, nrays
-            listOfPoints=0
             tau=0.
             dists=0.
             dir = dirs(:,i)
@@ -58,18 +62,17 @@ module raytracer
                root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
                dist = normCompanion*cos(theta)-root
 #ifdef REALTIME
-               call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, dist)
+               call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, dist)
 #else
-               call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, dist)
+               call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, dist)
 #endif
             else
 #ifdef REALTIME
-               call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+               call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
 #else
-               call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+               call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
 #endif
             endif
-            call get_tau_list(listOfPoints, dists, opacities, tau)
             listsOfTaus(:,i) = tau
             listsOfDists(:,i) = dists
          enddo
@@ -225,7 +228,6 @@ module raytracer
       real     :: dist, dir(3)
       real, dimension(:,:), allocatable  :: dirs, listsOfDists, listsOfTaus
       real, dimension(:), allocatable    :: tau, dists
-      integer, dimension(:), allocatable :: listOfPoints
       nrays = 12*4**order
       nsides = 2**order
       
@@ -234,21 +236,18 @@ module raytracer
       allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
       allocate(tau(size(listsOfDists(:,1))))
       allocate(dists(size(listsOfDists(:,1))))
-      allocate(listOfPoints(size(listsOfDists(:,1))))
      
-      !$omp parallel do private(dir,tau,dists,dist,listOfPoints)
+      !$omp parallel do private(dir,tau,dists,dist)
       do i = 1, nrays
-         listOfPoints=0
          tau=0.
          dists=0.
          call pix2vec_nest(nsides, i-1, dir)
          dirs(:,i) = dir
 #ifdef REALTIME
-         call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+         call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
 #else
-         call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+         call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
 #endif
-         call get_tau_list(listOfPoints, dists, opacities, tau)
          listsOfTaus(:,i) = tau
          listsOfDists(:,i) = dists
       enddo
@@ -281,7 +280,6 @@ module raytracer
       real, dimension(:,:), allocatable  :: dirs
       real, dimension(:,:), allocatable  :: listsOfDists, listsOfTaus
       real, dimension(:), allocatable    :: tau, dists
-      integer, dimension(:), allocatable :: listOfPoints
       nrays = 12*4**order
       nsides = 2**order
       
@@ -290,7 +288,6 @@ module raytracer
       allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
       allocate(tau(size(listsOfDists(:,1))))
       allocate(dists(size(listsOfDists(:,1))))
-      allocate(listOfPoints(size(listsOfDists(:,1))))
 
       unitCompanion = xyzh(1:3,companion)-xyzh(1:3,primary)
       normCompanion = norm2(unitCompanion)
@@ -300,9 +297,8 @@ module raytracer
       cosphi = cos(phi)
       sinphi = sin(phi)
      
-      !$omp parallel do private(dir,tau,dists,dist,root,theta,listOfPoints)
+      !$omp parallel do private(dir,tau,dists,dist,root,theta)
       do i = 1, nrays
-         listOfPoints=0
          tau=0.
          dists=0.
          call pix2vec_nest(nsides, i-1, dir)
@@ -313,18 +309,17 @@ module raytracer
             root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
             dist = normCompanion*cos(theta)-root
 #ifdef REALTIME
-            call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, dist)
+            call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, dist)
 #else
-            call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, dist)
+            call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, dist)
 #endif
          else
 #ifdef REALTIME
-            call ray_tracer(primary, dir, xyzh, Rstar, listOfPoints, dists, maxDist)
+            call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
 #else
-            call ray_tracer(primary, dir, xyzh, neighbors, Rstar, listOfPoints, dists, maxDist)
+            call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
 #endif
          endif
-         call get_tau_list(listOfPoints, dists, opacities, tau)
          listsOfTaus(:,i) = tau
          listsOfDists(:,i) = dists
       enddo
@@ -363,50 +358,32 @@ module raytracer
       endif
    end subroutine get_tau_outwards
     
-   subroutine get_tau_list(listOfPoints, listOfDists, opacities, listOfTaus)
-      integer, intent(in) :: listOfPoints(:)
-      real, intent(in)    :: listOfDists(:), opacities(:)
-      real, intent(out)   :: listOfTaus(:)
-   
-      integer     :: i
-      real        :: opacity
-   
-      listOfTaus = 0.
-      i = 2
-      do while (listOfPoints(i) /= 0)
-         opacity = (opacities(listOfPoints(i)) + opacities(listOfPoints(i-1)))/2
-         listOfTaus(i) = listOfTaus(i-1)+(listOfDists(i)-listOfDists(i-1))*opacity
-         i = i+1
-      enddo
-   end subroutine get_tau_list
-    
 #ifdef REALTIME
-   subroutine ray_tracer(point, ray, xyzh, Rstar, listOfPoints, listOfDist, maxDist)
+   subroutine ray_tracer(point, ray, xyzh, opacities, Rstar, taus, listOfDist, maxDist)
 #else
-   subroutine ray_tracer(point, ray, xyzh, neighbors, Rstar, listOfPoints, listOfDist, maxDist)
+   subroutine ray_tracer(point, ray, xyzh, opacities, neighbors, Rstar, taus, listOfDist, maxDist)
 #endif
       use linklist, only:getneigh_pos,ifirstincell,listneigh
 #ifdef REALTIME
       use kernel,   only:radkern
 #endif
-      real, intent(in)     :: ray(3), Rstar, xyzh(:,:)
+      real, intent(in)     :: ray(3), Rstar, xyzh(:,:), opacities(:)
       real, optional       :: maxDist
 #ifdef REALTIME
       integer, intent(in)  :: point
 #else
       integer, intent(in)  :: point, neighbors(:,:)
 #endif
-      real, intent(out)    :: listOfDist(:)
-      integer, intent(out) :: listOfPoints(:)
+      real, intent(out)    :: listOfDist(:), taus(:)
       
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
-      integer :: nneigh
-      real :: dist, h
+      integer :: nneigh, previous
+      real :: dist, h, opacity
       integer :: next, i
 
       dist = Rstar
-      listOfPoints(1)=point
+      previous = point
       listOfDist(1)=dist
       h = Rstar/100.
 
@@ -420,8 +397,10 @@ module raytracer
       i = 1
       do while (hasNext(next,dist,maxDist))
          i = i + 1
-         listOfPoints(i) = next
+         opacity = (opacities(next) + opacities(previous))/2
+         taus(i) = taus(i-1)+(dist-listOfDist(i-1))*opacity
          listOfDist(i)=dist
+         previous = next
 #ifdef REALTIME
          call getneigh_pos(xyzh(1:3,point) + dist*ray,0.,xyzh(4,next)*radkern/2, &
                            3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
