@@ -6,6 +6,7 @@ module raytracer
    contains
 
 #define REALTIME
+#define SMOOTHING
    
    !*********************************************************************!
    !***************************   OPTIMISED   ***************************!
@@ -378,12 +379,15 @@ module raytracer
       
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
-      integer :: nneigh, previous
       real :: dist, h, opacity
-      integer :: next, i
+#ifdef SMOOTHING
+      integer :: nneigh, next, i
+#else
+      integer :: nneigh, previous, next, i
 
-      dist = Rstar
       previous = point
+#endif
+      dist = Rstar
       listOfDist(1)=dist
       h = Rstar/100.
 
@@ -397,13 +401,23 @@ module raytracer
       i = 1
       do while (hasNext(next,dist,maxDist))
          i = i + 1
+#ifdef REALTIME
+         call getneigh_pos(xyzh(1:3,point) + dist*ray,0.,xyzh(4,next)*radkern, &
+                           3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+#else
+         listneigh = neighbors(next,:)
+         nneigh = nneigh+1
+         listneigh(nneigh) = next
+#endif
+#ifdef SMOOTHING
+         call calc_opacity(xyzh(1:3,point) + dist*ray, xyzh, opacities, listneigh, nneigh, opacity)
+#else
          opacity = (opacities(next) + opacities(previous))/2
+         previous = next
+#endif
          taus(i) = taus(i-1)+(dist-listOfDist(i-1))*opacity
          listOfDist(i)=dist
-         previous = next
 #ifdef REALTIME
-         call getneigh_pos(xyzh(1:3,point) + dist*ray,0.,xyzh(4,next)*radkern/2, &
-                           3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
          call find_next(xyzh(1:3,point), ray, dist, xyzh, listneigh, next,nneigh)
 #else
          call find_next(xyzh(1:3,point), ray, dist, xyzh, neighbors(next,:), next)
@@ -492,12 +506,22 @@ module raytracer
    end subroutine get_all_tau_inwards_companion
     
    subroutine get_tau_inwards(secondary, primary, xyzh, neighbors, opacities, Rstar, tau)
+#ifdef SMOOTHING
+      use linklist, only:getneigh_pos,ifirstincell,listneigh
+      use kernel,   only:radkern
+#endif
       real, intent(in)    :: xyzh(:,:), opacities(:), Rstar
       integer, intent(in) :: primary, secondary, neighbors(:,:)
       real, intent(out)   :: tau
-      
+
+#ifdef SMOOTHING
+      integer :: i, next, previous, nneigh
+      integer, parameter :: maxcache = 0
+      real, allocatable  :: xyzcache(:,:)
+#else
       integer :: i, next, previous
-      real    :: ray(3), nextDist, previousDist, maxDist
+#endif
+      real    :: ray(3), nextDist, previousDist, maxDist, opacity
 
       ray = xyzh(1:3,primary) - xyzh(1:3,secondary)
       maxDist = norm2(ray)
@@ -516,8 +540,18 @@ module raytracer
          if (nextDist .gt. maxDist) then
                next = primary
                nextDist = maxDist
-         end if
-         tau = tau + (nextDist-previousDist)*(opacities(next)+opacities(previous))/2
+#ifdef SMOOTHING
+         endif
+         call getneigh_pos(xyzh(1:3,secondary) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
+                           3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+         call calc_opacity(xyzh(1:3,secondary) + nextDist*ray, xyzh, opacities, listneigh, nneigh, opacity)
+#else
+            opacity = opacities(previous)
+         else
+         opacity = (opacities(next)+opacities(previous))/2
+         endif
+#endif
+         tau = tau + (nextDist-previousDist)*opacity
       enddo
    end subroutine get_tau_inwards
 
@@ -566,5 +600,24 @@ module raytracer
       enddo
       dist=nextdist
    end subroutine find_next
-    
+
+#ifdef SMOOTHING
+   subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, opacity)
+      use kernel,   only:cnormk,wkern
+      use part,     only:hfact
+      real, intent(in)    :: r0(:), xyzh(:,:), opacities(:)
+      integer, intent(in) :: neighbors(:), nneigh
+      real, intent(out)   :: opacity
+
+      integer :: i
+      real    :: fact, q
+
+      fact = cnormk/hfact**3
+      opacity=0
+      do i=1,nneigh
+         q = norm2(r0 - xyzh(1:3,neighbors(i)))/xyzh(4,neighbors(i))
+         opacity=opacity+fact*wkern(q*q,q)*opacities(neighbors(i))
+      enddo
+   end subroutine calc_opacity
+#endif
 end module raytracer
