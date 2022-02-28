@@ -31,7 +31,7 @@ subroutine quit
  use part,            only:nptmass
  integer  :: i
 
-!$omp critical
+!$omp critical (quit)
  call summary_printout(iprint,nptmass)
  write(iprint,10)
 10 format(/, &
@@ -43,7 +43,7 @@ subroutine quit
 
  write(iprint,*) 'run terminated abnormally'
  call write_fulldump(time,'phantom.debugdump')
-!$omp end critical
+!$omp end critical (quit)
 !
 ! close ev, log& ptmass-related files
  close(unit=ievfile)
