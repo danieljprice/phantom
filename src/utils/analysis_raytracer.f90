@@ -143,7 +143,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
    if (.true..and..not.tess) then
-      if (.false.) then
+      if (.true.) then
          print*,''
          print*, 'Start calculating optical depth inwards'
          call system_clock(start)
@@ -167,8 +167,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          close(iu4)
          totalTime=0
       endif
+      deallocate(neighb)
 
-      do j = 0, 7
+      do j = 0, 9
          write(jstring,'(i0)') j
          print*,''
          print*, 'Start calculating optical depth outwards: ', trim(jstring)
