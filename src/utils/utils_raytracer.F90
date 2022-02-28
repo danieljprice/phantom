@@ -379,10 +379,11 @@ module raytracer
       
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
-      real :: dist, h, opacity
 #ifdef SMOOTHING
+      real :: dist, h, opacity, previousOpacity, nextOpacity
       integer :: nneigh, next, i
 #else
+      real :: dist, h, opacity
       integer :: nneigh, previous, next, i
 
       previous = point
@@ -397,6 +398,9 @@ module raytracer
          call getneigh_pos(xyzh(1:3,point)+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
          call find_next(xyzh(1:3,point), ray, dist, xyzh, listneigh, next, nneigh)
       enddo
+#ifdef SMOOTHING
+      call calc_opacity(xyzh(1:3,point)+Rstar*ray, xyzh, opacities, listneigh, nneigh, previousOpacity)
+#endif
 
       i = 1
       do while (hasNext(next,dist,maxDist))
@@ -410,7 +414,9 @@ module raytracer
          listneigh(nneigh) = next
 #endif
 #ifdef SMOOTHING
-         call calc_opacity(xyzh(1:3,point) + dist*ray, xyzh, opacities, listneigh, nneigh, opacity)
+         call calc_opacity(xyzh(1:3,point) + dist*ray, xyzh, opacities, listneigh, nneigh, nextOpacity)
+         opacity = (nextOpacity+previousOpacity)/2
+         previousOpacity=nextOpacity
 #else
          opacity = (opacities(next) + opacities(previous))/2
          previous = next
@@ -518,16 +524,18 @@ module raytracer
       integer :: i, next, previous, nneigh
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
+      real    :: ray(3), nextDist, previousDist, maxDist, opacity, previousOpacity, nextOpacity
 #else
       integer :: i, next, previous
-#endif
       real    :: ray(3), nextDist, previousDist, maxDist, opacity
+#endif
 
       ray = xyzh(1:3,primary) - xyzh(1:3,secondary)
       maxDist = norm2(ray)
       ray = ray / maxDist
       maxDist=max(maxDist-Rstar,0.)
       next=secondary
+      nextOpacity = opacities(next)
       nextDist=0.
       
       tau = 0.
@@ -544,7 +552,9 @@ module raytracer
          endif
          call getneigh_pos(xyzh(1:3,secondary) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
                            3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-         call calc_opacity(xyzh(1:3,secondary) + nextDist*ray, xyzh, opacities, listneigh, nneigh, opacity)
+         previousOpacity=nextOpacity
+         call calc_opacity(xyzh(1:3,secondary) + nextDist*ray, xyzh, opacities, listneigh, nneigh, nextOpacity)
+         opacity = (nextOpacity+previousOpacity)/2
 #else
             opacity = opacities(previous)
          else
