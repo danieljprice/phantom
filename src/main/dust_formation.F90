@@ -23,8 +23,8 @@ module dust_formation
 ! :Dependencies: dim, eos, infile_utils, io, options, part, physcon, units
 !
 
- use part,    only: idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
- use physcon, only: kboltz,pi,atomic_mass_unit
+ use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
+ use physcon, only:kboltz,pi,atomic_mass_unit
 
  implicit none
  integer, public :: idust_opacity = 0
@@ -101,6 +101,7 @@ subroutine set_abundances
  eps(iTi) = 8.6d-8
  eps(iC)  = eps(iOx) * wind_CO_ratio
  mass_per_H = atomic_mass_unit*dot_product(Aw,eps)
+
 end subroutine set_abundances
 
 !-----------------------------------------------------------------------
@@ -109,9 +110,8 @@ end subroutine set_abundances
 !
 !-----------------------------------------------------------------------
 subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
- use options,        only:ieos
  use units,          only:utime,unit_density
- use eos,            only:get_temperature
+ use eos,            only:ieos,get_temperature
 
  real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
  real,    intent(inout) :: JKmuS(:)
@@ -125,6 +125,7 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
  call evolve_chem(dt, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
+
 end subroutine evolve_dust
 
 !-----------------------------------------------------------------------
@@ -174,8 +175,8 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
  JKmuS(idJstar)   = Jstar_new
  JKmuS(idK0:idK3) = K_new(0:3)
  JKmuS(idsat)     = S
-end subroutine evolve_chem
 
+end subroutine evolve_chem
 
 !------------------------------------
 !
@@ -185,7 +186,9 @@ end subroutine evolve_chem
 pure real function calc_kappa_bowen(Teq)
 !all quantities in cgs
  real,    intent(in)  :: Teq
+
  calc_kappa_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta)) + kappa_gas
+
 end function calc_kappa_bowen
 
 !-----------------------------------------------------------------------

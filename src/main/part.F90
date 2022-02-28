@@ -200,12 +200,10 @@ module part
  real, allocatable :: dust_temp(:)
  integer, parameter :: n_nucleation = 10
  real, allocatable :: nucleation(:,:)
-#ifdef DUST_NUCLEATION
  ! please note that in nucleation, we save the *normalized* moments, i.e. \hat{K}_i = K_i/n<H>
  character(len=*), parameter :: nucleation_label(n_nucleation) = &
        (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
          'mu   ','gamma','S    ','kappa','alphw'/)
-#endif
  integer, parameter :: idJstar = 1, &
                        idK0    = 2, &
                        idK1    = 3, &
