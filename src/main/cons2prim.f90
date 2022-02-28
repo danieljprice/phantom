@@ -100,11 +100,11 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
 
 end subroutine prim2consi
 
-!-------------------------------------
+!---------------------------------------------
 !
-!  Conservative to primitive routines
+!  Conservative to primitive routines (for GR)
 !
-!-------------------------------------
+!---------------------------------------------
 
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
@@ -153,20 +153,22 @@ end subroutine cons2primall
 !-------------------------------------
 
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
-                                gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+                                Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa
- use eos,               only:equationofstate,ieos,eos_outputs_mu,get_temperature,done_init_eos,init_eos,gmw,X_in,Z_in
+                             ndustsmall,itemp,ikappa,idmu,idgamma
+ use part,              only:nucleation,gamma_chem
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,get_temperature,done_init_eos,&
+                             init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                             do_radiation,nalpha,mhd_nonideal
+                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
  use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp
  integer,      intent(in)    :: npart
- real,         intent(in)    :: xyzh(:,:),rad(:,:),gamma_chem(:),Bevol(:,:),dustevol(:,:)
+ real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
  real,         intent(inout) :: vxyzu(:,:)
  real(kind=4), intent(inout) :: alphaind(:,:)
@@ -174,7 +176,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
  real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
- real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,mui,X_i,Z_i
+ real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,mui,X_i,Z_i,gammai
  real         :: xi,yi,zi,hi
  logical      :: iactivei,iamgasi,iamdusti
 
@@ -187,20 +189,21 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
     call init_eos(ieos,ierr)
     if (ierr /= 0) call fatal('eos','could not initialise equation of state')
  endif
- mui = gmw
- X_i = X_in
- Z_i = Z_in
+ gammai = gamma
+ mui    = gmw
+ X_i    = X_in
+ Z_i    = Z_in
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
-!$omp shared(ieos,gamma_chem,nden_nimhd,eta_nimhd) &
+!$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_var_comp) &
+!$omp shared(iopacity_type,use_var_comp,do_nucleation,store_gamma) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
-!$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,X_i,Z_i) &
+!$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,gammai,X_i,Z_i) &
 !$omp reduction(+:ierrlist)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -239,15 +242,15 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           X_i = eos_vars(iX,i)
           Z_i = eos_vars(iZ,i)
        endif
+       if (do_nucleation) then
+          mui    = nucleation(idmu,i)
+          gammai = nucleation(idgamma,i)
+       endif
+       if (use_krome) gammai = gamma_chem(i)
        if (maxvxyzu >= 4) then
           if (vxyzu(4,i) < 0.) call warning('cons2prim','Internal energy < 0',i,'u',vxyzu(4,i))
-          if (store_gamma) then
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gamma_chem(i),&
-                                  tempi=temperaturei,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
-          else
-             call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),&
-                                  tempi=temperaturei,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
-          endif
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,eni=vxyzu(4,i),gamma_local=gammai,&
+                               tempi=temperaturei,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
        else
           !isothermal
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,tempi=temperaturei,mu_local=mui)
@@ -257,7 +260,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_var_comp .or. eos_outputs_mu(ieos)) eos_vars(imu,i) = mui
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           !

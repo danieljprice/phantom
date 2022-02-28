@@ -96,7 +96,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           use_dust,use_dustgrowth,phantom_version_major,      &
                           phantom_version_minor,phantom_version_micro,        &
                           store_temperature,phantom_version_string,use_krome, &
-                          store_dust_temperature,do_radiation,gr
+                          store_dust_temperature,do_radiation,gr,do_nucleation
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -104,16 +104,14 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           alphaind,rhoh,divBsymm,iphase,nptmass,               &
                           xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,        &
                           divcurlv,divcurlB,poten,dustfrac,deltav,tstop,       &
-                          dustprop,VrelVf,dustgasprop,ndustsmall,  &
+                          dustprop,VrelVf,dustgasprop,ndustsmall,              &
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
                           ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,  &
                           dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig,    &
                           npartoftypetot,update_npartoftypetot
-#ifdef NUCLEATION
  use part,           only:nucleation
-#endif
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
 #endif
@@ -142,11 +140,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  character(len=200) :: fileid,fstr,sstr
  real :: posmh(10)
  real :: vels(6)
-
- ! dummy nucleation array
-#ifndef NUCLEATION
- real :: nucleation(1,1)
-#endif
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
@@ -334,11 +327,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  array_options%radiation = do_radiation
  array_options%krome = use_krome
  array_options%gr = gr
-#ifdef NUCLEATION
- array_options%nucleation = .true.
-#else
- array_options%nucleation = .false.
-#endif
+ array_options%nucleation = do_nucleation
 
  ! write the arrays to file
  if (fulldump) then
@@ -480,7 +469,7 @@ subroutine read_any_dump_hdf5(                                                  
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,store_temperature,nsinkproperties,     &
                           maxp_hard,use_krome,store_dust_temperature,        &
-                          do_radiation,gr
+                          do_radiation,do_nucleation,gr
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
@@ -491,13 +480,11 @@ subroutine read_any_dump_hdf5(                                                  
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,    &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
                           dustgasprop,VrelVf,eos_vars,abundance,               &
-                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_gas_cool, &
-                          dust_temp,rad,radprop,igasP,itemp,iorig
+                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,        &
+                          T_gas_cool,dust_temp,nucleation,rad,radprop,igasP,   &
+                          itemp,iorig
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
-#endif
-#ifdef NUCLEATION
- use part,           only:nucleation
 #endif
  use setup_params,   only:rhozero
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
@@ -513,11 +500,6 @@ subroutine read_any_dump_hdf5(                                                  
  logical, optional, intent(in)  :: acceptsmall
 
  real(kind=4), allocatable :: dtind(:)
-
- ! dummy nucleation array
-#ifndef NUCLEATION
- real :: nucleation(1,1)
-#endif
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
  real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
@@ -660,11 +642,7 @@ subroutine read_any_dump_hdf5(                                                  
  array_options%radiation = do_radiation
  array_options%krome = use_krome
  array_options%gr = gr
-#ifdef NUCLEATION
- array_options%nucleation = .true.
-#else
- array_options%nucleation = .false.
-#endif
+ array_options%nucleation = do_nucleation
 
  allocate(dtind(npart))
  call read_hdf5_arrays(hdf5_file_id,  &

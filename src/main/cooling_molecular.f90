@@ -383,9 +383,10 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
  real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
 
  ! Data dictionary: Find index values
+ integer, parameter  :: N_compZone = 15, N_r_part_sample = 36
  real                :: dr_part, r_sep
  real, parameter     :: dv = 0.02, dm = 0.3, widthLine_min = 0.001, widthLine_max = 2., perturbation = 0.0001
- real, parameter     :: N_compZone = 15, N_r_part_sample = 36, r_part_min = 1.1, r_part_max = 250.
+ real, parameter     :: r_part_min = 1.1, r_part_max = 250.
  integer             :: i, j, k, l
  real, dimension(4)  :: min_array, max_array
 
@@ -401,7 +402,7 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
 
  if (all(params <= max_array) .AND. all(min_array <= params)) then
     ! Index r_sep
-    l   = nint(params(4)) - min_array(4) + 1
+    l   = nint( params(4) - min_array(4) ) + 1
     r_sep = params(4)
 
     ! Index m_exp
@@ -423,8 +424,9 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
        innerr_partif: if (params(1) <= r_sep + perturbation) then
           i = N_compZone
        else
-          dr_part = (log10(r_part_max) - log10(r_sep)) / (N_r_part_sample - N_compZone)
-          i    = floor((log10(params(1)) - log10(r_sep)) / dr_part ) + N_compZone
+          !dr_part = (log10(r_part_max) - log10(r_sep)) / (N_r_part_sample - N_compZone)
+          dr_part = log10(r_part_max/r_sep) / (N_r_part_sample - N_compZone)
+          i    = floor(log10(params(1)/r_sep) / dr_part ) + N_compZone
        endif innerr_partif
 
     else
