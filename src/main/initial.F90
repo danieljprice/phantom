@@ -236,7 +236,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
  integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold
+ character(len=len(dumpfile)) :: dumpfileold,file1D
  character(len=7) :: dust_label(maxdusttypes)
 
  read_input_files = .true.
@@ -390,7 +390,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  enddo
  call balancedomains(npart)
 #endif
-
 !
 !--set up photoevaporation grid, define relevant constants, etc.
 !
@@ -536,6 +535,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef INJECT_PARTICLES
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ !rename wind profile filename
+ inquire(file='wind_profile1D.dat',exist=iexist)
+ if (iexist) then
+    i = len(trim(dumpfile))
+    if (dumpfile(i-2:i) == 'tmp') then
+       file1D = dumpfile(1:i-9) // '1D.dat'
+    else
+       file1D = dumpfile(1:i-5) // '1D.dat'
+    endif
+    call rename('wind_profile1D.dat',trim(file1D))
+ endif
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
 #ifdef GR

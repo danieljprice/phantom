@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, kernel, part, units
+! :Dependencies: dim, dust_formation, kernel, part, units
 !
 
  implicit none
@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
 
- real    :: r,L_star,T_star,R_star,xa,ya,za
+ real    :: L_star,T_star,R_star,xa,ya,za
  integer :: j
 
  call set_abundances
@@ -65,10 +65,8 @@ end subroutine do_analysis
 !+
 !-------------------------------------------------------------------------------
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- use part,  only:isdead_or_accreted
-#ifdef NUCLEATION
- use part,  only:nucleation
-#endif
+ use part,  only:isdead_or_accreted,nucleation,idK3
+ use dim,   only:do_nucleation
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
  real,     intent(out)   :: dust_temp(:)
@@ -108,14 +106,15 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  dmax = sqrt(dmax)
 
 
-#ifdef NUCLEATION
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-      rho_over_r2, dust_temp, Teq,nucleation(5,:), K3)
- call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
-#else
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2, dust_temp, Teq)
- call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
-#endif
+ if (do_nucleation) then
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
+    call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
+ else
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq)
+    call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
+ endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 
 end subroutine get_Teq_from_Lucy
@@ -126,7 +125,7 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,kappa_dust_bowen
+ use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -161,15 +160,15 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
     if (iter == 0) dTeq = 0.
     iter = iter+1
     do i=N-1,istart+1,-1
-#ifdef NUCLEATION
-       if (rho(i) > 0.) then
-          call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
-       else
-          kappa(i) = 0.d0
+       if (idust_opacity == 2) then
+          if (rho(i) > 0.) then
+             kappa(i) = calc_kappa_dust(K3(i),Teq(i),rho(i))
+          else
+             kappa(i) = 0.d0
+          endif
+       elseif (idust_opacity == 1) then
+          kappa(i) = calc_kappa_bowen(Teq(i))
        endif
-#else
-       kappa(i) = kappa_dust_bowen(Teq(i))
-#endif
        rho_on_r2(i) = rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2)
        !if (iter >= 1) print *,'teq loop',i,K3(i),Teq(i),kappa(i),rho_on_r2(i)
        tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas) *rho_on_r2(i)

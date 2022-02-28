@@ -53,7 +53,7 @@ module eos
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
 #ifdef KROME
- public  :: get_local_temperature, get_local_u_internal
+ public  :: get_local_u_internal
 #endif
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
@@ -65,12 +65,12 @@ module eos
  integer, public :: iopacity_type = 0 ! used for radiation
  integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
  !--Mean molecular weight if temperature required
- real,    public :: gmw            = 2.381
+ real,    public :: gmw           = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
  !--Minimum temperature (failsafe to prevent u < 0)
- real,    public            :: Tfloor = 0. ![K]
- real,    public            :: ufloor
- real, public    :: temperature_coef
+ real,    public :: Tfloor = 0. ![K]
+ real,    public :: ufloor
+ real,    public :: temperature_coef
 
  logical, public :: done_init_eos = .false.
  !
