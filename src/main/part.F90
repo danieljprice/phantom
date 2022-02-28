@@ -32,7 +32,7 @@ module part
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran,n_nden_phantom
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -198,11 +198,22 @@ module part
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
- integer, parameter :: n_nucleation = 8
-#ifdef NUCLEATION
+ integer, parameter :: n_nucleation = 10
  real, allocatable :: nucleation(:,:)
- character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
-#endif
+ ! please note that in nucleation, we save the *normalized* moments, i.e. \hat{K}_i = K_i/n<H>
+ character(len=*), parameter :: nucleation_label(n_nucleation) = &
+       (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
+         'mu   ','gamma','S    ','kappa','alphw'/)
+ integer, parameter :: idJstar = 1, &
+                       idK0    = 2, &
+                       idK1    = 3, &
+                       idK2    = 4, &
+                       idK3    = 5, &
+                       idmu    = 6, &
+                       idgamma = 7, &
+                       idsat   = 8, & !for logging
+                       idkappa = 9, & !for logging
+                       idalpha = 10   !for logging
 !
 !--KROME variables
 !
@@ -228,7 +239,7 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       iradP = 8, &
+                       iradP  = 8, &
                        maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
     (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
@@ -332,10 +343,14 @@ module part
 #ifdef H2CHEM
  +nabundances                         &  ! abundance
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  +1                                   &  ! nucleation rate
-   +4                                   &  ! moments
-   +1                                   &  ! mean molecular weight
+ +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
+ +1                                   &  ! mean molecular weight
+ +1                                   &  ! gamma
+ +1                                   &  ! super saturation ratio
+ +1                                   &  ! kappa dust
+ +1                                   &  ! alpha
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
@@ -472,9 +487,7 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
-#ifdef NUCLEATION
- call allocate_array('nucleation', nucleation, n_nucleation, maxsp)
-#endif
+ call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -538,9 +551,7 @@ subroutine deallocate_part
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
 #endif
-#ifdef NUCLEATION
  if (allocated(nucleation))   deallocate(nucleation)
-#endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -1247,9 +1258,8 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
-#ifdef NUCLEATION
- nucleation(:,dst) = nucleation(:,src)
-#endif
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)

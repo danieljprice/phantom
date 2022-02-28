@@ -13,10 +13,10 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - T_wind            : *temperature (K)*
+!   - T_wind            : *wind temperature (K)*
 !   - eccentricity      : *eccentricity of the binary system*
 !   - icompanion_star   : *set to 1 for a binary system*
-!   - mass_of_particles : *mass resolution (Msun)*
+!   - mass_of_particles : *particle mass (Msun, overwritten if iwind_resolution <>0)*
 !   - primary_Reff      : *primary star effective radius (au)*
 !   - primary_Teff      : *primary star effective temperature (K)*
 !   - primary_lum       : *primary star luminosity (Lsun)*
@@ -28,7 +28,7 @@ module setup
 !   - secondary_mass    : *secondary star mass (Msun)*
 !   - secondary_racc    : *secondary star accretion radius (au)*
 !   - semi_major_axis   : *semi-major axis of the binary system (au)*
-!   - temp_exponent     : *temperature profile T = R^-p (0 = isothermal)*
+!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
 ! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
@@ -41,11 +41,21 @@ module setup
  private
  real, public :: wind_gamma = 5./3.
 #ifdef ISOTHERMAL
- real, public :: T_wind = 50000.
+ real, public :: T_wind = 30000.
+ real :: primary_racc_au       = 0.465
+ real :: primary_mass_msun     = 1.5
+ real :: primary_lum_lsun      = 0.
+ real :: primary_Reff_au       = 0.465240177008 !100 Rsun
+ real :: temp_exponent         = 0.5
 #else
  real, public :: T_wind = 3000.
+ real :: primary_racc_au       = 1.
+ real :: primary_mass_msun     = 1.5
+ real :: primary_lum_lsun      = 20000.
+ real :: primary_Reff_au       = 0.
 #endif
  integer, public :: icompanion_star = 0
+ integer :: iwind
  real :: semi_major_axis       = 4.0
  real :: eccentricity          = 0.
  real :: primary_Teff          = 3000.
@@ -60,15 +70,10 @@ module setup
  real :: secondary_racc
  real :: semi_major_axis_au    = 4.0
  real :: default_particle_mass = 1.e-11
- real :: primary_lum_lsun      = 20000.
- real :: primary_mass_msun     = 1.5
- real :: primary_Reff_au       = 1.
- real :: primary_racc_au       = 1.
  real :: secondary_lum_lsun    = 0.
  real :: secondary_mass_msun   = 1.0
  real :: secondary_Reff_au     = 0.
  real :: secondary_racc_au     = 0.1
- real :: temp_exponent         = 0.5
 
 
 contains
@@ -155,22 +160,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 #ifdef ISOTHERMAL
  gamma = 1.
+ if (iwind == 3) then
+    ieos = 6
+    qfacdisc = 0.5*temp_exponent
+    isink = 1
+    T_wind = primary_Teff
+ else
+    isink = 1
+    ieos = 1
+ endif
 #else
  gamma = wind_gamma
 #endif
- if (gamma < 1.0001) then
-    if (temp_exponent > 0.) then
-       ieos = 6
-       qfacdisc = 0.5*temp_exponent
-       isink = 1
-       polyk = kboltz*primary_Teff/(mass_proton_cgs * gmw * unit_velocity**2)
-    else
-       ieos = 1
-       polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
-    endif
- else
-    polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
- endif
+ polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
 
 end subroutine setpart
 
@@ -184,7 +186,6 @@ subroutine setup_interactive()
  use physcon,   only:au,solarm
  use units,     only:umass,udist
  use io,        only:fatal
- integer :: iwind
 
  iwind = 1
  call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
@@ -192,6 +193,7 @@ subroutine setup_interactive()
  if (iwind == 2 .or. iwind == 3) then
     call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
  endif
+ if (iwind == 3) T_wind = primary_Teff
 #endif
 
  call prompt('Add binary?',icompanion_star,0,1)
@@ -286,7 +288,7 @@ end subroutine setup_interactive
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use physcon,      only:au,steboltz,solarl,solarm,pi
- use units,        only:utime,unit_energ
+ use units,        only:utime,unit_energ,udist
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -299,7 +301,8 @@ subroutine write_setupfile(filename)
       primary_Reff_au = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/au
  if (primary_Reff_au > 0. .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) &
       primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff_au*au)**2/solarl
- primary_lum = primary_lum_lsun * (solarl * utime / unit_energ)
+ primary_lum  = primary_lum_lsun * (solarl * utime / unit_energ)
+ primary_Reff = primary_Reff_au*(au / udist)
  call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
  call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
  call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
@@ -322,17 +325,19 @@ subroutine write_setupfile(filename)
     call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
     call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
  endif
- call write_inopt(default_particle_mass,'mass_of_particles','mass resolution (Msun)',iunit)
+ call write_inopt(default_particle_mass,'mass_of_particles','particle mass (Msun, overwritten if iwind_resolution <>0)',iunit)
 
 #ifdef ISOTHERMAL
  wind_gamma = 1.
+ if (iwind == 3) then
+    call write_inopt(primary_Teff,'T_wind','wind temperature at injection radius (K)',iunit)
+    call write_inopt(temp_exponent,'temp_exponent','temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)',iunit)
+ else
+    call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+ endif
 #else
  call write_inopt(wind_gamma,'wind_gamma','adiabatic index (initial if Krome chemistry used)',iunit)
 #endif
- if ( wind_gamma < 1.0001) then
-    call write_inopt(temp_exponent,'temp_exponent','temperature profile T = R^-p (0 = isothermal)',iunit)
-    if (abs(temp_exponent) < tiny(0.)) call write_inopt(T_wind,'T_wind','temperature (K)',iunit)
- endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -383,13 +388,11 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(default_particle_mass,'mass_of_particles',db,min=0.,errcount=nerr)
 #ifdef ISOTHERMAL
  wind_gamma = 1.
+ call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
+ if (iwind == 3) call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
 #else
  call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
 #endif
- if ( wind_gamma < 1.0001) then
-    call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
-    if (abs(temp_exponent) < tiny(0.)) call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
- endif
  call close_db(db)
  if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff > 0.) then
     ichange = ichange+1
