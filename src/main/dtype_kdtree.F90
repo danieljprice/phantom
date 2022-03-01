@@ -163,7 +163,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  endif
 
 #else
- integer, intent(out)            :: dtype
+ integer, intent(out) :: dtype
  dtype = 0
 #endif
 end subroutine get_mpitype_of_kdnode

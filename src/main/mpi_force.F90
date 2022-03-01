@@ -65,8 +65,8 @@ module mpiforce
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_cellforce(dtype)
+#ifdef MPI
  use mpi
  use io, only:error
 
@@ -212,7 +212,11 @@ subroutine get_mpitype_of_cellforce(dtype)
     call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_cellforce
+#else
+   integer, intent(out) :: dtype
+   dtype = 0
 #endif
+
+end subroutine get_mpitype_of_cellforce
 
 end module mpiforce

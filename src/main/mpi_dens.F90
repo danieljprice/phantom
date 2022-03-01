@@ -64,8 +64,8 @@ module mpidens
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_celldens(dtype)
+   #ifdef MPI
  use mpi
  use io, only:error
 
@@ -204,7 +204,11 @@ subroutine get_mpitype_of_celldens(dtype)
  if (extent /= sizeof(cell)) then
     call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
-end subroutine get_mpitype_of_celldens
+
+#else
+   integer, intent(out) :: dtype
+   dtype = 0
 #endif
+end subroutine get_mpitype_of_celldens
 
 end module mpidens
