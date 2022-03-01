@@ -1137,23 +1137,16 @@ end subroutine reset_neighbour_stats
 !+
 !----------------------------------------------------------------
 subroutine reduce_and_print_neighbour_stats(np)
- use mpiutils, only:reduce_mpi,barrier_mpi
+ use mpiutils, only:reduce_mpi
  use io,       only:iprint,id,master,iverbose
  integer, intent(in) :: np
 
- call barrier_mpi()
- nptot = reduce_mpi('+',np)
- call barrier_mpi()
+ nptot       = reduce_mpi('+',np)
  nneightry   = reduce_mpi('+',nneightry)
- call barrier_mpi()
  nneighact   = reduce_mpi('+',nneighact)
- call barrier_mpi()
  maxneightry = reduce_mpi('max',maxneightry)
- call barrier_mpi()
  maxneighact = int(reduce_mpi('max',maxneighact))
- call barrier_mpi()
  nrelink     = int(reduce_mpi('+',nrelink))
- call barrier_mpi()
  ncalc       = reduce_mpi('+',ncalc)
 
  if (id==master .and. iverbose >= 2 .and. nptot > 0 .and. nneighact > 0) then
