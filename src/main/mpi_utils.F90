@@ -46,17 +46,18 @@ module mpiutils
 #ifdef MPI
  use mpi
  implicit none
- integer, public :: mpierr
- integer, public :: status(MPI_STATUS_SIZE)
- integer, public :: MPI_DEFAULT_REAL
-
- integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
-
  logical, parameter, public :: use_mpi = .true.
 #else
  implicit none
- logical, parameter, public :: use_mpi = .false.
+ logical, parameter, public  :: use_mpi = .false.
+ integer, parameter, private :: MPI_STATUS_SIZE = 0
 #endif
+
+ integer, public :: mpierr
+ integer, public :: status(MPI_STATUS_SIZE)
+ integer, public :: MPI_DEFAULT_REAL
+ integer, public :: comm_cellexchange,comm_cellcount,comm_balance,comm_balancecount
+
 !
 !--generic interface reduce_mpi
 !
