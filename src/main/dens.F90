@@ -472,14 +472,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           cell = stack_waiting%cells(i)
 
           if (any(cell%remote_export(1:nprocs))) then
-             print*,id,cell%remote_export(1:nprocs)
-             print*,id,'mpiits',mpiits
-             print*,id,'owner',cell%owner
-             print*,id,'icell',cell%icell
-             print*,id,'npcell',cell%npcell
-             print*,id,'xpos',cell%xpos
-             print*,id,'stackpos',i
-             print*,id,'waitindex',cell%waiting_index
              call fatal('dens', 'not all results returned from remote processor')
           endif
 

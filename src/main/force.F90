@@ -574,7 +574,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        cell = stack_waiting%cells(i)
 
        if (any(cell%remote_export(1:nprocs))) then
-          print*,id,cell%remote_export(1:nprocs)
           call fatal('force', 'not all results returned from remote processor')
        endif
 
