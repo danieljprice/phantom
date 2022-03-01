@@ -292,10 +292,10 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
        !d2_axis = sq_distance_to_z(r)
        d2_axis = sq_distance_to_line(r,u)
        if (d2_axis < 4.*xyzh(4,i)*xyzh(4,i)) then
-          !$omp critical
+          !$omp critical (naxis_add)
           naxis = naxis+1
           idx_axis(naxis) = i
-          !$omp end critical
+          !$omp end critical (naxis_add)
        endif
     endif
  enddo
