@@ -173,9 +173,9 @@ subroutine recv_part(replace)
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)
 
  if (igotpart) then
-!$omp critical (nrecv)
+!$omp critical (nrecv_add)
     nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
-!$omp end critical (nrecv)
+!$omp end critical (nrecv_add)
     if (present(replace)) then
        if (replace) then
           inew = ideadhead
@@ -197,17 +197,17 @@ subroutine recv_part(replace)
        !--assume that this particle landed in the right place
        !
        ibelong(inew) = id
-!$omp critical (ideadhead)
+!$omp critical (ideadhead_ll)
        ideadhead = ll(inew)
-!$omp end critical (ideadhead)
+!$omp end critical (ideadhead_ll)
     else
        if (inew /= 0) call fatal('balance','error in dead particle list',inew)
        !
        !--make a new particle
        !
-!$omp critical (npartnew)
+!$omp critical (npartnew_add)
        npartnew = npartnew + 1
-!$omp end critical (npartnew)
+!$omp end critical (npartnew_add)
        if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
        call unfill_buffer(npartnew,xbuffer)
        ibelong(npartnew) = id
