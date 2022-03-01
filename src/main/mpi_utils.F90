@@ -52,7 +52,6 @@ module mpiutils
 
  integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
 
- public :: cart_shift_diag
  logical, parameter, public :: use_mpi = .true.
 #else
  implicit none
@@ -1061,28 +1060,6 @@ subroutine reduceloc_mpi_int(string,xproc,loc)
 #endif
 
 end subroutine reduceloc_mpi_int
-
-#ifdef MPI
-!-----------------------------------------------------------------------
-!+
-!  MPI utility to perform arbitrary cartesian shift
-!+
-!-----------------------------------------------------------------------
-subroutine cart_shift_diag(comm_cart,icoords,ishift,irecvfrom,isendto)
- integer, intent(in)  :: comm_cart
- integer, intent(in)  :: icoords(:),ishift(:)
- integer, intent(out) :: isendto,irecvfrom
- integer :: icoordsshift(size(icoords))
-
- icoordsshift = icoords + ishift
- call MPI_CART_RANK(comm_cart,icoordsshift,isendto,mpierr)
-
- icoordsshift = icoords - ishift
- call MPI_CART_RANK(comm_cart,icoordsshift,irecvfrom,mpierr)
-
- return
-end subroutine cart_shift_diag
-#endif
 
 !--------------------------------------------------------------------------
 !+
