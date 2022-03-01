@@ -119,7 +119,8 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
- use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,use_dust,fast_divcurlB
+ use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
+                     use_dust,fast_divcurlB
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
@@ -128,10 +129,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
  use stack,     only:reserve_stack,swap_stacks
- use stack,     only:stack_remote => dens_stack_1
+ use stack,     only:stack_remote  => dens_stack_1
  use stack,     only:stack_waiting => dens_stack_2
- use stack,     only:stack_redo => dens_stack_3
- use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange, &
+ use stack,     only:stack_redo    => dens_stack_3
+ use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
 #endif
  use timestep,  only:rhomaxnow
@@ -155,7 +156,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp threadprivate(xyzcache)
 
  integer :: i,icell
- integer :: nneigh,np
+ integer :: nneigh,np,npcell
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
@@ -166,10 +167,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  real    :: rhomax
 
- integer                   :: npcell
-
  type(celldens)            :: cell
-
  logical                   :: redo_neighbours
 
 #ifdef MPI
@@ -178,8 +176,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
  integer                   :: mpiits,nlocal
  real                      :: ntotal
- logical                   :: iterations_finished
- logical                   :: do_export
+ logical                   :: iterations_finished,do_export
 
  call init_cell_exchange(xrecvbuf,irequestrecv)
  stack_waiting%n = 0
