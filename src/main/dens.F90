@@ -174,7 +174,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
- integer                   :: mpiits,nlocal
+ integer                   :: n_remote_its,nlocal
  real                      :: ntotal
  logical                   :: iterations_finished,do_export
 
@@ -220,10 +220,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  endif
 
 #ifdef MPI
- ! number of local only cells
+ ! number of cells that only have neighbours on this MPI task
  nlocal = 0
  call reset_cell_counters
-
 #endif
 
  rhomax = 0.0
@@ -262,7 +261,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(stack_waiting) &
 !$omp shared(stack_redo) &
 !$omp shared(iterations_finished) &
-!$omp shared(mpiits) &
+!$omp shared(n_remote_its) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(j) &
@@ -403,18 +402,18 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  if (iverbose>=6) then
     ntotal = real(nlocal) + real(stack_waiting%n)
     if (ntotal > 0) then
-       write(iprint,*) id,'local ratio = ',real(nlocal)/ntotal
+       write(iprint,*) id,'domain decomposition efficiency: local cells / ncells = ',real(nlocal)/ntotal
     else
-       write(iprint,*) id,'local ratio = 0'
+       write(iprint,*) id,'domain decomposition efficiency: local cells / ncells = 0'
     endif
  endif
 
- mpiits = 0
+ n_remote_its = 0
  iterations_finished = .false.
 !$omp end single
  remote_its: do while(.not. iterations_finished)
 !$omp single
-    mpiits = mpiits + 1
+    n_remote_its = n_remote_its + 1
     call reset_cell_counters
 !$omp end single
 
