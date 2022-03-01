@@ -306,11 +306,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
 #ifdef MPI
-    if (any(remote_export)) then
-       do_export = .true.
-    else
-       do_export = .false.
-    endif
+    do_export = any(remote_export)
 #endif
     cell%icell                   = icell
 #ifdef MPI
@@ -349,11 +345,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        stack_waiting%cells(cell%waiting_index) = cell
     else
 #endif
-       if (calculate_density) then
-          converged = .false.
-       else
-          converged = .true.
-       endif
+       converged = (.not. calculate_density)
        local_its: do while (.not. converged)
           call finish_cell(cell,converged)
           call compute_hmax(cell,redo_neighbours)
