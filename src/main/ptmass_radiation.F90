@@ -15,12 +15,15 @@ module ptmass_radiation
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
+!   - Lstar           : *Stellar luminosity (for radiation pressure, in Lsun)*
+!   - Mstar           : *Stellar mass (in Msun)*
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
-!   - iget_tdust      : *method for computing dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy 3:MCFOST)*
+!   - iget_tdust      : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))*
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
 !   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, infile_utils, io, kernel, part, units
+! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel,
+!   options, part, physcon, units
 !
 
 
@@ -39,6 +42,9 @@ module ptmass_radiation
  real, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
 
  private
+
+ real  :: Lstar_lsun      = 5000.
+ real  :: Mstar_msun      = 1.
 
 contains
 !-----------------------------------------------------------------------
@@ -59,55 +65,86 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
- use part,  only:dust_temp,isdead_or_accreted,ilum
- use units, only:umass,unit_energ,utime
-#ifdef NUCLEATION
- use part,  only:nucleation
-#endif
+ use part,    only:ilum
+ use units,   only:umass,unit_energ,utime
+ use dim,     only:star_radiation
+ use physcon, only:solarl,solarm
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xyzmh_ptmass(:,:)
  real,     intent(inout) :: fext(:,:)
- real                    :: dx,dy,dz,xa,ya,za,r,Mstar_cgs,Lstar_cgs,ax,ay,az
- integer                 :: i,j
+ real                    :: xa,ya,za,Mstar_cgs,Lstar_cgs
+ integer                 :: j
 
- do j=1,nptmass
-    if (xyzmh_ptmass(4,j) < 0.) cycle
-    Mstar_cgs  = xyzmh_ptmass(4,j)*umass
-    Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
-    !compute radiative acceleration if sink particle is assigned a non-zero luminosity
+ if (star_radiation) then
+    Lstar_cgs  = Lstar_lsun*solarl
+    Mstar_cgs  = Mstar_msun*solarm
     if (Lstar_cgs > 0.d0) then
-       xa = xyzmh_ptmass(1,j)
-       ya = xyzmh_ptmass(2,j)
-       za = xyzmh_ptmass(3,j)
-       !$omp parallel  do default(none) &
-#ifdef NUCLEATION
-       !$omp shared(nucleation)&
-#endif
-       !$omp shared(dust_temp) &
-       !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
-       !$omp private(i,dx,dy,dz,ax,ay,az,r)
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             dx = xyzh(1,i) - xa
-             dy = xyzh(2,i) - ya
-             dz = xyzh(3,i) - za
-             r = sqrt(dx**2 + dy**2 + dz**2)
-#ifdef NUCLEATION
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,kappa=nucleation(8,i))
-#else
-             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,ax,ay,az,Tdust=dust_temp(i))
-#endif
-             fext(1,i) = fext(1,i) + ax
-             fext(2,i) = fext(2,i) + ay
-             fext(3,i) = fext(3,i) + az
-          endif
-       enddo
-       !$omp end parallel do
+       xa = xyzmh_ptmass(1,1)
+       ya = xyzmh_ptmass(2,1)
+       za = xyzmh_ptmass(3,1)
+       call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
     endif
- enddo
+ else
+    do j=1,nptmass
+       if (xyzmh_ptmass(4,j) < 0.) cycle
+       Mstar_cgs  = xyzmh_ptmass(4,j)*umass
+       Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
+       !compute radiative acceleration if sink particle is assigned a non-zero luminosity
+       if (Lstar_cgs > 0.d0) then
+          xa = xyzmh_ptmass(1,j)
+          ya = xyzmh_ptmass(2,j)
+          za = xyzmh_ptmass(3,j)
+          call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+       endif
+    enddo
+ endif
 
 end subroutine get_rad_accel_from_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  compute radiative acceleration on all particles
+!+
+!-----------------------------------------------------------------------
+subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+ use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
+ use dim,   only:do_nucleation
+ use dust_formation, only:calc_kappa_bowen
+ integer,  intent(in)    :: npart
+ real,     intent(in)    :: xyzh(:,:)
+ real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
+ real,     intent(inout) :: fext(:,:)
+ real                    :: dx,dy,dz,r,ax,ay,az,alpha,kappa
+ integer                 :: i
+
+ !$omp parallel  do default(none) &
+ !$omp shared(nucleation,do_nucleation)&
+ !$omp shared(dust_temp) &
+ !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
+ !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       dx = xyzh(1,i) - xa
+       dy = xyzh(2,i) - ya
+       dz = xyzh(3,i) - za
+       r = sqrt(dx**2 + dy**2 + dz**2)
+       if (do_nucleation) then
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
+       else
+          kappa = calc_kappa_bowen(dust_temp(i))
+          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               kappa,ax,ay,az,alpha)
+       endif
+       fext(1,i) = fext(1,i) + ax
+       fext(2,i) = fext(2,i) + ay
+       fext(3,i) = fext(3,i) + az
+    endif
+ enddo
+ !$omp end parallel do
+end subroutine calc_rad_accel_from_ptmass
+
 
 !-----------------------------------------------------------------------
 !+
@@ -116,42 +153,28 @@ end subroutine get_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     ax,ay,az,Tdust,kappa)
- use units,   only: umass
-#ifdef NUCLEATION
- use dust_formation, only:calc_alpha_dust
-#else
- use dust_formation, only:calc_alpha_bowen
-#endif
- real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs
- real, optional, intent(in) :: kappa,Tdust
- real, intent(out)   :: ax,ay,az
- real :: fac,alpha_dust
+     kappa,ax,ay,az,alpha)
+ use units,          only:umass
+ use dust_formation, only:calc_Eddington_factor
+ real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
+ real, intent(out)   :: ax,ay,az,alpha
+ real :: fac
 
  select case (isink_radiation)
  case (1)
     ! alpha wind
-    fac = alpha_rad*Mstar_cgs/(umass*r**3)
+    alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
-#ifdef NUCLEATION
-    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-#else
-    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-#endif
-    fac = alpha_dust*Mstar_cgs/(umass*r**3)
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa)
  case (3)
-    ! radiation pressure on dust
-#ifdef NUCLEATION
-    call calc_alpha_dust(Mstar_cgs,Lstar_cgs,kappa,alpha_dust)
-#else
-    call calc_alpha_bowen(Mstar_cgs,Lstar_cgs,Tdust,alpha_dust)
-#endif
-    fac = (alpha_rad+alpha_dust)*Mstar_cgs/(umass*r**3)
+    ! radiation pressure on dust + alpha_rad (=1+2)
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa) + alpha_rad
  case default
     ! no radiation pressure
-    fac = 0.
+    alpha = 0.
  end select
+ fac = alpha*Mstar_cgs/(umass*r**3)
  ax = fac*dx
  ay = fac*dy
  az = fac*dz
@@ -164,17 +187,20 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu,idgamma
+ use options, only:ieos
+ use eos,     only:get_temperature
+ use dim,     only:do_nucleation
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za
+ real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4)
  integer                 :: i,j
 
  !
  ! sanity check, return zero if no sink particles or dust flag is off
  !
- if (nptmass < 1 .or. iget_tdust == 0 ) then
+ if (nptmass < 1) then
     dust_temp = 0.
     return
  endif
@@ -202,6 +228,25 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
     !$omp end parallel do
  case(2)
     call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
+ case default
+    ! sets Tdust = Tgas
+    pmassi         = massoftype(igas)
+    !$omp parallel  do default(none) &
+    !$omp shared(npart,ieos,xyzh,vxyzu,pmassi,dust_temp) &
+    !$omp shared(nucleation,do_nucleation) &
+    !$omp private(i,vxyzui)
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          vxyzui= vxyzu(:,i)
+          if (do_nucleation) then
+             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,&
+                  gammai=nucleation(idgamma,i),mui=nucleation(idmu,i))
+          else
+             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
+          endif
+       endif
+    enddo
+    !$omp end parallel do
  end select
 
 end subroutine get_dust_temperature_from_ptmass
@@ -212,17 +257,18 @@ end subroutine get_dust_temperature_from_ptmass
 !  Performs ray-tracing along 1 direction (could be generalized to include other directions)
 !+
 !-------------------------------------------------------------------------------
+!          UNDER CONSTRUCTION!!!!!!!!!!!!
+!-------------------------------------------------------------------------------
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  use part,  only:isdead_or_accreted
-#ifdef NUCLEATION
- use part,  only:nucleation
-#endif
+ use part,  only:nucleation,idK3
+ use dim,   only:do_nucleation
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
  real,     intent(out)   :: dust_temp(:)
  real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),rho_over_r2(2*N+1),rho(N)
  integer  :: i,idx_axis(npart),naxis
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  real     :: K3(N)
 #endif
  !.. find particles that lie within 2 smoothing lengths of the ray axis
@@ -258,14 +304,17 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  dmax = sqrt(dmax)
 
 
-#ifdef NUCLEATION
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-      rho_over_r2, dust_temp, Teq, nucleation(5,:), K3)
- call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
-#else
- call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-      rho_over_r2, dust_temp, Teq)
- call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
+#ifdef DUST_NUCLEATION
+ print *,'WARNING : CHECK THAT idust_opacity > 0'
+ if (do_nucleation) then
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
+    call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
+ else
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq)
+    call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
+ endif
 #endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
 
@@ -277,7 +326,8 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,kappa_dust_bowen
+ use dim,            only:do_nucleation
+ use dust_formation, only:calc_kappa_dust,calc_kappa_bowen
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -309,15 +359,15 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
     if (iter == 0) dTeq = 0.
     iter = iter+1
     do i=N-1,istart+1,-1
-#ifdef NUCLEATION
-       if (rho(i) > 0.) then
-          call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
+       if (do_nucleation) then
+          if (rho(i) > 0.) then
+             kappa(i) = calc_kappa_dust(K3(i),Teq(i),rho(i))
+          else
+             kappa(i) = 0.d0
+          endif
        else
-          kappa(i) = 0.d0
+          kappa(i) = calc_kappa_bowen(Teq(i))
        endif
-#else
-       kappa(i) = kappa_dust_bowen(Teq(i))
-#endif
        rho_m = (rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2))
        tau_prime(i) = tau_prime(i+1) + fact*(kappa(i)+kap_gas)*rho_m
        Teq(i) = T_star*(0.5*(1.-sqrt(1.-(R_star/OR(i))**2)) + 0.75*tau_prime(i))**0.25
@@ -467,7 +517,7 @@ end function sq_distance_to_line
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass_radiation(iunit)
  use infile_utils, only: write_inopt
- use dim,          only: store_dust_temperature
+ use dim,          only: star_radiation!,store_dust_temperature
  integer, intent(in) :: iunit
 
  call write_inopt(isink_radiation,'isink_radiation','sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)',iunit)
@@ -475,12 +525,16 @@ subroutine write_options_ptmass_radiation(iunit)
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  endif
  if (isink_radiation >= 2) then
-    call write_inopt(iget_tdust,'iget_tdust','method for computing dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy 3:MCFOST)',iunit)
+    if (star_radiation) then
+       call write_inopt(Lstar_lsun,'Lstar','Stellar luminosity (for radiation pressure, in Lsun)',iunit)
+       call write_inopt(Mstar_msun,'Mstar','Stellar mass (in Msun)',iunit)
+    endif
+    call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))',iunit)
  endif
  if (iget_tdust == 1 ) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
  endif
- if (iget_tdust > 0) store_dust_temperature = .true.
+ !if (iget_tdust > 0) store_dust_temperature = .true.
 
 end subroutine write_options_ptmass_radiation
 
@@ -491,16 +545,26 @@ end subroutine write_options_ptmass_radiation
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
+ use dim,     only:star_radiation
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
 
  integer, save :: ngot = 0
+ integer :: ni
  character(len=30), parameter :: label = 'read_options_ptmass_radiation'
 
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
+ case('Lstar')
+    read(valstring,*,iostat=ierr) Lstar_lsun
+    ngot = ngot + 1
+    if (Lstar_lsun < 0.) call fatal(label,'invalid setting for Lstar (must be >= 0)')
+ case('Mstar')
+    read(valstring,*,iostat=ierr) Mstar_msun
+    ngot = ngot + 1
+    if (Mstar_msun < 0.) call fatal(label,'invalid setting for Mstar (must be >= 0)')
  case('alpha_rad')
     read(valstring,*,iostat=ierr) alpha_rad
     ngot = ngot + 1
@@ -519,8 +583,12 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- igotall = (ngot >= 1)
- if (isink_radiation > 0) igotall = (ngot >= 2)
+ ni = 1
+ if (isink_radiation > 0) then
+    ni = ni+1
+    if (star_radiation)  ni = ni+2
+ endif
+ igotall = (ngot >= ni)
 
 end subroutine read_options_ptmass_radiation
 

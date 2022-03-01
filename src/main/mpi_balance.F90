@@ -96,7 +96,7 @@ end subroutine balance_init
 !----------------------------------------------------------------
 subroutine balancedomains(npart)
  use io,     only:id,master,iverbose,fatal
- use part,   only:shuffle_part,count_dead_particles,ibelong
+ use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
  implicit none
@@ -144,6 +144,10 @@ subroutine balancedomains(npart)
     print*,id,'ntot_start',ntot_start
     call fatal('balance','number of particles before and after balance not equal')
  endif
+
+ !  Update particle types
+ call update_npartoftypetot
+
  if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return
@@ -264,7 +268,8 @@ end subroutine send_part
 !+
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
- use io,  only:id,nprocs,fatal,iverbose
+ use io,    only:id,nprocs,fatal,iverbose
+ use part,  only:recount_npartoftype
  implicit none
  integer, intent(out)            :: npart
  logical, intent(in), optional   :: replace
@@ -314,6 +319,11 @@ subroutine balance_finish(npart,replace)
 !--double check that all receives are complete and free request handle
  call MPI_WAIT(irequestrecv(1),status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
+
+ !
+ !--update npartoftype
+ !
+ call recount_npartoftype
 
 end subroutine balance_finish
 

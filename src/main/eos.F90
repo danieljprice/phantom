@@ -53,7 +53,7 @@ module eos
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
 #ifdef KROME
- public  :: get_local_temperature, get_local_u_internal
+ public  :: get_local_u_internal
 #endif
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
@@ -65,12 +65,12 @@ module eos
  integer, public :: iopacity_type = 0 ! used for radiation
  integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
  !--Mean molecular weight if temperature required
- real,    public :: gmw            = 2.381
+ real,    public :: gmw           = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
  !--Minimum temperature (failsafe to prevent u < 0)
- real,    public            :: Tfloor = 0. ![K]
- real,    public            :: ufloor
- real, public    :: temperature_coef
+ real,    public :: Tfloor = 0. ![K]
+ real,    public :: ufloor
+ real,    public :: temperature_coef
 
  logical, public :: done_init_eos = .false.
  !
@@ -576,6 +576,8 @@ subroutine init_eos(eos_type,ierr)
        eion(1) = 0.  ! H and He recombination only (no recombination to H2)
     elseif (irecomb == 2) then
        eion(1:2) = 0.  ! He recombination only
+    elseif (irecomb == 3) then
+       eion(1:4) = 0.  ! No recombination energy
     endif
     write(*,'(1x,a,i1)') 'Initialising gas+rad+rec EoS with irecomb=',irecomb
  end select
@@ -853,11 +855,16 @@ subroutine eosinfo(eos_type,iprint)
 
  select case(eos_type)
  case(1,11)
-    write(iprint,"(/,a,f10.6)") ' Isothermal equation of state:     cs^2 = ',polyk
+    if (1.0d-5 < polyk .and. polyk < 1.0d3) then
+       write(iprint,"(/,a,f10.6)")  ' Isothermal equation of state:     cs^2 = ',polyk
+    else
+       write(iprint,"(/,a,Es13.6)") ' Isothermal equation of state:     cs^2 = ',polyk
+    endif
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
     if (use_entropy) then
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,' gamma = ',gamma
+       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,&
+                                                   ' gamma = ',gamma,' gmw = ',gmw
 !
 !--run a unit test on the en-> utherm and utherm-> en conversion utilities
 !
@@ -871,12 +878,13 @@ subroutine eosinfo(eos_type,iprint)
        endif
     elseif (maxvxyzu >= 4) then
        if (gr) then
-          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma
+          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma,' gmw = ',gmw
        else
-          write(iprint,"(/,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',gamma
+          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',&
+                                              gamma,' gmw = ',gmw
        endif
     else
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma
+       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma,' gmw = ',gmw
     endif
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
@@ -887,6 +895,10 @@ subroutine eosinfo(eos_type,iprint)
     call eos_info_barotropic(polyk,polyk2,iprint)
  case(9)
     call eos_info_piecewise(iprint)
+ case(10)
+    write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6,a)") ' MESA EoS: X = ',X_in,' Z = ',Z_in,' (1-X-Z = ',1.-X_in-Z_in,')'
+ case(12)
+    write(iprint,"(/,a,f10.6,a,f10.6)") ' Gas + radiation equation of state: gmw = ',gmw,' gamma = ',gamma
  case(15)
     call eos_helmholtz_eosinfo(iprint)
  end select
@@ -998,7 +1010,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(mu_local)) mu = mu_local
  if (present(X_local)) X = X_local
  if (present(Z_local)) Z = Z_local
- select case(ieos)
+ select case(eos_type)
  case(2) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)

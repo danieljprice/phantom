@@ -277,7 +277,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:init_part,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           Bevol,fext,igas,iboundary,set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,&
-                          iamtype,iamboundary
+                          iamtype,iamboundary,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
@@ -297,7 +297,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=3.1d-2
+ real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=1.1d-1
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
  logical                :: valid_bdy_rho,valid_bdy_v
@@ -377,6 +377,12 @@ subroutine test_standingshock(ntests,npass)
        Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
     endif
  enddo
+
+ !
+ ! reduce types across MPI tasks
+ !
+ call update_npartoftypetot
+
  !
  ! initialise runtime parameters
  !
@@ -498,8 +504,8 @@ subroutine test_standingshock(ntests,npass)
  endif
  npts = int(reduceall_mpi('+',npts))
  L2d  = reduceall_mpi('+',L2d)
- L2v  = reduceall_mpi('+',L2d)
- L2b  = reduceall_mpi('+',L2d)
+ L2v  = reduceall_mpi('+',L2v)
+ L2b  = reduceall_mpi('+',L2b)
  if (npts > 0) then
     L2d = sqrt(L2d/npts)
     L2v = sqrt(L2v/npts)

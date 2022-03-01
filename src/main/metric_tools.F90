@@ -181,19 +181,29 @@ subroutine print_metricinfo(iprint)
 end subroutine print_metricinfo
 
 subroutine init_metric(npart,xyzh,metrics,metricderivs)
- integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(:,:)
- real,    intent(out) :: metrics(:,:,:,:), metricderivs(:,:,:,:)
+ integer,         intent(in)  :: npart
+ real,            intent(in)  :: xyzh(:,:)
+ real,            intent(out) :: metrics(:,:,:,:)
+ real, optional,  intent(out) :: metricderivs(:,:,:,:)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,metrics,metricderivs) &
+ !$omp shared(npart,xyzh,metrics) &
  !$omp private(i)
  do i=1,npart
     call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
-    call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
  enddo
  !omp end parallel do
+
+ if (present(metricderivs)) then
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,metricderivs) &
+    !$omp private(i)
+    do i=1,npart
+       call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
+    enddo
+    !omp end parallel do
+ endif
 
 end subroutine init_metric
 

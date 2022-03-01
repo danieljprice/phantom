@@ -16,7 +16,7 @@ module mpidens
 !
 ! :Dependencies: dim, io, mpi, mpiutils
 !
- use io,       only:nprocs,fatal
+ use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
 #ifdef MPI
  use mpiutils, only:mpierr
@@ -67,13 +67,13 @@ contains
 #ifdef MPI
 subroutine get_mpitype_of_celldens(dtype)
  use mpi
+ use io, only:error
 
  integer, parameter              :: ndata = 20
 
  integer, intent(out)            :: dtype
- integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
- integer(kind=4)                 :: disp(ndata)
+ integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
  type(celldens)                 :: cell
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
@@ -196,20 +196,14 @@ subroutine get_mpitype_of_celldens(dtype)
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(cell)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+    call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
-
 end subroutine get_mpitype_of_celldens
 #endif
 

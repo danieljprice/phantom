@@ -95,9 +95,6 @@ subroutine compute_energies(t)
 #ifdef LIGHTCURVE
  use part,           only:luminosity
 #endif
-#ifdef KROME
- use part, only: gamma_chem
-#endif
 #ifdef DUST
  use dust,           only:get_ts,idrag
  integer :: iregime,idusttype
@@ -184,9 +181,6 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
-#ifdef KROME
-!$omp shared(gamma_chem) &
-#endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -375,14 +369,8 @@ subroutine compute_energies(t)
 #endif
              etherm = etherm + ethermi
 
-#ifdef KROME
-             ! NOT SURE THIS #ifdef KROME  IS NEEDED ?
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni=vxyzu(iu,i),&
-                                   gamma_local=gamma_chem(i))
-#else
              ponrhoi = eos_vars(igasP,i)/rhoi
              spsoundi = eos_vars(ics,i)
-#endif
 
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1

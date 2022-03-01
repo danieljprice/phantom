@@ -391,6 +391,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
+    if (header(i)(1:1) == '#') then
+       print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
+       stop 'read_mesa'
+    endif
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
@@ -439,7 +443,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
  character(len=200)              :: headers
- integer                         :: i,noptionalcols,j
+ integer                         :: i,noptionalcols,j,iu
  real, allocatable               :: optionalcols(:,:)
 
  headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
@@ -468,19 +472,20 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
     optionalcols(:,noptionalcols) = csound
  endif
 
- open(1, file = outputpath, status = 'replace')
- write(1,'(a)') headers
+ open(newunit=iu, file = outputpath, status = 'replace')
+ write(iu,'(a)') headers
  do i=1,size(r)
-    write(1,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+    write(iu,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
 101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
     do j=1,noptionalcols
        if (j==noptionalcols) then
-          write(1,'(2x,es13.6)') optionalcols(i,j)
+          write(iu,'(2x,es13.6)') optionalcols(i,j)
        else
-          write(1,'(2x,es13.6)',advance="no") optionalcols(i,j)
+          write(iu,'(2x,es13.6)',advance="no") optionalcols(i,j)
        endif
     enddo
  enddo
+ close(iu)
 
 end subroutine write_profile
 
