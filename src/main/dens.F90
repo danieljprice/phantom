@@ -128,7 +128,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
 #ifdef MPI
- use stack,     only:reserve_stack,swap_stacks
+ use stack,     only:reserve_stack,swap_stacks,reset_stacks
  use stack,     only:stack_remote  => dens_stack_1
  use stack,     only:stack_waiting => dens_stack_2
  use stack,     only:stack_redo    => dens_stack_3
@@ -179,9 +179,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  logical                   :: iterations_finished,do_export
 
  call init_cell_exchange(xrecvbuf,irequestrecv)
- stack_waiting%n = 0
- stack_remote%n = 0
- stack_redo%n = 0
+ call reset_stacks
 #endif
 
  if (iverbose >= 3 .and. id==master) &

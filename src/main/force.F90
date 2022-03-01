@@ -221,7 +221,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef MPI
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters
- use stack,        only:reserve_stack
+ use stack,        only:reserve_stack,reset_stacks
  use stack,        only:stack_remote  => force_stack_1
  use stack,        only:stack_waiting => force_stack_2
 #endif
@@ -364,8 +364,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 #ifdef MPI
  call init_cell_exchange(xrecvbuf,irequestrecv)
- stack_waiting%n = 0
- stack_remote%n = 0
+ call reset_stacks
  call reset_cell_counters
 #endif
 

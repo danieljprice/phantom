@@ -56,6 +56,7 @@ module stack
  public :: push_onto_stack
  public :: pop_off_stack
  public :: reserve_stack
+ public :: reset_stacks
 
  ! primary chunk of memory requested using alloc
  integer, parameter  :: n_dens_cells  = stacksize*3
@@ -240,5 +241,15 @@ subroutine reserve_stack_force(stack,i)
  i = stack%n
  if (stack%n > stack%maxlength) call fatal('force','stack overflow')
 end subroutine reserve_stack_force
+
+subroutine reset_stacks
+    dens_stack_1%n=0
+    dens_stack_2%n=0
+    dens_stack_3%n=0
+
+    force_stack_1%n=0
+    force_stack_2%n=0
+end subroutine reset_stacks
+
 #endif
 end module stack
