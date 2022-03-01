@@ -31,12 +31,6 @@ module mpiutils
 !
 !   where var can be int,int*8,real*4,real*8.
 !
-! * send_recv:
-!
-!   call send_recv(arr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
-!
-!   sends and receives selected values from array of arbitrary type
-!
 ! * barrier_mpi
 !
 !   calls MPI_BARRIER, no-op if called from non-MPI code
@@ -58,16 +52,7 @@ module mpiutils
 
  integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
 
-!
-!--generic interface send_recv
-!
- interface send_recv
-  module procedure send_recv_arr2,send_recv_arr2_r4,send_recv_arr1_r4, &
-                    send_recv_int,send_recv_arr1_int1,send_recv_arr2_buf, &
-                    send_recv_arr1_buf_r4
- end interface send_recv
-
- public :: send_recv, cart_shift_diag
+ public :: cart_shift_diag
  logical, parameter, public :: use_mpi = .true.
 #else
  implicit none
