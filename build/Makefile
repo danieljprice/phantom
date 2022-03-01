@@ -844,6 +844,21 @@ ifeq ($(SETUP), star)
     STORE_TEMP=yes
 endif
 
+ifeq ($(SETUP), dustystar)
+#   import stellar model from 1D stellar evolution code
+#   use option 5 of setup_star
+    FPPFLAGS= -DDUST_NUCLEATION -DSINK_RADIATION -DSTAR
+    SETUPFILE= setup_star.f90
+    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90 dust_formation.F90
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=no
+    MAXP=10000000
+    GRAVITY=yes
+    MHD=no
+    STORE_TEMP=yes
+endif
+
 ifeq ($(SETUP), radstar)
 #   setup a star as in the star setup but with radiation
     SETUPFILE= setup_star.f90
@@ -859,18 +874,13 @@ endif
 
 ifeq ($(SETUP), isowind)
 #   isothermal spherical wind
-    FPPFLAGS= -DWIND -DSINK_RADIATION
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ISOTHERMAL=yes
     WIND=yes
 endif
 ifeq ($(SETUP), wind)
-#   wind setup without nucleation
-    FPPFLAGS= -DWIND -DSINK_RADIATION
-    WIND=yes
-endif
-ifeq ($(SETUP), dustywind)
 #   wind setup with dust nucleation
-    FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_dustywind.F90 dust_formation.F90
     WIND=yes
 endif
@@ -878,7 +888,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.f90 wind.F90 inject_wind.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1780,7 +1790,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          checkoptions.F90 viscosity.f90 options.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM}\
-         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 \
+         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
          mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
@@ -1856,7 +1866,8 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 \
+         ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
@@ -1894,7 +1905,7 @@ SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
+          set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
