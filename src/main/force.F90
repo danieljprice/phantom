@@ -474,17 +474,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     cell%remote_export(1:nprocs) = remote_export
     do_export = any(remote_export)
 
-!$omp critical
+!$omp critical (send_and_recv_remote)
     call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-!$omp end critical
+!$omp end critical (send_and_recv_remote)
 
     if (do_export) then
-!$omp critical
+!$omp critical (send_and_recv_remote)
        if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
        call reserve_stack(stack_waiting,cell%waiting_index)
        ! export the cell: direction 0 for exporting
        call send_cell(cell,0,irequestsend,xsendbuf)
-!$omp end critical
+!$omp end critical (send_and_recv_remote)
     endif
 #endif
 
@@ -550,11 +550,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        cell%remote_export(id+1) = .false.
 
-!$omp critical
+!$omp critical (send_and_recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
        call send_cell(cell,1,irequestsend,xsendbuf)
-!$omp end critical
+!$omp end critical (send_and_recv_waiting)
     enddo over_remote
 !$omp enddo
 !$omp barrier
@@ -574,7 +574,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        cell = stack_waiting%cells(i)
 
        if (any(cell%remote_export(1:nprocs))) then
-          print*,id,cell%remote_export(1:nprocs)
           call fatal('force', 'not all results returned from remote processor')
        endif
 
