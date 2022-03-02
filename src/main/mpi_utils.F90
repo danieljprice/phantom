@@ -104,7 +104,6 @@ module mpiutils
  end interface unfill_buf
 
  public :: init_mpi, finalise_mpi
- public :: waitmyturn,endmyturn
  public :: reduce_mpi, reduceall_mpi, reduce_in_place_mpi
  public :: bcast_mpi
  public :: barrier_mpi
