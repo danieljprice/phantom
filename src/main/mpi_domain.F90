@@ -65,14 +65,15 @@ end subroutine init_domains
 !+
 !-----------------------------------------------------------------------
 integer function assign_to_domain(i,id)
+ use dim, only: mpi
  integer(kind=8), intent(in) :: i
  integer,         intent(in) :: id
 
-#ifdef MPI
- assign_to_domain = int(mod(i,int(nprocs,kind=8)),kind=kind(assign_to_domain))
-#else
- assign_to_domain = id
-#endif
+ if (mpi) then
+    assign_to_domain = int(mod(i,int(nprocs,kind=8)),kind=kind(assign_to_domain))
+ else
+    assign_to_domain = id
+ endif
 
 end function assign_to_domain
 

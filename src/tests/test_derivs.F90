@@ -31,7 +31,7 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall,periodic
+                        maxdustsmall,periodic,mpi
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,use_entropy,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
@@ -138,9 +138,7 @@ subroutine test_derivs(ntests,npass,string)
  iverbose = max(iverbose,2)
  psep = dxbound/100.
  npart = nint(dxbound/psep)*nint(dybound/psep)*nint(dzbound/psep)
-#ifndef MPI
- if (npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
-#endif
+ if (.not. mpi .and. npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
  icurlvxi = icurlvx ! avoid compiler warnings
  icurlvyi = icurlvy
  icurlvzi = icurlvz
