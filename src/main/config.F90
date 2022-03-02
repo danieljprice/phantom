@@ -379,10 +379,6 @@ subroutine update_max_sizes(n)
  maxTdust = maxp
 #endif
 
-#ifdef STORE_TEMPERATURE
- maxtemp = maxp
-#endif
-
 #ifdef NCELLSMAX
  ncellsmax = NCELLSMAX
 #else

@@ -60,8 +60,7 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
-                          lightcurve,use_dust,store_temperature,&
-                          maxdusttypes,do_radiation
+                          lightcurve,use_dust,maxdusttypes,do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -386,14 +385,16 @@ subroutine compute_energies(t)
              if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
-          ! entropy
 
+          ! entropy
 #ifdef KROME
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
 #else
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
 #endif
 
+          ! gas temperature
+          call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
 #ifdef DUST
           ! min and mean stopping time
           if (use_dustfrac) then
@@ -459,7 +460,6 @@ subroutine compute_energies(t)
                 call nicil_update_nimhd(0,etaohm,etahall,etaambi,Bi,rhoi, &
                                         eos_vars(itemp,i),nden_nimhd(:,i),ierrlist,data_out)
                 curlBi = divcurlB(2:4,i)
-                call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
                 if (use_ohm) then
                    call ev_data_update(ev_data_thread,iev_etao,   etaohm      )
                 endif
