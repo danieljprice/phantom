@@ -463,14 +463,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do_export = any(remote_export)
 
     if (mpi) then
-       !$omp critical (send_and_recv_remote)
+      !$omp critical (send_and_recv_remote)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv)
        if (do_export) then
           if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
           call reserve_stack(stack_waiting,cell%waiting_index)
           call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
        endif
-       !$omp end critical (send_and_recv_remote)
+      !$omp end critical (send_and_recv_remote)
     endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
@@ -512,7 +512,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp end single
 
  igot_remote: if (stack_remote%n > 0) then
-!$omp do schedule(runtime)
+   !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = stack_remote%cells(i)
 
@@ -529,26 +529,32 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        cell%remote_export(id+1) = .false.
 
-!$omp critical (send_and_recv_waiting)
+      !$omp critical (send_and_recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
        call send_cell(cell,1,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_waiting)
+      !$omp end critical (send_and_recv_waiting)
+
     enddo over_remote
-!$omp enddo
-!$omp barrier
-!$omp single
+   !$omp enddo
+
+   !$omp barrier
+
+   !$omp single
     stack_remote%n = 0
     call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-!$omp end single
+   !$omp end single
+
  endif igot_remote
+
 !$omp barrier
+
 !$omp single
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
 !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then
-!$omp do schedule(runtime)
+   !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
 
@@ -575,11 +581,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           rad,drad,radprop,dtrad)
 
     enddo over_waiting
-!$omp enddo
-!$omp barrier
-!$omp single
+   !$omp enddo
+
+   !$omp barrier
+
+   !$omp single
     stack_waiting%n = 0
-!$omp end single
+   !$omp end single
  endif iam_waiting
 
 !$omp single
@@ -590,7 +598,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (icreate_sinks > 0) then
     rhomax_thread = 0.
     ipart_rhomax_thread = 0
-!$omp do schedule(runtime)
+   !$omp do schedule(runtime)
     over_parts: do i=1,npart
        hi = xyzh(4,i)
 #ifdef IND_TIMESTEPS
@@ -630,14 +638,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           endif
        endif
     enddo over_parts
-!$omp enddo
+   !$omp enddo
     if (rhomax_thread > rho_crit) then
-!$omp critical(rhomaxadd)
+      !$omp critical(rhomaxadd)
        if (rhomax_thread > rhomax) then
           rhomax = rhomax_thread
           ipart_rhomax = ipart_rhomax_thread
        endif
-!$omp end critical(rhomaxadd)
+      !$omp end critical(rhomaxadd)
     endif
  endif
 #endif

@@ -309,14 +309,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call get_hmaxcell(icell,cell%hmax)
 
     if (mpi) then
-       !$omp critical (send_and_recv_remote)
+      !$omp critical (send_and_recv_remote)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv)
        if (do_export) then
           if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
           call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
           call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
        endif
-       !$omp end critical (send_and_recv_remote)
+      !$omp end critical (send_and_recv_remote)
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
@@ -340,11 +340,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
                 if (any(remote_export)) then
                    do_export = .true.
-                   !$omp critical (send_and_recv_remote)
+                  !$omp critical (send_and_recv_remote)
                    if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
                    call reserve_stack(stack_waiting,cell%waiting_index)
                    call send_cell(cell,0,irequestsend,xsendbuf)  ! direction export (0)
-                   !$omp end critical (send_and_recv_remote)
+                  !$omp end critical (send_and_recv_remote)
                 endif
                 nrelink = nrelink + 1
              endif
@@ -388,14 +388,16 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  n_remote_its = 0
  iterations_finished = .false.
 !$omp end single
+
  remote_its: do while(.not. iterations_finished)
-!$omp single
+
+   !$omp single
     n_remote_its = n_remote_its + 1
     call reset_cell_counters
-!$omp end single
+   !$omp end single
 
     igot_remote: if (stack_remote%n > 0) then
-!$omp do schedule(runtime)
+      !$omp do schedule(runtime)
        over_remote: do i = 1,stack_remote%n
           cell = stack_remote%cells(i)
 
@@ -408,29 +410,34 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           cell%remote_export(id+1) = .false.
 
           ! communication happened while computing contributions to remote cells
-!$omp critical (send_and_recv_waiting)
+         !$omp critical (send_and_recv_waiting)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
           call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
           ! direction return (1)
           call send_cell(cell,1,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_waiting)
+         !$omp end critical (send_and_recv_waiting)
        enddo over_remote
-!$omp enddo
-!$omp barrier
-!$omp single
+      !$omp enddo
+
+      !$omp barrier
+
+      !$omp single
        ! reset remote stack
        stack_remote%n = 0
        ! ensure send has finished
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-!$omp end single
+      !$omp end single
+
     endif igot_remote
-!$omp barrier
-!$omp single
+
+   !$omp barrier
+
+   !$omp single
     call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
     call reset_cell_counters
-!$omp end single
+   !$omp end single
     iam_waiting: if (stack_waiting%n > 0) then
-!$omp do schedule(runtime)
+   !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
 
@@ -445,22 +452,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              converged = .true.
           endif
 
-          ! communication happened while finishing cell
-!$omp critical (send_and_recv_remote)
+         ! communication happened while finishing cell
+         !$omp critical (send_and_recv_remote)
           call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-!$omp end critical (send_and_recv_remote)
+         !$omp end critical (send_and_recv_remote)
           if (.not. converged) then
              call set_hmaxcell(cell%icell,cell%hmax)
              call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
              cell%remote_export(1:nprocs) = remote_export
-!$omp critical (send_and_recv_remote)
+            !$omp critical (send_and_recv_remote)
              call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
              call reserve_stack(stack_redo,cell%waiting_index)
              ! direction export (0)
              call send_cell(cell,0,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_remote)
+            !$omp end critical (send_and_recv_remote)
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
              stack_redo%cells(cell%waiting_index) = cell
@@ -471,27 +478,31 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           endif
 
        enddo over_waiting
-!$omp enddo
-!$omp barrier
-!$omp single
+      !$omp enddo
+
+      !$omp barrier
+
+      !$omp single
        ! reset stacks
        stack_waiting%n = 0
        call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
-!$omp end single
+      !$omp end single
     endif iam_waiting
-!$omp barrier
-!$omp single
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
-!$omp end single
 
-!$omp single
+   !$omp barrier
+
+   !$omp single
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
+   !$omp end single
+
+   !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then
        call swap_stacks(stack_waiting, stack_redo)
     else
        iterations_finished = .true.
     endif
     stack_redo%n = 0
-!$omp end single
+   !$omp end single
 
  enddo remote_its
 
