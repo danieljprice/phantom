@@ -333,7 +333,7 @@ end subroutine empty_tree
 subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
 #ifdef PERIODIC
  use boundary, only:cross_boundary
- use domain,   only:isperiodic
+ use mpidomain,only:isperiodic
 #endif
 #ifdef IND_TIMESTEPS
  use part, only:iphase,iactive

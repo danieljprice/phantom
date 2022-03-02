@@ -422,7 +422,7 @@ end subroutine get_accel_sink_sink
 #ifdef PERIODIC
 subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  use boundary, only:cross_boundary
- use domain,   only:isperiodic
+ use mpidomain,only:isperiodic
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  integer                :: i,ncross

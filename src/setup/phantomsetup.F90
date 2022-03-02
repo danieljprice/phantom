@@ -37,7 +37,7 @@ program phantomsetup
  use physcon,         only:pi
  use units,           only:set_units,print_units,c_is_unity
  use mpiutils,        only:init_mpi,finalise_mpi,use_mpi,reduceall_mpi
- use domain,          only:init_domains
+ use mpidomain,       only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves

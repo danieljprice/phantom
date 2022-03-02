@@ -137,7 +137,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
  use relaxstar,       only:relax_star
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

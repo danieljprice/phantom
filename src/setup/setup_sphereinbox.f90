@@ -91,7 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

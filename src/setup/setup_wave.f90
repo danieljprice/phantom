@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

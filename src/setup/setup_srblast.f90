@@ -54,7 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
  use units,        only:set_units
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

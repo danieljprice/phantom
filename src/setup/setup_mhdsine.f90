@@ -40,7 +40,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use physcon,      only:pi
  use prompting,    only:prompt
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

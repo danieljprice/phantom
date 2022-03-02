@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
  use options,       only:nfulldump
- use domain,        only:i_belong
+ use mpidomain,     only:i_belong
 
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

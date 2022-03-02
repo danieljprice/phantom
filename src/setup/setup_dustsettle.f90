@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use radiation_utils,only:set_radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

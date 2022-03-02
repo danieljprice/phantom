@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
  use units,        only:set_units,unit_density
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv

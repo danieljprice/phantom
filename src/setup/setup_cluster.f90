@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

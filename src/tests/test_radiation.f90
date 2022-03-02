@@ -80,7 +80,7 @@ subroutine test_exchange_terms(ntests,npass)
  use eos,        only:gmw,gamma,polyk,iopacity_type
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use mpiutils,   only:reduceall_mpi
- use domain,     only:i_belong
+ use mpidomain,  only:i_belong
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -193,7 +193,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
  use mpiutils,        only:reduceall_mpi
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi
  real :: dtext,pmassi, dt,t,kappa_code

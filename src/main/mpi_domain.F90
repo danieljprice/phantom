@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module domain
+module mpidomain
 !
 ! This module performs the MPI domain decomposition
 !   Since we now do the decomposition using the tree all this
@@ -91,4 +91,4 @@ logical function i_belong(iparttot)
 
 end function i_belong
 
-end module domain
+end module mpidomain

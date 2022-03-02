@@ -51,7 +51,7 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use evwrite,          only:init_evfile
- use domain,           only:init_domains
+ use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use mpiderivs,        only:init_tree_comms

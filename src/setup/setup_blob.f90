@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use kernel,       only:hfact_default
  use timestep,     only:dtmax,tmax
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use part,         only:periodic
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart

@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

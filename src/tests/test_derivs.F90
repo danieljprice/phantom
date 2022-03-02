@@ -63,7 +63,7 @@ subroutine test_derivs(ntests,npass,string)
 #endif
  use units,        only:set_units
  use testutils,    only:checkval,checkvalf,update_test_scores
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass

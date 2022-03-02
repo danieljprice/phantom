@@ -125,7 +125,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use physcon,        only:au,solarm,Ro,pi
  use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
 
  integer, intent(inout) :: ntests,npass
