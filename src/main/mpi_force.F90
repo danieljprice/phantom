@@ -26,9 +26,7 @@ module mpiforce
 
  public :: cellforce
  public :: stackforce
-#ifdef MPI
  public :: get_mpitype_of_cellforce
-#endif
 
  type cellforce
     sequence
@@ -213,8 +211,8 @@ subroutine get_mpitype_of_cellforce(dtype)
  endif
 
 #else
-   integer, intent(out) :: dtype
-   dtype = 0
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
 
 end subroutine get_mpitype_of_cellforce
