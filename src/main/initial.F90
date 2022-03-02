@@ -19,9 +19,10 @@ module initial
 !   deriv, dim, domain, dust, energies, eos, evwrite, extern_gr,
 !   externalforces, fastmath, fileutils, forcing, growth, inject, io,
 !   io_summary, krome_interface, linklist, metric_tools, mf_write, mpi,
-!   mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
-!   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   stack, timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!   mpiderivs, mpistack, mpiutils, nicil, nicil_sup, omputils, options,
+!   part, photoevap, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
+!   writeheader
 !
 #ifdef MPI
  use mpi
@@ -56,7 +57,7 @@ subroutine initialise()
  use checkoptions,     only:check_compile_time_settings
 #ifdef MPI
  use mpiderivs,        only:init_tree_comms
- use stack,            only:init_mpi_memory
+ use mpistack,         only:init_mpi_memory
 #endif
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
@@ -774,7 +775,7 @@ end subroutine startrun
 subroutine finalise()
 #ifdef MPI
  use mpiderivs,       only:finish_tree_comms
- use stack,           only:finish_mpi_memory
+ use mpistack,        only:finish_mpi_memory
 
  call finish_tree_comms()
  call finish_mpi_memory()

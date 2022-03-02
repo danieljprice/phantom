@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module stack
+module mpistack
 !
 ! None
 !
@@ -252,4 +252,4 @@ subroutine reset_stacks
 end subroutine reset_stacks
 
 #endif
-end module stack
+end module mpistack
