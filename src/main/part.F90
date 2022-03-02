@@ -28,7 +28,7 @@ module part
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,nabundances,maxtemp,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,use_dustgrowth,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &

@@ -1109,8 +1109,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,&
-                      ikappa,ithick,itemp,iorig,nucleation,nucleation_label,n_nucleation
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
+                      nucleation,nucleation_label,n_nucleation,ikappa,ithick,itemp,igasP,iorig
+ use eos,        only:ieos,eos_is_non_ideal
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1133,7 +1134,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu,got_x,got_z,got_mu
  logical               :: got_nucleation(n_nucleation)
- logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
+ logical               :: got_psi,got_gasP,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
                           got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
@@ -1152,6 +1153,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_sink_vels   = .false.
  got_Bxyz        = .false.
  got_psi         = .false.
+ got_gasP        = .false.
  got_temp        = .false.
  got_dustprop    = .false.
  got_VrelVf      = .false.
@@ -1218,6 +1220,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              endif
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) then
+                call read_array(eos_vars(igasP,:),eos_vars_label(igasP),got_gasP,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_temperature) then
                 call read_array(eos_vars(itemp,:),eos_vars_label(itemp),got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
