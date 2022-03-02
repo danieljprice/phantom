@@ -26,9 +26,7 @@ module mpidens
 
  public :: celldens
  public :: stackdens
-#ifdef MPI
  public :: get_mpitype_of_celldens
-#endif
 
  type celldens
     sequence
@@ -65,7 +63,7 @@ module mpidens
 contains
 
 subroutine get_mpitype_of_celldens(dtype)
-   #ifdef MPI
+#ifdef MPI
  use mpi
  use io, only:error
 
@@ -206,8 +204,8 @@ subroutine get_mpitype_of_celldens(dtype)
  endif
 
 #else
-   integer, intent(out) :: dtype
-   dtype = 0
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
 end subroutine get_mpitype_of_celldens
 
