@@ -58,11 +58,11 @@ module mpistack
  public :: reset_stacks
 
  ! stacks to be referenced from density and force routines
- type(stackdens)     :: dens_stack_1
- type(stackdens)     :: dens_stack_2
- type(stackdens)     :: dens_stack_3
- type(stackforce)    :: force_stack_1
- type(stackforce)    :: force_stack_2
+ type(stackdens),  public :: dens_stack_1
+ type(stackdens),  public :: dens_stack_2
+ type(stackdens),  public :: dens_stack_3
+ type(stackforce), public :: force_stack_1
+ type(stackforce), public :: force_stack_2
 
  private
 
