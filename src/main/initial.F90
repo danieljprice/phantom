@@ -24,9 +24,7 @@ module initial
 !   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
 !   writeheader
 !
-#ifdef MPI
- use mpi
-#endif
+
  implicit none
  public :: initialise,finalise,startrun,endrun
  real(kind=4), private :: twall_start, tcpu_start
@@ -42,6 +40,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
+ use dim,              only:mpi
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -55,10 +54,8 @@ subroutine initialise()
  use domain,           only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
-#ifdef MPI
  use mpiderivs,        only:init_tree_comms
  use mpistack,         only:init_mpi_memory
-#endif
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -103,10 +100,10 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
+ if (mpi) then
+    call init_tree_comms()
+    call init_mpi_memory()
+ endif
 
  call init_readwrite_dumps()
 
@@ -121,7 +118,7 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
-                            nalpha,mhd,do_radiation,gravity,use_dust
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -195,10 +192,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
-#ifdef MPI
- use mpibalance,       only:balancedomains
- use part,             only:ibelong
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -212,6 +205,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
+ use mpibalance,       only:balancedomains
+ use part,             only:ibelong
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
  use checksetup,       only:check_setup
@@ -385,12 +380,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--balance domains prior to starting calculation
 !  (make sure this is called AFTER iphase has been set)
 !
-#ifdef MPI
- do i=1,npart
-    ibelong(i) = id
- enddo
- call balancedomains(npart)
-#endif
+ if (mpi) then
+    do i=1,npart
+       ibelong(i) = id
+    enddo
+    call balancedomains(npart)
+ endif
+
 !
 !--set up photoevaporation grid, define relevant constants, etc.
 !
@@ -773,13 +769,15 @@ end subroutine startrun
 !+
 !----------------------------------------------------------------
 subroutine finalise()
-#ifdef MPI
- use mpiderivs,       only:finish_tree_comms
- use mpistack,        only:finish_mpi_memory
+ use dim, only: mpi
+ use mpiderivs, only:finish_tree_comms
+ use mpistack,  only:finish_mpi_memory
 
- call finish_tree_comms()
- call finish_mpi_memory()
-#endif
+ if (mpi) then
+    call finish_tree_comms()
+    call finish_mpi_memory()
+ endif
+
 end subroutine finalise
 
 !----------------------------------------------------------------

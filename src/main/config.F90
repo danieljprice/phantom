@@ -159,8 +159,10 @@ module dim
 #else
 #ifdef MPI
  integer, parameter :: stacksize = 200000
+ logical, parameter :: mpi = .true.
 #else
  integer, parameter :: stacksize = 0
+ logical, parameter :: mpi = .false.
 #endif
 #endif
 
