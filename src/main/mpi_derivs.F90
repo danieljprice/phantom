@@ -56,23 +56,24 @@ module mpiderivs
  module procedure reduce_group_real, reduce_group_int
 end interface reduce_group
 
-public :: init_cell_exchange
-public :: send_cell
-public :: recv_cells
-public :: check_send_finished
-public :: finish_cell_exchange
-public :: recv_while_wait
-public :: get_group_cofm
-public :: reduce_group
+ public :: init_cell_exchange
+ public :: send_cell
+ public :: recv_cells
+ public :: check_send_finished
+ public :: finish_cell_exchange
+ public :: recv_while_wait
+ public :: get_group_cofm
+ public :: reduce_group
 
-public :: tree_sync
-public :: tree_bcast
-public :: init_tree_comms
-public :: finish_tree_comms
-public :: reset_cell_counters
+ public :: tree_sync
+ public :: tree_bcast
+ public :: init_tree_comms
+ public :: finish_tree_comms
+ public :: reset_cell_counters
 
  private
 
+#ifdef MPI
  integer :: ncomplete
 
  integer :: dtype_celldens
@@ -87,7 +88,7 @@ public :: reset_cell_counters
  integer :: nrecv(maxprocs)     ! counter for number of cells received from i
 
  integer :: countrequest(maxprocs)
-
+#endif
 
 contains
 
