@@ -46,10 +46,8 @@ module mpiutils
 #ifdef MPI
  use mpi
  implicit none
- logical, parameter, public :: use_mpi = .true.
 #else
  implicit none
- logical, parameter, public  :: use_mpi = .false.
  integer, parameter, private :: MPI_STATUS_SIZE = 0
 #endif
 
