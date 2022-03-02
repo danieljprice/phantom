@@ -16,7 +16,6 @@ module mpistack
 !
 ! :Dependencies: dim, io, mpidens, mpiforce
 !
-#ifdef MPI
  use dim,         only:stacksize
  use io,          only:fatal
  use mpidens,     only:celldens,stackdens
@@ -243,13 +242,12 @@ subroutine reserve_stack_force(stack,i)
 end subroutine reserve_stack_force
 
 subroutine reset_stacks
-    dens_stack_1%n=0
-    dens_stack_2%n=0
-    dens_stack_3%n=0
+ dens_stack_1%n=0
+ dens_stack_2%n=0
+ dens_stack_3%n=0
 
-    force_stack_1%n=0
-    force_stack_2%n=0
+ force_stack_1%n=0
+ force_stack_2%n=0
 end subroutine reset_stacks
 
-#endif
 end module mpistack
