@@ -120,21 +120,19 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
-                     use_dust,fast_divcurlB
+                     use_dust,fast_divcurlB,mpi
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
-#ifdef MPI
  use mpistack,  only:reserve_stack,swap_stacks,reset_stacks
  use mpistack,  only:stack_remote  => dens_stack_1
  use mpistack,  only:stack_waiting => dens_stack_2
  use mpistack,  only:stack_redo    => dens_stack_3
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
-#endif
  use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
@@ -170,7 +168,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  type(celldens)            :: cell
  logical                   :: redo_neighbours
 
-#ifdef MPI
  integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens)            :: xrecvbuf(nprocs),xsendbuf
@@ -178,9 +175,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real                      :: ntotal
  logical                   :: iterations_finished,do_export
 
- call init_cell_exchange(xrecvbuf,irequestrecv)
- call reset_stacks
-#endif
+ if (mpi) then
+    call init_cell_exchange(xrecvbuf,irequestrecv)
+    call reset_stacks
+ endif
 
  if (iverbose >= 3 .and. id==master) &
     write(iprint,*) ' cell cache =',isizecellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
@@ -219,11 +217,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
  endif
 
-#ifdef MPI
  ! number of cells that only have neighbours on this MPI task
  nlocal = 0
+
  call reset_cell_counters
-#endif
 
  rhomax = 0.0
 !$omp parallel default(none) &
@@ -252,7 +249,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(iprint) &
 !$omp shared(rad,radprop) &
 !$omp shared(calculate_density) &
-#ifdef MPI
 !$omp shared(xrecvbuf) &
 !$omp shared(xsendbuf) &
 !$omp shared(irequestrecv) &
@@ -268,7 +264,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(k) &
 !$omp private(l) &
 !$omp private(ntotal) &
-#endif
 !$omp private(remote_export) &
 !$omp private(nneigh) &
 !$omp private(npcell) &
@@ -302,46 +297,34 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
-#ifdef MPI
     do_export = any(remote_export)
-#endif
     cell%icell                   = icell
-#ifdef MPI
     cell%owner                   = id
-#endif
     cell%nits                    = 0
     cell%nneigh                  = 0
     cell%remote_export(1:nprocs) = remote_export
 
     call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
-
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
 
-#ifdef MPI
-!$omp critical (send_and_recv_remote)
-    call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-!$omp end critical (send_and_recv_remote)
-
-    if (do_export) then
-!$omp critical (send_and_recv_remote)
-       if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
-       ! make a reservation on the stack
-       call reserve_stack(stack_waiting,cell%waiting_index)
-       ! export the cell: direction 0 for exporting
-       call send_cell(cell,0,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_remote)
+    if (mpi) then
+       !$omp critical (send_and_recv_remote)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       if (do_export) then
+          if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
+          call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
+          call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
+       endif
+       !$omp end critical (send_and_recv_remote)
     endif
-#endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
-#ifdef MPI
     if (do_export) then
        ! write directly to stack
        stack_waiting%cells(cell%waiting_index) = cell
     else
-#endif
        converged = (.not. calculate_density)
        local_its: do while (.not. converged)
           call finish_cell(cell,converged)
@@ -353,44 +336,38 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
-#ifdef MPI
                 cell%remote_export(1:nprocs) = remote_export
+
                 if (any(remote_export)) then
                    do_export = .true.
-!$omp critical (send_and_recv_remote)
+                   !$omp critical (send_and_recv_remote)
                    if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
                    call reserve_stack(stack_waiting,cell%waiting_index)
-                   ! direction export (0)
-                   call send_cell(cell,0,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_remote)
+                   call send_cell(cell,0,irequestsend,xsendbuf)  ! direction export (0)
+                   !$omp end critical (send_and_recv_remote)
                 endif
-#endif
                 nrelink = nrelink + 1
              endif
+
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-#ifdef MPI
+
              if (do_export) then
                 stack_waiting%cells(cell%waiting_index) = cell
                 exit local_its
              endif
-#endif
+
           endif
        enddo local_its
-#ifdef MPI
        if (.not. do_export) then
-#endif
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
                divcurlB,alphaind,dvdx,vxyzu,&
                dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
-#ifdef MPI
           nlocal = nlocal + 1
        endif
     endif
-#endif
  enddo over_cells
 !$omp enddo
 
-#ifdef MPI
 !$omp barrier
 
 !$omp single
@@ -518,12 +495,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  enddo remote_its
 
-#endif
 !$omp end parallel
-#ifdef MPI
- call finish_cell_exchange(irequestrecv,xsendbuf)
- call sync_hmax_mpi
-#endif
+
+ if (mpi) then
+    call finish_cell_exchange(irequestrecv,xsendbuf)
+    call sync_hmax_mpi
+ endif
 
  if (calculate_density) then
     !--reduce values
@@ -1166,9 +1143,8 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
                              xyzcache,rad)
  use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
-#ifdef MPI
  use io,          only:id
-#endif
+ use dim,         only:mpi
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1213,15 +1189,8 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     hi31  = hi1*hi21
     hi41  = hi21*hi21
 
-#ifdef MPI
-    if (cell%owner == id) then
-       ignoreself = .true.
-    else
-       ignoreself = .false.
-    endif
-#else
-    ignoreself = .true.
-#endif
+    ignoreself = (cell%owner == id)
+
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&

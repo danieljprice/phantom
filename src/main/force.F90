@@ -179,7 +179,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
 
- use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve
+ use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
@@ -218,13 +218,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #ifdef LIGHTCURVE
  use part,         only:luminosity
 #endif
-#ifdef MPI
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters
  use mpistack,     only:reserve_stack,reset_stacks
  use mpistack,     only:stack_remote  => force_stack_1
  use mpistack,     only:stack_waiting => force_stack_2
-#endif
  use io_summary,   only:iosumdtr
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
@@ -277,16 +275,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
 #endif
  integer(kind=1)           :: ibinnow_m1
-
- logical                   :: remote_export(nprocs)
- type(cellforce)           :: cell
-
-#ifdef MPI
- logical                   :: do_export
-
+ logical                   :: remote_export(nprocs), do_export
+ type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
- type(cellforce)           :: xrecvbuf(nprocs),xsendbuf
-#endif
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -362,11 +353,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  rhomax        = 0.
 #endif
 
-#ifdef MPI
- call init_cell_exchange(xrecvbuf,irequestrecv)
- call reset_stacks
- call reset_cell_counters
-#endif
+ if (mpi) then
+    call reset_stacks
+    call reset_cell_counters
+    call init_cell_exchange(xrecvbuf,irequestrecv)
+ endif
 
 !
 !-- verification for non-ideal MHD
@@ -415,13 +406,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2) &
 !$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &
 #endif
-#ifdef MPI
 !$omp shared(id) &
 !$omp private(do_export) &
 !$omp shared(irequestrecv,irequestsend) &
 !$omp shared(stack_remote,stack_waiting) &
 !$omp shared(xsendbuf,xrecvbuf) &
-#endif
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -468,36 +457,30 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                            f=cell%fgrav, &
 #endif
                            remote_export=remote_export)
-#ifdef MPI
+
     cell%owner                   = id
     cell%remote_export(1:nprocs) = remote_export
     do_export = any(remote_export)
 
-!$omp critical (send_and_recv_remote)
-    call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-!$omp end critical (send_and_recv_remote)
-
-    if (do_export) then
-!$omp critical (send_and_recv_remote)
-       if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
-       call reserve_stack(stack_waiting,cell%waiting_index)
-       ! export the cell: direction 0 for exporting
-       call send_cell(cell,0,irequestsend,xsendbuf)
-!$omp end critical (send_and_recv_remote)
+    if (mpi) then
+       !$omp critical (send_and_recv_remote)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       if (do_export) then
+          if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
+          call reserve_stack(stack_waiting,cell%waiting_index)
+          call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
+       endif
+       !$omp end critical (send_and_recv_remote)
     endif
-#endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                       dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                       rad,radprop,dens,metrics)
 
-#ifdef MPI
     if (do_export) then
        stack_waiting%cells(cell%waiting_index) = cell
     else
-#endif
-
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
@@ -515,14 +498,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
                              ndustres,dustresfacmax,dustresfacmean, &
                              rad,drad,radprop,dtrad)
-
-#ifdef MPI
     endif
-#endif
+
  enddo over_cells
 !$omp enddo
 
-#ifdef MPI
 !$omp barrier
 
 !$omp single
@@ -580,7 +560,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
-
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
                                           ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd, &
                                           ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean, &
@@ -606,7 +585,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp single
  call finish_cell_exchange(irequestrecv,xsendbuf)
 !$omp end single
-#endif
 
 #ifdef GRAVITY
  if (icreate_sinks > 0) then
@@ -2270,10 +2248,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
                         dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                         rad,radprop,dens,metrics)
- use io,          only:error
-#ifdef MPI
- use io,          only:id
-#endif
+ use io,          only:error,id
  use dim,         only:maxvxyzu
  use options,     only:beta,alphau,alphaB,iresistive_heating
  use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,massoftype
@@ -2362,15 +2337,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     !
     !--loop over current particle's neighbours (includes self)
     !
-#ifdef MPI
-    if (cell%owner == id) then
-       ignoreself = .true.
-    else
-       ignoreself = .false.
-    endif
-#else
-    ignoreself = .true.
-#endif
+    ignoreself = (cell%owner == id)
 
     call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &
@@ -3029,7 +2996,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  enddo over_parts
 end subroutine finish_cell_and_store_results
 
-#ifdef MPI
 pure subroutine combine_cells(cella, cellb)
  type(cellforce),   intent(inout)        :: cella
  type(cellforce),   intent(in)           :: cellb
@@ -3047,7 +3013,6 @@ pure subroutine combine_cells(cella, cellb)
  cella%remote_export = (cella%remote_export .and. cellb%remote_export)
 
 end subroutine combine_cells
-#endif
 
 !-----------------------------------------------------------------------------
 !+
