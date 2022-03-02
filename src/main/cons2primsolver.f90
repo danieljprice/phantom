@@ -123,8 +123,15 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
 
 end subroutine primitive2conservative
 
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conseerved variables
+!  primitive variables are (v^i,d,u,P); v i
+!  conserved variables are (rho,pmom_i,en)
+!+
+!----------------------------------------------------------------
 subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
- use eos,     only:ieos
+ use eos,     only:ieos,gamma
  use io,      only:fatal
  real, intent(in)     :: x(1:3),metrici(:,:,:)
  real, intent(inout)  :: dens,P,u
@@ -132,7 +139,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  real, intent(in)     :: rho,pmom(1:3),en
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
- real                 :: enth,gamma
+ real                 :: enth
 
  select case (ieos)
  case (12)
@@ -141,11 +148,17 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     endif
     call conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  case default
-    gamma = 5./3.
     call conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
  end select
+
 end subroutine conservative2primitive
 
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conserved variables
+!  for equations of state where gamma is an OUTPUT
+!+
+!----------------------------------------------------------------
 subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  use metric_tools, only:unpack_metric
  use units,        only:unit_ergg,unit_density,unit_pressure
@@ -299,6 +312,12 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
 
 end subroutine conservative2primitive_var_gamma
 
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conserved variables
+!  for equations of state where gamma is constant
+!+
+!----------------------------------------------------------------
 subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
  use metric_tools, only:unpack_metric
  use eos,          only:calc_temp_and_ene,ieos
