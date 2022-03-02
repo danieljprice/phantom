@@ -107,9 +107,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
  ! walk tree up
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-!$omp critical (hmax)
+!$omp critical (node_hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (hmax)
+!$omp end critical (node_hmax)
  enddo
 
 end subroutine set_hmaxcell
