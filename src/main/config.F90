@@ -157,7 +157,11 @@ module dim
 #ifdef STACKSIZE
  integer, parameter :: stacksize = STACKSIZE
 #else
+#ifdef MPI
  integer, parameter :: stacksize = 200000
+#else
+ integer, parameter :: stacksize = 0
+#endif
 #endif
 
  ! storage for artificial viscosity switch
