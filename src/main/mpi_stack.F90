@@ -79,7 +79,6 @@ module mpistack
 contains
 
 subroutine init_mpi_memory
- integer :: idens, iforce ! memory allocation counters
  integer :: allocstat
 
  allocate(dens_cells(n_dens_cells), stat = allocstat)
