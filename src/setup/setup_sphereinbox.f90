@@ -43,9 +43,9 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, dim, domain, eos, eos_barotropic,
-!   infile_utils, io, kernel, options, part, physcon, prompting, ptmass,
-!   rho_profile, setup_params, spherical, timestep, unifdis, units
+! :Dependencies: boundary, centreofmass, dim, eos, eos_barotropic,
+!   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
+!   ptmass, rho_profile, setup_params, spherical, timestep, unifdis, units
 !
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic

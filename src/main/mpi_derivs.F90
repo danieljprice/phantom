@@ -15,8 +15,8 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
-!   stack
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpistack,
+!   mpiutils
 !
 #ifdef MPI
  use mpi
@@ -53,8 +53,8 @@ module mpiderivs
  end interface recv_while_wait
 
  interface reduce_group
- module procedure reduce_group_real, reduce_group_int
-end interface reduce_group
+  module procedure reduce_group_real, reduce_group_int
+ end interface reduce_group
 
  public :: init_cell_exchange
  public :: send_cell

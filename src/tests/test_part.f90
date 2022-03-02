@@ -14,7 +14,7 @@ module testpart
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, io, kernel, part, physcon, testutils,
+! :Dependencies: boundary, io, kernel, mpidomain, part, physcon, testutils,
 !   unifdis
 !
  use testutils, only:update_test_scores,checkval

@@ -16,7 +16,7 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, domain, io, kdtree, kernel, linklist, part,
+! :Dependencies: dim, io, kdtree, kernel, linklist, mpidomain, part,
 !   testutils, timing, unifdis
 !
  implicit none

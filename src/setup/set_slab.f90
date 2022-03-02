@@ -16,7 +16,7 @@ module slab
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, unifdis
+! :Dependencies: boundary, mpidomain, unifdis
 !
  implicit none
 

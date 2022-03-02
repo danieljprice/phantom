@@ -14,8 +14,8 @@ program phantomsetup
 !
 ! :Usage: phantomsetup fileprefix [nprocsfake]
 !
-! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils,
-!   gravwaveutils, io, krome_interface, memory, mpiutils, options, part,
+! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
+!   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
 !   setup_params, units
 !

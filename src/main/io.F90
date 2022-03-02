@@ -15,7 +15,7 @@ module io
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi
+! :Dependencies: dim, mpi
 !
  implicit none
  integer, parameter, public :: stdout = 6
@@ -77,7 +77,7 @@ contains
 !+
 !--------------------------------------------------------------------
 subroutine set_io_unit_numbers
-use dim, only: mpi
+ use dim, only: mpi
 
  if (mpi) then
     iprint = 6      ! only iprint=6 makes sense for MPI runs

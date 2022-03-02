@@ -14,7 +14,7 @@ module testlink
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, io, kdtree, kernel, linklist,
+! :Dependencies: boundary, dim, io, kdtree, kernel, linklist, mpidomain,
 !   mpiutils, part, random, testutils, timing, unifdis
 !
  implicit none

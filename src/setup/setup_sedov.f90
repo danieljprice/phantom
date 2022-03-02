@@ -15,7 +15,7 @@ module setup
 ! :Runtime parameters:
 !   - npartx : *number of particles in x-direction*
 !
-! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, setup_params, timestep, unifdis,
 !   units
 !

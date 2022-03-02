@@ -24,7 +24,7 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, domain, infile_utils, io, mpiutils, part,
+! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
 !   physcon, prompting, setup_params, timestep, unifdis, units
 !
  implicit none

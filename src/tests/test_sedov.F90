@@ -14,10 +14,10 @@ module testsedov
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checkconserved, deriv, dim, domain, energies,
-!   eos, evolve, evwrite, io, io_summary, mpiutils, options, part, physcon,
-!   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
-!   unifdis, units, viscosity
+! :Dependencies: boundary, checkconserved, deriv, dim, energies, eos,
+!   evolve, evwrite, io, io_summary, mpidomain, mpiutils, options, part,
+!   physcon, radiation_utils, readwrite_dumps, step_lf_global, testutils,
+!   timestep, unifdis, units, viscosity
 !
  implicit none
 

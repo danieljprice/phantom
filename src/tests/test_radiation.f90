@@ -17,8 +17,8 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   options, part, physcon, radiation_utils, readwrite_dumps,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, radiation_utils, readwrite_dumps,
 !   step_lf_global, testutils, timestep, unifdis, units
 !
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa

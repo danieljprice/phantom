@@ -16,7 +16,7 @@ module setup
 !   - npartx  : *number of particles in x-direction*
 !   - plasmaB : *plasma beta in the initial blast*
 !
-! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, setup_params, timestep, unifdis,
 !   units
 !

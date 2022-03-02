@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, io, mpiutils, part, physcon,
+! :Dependencies: boundary, dim, io, mpidomain, mpiutils, part, physcon,
 !   prompting, setup_params, timestep, unifdis
 !
  implicit none

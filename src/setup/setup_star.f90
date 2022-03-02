@@ -50,11 +50,11 @@ module setup
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
-! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, radiation_utils, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, sortutils, spherical,
-!   table_utils, timestep, units
+! :Dependencies: centreofmass, dim, eos, eos_mesa, eos_piecewise,
+!   extern_densprofile, externalforces, infile_utils, io, kernel,
+!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   relaxstar, rho_profile, setsoftenedcore, setstellarcore, setup_params,
+!   sortutils, spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity

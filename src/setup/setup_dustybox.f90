@@ -14,8 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
-!   setup_params, unifdis, units
+! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
+!   prompting, setup_params, unifdis, units
 !
  implicit none
  public :: setpart

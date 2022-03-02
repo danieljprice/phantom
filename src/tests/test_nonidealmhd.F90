@@ -21,9 +21,9 @@ module testnimhd
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   nicil, options, part, physcon, step_lf_global, testutils, timestep,
-!   timestep_sts, unifdis, units
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, nicil, options, part, physcon, step_lf_global, testutils,
+!   timestep, timestep_sts, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master

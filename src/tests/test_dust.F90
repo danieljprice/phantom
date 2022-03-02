@@ -18,8 +18,8 @@ module testdust
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, dust, energies, eos, growth,
-!   io, kernel, mpiutils, options, part, physcon, random, set_dust,
+! :Dependencies: boundary, deriv, dim, dust, energies, eos, growth, io,
+!   kernel, mpidomain, mpiutils, options, part, physcon, random, set_dust,
 !   step_lf_global, table_utils, testutils, timestep, unifdis, units,
 !   vectorutils
 !

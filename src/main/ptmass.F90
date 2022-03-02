@@ -32,9 +32,9 @@ module ptmass
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
-! :Dependencies: boundary, dim, domain, eos, eos_piecewise, externalforces,
+! :Dependencies: boundary, dim, eos, eos_piecewise, externalforces,
 !   fastmath, infile_utils, io, io_summary, kdtree, kernel, linklist,
-!   mpiutils, options, part, units
+!   mpidomain, mpiutils, options, part, units
 !
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,iskfile,id,master

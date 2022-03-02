@@ -16,7 +16,7 @@ module evolvesplit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, energies, evwrite, fileutils, forcing,
+! :Dependencies: centreofmass, dim, energies, evwrite, fileutils, forcing,
 !   inject, io, mpiutils, options, part, quitdump, readwrite_dumps,
 !   readwrite_infile, step_lf_global, timestep, timestep_ind, timing
 !
