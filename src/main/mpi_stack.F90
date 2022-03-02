@@ -57,6 +57,15 @@ module mpistack
  public :: reserve_stack
  public :: reset_stacks
 
+ ! stacks to be referenced from density and force routines
+ type(stackdens)     :: dens_stack_1
+ type(stackdens)     :: dens_stack_2
+ type(stackdens)     :: dens_stack_3
+ type(stackforce)    :: force_stack_1
+ type(stackforce)    :: force_stack_2
+
+ private
+
  ! primary chunk of memory requested using alloc
  integer, parameter  :: n_dens_cells  = stacksize*3
  integer, parameter  :: n_force_cells = stacksize*2
@@ -66,13 +75,6 @@ module mpistack
  ! memory allocation counters
  integer             :: idens
  integer             :: iforce
-
- ! stacks to be referenced from density and force routines
- type(stackdens)     :: dens_stack_1
- type(stackdens)     :: dens_stack_2
- type(stackdens)     :: dens_stack_3
- type(stackforce)    :: force_stack_1
- type(stackforce)    :: force_stack_2
 
 contains
 
