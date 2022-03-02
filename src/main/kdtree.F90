@@ -17,8 +17,8 @@ module kdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, balance, boundary, dim, domain, dtypekdtree,
-!   fastmath, io, kernel, mpiderivs, mpiutils, part
+! :Dependencies: allocutils, boundary, dim, domain, dtypekdtree, fastmath,
+!   io, kernel, mpibalance, mpiderivs, mpiutils, part
 !
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
@@ -1514,7 +1514,7 @@ end subroutine add_child_nodes
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
- use balance,      only:balancedomains
+ use mpibalance,   only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
 

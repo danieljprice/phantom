@@ -253,7 +253,7 @@ subroutine test_directsum(ntests,npass)
  use linklist,        only:set_linklist
  use sort_particles,  only:sort_part_id
 #ifdef MPI
- use balance,         only:balancedomains
+ use mpibalance,      only:balancedomains
 #endif
 
  integer, intent(inout) :: ntests,npass

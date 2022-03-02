@@ -196,7 +196,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:ibinpos,igpos
 #endif
 #ifdef MPI
- use balance,          only:balancedomains
+ use mpibalance,       only:balancedomains
  use part,             only:ibelong
 #endif
 #ifdef INJECT_PARTICLES

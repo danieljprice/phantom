@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module balance
+module mpibalance
 !
 ! This module moves the particles onto their correct processor
 !
@@ -351,4 +351,4 @@ subroutine check_complete
 end subroutine check_complete
 #endif
 
-end module balance
+end module mpibalance
