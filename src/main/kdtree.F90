@@ -1517,6 +1517,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
+ use timing,       only:increment_timer,get_timings
+ use derivutils,   only:timer_balance
 
  type(kdnode), intent(out)     :: nodeglobal(:) !ncellsmax+1)
  type(kdnode), intent(out)     :: node(:) !ncellsmax+1)
@@ -1545,6 +1547,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                       :: inode
  integer                       :: npnode
  logical                       :: wassplit
+
+ real(kind=4)                  :: t1,t2,tcpu1,tcpu2
 
  irootnode = 1
  parent = 0
@@ -1609,8 +1613,11 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        enddo
     endif
 
+    call get_timings(t1,tcpu1)
     ! move particles to where they belong
     call balancedomains(np)
+    call get_timings(t2,tcpu2)
+    call increment_timer(timer_balance,t2-t1,tcpu2-tcpu1)
 
     ! move particles from old array
     ! this is a waste of time, but maintains compatibility

@@ -46,7 +46,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
- use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
+ use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf,timer_balance
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
  use part,             only:ibin,iphase
@@ -207,6 +207,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call reset_timer(timer_dens,'density')
  call reset_timer(timer_force,'force')
  call reset_timer(timer_link,'link')
+ call reset_timer(timer_balance,'balance')
  call reset_timer(timer_extf,'extf')
 
  call flush(iprint)
@@ -517,7 +518,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                                             timer_dens,timer_force,timer_link,timer_extf)
+                                             timer_dens,timer_force,timer_link,timer_extf,timer_balance)
           !--Write out summary to log file
           call summary_printout(iprint,nptmass)
        endif
@@ -594,12 +595,12 @@ end subroutine evol
 !----------------------------------------------------------------
 subroutine print_timinginfo(iprint,nsteps,nsteplast,&
            timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-           timer_dens,timer_force,timer_link,timer_extf)
+           timer_dens,timer_force,timer_link,timer_balance,timer_extf)
  use io,     only:formatreal
  use timing, only:timer,print_timer
  integer,      intent(in) :: iprint,nsteps,nsteplast
  type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                             timer_dens,timer_force,timer_link,timer_extf
+                             timer_dens,timer_force,timer_link,timer_balance,timer_extf
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
@@ -621,12 +622,13 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast,&
  time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
  write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
  call print_timer(iprint,timer_step%label,timer_step, time_fullstep)
- call print_timer(iprint,"step (force)",  timer_force,time_fullstep)
- call print_timer(iprint,"step (dens) ",  timer_dens, time_fullstep)
- call print_timer(iprint,"step (link) ",  timer_link, time_fullstep)
- call print_timer(iprint,"step (extf) ",  timer_extf, time_fullstep)
- call print_timer(iprint,timer_ev%label,  timer_ev,   time_fullstep)
- call print_timer(iprint,timer_io%label,  timer_io,   time_fullstep)
+ call print_timer(iprint,"step (force)   ",  timer_force,   time_fullstep)
+ call print_timer(iprint,"step (dens)    ",  timer_dens,    time_fullstep)
+ call print_timer(iprint,"step (link)    ",  timer_link,    time_fullstep)
+ call print_timer(iprint,"     (link-bal)",  timer_balance, time_fullstep)
+ call print_timer(iprint,"step (extf)    ",  timer_extf,    time_fullstep)
+ call print_timer(iprint,timer_ev%label,     timer_ev,      time_fullstep)
+ call print_timer(iprint,timer_io%label,     timer_io,      time_fullstep)
 
  dfrac = 1./(timer_lastdump%wall + epsilon(0._4))
  fracinstep = timer_step%wall*dfrac

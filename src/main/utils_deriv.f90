@@ -21,7 +21,7 @@ module derivutils
  implicit none
 
 
- type(timer), public     :: timer_dens,timer_force,timer_link,timer_extf
+ type(timer), public     :: timer_dens,timer_force,timer_link,timer_extf,timer_balance
 
  private
 
