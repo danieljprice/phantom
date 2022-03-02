@@ -18,9 +18,7 @@ module mpidens
 !
  use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+
  implicit none
  private
 
@@ -65,7 +63,8 @@ contains
 subroutine get_mpitype_of_celldens(dtype)
 #ifdef MPI
  use mpi
- use io, only:error
+ use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
 

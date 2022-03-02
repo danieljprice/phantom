@@ -18,9 +18,7 @@ module mpiforce
 !
  use io,       only:nprocs,fatal
  use dim,      only:minpart,maxfsum,maxprocs,stacksize,maxxpartveciforce
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+
  implicit none
  private
 
@@ -66,7 +64,8 @@ contains
 subroutine get_mpitype_of_cellforce(dtype)
 #ifdef MPI
  use mpi
- use io, only:error
+ use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
 
