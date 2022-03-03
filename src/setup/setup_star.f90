@@ -50,11 +50,11 @@ module setup
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
-! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, radiation_utils, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, sortutils, spherical,
-!   table_utils, timestep, units
+! :Dependencies: centreofmass, dim, eos, eos_mesa, eos_piecewise,
+!   extern_densprofile, externalforces, infile_utils, io, kernel,
+!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   relaxstar, rho_profile, setsoftenedcore, setstellarcore, setup_params,
+!   sortutils, spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -137,7 +137,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
  use relaxstar,       only:relax_star
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

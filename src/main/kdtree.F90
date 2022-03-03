@@ -17,8 +17,8 @@ module kdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, balance, boundary, dim, domain, dtypekdtree,
-!   fastmath, io, kernel, mpiderivs, mpiutils, part
+! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
+!   kernel, mpibalance, mpiderivs, mpidomain, mpiutils, part
 !
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
@@ -29,9 +29,7 @@ module kdtree
 
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
-#ifdef MPI
  type(kdnode),     allocatable :: refinementnode(:)
-#endif
  integer,          allocatable :: list(:)
  !$omp threadprivate(list)
 
@@ -55,9 +53,7 @@ module kdtree
 
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree, getneigh, kdnode
-#ifdef MPI
  public :: maketreeglobal
-#endif
  public :: empty_tree
  public :: compute_fnode, expand_fgrav_in_taylor_series
 
@@ -79,13 +75,12 @@ module kdtree
 contains
 
 subroutine allocate_kdtree
+ use dim, only:mpi
  use allocutils, only:allocate_array
 
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
-#ifdef MPI
- call allocate_array('refinementnode', refinementnode, ncellsmax+1)
-#endif
+ if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
  !$omp parallel
  call allocate_array('list', list, maxp)
  !$omp end parallel
@@ -93,11 +88,11 @@ subroutine allocate_kdtree
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
+ use dim, only:mpi
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
-#ifdef MPI
- if (allocated(refinementnode)) deallocate(refinementnode)
-#endif
+ if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
+
  !$omp parallel
  if (allocated(list)) deallocate(list)
  !$omp end parallel
@@ -275,8 +270,8 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
 
        enddo over_stack
     enddo
-!$omp enddo
-!$omp end parallel
+    !$omp enddo
+    !$omp end parallel
 
  endif done
 
@@ -333,7 +328,7 @@ end subroutine empty_tree
 subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell,xyzh)
 #ifdef PERIODIC
  use boundary, only:cross_boundary
- use domain,   only:isperiodic
+ use mpidomain,only:isperiodic
 #endif
 #ifdef IND_TIMESTEPS
  use part, only:iphase,iactive
@@ -472,12 +467,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
             global_build)
- use dim,       only:maxtypes
+ use dim,       only:maxtypes,mpi
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
-#ifdef MPI
  use mpiderivs, only:get_group_cofm,reduce_group
-#endif
  type(kdnode),      intent(out)   :: nodeentry
  integer,           intent(in)    :: nnode, mymum, level
  integer,           intent(in)    :: ndim
@@ -496,10 +489,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 
  real                           :: xyzcofm(ndim)
  real                           :: totmass_node
-#ifdef MPI
  real    :: xyzcofmg(ndim)
  real    :: totmassg
-#endif
  integer :: npnodetot
 
  logical :: nodeisactive
@@ -622,15 +613,13 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     xyzcofm(:)   = xyzcofm(:)/(totmass_node*dfac)
  endif
 
-#ifdef MPI
  ! if this is global node construction, get the cofm and total mass
  ! of all particles in this node (some on other MPI tasks)
- if (global_build) then
+ if (mpi .and. global_build) then
     call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
     xyzcofm = xyzcofmg
     totmass_node = totmassg
  endif
-#endif
 
  ! checks the reduced mass in the case of global maketree
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
@@ -679,37 +668,30 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  enddo
  !!$omp end parallel do
 
-#ifdef MPI
  ! reduce node limits and quads across MPI tasks belonging to this group
- if (global_build) then
-    r2max    = reduce_group(r2max,'max',level)
-    hmax     = reduce_group(hmax,'max',level)
-
-    xmini(1) = reduce_group(xmini(1),'min',level)
-    xmini(2) = reduce_group(xmini(2),'min',level)
-    xmini(3) = reduce_group(xmini(3),'min',level)
-
-    xmaxi(1) = reduce_group(xmaxi(1),'max',level)
-    xmaxi(2) = reduce_group(xmaxi(2),'max',level)
-    xmaxi(3) = reduce_group(xmaxi(3),'max',level)
-#ifdef GRAVITY
-    quads(1) = reduce_group(quads(1),'+',level)
-    quads(2) = reduce_group(quads(2),'+',level)
-    quads(3) = reduce_group(quads(3),'+',level)
-    quads(4) = reduce_group(quads(4),'+',level)
-    quads(5) = reduce_group(quads(5),'+',level)
-    quads(6) = reduce_group(quads(6),'+',level)
-#endif
- endif
-
- if (global_build) then
+ if (mpi .and. global_build) then
     npnodetot = reduce_group(npnode,'+',level)
+    r2max     = reduce_group(r2max,'max',level)
+    hmax      = reduce_group(hmax,'max',level)
+
+    xmini(1)  = reduce_group(xmini(1),'min',level)
+    xmini(2)  = reduce_group(xmini(2),'min',level)
+    xmini(3)  = reduce_group(xmini(3),'min',level)
+
+    xmaxi(1)  = reduce_group(xmaxi(1),'max',level)
+    xmaxi(2)  = reduce_group(xmaxi(2),'max',level)
+    xmaxi(3)  = reduce_group(xmaxi(3),'max',level)
+#ifdef GRAVITY
+    quads(1)  = reduce_group(quads(1),'+',level)
+    quads(2)  = reduce_group(quads(2),'+',level)
+    quads(3)  = reduce_group(quads(3),'+',level)
+    quads(4)  = reduce_group(quads(4),'+',level)
+    quads(5)  = reduce_group(quads(5),'+',level)
+    quads(6)  = reduce_group(quads(6),'+',level)
+#endif
  else
-#endif
     npnodetot = npnode
-#ifdef MPI
  endif
-#endif
 
  ! assign properties to node
  nodeentry%xcen    = x0(:)
@@ -818,11 +800,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        xmaxr = 0.0
     endif
 
-#ifdef MPI
     ! Reduce node limits of children across MPI tasks belonging to this group.
     ! The synchronisation needs to happen here, not at the next level, because
     ! the groups will be independent by then.
-    if (global_build) then
+    if (mpi .and. global_build) then
        xminl(1) = reduce_group(xminl(1),'min',level)
        xminl(2) = reduce_group(xminl(2),'min',level)
        xminl(3) = reduce_group(xminl(3),'min',level)
@@ -839,7 +820,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        xmaxr(2) = reduce_group(xmaxr(2),'max',level)
        xmaxr(3) = reduce_group(xmaxr(3),'max',level)
     endif
-#endif
 
  endif
 
@@ -1510,11 +1490,10 @@ end subroutine add_child_nodes
 !  Routine to build the global level tree
 !+
 !-------------------------------------------------------------------------------
-#ifdef MPI
 subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
- use balance,      only:balancedomains
+ use mpibalance,   only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
 
@@ -1710,5 +1689,4 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
 end subroutine maketreeglobal
 
-#endif
 end module kdtree

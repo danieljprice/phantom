@@ -16,7 +16,7 @@ module slab
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, unifdis
+! :Dependencies: boundary, mpidomain, unifdis
 !
  implicit none
 
@@ -30,7 +30,7 @@ contains
 subroutine set_slab(id,master,nx,xmini,xmaxi,ymini,ymaxi,deltax,hfact,np,xyzh,lattice)
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound
  use unifdis,      only:set_unifdis
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,          intent(in)    :: id,master,nx
  integer,          intent(inout) :: np
  real,             intent(in)    :: xmini,xmaxi,ymini,ymaxi,hfact

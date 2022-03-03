@@ -14,7 +14,7 @@ module teststep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, domain, eos, io,
+! :Dependencies: boundary, checksetup, deriv, dim, eos, io, mpidomain,
 !   mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
 !   timestep_ind, timing, unifdis, viscosity
 !
@@ -49,7 +49,7 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  use checksetup,      only:check_setup
  use deriv,           only:get_derivs_global
 #ifdef IND_TIMESTEPS
