@@ -1863,6 +1863,7 @@ edit: checksetup
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
+         mpi_dens.F90 mpi_force.F90 \
          mpi_balance.F90 mpi_stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
@@ -1902,7 +1903,7 @@ phantomsetup: setup
 
 SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
           set_dust_options.f90 \
-          utils_indtimesteps.F90 partinject.F90 mpi_dens.F90 mpi_force.F90 \
+          utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
