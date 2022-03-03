@@ -20,7 +20,7 @@ module dust_formation
 !   - kappa_gas     : *constant gas opacity (cm²/g)*
 !   - wind_CO_ratio : *wind initial C/O ratio (> 1)*
 !
-! :Dependencies: dim, eos, infile_utils, io, options, part, physcon, units
+! :Dependencies: dim, eos, infile_utils, io, part, physcon, units
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa

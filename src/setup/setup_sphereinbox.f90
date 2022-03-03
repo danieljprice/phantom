@@ -43,9 +43,9 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, dim, domain, eos, eos_barotropic,
-!   infile_utils, io, kernel, options, part, physcon, prompting, ptmass,
-!   rho_profile, setup_params, spherical, timestep, unifdis, units
+! :Dependencies: boundary, centreofmass, dim, eos, eos_barotropic,
+!   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
+!   ptmass, rho_profile, setup_params, spherical, timestep, unifdis, units
 !
  use part,    only:mhd,periodic
  use dim,     only:use_dust,maxvxyzu,periodic
@@ -91,7 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass, only:reset_centreofmass
  use options,      only:nfulldump,rhofinal_cgs
  use kernel,       only:hfact_default
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
