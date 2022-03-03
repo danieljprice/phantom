@@ -92,11 +92,12 @@ end subroutine write_smalldump_hdf5
 !+
 !-------------------------------------------------------------------
 subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
- use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,    &
-                          use_dust,use_dustgrowth,phantom_version_major,      &
-                          phantom_version_minor,phantom_version_micro,        &
-                          store_temperature,phantom_version_string,use_krome, &
-                          store_dust_temperature,do_radiation,gr,do_nucleation
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,      &
+                          use_dust,use_dustgrowth,phantom_version_major,        &
+                          phantom_version_minor,phantom_version_micro,          &
+                          store_temperature,phantom_version_string,use_krome,   &
+                          store_dust_temperature,do_radiation,gr,do_nucleation, &
+                          mpi
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -159,21 +160,22 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 !--collect global information from MPI threads
 !
 !--allow non-MPI calls to create MPI dump files
-#ifdef MPI
- nparttot = reduceall_mpi('+',npart)
- call update_npartoftypetot
-#else
- if (present(ntotal)) then
-    nparttot = ntotal
-    npartoftypetot = npartoftype
-    if (all(npartoftypetot==0)) then
-       npartoftypetot(1) = ntotal
-    endif
+
+ if (mpi) then
+    nparttot = reduceall_mpi('+',npart)
+    call update_npartoftypetot
  else
-    nparttot = npart
-    npartoftypetot = npartoftype
+    if (present(ntotal)) then
+       nparttot = ntotal
+       npartoftypetot = npartoftype
+       if (all(npartoftypetot==0)) then
+          npartoftypetot(1) = ntotal
+       endif
+    else
+       nparttot = npart
+       npartoftypetot = npartoftype
+    endif
  endif
-#endif
 
 #ifdef IND_TIMESTEPS
  ind_timesteps = .true.

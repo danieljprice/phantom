@@ -18,17 +18,13 @@ module mpiforce
 !
  use io,       only:nprocs,fatal
  use dim,      only:minpart,maxfsum,maxprocs,stacksize,maxxpartveciforce
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+
  implicit none
  private
 
  public :: cellforce
  public :: stackforce
-#ifdef MPI
  public :: get_mpitype_of_cellforce
-#endif
 
  type cellforce
     sequence
@@ -65,10 +61,11 @@ module mpiforce
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_cellforce(dtype)
+#ifdef MPI
  use mpi
- use io, only:error
+ use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
 
@@ -212,7 +209,11 @@ subroutine get_mpitype_of_cellforce(dtype)
     call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_cellforce
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+
+end subroutine get_mpitype_of_cellforce
 
 end module mpiforce

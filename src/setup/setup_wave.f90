@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, dust, io, kernel, mpiutils,
+! :Dependencies: boundary, dim, dust, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, set_dust, setup_params, unifdis
 !
  implicit none
@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

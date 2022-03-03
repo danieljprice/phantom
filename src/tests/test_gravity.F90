@@ -14,9 +14,9 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: balance, deriv, dim, directsum, energies, eos, io, kdtree,
-!   linklist, mpiutils, options, part, physcon, ptmass, sort_particles,
-!   spherical, testutils, timing
+! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
+!   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
+!   sort_particles, spherical, testutils, timing
 !
  use io, only:id,master
  implicit none
@@ -234,7 +234,7 @@ end subroutine test_taylorseries
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
  use io,              only:id,master
- use dim,             only:maxp,maxptmass
+ use dim,             only:maxp,maxptmass,mpi
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong
@@ -252,9 +252,7 @@ subroutine test_directsum(ntests,npass)
  use mpiutils,        only:reduceall_mpi,bcast_mpi
  use linklist,        only:set_linklist
  use sort_particles,  only:sort_part_id
-#ifdef MPI
- use balance,         only:balancedomains
-#endif
+ use mpibalance,      only:balancedomains
 
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
@@ -334,10 +332,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master and sort for direct summation
 !
-#ifdef MPI
-       ibelong(:) = 0
-       call balancedomains(npart)
-#endif
+       if (mpi) then
+          ibelong(:) = 0
+          call balancedomains(npart)
+       endif
        call sort_part_id
 !
 !--allocate array for storing direct sum gravitational force
@@ -364,10 +362,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master and sort for test comparison
 !
-#ifdef MPI
-       ibelong(:) = 0
-       call balancedomains(npart)
-#endif
+       if (mpi) then
+          ibelong(:) = 0
+          call balancedomains(npart)
+       endif
        call sort_part_id
 !
 !--compare the results
@@ -399,10 +397,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master for sink creation
 !
-#ifdef MPI
-    ibelong(:) = 0
-    call balancedomains(npart)
-#endif
+    if (mpi) then
+       ibelong(:) = 0
+       call balancedomains(npart)
+    endif
 !
 !--sort particles so that they can be compared at the end
 !
@@ -495,10 +493,10 @@ subroutine test_directsum(ntests,npass)
 !
 !--move particles to master for comparison
 !
-#ifdef MPI
-    ibelong(:) = 0
-    call balancedomains(npart)
-#endif
+    if (mpi) then
+       ibelong(:) = 0
+       call balancedomains(npart)
+    endif
     call sort_part_id
 
     call checkval(npart,fxyzu(1,:),fgrav(1,:),5.e-2,nfailed(1),'fgrav(x)')
