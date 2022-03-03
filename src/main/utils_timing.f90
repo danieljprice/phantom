@@ -14,7 +14,7 @@ module timing
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: mpiutils
 !
  implicit none
  integer, private :: istarttime(6)
@@ -26,12 +26,27 @@ module timing
  public :: wallclock,log_timing,print_time
 
  public :: timer,reset_timer,increment_timer,print_timer
+ public :: setup_timers,reduce_timer_mpi
 
  type timer
-    character(len=20) :: label
-    real(kind=4) :: wall
-    real(kind=4) :: cpu
+    character(len=20)   :: label
+    real(kind=4)        :: wall
+    real(kind=4)        :: cpu
+    integer             :: parent
  end type timer
+
+ integer, public, parameter ::   itimer_fromstart = 1,  &
+                                 itimer_lastdump  = 2,  &
+                                 itimer_step      = 3,  &
+                                 itimer_link      = 4,  &
+                                 itimer_balance   = 5,  &
+                                 itimer_dens      = 6,  &
+                                 itimer_force     = 7,  &
+                                 itimer_extf      = 8,  &
+                                 itimer_io        = 9,  &
+                                 itimer_ev        = 10
+ integer, parameter :: ntimers = 10 ! should be equal to the largest itimer index
+ type(timer), public :: timers(ntimers)
 
  private
 
@@ -41,6 +56,32 @@ contains
 !  Routines to handle timer objects
 !+
 !--------------------------------------
+subroutine setup_timers
+ !               timer from array          label          parent
+ call init_timer(timers(itimer_fromstart), 'all',         0           )
+ call init_timer(timers(itimer_lastdump ), 'last',        0           )
+ call init_timer(timers(itimer_step     ), 'step',        0           )
+ call init_timer(timers(itimer_link     ), 'step',        itimer_step )
+ call init_timer(timers(itimer_balance  ), 'balance',     itimer_link )
+ call init_timer(timers(itimer_dens     ), 'density',     itimer_step )
+ call init_timer(timers(itimer_force    ), 'force',       itimer_step )
+ call init_timer(timers(itimer_extf     ), 'extf',        itimer_step )
+ call init_timer(timers(itimer_io       ), 'write_dump',  0           )
+ call init_timer(timers(itimer_ev       ), 'write_ev',    0           )
+
+end subroutine setup_timers
+
+subroutine init_timer(my_timer,label,parent)
+ type(timer),      intent(inout) :: my_timer
+ character(len=*), intent(in)    :: label
+ integer,          intent(in)    :: parent
+
+ call reset_timer(my_timer,label)
+
+ my_timer%parent = parent
+
+end subroutine init_timer
+
 subroutine reset_timer(my_timer,label,wall,cpu)
  type(timer),      intent(inout)        :: my_timer
  real(kind=4),     intent(in), optional :: wall, cpu
@@ -62,14 +103,21 @@ subroutine reset_timer(my_timer,label,wall,cpu)
 
 end subroutine reset_timer
 
-subroutine increment_timer(my_timer,wall,cpu)
- type(timer),  intent(inout) :: my_timer
+subroutine increment_timer(itimer,wall,cpu)
+ integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: wall, cpu
 
- my_timer%wall = my_timer%wall + wall
- my_timer%cpu  = my_timer%cpu + cpu
+ timers(itimer)%wall = timers(itimer)%wall + wall
+ timers(itimer)%cpu  = timers(itimer)%cpu  + cpu
 
 end subroutine increment_timer
+
+subroutine reduce_timer_mpi(itimer)
+ use mpiutils, only:reduce_mpi
+ integer, intent(in) :: itimer
+
+ timers(itimer)%cpu = reduce_mpi('+',timers(itimer)%cpu)
+end subroutine reduce_timer_mpi
 
 !-----------------------------------------------
 !+

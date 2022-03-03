@@ -18,7 +18,7 @@ module kdtree
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, balance, boundary, dim, domain, dtypekdtree,
-!   fastmath, io, kernel, mpiderivs, mpiutils, part
+!   fastmath, io, kernel, mpiderivs, mpiutils, part, timing
 !
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
@@ -1517,8 +1517,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use balance,      only:balancedomains
  use mpiderivs,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
- use timing,       only:increment_timer,get_timings
- use derivutils,   only:timer_balance
+ use timing,       only:increment_timer,get_timings,itimer_balance
 
  type(kdnode), intent(out)     :: nodeglobal(:) !ncellsmax+1)
  type(kdnode), intent(out)     :: node(:) !ncellsmax+1)
@@ -1617,7 +1616,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     ! move particles to where they belong
     call balancedomains(np)
     call get_timings(t2,tcpu2)
-    call increment_timer(timer_balance,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_balance,t2-t1,tcpu2-tcpu1)
 
     ! move particles from old array
     ! this is a waste of time, but maintains compatibility
