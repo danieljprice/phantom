@@ -61,7 +61,7 @@ subroutine setup_timers
  call init_timer(timers(itimer_fromstart), 'all',         0           )
  call init_timer(timers(itimer_lastdump ), 'last',        0           )
  call init_timer(timers(itimer_step     ), 'step',        0           )
- call init_timer(timers(itimer_link     ), 'step',        itimer_step )
+ call init_timer(timers(itimer_link     ), 'tree',        itimer_step )
  call init_timer(timers(itimer_balance  ), 'balance',     itimer_link )
  call init_timer(timers(itimer_dens     ), 'density',     itimer_step )
  call init_timer(timers(itimer_force    ), 'force',       itimer_step )
