@@ -16,12 +16,11 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, centreofmass, checkconserved, derivutils, dim,
-!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
-!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: analysis, centreofmass, checkconserved, dim, energies,
+!   evwrite, externalforces, fileutils, forcing, inject, io, io_summary,
+!   mf_write, mpiutils, options, part, partinject, ptmass, quitdump,
+!   radiation_utils, readwrite_dumps, readwrite_infile, step_lf_global,
+!   supertimestep, timestep, timestep_ind, timestep_sts, timing
 !
  implicit none
  public :: evol
@@ -131,7 +130,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: should_conserve_dustmass
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
- type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
  real, parameter :: xor(3)=0.
 
  tprint    = 0.
@@ -227,7 +225,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
-       twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+       twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
@@ -427,7 +425,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifndef IND_TIMESTEPS
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
-       twallperdump = timer_lastdump%wall
+       twallperdump = timers(itimer_lastdump)%wall
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
 #endif
@@ -530,7 +528,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
           timeperbin(:) = 0.
-          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timer_lastdump%wall,2)
+          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
        endif
        tlast = tprint
        istepfrac = 0
