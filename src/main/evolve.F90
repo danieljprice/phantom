@@ -589,11 +589,12 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_link,itimer_balance,itimer_dens,&
-                  itimer_force,itimer_extf,itimer_ev,itimer_io
+                  itimer_force,itimer_extf,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
+ integer                  :: itimer
 
  write(string,"(i12)") nsteps
  call formatreal(real(timers(itimer_fromstart)%wall),string1)
@@ -610,15 +611,15 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
- write(iprint,"(/,19x,a)") 'wall        cpu  cpu/wall     frac'
- call print_timer(iprint,itimer_step,    time_fullstep)
- call print_timer(iprint,itimer_link,    time_fullstep)
- call print_timer(iprint,itimer_balance, time_fullstep)
- call print_timer(iprint,itimer_dens,    time_fullstep)
- call print_timer(iprint,itimer_force,   time_fullstep)
- call print_timer(iprint,itimer_extf,    time_fullstep)
- call print_timer(iprint,itimer_ev,      time_fullstep)
- call print_timer(iprint,itimer_io,      time_fullstep)
+ write(iprint,"(/,20x,a)") 'wall        cpu  cpu/wall     frac'
+
+ ! skip the first 2 timers
+ ! 1: from start
+ ! 2: from last dump
+ ! 3: step
+ do itimer = 3, ntimers
+    call print_timer(iprint,itimer,time_fullstep)
+ enddo
 
  dfrac = 1./(timers(itimer_lastdump)%wall + epsilon(0._4))
  fracinstep = timers(itimer_step)%wall*dfrac
