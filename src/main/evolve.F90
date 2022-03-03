@@ -509,17 +509,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
 #endif
        if (id==master) then
-          call print_timinginfo(iprint,nsteps,nsteplast,&
-          timers(itimer_fromstart   ),&
-          timers(itimer_lastdump    ),&
-          timers(itimer_step        ),&
-          timers(itimer_ev          ),&
-          timers(itimer_io          ),&
-          timers(itimer_dens        ),&
-          timers(itimer_force       ),&
-          timers(itimer_link        ),&
-          timers(itimer_balance     ),&
-          timers(itimer_extf        ) )
+          call print_timinginfo(iprint,nsteps,nsteplast)
           !--Write out summary to log file
           call summary_printout(iprint,nptmass)
        endif
@@ -595,45 +585,43 @@ end subroutine evol
 !  routine to print out the timing information at each full dump
 !+
 !----------------------------------------------------------------
-subroutine print_timinginfo(iprint,nsteps,nsteplast,&
-           timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-           timer_dens,timer_force,timer_link,timer_balance,timer_extf)
+subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
- use timing, only:timer,print_timer
+ use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
+                  itimer_step,itimer_link,itimer_balance,itimer_dens,&
+                  itimer_force,itimer_extf,itimer_ev,itimer_io
  integer,      intent(in) :: iprint,nsteps,nsteplast
- type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                             timer_dens,timer_force,timer_link,timer_balance,timer_extf
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
 
  write(string,"(i12)") nsteps
- call formatreal(real(timer_fromstart%wall),string1)
- call formatreal(real(timer_fromstart%cpu),string2)
- call formatreal(real(timer_fromstart%cpu/(timer_fromstart%wall+epsilon(0._4))),string3)
+ call formatreal(real(timers(itimer_fromstart)%wall),string1)
+ call formatreal(real(timers(itimer_fromstart)%cpu),string2)
+ call formatreal(real(timers(itimer_fromstart)%cpu/(timers(itimer_fromstart)%wall+epsilon(0._4))),string3)
  write(iprint,"(1x,'Since code start: ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  write(string,"(i12)") nsteps-nsteplast
- call formatreal(real(timer_lastdump%wall),string1)
- call formatreal(real(timer_lastdump%cpu),string2)
- call formatreal(real(timer_lastdump%cpu/(timer_lastdump%wall+epsilon(0._4))),string3)
+ call formatreal(real(timers(itimer_lastdump)%wall),string1)
+ call formatreal(real(timers(itimer_lastdump)%cpu),string2)
+ call formatreal(real(timers(itimer_lastdump)%cpu/(timers(itimer_lastdump)%wall+epsilon(0._4))),string3)
  write(iprint,"(1x,'Since last dump : ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
- time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
- write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
- call print_timer(iprint,timer_step%label,      timer_step,    time_fullstep)
- call print_timer(iprint,timer_link%label,      timer_link,    time_fullstep)
- call print_timer(iprint,timer_balance%label,   timer_balance, time_fullstep)
- call print_timer(iprint,timer_dens%label,      timer_dens,    time_fullstep)
- call print_timer(iprint,timer_force%label,     timer_force,   time_fullstep)
- call print_timer(iprint,timer_extf%label,      timer_extf,    time_fullstep)
- call print_timer(iprint,timer_ev%label,        timer_ev,      time_fullstep)
- call print_timer(iprint,timer_io%label,        timer_io,      time_fullstep)
+ time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
+ write(iprint,"(/,19x,a)") 'wall        cpu  cpu/wall     frac'
+ call print_timer(iprint,itimer_step,    time_fullstep)
+ call print_timer(iprint,itimer_link,    time_fullstep)
+ call print_timer(iprint,itimer_balance, time_fullstep)
+ call print_timer(iprint,itimer_dens,    time_fullstep)
+ call print_timer(iprint,itimer_force,   time_fullstep)
+ call print_timer(iprint,itimer_extf,    time_fullstep)
+ call print_timer(iprint,itimer_ev,      time_fullstep)
+ call print_timer(iprint,itimer_io,      time_fullstep)
 
- dfrac = 1./(timer_lastdump%wall + epsilon(0._4))
- fracinstep = timer_step%wall*dfrac
+ dfrac = 1./(timers(itimer_lastdump)%wall + epsilon(0._4))
+ fracinstep = timers(itimer_step)%wall*dfrac
  if (fracinstep < 0.99) then
     write(iprint,"(1x,a,f6.2,a)") 'WARNING: ',100.*(1.-fracinstep),'% of time was in unusual routines (not dens/force/link)'
  endif
