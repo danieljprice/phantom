@@ -554,16 +554,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
        twalllast = t2
        tcpulast = tcpu2
-       call reset_timer(timers(itimer_fromstart))
-       call reset_timer(timers(itimer_lastdump ))
-       call reset_timer(timers(itimer_step     ))
-       call reset_timer(timers(itimer_link     ))
-       call reset_timer(timers(itimer_balance  ))
-       call reset_timer(timers(itimer_dens     ))
-       call reset_timer(timers(itimer_force    ))
-       call reset_timer(timers(itimer_extf     ))
-       call reset_timer(timers(itimer_io       ))
-       call reset_timer(timers(itimer_ev       ))
+       call reset_timer(itimer_fromstart)
+       call reset_timer(itimer_lastdump )
+       call reset_timer(itimer_step     )
+       call reset_timer(itimer_link     )
+       call reset_timer(itimer_balance  )
+       call reset_timer(itimer_dens     )
+       call reset_timer(itimer_force    )
+       call reset_timer(itimer_extf     )
+       call reset_timer(itimer_io       )
+       call reset_timer(itimer_ev       )
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1

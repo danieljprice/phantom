@@ -58,48 +58,35 @@ contains
 !--------------------------------------
 subroutine setup_timers
  !               timer from array          label          parent
- call init_timer(timers(itimer_fromstart), 'all',         0           )
- call init_timer(timers(itimer_lastdump ), 'last',        0           )
- call init_timer(timers(itimer_step     ), 'step',        0           )
- call init_timer(timers(itimer_link     ), 'tree',        itimer_step )
- call init_timer(timers(itimer_balance  ), 'balance',     itimer_link )
- call init_timer(timers(itimer_dens     ), 'density',     itimer_step )
- call init_timer(timers(itimer_force    ), 'force',       itimer_step )
- call init_timer(timers(itimer_extf     ), 'extf',        itimer_step )
- call init_timer(timers(itimer_io       ), 'write_dump',  0           )
- call init_timer(timers(itimer_ev       ), 'write_ev',    0           )
+ call init_timer(itimer_fromstart, 'all',         0           )
+ call init_timer(itimer_lastdump , 'last',        0           )
+ call init_timer(itimer_step     , 'step',        0           )
+ call init_timer(itimer_link     , 'tree',        itimer_step )
+ call init_timer(itimer_balance  , 'balance',     itimer_link )
+ call init_timer(itimer_dens     , 'density',     itimer_step )
+ call init_timer(itimer_force    , 'force',       itimer_step )
+ call init_timer(itimer_extf     , 'extf',        itimer_step )
+ call init_timer(itimer_io       , 'write_dump',  0           )
+ call init_timer(itimer_ev       , 'write_ev',    0           )
 
 end subroutine setup_timers
 
-subroutine init_timer(my_timer,label,parent)
- type(timer),      intent(inout) :: my_timer
- character(len=*), intent(in)    :: label
- integer,          intent(in)    :: parent
+subroutine init_timer(itimer,label,parent)
+ integer,          intent(in) :: itimer
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: parent
 
- call reset_timer(my_timer,label)
-
- my_timer%parent = parent
+ call reset_timer(itimer)
+ timers(itimer)%label  = label
+ timers(itimer)%parent = parent
 
 end subroutine init_timer
 
-subroutine reset_timer(my_timer,label,wall,cpu)
- type(timer),      intent(inout)        :: my_timer
- real(kind=4),     intent(in), optional :: wall, cpu
- character(len=*), intent(in), optional :: label
+subroutine reset_timer(itimer)
+ integer, intent(in)        :: itimer
 
- if (present(wall)) then
-    my_timer%wall = wall
- else
-    my_timer%wall = 0.
- endif
- if (present(cpu)) then
-    my_timer%cpu = cpu
- else
-    my_timer%cpu = 0.
- endif
- if (present(label)) then
-    my_timer%label = trim(label)
- endif
+timers(itimer)%wall = 0.0
+timers(itimer)%cpu = 0.0
 
 end subroutine reset_timer
 
