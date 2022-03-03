@@ -15,8 +15,8 @@ module deriv
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, linklist, part, photoevap, ptmass,
-!   ptmass_radiation, timestep, timestep_ind, timing
+!   forces, forcing, growth, io, linklist, metric_tools, part, photoevap,
+!   ptmass, ptmass_radiation, timestep, timestep_ind, timing
 !
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -126,9 +126,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call set_linklist(npart,nactive,xyzh,vxyzu)
 
     if (gr) then
-      ! Recalculate the metric after moving particles to their new tasks
-      call init_metric(npart,xyzh,metrics)
-      call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+       ! Recalculate the metric after moving particles to their new tasks
+       call init_metric(npart,xyzh,metrics)
+       call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
     endif
 
 #ifdef PERIODIC
