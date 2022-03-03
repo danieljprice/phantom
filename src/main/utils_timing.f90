@@ -14,7 +14,7 @@ module timing
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpiutils
+! :Dependencies: io, mpiutils
 !
  implicit none
  integer, private :: istarttime(6)
@@ -111,113 +111,113 @@ subroutine init_timer(itimer,label,parent)
 
  ! Pad with spaces to the correct level
  do i = 1, level-1
-   timers(itimer)%treesymbol(i) = 0
+    timers(itimer)%treesymbol(i) = 0
  enddo
 
  ! Get the parent of the previous timer
  if (itimer > 1) then
-   previous_parent = timers(itimer-1)%parent
+    previous_parent = timers(itimer-1)%parent
  else
-   previous_parent = 0
+    previous_parent = 0
  endif
 
-if (previous_parent == parent) then
-   ! If sibling is above, replace their '└' with '├'
-   timers(itimer-1)%treesymbol(level) = 2
-else
-   ! If something else is above, add a connecting line '│'
-   ! until the branch is reached
-   do i = itimer-1,1,-1
-      if (timers(i)%treesymbol(level) == 0) then
-         ! Replace empty space with '│'
-         timers(i)%treesymbol(level) = 3
-      elseif (timers(i)%treesymbol(level) == 1) then
-         ! Replace '└' at the branch with ├'
-         timers(i)%treesymbol(level) = 2
-         exit
-      endif
+ if (previous_parent == parent) then
+    ! If sibling is above, replace their '└' with '├'
+    timers(itimer-1)%treesymbol(level) = 2
+ else
+    ! If something else is above, add a connecting line '│'
+    ! until the branch is reached
+    do i = itimer-1,1,-1
+       if (timers(i)%treesymbol(level) == 0) then
+          ! Replace empty space with '│'
+          timers(i)%treesymbol(level) = 3
+       elseif (timers(i)%treesymbol(level) == 1) then
+          ! Replace '└' at the branch with ├'
+          timers(i)%treesymbol(level) = 2
+          exit
+       endif
 
-   enddo
-endif
+    enddo
+ endif
 
 end subroutine init_timer
 
 subroutine get_timer_level(itimer,level)
-   integer, intent(in)  :: itimer
-   integer, intent(out) :: level
+ integer, intent(in)  :: itimer
+ integer, intent(out) :: level
 
-   integer :: i
+ integer :: i
 
-   ! Get the level of this timer, where level 1 is the base level
-   level = 0
-   i = itimer
-   do while (i /= 0)
-      i = timers(i)%parent
-      level = level + 1
-   enddo
+ ! Get the level of this timer, where level 1 is the base level
+ level = 0
+ i = itimer
+ do while (i /= 0)
+    i = timers(i)%parent
+    level = level + 1
+ enddo
 
 end subroutine get_timer_level
 
 subroutine finish_timer_tree_symbols
 
-   character(len=30) :: treelabel_new
-   integer :: i, j, k
+ character(len=30) :: treelabel_new
+ integer :: i, j, k
 
-   do i = 1, ntimers
-      treelabel_new = ''
+ do i = 1, ntimers
+    treelabel_new = ''
 
-      ! Length of tree symbol, to calculate space padding on the right
-      k = 0
+    ! Length of tree symbol, to calculate space padding on the right
+    k = 0
 
-      ! Convert integer arrays into symbols
-      do j = 1, size(timers(i)%treesymbol)
-         select case (timers(i)%treesymbol(j))
-         case (0)
-            ! cannot use spaces because they get trimmed,
-            ! so use '.' instead of ' ' as a placeholder
-            treelabel_new = trim(treelabel_new) // '..'
-            k = k + 2
-         case (1)
-            treelabel_new = trim(treelabel_new) // '└─'
-            k = k + 2
-         case (2)
-            treelabel_new = trim(treelabel_new) // '├─'
-            k = k + 2
-         case (3)
-            treelabel_new = trim(treelabel_new) // '│.'
-            k = k + 2
-         case default
-            continue
-         end select
-      enddo
+    ! Convert integer arrays into symbols
+    do j = 1, size(timers(i)%treesymbol)
+       select case (timers(i)%treesymbol(j))
+       case (0)
+          ! cannot use spaces because they get trimmed,
+          ! so use '.' instead of ' ' as a placeholder
+          treelabel_new = trim(treelabel_new) // '..'
+          k = k + 2
+       case (1)
+          treelabel_new = trim(treelabel_new) // '└─'
+          k = k + 2
+       case (2)
+          treelabel_new = trim(treelabel_new) // '├─'
+          k = k + 2
+       case (3)
+          treelabel_new = trim(treelabel_new) // '│.'
+          k = k + 2
+       case default
+          continue
+       end select
+    enddo
 
-      ! Add label
-      treelabel_new = trim(treelabel_new) // timers(i)%label
-      k = k + len(trim(timers(i)%label))
+    ! Add label
+    treelabel_new = trim(treelabel_new) // timers(i)%label
+    k = k + len(trim(timers(i)%label))
 
-      ! Pad with spaces
-      do j = treelabel_len-11, k, -1
-         treelabel_new = trim(treelabel_new) // '.'
-      enddo
+    ! Pad with spaces
+    do j = treelabel_len-11, k, -1
+       treelabel_new = trim(treelabel_new) // '.'
+    enddo
 
-      ! Add ':'
-      treelabel_new = trim(treelabel_new) // ':'
+    ! Add ':'
+    treelabel_new = trim(treelabel_new) // ':'
 
-      ! Replace '.' with ' '
-      do j = 1, len(treelabel_new)
-         if (treelabel_new(j:j) == '.') treelabel_new(j:j) = ' '
-      enddo
+    ! Replace '.' with ' '
+    do j = 1, len(treelabel_new)
+       if (treelabel_new(j:j) == '.') treelabel_new(j:j) = ' '
+    enddo
 
-      timers(i)%treelabel = treelabel_new
-   enddo
+    timers(i)%treelabel = treelabel_new
+ enddo
 
 end subroutine finish_timer_tree_symbols
 
 subroutine reset_timer(itimer)
  integer, intent(in)        :: itimer
 
-timers(itimer)%wall = 0.0
-timers(itimer)%cpu = 0.0
+ timers(itimer)%wall = 0.0
+ timers(itimer)%cpu = 0.0
 
 end subroutine reset_timer
 
@@ -271,8 +271,8 @@ subroutine print_timer(lu,itimer,time_total)
             timers(itimer)%cpu/timers(itimer)%wall,&
             timers(itimer)%wall/time_total*100.
     endif
-   else
-      write(lu, "()")
+ else
+    write(lu, "()")
  endif
 
 end subroutine print_timer
