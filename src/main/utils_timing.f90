@@ -75,6 +75,11 @@ subroutine setup_timers
  call init_timer(itimer_ev       , 'write_ev',    0           )
  call init_timer(itimer_io       , 'write_dump',  0           )
 
+ ! When the timer is initialised, the tree structure is defined as an arary of integers
+ ! because the special ASCII characters take up more than 1 space in a character array,
+ ! making alignment difficult. The finish_timer_tree_symbols function is called to
+ ! convert that array into a string. This makes text formatting more straightforward,
+ ! and the tree diagram generation code easier to understand.
  call finish_timer_tree_symbols
 
 end subroutine setup_timers
