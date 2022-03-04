@@ -165,7 +165,7 @@ end subroutine get_timer_level
 
 subroutine finish_timer_tree_symbols
 
- character(len=30) :: treelabel_new
+ character(len=treelabel_len) :: treelabel_new
  integer :: i, j, k
 
  do i = 1, ntimers
