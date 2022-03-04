@@ -126,7 +126,7 @@ subroutine init_timer(itimer,label,parent)
     previous_parent = 0
  endif
 
- if (previous_parent == parent) then
+ if (previous_parent == parent .and. itimer > 1) then
     ! If sibling is above, replace their '└' with '├'
     timers(itimer-1)%treesymbol(level) = 2
  else
