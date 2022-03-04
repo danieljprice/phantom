@@ -132,14 +132,13 @@ subroutine init_timer(itimer,label,parent)
  else
     ! If something else is above, add a connecting line '│'
     ! until the branch is reached
-    do i = itimer-1,1,-1
+    do i = itimer-1,parent+1,-1
        if (timers(i)%treesymbol(level) == 0) then
           ! Replace empty space with '│'
           timers(i)%treesymbol(level) = 3
        elseif (timers(i)%treesymbol(level) == 1) then
           ! Replace '└' at the branch with ├'
           timers(i)%treesymbol(level) = 2
-          exit
        endif
 
     enddo
@@ -238,10 +237,10 @@ subroutine increment_timer(itimer,wall,cpu)
 end subroutine increment_timer
 
 subroutine reduce_timers
-   integer :: itimer
-   do itimer = 1, ntimers
-      call reduce_timer_mpi(itimer)
-   enddo
+ integer :: itimer
+ do itimer = 1, ntimers
+    call reduce_timer_mpi(itimer)
+ enddo
 end subroutine reduce_timers
 
 subroutine reduce_timer_mpi(itimer)
