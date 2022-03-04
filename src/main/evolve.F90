@@ -607,7 +607,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
- write(iprint,"(/,20x,a)") 'wall        cpu  cpu/wall     frac'
+ write(iprint,"(/,25x,a)") 'wall        cpu  cpu/wall     frac'
 
  ! skip the first 2 timers
  ! 1: from start

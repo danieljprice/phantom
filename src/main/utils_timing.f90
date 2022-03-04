@@ -28,7 +28,7 @@ module timing
  public :: timer,reset_timer,increment_timer,print_timer
  public :: setup_timers,reduce_timer_mpi,reduce_timers
 
- integer, parameter, private :: treelabel_len = 24
+ integer, parameter, private :: treelabel_len = 30
  type timer
     character(len=10)            :: label
     real(kind=4)                 :: wall
@@ -201,7 +201,9 @@ subroutine finish_timer_tree_symbols
     k = k + len(trim(timers(i)%label))
 
     ! Pad with spaces
-    do j = treelabel_len-11, k, -1
+    ! Each symbol takes up 2 more characters, so to accmodate
+    ! 6 symbols, remove 6*2 spaces
+    do j = treelabel_len-(6*2), k, -1
        treelabel_new = trim(treelabel_new) // '.'
     enddo
 
@@ -209,7 +211,7 @@ subroutine finish_timer_tree_symbols
     treelabel_new = trim(treelabel_new) // ':'
 
     ! Replace '.' with ' '
-    do j = 1, len(treelabel_new)
+    do j = 1, treelabel_len
        if (treelabel_new(j:j) == '.') treelabel_new(j:j) = ' '
     enddo
 
