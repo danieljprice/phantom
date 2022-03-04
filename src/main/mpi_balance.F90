@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module balance
+module mpibalance
 !
 ! This module moves the particles onto their correct processor
 !
@@ -23,70 +23,24 @@ module balance
  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
                     comm_balance,comm_balancecount
  use part,     only:ipartbufsize
+#endif
 
  implicit none
 
- integer :: npartnew,ncomplete
- integer, dimension(1), private :: irequestrecv,irequestsend
-
- real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
+ public :: balancedomains
 
  private
- public :: balancedomains
- public :: balance_init,balance_finish,send_part,recv_part
 
+#ifdef MPI
+ real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
+ integer, dimension(1) :: irequestrecv,irequestsend
  integer(kind=8) :: ntot_start
-
  integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
  integer :: countrequest(maxprocs)
+ integer :: npartnew, ncomplete
+#endif
 
 contains
-
-!----------------------------------------------------------------
-!+
-!  initialisation of load balancing process,
-!  declaration of types etc.
-!+
-!----------------------------------------------------------------
-subroutine balance_init(npart)
- implicit none
- integer, intent(in) :: npart
-
- integer :: i
-
-!--use persistent communication type for receives
-!  cannot do same for sends as there are different destination,
-!  unless we make a request for each processor
-!
- call MPI_RECV_INIT(xbuffer,size(xbuffer),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
-                    MPI_ANY_TAG,comm_balance,irequestrecv(1),mpierr)
-!
-!--post a non-blocking receive so that we can receive particles
-!
- call MPI_START(irequestrecv(1),mpierr)
-
- !
- !--count checking
- !
- nsent(:) = 0
- nexpect(:) = -1
- nrecv(:) = 0
- do i=1,nprocs
-    if (id /= i-1) then
-       call MPI_IRECV(nexpect(i),1,MPI_INTEGER4,i-1, &
-                      MPI_ANY_TAG,comm_balancecount,countrequest(i),mpierr)
-    endif
- enddo
-
- npartnew = npart
-
- !
- !--count number of proceses that have completed sending particles
- !
- ncomplete = 0
-
- return
-end subroutine balance_init
 
 !----------------------------------------------------------------
 !+
@@ -95,11 +49,13 @@ end subroutine balance_init
 !+
 !----------------------------------------------------------------
 subroutine balancedomains(npart)
+#ifndef MPI
+ integer, intent(inout) :: npart
+#else
  use io,     only:id,master,iverbose,fatal
  use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
- implicit none
  integer, intent(inout) :: npart
  integer :: i,newproc
  integer(kind=8) :: ntot
@@ -151,7 +107,53 @@ subroutine balancedomains(npart)
  if (id==master .and. iverbose >= 3) call printused(tstart)
 
  return
+#endif
 end subroutine balancedomains
+
+#ifdef MPI
+!----------------------------------------------------------------
+!+
+!  initialisation of load balancing process,
+!  declaration of types etc.
+!+
+!----------------------------------------------------------------
+subroutine balance_init(npart)
+ integer, intent(in) :: npart
+ integer :: i
+
+!--use persistent communication type for receives
+!  cannot do same for sends as there are different destination,
+!  unless we make a request for each processor
+!
+ call MPI_RECV_INIT(xbuffer,size(xbuffer),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
+                    MPI_ANY_TAG,comm_balance,irequestrecv(1),mpierr)
+!
+!--post a non-blocking receive so that we can receive particles
+!
+ call MPI_START(irequestrecv(1),mpierr)
+
+ !
+ !--count checking
+ !
+ nsent(:) = 0
+ nexpect(:) = -1
+ nrecv(:) = 0
+ do i=1,nprocs
+    if (id /= i-1) then
+       call MPI_IRECV(nexpect(i),1,MPI_INTEGER4,i-1, &
+                      MPI_ANY_TAG,comm_balancecount,countrequest(i),mpierr)
+    endif
+ enddo
+
+ npartnew = npart
+
+ !
+ !--count number of proceses that have completed sending particles
+ !
+ ncomplete = 0
+
+ return
+end subroutine balance_init
 
 !-----------------------------------------------------------------------
 !+
@@ -164,7 +166,6 @@ end subroutine balancedomains
 subroutine recv_part(replace)
  use io,      only:fatal,id
  use part,    only:isdead,unfill_buffer,maxp,ll,ideadhead,ibelong
- implicit none
  logical, intent(in), optional :: replace
  logical :: igotpart
  integer :: inew
@@ -229,7 +230,6 @@ end subroutine recv_part
 subroutine send_part(i,newproc,replace)
  use io,   only:fatal,nprocs
  use part, only:fill_sendbuf,kill_particle
- implicit none
  integer, intent(in) :: i,newproc
  logical, intent(in), optional :: replace
  logical :: idone,doreplace
@@ -270,10 +270,8 @@ end subroutine send_part
 subroutine balance_finish(npart,replace)
  use io,    only:id,nprocs,fatal,iverbose
  use part,  only:recount_npartoftype
- implicit none
  integer, intent(out)            :: npart
  logical, intent(in), optional   :: replace
-
  integer             :: newproc
  integer             :: sendrequest !dummy
  logical, parameter  :: iamcomplete = .true.
@@ -351,4 +349,4 @@ subroutine check_complete
 end subroutine check_complete
 #endif
 
-end module balance
+end module mpibalance

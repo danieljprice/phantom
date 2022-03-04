@@ -158,25 +158,19 @@ end subroutine get_distance_from_centre_of_mass
 
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  use dtypekdtree,  only:ndimtree
- use kdtree,       only:maketree
-#ifdef MPI
- use kdtree,       only: maketreeglobal
-#endif
+ use kdtree,       only:maketree,maketreeglobal
+ use dim,          only:mpi
 
-#ifdef MPI
  integer, intent(inout) :: npart
-#else
- integer, intent(in)    :: npart
-#endif
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
 
-#ifdef MPI
- call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
-#else
- call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
-#endif
+ if (mpi) then
+    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+ else
+    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+ endif
 
 end subroutine set_linklist
 
@@ -191,6 +185,7 @@ end subroutine set_linklist
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti)
+ use dim,    only:mpi
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
 #ifdef PERIODIC
@@ -223,6 +218,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (present(remote_export)) then
     global_search = .true.
+    remote_export = .false.
  else
     global_search = .false.
  endif
@@ -244,13 +240,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  if (present(f)) then
     fgrav_global = 0.0
 
-#ifdef MPI
-    if (global_search) then
-       remote_export = .false.
+    if (mpi .and. global_search) then
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                 cellatid,get_j,fgrav_global,remote_export=remote_export)
     endif
-#endif
 
     call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               ifirstincell,get_j,fgrav)
@@ -259,13 +252,11 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  else
 
-#ifdef MPI
-    if (global_search) then
+    if (mpi .and. global_search) then
        remote_export = .false.
        call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
               cellatid,get_j,remote_export=remote_export)
     endif
-#endif
 
     call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
                ifirstincell,get_j)

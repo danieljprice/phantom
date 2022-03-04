@@ -14,13 +14,13 @@ program phantomsetup
 !
 ! :Usage: phantomsetup fileprefix [nprocsfake]
 !
-! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils,
-!   gravwaveutils, io, krome_interface, memory, mpiutils, options, part,
+! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
+!   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
 !   setup_params, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxp,maxvxyzu,&
+ use dim,             only:tagline,maxp,maxvxyzu,mpi,&
                            ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
@@ -36,8 +36,8 @@ program phantomsetup
  use checksetup,      only:check_setup
  use physcon,         only:pi
  use units,           only:set_units,print_units,c_is_unity
- use mpiutils,        only:init_mpi,finalise_mpi,use_mpi,reduceall_mpi
- use domain,          only:init_domains
+ use mpiutils,        only:init_mpi,finalise_mpi,reduceall_mpi
+ use mpidomain,       only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
@@ -111,7 +111,7 @@ program phantomsetup
  time = 0.
  call init_part
 
- if (use_mpi) then
+ if (mpi) then
     call init_mpi(id,nprocs)
     call init_domains(nprocs)
     nprocsfake = 1
@@ -131,7 +131,7 @@ program phantomsetup
  do myid=0,nprocsfake-1
 
     myid1 = myid
-    if (use_mpi) myid1 = id
+    if (mpi) myid1 = id
     call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
 !
 !--setup magnetic field if code compiled with MHD
