@@ -52,7 +52,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  logical,          intent(in)     :: write_neighbour_list
  real,allocatable, dimension(:,:) :: dumxyzh
 
- integer      :: i,j,k,p,ip,icell,ineigh,nneigh
+ integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)
  real         :: dx,dy,dz,rij2
  real         :: hi1,hj1,hi21,hj21,q2i,q2j
@@ -70,7 +70,8 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  print*, 'Building kdtree and linklist: '
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
- call set_linklist(npart,npart,dumxyzh,vxyzu(:,1:npart))
+ dummynpart = npart
+ call set_linklist(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
 
  print*, 'Allocating arrays for neighbour storage : '
  allocate(neighcount(npart))

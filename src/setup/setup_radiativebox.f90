@@ -26,9 +26,9 @@ module setup
 !   - zmax      : *zmax boundary*
 !   - zmin      : *zmin boundary*
 !
-! :Dependencies: boundary, domain, eos, infile_utils, io, kernel, mpiutils,
-!   options, part, physcon, set_dust, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, eos, infile_utils, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, set_dust, setup_params, timestep,
+!   unifdis, units
 !
  use setup_params, only:rhozero
  implicit none
@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
  use options,       only:nfulldump
- use domain,        only:i_belong
+ use mpidomain,     only:i_belong
 
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart

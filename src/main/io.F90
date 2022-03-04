@@ -15,7 +15,7 @@ module io
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi
+! :Dependencies: dim, mpi
 !
  implicit none
  integer, parameter, public :: stdout = 6
@@ -77,14 +77,16 @@ contains
 !+
 !--------------------------------------------------------------------
 subroutine set_io_unit_numbers
+ use dim, only: mpi
 
-#ifdef MPI
- iprint = 6     ! only iprint=6 makes sense for MPI runs
-#else
- iprint = 6 !8     ! for writing log output
- nprocs = 1
- id     = 0
-#endif
+ if (mpi) then
+    iprint = 6      ! only iprint=6 makes sense for MPI runs
+ else
+    iprint = 6 !8   ! for writing log output
+    nprocs = 1
+    id     = 0
+ endif
+
  imflow  = 47
  ivmflow = 48
  ibinpos = 49
@@ -379,6 +381,7 @@ end subroutine flush_warnings
 !+
 !--------------------------------------------------------------------
 subroutine warn(wherefrom,string,severity)
+ use dim, only: mpi
  character(len=*), intent(in) :: string,wherefrom
  integer,          intent(in), optional :: severity
  integer :: iseverity
@@ -416,11 +419,11 @@ subroutine warn(wherefrom,string,severity)
        if (iprint /= 6) write(*,"(/' ERROR! ',a,': ',a,/)") trim(wherefrom),trim(string)
     endif
  case(4)
-#ifdef MPI
-    write(iprint,"(/' FATAL ERROR! on thread ',i4,' in ',a,': ',a)") id,trim(wherefrom),trim(string)
-#else
-    write(iprint,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
-#endif
+    if (mpi) then
+       write(iprint,"(/' FATAL ERROR! on thread ',i4,' in ',a,': ',a)") id,trim(wherefrom),trim(string)
+    else
+       write(iprint,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
+    endif
     if (iprint /= 6) write(*,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
     call die
  case default
