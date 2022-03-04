@@ -26,7 +26,7 @@ module timing
  public :: wallclock,log_timing,print_time
 
  public :: timer,reset_timer,increment_timer,print_timer
- public :: setup_timers,reduce_timer_mpi
+ public :: setup_timers,reduce_timer_mpi,reduce_timers
 
  integer, parameter, private :: treelabel_len = 24
  type timer
@@ -235,11 +235,19 @@ subroutine increment_timer(itimer,wall,cpu)
 
 end subroutine increment_timer
 
+subroutine reduce_timers
+   integer :: itimer
+   do itimer = 1, ntimers
+      call reduce_timer_mpi(itimer)
+   enddo
+end subroutine reduce_timers
+
 subroutine reduce_timer_mpi(itimer)
  use mpiutils, only:reduce_mpi
  integer, intent(in) :: itimer
 
  timers(itimer)%cpu = reduce_mpi('+',timers(itimer)%cpu)
+ timers(itimer)%wall = reduce_mpi('max',timers(itimer)%wall)
 end subroutine reduce_timer_mpi
 
 !-----------------------------------------------

@@ -45,7 +45,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
- setup_timers,timers,reduce_timer_mpi,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev,&
+ setup_timers,timers,reduce_timers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev,&
  itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_extf,itimer_io
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
@@ -437,10 +437,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !   be reduced it too long between dumps)
 !
        call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
-       call reduce_timer_mpi(itimer_fromstart)
-       call reduce_timer_mpi(itimer_lastdump)
-       call reduce_timer_mpi(itimer_step)
-       call reduce_timer_mpi(itimer_ev)
 
        fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
 !
@@ -500,7 +496,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        endif
        call get_timings(t2,tcpu2)
        call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
-       call reduce_timer_mpi(itimer_io)
 
 #ifdef LIVE_ANALYSIS
        if (id==master) then
@@ -508,6 +503,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                            massoftype(igas),npart,time,ianalysis)
        endif
 #endif
+       call reduce_timers
        if (id==master) then
           call print_timinginfo(iprint,nsteps,nsteplast)
           !--Write out summary to log file
