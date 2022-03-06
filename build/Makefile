@@ -1901,7 +1901,7 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
+SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
           set_dust_options.f90 \
           utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
