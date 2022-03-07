@@ -246,9 +246,9 @@ subroutine wind_step(state)
     Q_old = state%Q
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
+            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
     else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
+       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
@@ -352,9 +352,9 @@ subroutine wind_step(state)
     Q_old = state%Q
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
+            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
     else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
+       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
@@ -904,24 +904,29 @@ subroutine filewrite_header(iunit,nwrite)
  use dust_formation, only:idust_opacity
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
+ character (len=20):: fmt
 
  if (idust_opacity == 2) then
     if (icooling > 0) then
        nwrite = 22
-       write(iunit,'(22(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','Q','gamma'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma','Q'
     else
        nwrite = 21
-       write(iunit,'(21(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
             'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
     endif
  else
     if (icooling > 0) then
        nwrite = 14
-       write(iunit,'(14(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
     else
        nwrite = 13
-       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
     endif
  endif
 end subroutine filewrite_header
@@ -954,7 +959,7 @@ subroutine state_to_array(state,nwrite, array)
     array(18) = state%tau_lucy
     array(19) = state%kappa
     array(20) = state%Tdust
-    array(21) = state%gamma
+    array(21) = state%JKmuS(idgamma)
  else
     array(11) = state%mu
     array(12) = state%kappa
@@ -968,9 +973,12 @@ subroutine filewrite_state(iunit,nwrite, state)
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)
-
+ character (len=20):: fmt
+ 
  call state_to_array(state,nwrite, array)
- write(iunit, '(21(1x,es11.3E3:))') array(1:nwrite)
+ write(fmt,*) nwrite
+ write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
+!  write(iunit, '(22(1x,es11.3E3:))') array(1:nwrite)
 end subroutine filewrite_state
 
 
