@@ -14,7 +14,7 @@ module timing
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io, mpiutils
 !
  implicit none
  integer, private :: istarttime(6)
@@ -26,12 +26,30 @@ module timing
  public :: wallclock,log_timing,print_time
 
  public :: timer,reset_timer,increment_timer,print_timer
+ public :: setup_timers,reduce_timer_mpi,reduce_timers
 
+ integer, parameter, private :: treelabel_len = 30
  type timer
-    character(len=20) :: label
-    real(kind=4) :: wall
-    real(kind=4) :: cpu
+    character(len=10)            :: label
+    real(kind=4)                 :: wall
+    real(kind=4)                 :: cpu
+    integer                      :: parent
+    integer                      :: treesymbol(5) = -1
+    character(len=treelabel_len) :: treelabel
  end type timer
+
+ integer, public, parameter ::   itimer_fromstart = 1,  &
+                                 itimer_lastdump  = 2,  &
+                                 itimer_step      = 3,  &
+                                 itimer_link      = 4,  &
+                                 itimer_balance   = 5,  &
+                                 itimer_dens      = 6,  &
+                                 itimer_force     = 7,  &
+                                 itimer_extf      = 8,  &
+                                 itimer_ev        = 9,  &
+                                 itimer_io        = 10
+ integer, public, parameter :: ntimers = 10 ! should be equal to the largest itimer index
+ type(timer), public :: timers(ntimers)
 
  private
 
@@ -41,61 +59,234 @@ contains
 !  Routines to handle timer objects
 !+
 !--------------------------------------
-subroutine reset_timer(my_timer,label,wall,cpu)
- type(timer),      intent(inout)        :: my_timer
- real(kind=4),     intent(in), optional :: wall, cpu
- character(len=*), intent(in), optional :: label
+subroutine setup_timers
+ ! These timers must be initialised with the correct tree hierarchy,
+ ! i.e. children must immediately follow their parents or siblings
+ !
+ !               timer from array  label          parent
+ call init_timer(itimer_fromstart, 'all',         0           )
+ call init_timer(itimer_lastdump , 'last',        0           )
+ call init_timer(itimer_step     , 'step',        0           )
+ call init_timer(itimer_link     , 'tree',        itimer_step )
+ call init_timer(itimer_balance  , 'balance',     itimer_link )
+ call init_timer(itimer_dens     , 'density',     itimer_step )
+ call init_timer(itimer_force    , 'force',       itimer_step )
+ call init_timer(itimer_extf     , 'extf',        itimer_step )
+ call init_timer(itimer_ev       , 'write_ev',    0           )
+ call init_timer(itimer_io       , 'write_dump',  0           )
 
- if (present(wall)) then
-    my_timer%wall = wall
+ ! When the timer is initialised, the tree structure is defined as an arary of integers
+ ! because the special ASCII characters take up more than 1 space in a character array,
+ ! making alignment difficult. The finish_timer_tree_symbols function is called to
+ ! convert that array into a string. This makes text formatting more straightforward,
+ ! and the tree diagram generation code easier to understand.
+ call finish_timer_tree_symbols
+
+end subroutine setup_timers
+
+subroutine init_timer(itimer,label,parent)
+ use io, only:fatal
+ integer,          intent(in) :: itimer
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: parent
+
+ integer :: i, level, previous_parent
+
+ if (parent >= itimer) call fatal('timing', 'Attempting to initialise timer with non-existent parent')
+ !
+ !--Innitialise timer variables
+ !
+ call reset_timer(itimer)
+ timers(itimer)%label  = trim(label)
+ timers(itimer)%parent = parent
+
+ !
+ !--Determine ASCII characters for printing the tree
+ !
+ ! 0: '  '
+ ! 1: '└─'
+ ! 2: '├─'
+ ! 3: '│ '
+
+ ! Get timer level
+ call get_timer_level(itimer,level)
+
+ ! Set default character to '└'
+ timers(itimer)%treesymbol(level) = 1
+
+ ! Pad with spaces to the correct level
+ do i = 1, level-1
+    timers(itimer)%treesymbol(i) = 0
+ enddo
+
+ ! Get the parent of the previous timer
+ if (itimer > 1) then
+    previous_parent = timers(itimer-1)%parent
  else
-    my_timer%wall = 0.
+    previous_parent = 0
  endif
- if (present(cpu)) then
-    my_timer%cpu = cpu
+
+ if (previous_parent == parent .and. itimer > 1) then
+    ! If sibling is above, replace their '└' with '├'
+    timers(itimer-1)%treesymbol(level) = 2
  else
-    my_timer%cpu = 0.
+    ! If something else is above, add a connecting line '│'
+    ! until the branch is reached
+    do i = itimer-1,parent+1,-1
+       if (timers(i)%treesymbol(level) == 0) then
+          ! Replace empty space with '│'
+          timers(i)%treesymbol(level) = 3
+       elseif (timers(i)%treesymbol(level) == 1) then
+          ! Replace '└' at the branch with ├'
+          timers(i)%treesymbol(level) = 2
+       endif
+
+    enddo
  endif
- if (present(label)) then
-    my_timer%label = trim(label)
- endif
+
+end subroutine init_timer
+
+subroutine get_timer_level(itimer,level)
+ integer, intent(in)  :: itimer
+ integer, intent(out) :: level
+
+ integer :: i
+
+ ! Get the level of this timer, where level 1 is the base level
+ level = 0
+ i = itimer
+ do while (i /= 0)
+    i = timers(i)%parent
+    level = level + 1
+ enddo
+
+end subroutine get_timer_level
+
+subroutine finish_timer_tree_symbols
+
+ character(len=treelabel_len) :: treelabel_new
+ integer :: i, j, k
+
+ do i = 1, ntimers
+    treelabel_new = ''
+
+    ! Length of tree symbol, to calculate space padding on the right
+    k = 0
+
+    ! Convert integer arrays into symbols
+    do j = 1, size(timers(i)%treesymbol)
+       select case (timers(i)%treesymbol(j))
+       case (0)
+          ! cannot use spaces because they get trimmed,
+          ! so use '.' instead of ' ' as a placeholder
+          treelabel_new = trim(treelabel_new) // '..'
+          k = k + 2
+       case (1)
+          treelabel_new = trim(treelabel_new) // '└─'
+          k = k + 2
+       case (2)
+          treelabel_new = trim(treelabel_new) // '├─'
+          k = k + 2
+       case (3)
+          treelabel_new = trim(treelabel_new) // '│.'
+          k = k + 2
+       case default
+          continue
+       end select
+    enddo
+
+    ! Add label
+    treelabel_new = trim(treelabel_new) // timers(i)%label
+    k = k + len(trim(timers(i)%label))
+
+    ! Pad with spaces
+    ! Each symbol takes up 2 more characters, so to accmodate
+    ! 6 symbols, remove 6*2 spaces
+    do j = treelabel_len-(6*2), k, -1
+       treelabel_new = trim(treelabel_new) // '.'
+    enddo
+
+    ! Add ':'
+    treelabel_new = trim(treelabel_new) // ':'
+
+    ! Replace '.' with ' '
+    do j = 1, treelabel_len
+       if (treelabel_new(j:j) == '.') treelabel_new(j:j) = ' '
+    enddo
+
+    timers(i)%treelabel = treelabel_new
+ enddo
+
+end subroutine finish_timer_tree_symbols
+
+subroutine reset_timer(itimer)
+ integer, intent(in)        :: itimer
+
+ timers(itimer)%wall = 0.0
+ timers(itimer)%cpu = 0.0
 
 end subroutine reset_timer
 
-subroutine increment_timer(my_timer,wall,cpu)
- type(timer),  intent(inout) :: my_timer
+subroutine increment_timer(itimer,wall,cpu)
+ integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: wall, cpu
 
- my_timer%wall = my_timer%wall + wall
- my_timer%cpu  = my_timer%cpu + cpu
+ timers(itimer)%wall = timers(itimer)%wall + wall
+ timers(itimer)%cpu  = timers(itimer)%cpu  + cpu
 
 end subroutine increment_timer
+
+subroutine reduce_timers
+ integer :: itimer
+ do itimer = 1, ntimers
+    call reduce_timer_mpi(itimer)
+ enddo
+end subroutine reduce_timers
+
+subroutine reduce_timer_mpi(itimer)
+ use mpiutils, only:reduce_mpi
+ integer, intent(in) :: itimer
+
+ timers(itimer)%cpu = reduce_mpi('+',timers(itimer)%cpu)
+ timers(itimer)%wall = reduce_mpi('max',timers(itimer)%wall)
+end subroutine reduce_timer_mpi
 
 !-----------------------------------------------
 !+
 !  Pretty-print timing entries in a nice table
 !+
 !-----------------------------------------------
-subroutine print_timer(lu,label,my_timer,time_total)
- integer,          intent(in) :: lu
- real(kind=4),     intent(in) :: time_total
- character(len=*), intent(in) :: label
- type(timer),      intent(in) :: my_timer
+subroutine print_timer(lu,itimer,time_total)
+ integer,      intent(in) :: lu
+ integer,      intent(in) :: itimer
+ real(kind=4), intent(in) :: time_total
 
- if (my_timer%wall > epsilon(0._4)) then
+ ! Print label and tree structure
+ write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
+
+ ! Print timings
+ if (timers(itimer)%wall > epsilon(0._4)) then
     if (time_total > 7200.0) then
-       write(lu,"(1x,a12,':',f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/3600.,my_timer%cpu/3600.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_total*100.
+       write(lu,"(f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
+            timers(itimer)%wall/3600.,&
+            timers(itimer)%cpu/3600.,&
+            timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%wall/time_total*100.
     elseif (time_total > 120.0) then
-       write(lu,"(1x,a12,':',f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall/60.,my_timer%cpu/60.,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_total*100.
+       write(lu,"(f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
+            timers(itimer)%wall/60.,&
+            timers(itimer)%cpu/60.,&
+            timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%wall/time_total*100.
     else
-       write(lu,"(1x,a12,':',f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
-            label,my_timer%wall,my_timer%cpu,my_timer%cpu/my_timer%wall, &
-            my_timer%wall/time_total*100.
+       write(lu,"(f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
+            timers(itimer)%wall,&
+            timers(itimer)%cpu,&
+            timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%wall/time_total*100.
     endif
+ else
+    write(lu, "()")
  endif
 
 end subroutine print_timer

@@ -31,12 +31,6 @@ module mpiutils
 !
 !   where var can be int,int*8,real*4,real*8.
 !
-! * send_recv:
-!
-!   call send_recv(arr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
-!
-!   sends and receives selected values from array of arbitrary type
-!
 ! * barrier_mpi
 !
 !   calls MPI_BARRIER, no-op if called from non-MPI code
@@ -52,27 +46,16 @@ module mpiutils
 #ifdef MPI
  use mpi
  implicit none
+#else
+ implicit none
+ integer, parameter, private :: MPI_STATUS_SIZE = 0
+#endif
+
  integer, public :: mpierr
  integer, public :: status(MPI_STATUS_SIZE)
  integer, public :: MPI_DEFAULT_REAL
+ integer, public :: comm_cellexchange,comm_cellcount,comm_balance,comm_balancecount
 
- integer, public :: comm_cellexchange, comm_cellcount, comm_balance, comm_balancecount
-
-!
-!--generic interface send_recv
-!
- interface send_recv
-  module procedure send_recv_arr2,send_recv_arr2_r4,send_recv_arr1_r4, &
-                    send_recv_int,send_recv_arr1_int1,send_recv_arr2_buf, &
-                    send_recv_arr1_buf_r4
- end interface send_recv
-
- public :: send_recv, cart_shift_diag
- logical, parameter, public :: use_mpi = .true.
-#else
- implicit none
- logical, parameter, public :: use_mpi = .false.
-#endif
 !
 !--generic interface reduce_mpi
 !
@@ -121,7 +104,6 @@ module mpiutils
  end interface unfill_buf
 
  public :: init_mpi, finalise_mpi
- public :: waitmyturn,endmyturn
  public :: reduce_mpi, reduceall_mpi, reduce_in_place_mpi
  public :: bcast_mpi
  public :: barrier_mpi
@@ -1076,263 +1058,6 @@ subroutine reduceloc_mpi_int(string,xproc,loc)
 #endif
 
 end subroutine reduceloc_mpi_int
-
-#ifdef MPI
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive two-dimensional
-!  indexed arrays between processors (real*8)
-!+
-!----------------------------------------------------------------
-subroutine send_recv_arr2(xarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
- real(kind=8), intent(in)    :: xarr(:,:)
- integer,      intent(in)    :: listpart(:)
- integer :: lblocklengths(size(listpart))
- integer,      intent(in)    :: isendto,irecvfrom,itag,ioffset
- integer,      intent(inout) :: nrecv
- integer :: itypearr,isendtype
-
- lblocklengths(:) = 1
-
-! print*,id,' sending  ',size(listpart),' to   ',isendto
-
- CALL MPI_TYPE_CONTIGUOUS(size(xarr(:,1)),MPI_REAL8,itypearr,mpierr)
- CALL MPI_TYPE_COMMIT(itypearr,mpierr)
-
- if (size(listpart) > 0) then
-    !CALL MPI_TYPE_CREATE_INDEXED_BLOCK(size(listpart),1,listpart,itypearr,isendtype,mpierr)
-    CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,itypearr,isendtype,mpierr)
-    CALL MPI_TYPE_COMMIT(isendtype,mpierr)
-
-! print*,id,' sending  x= ',xarr(:,listpart(1)+1),listpart(1)+1,' to   ',isendto
-
-    CALL MPI_SENDRECV(xarr,1,isendtype,isendto,itag,xarr(1,ioffset),nrecv,itypearr,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
-    CALL MPI_TYPE_FREE(isendtype,mpierr)
- else
-    CALL MPI_SENDRECV(xarr,0,itypearr,isendto,itag,xarr(1,ioffset),nrecv,itypearr,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
- endif
-
- CALL MPI_GET_COUNT(status,itypearr,nrecv,mpierr)
-! print*,id,' received ',nrecv,' from ',status(MPI_SOURCE),' x= ',xarr(:,ioffset)
-! print*,id,' received x= ',xarr(:,ioffset),ioffset,' from ',irecvfrom
-
- CALL MPI_TYPE_FREE(itypearr,mpierr)
-
- return
-end subroutine send_recv_arr2
-
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive two dimensional
-!  indexed arrays between processors (real*4)
-!+
-!----------------------------------------------------------------
-subroutine send_recv_arr2_r4(xarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
- real(kind=4), intent(in)    :: xarr(:,:)
- integer,      intent(in)    :: listpart(:)
- integer :: lblocklengths(size(listpart))
- integer,      intent(in)    :: isendto,irecvfrom,itag,ioffset
- integer,      intent(inout) :: nrecv
- integer :: itypearr,isendtype
-
- lblocklengths(:) = 1
- CALL MPI_TYPE_CONTIGUOUS(size(xarr(:,1)),MPI_REAL4,itypearr,mpierr)
- CALL MPI_TYPE_COMMIT(itypearr,mpierr)
-
- if (size(listpart) > 0) then
-    CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,itypearr,isendtype,mpierr)
-    CALL MPI_TYPE_COMMIT(isendtype,mpierr)
-
-    ! print*,id,' sending  x= ',xarr(:,listpart(1)+1),listpart(1)+1,' to   ',isendto
-
-    CALL MPI_SENDRECV(xarr,1,isendtype,isendto,itag,xarr(1,ioffset),nrecv,itypearr,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
-    CALL MPI_TYPE_FREE(isendtype,mpierr)
- else
-    CALL MPI_SENDRECV(xarr,0,itypearr,isendto,itag,xarr(1,ioffset),nrecv,itypearr,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
- endif
-
- CALL MPI_GET_COUNT(status,itypearr,nrecv,mpierr)
-
-! print*,id,' received ',nrecv,' from ',status(MPI_SOURCE),' x= ',xarr(:,ioffset)
-! print*,id,' received x= ',xarr(:,ioffset),ioffset,' from ',irecvfrom
-
- CALL MPI_TYPE_FREE(itypearr,mpierr)
-
- return
-end subroutine send_recv_arr2_r4
-
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive one dimensional
-!  indexed arrays between processors (real*4)
-!+
-!----------------------------------------------------------------
-subroutine send_recv_arr1_r4(xarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
- real(kind=4), intent(in)    :: xarr(:)
- integer,      intent(in)    :: listpart(:)
- integer :: lblocklengths(size(listpart))
- integer,      intent(in)    :: isendto,irecvfrom,itag,ioffset
- integer,      intent(inout) :: nrecv
- integer :: isendtype
-
- lblocklengths(:) = 1
-
- if (size(listpart) > 0) then
-    CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,MPI_REAL4,isendtype,mpierr)
-    CALL MPI_TYPE_COMMIT(isendtype,mpierr)
-
-    ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
-
-    CALL MPI_SENDRECV(xarr,1,isendtype,isendto,itag,xarr(ioffset),nrecv,MPI_REAL4,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
-    CALL MPI_TYPE_FREE(isendtype,mpierr)
- else
-    CALL MPI_SENDRECV(xarr,0,MPI_REAL4,isendto,itag,xarr(ioffset),nrecv,MPI_REAL4,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
- endif
-
- CALL MPI_GET_COUNT(status,MPI_REAL4,nrecv,mpierr)
-
-! print*,id,' received ',nrecv,' from ',status(MPI_SOURCE),' x= ',xarr(:,ioffset)
-! print*,id,' received x= ',xarr(ioffset),ioffset,' from ',irecvfrom
-
- return
-end subroutine send_recv_arr1_r4
-
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive one dimensional
-!  indexed arrays between processors (int*1)
-!+
-!----------------------------------------------------------------
-subroutine send_recv_arr1_int1(iarr,listpart,isendto,irecvfrom,itag,ioffset,nrecv)
- integer(kind=1), intent(inout) :: iarr(:)
- integer,         intent(in)    :: listpart(:)
- integer :: lblocklengths(size(listpart))
- integer,         intent(in)    :: isendto,irecvfrom,itag,ioffset
- integer,         intent(inout) :: nrecv
- integer :: isendtype
-
- lblocklengths(:) = 1
-
- if (size(listpart) > 0) then
-    CALL MPI_TYPE_INDEXED(size(listpart),lblocklengths,listpart,MPI_INTEGER1,isendtype,mpierr)
-    CALL MPI_TYPE_COMMIT(isendtype,mpierr)
-
-    ! print*,id,' sending  x= ',xarr(listpart(1)+1),listpart(1)+1,' to   ',isendto
-
-    CALL MPI_SENDRECV(iarr,1,isendtype,isendto,itag,iarr(ioffset),nrecv,MPI_INTEGER1,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
-    CALL MPI_TYPE_FREE(isendtype,mpierr)
- else
-    CALL MPI_SENDRECV(iarr,0,MPI_INTEGER1,isendto,itag,iarr(ioffset),nrecv,MPI_INTEGER1,irecvfrom,&
-                      itag,MPI_COMM_WORLD,status,mpierr)
- endif
-
- CALL MPI_GET_COUNT(status,MPI_INTEGER1,nrecv,mpierr)
-
-! print*,id,' received ',nrecv,' from ',status(MPI_SOURCE),' i= ',iarr(:,ioffset)
-! print*,id,' received i= ',iarr(ioffset),ioffset,' from ',irecvfrom
-
- return
-end subroutine send_recv_arr1_int1
-
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive a single integer
-!  (part of generic send_recv interface)
-!+
-!----------------------------------------------------------------
-subroutine send_recv_int(ival,ivalrecv,isendto,irecvfrom,itag)
- integer, intent(in)  :: ival
- integer, intent(out) :: ivalrecv
- integer, intent(in)  :: isendto,irecvfrom,itag
-
- CALL MPI_SENDRECV(ival,1,MPI_INTEGER,isendto,itag,ivalrecv,1,MPI_INTEGER,irecvfrom,&
-                   itag,MPI_COMM_WORLD,status,mpierr)
-
- return
-end subroutine send_recv_int
-
-!----------------------------------------------------------------
-!+
-!  MPI utility to send and receive a two dimensional
-!  contiguous array and return the result in a different array
-!+
-!----------------------------------------------------------------
-subroutine send_recv_arr2_buf(xarr,xrecv,ioffset,nsend,isendto,irecvfrom,itag,nrecv)
- real,    intent(in)  :: xarr(:,:)
- real,    intent(out) :: xrecv(:,:)
- integer, intent(in)  :: ioffset,nsend,isendto,irecvfrom,itag
- integer, intent(out) :: nrecv
- integer :: itypearr
-
- CALL MPI_TYPE_CONTIGUOUS(size(xarr(:,1)),MPI_DEFAULT_REAL,itypearr,mpierr)
- CALL MPI_TYPE_COMMIT(itypearr,mpierr)
-
-! print*,id,' sending  x= ',xarr(:,ioffset),ioffset,' to   ',isendto
-
- CALL MPI_SENDRECV(xarr(1,ioffset),nsend,itypearr,isendto,itag,xrecv,size(xrecv(1,:)),itypearr,irecvfrom,&
-                   itag,MPI_COMM_WORLD,status,mpierr)
-
- CALL MPI_GET_COUNT(status,itypearr,nrecv,mpierr)
-
-! print*,id,' received ',nrecv,' from ',status(MPI_SOURCE),' x= ',xarr(:,ioffset)
-! print*,id,' received x= ',xrecv(:,1),1,' from ',irecvfrom
-
- CALL MPI_TYPE_FREE(itypearr,mpierr)
-
- return
-end subroutine send_recv_arr2_buf
-
-!-----------------------------------------------------------------------
-!+
-!  MPI utility to send and receive a one dimensional
-!  contiguous array and return the result in a different array (real*4)
-!+
-!-----------------------------------------------------------------------
-subroutine send_recv_arr1_buf_r4(xarr,xrecv,ioffset,nsend,isendto,irecvfrom,itag,nrecv)
- real(kind=4), intent(in)  :: xarr(:)
- real(kind=4), intent(out) :: xrecv(:)
- integer,      intent(in)  :: ioffset,nsend,isendto,irecvfrom,itag
- integer,      intent(out) :: nrecv
-
-! print*,id,' sending  x= ',xarr(ioffset),ioffset,' to   ',isendto
-
- CALL MPI_SENDRECV(xarr(ioffset),nsend,MPI_REAL4,isendto,itag,xrecv,size(xrecv),MPI_REAL4, &
-                   irecvfrom,itag,MPI_COMM_WORLD,status,mpierr)
-
- CALL MPI_GET_COUNT(status,MPI_REAL4,nrecv,mpierr)
-
-! print*,id,' received x= ',xrecv(1),1,' from ',irecvfrom
-
- return
-end subroutine send_recv_arr1_buf_r4
-
-!-----------------------------------------------------------------------
-!+
-!  MPI utility to perform arbitrary cartesian shift
-!+
-!-----------------------------------------------------------------------
-subroutine cart_shift_diag(comm_cart,icoords,ishift,irecvfrom,isendto)
- integer, intent(in)  :: comm_cart
- integer, intent(in)  :: icoords(:),ishift(:)
- integer, intent(out) :: isendto,irecvfrom
- integer :: icoordsshift(size(icoords))
-
- icoordsshift = icoords + ishift
- call MPI_CART_RANK(comm_cart,icoordsshift,isendto,mpierr)
-
- icoordsshift = icoords - ishift
- call MPI_CART_RANK(comm_cart,icoordsshift,irecvfrom,mpierr)
-
- return
-end subroutine cart_shift_diag
-#endif
 
 !--------------------------------------------------------------------------
 !+

@@ -23,10 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
-!   derivutils, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, h2cooling, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing
+!   dim, dust_formation, eos, extern_gr, externalforces, growth, h2cooling,
+!   io, io_summary, krome_interface, metric_tools, mpiutils, options, part,
+!   ptmass, ptmass_radiation, timestep, timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
@@ -101,7 +100,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftype,&
+                          iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
  use cooling,        only:cooling_implicit,ufloor
@@ -128,8 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #endif
- use timing,         only:increment_timer,get_timings
- use derivutils,     only:timer_extf
+ use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -172,7 +170,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! velocity predictor step, using dtsph
 !--------------------------------------
  itype   = igas
- ntypes  = get_ntypes(reduceall_mpi('+',npartoftype))
+ ntypes  = get_ntypes(npartoftypetot)
  pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
@@ -258,7 +256,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 #endif
  call get_timings(t2,tcpu2)
- call increment_timer(timer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0
@@ -422,7 +420,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     np      = 0
     itype   = igas
     pmassi  = massoftype(igas)
-    ntypes  = get_ntypes(npartoftype)
+    ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
@@ -663,6 +661,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
  enddo iterations
+
+ ! MPI reduce summary variables
+ nwake     = int(reduceall_mpi('+', nwake))
+ nvfloorp  = int(reduceall_mpi('+', nvfloorp))
+ nvfloorps = int(reduceall_mpi('+', nvfloorps))
+ nvfloorc  = int(reduceall_mpi('+', nvfloorc))
+
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )
  if (nvfloorp > 0) call summary_variable('floor',iosumflrp, 0,real(nvfloorp) )
@@ -1049,7 +1054,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,do_nucleation
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1071,14 +1076,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use damping,        only:calc_damp,apply_damp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
-#ifdef NUCLEATION
- use part,           only:nucleation
+#ifdef DUST_NUCLEATION
+ use part,           only:nucleation,idK2,idmu,idkappa
  use dust_formation, only:evolve_dust
 #endif
 #ifdef KROME
  use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
  use krome_interface, only: update_krome
- use eos,             only: get_local_u_internal
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
@@ -1188,8 +1192,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
-#ifdef NUCLEATION
-    !$omp shared(nucleation) &
+#ifdef DUST_NUCLEATION
+    !$omp shared(nucleation,do_nucleation) &
 #endif
 #ifdef KROME
     !$omp shared(gamma_chem,mu_chem,dudt_chem) &
@@ -1302,9 +1306,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
              !evolve dust chemistry and compute dust cooling
-             call evolve_dust(dt,xyzh(:,i),vxyzu(4,i),nucleation(:,i),dust_temp(i),rhoi)
+             if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
 #endif
              !
              ! COOLING
@@ -1318,9 +1322,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    call energ_h2cooling(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
-#ifdef NUCLEATION
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,&
-                        rhoi,dt,dust_temp(i),nucleation(6,i),nucleation(4,i),nucleation(8,i))
+#ifdef DUST_NUCLEATION
+                   if (do_nucleation) then
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,&
+                           dt, dust_temp(i),nucleation(idmu,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   else
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                   endif
 #else
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
 #endif
@@ -1348,7 +1356,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     ! reduction of sink-gas forces from each MPI thread
     !
-    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    if (nptmass > 0) call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
 
     !---------------------------
     ! corrector during substeps
@@ -1397,7 +1405,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 
           if (iexternalforce > 0) then
              call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i), &
-                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted,i)
+                                    xyzh(3,i),xyzh(4,i),pmassi,timei,accreted)
              if (accreted) accretedmass = accretedmass + pmassi
           endif
           !
@@ -1436,16 +1444,18 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     ! reduction of sink particle changes across MPI
     !
-    call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
+    if (nptmass > 0) then
+       call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
-    naccreted = int(reduceall_mpi('+',naccreted))
-    nfail = int(reduceall_mpi('+',nfail))
+       naccreted = int(reduceall_mpi('+',naccreted))
+       nfail = int(reduceall_mpi('+',nfail))
 
-    if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+       if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
-    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
-    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
-    call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+       call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+       call bcast_mpi(fxyz_ptmass(:,1:nptmass))
+    endif
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted amongst ',nptmass,' sink(s).'
