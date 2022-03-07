@@ -95,7 +95,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,      &
                           use_dust,use_dustgrowth,phantom_version_major,        &
                           phantom_version_minor,phantom_version_micro,          &
-                          store_temperature,phantom_version_string,use_krome,   &
+                          phantom_version_string,use_krome,   &
                           store_dust_temperature,do_radiation,gr,do_nucleation, &
                           mpi
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
@@ -320,7 +320,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  array_options%h2chemistry = h2chemistry
  array_options%lightcurve = lightcurve
  array_options%prdrag = prdrag
- array_options%store_temperature = store_temperature
  array_options%ndivcurlB = ndivcurlB
  array_options%ndivcurlv = ndivcurlv
  array_options%ndustsmall = ndustsmall
@@ -469,7 +468,7 @@ subroutine read_any_dump_hdf5(                                                  
 )
  use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature,nsinkproperties,     &
+                          h2chemistry,nsinkproperties,     &
                           maxp_hard,use_krome,store_dust_temperature,        &
                           do_radiation,do_nucleation,gr
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
@@ -639,7 +638,6 @@ subroutine read_any_dump_hdf5(                                                  
  array_options%use_dustfrac = use_dustfrac
  array_options%use_dustgrowth = use_dustgrowth
  array_options%h2chemistry = h2chemistry
- array_options%store_temperature = store_temperature
  array_options%store_dust_temperature = store_dust_temperature
  array_options%radiation = do_radiation
  array_options%krome = use_krome
