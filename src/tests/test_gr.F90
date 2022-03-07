@@ -486,7 +486,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
  real :: toli
  integer :: ierr,i,j,nfailprev,ien_type
- real, parameter :: tolg = 1.e-7, tolp = 8.5e-7
+ real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
 
  ! perturb the state
  dens2 = dens**2
