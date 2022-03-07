@@ -388,7 +388,8 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  call init_wind(r0, v0, T0, time_end, state)
 
  if (state%v > state%c .and. state%find_sonic_solution) then
-    print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed'
+    print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed : v0=',&
+         state%v,', cs=',state%c
     return
  endif
 
@@ -400,6 +401,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
     !if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     if (state%r == state%r_old) state%error = .true.
+    !print *,state%time,state%r,state%v/state%c,state%dt,dtmin,state%Tg,Tdust_stop,state%error,state%spcode
  enddo
 
 end subroutine calc_wind_profile
@@ -472,7 +474,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  type(wind_state) :: state
 
  real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin, gmax
- integer, parameter :: ncount_max = 10
+ integer, parameter :: ncount_max = 20
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
@@ -500,7 +502,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     print *, ' * cs  (km/s) = ',cs/1e5
     print *, ' * vesc(km/s) = ',vesc/1e5
     if (stype == 1) then
-       print *, ' * v0  (km/s) = ',vin/1e5
+       print *, ' * vin/cs     = ',vin/cs
     else
        print *, ' * v0  (km/s) = ',v0/1e5
     endif
@@ -520,7 +522,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *,'< v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
           exit
@@ -530,7 +532,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        endif
        icount = icount+1
     enddo
-    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
+    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs,', icount=',icount
     if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
 
@@ -539,7 +541,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *,'> v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == 1) then
           v0max = v0
           exit
@@ -559,7 +561,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        v0last = v0
        v0 = (v0min+v0max)/2.
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *, '= v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
        elseif (state%spcode == 1) then
@@ -974,7 +976,7 @@ subroutine filewrite_state(iunit,nwrite, state)
 
  real :: array(nwrite)
  character (len=20):: fmt
- 
+
  call state_to_array(state,nwrite, array)
  write(fmt,*) nwrite
  write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
