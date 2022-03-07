@@ -209,7 +209,7 @@ end subroutine get_dump_size
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr,do_nucleation
- use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu
+ use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                  npartoftype,npartoftypetot,update_npartoftypetot, &
@@ -378,7 +378,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
-       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
+       if ((eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=igasP)
        endif
        ! write X, Z, mu to file
@@ -1111,7 +1111,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
                       nucleation,nucleation_label,n_nucleation,ikappa,ithick,itemp,igasP,iorig
- use eos,        only:ieos,eos_is_non_ideal
+ use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1221,7 +1221,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-             if (ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) then
+             if (eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) then
                 call read_array(eos_vars(igasP,:),eos_vars_label(igasP),got_gasP,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_temperature) then

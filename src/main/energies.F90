@@ -72,7 +72,7 @@ subroutine compute_energies(t)
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
- use eos,            only:polyk,utherm,gamma,equationofstate
+ use eos,            only:polyk,utherm,gamma,equationofstate,eos_is_non_ideal,eos_outputs_gasP
  use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -394,7 +394,9 @@ subroutine compute_energies(t)
 #endif
 
           ! gas temperature
-          call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
+          if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+             call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
+          endif
 #ifdef DUST
           ! min and mean stopping time
           if (use_dustfrac) then
