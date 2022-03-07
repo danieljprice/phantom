@@ -72,7 +72,7 @@ module setup
  !
  integer            :: iprofile,np,EOSopt,isoftcore,isofteningopt
  integer            :: nstar
- integer            :: need_iso, need_temp
+ integer            :: need_iso
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef,hsoft
  real               :: initialtemp
@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use radiation_utils, only:set_radiation_and_gas_temperature_equal,ugas_from_Tgas,radE_from_Trad
  use dim,             only:do_radiation
- use part,            only:rad,eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
+ use part,            only:rad,eos_vars,itemp,igasP,iX,iZ,imu,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
@@ -195,7 +195,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! defaults needed for error checking
  !
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
- need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
  ! determine if an .in file exists
  !
@@ -240,8 +239,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
- if (maxvxyzu < 4  .and. need_temp==-1) call fatal('setup','require ISOTHERMAL=no')
- if (need_temp==1 .and. .not. store_temperature) call fatal('setup','require TEMPERATURE=yes')
  !
  ! set units
  !
@@ -435,7 +432,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           tempi = initialtemp
           call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
           vxyzu(4,i) = eni
-          if (store_temperature) eos_vars(itemp,i) = initialtemp
+          eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
           if (use_var_comp) then
              call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
@@ -449,7 +446,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           else
              vxyzu(4,i) = eni / unit_ergg
           endif
-          if (store_temperature) eos_vars(itemp,i) = tempi
+          eos_vars(itemp,i) = tempi
        end select
     enddo
  endif

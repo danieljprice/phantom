@@ -208,7 +208,7 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr,do_nucleation
+                 lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -373,7 +373,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (store_temperature .and. .not.store_dust_temperature) then
+       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature) then
           call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
@@ -1103,7 +1103,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, do_nucleation, &
-                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature
+                      use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
@@ -1224,7 +1224,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) then
                 call read_array(eos_vars(igasP,:),eos_vars_label(igasP),got_gasP,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-             if (store_temperature) then
+             if (eos_is_non_ideal(ieos)) then
                 call read_array(eos_vars(itemp,:),eos_vars_label(itemp),got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              call read_array(eos_vars(iX,:),eos_vars_label(iX),got_x,ik,i1,i2,noffset,idisk1,tag,match,ierr)

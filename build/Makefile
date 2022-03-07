@@ -234,7 +234,6 @@ ifeq ($(SETUP), wd)
     GRAVITY       = yes
     ISOTHERMAL    = no
     KNOWN_SETUP   = yes
-    STORE_TEMP    = yes
     MODFILE       = moddump_binarystar.f90
     ANALYSIS      = analysis_gws.f90
 endif
@@ -841,7 +840,6 @@ ifeq ($(SETUP), star)
     MAXP=10000000
     GRAVITY=yes
     MHD=no
-    STORE_TEMP=yes
 endif
 
 ifeq ($(SETUP), dustystar)
@@ -856,7 +854,6 @@ ifeq ($(SETUP), dustystar)
     MAXP=10000000
     GRAVITY=yes
     MHD=no
-    STORE_TEMP=yes
 endif
 
 ifeq ($(SETUP), radstar)
@@ -869,7 +866,6 @@ ifeq ($(SETUP), radstar)
     MAXP=10000000
     GRAVITY=yes
     RADIATION=yes
-    STORE_TEMP=yes
 endif
 
 ifeq ($(SETUP), isowind)
@@ -1463,10 +1459,6 @@ endif
 
 ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
-endif
-
-ifeq ($(STORE_TEMP), yes)
-    FPPFLAGS += -DSTORE_TEMPERATURE
 endif
 
 ifeq ($(MHD), yes)
