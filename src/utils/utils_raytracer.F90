@@ -27,7 +27,7 @@ module raytracer
       real, intent(out)   :: taus(:)
    
       integer     :: i, nrays, nsides, index
-      real        :: normCompanion, theta0, unitCompanion(3), theta, root, dist, vec(3), dir(3), phi, cosphi, sinphi
+      real        :: normCompanion, theta0, unitCompanion(3), theta, root, dist, vec(3), dir(3)
       real, dimension(:,:), allocatable :: dirs
       real, dimension(:,:), allocatable :: listsOfDists, listsOfTaus
       integer, dimension(:), allocatable :: indices
@@ -38,11 +38,8 @@ module raytracer
          normCompanion = norm2(unitCompanion)
          theta0 = asin(R/normCompanion)
          unitCompanion = unitCompanion/normCompanion
-         phi = atan(unitCompanion(2)/unitCompanion(1))
-         cosphi = cos(phi)
-         sinphi = sin(phi)
 
-         nrays = 12*4**minOrder + 12*(refineLevel+minOrder) + int(24*2**(refineLevel+minOrder)*theta0)
+         nrays = int(12*4**minOrder*(-1+2**(refineLevel) + 2**(refineLevel+1))/2)
          nsides = 2**(minOrder+refineLevel)
          allocate(dirs(3, nrays))
          allocate(indices(12*4**(minOrder+refineLevel)))
@@ -51,13 +48,12 @@ module raytracer
          allocate(tau(size(listsOfDists(:,1))))
          allocate(dists(size(listsOfDists(:,1))))
 
-         call get_rays(normCompanion,R,minOrder,refineLevel,dirs, indices, nrays)
+         call get_rays(xyzh(1:3,primary), xyzh(1:3, companion), xyzh, size(taus), minOrder, refineLevel, R, dirs, indices)
          !$omp parallel do private(tau,dist,dir,dists,root,theta)
          do i = 1, nrays
             tau=0.
             dists=0.
             dir = dirs(:,i)
-            dir = (/cosphi*dir(1) - sinphi*dir(2),sinphi*dir(1) + cosphi*dir(2), dir(3)/)
             theta = acos(dot_product(unitCompanion, dir))
             if (theta < theta0) then
                root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
@@ -83,7 +79,6 @@ module raytracer
          !$omp parallel do private(index,vec)
          do i = 1, size(taus(:))
             vec = xyzh(1:3,i)-xyzh(1:3,primary)
-            vec = (/cosphi*vec(1) + sinphi*vec(2),-sinphi*vec(1) + cosphi*vec(2), vec(3)/)
             call vec2pix_nest(nsides, vec, index)
             index = indices(index + 1)
             call get_tau_outwards(dot_product(vec, dirs(:,index)), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
@@ -101,16 +96,19 @@ module raytracer
       endif
    end subroutine get_all_tau_optimised
 
-   subroutine get_rays(d,R,minOrder,refineLevel, vecs, indices, nrays)
-      real, intent(in)     :: d, R
-      integer, intent(in)  :: minOrder, refineLevel
+   subroutine get_rays(primary, secondary, xyzh, npart, minOrder, refineLevel, R, vecs, indices)
+      real, intent(in)     :: primary(:), secondary(:), xyzh(:,:), R
+      integer, intent(in)  :: minOrder, refineLevel, npart
       real, intent(out)    :: vecs(:,:)
-      integer, intent(out) :: indices(:),nrays
+      integer, intent(out) :: indices(:)
 
-      real    :: theta, dist
+      real    :: theta, dist, phi, cosphi, sinphi
       real, dimension(:,:), allocatable  :: circ
-      integer :: i, j, k, minNsides, minNrays, ind, ind2,n
-      integer, dimension(:), allocatable  :: refine,refine2
+      integer :: i, j, minNsides, minNrays, ind,n, maxOrder, max, distr(12*4**(minOrder+refineLevel))
+      integer, dimension(:,:), allocatable  :: distrs
+
+      vecs = 0.
+      indices = 0
 
       minNsides = 2**minOrder
       minNrays = 12*4**minOrder
@@ -119,68 +117,122 @@ module raytracer
             call pix2vec_nest(minNsides,i-1, vecs(:,i))
             indices(i) = i
          enddo
-         nrays = minNrays
-         return
       endif
-      theta = asin(R/d)
-      dist = d*cos(theta)
+      maxOrder = minOrder+refineLevel
+      distr = 0
+      !$omp parallel do private(ind)
+      do i = 1, npart
+         call vec2pix_nest(2**maxOrder, xyzh(1:3, i)-primary, ind)
+         distr(ind+1) = distr(ind+1)+1
+      enddo
+      max = maxval(distr)
+
+      dist = norm2(primary-secondary)
+      theta = asin(R/dist)
+      phi = atan2(secondary(2)-primary(2),secondary(1)-primary(1))
+      phi = 0.76! TODO: FIX
+      cosphi = cos(phi)
+      sinphi = sin(phi)
+      dist = dist*cos(theta)
       n = int(theta*6*2**(minOrder+refineLevel))+4
       allocate(circ(n,3))
-      allocate(refine(n))
-      allocate(refine2(n*2))
-      refine2 = 0
       do i=1, n
          circ(i,1) = dist*cos(theta)
-         circ(i,2) = dist*sin(theta)*cos(2*PI*i/n)
-         circ(i,3) = dist*sin(theta)*sin(2*PI*i/n)
+         circ(i,2) = dist*sin(theta)*cos(twopi*i/n)
+         circ(i,3) = dist*sin(theta)*sin(twopi*i/n)
+         circ(i,:) = (/cosphi*circ(i,1) - sinphi*circ(i,2),sinphi*circ(i,1) + cosphi*circ(i,2), circ(i,3)/)
       enddo
 
       do i=1, n
-         call vec2pix_nest(minNsides,circ(i,:),refine(i))
+         call vec2pix_nest(minNsides,circ(i,:),ind)
+         distr(ind) = max
       enddo
-      
-      ind = 1
-      ind2 = 1
-      do i = 1, minNrays
-         if (any(i-1 == refine)) then
-            refine2(ind2) = i-1
-            ind2 = ind2+1
-         else
-            call pix2vec_nest(minNsides,i-1,vecs(:,ind))
-            indices(4**(refineLevel)*(i-1)+1:4**(refineLevel)*(i)) = ind
-            ind = ind+1
+
+      allocate(distrs(12*4**(minOrder+refineLevel),refineLevel+1))
+      distrs = 0
+      distrs(:,1) = distr
+      do i = 1, refineLevel
+         do j = 1, 12*4**(maxOrder-i)
+            distrs(j,i+1) = distrs(4*j,i)+distrs(4*j+1,i)+distrs(4*j+2,i)+distrs(4*j+3,i)
+         enddo
+      enddo
+      max = maxval(distrs(:,refineLevel+1))+1
+
+      ind=1
+      do i=0, refineLevel-1
+         call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
+         do j=1, 6*4**minOrder*2**(i)
+            call pix2vec_nest(2**(minOrder+i), distr(j)-1, vecs(:,ind))
+            indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
+            ind=ind+1
+            distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+         enddo
+         do j = j+1, 12*4**(minOrder+i)
+            if (distrs(distr(j),refineLevel-i+1) == max) then
+               distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+            endif
+         enddo
+      enddo
+      do i=1, 12*4**maxOrder
+         if (distrs(i,1) .ne. max) then
+            call pix2vec_nest(2**maxOrder, i-1, vecs(:,ind))
+            indices(i) = ind
+            ind=ind+1
          endif
       enddo
-      
-      i=1
-      do k=1,refineLevel-1
-         do j=1, n
-            call vec2pix_nest(2**(minOrder+k),circ(j,:),refine(j))
-         enddo
-         do i = i, ind2-1
-            do j = 1,4
-               if (any(4*refine2(mod(i-1,n*2)+1)+j-1 == refine)) then
-                  refine2(mod(ind2-1,n*2)+1) = 4*refine2(mod(i-1,n*2)+1)+j-1
-                  ind2 = ind2+1
-               else
-                  call pix2vec_nest(2**(minOrder+k),4*refine2(mod(i-1,n*2)+1)+j-1,vecs(:,ind))
-                  indices(4**(refineLevel-k)*(4*refine2(mod(i-1,n*2)+1)+j-1)+1: &
-                        4**(refineLevel-k)*(4*(refine2(mod(i-1,n*2)+1))+j)) = ind
-                  ind = ind+1
-               endif
-            enddo
-         enddo
-      enddo
-      
-      do i = i, ind2-1
-         do j = 1,4
-            call pix2vec_nest(2**(minOrder+refineLevel),4*refine2(mod(i-1,n*2)+1)+j-1,vecs(:,ind))
-            indices(4*(refine2(mod(i-1,n*2)+1))+j) = ind
-            ind = ind+1
-         enddo
-      enddo
-      nrays = ind-1
    end subroutine get_rays
+
+   subroutine merge_argsort(r,d)
+      integer, intent(in), dimension(:) :: r
+      integer, intent(out), dimension(size(r)) :: d
+    
+      integer, dimension(size(r)) :: il
+
+      integer :: stepsize
+      integer :: i,j,n,left,k,ksize
+    
+      n = size(r)
+    
+      do i=1,n
+          d(i)=i
+      end do
+    
+      if ( n==1 ) return
+    
+      stepsize = 1
+      do while (stepsize<n)
+          do left=1,n-stepsize,stepsize*2
+              i = left
+              j = left+stepsize
+              ksize = min(stepsize*2,n-left+1)
+              k=1
+        
+              do while ( i<left+stepsize .and. j<left+ksize )
+                  if ( r(d(i))<r(d(j)) ) then
+                      il(k)=d(i)
+                      i=i+1
+                      k=k+1
+                  else
+                      il(k)=d(j)
+                      j=j+1
+                      k=k+1
+                  endif
+              enddo
+        
+              if ( i<left+stepsize ) then
+                  ! fill up remaining from left
+                  il(k:ksize) = d(i:left+stepsize-1)
+              else
+                  ! fill up remaining from right
+                  il(k:ksize) = d(j:left+ksize-1)
+              endif
+              d(left:left+ksize-1) = il(1:ksize)
+          end do
+          stepsize=stepsize*2
+      end do
+
+      return
+  end subroutine 
 
    !*********************************************************************!
    !***************************   OUTWARDS   ****************************!
@@ -294,7 +346,7 @@ module raytracer
       normCompanion = norm2(unitCompanion)
       theta0 = asin(R/normCompanion)
       unitCompanion = unitCompanion/normCompanion
-      phi = atan(unitCompanion(2)/unitCompanion(1))
+      phi = atan2(unitCompanion(2),unitCompanion(1))
       cosphi = cos(phi)
       sinphi = sin(phi)
      
