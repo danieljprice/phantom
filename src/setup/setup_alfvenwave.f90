@@ -21,7 +21,7 @@ module setup
 !   - nx      : *resolution (number of particles in x) for -xleft < x < xshock*
 !   - rotated : * rotate wave vector?*
 !
-! :Dependencies: boundary, dim, domain, geometry, infile_utils, io,
+! :Dependencies: boundary, dim, geometry, infile_utils, io, mpidomain,
 !   mpiutils, part, physcon, prompting, setup_params, timestep, unifdis
 !
  implicit none
@@ -65,7 +65,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use geometry,     only:igeom_rotated,igeom_cartesian,set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

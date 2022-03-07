@@ -18,8 +18,8 @@ module testdust
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, dust, energies, eos, growth,
-!   io, kernel, mpiutils, options, part, physcon, random, set_dust,
+! :Dependencies: boundary, deriv, dim, dust, energies, eos, growth, io,
+!   kernel, mpidomain, mpiutils, options, part, physcon, random, set_dust,
 !   step_lf_global, table_utils, testutils, timestep, unifdis, units,
 !   vectorutils
 !
@@ -151,7 +151,7 @@ subroutine test_dustybox(ntests,npass)
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use kernel,         only:kernelname
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
 #ifdef DUSTGROWTH
  use part,           only:dustgasprop,dustprop
  use growth,         only:ifrag
@@ -326,7 +326,7 @@ subroutine test_dustydiffuse(ntests,npass)
  use deriv,     only:get_derivs_global
  use testutils, only:checkvalbuf,checkvalbuf_end
  use mpiutils,  only:reduceall_mpi
- use domain,    only:i_belong
+ use mpidomain, only:i_belong
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,j,i,n,nsteps
@@ -518,7 +518,7 @@ subroutine test_drag(ntests,npass)
  use random,      only:ran2
  use vectorutils, only:cross_product3D
  use units,       only:udist,unit_density
- use domain,      only:i_belong
+ use mpidomain,   only:i_belong
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu

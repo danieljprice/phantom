@@ -217,7 +217,7 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
              !  criterion is satisfied (here if h < 0.5*dx)
              !
 
-             !$omp critical
+             !$omp critical (nmesh_add)
              nmesh = nmesh + 1
              if (nmesh > maxmeshes) then
                 !print*,'ERROR: nmesh > maxmeshes (',maxmeshes,'): change parameter and recompile'
@@ -239,7 +239,7 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
                 isublevel = level + 1
                 isubmesh  = nmesh      ! be careful to pass by value here, not by reference...
              endif
-             !$omp end critical
+             !$omp end critical (nmesh_add)
 
              if (ierr /= 0) return
 

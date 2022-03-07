@@ -14,7 +14,7 @@ module testpart
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, io, kernel, part, physcon, testutils,
+! :Dependencies: boundary, io, kernel, mpidomain, part, physcon, testutils,
 !   unifdis
 !
  use testutils, only:update_test_scores,checkval
@@ -55,7 +55,7 @@ subroutine test_accrete_and_kill_routines(ntests, npass)
  use part,      only:kill_particle,count_dead_particles,isdead_or_accreted, &
                      accrete_particles_outside_sphere,delete_dead_or_accreted_particles
  use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use domain,    only:i_belong
+ use mpidomain, only:i_belong
  use kernel,    only:hfact_default
  use unifdis,   only:set_unifdis
  use physcon,   only:pi

@@ -69,7 +69,6 @@ module eos
  real,    public :: X_in = 0.74, Z_in = 0.02
  !--Minimum temperature (failsafe to prevent u < 0)
  real,    public :: Tfloor = 0. ![K]
- real,    public :: ufloor
  real,    public :: temperature_coef
 
  logical, public :: done_init_eos = .false.
@@ -160,8 +159,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     endif
 #else
     if (present(eni)) then
-       if (eni < 0.) eni = ufloor
-
+       if (eni < 0.) then
+          !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
+          call fatal('eos','utherm < 0',var='u',val=eni)
+       endif
        if (use_entropy) then
           ponrhoi = eni*rhoi**(gammai-1.)  ! use this if en is entropy
        elseif (gammai > 1.0001) then

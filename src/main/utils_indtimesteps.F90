@@ -463,7 +463,7 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  real,            intent(in) :: time,dt
  integer(kind=8), intent(in) :: nactive
  real(kind=4),    intent(in) :: tcpu
- integer,         intent(in) :: np
+ integer(kind=8), intent(in) :: np
  character(len=120) :: string
  character(len=14) :: tmp
  integer, save :: nplast = 0

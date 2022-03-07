@@ -14,7 +14,7 @@ module testlink
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, io, kdtree, kernel, linklist,
+! :Dependencies: boundary, dim, io, kdtree, kernel, linklist, mpidomain,
 !   mpiutils, part, random, testutils, timing, unifdis
 !
  implicit none
@@ -37,12 +37,12 @@ subroutine test_link(ntests,npass)
  use unifdis,  only:set_unifdis
  use timing,   only:getused
  use random,   only:ran2
- use domain,   only:i_belong
+ use mpidomain,only:i_belong
  use part,            only:maxphase,iphase,isetphase,igas,iactive
  use testutils,       only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use linklist,        only:set_linklist,get_neighbour_list,ncells,ifirstincell
  use kdtree,          only:inodeparts,inoderange
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
 #ifdef PERIODIC
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use linklist, only:dcellx,dcelly,dcellz

@@ -14,18 +14,17 @@ module initial
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, balance, boundary, centreofmass, checkconserved,
+! :Dependencies: analysis, boundary, centreofmass, checkconserved,
 !   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
-!   deriv, dim, domain, dust, energies, eos, evwrite, extern_gr,
-!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
-!   io_summary, krome_interface, linklist, metric_tools, mf_write, mpi,
-!   mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
-!   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   stack, timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
+!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
+!   mpiderivs, mpidomain, mpistack, mpiutils, nicil, nicil_sup, omputils,
+!   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
+!   writeheader
 !
-#ifdef MPI
- use mpi
-#endif
+
  implicit none
  public :: initialise,finalise,startrun,endrun
  real(kind=4), private :: twall_start, tcpu_start
@@ -41,6 +40,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
+ use dim,              only:mpi
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -51,13 +51,11 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use evwrite,          only:init_evfile
- use domain,           only:init_domains
+ use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
-#ifdef MPI
  use mpiderivs,        only:init_tree_comms
- use stack,            only:init_mpi_memory
-#endif
+ use mpistack,         only:init_mpi_memory
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -102,10 +100,10 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
+ if (mpi) then
+    call init_tree_comms()
+    call init_mpi_memory()
+ endif
 
  call init_readwrite_dumps()
 
@@ -118,9 +116,9 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
- use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
+ use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
-                            nalpha,mhd,do_radiation,gravity,use_dust
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -131,7 +129,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim, &
+                            npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
@@ -194,10 +192,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
-#ifdef MPI
- use balance,          only:balancedomains
- use part,             only:ibelong
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -211,6 +205,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
+ use mpibalance,       only:balancedomains
+ use part,             only:ibelong
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
  use checksetup,       only:check_setup
@@ -225,7 +221,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,merge_n,merge_ij(maxptmass)
- integer(kind=8) :: npartoftypetot(maxtypes)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -305,7 +300,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--get total number of particles (on all processors)
 !
  ntot           = reduceall_mpi('+',npart)
- npartoftypetot = reduce_mpi('+',npartoftype)
+ call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
     if (id==master .and. maxalpha==maxp)  write(iprint,*) 'mean alpha  initial: ',sum(alphaind(1,1:npart))/real(npart)
@@ -385,12 +380,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--balance domains prior to starting calculation
 !  (make sure this is called AFTER iphase has been set)
 !
-#ifdef MPI
- do i=1,npart
-    ibelong(i) = id
- enddo
- call balancedomains(npart)
-#endif
+ if (mpi) then
+    do i=1,npart
+       ibelong(i) = id
+    enddo
+    call balancedomains(npart)
+ endif
+
 !
 !--set up photoevaporation grid, define relevant constants, etc.
 !
@@ -404,9 +400,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  fext(:,:)  = 0.
 
 #ifdef GR
-! COMPUTE METRIC HERE
- call init_metric(npart,xyzh,metrics,metricderivs)
 #ifdef PRIM2CONS_FIRST
+ ! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  ! -- The conserved quantites (momentum and entropy) are being computed
  ! -- directly from the primitive values in the starting dumpfile.
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -422,13 +418,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
+! COMPUTE METRIC HERE
+ call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #else
  if (iexternalforce > 0) then
@@ -450,9 +447,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        endif
     enddo
     !$omp end parallel do
-    write(iprint,*) 'dt(extforce)  = ',dtextforce
  endif
 #endif
+
+ if (iexternalforce > 0) then
+    dtextforce = reduceall_mpi('min',dtextforce)
+    if (id==master) write(iprint,*) 'dt(extforce)  = ',dtextforce
+ endif
 
 !
 !-- Set external force to zero on boundary particles
@@ -653,6 +654,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
  enddo
  !$omp end parallel do
+
+ xmin = reduceall_mpi('min',xmin)
+ ymin = reduceall_mpi('min',ymin)
+ zmin = reduceall_mpi('min',zmin)
+ xmax = reduceall_mpi('max',xmax)
+ ymax = reduceall_mpi('max',ymax)
+ zmax = reduceall_mpi('max',zmax)
+
  dx = abs(xmax - xmin)
  dy = abs(ymax - ymin)
  dz = abs(zmax - zmin)
@@ -760,13 +769,15 @@ end subroutine startrun
 !+
 !----------------------------------------------------------------
 subroutine finalise()
-#ifdef MPI
- use mpiderivs,       only:finish_tree_comms
- use stack,           only:finish_mpi_memory
+ use dim, only: mpi
+ use mpiderivs, only:finish_tree_comms
+ use mpistack,  only:finish_mpi_memory
 
- call finish_tree_comms()
- call finish_mpi_memory()
-#endif
+ if (mpi) then
+    call finish_tree_comms()
+    call finish_mpi_memory()
+ endif
+
 end subroutine finalise
 
 !----------------------------------------------------------------
