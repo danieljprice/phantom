@@ -293,11 +293,11 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
 
  real, intent(in) :: rho, T, Teq               !rho in code units
  real, intent(in) :: r, mu, gamma
- real, intent(in), optional :: K2, kappa   !cgs
+ real, intent(in), optional :: K2, kappa       !cgs
  real, intent(out) :: Q, dlnQ_dlnT             !code units
  real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_molec, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan, dlnQ_molec
- 
+
  rho_cgs = rho*unit_density
  Q_H0              = 0.
  Q_relax_Bowen     = 0.
@@ -345,7 +345,7 @@ subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, gamma, Q, dlnQ_dlnT)
  use physcon, only:Rg
  real, intent(in)  :: T, Teq, rho, mu, gamma
  real, intent(out) :: Q,dlnQ_dlnT
- 
+
  Q         = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
  dlnQ_dlnT = -T/(Teq-T+1.d-10)
 
@@ -563,11 +563,10 @@ subroutine explicit_cooling (xi,yi,zi,ui, dudt, rho, dt, Trad, mu, gamma, K2, ka
  real, intent(in) :: xi, yi, zi, ui, rho, dt, Trad, mu, gamma !code units
  real, intent(in), optional ::  K2, kappa
  real, intent(out) :: dudt !code units
- real :: u,Q,dlnQ_dlnT,T,T_on_u
- real :: r                         !in au
+ real :: u,Q,dlnQ_dlnT,T,T_on_u, r
 
  r  = sqrt(xi*xi + yi*yi + zi*zi)
- 
+
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T = T_on_u*ui
  call calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Trad, mu, gamma, K2, kappa)
@@ -639,12 +638,10 @@ end subroutine implicit_cooling
 subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tgas)
  use io,  only: fatal
  use eos, only: gmw,gamma
- real, intent(in)           :: xi,yi,zi,ui,rho,dt         ! in code units
- real, intent(in), optional :: Tgas,Trad,mu_in,gamma_in,K2,kappa   ! in cgs units
- real, intent(inout)        :: dudt                       ! in code units
- real                       :: r,mu,polyIndex
-
- r  = sqrt(xi*xi + yi*yi + zi*zi)
+ real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
+ real, intent(in), optional :: Tgas,Trad,mu_in,gamma_in,K2,kappa   ! in cgs
+ real, intent(inout)        :: dudt                                ! in code units
+ real                       :: mu,polyIndex
 
  mu         = gmw
  polyIndex  = gamma
@@ -654,7 +651,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  select case (icooling)
  case(1)
 !     call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
-    call exact_cooling(r, ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
+    call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
  case (3)
     call cooling_Gammie(xi,yi,zi,ui,dudt)
  case (2)
@@ -685,18 +682,19 @@ end subroutine energ_cooling
 !   analytical cooling rate prescriptions
 !
 !-----------------------------------------------------------------------
-subroutine exact_cooling (r, u, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
+subroutine exact_cooling (xi,yi,zi, u, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
- real, intent(in) :: u, rho, dt, Trad, mu, gamma
+ real, intent(in) :: xi,yi,zi, u, rho, dt, Trad, mu, gamma
  real, intent(in), optional :: K2, kappa
  real, intent(out) :: dudt
 
  real, parameter :: tol = 1.d-12
  real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u
- real :: r  ! in au
- integer :: k 
+ real :: r
+ integer :: k
 
+ r  = sqrt(xi*xi + yi*yi + zi*zi)
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T = T_on_u*u
 
