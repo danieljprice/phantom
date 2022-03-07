@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module stack
+module mpistack
 !
 ! None
 !
@@ -16,7 +16,6 @@ module stack
 !
 ! :Dependencies: dim, io, mpidens, mpiforce
 !
-#ifdef MPI
  use dim,         only:stacksize
  use io,          only:fatal
  use mpidens,     only:celldens,stackdens
@@ -56,6 +55,16 @@ module stack
  public :: push_onto_stack
  public :: pop_off_stack
  public :: reserve_stack
+ public :: reset_stacks
+
+ ! stacks to be referenced from density and force routines
+ type(stackdens),  public :: dens_stack_1
+ type(stackdens),  public :: dens_stack_2
+ type(stackdens),  public :: dens_stack_3
+ type(stackforce), public :: force_stack_1
+ type(stackforce), public :: force_stack_2
+
+ private
 
  ! primary chunk of memory requested using alloc
  integer, parameter  :: n_dens_cells  = stacksize*3
@@ -67,17 +76,9 @@ module stack
  integer             :: idens
  integer             :: iforce
 
- ! stacks to be referenced from density and force routines
- type(stackdens)     :: dens_stack_1
- type(stackdens)     :: dens_stack_2
- type(stackdens)     :: dens_stack_3
- type(stackforce)    :: force_stack_1
- type(stackforce)    :: force_stack_2
-
 contains
 
 subroutine init_mpi_memory
- integer :: idens, iforce ! memory allocation counters
  integer :: allocstat
 
  allocate(dens_cells(n_dens_cells), stat = allocstat)
@@ -240,5 +241,14 @@ subroutine reserve_stack_force(stack,i)
  i = stack%n
  if (stack%n > stack%maxlength) call fatal('force','stack overflow')
 end subroutine reserve_stack_force
-#endif
-end module stack
+
+subroutine reset_stacks
+ dens_stack_1%n=0
+ dens_stack_2%n=0
+ dens_stack_3%n=0
+
+ force_stack_1%n=0
+ force_stack_2%n=0
+end subroutine reset_stacks
+
+end module mpistack
