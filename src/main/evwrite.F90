@@ -83,6 +83,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  use viscosity, only:irealvisc
  use gravwaveutils, only:calc_gravitwaves
  use mpiutils,  only:reduceall_mpi
+ use eos,       only:ieos,eos_is_non_ideal,eos_outputs_gasP
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
@@ -104,27 +105,26 @@ subroutine init_evfile(iunit,evfile,open_file)
  !
  i = 1
  j = 1
- call fill_ev_tag(ev_fmt,iev_time,   'time',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_ekin,   'ekin',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_etherm, 'etherm',   '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_emag,   'emag',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_epot,   'epot',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_etot,   'etot',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_erad,   'erad',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_totmom, 'totmom',   '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa', i,j)
- call fill_ev_tag(ev_fmt,iev_dt,     'dt',       '0',  i,j)
+ call fill_ev_tag(ev_fmt,iev_time,   'time',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_ekin,   'ekin',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_etherm, 'etherm',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_emag,   'emag',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_epot,   'epot',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_etot,   'etot',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_erad,   'erad',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_totmom, 'totmom',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_angmom, 'angtot',   '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_rho,    'rho',      'xa',i,j)
+ call fill_ev_tag(ev_fmt,iev_dt,     'dt',       '0', i,j)
  if (dtmax_dratio > 0.) then
-    call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0',  i,j)
+    call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
  endif
- call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s',  i,j)
- call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_temp,   'temp',     'xan',i,j)
- call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0',  i,j)
- call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0',  i,j)
+ call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
+ call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_vrms,   'vrms',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
+ call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)
  if (.not. gas_only) then
     if (npartoftypetot(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
     if (npartoftypetot(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
@@ -133,7 +133,12 @@ subroutine init_evfile(iunit,evfile,open_file)
     if (npartoftypetot(idarkmatter) > 0) call fill_ev_tag(ev_fmt,iev_rhop(5),'rho dm',  'xa',i,j)
     if (npartoftypetot(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
  endif
- if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
+ if (maxalpha==maxp) then
+    call fill_ev_tag(ev_fmt,      iev_alpha,  'alpha',  'x',  i,j)
+ endif
+ if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+    call fill_ev_tag(ev_fmt,      iev_temp,   'temp',   'xan',i,j)
+ endif
  if ( mhd ) then
     call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
     call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)

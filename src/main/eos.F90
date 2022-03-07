@@ -51,7 +51,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
+ public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
@@ -382,6 +382,23 @@ logical function eos_outputs_mu(ieos)
  end select
 
 end function eos_outputs_mu
+
+!----------------------------------------------------------------
+!+
+!  Query function to whether to print pressure to dump file
+!+
+!----------------------------------------------------------------
+logical function eos_outputs_gasP(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(8,9,10,15)
+    eos_outputs_gasP = .true.
+ case default
+    eos_outputs_gasP = .false.
+ end select
+
+end function eos_outputs_gasP
 
 !----------------------------------------------------------------
 !+
