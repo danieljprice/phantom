@@ -1693,7 +1693,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
           write(iprint,*) 'ERROR: qfacdisc <= 0'
           ierr = 2
        else
-          write(iprint,*) 'qfacdisc = ',qfacdisc
+          if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
        endif
     endif
     call extract('massoftype',massoftype(1:ntypesinfile),hdr,ierr)
