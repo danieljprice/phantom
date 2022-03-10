@@ -14,7 +14,7 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, part, photoevap
+! :Dependencies: allocutils, dim, io, linklist, mpimemory, part, photoevap
 !
  implicit none
 
@@ -83,7 +83,7 @@ subroutine allocate_memory(n, part_only)
     call allocate_photoevap
 #endif
 
-   if (mpi) call allocate_mpi_memory()
+    call allocate_mpi_memory(n)
  endif
 
  call bytes2human(nbytes_allocated, sizestring)

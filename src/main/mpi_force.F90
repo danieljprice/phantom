@@ -17,7 +17,7 @@ module mpiforce
 ! :Dependencies: dim, io, mpi, mpiutils
 !
  use io,       only:nprocs,fatal
- use dim,      only:minpart,maxfsum,maxprocs,stacksize,maxxpartveciforce
+ use dim,      only:minpart,maxfsum,maxprocs,maxxpartveciforce
 
  implicit none
  private
