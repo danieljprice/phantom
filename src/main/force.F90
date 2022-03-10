@@ -41,7 +41,7 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpistack, mpiutils, nicil, options, part, physcon,
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part, physcon,
 !   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
 !   timestep_sts, units, utils_gr, viscosity
 !
@@ -220,9 +220,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters
- use mpistack,     only:reserve_stack,reset_stacks
- use mpistack,     only:stack_remote  => force_stack_1
- use mpistack,     only:stack_waiting => force_stack_2
+ use mpimemory,    only:reserve_stack,reset_stacks
+ use mpimemory,    only:stack_remote  => force_stack_1
+ use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)

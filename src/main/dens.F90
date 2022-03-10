@@ -16,7 +16,7 @@ module densityforce
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, io, io_summary, kdtree, kernel, linklist,
-!   mpidens, mpiderivs, mpistack, mpiutils, options, part, timestep,
+!   mpidens, mpiderivs, mpimemory, mpiutils, options, part, timestep,
 !   timing, viscosity
 !
  use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
@@ -127,10 +127,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
- use mpistack,  only:reserve_stack,swap_stacks,reset_stacks
- use mpistack,  only:stack_remote  => dens_stack_1
- use mpistack,  only:stack_waiting => dens_stack_2
- use mpistack,  only:stack_redo    => dens_stack_3
+ use mpimemory, only:reserve_stack,swap_stacks,reset_stacks
+ use mpimemory, only:stack_remote  => dens_stack_1
+ use mpimemory, only:stack_waiting => dens_stack_2
+ use mpimemory, only:stack_redo    => dens_stack_3
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
  use timestep,  only:rhomaxnow

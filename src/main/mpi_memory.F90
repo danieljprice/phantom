@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module mpistack
+module mpimemory
 !
 ! None
 !
@@ -251,4 +251,4 @@ subroutine reset_stacks
  force_stack_2%n=0
 end subroutine reset_stacks
 
-end module mpistack
+end module mpimemory
