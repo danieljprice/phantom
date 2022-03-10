@@ -101,9 +101,9 @@ endif
 ifeq ($(SETUP), turbdrive)
 #   driven turbulence
     ifeq ($(IND_TIMESTEPS), yes)
-       FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+        FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
     else
-       FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
+        FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
     endif
     SETUPFILE= setup_unifdis.f90
     SRCTURB= forcing.F90
