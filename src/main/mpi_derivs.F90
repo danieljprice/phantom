@@ -196,7 +196,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner)) then
+ if (targets(cell%owner+1)) then
     tag = 2
  else
     tag = 1
@@ -227,7 +227,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner)) then
+ if (targets(cell%owner+1)) then
     tag = 2
  else
     tag = 1
