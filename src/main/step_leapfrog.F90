@@ -1053,7 +1053,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,do_nucleation
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1076,6 +1076,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
 #ifdef DUST_NUCLEATION
+ use dim,            only:do_nucleation
  use part,           only:nucleation,idK2,idmu,idkappa
  use dust_formation, only:evolve_dust
 #endif
