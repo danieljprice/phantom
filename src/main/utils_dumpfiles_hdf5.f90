@@ -14,7 +14,7 @@ module utils_dumpfiles_hdf5
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, part, utils_hdf5
+! :Dependencies: dim, eos, part, utils_hdf5
 !
  use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
  use part,       only:eos_vars_label,igasP,itemp,maxirad

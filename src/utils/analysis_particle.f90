@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon
+! :Dependencies: io, physcon
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'particle'

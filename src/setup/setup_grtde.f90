@@ -24,10 +24,9 @@ module setup
 !   - stardensprofile : *star density profile (1=adiabatic, 2=kepler)*
 !   - theta           : *inclination of orbit (degrees)*
 !
-! :Dependencies: dim, eos, extern_densprofile, externalforces,
-!   gravwaveutils, infile_utils, io, kernel, metric, part, physcon,
-!   rho_profile, setbinary, spherical, table_utils, timestep, units,
-!   vectorutils
+! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
+!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
+!   setbinary, spherical, table_utils, timestep, units, vectorutils
 !
  implicit none
  public :: setpart

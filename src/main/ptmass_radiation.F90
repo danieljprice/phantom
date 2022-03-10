@@ -22,8 +22,8 @@ module ptmass_radiation
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
 !   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel,
-!   options, part, physcon, units
+! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel, part,
+!   physcon, units
 !
 
 

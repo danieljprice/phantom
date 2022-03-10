@@ -27,7 +27,7 @@ module eos
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters:
 !   - X           : *hydrogen mass fraction*
@@ -469,7 +469,7 @@ end subroutine finish_eos
 !  is not saved in the dump files
 !+
 !-----------------------------------------------------------------------
- subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
+subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: xyzi(:),rhoi
