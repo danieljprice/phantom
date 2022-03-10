@@ -430,7 +430,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           yi    = xyzh(2,i)
           zi    = xyzh(3,i)
           tempi = initialtemp
-          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
           vxyzu(4,i) = eni
           eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS

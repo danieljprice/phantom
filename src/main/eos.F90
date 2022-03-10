@@ -51,7 +51,7 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_TempPresCs,get_spsound,get_temperature
+ public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
 #ifdef KROME
  public  :: get_local_u_internal
@@ -87,7 +87,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gamma_local,mu_local,Xlocal,Zlocal)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -99,19 +99,20 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_gasradrec, only:equationofstate_gasradrec
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
- integer, intent(in)  :: eos_type
- real,    intent(in)  :: rhoi,xi,yi,zi
- real,    intent(out) :: ponrhoi,spsoundi
+ integer, intent(in)    :: eos_type
+ real,    intent(in)    :: rhoi,xi,yi,zi
+ real,    intent(out)   :: ponrhoi,spsoundi
+ real,    intent(inout) :: tempi
  real,    intent(inout), optional :: eni
- real,    intent(inout), optional :: tempi,mu_local
+ real,    intent(inout), optional :: mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
- real :: r,omega,bigH,polyk_new,r1,r2
- real :: gammai,temperaturei,mui,imui,X_i,Z_i
- real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
- real :: uthermconst
+ real    :: r,omega,bigH,polyk_new,r1,r2
+ real    :: gammai,temperaturei,mui,imui,X_i,Z_i
+ real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
+ real    :: uthermconst
 #ifdef GR
- real :: enthi,pondensi
+ real    :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
  if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11 .and. eos_type /= 12) &
  call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
@@ -134,7 +135,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(2)
 !
@@ -174,7 +175,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi = sqrt(gammai*ponrhoi)
 #endif
 
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi = temperature_coef*mui*ponrhoi
 
  case(3)
 !
@@ -183,16 +184,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = temperature_coef*mui*ponrhoi
 
 !
 !--GR isothermal
 !
  case(4)
     uthermconst = polyk
-    ponrhoi = (gammai-1.)*uthermconst
+    ponrhoi  = (gammai-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(6)
 !
@@ -201,7 +202,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
                       (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(7)
 !
@@ -219,23 +220,23 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        polyk_new = 100.0*polyk
     endif
 
-    ponrhoi = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
+    ponrhoi  = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
     spsoundi = sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(8)
 !
 !--Barotropic equation of state
 !
     call get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi = temperature_coef*mui*ponrhoi
 
  case(9)
 !
 !--Piecewise Polytropic equation of state
 !
     call get_eos_piecewise(rhoi,ponrhoi,spsoundi,gammai)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi = temperature_coef*mui*ponrhoi
 
  case(10)
 !
@@ -248,7 +249,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 
     ponrhoi  = presi / rhoi
     spsoundi = sqrt(gam1*ponrhoi)
-    if (present(tempi)) tempi = temperaturei
+    tempi    = temperaturei
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
 
  case(11)
@@ -257,50 +258,40 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    tempi    = 0.
 
  case(12)
 !
 !--ideal gas plus radiation pressure
 !
-    if (present(tempi)) then
-       temperaturei = tempi
-    else
-       temperaturei = -1. ! Use gas temperature as initial guess
-    endif
-    cgsrhoi = rhoi * unit_density
-    cgseni  = eni * unit_ergg
+    temperaturei = tempi  ! Required as initial guess
+    cgsrhoi      = rhoi * unit_density
+    cgseni       = eni * unit_ergg
     call get_idealplusrad_temp(cgsrhoi,cgseni,mui,gammai,temperaturei,ierr)
     call get_idealplusrad_pres(cgsrhoi,temperaturei,mui,cgspresi)
     call get_idealplusrad_spsoundi(cgsrhoi,cgspresi,cgseni,spsoundi)
     spsoundi = spsoundi / unit_velocity
-    presi = cgspresi / unit_pressure
-    ponrhoi = presi / rhoi
-    if (present(tempi)) tempi = temperaturei
+    presi    = cgspresi / unit_pressure
+    ponrhoi  = presi / rhoi
+    tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
 
  case(14)
 !
 !--locally isothermal prescription from Farris et al. (2014) for binary system
 !
-    r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
-    r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
+    r1 = sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
+    r2 = sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
 !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
-    ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
-    spsoundi=sqrt(ponrhoi)
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    ponrhoi  = polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
+    spsoundi = sqrt(ponrhoi)
+    tempi    = temperature_coef*mui*ponrhoi
 
  case(15)
 !
 !--helmholtz free energy eos
 !
-    if (present(tempi)) then
-       call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
-    else
-       ponrhoi  = 0.
-       spsoundi = 0.
-       call fatal('eos','tried to call Helmholtz free energy eos without passing temperature')
-    endif
+    call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
 
  case(16)
 !
@@ -313,7 +304,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi=cgsspsoundi / unit_velocity
     presi = cgspresi / unit_pressure
     ponrhoi = presi / rhoi
-    if (present(tempi)) tempi = eni
+    tempi = eni
+    call warning('eos','Not sure if this is correct now that temperature is always passed into eos')
 !    else
 !       call fatal('eos','tried to call NL3 eos without passing temperature')
 !    endif
@@ -324,22 +316,22 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    imui = 1./mui
-    if (present(tempi) .and. (tempi > 0.)) then
+    imui    = 1./mui
+    if (tempi > 0.) then
        temperaturei = tempi
     else
        temperaturei = 0.67 * cgseni * mui / kb_on_mh
     endif
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
-    ponrhoi = cgspresi / (unit_pressure * rhoi)
+    ponrhoi  = cgspresi / (unit_pressure * rhoi)
     spsoundi = cgsspsoundi / unit_velocity
+    tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
-    if (present(tempi)) tempi = temperaturei
 
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
-    if (present(tempi)) tempi = 0.
+    tempi    = 0.
     call fatal('eos','unknown equation of state')
  end select
 
@@ -481,8 +473,7 @@ end subroutine finish_eos
  use dim, only:maxvxyzu
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: xyzi(:),rhoi
- real,    intent(inout)           :: vxyzui(:)
- real,    intent(inout), optional :: tempi
+ real,    intent(inout)           :: vxyzui(:),tempi
  real,    intent(out),   optional :: presi,spsoundi
  real,    intent(in),    optional :: gammai,mui,Xi,Zi
  real                             :: csi,ponrhoi,mu,X,Z
@@ -501,18 +492,14 @@ end subroutine finish_eos
 
  if (maxvxyzu==4) then
     if (use_gamma) then
-       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
-    elseif (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            tempi=tempi,mu_local=mu,Xlocal=X,Zlocal=Z)
     else
-       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu,Xlocal=X,Zlocal=Z)
+       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
+                            mu_local=mu,Xlocal=X,Zlocal=Z)
     endif
- elseif (present(tempi)) then
-    call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi=tempi,mu_local=mu)
  else
-    call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z)
+    call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,mu_local=mu)
  endif
 
  if (present(presi))    presi    = ponrhoi*rhoi
@@ -577,6 +564,35 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  get_temperature = tempi
 
 end function get_temperature
+
+!-----------------------------------------------------------------------
+!+
+!  Wrapper function to calculate pressure
+!+
+!-----------------------------------------------------------------------
+real function get_pressure(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
+ integer, intent(in)             :: eos_type
+ real,    intent(in)             :: xyzi(:),rhoi
+ real,    intent(inout)          :: vxyzui(:)
+ real,    intent(in),   optional :: gammai,mui,Xi,Zi
+ real                            :: presi,tempi,gam,mu,X,Z
+
+ !set defaults for variables not passed in
+ mu    = gmw
+ X     = X_in
+ Z     = Z_in
+ tempi = -1.  ! needed because temperature is an in/out to some equations of state, -ve == use own guess
+ gam   = -1.  ! to indicate gamma is not being passed in
+ if (present(mui)) mu = mui
+ if (present(Xi))  X  = Xi
+ if (present(Zi))  Z  = Zi
+ if (present(gammai)) gam = gammai
+
+ call get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi=presi,gammai=gam,mui=mu,Xi=X,Zi=Z)
+
+ get_pressure = presi
+
+end function get_pressure
 
 !-----------------------------------------------------------------------
 !+
