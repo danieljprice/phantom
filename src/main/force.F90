@@ -56,8 +56,6 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 50000
-
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
@@ -224,6 +222,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpistack,     only:stack_remote  => force_stack_1
  use mpistack,     only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
+ use omp_cache,    only:ompcache,maxcellcache
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -243,8 +242,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dens(:), metrics(:,:,:,:)
 
- real, save :: xyzcache(maxcellcache,4)
-!$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
  integer :: nstokes,nsuper,ndrag,ndustres
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
@@ -278,6 +275,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  logical                   :: remote_export(nprocs), do_export
  type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: ithread,OMP_GET_THREAD_NUM
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -431,7 +429,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dustfrac) &
 !$omp shared(ddustevol) &
 !$omp shared(deltav) &
-!$omp shared(ibin_wake,ibinnow_m1)
+!$omp shared(ibin_wake,ibinnow_m1) &
+!$omp shared(ompcache) &
+!$omp private(ithread)
+
+ ithread = OMP_GET_THREAD_NUM() + 1
 
 !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -452,7 +454,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !--get the neighbour list and fill the cell cache
     !
 
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,ompcache(:,:,ithread),maxcellcache,getj=.true., &
 #ifdef GRAVITY
                            f=cell%fgrav, &
 #endif
@@ -475,7 +477,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                      dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                      dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,ompcache(:,:,ithread),&
                       rad,radprop,dens,metrics)
 
     if (do_export) then
@@ -516,7 +518,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     over_remote: do i = 1,stack_remote%n
        cell = stack_remote%cells(i)
 
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
+       call get_neighbour_list(-1,listneigh,nneigh,xyzh,ompcache(:,:,ithread),maxcellcache,getj=.true., &
 #ifdef GRAVITY
                          f=cell%fgrav, &
 #endif
@@ -524,7 +526,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                         dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                         dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,ompcache(:,:,ithread),&
                          rad,radprop,dens,metrics)
 
        cell%remote_export(id+1) = .false.
@@ -867,6 +869,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
+ use omp_cache,   only:maxcellcache
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
