@@ -458,7 +458,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           else
              if ((twallused + 3.0*twallperdump) > twallmax) then
                 fulldump = .true.
-                write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
+                if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
                 nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
                 if ((twallused + twallperdump) > twallmax) abortrun = .true.
              endif
@@ -527,14 +527,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        !  based on the wall time between the last two dumps added to the current total walltime used.
        !
        if (abortrun) then
-          call print_time(t2-tstart,'>> WALL TIME = ',iprint)
-          call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
-          write(iprint,"(1x,a)") '>> ABORTING... '
+          if (id==master) then
+             call print_time(t2-tstart,'>> WALL TIME = ',iprint)
+             call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
+             write(iprint,"(1x,a)") '>> ABORTING... '
+          endif
           return
        endif
 
        if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
-          write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
+          if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
           return
        endif
 
