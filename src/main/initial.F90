@@ -19,7 +19,7 @@ module initial
 !   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpiderivs, mpidomain, mpistack, mpiutils, nicil, nicil_sup, omputils,
+!   mpiderivs, mpidomain, mpimemory, mpiutils, nicil, nicil_sup, omputils,
 !   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
 !   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
 !   writeheader
@@ -55,7 +55,6 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use mpiderivs,        only:init_tree_comms
- use mpistack,         only:init_mpi_memory
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -100,10 +99,7 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
- if (mpi) then
-    call init_tree_comms()
-    call init_mpi_memory()
- endif
+ if (mpi) call init_tree_comms()
 
  call init_readwrite_dumps()
 
@@ -773,7 +769,7 @@ end subroutine startrun
 subroutine finalise()
  use dim, only: mpi
  use mpiderivs, only:finish_tree_comms
- use mpistack,  only:finish_mpi_memory
+ use mpimemory, only:finish_mpi_memory
 
  if (mpi) then
     call finish_tree_comms()

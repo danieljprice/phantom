@@ -17,7 +17,7 @@ module mpidens
 ! :Dependencies: dim, io, mpi, mpiutils
 !
  use io,       only:nprocs,fatal,error
- use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
+ use dim,      only:minpart,maxrhosum,maxprocs,maxxpartvecidens
 
  implicit none
  private
