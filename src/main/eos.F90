@@ -62,13 +62,11 @@ module eos
  private
 
  integer, public :: ieos          = 1
- integer, public :: iopacity_type = 0 ! used for radiation
- integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
- !--Mean molecular weight if temperature required
- real,    public :: gmw           = 2.381
- real,    public :: X_in = 0.74, Z_in = 0.02
- !--Minimum temperature (failsafe to prevent u < 0)
- real,    public :: Tfloor = 0. ![K]
+ integer, public :: iopacity_type = 0     ! used for radiation
+ integer, public :: irecomb       = 0     ! types of recombination energy to include for ieos=20
+ real,    public :: gmw           = 2.381 ! default mean molecular weight
+ real,    public :: X_in          = 0.74  ! default metallicities
+ real,    public :: Z_in          = 0.02  ! default metallicities
  real,    public :: temperature_coef
 
  logical, public :: done_init_eos = .false.
