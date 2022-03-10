@@ -29,6 +29,7 @@ subroutine allocate_memory(n, part_only)
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
  use linklist, only:allocate_linklist,ifirstincell
+ use omp_cache, only:allocate_cache
 #ifdef PHOTO
  use photoevap, only:allocate_photoevap
 #endif
@@ -83,6 +84,8 @@ subroutine allocate_memory(n, part_only)
 #endif
  endif
 
+ call allocate_cache
+
  call bytes2human(nbytes_allocated, sizestring)
  if (nprocs == 1) then
     write(iprint, '(a)') '------------------------------------------------------------'
@@ -102,6 +105,7 @@ subroutine deallocate_memory(part_only)
  use photoevap, only:deallocate_photoevap
 #endif
  use allocutils, only:nbytes_allocated
+ use omp_cache, only:deallocate_cache
 
  logical, optional, intent(in) :: part_only
  logical :: part_only_
@@ -119,6 +123,8 @@ subroutine deallocate_memory(part_only)
     call deallocate_photoevap
 #endif
  endif
+
+ call deallocate_cache
 
  nbytes_allocated = 0
  call update_max_sizes(0)
