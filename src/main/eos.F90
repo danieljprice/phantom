@@ -51,13 +51,13 @@ module eos
  data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
+ public  :: get_TempPresCs,get_spsound,get_temperature
+ public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
- public  :: print_eos_to_file
 
  private
 
@@ -341,7 +341,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
-    if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+    if (present(tempi)) tempi = 0.
     call fatal('eos','unknown equation of state')
  end select
 
@@ -402,80 +402,109 @@ end function eos_outputs_gasP
 
 !----------------------------------------------------------------
 !+
-!  query function to return the sound speed
-!  (called from step for decay timescale in alpha switches)
+!  Calculate gas temperature, sound speed, and pressure.
+!  This will be required for various analysis routines is eos_vars
+!  is not saved in the dump files
 !+
 !----------------------------------------------------------------
-real function get_spsound(eos_type,xyzi,rhoi,vxyzui,tempi,gammai,mui,Xi,Zi)
+ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
- integer,      intent(in)      :: eos_type
- real,         intent(in)      :: xyzi(:),rhoi
- real,         intent(inout)   :: vxyzui(:)
- real, intent(inout)   , optional    :: tempi
- real, intent(in)      , optional    :: gammai,mui,Xi,Zi
- real :: spsoundi,ponrhoi,mu,X,Z
+ integer, intent(in)              :: eos_type
+ real,    intent(in)              :: xyzi(:),rhoi
+ real,    intent(inout)           :: vxyzui(:)
+ real,    intent(inout), optional :: tempi
+ real,    intent(out),   optional :: presi,spsoundi
+ real,    intent(in),    optional :: gammai,mui,Xi,Zi
+ real                             :: csi,ponrhoi,mu,X,Z
+ logical                          :: use_gamma
 
  mu = gmw
- X = X_in
- Z = Z_in
+ X  = X_in
+ Z  = Z_in
  if (present(mui)) mu = mui
- if (present(Xi)) X = Xi
- if (present(Zi)) Z = Zi
+ if (present(Xi))  X = Xi
+ if (present(Zi))  Z = Zi
+ use_gamma = .false.
+ if (present(gammai)) then
+    if (gammai > 0.) use_gamma = .true.
+ endif
 
  if (maxvxyzu==4) then
-    if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+    if (use_gamma) then
+       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)
     elseif (present(tempi)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
+       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
                             tempi=tempi,mu_local=mu,Xlocal=X,Zlocal=Z)
     else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu,Xlocal=X,Zlocal=Z)
+       call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),mu_local=mu,Xlocal=X,Zlocal=Z)
     endif
  elseif (present(tempi)) then
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi=tempi,mu_local=mu)
+    call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi=tempi,mu_local=mu)
  else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z)
+    call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z)
  endif
+
+ if (present(presi))    presi    = ponrhoi*rhoi
+ if (present(spsoundi)) spsoundi = csi
+
+end subroutine get_TempPresCs
+!----------------------------------------------------------------
+!+
+!  Wrapper function to get sound speed
+!+
+!----------------------------------------------------------------
+real function get_spsound(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
+ integer, intent(in)             :: eos_type
+ real,    intent(in)             :: xyzi(:),rhoi
+ real,    intent(inout)          :: vxyzui(:)
+ real,    intent(in),   optional :: gammai,mui,Xi,Zi
+ real                            :: spsoundi,tempi,gam,mu,X,Z
+
+ !set defaults for variables not passed in
+ mu    = gmw
+ X     = X_in
+ Z     = Z_in
+ tempi = -1.  ! needed because temperature is an in/out to some equations of state, -ve == use own guess
+ gam   = -1.  ! to indicate gamma is not being passed in
+ if (present(mui)) mu = mui
+ if (present(Xi))  X  = Xi
+ if (present(Zi))  Z  = Zi
+ if (present(gammai)) gam = gammai
+
+ call get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,spsoundi=spsoundi,gammai=gam,mui=mu,Xi=X,Zi=Z)
+
  get_spsound = spsoundi
 
 end function get_spsound
-
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
 !+
-!  query function to return the temperature given density,
-!  position and/or thermal energy
+!  Wrapper function to get temperature
 !+
-!-----------------------------------------------------------------------
-real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi) result(tempi)
- use dim, only:maxvxyzu
- integer,      intent(in)    :: eos_type
- real,         intent(in)    :: xyzi(:),rhoi
- real,         intent(inout) :: vxyzui(:)
- real, intent(in), optional  :: gammai,mui,Xi,Zi
- real :: spsoundi,ponrhoi,mu,X,Z
+!----------------------------------------------------------------
+real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
+ integer, intent(in)             :: eos_type
+ real,    intent(in)             :: xyzi(:),rhoi
+ real,    intent(inout)          :: vxyzui(:)
+ real,    intent(in),   optional :: gammai,mui,Xi,Zi
+ real                            :: tempi,gam,mu,X,Z
 
- mu = gmw
- X = X_in
- Z = Z_in
+ !set defaults for variables not passed in
+ mu    = gmw
+ X     = X_in
+ Z     = Z_in
  tempi = -1.  ! needed because temperature is an in/out to some equations of state, -ve == use own guess
+ gam   = -1.  ! to indicate gamma is not being passed in
  if (present(mui)) mu = mui
- if (present(Xi)) X = Xi
- if (present(Zi)) Z = Zi
- if (maxvxyzu==4) then
-    if (present(gammai)) then
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
-    else
-       call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),vxyzui(4),&
-                            mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
-    endif
- else
-    call equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xyzi(1),xyzi(2),xyzi(3),mu_local=mu,Xlocal=X,Zlocal=Z,tempi=tempi)
- endif
+ if (present(Xi))  X  = Xi
+ if (present(Zi))  Z  = Zi
+ if (present(gammai)) gam = gammai
+
+ call get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,gammai=gam,mui=mu,Xi=X,Zi=Z)
+
+ get_temperature = tempi
 
 end function get_temperature
-
 !----------------------------------------------------------------------------
 !+
 !  query function to return the internal energyfor calculations with a local
@@ -490,19 +519,6 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
-
-!-----------------------------------------------------------------------
-!
-!  query function to get (gas) temperature given P/rho, assuming fixed
-!  mean molecular weight (gmw)
-!
-!-----------------------------------------------------------------------
-real function get_temperature_from_ponrho(ponrho)
- real, intent(in) :: ponrho
-
- get_temperature_from_ponrho = temperature_coef*gmw*ponrho
-
-end function get_temperature_from_ponrho
 
 !-----------------------------------------------------------------------
 !+
@@ -629,43 +645,6 @@ subroutine finish_eos(eos_type,ierr)
 
 end subroutine finish_eos
 
-!-----------------------------------------------------------------------
-!+
-!  allow the user to print the eos to file
-!+
-!-----------------------------------------------------------------------
-subroutine print_eos_to_file(logrhomin,logrhomax,unit_density,unit_velocity)
- use io,               only: iuniteos
- real,         intent(in) :: logrhomin,logrhomax
- real(kind=8), intent(in) :: unit_density,unit_velocity
- integer,      parameter  :: nlogrho   = 1000
- real                     :: rho,drho,ponrhoi,spsoundi,dummy,temperaturei
- integer                  :: i
- !
- !--Open file
- !
- open(unit=iuniteos,file="EOS.dat",form='formatted',status='replace')
- write(iuniteos,'("# Equation of state properties; all values in cgs")')
- write(iuniteos,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
-       1,'rho', &
-       2,'P', &
-       3,'P/rho', &
-       4,'c_s', &
-       5,'T'
-
- dummy = 0.0  ! initialise to avoid compiler warning
- drho  = (logrhomax - logrhomin)/float(nlogrho)
- do i = 1,nlogrho
-    rho = 10**(logrhomin +(i-1)*drho)/unit_density
-    call equationofstate(ieos,ponrhoi,spsoundi,rho,dummy,dummy,dummy)
-    temperaturei = get_temperature_from_ponrho(ponrhoi)
-    write(iuniteos,'(5(1pe18.10,1x))') &
-       rho*unit_density, ponrhoi*unit_velocity**2*rho*unit_density, &
-       ponrhoi*unit_velocity**2, spsoundi*unit_velocity**2, temperaturei
- enddo
- close(iuniteos)
-
-end subroutine print_eos_to_file
 !-----------------------------------------------------------------------
 !+
 !  writes equation of state options to the input file
@@ -861,7 +840,6 @@ end function diff
 !  prints equation of state info in the run header
 !+
 !----------------------------------------------------------------
-
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
  use io,             only:fatal
@@ -1134,7 +1112,7 @@ end subroutine get_rho_from_p_s
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate mean molecular weight from X and Z, assumming complete
+!  Calculate mean molecular weight from X and Z, assuming complete
 !  ionisation
 !+
 !-----------------------------------------------------------------------
