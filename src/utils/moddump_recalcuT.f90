@@ -22,7 +22,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use eos,   only:equationofstate,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
+ use eos,   only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
                  gmw,X_in,Z_in,irecomb,gamma,eosinfo
  use io,    only:iprint
  use part,  only:rhoh,eos_vars,itemp,igasP,igas
@@ -32,8 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,ierr
- real :: densi,eni,tempi,ponrhoi
- real :: dum,dum2
+ real :: densi,eni,tempi
 
  write(iprint,"(/,a,i2)") 'Assuming input dump has ieos = ',ieos
  if (.not. done_init_eos) call init_eos(ieos,ierr)
@@ -46,8 +45,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     densi = rhoh(xyzh(4,i),massoftype(igas))
 
     ! Get pressure
-    call equationofstate(ieos,ponrhoi,dum2,densi,dum,dum,dum,vxyzu(4,i))
-    eos_vars(igasP,i) = ponrhoi * densi
+    eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
