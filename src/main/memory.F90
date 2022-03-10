@@ -14,7 +14,7 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, part, photoevap
+! :Dependencies: allocutils, dim, io, linklist, mpimemory, part, photoevap
 !
  implicit none
 
@@ -25,11 +25,12 @@ contains
  !
 subroutine allocate_memory(n, part_only)
  use io, only:iprint,warning,nprocs,id,master
- use dim, only:update_max_sizes,maxp
+ use dim, only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
  use linklist, only:allocate_linklist,ifirstincell
  use omp_cache, only:allocate_cache
+ use mpimemory, only:allocate_mpi_memory
 #ifdef PHOTO
  use photoevap, only:allocate_photoevap
 #endif
@@ -82,6 +83,8 @@ subroutine allocate_memory(n, part_only)
 #ifdef PHOTO
     call allocate_photoevap
 #endif
+
+    call allocate_mpi_memory(n)
  endif
 
  call allocate_cache

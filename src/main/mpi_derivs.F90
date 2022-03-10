@@ -15,7 +15,7 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpistack,
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpimemory,
 !   mpiutils
 !
 #ifdef MPI
@@ -357,9 +357,9 @@ end subroutine recv_while_wait_force
 !+
 !------------------------------------------------
 subroutine recv_celldens(target_stack,xbuf,irequestrecv)
- use io,       only:fatal
- use mpistack, only:push_onto_stack
- use mpidens,  only:stackdens,celldens
+ use io,        only:fatal
+ use mpimemory, only:push_onto_stack
+ use mpidens,   only:stackdens,celldens
 
  type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackdens),    intent(inout)  :: target_stack
@@ -397,9 +397,9 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
 end subroutine recv_celldens
 
 subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
- use io,       only:fatal
- use mpistack, only:push_onto_stack
- use mpiforce, only:stackforce,cellforce
+ use io,        only:fatal
+ use mpimemory, only:push_onto_stack
+ use mpiforce,  only:stackforce,cellforce
 
  type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackforce),   intent(inout)  :: target_stack
