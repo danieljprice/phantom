@@ -121,9 +121,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
 #endif
 
  gammai = gamma
- mui = gmw
- X_i = X_in
- Z_i = Z_in
+ mui    = gmw
+ X_i    = X_in
+ Z_i    = Z_in
  if (present(gamma_local)) gammai = gamma_local
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
@@ -353,15 +353,15 @@ end subroutine equationofstate
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos(eos_type,ierr)
- use units,    only:unit_velocity
- use physcon,  only:mass_proton_cgs,kboltz
- use io,       only:error,warning
- use eos_mesa, only:init_eos_mesa
- use eos_helmholtz, only:eos_helmholtz_init
+ use units,          only:unit_velocity
+ use physcon,        only:mass_proton_cgs,kboltz
+ use io,             only:error,warning
+ use eos_mesa,       only:init_eos_mesa
+ use eos_helmholtz,  only:eos_helmholtz_init
  use eos_piecewise,  only:init_eos_piecewise
  use eos_barotropic, only:init_eos_barotropic
- use eos_shen, only:init_eos_shen_NL3
- use dim,      only:maxvxyzu,do_radiation
+ use eos_shen,       only:init_eos_shen_NL3
+ use dim,            only:maxvxyzu,do_radiation
  use ionization_mod, only:eion,ionization_setup
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -472,13 +472,13 @@ subroutine finish_eos(eos_type,ierr)
 
 end subroutine finish_eos
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Calculate gas temperature, sound speed, and pressure.
 !  This will be required for various analysis routines is eos_vars
 !  is not saved in the dump files
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
  subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,mui,Xi,Zi)
  use dim, only:maxvxyzu
  integer, intent(in)              :: eos_type
@@ -522,11 +522,11 @@ end subroutine finish_eos
 
 end subroutine get_TempPresCs
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
-!  Wrapper function to get sound speed
+!  Wrapper function to calculate sound speed
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 real function get_spsound(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  integer, intent(in)             :: eos_type
  real,    intent(in)             :: xyzi(:),rhoi
@@ -551,11 +551,11 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
 
 end function get_spsound
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
-!  Wrapper function to get temperature
+!  Wrapper function to calculate temperature
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  integer, intent(in)             :: eos_type
  real,    intent(in)             :: xyzi(:),rhoi
@@ -580,30 +580,30 @@ real function get_temperature(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
 
 end function get_temperature
 
-!----------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
-!  query function to return the internal energyfor calculations with a local
-!  mean molecular weight and local adiabatic index
+!  query function to return the internal energyfor calculations with a
+!  local mean molecular weight and local adiabatic index
 !+
-!----------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 real function get_local_u_internal(gammai, gmwi, gas_temp_local)
- real,         intent(in)    :: gammai, gmwi, gas_temp_local
- real :: ponrhoi
+ real, intent(in) :: gammai, gmwi, gas_temp_local
+ real             :: ponrhoi
 
  ponrhoi              = gas_temp_local/(gmwi*temperature_coef)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  the following two functions transparently handle evolution
 !  of the entropy instead of the thermal energy
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 real function utherm(en,rho)
  real, intent(in) :: en, rho
- real :: gamm1
+ real             :: gamm1
 
  if (use_entropy) then
     gamm1 = gamma - 1.
@@ -618,15 +618,15 @@ real function utherm(en,rho)
 
 end function utherm
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  function to transparently handle evolution of the entropy
 !  instead of the thermal energy
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 real function en_from_utherm(utherm,rho)
  real, intent(in) :: utherm, rho
- real :: gamm1
+ real             :: gamm1
 
  if (use_entropy) then
     gamm1 = gamma - 1.
@@ -641,12 +641,12 @@ real function en_from_utherm(utherm,rho)
 
 end function en_from_utherm
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Get recombination energy (per unit mass) assumming complete
 !  ionisation
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine calc_rec_ene(XX,YY,e_rec)
  real, intent(in)  :: XX, YY
  real, intent(out) :: e_rec
@@ -668,7 +668,7 @@ subroutine calc_rec_ene(XX,YY,e_rec)
 
 end subroutine calc_rec_ene
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Calculate temperature and specific internal energy from
 !  pressure and density. Inputs and outputs are in cgs units.
@@ -678,27 +678,27 @@ end subroutine calc_rec_ene
 !  For ieos=10, mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
  use physcon,          only:kb_on_mh
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
- integer, intent(in)        :: eos_type
- real, intent(in)           :: rho,pres
- real, intent(inout)        :: ene,temp
- real, intent(in), optional :: guesseint,X_local,Z_local
- real, intent(inout), optional :: mu_local
- integer, intent(out)       :: ierr
- real                       :: mu,X,Z
+ integer, intent(in)              :: eos_type
+ real,    intent(in)              :: rho,pres
+ real,    intent(inout)           :: ene,temp
+ real,    intent(in),    optional :: guesseint,X_local,Z_local
+ real,    intent(inout), optional :: mu_local
+ integer, intent(out)             :: ierr
+ real                             :: mu,X,Z
 
  ierr = 0
- mu = gmw
- X = X_in
- Z = Z_in
+ mu   = gmw
+ X    = X_in
+ Z    = Z_in
  if (present(mu_local)) mu = mu_local
- if (present(X_local)) X = X_local
- if (present(Z_local)) Z = Z_local
+ if (present(X_local))  X  = X_local
+ if (present(Z_local))  Z  = Z_local
  select case(eos_type)
  case(2) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
@@ -729,8 +729,8 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
- real, intent(in)               :: rho,pres
- real, intent(in), optional     :: mu_in,eint_in
+ real,    intent(in)            :: rho,pres
+ real,    intent(in),  optional :: mu_in,eint_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
  real                           :: mu,entropy,logentropy,temp,eint
@@ -784,7 +784,7 @@ subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
  real, intent(inout) :: rho
  real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
  real(kind=8)        :: corr
- real, parameter     :: eoserr=1d-9,dfac=1d-12
+ real,    parameter  :: eoserr=1d-9,dfac=1d-12
  integer, intent(in) :: ientropy
 
  ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
@@ -818,12 +818,12 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
 
 end function get_mean_molecular_weight
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  subroutine sets polyk based on utherm/positions
 !  read from an sphNG dump file
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  use part, only:xyzmh_ptmass
  integer, intent(in) :: eos_type,iprint
@@ -831,7 +831,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  real,    intent(in) :: xyzhi(:,:)
  integer, intent(in) :: npart
  integer :: ipart
- real :: r2,polykalt
+ real    :: r2,polykalt
 
  !-- pick a random particle from which to extract polyk
  ipart = npart/2
@@ -903,11 +903,11 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  endif
 
 end subroutine setpolyk
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  small utility returns whether two real numbers differ
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 logical pure function diff(r1,r2)
  real, intent(in) :: r1,r2
 
@@ -915,11 +915,11 @@ logical pure function diff(r1,r2)
 
 end function diff
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  prints equation of state info in the run header
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
  use io,             only:fatal
@@ -982,13 +982,13 @@ subroutine eosinfo(eos_type,iprint)
 
 end subroutine eosinfo
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Query function to return whether an EoS is non-ideal
 !  Mainly used to decide whether it is necessary to write
 !  things like pressure and temperature in the dump file or not
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
@@ -1001,11 +1001,11 @@ logical function eos_is_non_ideal(ieos)
 
 end function eos_is_non_ideal
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Query function to return whether an EoS outputs mean molecular weight
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 logical function eos_outputs_mu(ieos)
  integer, intent(in) :: ieos
 
@@ -1018,11 +1018,11 @@ logical function eos_outputs_mu(ieos)
 
 end function eos_outputs_mu
 
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  Query function to whether to print pressure to dump file
 !+
-!----------------------------------------------------------------
+!-----------------------------------------------------------------------
 logical function eos_outputs_gasP(ieos)
  integer, intent(in) :: ieos
 
