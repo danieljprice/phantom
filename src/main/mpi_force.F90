@@ -17,7 +17,7 @@ module mpiforce
 ! :Dependencies: dim, io, mpi, mpiutils
 !
  use io,       only:nprocs,fatal
- use dim,      only:minpart,maxfsum,maxprocs,maxxpartveciforce
+ use dim,      only:minpart,maxfsum,maxxpartveciforce
 
  implicit none
  private
@@ -44,10 +44,9 @@ module mpiforce
     integer          :: nsuper
     integer          :: owner                                  ! id of the process that owns this
     integer          :: waiting_index
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)) !padding to maintain alignment of elements
+    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart) + 2*minpart, 8)) !padding to maintain alignment of elements
  end type cellforce
 
  type stackforce
@@ -67,7 +66,7 @@ subroutine get_mpitype_of_cellforce(dtype)
  use mpiutils, only:mpierr
  use io,       only:error
 
- integer, parameter              :: ndata = 20
+ integer, parameter              :: ndata = 19
 
  integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
@@ -177,12 +176,6 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%remote_export)
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%iphase)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
@@ -195,7 +188,7 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)
+ blens(nblock) = 8 - mod(4 * (7 + minpart) + 2*minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
