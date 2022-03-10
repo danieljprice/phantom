@@ -15,8 +15,8 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpimemory,
-!   mpiutils
+! :Dependencies: allocutils, dtypekdtree, io, mpi, mpidens, mpiforce,
+!   mpimemory, mpiutils
 !
 #ifdef MPI
  use mpi
@@ -93,15 +93,15 @@ module mpiderivs
 contains
 
 subroutine allocate_comms_arrays
-   use allocutils, only:allocate_array
-   call allocate_array('nsent',       nsent,       nprocs)
-   call allocate_array('nexpect',     nexpect,     nprocs)
-   call allocate_array('nrecv',       nrecv,       nprocs)
-   call allocate_array('countrequest',countrequest,nprocs)
-   call allocate_array('comm_cofm',   comm_cofm,   nprocs)
-   call allocate_array('comm_owner',  comm_owner,  nprocs)
+ use allocutils, only:allocate_array
+ call allocate_array('nsent',       nsent,       nprocs)
+ call allocate_array('nexpect',     nexpect,     nprocs)
+ call allocate_array('nrecv',       nrecv,       nprocs)
+ call allocate_array('countrequest',countrequest,nprocs)
+ call allocate_array('comm_cofm',   comm_cofm,   nprocs)
+ call allocate_array('comm_owner',  comm_owner,  nprocs)
 
-   call init_tree_comms
+ call init_tree_comms
 end subroutine allocate_comms_arrays
 
 !----------------------------------------------------------------
@@ -190,14 +190,21 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  type(celldens),     intent(out)    :: xsendbuf
 
  integer                            :: newproc
+ integer                            :: tag
 
 #ifdef MPI
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
+ if (targets(cell%owner)) then
+    tag = 2
+ else
+    tag = 1
+ endif
+
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
@@ -214,14 +221,21 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  type(cellforce),    intent(out)    :: xsendbuf
 
  integer                            :: newproc
+ integer                            :: tag
 
 #ifdef MPI
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
+ if (targets(cell%owner)) then
+    tag = 2
+ else
+    tag = 1
+ endif
+
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
