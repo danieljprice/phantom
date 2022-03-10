@@ -14,7 +14,8 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, mpimemory, part, photoevap
+! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
+!   mpimemory, omp_cache, part, photoevap
 !
  implicit none
 
@@ -24,15 +25,17 @@ contains
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
 subroutine allocate_memory(n, part_only)
- use io, only:iprint,warning,nprocs,id,master
- use dim, only:update_max_sizes,maxp,mpi
+ use io,         only:iprint,warning,nprocs,id,master
+ use dim,        only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
- use part, only:allocate_part
- use linklist, only:allocate_linklist,ifirstincell
- use omp_cache, only:allocate_cache
- use mpimemory, only:allocate_mpi_memory
+ use part,       only:allocate_part
+ use linklist,   only:allocate_linklist,ifirstincell
+ use omp_cache,  only:allocate_cache
+ use mpimemory,  only:allocate_mpi_memory
+ use mpibalance, only:allocate_balance_arrays
+ use mpiderivs,  only:allocate_comms_arrays
 #ifdef PHOTO
- use photoevap, only:allocate_photoevap
+ use photoevap,  only:allocate_photoevap
 #endif
 
  integer,           intent(in) :: n
@@ -83,8 +86,11 @@ subroutine allocate_memory(n, part_only)
 #ifdef PHOTO
     call allocate_photoevap
 #endif
-
-    call allocate_mpi_memory(n)
+    if (mpi) then
+       call allocate_mpi_memory(n)
+       call allocate_balance_arrays
+       call allocate_comms_arrays
+    endif
  endif
 
  call allocate_cache

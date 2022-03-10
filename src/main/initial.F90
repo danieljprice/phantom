@@ -54,7 +54,6 @@ subroutine initialise()
  use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
- use mpiderivs,        only:init_tree_comms
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -99,7 +98,6 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
- if (mpi) call init_tree_comms()
 
  call init_readwrite_dumps()
 

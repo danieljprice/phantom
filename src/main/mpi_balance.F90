@@ -19,7 +19,6 @@ module mpibalance
 #ifdef MPI
  use mpi
  use io,       only:id,nprocs
- use dim,      only:maxprocs
  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
                     comm_balance,comm_balancecount
  use part,     only:ipartbufsize
@@ -27,6 +26,7 @@ module mpibalance
 
  implicit none
 
+ public :: allocate_balance_arrays
  public :: balancedomains
 
  private
@@ -35,12 +35,20 @@ module mpibalance
  real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
  integer, dimension(1) :: irequestrecv,irequestsend
  integer(kind=8) :: ntot_start
- integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
- integer :: countrequest(maxprocs)
+ integer,allocatable :: nsent(:),nexpect(:),nrecv(:)
+ integer,allocatable :: countrequest(:)
  integer :: npartnew, ncomplete
 #endif
 
 contains
+
+subroutine allocate_balance_arrays
+   use allocutils, only:allocate_array
+   call allocate_array('nsent',       nsent,       nprocs)
+   call allocate_array('nexpect',     nexpect,     nprocs)
+   call allocate_array('nrecv',       nrecv,       nprocs)
+   call allocate_array('countrequest',countrequest,nprocs)
+end subroutine allocate_balance_arrays
 
 !----------------------------------------------------------------
 !+
