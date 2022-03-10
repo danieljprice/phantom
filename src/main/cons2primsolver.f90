@@ -10,7 +10,7 @@ module cons2primsolver
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters: None
 !
@@ -273,11 +273,11 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
           enth_max = enth_old
        endif
     else
-      if (f > 0) then
-         enth_min = enth_old
-      else
-         enth_max = enth_old
-      endif
+       if (f > 0) then
+          enth_min = enth_old
+       else
+          enth_max = enth_old
+       endif
     endif
 
     enth = 0.5*(enth_min + enth_max)
