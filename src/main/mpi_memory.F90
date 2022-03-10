@@ -47,7 +47,7 @@ module mpimemory
   module procedure reserve_stack_dens,reserve_stack_force
  end interface reserve_stack
 
- public :: init_mpi_memory
+ public :: allocate_mpi_memory
  public :: finish_mpi_memory
  public :: allocate_stack
  public :: deallocate_stack
@@ -78,7 +78,7 @@ module mpimemory
 
 contains
 
-subroutine init_mpi_memory
+subroutine allocate_mpi_memory
  integer :: allocstat
 
  allocate(dens_cells(n_dens_cells), stat = allocstat)
@@ -95,7 +95,7 @@ subroutine init_mpi_memory
  call allocate_stack(force_stack_1,iforce)
  call allocate_stack(force_stack_2,iforce)
  if (iforce - 1 > n_force_cells) call fatal('stack','phantom memory allocation error')
-end subroutine init_mpi_memory
+end subroutine allocate_mpi_memory
 
 subroutine finish_mpi_memory
  !

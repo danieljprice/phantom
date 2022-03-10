@@ -25,10 +25,11 @@ contains
  !
 subroutine allocate_memory(n, part_only)
  use io, only:iprint,warning,nprocs,id,master
- use dim, only:update_max_sizes,maxp
+ use dim, only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
  use part, only:allocate_part
  use linklist, only:allocate_linklist,ifirstincell
+ use mpimemory, only:allocate_mpi_memory
 #ifdef PHOTO
  use photoevap, only:allocate_photoevap
 #endif
@@ -81,6 +82,8 @@ subroutine allocate_memory(n, part_only)
 #ifdef PHOTO
     call allocate_photoevap
 #endif
+
+   if (mpi) call allocate_mpi_memory()
  endif
 
  call bytes2human(nbytes_allocated, sizestring)
