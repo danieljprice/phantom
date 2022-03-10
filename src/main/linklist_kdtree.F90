@@ -218,8 +218,8 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     call get_cell_location(inode,xpos,xsizei,rcuti)
  endif
 
- if (present(remote_export) .and. nprocs > 1) then
-    global_search = .true.
+ if (present(remote_export)) then
+    if (nprocs > 1) global_search = .true.
     remote_export = .false.
  else
     global_search = .false.
