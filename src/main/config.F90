@@ -152,8 +152,6 @@ module dim
                                            radenxpartvecforce + &
                                            maxxpartvecGR
 
- ! cell storage
- integer, parameter :: maxprocs = 32
 #ifdef MPI
  logical, parameter :: mpi = .true.
 #else
