@@ -1,0 +1,310 @@
+#----------------------------------------------------
+# target to write appropriate queue submission script
+#
+ifndef QSYS
+    QSYS=pbs
+endif
+ifndef WALLTIME
+    WALLTIME='1000:00:00'
+endif
+ifndef MAXMEM
+    MAXMEM='16G'
+endif
+ifeq ($(OPENMP),yes)
+    ifndef NOMP
+        ifdef OMP_NUM_THREADS
+            NOMP=$(OMP_NUM_THREADS)
+        else
+            NOMP=2
+        endif
+    endif
+    ifndef OMP_SCHEDULE
+        OMP_SCHEDULE=dynamic
+    endif
+    ifndef QPE
+        QPE=omp
+    endif
+    ifndef NPAR
+        NPAR=$(NOMP)
+    endif
+endif
+ifeq ($(USEMPI),yes)
+    ifndef NMPI
+        NMPI=8
+    endif
+    ifndef QPE
+        QPE=mpi
+    endif
+    ifndef NPAR
+        NPAR=$(NMPI)
+    endif
+    ifndef MPIEXEC
+        MPIEXEC=mpiexec -np ${NMPI}
+    endif
+else
+    ifndef NMPI
+        NMPI=1
+    endif
+endif
+ifndef OUTFILE
+  ifeq ($(QSYS),sge)
+    OUTFILE=$(INFILE)'.sgeout'
+  else
+    ifeq ($(QSYS),pbs)
+        OUTFILE=$(INFILE)'.pbsout'
+    else
+        OUTFILE=$(INFILE)'.qout'
+    endif
+  endif
+endif
+ifndef MAILTO
+    MAILTO=`git config --get user.email`
+endif
+GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`'
+
+ifndef CMD
+CMD='./phantom $(INFILE) >& $$outfile'
+endif
+
+.PHONY: qscript
+
+qscript:
+    ifneq ($(KNOWN_SYSTEM), yes)
+	@echo "Error: qscript needs known SYSTEM variable set"
+	@${MAKE} err;
+    endif
+    ifndef INFILE
+	@echo
+	@echo "Usage: make qscript INFILE=infile"
+	@echo
+	@${MAKE} err;
+    endif
+    # set default values for variables not set
+    ifeq ($(QSHELL),tcsh)
+	@echo '#!/bin/tcsh'
+    else
+	@echo '#!/bin/bash'
+    endif
+    ifeq ($(QSYS),sge)
+	@echo '## Sun Grid Engine Script, created by "make qscript" '`date`
+        ifeq ($(QSHELL),tcsh)
+	    @echo '#$$ -S /bin/tcsh'
+        else
+	    @echo '#$$ -S /bin/bash'
+        endif
+	@echo '#$$ -cwd'
+	@echo '#$$ -N '`../scripts/randomword.pl`
+	@echo '#$$ -o '$(OUTFILE)' -j y'
+	@echo '#$$ -l h_rt='$(WALLTIME)
+	@echo '#$$ -l h_vmem='$(MAXMEM)
+        ifdef MAILTO
+	   @echo '#$$ -m ae'
+	   @echo '#$$ -M '$(MAILTO)
+        endif
+        ifdef QPE
+	   @echo '#$$ -pe '$(QPE) $(NPAR)
+        endif
+        ifdef QEXTRA
+	   @echo '#$$ '$(QEXTRA)
+        endif
+	@echo
+	@echo 'echo "SGE: HOSTS   = "`cat $$PE_HOSTFILE`'
+	@echo 'echo "SGE: NHOSTS  = $$NHOSTS"'
+	@echo 'echo "SGE: NSLOTS  = $$NSLOTS"'
+	@echo 'echo "SGE: NQUEUES = $$NQUEUES"'
+    else ifeq ($(QSYS),pbs)
+	@echo '## PBS Job Submission Script, created by "make qscript" '`date`
+        ifdef QNODES
+	   @echo '#PBS -l '$(QNODES)
+        else
+           ifeq ($(SYSTEM),zen)
+	      @echo '#PBS -l nodes='$(NMPI)':ppn=8:StandardMem'
+           else
+	      @echo '#PBS -l nodes='$(NMPI)':ppn='$(NOMP)
+           endif
+        endif
+        ifdef JOBNAME
+	   @echo '#PBS -N '$(JOBNAME)
+        else
+	   @echo '#PBS -N '`../scripts/randomword.pl`
+        endif
+        ifdef QNAME
+	   @echo '#PBS -q '$(QNAME)
+        endif
+        ifdef QPROJECT
+	   @echo '#PBS -P '$(QPROJECT)
+        endif
+	@echo '#PBS -o '$(OUTFILE)
+	@echo '#PBS -j oe'
+        ifdef MAILTO
+	   @echo '#PBS -m e'
+	   @echo '#PBS -M '$(MAILTO)
+        endif
+	@echo '#PBS -l walltime='$(WALLTIME)
+	@echo '#PBS -l mem='$(MAXMEM)
+        ifdef QEXTRA
+	   @echo '#PBS '$(QEXTRA)
+        endif
+	@echo '## phantom jobs can be restarted:'
+	@echo '#PBS -r y'
+        ifeq ($(PBSRESUBMIT),yes)
+             ifeq ($(QSHELL),tcsh)
+	          $(error error: resubmittable scripts require bash, cannot use QSHELL=tcsh);
+             endif
+	     @echo '#PBS -v NJOBS,NJOB'
+	     @echo
+	     @echo '#------------------------------------------------------------------------------'
+	     @echo '# this is a self-resubmitting PBS script'
+	     @echo '# use qsub -v NJOBS=10 <scriptname> to submit'
+	     @echo '# with an appropriate value for NJOBS'
+	     @echo '#'
+	     @echo '# These variables are assumed to be set:'
+	     @echo '#   NJOBS is the total number of jobs in a sequence of jobs (defaults to 1)'
+	     @echo '#   NJOB is the number of the previous job in the sequence (defaults to 0)'
+	     @echo '#------------------------------------------------------------------------------'
+	     @echo 'if [ X$$NJOBS == X ]; then'
+	     @echo '    echo "NJOBS (total number of jobs in sequence) is not set - defaulting to 1"'
+	     @echo '    export NJOBS=1'
+	     @echo 'fi'
+	     @echo 'if [ X$$NJOB == X ]; then'
+	     @echo '    echo "NJOB (previous job number in sequence) is not set - defaulting to 0"'
+	     @echo '    export NJOB=0'
+	     @echo 'fi'
+	     @echo '#'
+	     @echo '# Quick termination of job sequence - look for a file called STOP_SEQUENCE'
+	     @echo '#'
+	     @echo 'if [ -f $$PBS_O_WORKDIR/STOP_SEQUENCE ]; then'
+	     @echo '    echo  "Terminating sequence after $$NJOB jobs"'
+	     @echo '    exit 0'
+	     @echo 'fi'
+	     @echo '#'
+	     @echo '# Increment the counter to get current job number'
+	     @echo '#'
+	     @echo 'NJOB=$$(($$NJOB+1))'
+	     @echo '#'
+	     @echo '# Are we in an incomplete job sequence - more jobs to run ?'
+	     @echo '#'
+	     @echo 'if [ $$NJOB -lt $$NJOBS ]; then'
+	     @echo '    #'
+	     @echo '    # Now submit the next job'
+	     @echo '    #'
+	     @echo '    NEXTJOB=$$(($$NJOB+1))'
+	     @echo '    echo "Submitting job number $$NEXTJOB in sequence of $$NJOBS jobs"'
+	     @echo '    qsub -z -W depend=afterany:$$PBS_JOBID $$0'
+	     @echo 'else'
+	     @echo '    echo "Running last job in sequence of $NJOBS jobs"'
+	     @echo 'fi'
+#	     @echo '#'
+#	     @echo '# File manipulation prior to job commencing, eg. clean up previous output files,'
+#	     @echo '# check for consistency of checkpoint files, ...'
+#	     @echo '#'
+#	     @echo 'if [ $$NJOB -gt 1 ]; then'
+#	     @echo '   echo " "'
+#	     @echo '   # .... USER INSERTION HERE '
+#	     @echo 'fi'
+	     @echo '#------------------------------------------------------------------------------'
+        endif
+	@echo
+	@echo 'cd $$PBS_O_WORKDIR'
+	@echo 'echo "PBS_O_WORKDIR is $$PBS_O_WORKDIR"'
+	@echo 'echo "PBS_JOBNAME is $$PBS_JOBNAME"'
+	@echo 'env | grep PBS'
+	@echo 'cat $$PBS_NODEFILE > nodefile'
+    else
+        ifdef QNODES
+	   @echo '#SBATCH --nodes='$(QNODES)
+        else
+	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
+        endif
+	@echo '#SBATCH --cpus-per-task=1'
+        ifdef JOBNAME
+	   @echo '#SBATCH --job-name='$(JOBNAME)
+        else
+	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
+        endif
+        ifdef QNAME
+	   @echo '#SBATCH --queue='$(QNAME)
+        endif
+        ifdef QPROJECT
+	   @echo '#SBATCH --account='$(QPROJECT)
+        endif
+        ifdef QPARTITION
+	   @echo '#SBATCH --partition='$(QPARTITION)
+        endif
+	@echo '#SBATCH --output='$(OUTFILE)
+        ifdef MAILTO
+	   @echo '#SBATCH --mail-type=BEGIN'
+	   @echo '#SBATCH --mail-type=FAIL'
+	   @echo '#SBATCH --mail-type=END'
+	   @echo '#SBATCH --mail-user='$(MAILTO)
+        endif
+	@echo '#SBATCH --time=0-'$(WALLTIME)
+	@echo '#SBATCH --mem='$(MAXMEM)
+        ifdef QEXTRA
+	   @echo '#SBATCH '$(QEXTRA)
+        endif
+    endif
+	@echo 'echo "HOSTNAME = $$HOSTNAME"'
+	@echo 'echo "HOSTTYPE = $$HOSTTYPE"'
+	@echo 'echo Time is `date`'
+	@echo 'echo Directory is `pwd`'
+	@echo
+    ifeq ($(QSHELL),tcsh)
+	@echo 'limit stacksize unlimited'
+    else
+	@echo 'ulimit -s unlimited'
+    endif
+    #-- set openMP environment variables
+    ifeq ($(OPENMP),yes)
+        ifeq ($(QSHELL),tcsh)
+	   @echo 'setenv OMP_SCHEDULE "'$(OMP_SCHEDULE)'"'
+	   @echo 'setenv OMP_NUM_THREADS '$(NOMP)
+	   @echo 'setenv OMP_STACKSIZE 1024m'
+        else
+	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
+	   @echo 'export OMP_NUM_THREADS='$(NOMP)
+	   @echo 'export OMP_STACKSIZE=1024m'
+        endif
+    endif
+	@echo
+    #-- add lines specific to particular machines
+    ifeq ($(SYSTEM),msg)
+        ifeq ($(QSHELL),bash)
+	   @echo 'source /etc/profile'
+	   @echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'
+        else
+	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
+        endif
+	@cat ~/.modules
+    endif
+	@echo
+    #--final line is code execution
+	@echo 'echo "starting phantom run..."'
+    ifeq ($(QSHELL),tcsh)
+	@echo 'setenv outfile '$(GETLOG)
+    else
+	@echo 'export outfile='$(GETLOG)
+    endif
+	@echo 'echo "writing output to $$outfile"'
+    ifeq ($(USEMPI),yes)
+	@echo $(MPIEXEC)' '$(CMD)
+    else
+	@echo $(CMD)
+    endif
+    ifeq ($(PBSRESUBMIT),yes)
+	@echo
+	@echo '#------------------------------------------------------------------------------'
+	@echo '# Not expected to reach this point in general but if we do, check that all '
+	@echo '# is OK.  If the job command exited with an error, terminate the job'
+	@echo '#'
+	@echo 'errstat=$$?'
+	@echo 'if [ $$errstat -ne 0 ]; then'
+	@echo '    # A brief nap so PBS kills us in normal termination. Prefer to '
+	@echo '    # be killed by PBS if PBS detected some resource excess'
+	@echo '    sleep 5  '
+	@echo '    echo "Job number $$NJOB returned an error status $$errstat - stopping job sequence."'
+	@echo '    touch $$PBS_O_WORKDIR/STOP_SEQUENCE'
+	@echo '    exit $$errstat'
+	@echo 'fi'
+	@echo '#------------------------------------------------------------------------------'
+    endif
