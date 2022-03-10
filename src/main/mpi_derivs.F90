@@ -22,7 +22,6 @@ module mpiderivs
  use mpi
 #endif
  use io,             only:id,nprocs
- use dim,            only:maxprocs
  use mpiutils,       only:mpierr,status,comm_cellexchange,comm_cellcount
  use dtypekdtree,    only:kdnode,ndimtree
 
@@ -56,6 +55,8 @@ module mpiderivs
   module procedure reduce_group_real, reduce_group_int
  end interface reduce_group
 
+ public :: allocate_comms_arrays
+
  public :: init_cell_exchange
  public :: send_cell
  public :: recv_cells
@@ -67,7 +68,6 @@ module mpiderivs
 
  public :: tree_sync
  public :: tree_bcast
- public :: init_tree_comms
  public :: finish_tree_comms
  public :: reset_cell_counters
 
@@ -80,17 +80,29 @@ module mpiderivs
  integer :: dtype_cellforce
 
  integer :: globallevel
- integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
- integer :: comm_owner(maxprocs) ! only comms up to globallevel are used
+ integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
+ integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
 
- integer :: nsent(maxprocs)     ! counter for number of cells sent to i
- integer :: nexpect(maxprocs)   ! counter for number of cells expecting from i
- integer :: nrecv(maxprocs)     ! counter for number of cells received from i
+ integer,allocatable :: nsent(:)     ! counter for number of cells sent to i
+ integer,allocatable :: nexpect(:)   ! counter for number of cells expecting from i
+ integer,allocatable :: nrecv(:)     ! counter for number of cells received from i
 
- integer :: countrequest(maxprocs)
+ integer,allocatable :: countrequest(:)
 #endif
 
 contains
+
+subroutine allocate_comms_arrays
+   use allocutils, only:allocate_array
+   call allocate_array('nsent',       nsent,       nprocs)
+   call allocate_array('nexpect',     nexpect,     nprocs)
+   call allocate_array('nrecv',       nrecv,       nprocs)
+   call allocate_array('countrequest',countrequest,nprocs)
+   call allocate_array('comm_cofm',   comm_cofm,   nprocs)
+   call allocate_array('comm_owner',  comm_owner,  nprocs)
+
+   call init_tree_comms
+end subroutine allocate_comms_arrays
 
 !----------------------------------------------------------------
 !+
