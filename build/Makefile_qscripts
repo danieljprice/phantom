@@ -2,63 +2,63 @@
 # target to write appropriate queue submission script
 #
 ifndef QSYS
-   QSYS=pbs
+    QSYS=pbs
 endif
 ifndef WALLTIME
-   WALLTIME='1000:00:00'
+    WALLTIME='1000:00:00'
 endif
 ifndef MAXMEM
-   MAXMEM='16G'
+    MAXMEM='16G'
 endif
 ifeq ($(OPENMP),yes)
- ifndef NOMP
-   ifdef OMP_NUM_THREADS
-      NOMP=$(OMP_NUM_THREADS)
-   else
-      NOMP=2
-   endif
- endif
- ifndef OMP_SCHEDULE
-    OMP_SCHEDULE=dynamic
- endif
- ifndef QPE
-    QPE=omp
- endif
- ifndef NPAR
-    NPAR=$(NOMP)
- endif
+    ifndef NOMP
+        ifdef OMP_NUM_THREADS
+            NOMP=$(OMP_NUM_THREADS)
+        else
+            NOMP=2
+        endif
+    endif
+    ifndef OMP_SCHEDULE
+        OMP_SCHEDULE=dynamic
+    endif
+    ifndef QPE
+        QPE=omp
+    endif
+    ifndef NPAR
+        NPAR=$(NOMP)
+    endif
 endif
 ifeq ($(USEMPI),yes)
- ifndef NMPI
-    NMPI=8
- endif
- ifndef QPE
-    QPE=mpi
- endif
- ifndef NPAR
-    NPAR=$(NMPI)
- endif
- ifndef MPIEXEC
-    MPIEXEC=mpiexec -np ${NMPI}
- endif
+    ifndef NMPI
+        NMPI=8
+    endif
+    ifndef QPE
+        QPE=mpi
+    endif
+    ifndef NPAR
+        NPAR=$(NMPI)
+    endif
+    ifndef MPIEXEC
+        MPIEXEC=mpiexec -np ${NMPI}
+    endif
 else
- ifndef NMPI
-    NMPI=1
- endif
+    ifndef NMPI
+        NMPI=1
+    endif
 endif
 ifndef OUTFILE
   ifeq ($(QSYS),sge)
     OUTFILE=$(INFILE)'.sgeout'
   else
     ifeq ($(QSYS),pbs)
-       OUTFILE=$(INFILE)'.pbsout'
+        OUTFILE=$(INFILE)'.pbsout'
     else
-       OUTFILE=$(INFILE)'.qout'
+        OUTFILE=$(INFILE)'.qout'
     endif
   endif
 endif
 ifndef MAILTO
-   MAILTO=`git config --get user.email`
+    MAILTO=`git config --get user.email`
 endif
 GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`'
 

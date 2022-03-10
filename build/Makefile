@@ -46,16 +46,16 @@ DEBUG         = no
 # the parameters as environment variables
 #
 ifndef DOUBLEPRECISION
-  DOUBLEPRECISION= yes
+    DOUBLEPRECISION= yes
 endif
 ifndef EDITOR
-  EDITOR= emacs
+    EDITOR= emacs
 endif
 ifndef OPENMP
-  OPENMP= yes
+    OPENMP= yes
 endif
 ifndef SPLASH_DIR
-   SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
+    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
 endif
 #MPI= yes
 #
@@ -131,19 +131,19 @@ include Makefile_systems
 FFLAGS+=-fPIC
 # Set some default files if not defined above
 ifdef MAXP
-   FPPFLAGS += -DMAXP=${MAXP}
+    FPPFLAGS += -DMAXP=${MAXP}
 endif
 ifdef MAXPTMASS
-   FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
+    FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
 endif
 ifdef MAXNEIGH
-   FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
+    FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
 endif
 ifdef NCELLSMAX
-   FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
+    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
 ifdef STACKSIZE
-   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+    FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
 # Set other optional flags depending on settings
 
@@ -200,15 +200,15 @@ endif
 ifeq ($(DUST), yes)
     FPPFLAGS += -DDUST
     ifndef KERNEL
-       KERNEL=quintic
+        KERNEL=quintic
     endif
 endif
 
 ifdef MAXDUSTSMALL
-   FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
+    FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
 endif
 ifdef MAXDUSTLARGE
-   FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
+    FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
 endif
 
 ifeq ($(DUSTGROWTH), yes)
@@ -282,10 +282,10 @@ endif
 #
 ifndef SRCKERNEL
 ifdef KERNEL
-   SRCKERNEL= kernel_${KERNEL}.f90
+    SRCKERNEL= kernel_${KERNEL}.f90
 else
-   SRCKERNEL= kernel_cubic.f90
-   KERNEL=cubic
+    SRCKERNEL= kernel_cubic.f90
+    KERNEL=cubic
 endif
 endif
 
@@ -296,7 +296,7 @@ endif
 # if injection module selected
 #
 ifeq ($(INJECT_PARTICLES), no)
-   SRCINJECT=
+    SRCINJECT=
 else
 ifdef SRCINJECT
     FPPFLAGS += -DINJECT_PARTICLES
@@ -461,12 +461,12 @@ endif
 # metrics for GR
 #
 ifeq ($(GR),yes)
-   SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
+    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
-   SRCMETRIC= metric_${METRIC}.f90
+    SRCMETRIC= metric_${METRIC}.f90
 else
-   SRCMETRIC= metric_minkowski.f90
+    SRCMETRIC= metric_minkowski.f90
 endif
 SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
 #
@@ -480,15 +480,15 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = eos_barotropic.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-   SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
-  SRCKROME=krome.f90
+    SRCKROME=krome.f90
 else
-  SRCKROME=
+    SRCKROME=
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
@@ -625,7 +625,7 @@ SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 ifeq ($(KROME), krome)
-       OBJSETUP1 += $(KROME_OBJS)
+    OBJSETUP1 += $(KROME_OBJS)
 endif
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -656,9 +656,9 @@ SRCTEST=${SRCTESTS}
 endif
 # replace a few test routines for the GR code
 ifeq ($(GR),yes)
-   SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-   SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
+    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
+    SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
+    SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 OBJTEST1= $(SRCTEST:.f90=.o)
 OBJTEST= $(OBJTEST1:.F90=.o)
@@ -1241,15 +1241,15 @@ testall: test test2 testcyl testgrav
 #
 .PHONY: .make_mathflags .make_nofastmath getmathflags checkmath
 ifndef FASTSQRT
-   FASTSQRT=${shell if [ -e .make_nofastmath ]; then echo no; fi}
+    FASTSQRT=${shell if [ -e .make_nofastmath ]; then echo no; fi}
 endif
 
 ifeq ($(FASTSQRT), no)
-   OBJTESTMATH=
-   FASTMATH=no
+    OBJTESTMATH=
+    FASTMATH=no
 else
-   OBJTESTMATH= random.o io.o fastmath.o mpi_utils.o test_fastmath.o getmathflags.o
-   FASTMATH=${shell if [ -e .make_mathflags ]; then cat .make_mathflags; fi}
+    OBJTESTMATH= random.o io.o fastmath.o mpi_utils.o test_fastmath.o getmathflags.o
+    FASTMATH=${shell if [ -e .make_mathflags ]; then cat .make_mathflags; fi}
 endif
 
 .make_mathflags: checksys $(OBJTESTMATH)
@@ -1263,12 +1263,12 @@ endif
      endif
 
 ifeq ($(FASTMATH), yes)
-   SRCFASTMATH=fastmath.o
-   TEST_FASTMATH=test_fastmath.F90
-   FPPFLAGS+=-DFINVSQRT
+    SRCFASTMATH=fastmath.o
+    TEST_FASTMATH=test_fastmath.F90
+    FPPFLAGS+=-DFINVSQRT
 else
-   SRCFASTMATH=
-   TEST_FASTMATH=
+    SRCFASTMATH=
+    TEST_FASTMATH=
 endif
 
 fastmath.o: fastmath.f90

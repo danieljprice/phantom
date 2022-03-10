@@ -44,18 +44,18 @@ ifeq ($(SYSTEM), msg)
     QSYS = sge
     QSHELL = tcsh
     ifeq ($(OPENMP),yes)
-       QPE = smp
-       NOMP = '$$NSLOTS'
-       ifndef NPAR
-          NPAR = '4-32'
-       endif
+        QPE = smp
+        NOMP = '$$NSLOTS'
+        ifndef NPAR
+            NPAR = '4-32'
+        endif
     endif
     ifeq ($(MPI),yes)
-       QPE = mpi
-       ifeq ($(OPENMP),yes)
+        QPE = mpi
+        ifeq ($(OPENMP),yes)
             QPE = mqu4
             NOMP = 4
-       endif
+        endif
     endif
     #QEXTRA='-l dpod=true -q mqu2'
     #HDF5=yes
@@ -67,9 +67,9 @@ ifeq ($(SYSTEM), m2)
     include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
-       NOMP='12'
+        NOMP='12'
     else
-       NOMP='1'
+        NOMP='1'
     endif
     QNODES='nodes='$(NMPI)':ppn='$(NOMP)
     WALLTIME='500:00:00'
@@ -81,9 +81,9 @@ ifeq ($(SYSTEM), g2)
     include Makefile_defaults_ifort
     QSYS = pbs
     ifeq ($(OPENMP),yes)
-       NOMP='16'
+        NOMP='16'
     else
-       NOMP='1'
+        NOMP='1'
     endif
     QNAME='sstar'
     QNODES='nodes='$(NMPI)':ppn='$(NOMP)
@@ -127,7 +127,7 @@ ifeq ($(SYSTEM), nci)
     #PBSRESUBMIT=yes
     NOMP=48
     ifeq ($(MPI),yes)
-       NPAR=32
+        NPAR=32
     endif
     QPROJECT='fu7'
     QNAME='normal'
