@@ -16,8 +16,7 @@ module mpimemory
 !
 ! :Dependencies: dim, io, mpidens, mpiforce
 !
- use dim,         only:stacksize
- use io,          only:fatal
+ use io,          only:fatal,iprint
  use mpidens,     only:celldens,stackdens
  use mpiforce,    only:cellforce,stackforce
 
@@ -66,9 +65,9 @@ module mpimemory
 
  private
 
+ integer :: stacksize
+
  ! primary chunk of memory requested using alloc
- integer, parameter  :: n_dens_cells  = stacksize*3
- integer, parameter  :: n_force_cells = stacksize*2
  type(celldens),  allocatable, target :: dens_cells(:)
  type(cellforce), allocatable, target :: force_cells(:)
 
@@ -78,24 +77,50 @@ module mpimemory
 
 contains
 
-subroutine allocate_mpi_memory
+subroutine allocate_mpi_memory(n)
+ integer, intent(in) :: n
  integer :: allocstat
 
- allocate(dens_cells(n_dens_cells), stat = allocstat)
+ call calculate_stacksize(n)
+
+ allocate(dens_cells(stacksize*3), stat = allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  idens = 1
  call allocate_stack(dens_stack_1, idens)
  call allocate_stack(dens_stack_2, idens)
  call allocate_stack(dens_stack_3, idens)
- if (idens - 1 > n_dens_cells) call fatal('stack','phantom memory allocation error')
+ if (idens - 1 > stacksize*3) call fatal('stack','phantom memory allocation error')
 
- allocate(force_cells(n_force_cells), stat = allocstat)
+ allocate(force_cells(stacksize*2), stat = allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  iforce = 1
  call allocate_stack(force_stack_1,iforce)
  call allocate_stack(force_stack_2,iforce)
- if (iforce - 1 > n_force_cells) call fatal('stack','phantom memory allocation error')
+ if (iforce - 1 > stacksize*2) call fatal('stack','phantom memory allocation error')
 end subroutine allocate_mpi_memory
+
+subroutine calculate_stacksize(npart)
+ use dim, only:mpi
+ use io,  only:nprocs,id,master
+ integer, intent(in) :: npart
+ ! size of the stack needed for communication,
+ ! should be at least the maximum number of cells that need
+ ! to be exported to other tasks
+
+ ! 10 particles per cell, divided by number of tasks
+ ! Safety factor of 4
+ if (mpi .and. nprocs > 1) then
+    stacksize = (npart / 10 / nprocs) * 4
+
+    if (id == master) then
+       write(iprint, *) 'MPI memory stack size = ', stacksize
+       write(iprint, *) '  (total number of cells that can be exported by a single task)'
+    endif
+ else
+    stacksize = 0
+ endif
+
+end subroutine calculate_stacksize
 
 subroutine finish_mpi_memory
  !
