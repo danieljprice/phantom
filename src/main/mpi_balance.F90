@@ -28,6 +28,7 @@ module mpibalance
  implicit none
 
  public :: allocate_balance_arrays
+ public :: deallocate_balance_arrays
  public :: balancedomains
 
  private
@@ -50,6 +51,13 @@ subroutine allocate_balance_arrays
  call allocate_array('nrecv',       nrecv,       nprocs)
  call allocate_array('countrequest',countrequest,nprocs)
 end subroutine allocate_balance_arrays
+
+subroutine deallocate_balance_arrays
+   if (allocated(nsent       )) deallocate(nsent       )
+   if (allocated(nexpect     )) deallocate(nexpect     )
+   if (allocated(nrecv       )) deallocate(nrecv       )
+   if (allocated(countrequest)) deallocate(countrequest)
+end subroutine deallocate_balance_arrays
 
 !----------------------------------------------------------------
 !+

@@ -43,7 +43,7 @@ module mpimemory
  end interface reserve_stack
 
  public :: allocate_mpi_memory
- public :: finish_mpi_memory
+ public :: deallocate_mpi_memory
  public :: allocate_stack
  public :: swap_stacks
  public :: push_onto_stack
@@ -95,32 +95,32 @@ subroutine allocate_mpi_memory(npart, stacksize_in)
 end subroutine allocate_mpi_memory
 
 subroutine increase_mpi_memory
-    real, parameter :: factor = 1.5
-    integer         :: stacksize_new
-    integer         :: allocstat
+ real, parameter :: factor = 1.5
+ integer         :: stacksize_new
+ integer         :: allocstat
 
-    stacksize_new = int(real(stacksize) * factor)
-    write(iprint, *) 'MPI stack exceeded, increasing size to', stacksize_new
+ stacksize_new = int(real(stacksize) * factor)
+ write(iprint, *) 'MPI stack exceeded, increasing size to', stacksize_new
 
-    ! Expand density
-    allocate(dens_cells_tmp(stacksize,3), stat = allocstat)
-    if (allocstat /= 0) call fatal('stack','error increasing dens stack size')
-    dens_cells_tmp(:,:) = dens_cells(:,:)
-    deallocate(dens_cells)
-    allocate(dens_cells_tmp(stacksize_new,3), stat = allocstat)
-    dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
+ ! Expand density
+ allocate(dens_cells_tmp(stacksize,3), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','error increasing dens stack size')
+ dens_cells_tmp(:,:) = dens_cells(:,:)
+ deallocate(dens_cells)
+ allocate(dens_cells_tmp(stacksize_new,3), stat = allocstat)
+ dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
 
-    ! Expand force
-    allocate(force_cells_tmp(stacksize,2), stat = allocstat)
-    if (allocstat /= 0) call fatal('stack','error increasing force stack size')
-    force_cells_tmp(:,:) = force_cells(:,:)
-    deallocate(force_cells)
-    allocate(force_cells_tmp(stacksize_new,2), stat = allocstat)
-    force_cells(1:stacksize,:) = force_cells_tmp(:,:)
+ ! Expand force
+ allocate(force_cells_tmp(stacksize,2), stat = allocstat)
+ if (allocstat /= 0) call fatal('stack','error increasing force stack size')
+ force_cells_tmp(:,:) = force_cells(:,:)
+ deallocate(force_cells)
+ allocate(force_cells_tmp(stacksize_new,2), stat = allocstat)
+ force_cells(1:stacksize,:) = force_cells_tmp(:,:)
 
-    ! Set new stacksize value
-    ! Allocate, with memory already containing cells
-    call allocate_mpi_memory(stacksize_in=stacksize_new)
+ ! Set new stacksize value
+ ! Allocate, with memory already containing cells
+ call allocate_mpi_memory(stacksize_in=stacksize_new)
 
 end subroutine increase_mpi_memory
 
@@ -149,10 +149,10 @@ subroutine calculate_stacksize(npart)
 
 end subroutine calculate_stacksize
 
-subroutine finish_mpi_memory
- deallocate(dens_cells)
- deallocate(force_cells)
-end subroutine finish_mpi_memory
+subroutine deallocate_mpi_memory
+ if (allocated(dens_cells )) deallocate(dens_cells )
+ if (allocated(force_cells)) deallocate(force_cells)
+end subroutine deallocate_mpi_memory
 
 subroutine allocate_stack_dens(stack, i)
  type(stackdens), intent(inout) :: stack

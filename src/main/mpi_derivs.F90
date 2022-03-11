@@ -56,6 +56,7 @@ module mpiderivs
  end interface reduce_group
 
  public :: allocate_comms_arrays
+ public :: deallocate_comms_arrays
 
  public :: init_cell_exchange
  public :: send_cell
@@ -103,6 +104,15 @@ subroutine allocate_comms_arrays
 
  call init_tree_comms
 end subroutine allocate_comms_arrays
+
+subroutine deallocate_comms_arrays
+   if (allocated(nsent       )) deallocate(nsent       )
+   if (allocated(nexpect     )) deallocate(nexpect     )
+   if (allocated(nrecv       )) deallocate(nrecv       )
+   if (allocated(countrequest)) deallocate(countrequest)
+   if (allocated(comm_cofm   )) deallocate(comm_cofm   )
+   if (allocated(comm_owner  )) deallocate(comm_owner  )
+end subroutine deallocate_comms_arrays
 
 !----------------------------------------------------------------
 !+
