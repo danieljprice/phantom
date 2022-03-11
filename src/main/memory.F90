@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
-!   mpimemory, omp_cache, part, photoevap
+!   mpimemory, part, photoevap
 !
  implicit none
 
@@ -104,12 +104,15 @@ subroutine allocate_memory(n, part_only)
 end subroutine allocate_memory
 
 subroutine deallocate_memory(part_only)
- use dim, only:update_max_sizes
+ use dim, only:update_max_sizes,mpi
  use part, only:deallocate_part
  use linklist, only:deallocate_linklist
 #ifdef PHOTO
  use photoevap, only:deallocate_photoevap
 #endif
+ use mpimemory,  only:deallocate_mpi_memory
+ use mpibalance, only:deallocate_balance_arrays
+ use mpiderivs,  only:deallocate_comms_arrays
  use allocutils, only:nbytes_allocated
 
  logical, optional, intent(in) :: part_only
@@ -127,6 +130,12 @@ subroutine deallocate_memory(part_only)
 #ifdef PHOTO
     call deallocate_photoevap
 #endif
+ endif
+
+ if (mpi) then
+    call deallocate_mpi_memory
+    call deallocate_balance_arrays
+    call deallocate_comms_arrays
  endif
 
  nbytes_allocated = 0

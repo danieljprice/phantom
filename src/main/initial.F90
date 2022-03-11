@@ -767,11 +767,11 @@ end subroutine startrun
 subroutine finalise()
  use dim, only: mpi
  use mpiderivs, only:finish_tree_comms
- use mpimemory, only:finish_mpi_memory
+ use mpimemory, only:deallocate_mpi_memory
 
  if (mpi) then
     call finish_tree_comms()
-    call finish_mpi_memory()
+    call deallocate_mpi_memory()
  endif
 
 end subroutine finalise
