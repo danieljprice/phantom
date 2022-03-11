@@ -117,7 +117,7 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
  if (numerator > -num_tol .and. denominator < -denom_tol) spcode = -1 !breeze solution
- if (denominator > denom_tol) spcode = 2
+ if (denominator > denom_tol) spcode = 2                              !supersonic solution
 
 end subroutine evolve_hydro
 
