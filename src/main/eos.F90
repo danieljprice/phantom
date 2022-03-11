@@ -63,6 +63,7 @@ module eos
 
  integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0 ! used for radiation
+ logical, public :: use_var_comp = .false. ! use variable composition
  !--Mean molecular weight if temperature required
  real,    public :: gmw           = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -502,7 +503,6 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use dim,            only:maxvxyzu,do_radiation
- use options,        only:use_var_comp
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -657,7 +657,6 @@ subroutine write_options_eos(iunit)
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
- use options,        only:use_var_comp
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -846,7 +845,6 @@ end function diff
 !  prints equation of state info in the run header
 !+
 !----------------------------------------------------------------
-
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
  use io,             only:fatal
@@ -854,7 +852,6 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
- use options,        only:use_var_comp
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
 
