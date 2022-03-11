@@ -139,7 +139,7 @@ subroutine init_eos_gasradrec(ierr)
     eion(1:2) = 0.  ! He recombination only
  elseif (irecomb == 3) then
     eion(1:4) = 0.  ! No recombination energy
- else
+ elseif (irecomb < 0 .or. irecomb > 3) then
     ierr = 1
  endif
  write(*,'(1x,a,i1,a)') 'Initialising gas+rad+rec EoS (irecomb = ',irecomb,')'
@@ -177,7 +177,7 @@ subroutine read_options_eos_gasradrec(name,valstring,imatch,igotall,ierr)
  select case(trim(name))
  case('irecomb')
     read(valstring,*,iostat=ierr) irecomb
-    if ((irecomb < 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
+    if ((irecomb < 0) .or. (irecomb > 3)) call fatal(label,'irecomb = 0,1,2,3')
     ngot = ngot + 1
  case default
     imatch = .false.
@@ -197,7 +197,7 @@ subroutine write_options_eos_gasradrec(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He',iunit)
+ call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He, 3=none',iunit)
 
 end subroutine write_options_eos_gasradrec
 
