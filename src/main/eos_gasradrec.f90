@@ -154,7 +154,7 @@ end subroutine init_eos_gasradrec
 !----------------------------------------------------------------
 subroutine eos_info_gasradrec(iprint)
  integer, intent(in) :: iprint
- 
+
  write(iprint,"(/,a,i1)") ' Gas+rad+rec EoS: irecomb = ',irecomb
 
 end subroutine eos_info_gasradrec
