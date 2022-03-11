@@ -13,9 +13,10 @@ module eos_gasradrec
 !
 ! :Owner: Mike Lau
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !
-! :Dependencies: ionization_mod, physcon
+! :Dependencies: infile_utils, io, ionization_mod, physcon
 !
  implicit none
  integer, public :: irecomb = 0 ! types of recombination energy to include for ieos=20
