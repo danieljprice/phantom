@@ -80,6 +80,7 @@ module mpiderivs
  integer :: dtype_cellforce
 
  integer :: globallevel
+#endif
  integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
  integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
 
@@ -88,7 +89,6 @@ module mpiderivs
  integer,allocatable :: nrecv(:)     ! counter for number of cells received from i
 
  integer,allocatable :: countrequest(:)
-#endif
 
 contains
 
