@@ -53,8 +53,7 @@ module mpidens
     type(celldens), pointer   :: cells(:)
     integer                   :: maxlength = 0
     integer                   :: n = 0
-    integer                   :: mem_start
-    integer                   :: mem_end
+    integer                   :: number
  end type stackdens
 
 contains

@@ -86,7 +86,7 @@ subroutine allocate_memory(n, part_only)
     call allocate_photoevap
 #endif
     if (mpi) then
-       call allocate_mpi_memory(n)
+       call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
        call allocate_comms_arrays
     endif
