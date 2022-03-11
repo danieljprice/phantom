@@ -77,17 +77,19 @@ subroutine allocate_mpi_memory(npart, stacksize_in)
  integer, optional, intent(in) :: stacksize_in
  integer :: allocstat
 
+ allocstat = 0
+
  if (present(stacksize_in)) stacksize = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
 
- allocate(dens_cells(stacksize,3), stat = allocstat)
+ if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
 
  call allocate_stack(dens_stack_1, 1)
  call allocate_stack(dens_stack_2, 2)
  call allocate_stack(dens_stack_3, 3)
 
- allocate(force_cells(stacksize,2), stat = allocstat)
+ if (.not. allocated(force_cells)) allocate(force_cells(stacksize,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  call allocate_stack(force_stack_1, 1)
  call allocate_stack(force_stack_2, 2)
@@ -107,16 +109,20 @@ subroutine increase_mpi_memory
  if (allocstat /= 0) call fatal('stack','error increasing dens stack size')
  dens_cells_tmp(:,:) = dens_cells(:,:)
  deallocate(dens_cells)
- allocate(dens_cells_tmp(stacksize_new,3), stat = allocstat)
+ allocate(dens_cells(stacksize_new,3), stat = allocstat)
  dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
+ deallocate(dens_cells_tmp)
+
+ ! Do these one at a time to minimise peak memory usage
 
  ! Expand force
  allocate(force_cells_tmp(stacksize,2), stat = allocstat)
  if (allocstat /= 0) call fatal('stack','error increasing force stack size')
  force_cells_tmp(:,:) = force_cells(:,:)
  deallocate(force_cells)
- allocate(force_cells_tmp(stacksize_new,2), stat = allocstat)
+ allocate(force_cells(stacksize_new,2), stat = allocstat)
  force_cells(1:stacksize,:) = force_cells_tmp(:,:)
+ deallocate(force_cells_tmp)
 
  ! Set new stacksize value
  ! Allocate, with memory already containing cells
@@ -137,7 +143,7 @@ subroutine calculate_stacksize(npart)
 
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
-    stacksize = npart / minpart / nprocs
+    stacksize = npart / minpart / nprocs ! assumes that every cell will be exported
 
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize
