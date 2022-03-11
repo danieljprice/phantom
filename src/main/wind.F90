@@ -474,6 +474,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  type(wind_state) :: state
 
  real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin, gmax
+ real, parameter :: v_over_cs_min = 1.d-4
  integer, parameter :: ncount_max = 20
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
@@ -518,9 +519,9 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     ! Find lower bound for initial velocity
     v0     = cs*0.991
     v0max  = v0
-    v0min  = 0.
+    v0min  = v_over_cs_min*cs
     icount = 0
-    do while (icount < ncount_max)
+    do while (icount < ncount_max .and. v0/cs > v_over_cs_min)
        call calc_wind_profile(r0, v0, T0, 0., state)
        if (iverbose>1) print *,'< v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
@@ -533,7 +534,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        icount = icount+1
     enddo
     if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs,', icount=',icount
-    if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
+    if (icount == ncount_max .or. v0/cs < v_over_cs_min) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
 
     ! Find upper bound for initial velocity
@@ -553,8 +554,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        endif
        icount = icount+1
     enddo
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :',v0max/cs,', icount=',icount
     if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,', spcode = ',state%spcode
 
     ! Find sonic point by dichotomy between v0min and v0max
     do
@@ -818,6 +819,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  real, intent(out) :: tcross
  character(*), intent(in) :: filename
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
+ integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  real :: time_end
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
  real, allocatable :: trvurho_temp(:,:)
@@ -825,8 +827,8 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  type(wind_state) :: state
  integer ::iter,itermax,nwrite,writeline
 
- if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,8192))
- if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,8192))
+ if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
+ if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
  write (*,'("Saving 1D model to ",A)') trim(filename)
  time_end = tmax*utime
@@ -848,7 +850,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  mu_base    = state%mu
  gamma_base = state%gamma
 
- do while(state%time < time_end .and. iter < itermax .and. state%Tg > Tdust_stop)
+ do while(state%time < time_end .and. iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
     call wind_step(state)
 
