@@ -99,7 +99,7 @@ module densityforce
 
  !--kernel related parameters
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
-
+ integer, parameter :: isizecellcache = 50000
  integer, parameter :: isizeneighcache = 0
  integer, parameter :: maxdensits = 50
 
@@ -137,8 +137,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
- use omp_cache, only:ompcache,maxcellcache
-
  integer,      intent(in)    :: icall,npart,nactive
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
@@ -151,6 +149,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
  real(kind=4), intent(out)   :: dvdx(:,:)
+
+ real,   save :: xyzcache(isizecellcache,3)
+!$omp threadprivate(xyzcache)
 
  integer :: i,icell
  integer :: nneigh,np,npcell
@@ -173,8 +174,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: n_remote_its,nlocal
  real                      :: ntotal
  logical                   :: iterations_finished,do_export
- integer                   :: ithread,OMP_GET_THREAD_NUM
-
 
  if (mpi) then
     call init_cell_exchange(xrecvbuf,irequestrecv)
@@ -182,7 +181,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  endif
 
  if (iverbose >= 3 .and. id==master) &
-    write(iprint,*) ' cell cache =',maxcellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
+    write(iprint,*) ' cell cache =',isizecellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
 
  if (icall==0 .or. icall==1) then
     call reset_neighbour_stats(nneightry,nneighact,maxneightry,maxneighact,ncalc,nrelink)
@@ -284,11 +283,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:nrelink) &
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
-!$omp shared(ompcache) &
-!$omp private(i,ithread)
-
- ithread = OMP_GET_THREAD_NUM() + 1
-
+!$omp private(i)
 
 !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -300,7 +295,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !
     !--get the neighbour list and fill the cell cache
     !
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,ompcache(:,1:3,ithread),maxcellcache,getj=.false., &
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
     do_export = any(remote_export)
     cell%icell                   = icell
@@ -323,7 +318,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        !$omp end critical (send_and_recv_remote)
     endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,ompcache(:,1:3,ithread),rad)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
     if (do_export) then
        ! write directly to stack
@@ -337,7 +332,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (.not. converged) then
              if (redo_neighbours) then
                 call set_hmaxcell(cell%icell,cell%hmax)
-                call get_neighbour_list(-1,listneigh,nneigh,xyzh,ompcache(:,1:3,ithread),maxcellcache,getj=.false., &
+                call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
 
@@ -352,7 +347,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 nrelink = nrelink + 1
              endif
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,ompcache(:,1:3,ithread),rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
              if (do_export) then
                 stack_waiting%cells(cell%waiting_index) = cell
@@ -405,10 +400,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           cell = stack_remote%cells(i)
 
           ! icell is unused (-1 here)
-          call get_neighbour_list(-1,listneigh,nneigh,xyzh,ompcache(:,1:3,ithread),maxcellcache,getj=.false., &
+          call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,ompcache(:,1:3,ithread),rad)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -457,7 +452,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           !$omp end critical (send_and_recv_remote)
           if (.not. converged) then
              call set_hmaxcell(cell%icell,cell%hmax)
-             call get_neighbour_list(-1,listneigh,nneigh,xyzh,ompcache(:,1:3,ithread),maxcellcache,getj=.false., &
+             call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
 
@@ -466,7 +461,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell to remote
              !$omp end critical (send_and_recv_remote)
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,ompcache(:,1:3,ithread),rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
              stack_redo%cells(cell%waiting_index) = cell
           else
@@ -556,7 +551,6 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
- use omp_cache,only:maxcellcache
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -621,7 +615,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
     if (ifilledneighcache .and. n <= isizeneighcache) then
        rij2 = dxcache(1,n)
     else
-       if (ifilledcellcache .and. n <= maxcellcache) then
+       if (ifilledcellcache .and. n <= isizecellcache) then
           ! positions from cache are already mod boundary
           dx = xpartveci(ixi) - xyzcache(n,1)
           dy = xpartveci(iyi) - xyzcache(n,2)
@@ -1155,7 +1149,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use viscosity,   only:irealvisc
  use io,          only:id
  use dim,         only:mpi
- use omp_cache,   only:maxcellcache
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1165,7 +1158,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical,         intent(in)     :: getdB
  real,            intent(in)     :: Bevol(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in)     :: xyzcache(maxcellcache,3)
+ real,            intent(in)     :: xyzcache(isizecellcache,3)
  real,            intent(in)     :: rad(:,:)
 
  real                            :: dxcache(7,isizeneighcache)
