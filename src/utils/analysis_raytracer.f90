@@ -85,12 +85,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print*,'npart = ',npart2
    allocate(tau(npart2))
 
-   open(newunit=iu3, file='rho_'//dumpfile//'.txt', status='replace', action='write')
    do i=1,npart2
       rho(i) = rhoh(xyzh2(4,i), particlemass)
-      write(iu3, *) rho(i)
    enddo
-   close(iu3)
 
    call read_array_from_file(123,dumpfile,'x',primsec(1,:),ierr, 2)
    call read_array_from_file(123,dumpfile,'y',primsec(2,:),ierr, 2)
@@ -98,7 +95,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    call read_array_from_file(123,dumpfile,'h',primsec(4,:),ierr, 2)
    xyzh2(:,npart2+1) = primsec(:,1)
    xyzh2(:,npart2+2) = primsec(:,2)
-   
+
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
    print *,'What do you want to an analyses?'
@@ -109,7 +106,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    
    if (analyses==1) then
       print *,'Which analysis would you like to run?'
-      print *, '(1) Analysis outwards'
+      print *, '(1) Analysis Outwards'
       print *, '(2) Analysis Adaptive'
       print *, '(3) Scaling'
       read *,method
@@ -200,15 +197,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                write(iu2, *) tau(i)
             enddo
             close(iu2)
+            deallocate(neighb)
          else
             open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
                write(iu4, *) 0.
             close(iu4)
             totalTime=0
          endif
-         deallocate(neighb)
    
-         do j = 0, 9
+         do j = 0, 7
             write(jstring,'(i0)') j
             print*,''
             print*, 'Start calculating optical depth outwards: ', trim(jstring)
@@ -248,15 +245,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                write(iu2, *) tau(i)
             enddo
             close(iu2)
+            deallocate(neighb)
          else
             open(newunit=iu4, file='times_opt_'//dumpfile//'.txt', status='replace', action='write')
                write(iu4, *) 0.
             close(iu4)
             totalTime=0
          endif
-         deallocate(neighb)
    
-         do j = 0, 6
+         do j = 0, 7
             write(jstring,'(i0)') j
             do k = 0,7-j
                write(kstring,'(i0)') k
@@ -278,7 +275,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                   write(iu2, *) tau(i)
                enddo
                close(iu2)
-               stop
             enddo
          enddo
          print*,''
@@ -371,12 +367,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       close(iu2)
    endif
 
-   if (.false.) then! Write out the location of all the points
+   if (.false.) then! Write out the location and density of all the points
       open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
       do i=1, npart2+2
          write(iu1, *) xyzh2(1:3,i)
       enddo
       close(iu1)
+
+      open(newunit=iu3, file='rho_'//dumpfile//'.txt', status='replace', action='write')
+      do i=1,npart2
+         rho(i) = rhoh(xyzh2(4,i), particlemass)
+         write(iu3, *) rho(i)
+      enddo
+      close(iu3)
    endif
 
 end subroutine do_analysis
