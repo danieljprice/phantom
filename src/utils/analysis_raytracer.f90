@@ -16,7 +16,7 @@ module analysis
 !
 ! :Dependencies: getneighbours
 !
-   use raytracer,        only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_optimised
+   use raytracer,        only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
    use part,             only:rhoh,isdead_or_accreted
    use dump_utils,       only:read_array_from_file
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
@@ -44,9 +44,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    real(kind=8)   :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), xyzh2(4,npart), vxyzu2(4,npart)
    real(kind=8), dimension(:), allocatable :: tau
    integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2
-   integer :: start, finish
+   integer :: start, finish, method, analyses
    real :: totalTime, timeTau
-   logical :: tess = .false.
+   logical :: SPH, calcInwards
 
    print*,'("Reading kappa from file")'
    call read_array_from_file(123,dumpfile,'kappa',kappa(:),ierr, 1)
@@ -99,51 +99,211 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    xyzh2(:,npart2+1) = primsec(:,1)
    xyzh2(:,npart2+2) = primsec(:,2)
    
-   ! write points
-   open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
-   do i=1, npart2+2
-      write(iu1, *) xyzh2(1:3,i)
-   enddo
-   close(iu1)
-
-   ! get neighbours
-   if (.not.tess) then
-      neighbourfile = 'neigh_'//TRIM(dumpfile)
-      inquire(file=neighbourfile,exist = existneigh)
-      if (existneigh.eqv..true.) then
-         print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
-         call read_neighbours(neighbourfile,npart2+2)
-      else
-         ! If there is no neighbour file, generate the list
-         print*, 'No neighbour file found: generating'
-         call system_clock(start)
-         call generate_neighbour_lists(xyzh2,vxyzu2,npart2+2,dumpfile, .false.)
-         call system_clock(finish)
-         totalTime = (finish-start)/1000.
-         print*,'Time = ',totalTime,' seconds.'
-         call write_neighbours(neighbourfile, npart2+2)
-         print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
-      endif
-   else
-      allocate(neighb(npart2+2,100))
-      neighb = 0
-      inquire(file='neighbors_tess.txt',exist = existneigh)
-      if (existneigh.eqv..true.) then
-         print*, 'Neighbour file neighbors.txt found'
-      else
-         call execute_command_line('python3 getNeigh.py -f '//'points_'//dumpfile//'.txt')
-      endif
-      open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
-      do i=1, npart2+2
-            read(iu4,*) neighb(i,:)
-      enddo
-      close(iu4)
-   endif
-   
    call set_linklist(npart2,npart2,xyzh2,vxyzu)
 
-   if (.false..and..not.tess) then
-      if (.false.) then
+   print *,'What do you want to an analyses?'
+   print *, '(1) Analysis'
+   print *, '(2) Method'
+   print *, '(3) Preloaded settings'
+   read *,analyses
+   
+   if (analyses==1) then
+      print *,'Which analysis would you like to run?'
+      print *, '(1) Analysis outwards'
+      print *, '(2) Analysis Adaptive'
+      print *, '(3) Scaling'
+      read *,method
+      if (method == 1) then
+         SPH = .true.
+         calcInwards = .false.
+      else if (method == 2) then
+         SPH = .true.
+         calcInwards = .false.
+      else if (method == 3) then
+         
+      endif
+   else if (analyses==2) then
+      print *,'Which algorithm would you like to run?'
+      print *, '(1) Inwards'
+      print *, '(2) Outwards'
+      print *, '(3) Adaptive'
+      read *,method
+      if (method == 1) then
+         print *,'Do you want to use SPH neighbours? (T/F)'
+         read*,SPH
+      else if (method == 2) then
+         print *,'What order do you want to run?'
+         read*,j
+         write(jstring,'(i0)') j
+      else if (method == 3) then
+         print *,'What order do you want to run? (integer below 7)'
+         read*,j
+         write(jstring,'(i0)') j
+         print *,'What refinement level do you want to run? (integer below 7)'
+         read*,k
+         write(kstring,'(i0)') k
+      endif
+   endif
+
+   if ((analyses==1 .and. calcInwards) .or. (analyses==2 .and. method==1)) then ! get neighbours
+      if (SPH) then
+         neighbourfile = 'neigh_'//TRIM(dumpfile)
+         inquire(file=neighbourfile,exist = existneigh)
+         if (existneigh.eqv..true.) then
+            print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+            call read_neighbours(neighbourfile,npart2+2)
+         else
+            ! If there is no neighbour file, generate the list
+            print*, 'No neighbour file found: generating'
+            call system_clock(start)
+            call generate_neighbour_lists(xyzh2,vxyzu2,npart2+2,dumpfile, .false.)
+            call system_clock(finish)
+            totalTime = (finish-start)/1000.
+            print*,'Time = ',totalTime,' seconds.'
+            call write_neighbours(neighbourfile, npart2+2)
+            print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+         endif
+      else
+         allocate(neighb(npart2+2,100))
+         neighb = 0
+         inquire(file='neighbors_tess.txt',exist = existneigh)
+         if (existneigh.eqv..true.) then
+            print*, 'Neighbour file neighbors.txt found'
+         else
+            call execute_command_line('python3 getNeigh.py -f '//'points_'//dumpfile//'.txt')
+         endif
+         open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
+         do i=1, npart2+2
+               read(iu4,*) neighb(i,:)
+         enddo
+         close(iu4)
+      endif
+   endif
+
+   if (analyses==1) then
+      if (method == 1) then
+         if (calcInwards) then
+            print*,''
+            print*, 'Start calculating optical depth inwards'
+            call system_clock(start)
+            call get_all_tau_inwards(npart2+1, xyzh2, neighb, rho*kappa*1.496e+13, &
+                                       real(2.37686663,8), tau, npart2+2,real(0.1,8))
+            call system_clock(finish)
+            timeTau = (finish-start)/1000.
+            print*,'Time = ',timeTau,' seconds.'
+            open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+               write(iu4, *) timeTau
+            close(iu4)
+            totalTime = timeTau
+            open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+            do i=1, size(tau)
+               write(iu2, *) tau(i)
+            enddo
+            close(iu2)
+         else
+            open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+               write(iu4, *) 0.
+            close(iu4)
+            totalTime=0
+         endif
+         deallocate(neighb)
+   
+         do j = 0, 9
+            write(jstring,'(i0)') j
+            print*,''
+            print*, 'Start calculating optical depth outwards: ', trim(jstring)
+            call system_clock(start)
+            call get_all_tau_outwards(npart2+1, xyzh2, rho*kappa*1.496e+13, real(2.37686663,8), j, tau, npart2+2,real(0.1,8))
+            call system_clock(finish)
+            timeTau = (finish-start)/1000.
+            print*,'Time = ',timeTau,' seconds.'
+            open(newunit=iu4, file='times_'//dumpfile//'.txt',position='append', status='old', action='write')
+            write(iu4, *) timeTau
+            close(iu4)
+            totalTime = totalTime + timeTau
+            open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+            do i=1, size(tau)
+               write(iu2, *) tau(i)
+            enddo
+            close(iu2)
+         enddo
+         print*,''
+         print*,'Total time of the calculation = ',totalTime,' seconds.'
+      else if (method == 2) then
+         if (calcInwards) then
+            print*,''
+            print*, 'Start calculating optical depth inwards'
+            call system_clock(start)
+            call get_all_tau_inwards(npart2+1, xyzh2, neighb, rho*kappa*1.496e+13, &
+                                       real(2.37686663,8), tau, npart2+2,real(0.1,8))
+            call system_clock(finish)
+            timeTau = (finish-start)/1000.
+            print*,'Time = ',timeTau,' seconds.'
+            open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+               write(iu4, *) timeTau
+            close(iu4)
+            totalTime = timeTau
+            open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+            do i=1, size(tau)
+               write(iu2, *) tau(i)
+            enddo
+            close(iu2)
+         else
+            open(newunit=iu4, file='times_opt_'//dumpfile//'.txt', status='replace', action='write')
+               write(iu4, *) 0.
+            close(iu4)
+            totalTime=0
+         endif
+         deallocate(neighb)
+   
+         do j = 0, 6
+            write(jstring,'(i0)') j
+            do k = 0,7-j
+               write(kstring,'(i0)') k
+               print*,''
+               print*, 'Start calculating optical depth outwards: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
+               call system_clock(start)
+               call get_all_tau_adaptive(npart2+1, xyzh2, rho*kappa*1.496e+13, &
+                                          real(2.37686663,8), j, k, tau, npart2+2,real(0.1,8))
+               call system_clock(finish)
+               timeTau = (finish-start)/1000.
+               print*,'Time = ',timeTau,' seconds.'
+               open(newunit=iu4, file='times_opt_'//dumpfile//'.txt',position='append', status='old', action='write')
+               write(iu4, *) timeTau
+               close(iu4)
+               totalTime = totalTime + timeTau
+               open(newunit=iu2, file='taus_'//dumpfile//'_opt_'//trim(jstring)// &
+                     '_'//trim(kstring)//'.txt', status='replace', action='write')
+               do i=1, size(tau)
+                  write(iu2, *) tau(i)
+               enddo
+               close(iu2)
+               stop
+            enddo
+         enddo
+         print*,''
+         print*,'Total time of the calculation = ',totalTime,' seconds.'
+      else if (method == 3) then
+         open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
+         close(iu4)
+         do i=0, int(log(real(omp_get_num_procs()))/log(2.))
+            call omp_set_num_threads(2**i)
+            call deallocate_linklist
+            call allocate_linklist
+            call set_linklist(npart2,npart2,xyzh2,vxyzu)
+            call system_clock(start)
+            call get_all_tau_outwards(npart2+1, xyzh2, rho*kappa*1.496e+13, &
+                                       real(2.37686663,8), 5, tau, npart2+2,real(0.1,8))
+            call system_clock(finish)
+            timeTau = (finish-start)/1000.
+            print*,'nthread = ',omp_get_max_threads(),': Time = ',timeTau,' seconds.'
+            open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt',position='append', status='old', action='write')
+            write(iu4, *) omp_get_max_threads(), timeTau
+            close(iu4)
+         enddo
+      endif
+   else if (analyses==2) then
+      if (method == 1) then
          print*,''
          print*, 'Start calculating optical depth inwards'
          call system_clock(start)
@@ -152,25 +312,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          call system_clock(finish)
          timeTau = (finish-start)/1000.
          print*,'Time = ',timeTau,' seconds.'
-         open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
-            write(iu4, *) timeTau
-         close(iu4)
-         totalTime = timeTau
-         open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+         if (SPH) then
+            open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+         else
+            open(newunit=iu2, file='taus_'//dumpfile//'_tess_inwards.txt', status='replace', action='write')
+         endif
          do i=1, size(tau)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      else
-         open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
-            write(iu4, *) 0.
-         close(iu4)
-         totalTime=0
-      endif
-      deallocate(neighb)
-
-      do j = 0, 9
-         write(jstring,'(i0)') j
+      else if (method == 2) then
          print*,''
          print*, 'Start calculating optical depth outwards: ', trim(jstring)
          call system_clock(start)
@@ -178,150 +329,36 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          call system_clock(finish)
          timeTau = (finish-start)/1000.
          print*,'Time = ',timeTau,' seconds.'
-         open(newunit=iu4, file='times_'//dumpfile//'.txt',position='append', status='old', action='write')
-         write(iu4, *) timeTau
-         close(iu4)
-         totalTime = totalTime + timeTau
          open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
          do i=1, size(tau)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      enddo
-      print*,''
-      print*,'Total time of the calculation = ',totalTime,' seconds.'
-   else if (tess) then
-      if (.true.) then
+      else if (method == 3) then
          print*,''
-         print*, 'Start calculating optical depth inwards'
+         print*, 'Start calculating optical depth adaptive: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
          call system_clock(start)
-         call get_all_tau_inwards(npart2+1, xyzh2, neighb, rho*kappa*1.496e+13, &
-                                    real(2.37686663,8), tau, npart2+2,real(0.1,8))
+         call get_all_tau_adaptive(npart2+1, xyzh2, rho*kappa*1.496e+13, &
+                                    real(2.37686663,8), j, k, tau, npart2+2,real(0.1,8))
          call system_clock(finish)
          timeTau = (finish-start)/1000.
          print*,'Time = ',timeTau,' seconds.'
-         open(newunit=iu4, file='times_'//dumpfile//'_tess.txt', status='replace', action='write')
-            write(iu4, *) timeTau
-         close(iu4)
-         totalTime = timeTau
-         open(newunit=iu2, file='taus_'//dumpfile//'_tess_inwards.txt', status='replace', action='write')
-         do i=1, size(tau)
-            write(iu2, *) tau(i)
-         enddo
-         close(iu2)
-      else
-         open(newunit=iu4, file='times_'//dumpfile//'_tess.txt', status='replace', action='write')
-            write(iu4, *) 0.
-         close(iu4)
-         totalTime=0
-      endif
-
-      do j = 0, 7
-         write(jstring,'(i0)') j
-         print*,''
-         print*, 'Start calculating optical depth outwards: ', trim(jstring)
-         call system_clock(start)
-         call get_all_tau_outwards(npart2+1, xyzh2, rho*kappa*1.496e+13, real(2.37686663,8), j, tau, npart2+2,real(0.1,8))
-         call system_clock(finish)
-         timeTau = (finish-start)/1000.
-         print*,'Time = ',timeTau,' seconds.'
-         open(newunit=iu4, file='times_'//dumpfile//'_tess.txt',position='append', status='old', action='write')
-         write(iu4, *) timeTau
-         close(iu4)
          totalTime = totalTime + timeTau
-         open(newunit=iu2, file='taus_'//dumpfile//'_tess_'//trim(jstring)//'.txt', status='replace', action='write')
+         open(newunit=iu2, file='taus_'//dumpfile//'_opt_'//trim(jstring)// &
+               '_'//trim(kstring)//'.txt', status='replace', action='write')
          do i=1, size(tau)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      enddo
-      print*,''
-      print*,'Total time of the calculation = ',totalTime,' seconds.'
-   endif
-
-   if (.false.) then
-      open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
-      close(iu4)
-      do i=0, omp_get_num_procs()-1!int(log(real(omp_get_num_procs()))/log(2.))
-         call omp_set_num_threads(omp_get_num_procs()-i)
-         print*,omp_get_max_threads()
-         call deallocate_linklist
-         call allocate_linklist
-         call set_linklist(npart2,npart2,xyzh2,vxyzu)
-         call system_clock(start)
-         call get_all_tau_inwards(npart2+1, xyzh2, neighb, rho*kappa*1.496e+13, &
-                                    real(2.37686663,8), tau, npart2+2,real(0.1,8))
-         call system_clock(finish)
-         timeTau = (finish-start)/1000.
-         print*,'nthread = ',omp_get_max_threads(),': Time = ',timeTau,' seconds.'
-         open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt',position='append', status='old', action='write')
-         write(iu4, *) omp_get_max_threads(), timeTau
-         close(iu4)
-      enddo
-   endif
-
-   if (.true.) then
-      if (.false.) then
-         print*,''
-         print*, 'Start calculating optical depth inwards'
-         call system_clock(start)
-         call get_all_tau_inwards(npart2+1, xyzh2, neighb, rho*kappa*1.496e+13, &
-                                    real(2.37686663,8), tau, npart2+2,real(0.1,8))
-         call system_clock(finish)
-         timeTau = (finish-start)/1000.
-         print*,'Time = ',timeTau,' seconds.'
-         ! open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
-         !    write(iu4, *) timeTau
-         ! close(iu4)
-         totalTime = timeTau
-         open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
-         do i=1, size(tau)
-            write(iu2, *) tau(i)
-         enddo
-         close(iu2)
-      else
-         ! open(newunit=iu4, file='times_opt_'//dumpfile//'.txt', status='replace', action='write')
-         !    write(iu4, *) 0.
-         ! close(iu4)
-         totalTime=0
       endif
-      deallocate(neighb)
-
-      do j = 0, 6
-         write(jstring,'(i0)') j
-         do k = 0,7-j
-            write(kstring,'(i0)') k
-            print*,''
-            print*, 'Start calculating optical depth outwards: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
-            call system_clock(start)
-            call get_all_tau_optimised(npart2+1, xyzh2, rho*kappa*1.496e+13, &
-                                       real(2.37686663,8), j, k, tau, npart2+2,real(0.1,8))
-            call system_clock(finish)
-            timeTau = (finish-start)/1000.
-            print*,'Time = ',timeTau,' seconds.'
-            ! open(newunit=iu4, file='times_opt_'//dumpfile//'.txt',position='append', status='old', action='write')
-            ! write(iu4, *) timeTau
-            ! close(iu4)
-            totalTime = totalTime + timeTau
-            ! open(newunit=iu2, file='taus_'//dumpfile//'_opt_'//trim(jstring)// &
-            !       '_'//trim(kstring)//'.txt', status='replace', action='write')
-            ! do i=1, size(tau)
-            !    write(iu2, *) tau(i)
-            ! enddo
-            ! close(iu2)
-            stop
-         enddo
-      enddo
-      print*,''
-      print*,'Total time of the calculation = ',totalTime,' seconds.'
    endif
 
-   if (.false.) then
+   if (analyses == 3) then
       print*,''
-      print*, 'Start calculating optical depth optimised'
+      print*, 'Start calculating optical depth adaptive'
       rho = 1.
       call system_clock(start)
-      call get_all_tau_optimised(npart2+1, xyzh2, rho*kappa*1.496e+13, &
+      call get_all_tau_adaptive(npart2+1, xyzh2, rho*kappa*1.496e+13, &
                                  real(2.37686663,8), 0, 2, tau, npart2+2,real(0.1,8))
       call system_clock(finish)
       timeTau = (finish-start)/1000.
@@ -332,6 +369,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          write(iu2, *) tau(i)
       enddo
       close(iu2)
+   endif
+
+   if (.false.) then! Write out the location of all the points
+      open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
+      do i=1, npart2+2
+         write(iu1, *) xyzh2(1:3,i)
+      enddo
+      close(iu1)
    endif
 
 end subroutine do_analysis
