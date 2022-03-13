@@ -22,7 +22,7 @@ else
 fi
 echo ''
 echo 'again:'
-echo '	cd ${PHANTOMDIR}; make '$makeflags'; cd -; cp ${PHANTOMDIR}/bin/phantom .; cp ${PHANTOMDIR}/bin/phantom_version .'
+echo '	set -e; cd ${PHANTOMDIR}; make '$makeflags'; cd -; cp ${PHANTOMDIR}/bin/phantom .; cp ${PHANTOMDIR}/bin/phantom_version .'
 echo
 echo 'all: again setup infile'
 echo

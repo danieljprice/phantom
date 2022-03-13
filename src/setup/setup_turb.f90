@@ -18,9 +18,9 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, domain, dust, io, mpiutils, options, part,
-!   physcon, prompting, set_dust, setup_params, table_utils, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, dust, io, mpidomain, mpiutils, options,
+!   part, physcon, prompting, set_dust, setup_params, table_utils,
+!   timestep, unifdis, units
 !
  implicit none
  public :: setpart
@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_dust,     only:set_dustfrac,set_dustbinfrac
  use timestep,     only:dtmax,tmax
  use table_utils,  only:logspace
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

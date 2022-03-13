@@ -157,7 +157,13 @@ module dim
 #ifdef STACKSIZE
  integer, parameter :: stacksize = STACKSIZE
 #else
+#ifdef MPI
  integer, parameter :: stacksize = 200000
+ logical, parameter :: mpi = .true.
+#else
+ integer, parameter :: stacksize = 0
+ logical, parameter :: mpi = .false.
+#endif
 #endif
 
  ! storage for artificial viscosity switch
@@ -211,11 +217,10 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
+ logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
- logical, parameter :: store_gamma = .true.
 #else
- logical, parameter :: store_gamma = .false.
  logical, parameter :: use_krome = .false.
 #endif
 
@@ -298,9 +303,19 @@ module dim
 !--------------------
 ! Dust formation
 !--------------------
-#ifdef NUCLEATION
+ logical :: do_nucleation = .false.
+ integer :: inucleation = 0
+#ifdef DUST_NUCLEATION
+#ifdef STAR
+ logical :: star_radiation = .true.
+#else
+ logical :: star_radiation = .false.
+#endif
+ logical :: nucleation = .true.
  integer :: maxsp = maxp_hard
 #else
+ logical :: star_radiation = .false.
+ logical :: nucleation = .false.
  integer :: maxsp = 0
 #endif
 
@@ -368,10 +383,6 @@ subroutine update_max_sizes(n)
 
 #ifdef SINK_RADIATION
  maxTdust = maxp
-#endif
-
-#ifdef STORE_TEMPERATURE
- maxtemp = maxp
 #endif
 
 #ifdef NCELLSMAX

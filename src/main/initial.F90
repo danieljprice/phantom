@@ -14,18 +14,17 @@ module initial
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, balance, boundary, centreofmass, checkconserved,
+! :Dependencies: analysis, boundary, centreofmass, checkconserved,
 !   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
-!   deriv, dim, domain, dust, energies, eos, evwrite, extern_gr,
-!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
-!   io_summary, krome_interface, linklist, metric_tools, mf_write, mpi,
-!   mpiderivs, mpiutils, nicil, nicil_sup, omputils, options, part,
-!   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   stack, timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
+!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
+!   mpiderivs, mpidomain, mpistack, mpiutils, nicil, nicil_sup, omputils,
+!   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
+!   writeheader
 !
-#ifdef MPI
- use mpi
-#endif
+
  implicit none
  public :: initialise,finalise,startrun,endrun
  real(kind=4), private :: twall_start, tcpu_start
@@ -41,6 +40,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
+ use dim,              only:mpi
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -51,13 +51,11 @@ subroutine initialise()
  use boundary,         only:set_boundary
  use writeheader,      only:write_codeinfo
  use evwrite,          only:init_evfile
- use domain,           only:init_domains
+ use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
-#ifdef MPI
  use mpiderivs,        only:init_tree_comms
- use stack,            only:init_mpi_memory
-#endif
+ use mpistack,         only:init_mpi_memory
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -102,10 +100,10 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
-#ifdef MPI
- call init_tree_comms()
- call init_mpi_memory()
-#endif
+ if (mpi) then
+    call init_tree_comms()
+    call init_mpi_memory()
+ endif
 
  call init_readwrite_dumps()
 
@@ -118,9 +116,9 @@ end subroutine initialise
 !+
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
- use mpiutils,         only:reduce_mpi,waitmyturn,endmyturn,reduceall_mpi,barrier_mpi,reduce_in_place_mpi
+ use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
-                            nalpha,mhd,do_radiation,gravity,use_dust
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -194,10 +192,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
-#ifdef MPI
- use balance,          only:balancedomains
- use part,             only:ibelong
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -211,6 +205,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
 #endif
+ use mpibalance,       only:balancedomains
+ use part,             only:ibelong
  use writeheader,      only:write_codeinfo,write_header
  use eos,              only:ieos,init_eos
  use checksetup,       only:check_setup
@@ -236,7 +232,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
  integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold
+ character(len=len(dumpfile)) :: dumpfileold,file1D
  character(len=7) :: dust_label(maxdusttypes)
 
  read_input_files = .true.
@@ -384,12 +380,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--balance domains prior to starting calculation
 !  (make sure this is called AFTER iphase has been set)
 !
-#ifdef MPI
- do i=1,npart
-    ibelong(i) = id
- enddo
- call balancedomains(npart)
-#endif
+ if (mpi) then
+    do i=1,npart
+       ibelong(i) = id
+    enddo
+    call balancedomains(npart)
+ endif
 
 !
 !--set up photoevaporation grid, define relevant constants, etc.
@@ -485,13 +481,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     rhofinal1 = 0.0
  endif
  if (nptmass > 0) then
-    write(iprint,"(a,i12)") ' nptmass       = ',nptmass
+    if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n)
     dtsinksink = C_force*dtsinksink
-    write(iprint,*) 'dt(sink-sink) = ',dtsinksink
+    if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
 
     ! compute initial sink-gas forces and get timestep
@@ -520,7 +516,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     dtextforce = reduceall_mpi('min',dtextforce)
  endif
  call init_ptmass(nptmass,logfile)
- if (gravity .and. icreate_sinks > 0) then
+ if (gravity .and. icreate_sinks > 0 .and. id==master) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
@@ -536,6 +532,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef INJECT_PARTICLES
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
+ !rename wind profile filename
+ inquire(file='wind_profile1D.dat',exist=iexist)
+ if (iexist) then
+    i = len(trim(dumpfile))
+    if (dumpfile(i-2:i) == 'tmp') then
+       file1D = dumpfile(1:i-9) // '1D.dat'
+    else
+       file1D = dumpfile(1:i-5) // '1D.dat'
+    endif
+    call rename('wind_profile1D.dat',trim(file1D))
+ endif
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
 #ifdef GR
@@ -708,10 +715,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  toll = 1.0d-2
  if (get_conserv > 0.0) then
     get_conserv = -1.
-    if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
-    if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-    if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-    call warning('initial','consider changing code-units to have box length closer to unity')
+    if (id==master) then
+       if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
+       if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
+       if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+      call warning('initial','consider changing code-units to have box length closer to unity')
+    endif
  endif
 !
 !--write initial conditions to output file
@@ -762,13 +771,15 @@ end subroutine startrun
 !+
 !----------------------------------------------------------------
 subroutine finalise()
-#ifdef MPI
- use mpiderivs,       only:finish_tree_comms
- use stack,           only:finish_mpi_memory
+ use dim, only: mpi
+ use mpiderivs, only:finish_tree_comms
+ use mpistack,  only:finish_mpi_memory
 
- call finish_tree_comms()
- call finish_mpi_memory()
-#endif
+ if (mpi) then
+    call finish_tree_comms()
+    call finish_mpi_memory()
+ endif
+
 end subroutine finalise
 
 !----------------------------------------------------------------

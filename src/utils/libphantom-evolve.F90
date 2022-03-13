@@ -16,7 +16,7 @@ module evolvesplit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, energies, evwrite, fileutils, forcing,
+! :Dependencies: centreofmass, dim, energies, evwrite, fileutils, forcing,
 !   inject, io, mpiutils, options, part, quitdump, readwrite_dumps,
 !   readwrite_infile, step_lf_global, timestep, timestep_ind, timing
 !
@@ -156,6 +156,7 @@ subroutine init_step()
 end subroutine init_step
 
 subroutine finalize_step(infile, logfile, evfile, dumpfile)
+ use dim,              only:mpi
  use timing,           only:get_timings,print_time
  use timestep,         only:time,tmax,dt,dtmax,nsteps,nmax,nout
  use io,               only:id,master,iverbose,iprint,warning,iwritein,flush_warnings
@@ -266,10 +267,8 @@ subroutine finalize_step(infile, logfile, evfile, dumpfile)
     endif
     dumpfile = getnextfilename(dumpfile)
 
-#ifdef MPI
     !--do not dump dead particles into dump files
-    if (ideadhead > 0) call shuffle_part(npart)
-#endif
+    if (mpi .and. ideadhead > 0) call shuffle_part(npart)
 
 !
 !--get timings since last dump and overall code scaling
