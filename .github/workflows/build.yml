@@ -165,7 +165,7 @@ jobs:
 
   # Gather results into a dummy job that will fail if the previous job fails
   gather_results:
-    if: always()
+    if: ${{ always() && github.event_name != 'schedule' }}
     needs:
     - build
 

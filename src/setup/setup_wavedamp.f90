@@ -31,9 +31,9 @@ module setup
 !   - viscoff   : *Using no viscosity (F: using viscosity*
 !   - vx_vz     : *Using velocity in x (F: initialise in z)*
 !
-! :Dependencies: boundary, dim, domain, infile_utils, io, mpiutils, nicil,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, mpiutils,
+!   nicil, options, part, physcon, prompting, setup_params, timestep,
+!   unifdis, units
 !
  use part,    only:mhd
  use nicil,   only:use_ohm,use_hall,use_ambi
@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units,unit_density,unit_Bfield,umass,udist
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use prompting,    only:prompt
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

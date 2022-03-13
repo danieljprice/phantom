@@ -45,8 +45,10 @@ subroutine initialise_krome()
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
  use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
- use dim,        only:maxvxyzu
+ use dim,        only:maxvxyzu,store_gamma
  real :: wind_temperature
+
+ store_gamma = .true.
 
  print *, ""
  print *, "==================================================="
@@ -112,7 +114,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
  use krome_main,    only: krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
- use eos,           only:ieos,get_temperature,get_local_u_internal!equationofstate
+ use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
 
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
@@ -135,6 +137,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
  T_gas_cool = T_local
 ! get the new internal energy
  u = get_local_u_internal(gamma_chem,mu_chem,T_local)
+ !u = T_local/(mu_chem*temperature_coef)/(gamma_chem-1.)
 
 end subroutine update_krome
 

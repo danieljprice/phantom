@@ -24,9 +24,9 @@ module inject
 !   - wind_temperature   : *wind temperature at the injection point (K)*
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
-! :Dependencies: cooling_molecular, dim, eos, icosahedron, infile_utils,
-!   injectutils, io, options, part, partinject, physcon, setbinary,
-!   timestep, units, wind, wind_equations
+! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
+!   infile_utils, injectutils, io, options, part, partinject, physcon,
+!   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
 !
  use physcon,           only: solarl
 
@@ -39,7 +39,7 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  integer:: sonic_type = 1
  real::    wind_velocity_km_s = 0.
  real::    wind_mass_rate_Msun_yr = 1.d-5
@@ -47,9 +47,9 @@ module inject
  real::    wind_temperature = 2500.
 #elif ISOTHERMAL
  integer:: sonic_type = 1
- real::    wind_velocity_km_s = 20.
- real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 1.1
+ real::    wind_velocity_km_s = 0.
+ real::    wind_mass_rate_Msun_yr = 8.2d-8
+ real::    wind_injection_radius_au = 0.
  real::    wind_temperature
 #else
  integer:: sonic_type = 0
@@ -101,9 +101,10 @@ subroutine init_inject(ierr)
  use part,              only:xyzmh_ptmass,vxyz_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
+ use ptmass_radiation,  only:alpha_rad
 
  integer, intent(out) :: ierr
- integer :: ires_min,nzones_per_sonic_point
+ integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
@@ -253,13 +254,18 @@ subroutine init_inject(ierr)
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, outer_boundary_au*au, tsonic, tend, tcross, 'windprofile1D.dat')
+         wind_temperature, outer_boundary_au*au, tend, tcross, 'wind_profile1D.dat')
     if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
     if (tcross < 1.d98) then
-       nfill_domain = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
-       print *,'reduce number of background shells to',nfill_domain
+       if (tcross/time_between_spheres < 1.d4) then
+          new_nfill = min(nfill_domain,int(tcross/time_between_spheres)-iboundary_spheres)
+          if (new_nfill /= nfill_domain .and. new_nfill > 0) then
+             nfill_domain = new_nfill
+             print *,'number of background shells set to',nfill_domain
+          endif
+       endif
     endif
  endif
 
@@ -275,7 +281,7 @@ subroutine init_inject(ierr)
 
 
 !logging
- vesc = sqrt(2.*Gg*Mstar_cgs/Rstar_cgs)
+ vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
@@ -326,14 +332,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
- use dim,               only:store_dust_temperature
- use wind,              only:wind_profile
+ use wind,              only:interp_wind_profile !,wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
       delete_dead_particles_inside_radius,dust_temp,n_nucleation
  use partinject,        only:add_or_update_particle
  use injectutils,       only:inject_geodesic_sphere
  use units,             only:udist, utime
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
+ use dust_formation,    only:idust_opacity
+ use ptmass_radiation,  only:isink_radiation
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -342,15 +349,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
             nreleased, nboundaries
- real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone
+ real    :: local_time, GM, r, v, u, rho, e, mass_lost, x0(3), v0(3), inner_radius, fdone, dum
  real    :: fit_rho_power_new, fit_rho_inner_new, fit_vel_new, tolv
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
-#ifdef NUCLEATION
  real :: JKmuS(n_nucleation)
-#endif
 
  tolv = 10.
+ dum  = 0.
 
  if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
     x0 = xyzmh_ptmass(1:3,wind_emitting_sink)
@@ -393,7 +399,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     ipart = igas
     if (.not.released) then
        do i = max(1,npart-nreleased*particles_per_sphere)+1,npart
+#ifdef ISOTHERMAL
+          call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),dum,i,npart,npartoftype,xyzh,vxyzu)
+#else
           call add_or_update_particle(igas,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),i,npart,npartoftype,xyzh,vxyzu)
+#endif
        enddo
        released = .true.
     endif
@@ -420,11 +430,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        call pulsating_wind_profile(time,local_time, r, v, u, rho, e, GM, i, &
             inner_sphere,inner_boundary_sphere,dr3,rho_ini)
     else
-#ifdef NUCLEATION
-       call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
-#else
-       call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
-#endif
+       if (idust_opacity == 2) then
+          call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKmuS)
+          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
+       else
+          call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone)
+          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
+       endif
        if (iverbose > 0) print '(" ##### boundary sphere ",i4,3(i4),i7,9(1x,es12.5))',i,&
             inner_sphere,nboundaries,outer_sphere,npart,time,local_time,r,v,fdone
     endif
@@ -434,26 +446,26 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        first_particle = (nboundaries-i+inner_sphere)*particles_per_sphere+1
        !print '(" ##### boundary sphere ",i4,i7,3(i4),i7,9(1x,es12.5))',i,first_particle,inner_sphere,nboundaries,&
        !     outer_sphere,npart,time,local_time,r/xyzmh_ptmass(iReff,1),v,u,rho
-#ifdef NUCLEATION
-       call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
-            npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
-#else
-       call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
-            npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
-#endif
-       if (store_dust_temperature) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
+       if (idust_opacity == 2) then
+          call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
+               npart, npartoftype, xyzh, vxyzu, ipart, x0, v0, JKmuS)
+       else
+          call inject_geodesic_sphere(i, first_particle, iresolution, r, v, u, rho,  geodesic_R, geodesic_V, &
+               npart, npartoftype, xyzh, vxyzu, ipart, x0, v0)
+       endif
+       if (isink_radiation > 0) dust_temp(first_particle:first_particle+particles_per_sphere-1) = &
             xyzmh_ptmass(iTeff,wind_emitting_sink)
     else
        ! ejected particles + create new  inner sphere
-#ifdef NUCLEATION
-       call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
-            npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
-#else
-       call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
-            npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
-#endif
+       if (idust_opacity == 2) then
+          call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
+               npart, npartoftype, xyzh, vxyzu, igas, x0, v0, JKmuS)
+       else
+          call inject_geodesic_sphere(i, npart+1, iresolution, r, v, u, rho, geodesic_R, geodesic_V,&
+               npart, npartoftype, xyzh, vxyzu, igas, x0, v0)
+       endif
        !initialize dust temperature to star's effective temperature
-       if (store_dust_temperature) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
+       if (isink_radiation > 0) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
        ! update the sink particle mass
        if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
           xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres
@@ -633,6 +645,7 @@ subroutine write_options_inject(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling particle injection'
+ call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
  !call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
@@ -645,7 +658,6 @@ subroutine write_options_inject(iunit)
  call write_inopt(nfill_domain,'nfill_domain','number of spheres used to set the background density profile',iunit)
  call write_inopt(wind_shell_spacing,'wind_shell_spacing','desired ratio of sphere spacing to particle spacing',iunit)
  call write_inopt(iboundary_spheres,'iboundary_spheres','number of boundary spheres (integer)',iunit)
- call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(outer_boundary_au,'outer_boundary','delete gas particles outside this radius (au)',iunit)
 end subroutine write_options_inject
 
@@ -718,11 +730,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
- noptions = 10
-#ifdef NUCLEATION
+#ifdef ISOTHERMAL
+ noptions = 9
+#else
  noptions = 11
-#elif ISOTHERMAL
- noptions = 8
 #endif
  noptions = noptions -2 ! temporarily remove piston & pulsation
  !print '(a26,i3,i3)',trim(name),ngot,noptions

@@ -491,8 +491,9 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(nucleation(4,1:npart), 'nucleation_K2', group_id, error)
     call write_to_hdf5(nucleation(5,1:npart), 'nucleation_K3', group_id, error)
     call write_to_hdf5(nucleation(6,1:npart), 'nucleation_mu', group_id, error)
-    call write_to_hdf5(nucleation(7,1:npart), 'nucleation_S', group_id, error)
-    call write_to_hdf5(nucleation(8,1:npart), 'nucleation_kappa', group_id, error)
+    call write_to_hdf5(nucleation(7,1:npart), 'nucleation_gamma', group_id, error)
+    call write_to_hdf5(nucleation(8,1:npart), 'nucleation_S'    , group_id, error)
+    call write_to_hdf5(nucleation(9,1:npart), 'nucleation_kappa', group_id, error)
  endif
 
  ! Radiation
@@ -955,8 +956,9 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(nucleation(4,1:npart), 'nucleation_K2', group_id, got, error)
     call read_from_hdf5(nucleation(5,1:npart), 'nucleation_K3', group_id, got, error)
     call read_from_hdf5(nucleation(6,1:npart), 'nucleation_mu', group_id, got, error)
-    call read_from_hdf5(nucleation(7,1:npart), 'nucleation_S', group_id, got, error)
-    call read_from_hdf5(nucleation(8,1:npart), 'nucleation_kappa', group_id, got, error)
+    call read_from_hdf5(nucleation(7,1:npart), 'nucleation_gamma', group_id, got, error)
+    call read_from_hdf5(nucleation(8,1:npart), 'nucleation_S', group_id, got, error)
+    call read_from_hdf5(nucleation(9,1:npart), 'nucleation_kappa', group_id, got, error)
  endif
 
  ! Radiation

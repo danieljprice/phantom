@@ -14,8 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, io, mpiutils, part, physcon, prompting,
-!   setup_params, unifdis
+! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
+!   prompting, setup_params, unifdis
 !
  implicit none
  public :: setpart
@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
  use prompting,    only:prompt
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use part,         only:periodic
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
