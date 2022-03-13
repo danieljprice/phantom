@@ -1,26 +1,24 @@
 module raytracer
    use healpix
    implicit none
-   public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_optimised
+   public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_adaptive
    private
    contains
-
-#define REALTIME
-#define SMOOTHING
    
    !*********************************************************************!
-   !***************************   OPTIMISED   ***************************!
+   !***************************   ADAPTIVE   ****************************!
    !*********************************************************************!
   
-#ifdef REALTIME
-   subroutine get_all_tau_optimised(primary, xyzh, opacities, &
+
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the adaptive ray-
+   !  tracing scheme
+   !+
+   !--------------------------------------------------------------------------
+   subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
                                    Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
       integer, intent(in) :: primary, minOrder, refineLevel
-#else
-   subroutine get_all_tau_optimised(primary, xyzh, neighbors, opacities, &
-                                   Rstar, minOrder, refineLevel, taus, companion, R, maxDist)
-      integer, intent(in) :: primary, neighbors(:,:), minOrder, refineLevel
-#endif
       integer, optional   :: companion
       real, intent(in)    :: opacities(:), xyzh(:,:), Rstar
       real, optional      :: R, maxDist
@@ -58,17 +56,9 @@ module raytracer
             if (theta < theta0) then
                root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
                dist = normCompanion*cos(theta)-root
-#ifdef REALTIME
                call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, dist)
-#else
-               call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, dist)
-#endif
             else
-#ifdef REALTIME
                call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
-#else
-               call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
-#endif
             endif
             listsOfTaus(:,i) = tau
             listsOfDists(:,i) = dists
@@ -86,16 +76,17 @@ module raytracer
          !$omp end parallel do
 
       else
-#ifdef REALTIME
          call get_all_tau_outwards_single(primary, xyzh, opacities, &
          Rstar, minOrder+refineLevel, taus, maxDist)
-#else
-         call get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, &
-         Rstar, minOrder+refineLevel, taus, maxDist)
-#endif
       endif
-   end subroutine get_all_tau_optimised
+   end subroutine get_all_tau_adaptive
 
+   !--------------------------------------------------------------------------
+   !+
+   !  Return all the directions of the rays that need to be traced for the
+   !  adaptive ray-tracing scheme
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_rays(primary, secondary, xyzh, npart, minOrder, refineLevel, R, vecs, indices)
       real, intent(in)     :: primary(:), secondary(:), xyzh(:,:), R
       integer, intent(in)  :: minOrder, refineLevel, npart
@@ -182,6 +173,12 @@ module raytracer
       enddo
    end subroutine get_rays
 
+   !--------------------------------------------------------------------------
+   !+
+   !  Routine that returns the arguments of the sorted array
+   !  Source: https://github.com/Astrokiwi/simple_fortran_argsort/blob/master/sort_test.f90
+   !+
+   !--------------------------------------------------------------------------
    subroutine merge_argsort(r,d)
       integer, intent(in), dimension(:) :: r
       integer, intent(out), dimension(size(r)) :: d
@@ -238,40 +235,34 @@ module raytracer
    !***************************   OUTWARDS   ****************************!
    !*********************************************************************!
 
-#ifdef REALTIME
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the uniform outwards
+   !  ray-tracing scheme
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_outwards(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
       integer, intent(in) :: primary, order
-#else
-   subroutine get_all_tau_outwards(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
-      integer, intent(in) :: primary, neighbors(:,:), order
-#endif
       integer, optional   :: companion
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       real, optional      :: R, maxDist
       real, intent(out)   :: taus(:)
 
       if (present(companion) .and. present(R)) then
-#ifdef REALTIME
          call get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
-#else
-         call get_all_tau_outwards_companion(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
-#endif
       else
-#ifdef REALTIME
          call get_all_tau_outwards_single(primary, xyzh, opacities, Rstar, order, taus, maxDist)
-#else
-         call get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, Rstar, order, taus, maxDist)
-#endif
       endif
    end subroutine get_all_tau_outwards
    
-#ifdef REALTIME
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the uniform outwards
+   !  ray-tracing scheme concerning only a single star
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_outwards_single(primary, xyzh, opacities, Rstar, order, taus, maxDist)
       integer, intent(in) :: primary, order
-#else
-   subroutine get_all_tau_outwards_single(primary, xyzh, neighbors, opacities, Rstar, order, taus, maxDist)
-      integer, intent(in) :: primary, neighbors(:,:), order
-#endif
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       real, optional      :: maxDist
       real, intent(out)   :: taus(:)
@@ -296,11 +287,7 @@ module raytracer
          dists=0.
          call pix2vec_nest(nsides, i-1, dir)
          dirs(:,i) = dir
-#ifdef REALTIME
          call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
-#else
-         call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
-#endif
          listsOfTaus(:,i) = tau
          listsOfDists(:,i) = dists
       enddo
@@ -317,13 +304,14 @@ module raytracer
       !$omp end parallel do
    end subroutine get_all_tau_outwards_single
 
-#ifdef REALTIME
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the uniform outwards
+   !  ray-tracing scheme concerning a binary system
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R, maxDist)
       integer, intent(in) :: primary, order, companion
-#else
-   subroutine get_all_tau_outwards_companion(primary, xyzh, neighbors, opacities, Rstar, order, taus, companion, R, maxDist)
-      integer, intent(in) :: primary, neighbors(:,:), order, companion
-#endif
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:), R, maxDist
       real, intent(out)   :: taus(:)
       
@@ -361,17 +349,9 @@ module raytracer
          if (theta < theta0) then
             root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
             dist = normCompanion*cos(theta)-root
-#ifdef REALTIME
             call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, dist)
-#else
-            call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, dist)
-#endif
          else
-#ifdef REALTIME
             call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, maxDist)
-#else
-            call ray_tracer(primary, dir, xyzh, opacities, neighbors, Rstar, tau, dists, maxDist)
-#endif
          endif
          listsOfTaus(:,i) = tau
          listsOfDists(:,i) = dists
@@ -390,6 +370,11 @@ module raytracer
       !$omp end parallel do
    end subroutine get_all_tau_outwards_companion
     
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of a particle with a distance on the ray
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_tau_outwards(dist, listOfTaus, listOfDists, tau)
       real, intent(in)    :: dist, listOfTaus(:), listOfDists(:)
       real, intent(out)   :: tau
@@ -411,35 +396,24 @@ module raytracer
       endif
    end subroutine get_tau_outwards
     
-#ifdef REALTIME
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth along a given ray
+   !+
+   !--------------------------------------------------------------------------
    subroutine ray_tracer(point, ray, xyzh, opacities, Rstar, taus, listOfDist, maxDist)
-#else
-   subroutine ray_tracer(point, ray, xyzh, opacities, neighbors, Rstar, taus, listOfDist, maxDist)
-#endif
       use linklist, only:getneigh_pos,ifirstincell,listneigh
-#ifdef REALTIME
       use kernel,   only:radkern
-#endif
       real, intent(in)     :: ray(3), Rstar, xyzh(:,:), opacities(:)
       real, optional       :: maxDist
-#ifdef REALTIME
       integer, intent(in)  :: point
-#else
-      integer, intent(in)  :: point, neighbors(:,:)
-#endif
       real, intent(out)    :: listOfDist(:), taus(:)
       
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
-#ifdef SMOOTHING
       real :: dist, h, opacity, previousOpacity, nextOpacity
       integer :: nneigh, next, i
-#else
-      real :: dist, h, opacity
-      integer :: nneigh, previous, next, i
 
-      previous = point
-#endif
       dist = Rstar
       listOfDist(1)=dist
       h = Rstar/100.
@@ -450,36 +424,19 @@ module raytracer
          call getneigh_pos(xyzh(1:3,point)+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
          call find_next(xyzh(1:3,point), ray, dist, xyzh, listneigh, next, nneigh)
       enddo
-#ifdef SMOOTHING
       call calc_opacity(xyzh(1:3,point)+Rstar*ray, xyzh, opacities, listneigh, nneigh, previousOpacity)
-#endif
 
       i = 1
       do while (hasNext(next,dist,maxDist))
          i = i + 1
-#ifdef REALTIME
          call getneigh_pos(xyzh(1:3,point) + dist*ray,0.,xyzh(4,next)*radkern, &
                            3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-#else
-         listneigh = neighbors(next,:)
-         nneigh = nneigh+1
-         listneigh(nneigh) = next
-#endif
-#ifdef SMOOTHING
          call calc_opacity(xyzh(1:3,point) + dist*ray, xyzh, opacities, listneigh, nneigh, nextOpacity)
          opacity = (nextOpacity+previousOpacity)/2
          previousOpacity=nextOpacity
-#else
-         opacity = (opacities(next) + opacities(previous))/2
-         previous = next
-#endif
          taus(i) = taus(i-1)+(dist-listOfDist(i-1))*opacity
          listOfDist(i)=dist
-#ifdef REALTIME
          call find_next(xyzh(1:3,point), ray, dist, xyzh, listneigh, next,nneigh)
-#else
-         call find_next(xyzh(1:3,point), ray, dist, xyzh, neighbors(next,:), next)
-#endif
       enddo
    end subroutine ray_tracer
 
@@ -497,7 +454,13 @@ module raytracer
    !*********************************************************************!
    !****************************   INWARDS   ****************************!
    !*********************************************************************!
-   
+
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the inwards ray-
+   !  tracing scheme
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_inwards(primary, xyzh, neighbors, opacities, Rstar, taus, companion, R)
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       real, optional      :: R
@@ -512,6 +475,12 @@ module raytracer
       endif
    end subroutine get_all_tau_inwards
 
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the inwards ray-
+   !  tracing scheme concerning only a single star
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_inwards_single(primary, xyzh, neighbors, opacities, Rstar, taus)
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:)
       integer, intent(in) :: primary, neighbors(:,:)
@@ -528,6 +497,12 @@ module raytracer
       !$omp end parallel do
    end subroutine get_all_tau_inwards_single
 
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of each particle, using the inwards ray-
+   !  tracing scheme concerning a binary system
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_all_tau_inwards_companion(primary, xyzh, neighbors, opacities, Rstar, taus, companion, R)
       real, intent(in)    :: opacities(:), Rstar, xyzh(:,:), R
       integer, intent(in) :: primary, neighbors(:,:), companion
@@ -563,24 +538,23 @@ module raytracer
       !$omp end parallel do
    end subroutine get_all_tau_inwards_companion
     
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth for a given particle, using the inwards ray-
+   !  tracing scheme
+   !+
+   !--------------------------------------------------------------------------
    subroutine get_tau_inwards(secondary, primary, xyzh, neighbors, opacities, Rstar, tau)
-#ifdef SMOOTHING
       use linklist, only:getneigh_pos,ifirstincell,listneigh
       use kernel,   only:radkern
-#endif
       real, intent(in)    :: xyzh(:,:), opacities(:), Rstar
       integer, intent(in) :: primary, secondary, neighbors(:,:)
       real, intent(out)   :: tau
 
-#ifdef SMOOTHING
       integer :: i, next, previous, nneigh
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
       real    :: ray(3), nextDist, previousDist, maxDist, opacity, previousOpacity, nextOpacity
-#else
-      integer :: i, next, previous
-      real    :: ray(3), nextDist, previousDist, maxDist, opacity
-#endif
 
       ray = xyzh(1:3,primary) - xyzh(1:3,secondary)
       maxDist = norm2(ray)
@@ -600,19 +574,12 @@ module raytracer
          if (nextDist .gt. maxDist) then
                next = primary
                nextDist = maxDist
-#ifdef SMOOTHING
          endif
          call getneigh_pos(xyzh(1:3,secondary) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
                            3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
          previousOpacity=nextOpacity
          call calc_opacity(xyzh(1:3,secondary) + nextDist*ray, xyzh, opacities, listneigh, nneigh, nextOpacity)
          opacity = (nextOpacity+previousOpacity)/2
-#else
-            opacity = opacities(previous)
-         else
-         opacity = (opacities(next)+opacities(previous))/2
-         endif
-#endif
          tau = tau + (nextDist-previousDist)*opacity
       enddo
    end subroutine get_tau_inwards
@@ -621,6 +588,11 @@ module raytracer
    !****************************   COMMON   *****************************!
    !*********************************************************************!
    
+   !--------------------------------------------------------------------------
+   !+
+   !  Find the next point on a ray
+   !+
+   !--------------------------------------------------------------------------
    subroutine find_next(inpoint, ray, dist, xyzh, neighbors, next, nneighin)
       integer, intent(in)  :: neighbors(:)
       real, intent(in)     :: xyzh(:,:), inpoint(:), ray(:)
@@ -663,7 +635,11 @@ module raytracer
       dist=nextdist
    end subroutine find_next
 
-#ifdef SMOOTHING
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the opacity in a given location
+   !+
+   !--------------------------------------------------------------------------
    subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, opacity)
       use kernel,   only:cnormk,wkern
       use part,     only:hfact
@@ -681,5 +657,4 @@ module raytracer
          opacity=opacity+fact*wkern(q*q,q)*opacities(neighbors(i))
       enddo
    end subroutine calc_opacity
-#endif
 end module raytracer
