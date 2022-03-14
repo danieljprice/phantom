@@ -197,7 +197,7 @@ subroutine write_options_eos_gasradrec(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He',iunit)
+ call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He, 3=none',iunit)
 
 end subroutine write_options_eos_gasradrec
 
