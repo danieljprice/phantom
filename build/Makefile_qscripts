@@ -30,7 +30,7 @@ ifeq ($(OPENMP),yes)
 endif
 ifeq ($(USEMPI),yes)
     ifndef NMPI
-        NMPI=8
+        NMPI=4
     endif
     ifndef QPE
         QPE=mpi

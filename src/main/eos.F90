@@ -43,12 +43,11 @@ module eos
  implicit none
  integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
- real,               public :: qfacdisc
+ real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical, parameter, public :: use_entropy = .false.
  logical,            public :: extract_eos_from_hdr = .false.
- integer,            public :: isink = 0
+ integer,            public :: isink = 0.
 
- data qfacdisc /0.75/
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_spsound,get_temperature,get_temperature_from_ponrho,eos_is_non_ideal,eos_outputs_mu
@@ -58,11 +57,13 @@ module eos
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: print_eos_to_file
+ public  :: write_headeropts_eos, read_headeropts_eos
 
  private
 
  integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0 ! used for radiation
+ logical, public :: use_var_comp = .false. ! use variable composition
  !--Mean molecular weight if temperature required
  real,    public :: gmw           = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -79,6 +80,14 @@ module eos
     ierr_option_conflict = 2, &
     ierr_units_not_set   = 3, &
     ierr_isink_not_set   = 4
+
+!
+! 2D temperature structure fit parameters for HD 163296
+!
+real, public :: z0      = 1.
+real, public :: alpha_z = 3.01
+real, public :: beta_z  = 0.42
+
 
 contains
 
@@ -106,11 +115,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi,mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
- real :: r,omega,bigH,polyk_new,r1,r2
+ real :: r1,r2
  real :: gammai,temperaturei,mui,imui,X_i,Z_i
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
  real :: uthermconst
+ real :: zq,cs2atm,cs2mid,cs2
 #ifdef GR
  real :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
@@ -207,21 +217,15 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  case(7)
 !
 !-- z-dependent locally isothermal eos
-!
-    r = sqrt(xi**2 + yi**2 + zi**2)
-    omega = r**(-1.5)
-    bigH = (sqrt(polyk)*r**(-qfacdisc))/omega
+    r2 = xi**2 + yi**2
+    cs2mid = polyk * r2**(-qfacdisc)
+    cs2atm = polyk2 * r2**(-qfacdisc2)
+    zq = z0 * r2**(0.5*beta_z)
 
-    if (abs(zi) <= bigH) then
-       polyk_new = polyk
-    elseif (abs(zi) <= 2.0*bigH) then
-       polyk_new = polyk*(1.0+99.0*(abs(zi)-bigH))
-    else
-       polyk_new = 100.0*polyk
-    endif
-
-    ponrhoi = polyk_new*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
-    spsoundi = sqrt(ponrhoi)
+    ! modified equation 6 from Law et al. (2021)
+    cs2 = (cs2mid**4 + 0.5*(1 + tanh((zi - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
+    ponrhoi = cs2
+    spsoundi = sqrt(cs2)
     if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case(8)
@@ -502,7 +506,6 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use dim,            only:maxvxyzu,do_radiation
- use options,        only:use_var_comp
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -657,7 +660,6 @@ subroutine write_options_eos(iunit)
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
- use options,        only:use_var_comp
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -846,7 +848,6 @@ end function diff
 !  prints equation of state info in the run header
 !+
 !----------------------------------------------------------------
-
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
  use io,             only:fatal
@@ -854,7 +855,6 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
- use options,        only:use_var_comp
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
 
@@ -1140,5 +1140,96 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
  mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
 
 end function get_mean_molecular_weight
+
+!-----------------------------------------------------------------------
+!+
+!  write relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_eos(ieos,hdr,ierr)
+ use dump_utils,        only:dump_h,add_to_rheader,add_to_iheader
+ integer,      intent(in)    :: ieos
+ type(dump_h), intent(inout) :: hdr
+ integer,      intent(out)   :: ierr
+
+ call add_to_iheader(isink,'isink',hdr,ierr)
+ call add_to_rheader(gamma,'gamma',hdr,ierr)
+ call add_to_rheader(1.5*polyk,'RK2',hdr,ierr)
+ call add_to_rheader(polyk2,'polyk2',hdr,ierr)
+ call add_to_rheader(qfacdisc,'qfacdisc',hdr,ierr)
+ call add_to_rheader(qfacdisc2,'qfacdisc2',hdr,ierr)
+
+ if (ieos==7) then
+   call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
+   call add_to_rheader(beta_z,'beta_z',hdr,ierr)
+   call add_to_rheader(z0,'z0',hdr,ierr)
+
+ endif
+
+end subroutine write_headeropts_eos
+
+!-----------------------------------------------------------------------
+!+
+!  read relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_eos(ieos,hdr,ierr)
+ use dump_utils,        only:dump_h, extract
+ use io,                only:iprint,id,master
+ use dim,               only:use_krome,maxvxyzu
+ integer,      intent(in)  :: ieos
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+ real :: RK2
+
+
+ call extract('gamma',gamma,hdr,ierr)
+ call extract('RK2',rk2,hdr,ierr)
+ polyk = 2./3.*rk2
+ if (id==master) then
+    if (maxvxyzu >= 4) then
+       if (use_krome) then
+          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+       else
+          write(iprint,*) 'adiabatic eos: gamma = ',gamma
+       endif
+    else
+       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
+       if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
+    endif
+ endif
+ call extract('polyk2',polyk2,hdr,ierr)
+ call extract('qfacdisc',qfacdisc,hdr,ierr)
+ call extract('qfacdisc2',qfacdisc2,hdr,ierr)
+ call extract('isink',isink,hdr,ierr)
+
+ if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then
+    write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
+ endif
+
+ ierr = 0
+ if (ieos==3 .or. ieos==6 .or. ieos==7) then
+    if (qfacdisc <= tiny(qfacdisc)) then
+       write(iprint,*) 'ERROR: qfacdisc <= 0'
+       ierr = 2
+    else
+       write(iprint,*) 'qfacdisc = ',qfacdisc
+    endif
+  endif
+
+  if (ieos==7) then
+    call extract('alpha_z',alpha_z,hdr,ierr)
+    call extract('beta_z', beta_z, hdr,ierr)
+    call extract('z0',z0,hdr,ierr)
+    if (qfacdisc2 <= tiny(qfacdisc2)) then
+       write(iprint,*) 'ERROR: qfacdisc2 <= 0'
+       ierr = 2
+    else
+       write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+    endif
+  endif
+
+end subroutine read_headeropts_eos
+
 
 end module eos
