@@ -16,9 +16,9 @@ module setup
 !   - npartx  : *number of particles in x-direction*
 !   - plasmaB : *plasma beta in the initial blast*
 !
-! :Dependencies: boundary, dim, domain, infile_utils, io, kernel, mpiutils,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, prompting, setup_params, timestep,
+!   unifdis, units
 !
  implicit none
  public :: setpart
@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

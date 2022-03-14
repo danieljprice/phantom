@@ -17,8 +17,8 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   options, part, physcon, radiation_utils, readwrite_dumps,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, radiation_utils, readwrite_dumps,
 !   step_lf_global, testutils, timestep, unifdis, units
 !
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
@@ -80,7 +80,7 @@ subroutine test_exchange_terms(ntests,npass)
  use eos,        only:gmw,gamma,polyk,iopacity_type
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use mpiutils,   only:reduceall_mpi
- use domain,     only:i_belong
+ use mpidomain,  only:i_belong
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -193,7 +193,7 @@ subroutine test_uniform_derivs(ntests,npass)
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
  use mpiutils,        only:reduceall_mpi
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi
  real :: dtext,pmassi, dt,t,kappa_code

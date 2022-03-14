@@ -37,7 +37,7 @@ subroutine test_rwdump(ntests,npass)
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
                            iorig,copy_particle_all,norig
- use dim,             only:maxp,maxdustsmall
+ use dim,             only:maxp,maxdustsmall,mpi
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -311,9 +311,8 @@ subroutine test_rwdump(ntests,npass)
     vxyz_ptmass = 0.
 
 #ifndef HDF5
-#ifndef MPI
     ! test read of a single array from the file
-    if (itest==1) then
+    if (.not. mpi .and. itest==1) then
        if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
        xyzh(2,:) = 0.
        nfailed = 0
@@ -323,7 +322,6 @@ subroutine test_rwdump(ntests,npass)
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
     endif
-#endif
 #endif
 
     if (id==master) then
