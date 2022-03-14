@@ -18,17 +18,13 @@ module mpidens
 !
  use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+
  implicit none
  private
 
  public :: celldens
  public :: stackdens
-#ifdef MPI
  public :: get_mpitype_of_celldens
-#endif
 
  type celldens
     sequence
@@ -64,10 +60,11 @@ module mpidens
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_celldens(dtype)
+#ifdef MPI
  use mpi
- use io, only:error
+ use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
 
@@ -204,7 +201,11 @@ subroutine get_mpitype_of_celldens(dtype)
  if (extent /= sizeof(cell)) then
     call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
-end subroutine get_mpitype_of_celldens
+
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+end subroutine get_mpitype_of_celldens
 
 end module mpidens

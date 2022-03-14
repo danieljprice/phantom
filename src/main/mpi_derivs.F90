@@ -15,15 +15,15 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpiutils,
-!   stack
+! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpistack,
+!   mpiutils
 !
 #ifdef MPI
  use mpi
+#endif
  use io,             only:id,nprocs
  use dim,            only:maxprocs
- use mpiutils,       only:mpierr,status,MPI_DEFAULT_REAL, &
-                          comm_cellexchange,comm_cellcount
+ use mpiutils,       only:mpierr,status,comm_cellexchange,comm_cellcount
  use dtypekdtree,    only:kdnode,ndimtree
 
  implicit none
@@ -52,8 +52,28 @@ module mpiderivs
   module procedure recv_while_wait_force,recv_while_wait_dens
  end interface recv_while_wait
 
+ interface reduce_group
+  module procedure reduce_group_real, reduce_group_int
+ end interface reduce_group
+
+ public :: init_cell_exchange
+ public :: send_cell
+ public :: recv_cells
+ public :: check_send_finished
+ public :: finish_cell_exchange
+ public :: recv_while_wait
+ public :: get_group_cofm
+ public :: reduce_group
+
+ public :: tree_sync
+ public :: tree_bcast
+ public :: init_tree_comms
+ public :: finish_tree_comms
+ public :: reset_cell_counters
+
  private
 
+#ifdef MPI
  integer :: ncomplete
 
  integer :: dtype_celldens
@@ -68,24 +88,7 @@ module mpiderivs
  integer :: nrecv(maxprocs)     ! counter for number of cells received from i
 
  integer :: countrequest(maxprocs)
-
- public :: init_cell_exchange
- public :: send_cell
- public :: recv_cells
- public :: check_send_finished
- public :: finish_cell_exchange
- public :: recv_while_wait
- public :: get_group_cofm
- public :: reduce_group
- public :: tree_sync
- public :: tree_bcast
- public :: init_tree_comms
- public :: finish_tree_comms
- public :: reset_cell_counters
-
- interface reduce_group
-  module procedure reduce_group_real, reduce_group_int
- end interface reduce_group
+#endif
 
 contains
 
@@ -100,8 +103,9 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 
  type(celldens),     intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
- integer                           :: iproc
 
+#ifdef MPI
+ integer                           :: iproc
 !
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destinations,
@@ -124,7 +128,7 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
  enddo
 
  ncomplete = 0
-
+#endif
 end subroutine init_celldens_exchange
 
 subroutine init_cellforce_exchange(xbufrecv,ireq)
@@ -133,8 +137,8 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
+#ifdef MPI
  integer                           :: iproc
-
 !
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destinations,
@@ -157,7 +161,7 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
  enddo
 
  ncomplete = 0
-
+#endif
 end subroutine init_cellforce_exchange
 
 !-----------------------------------------------------------------------
@@ -176,6 +180,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
  logical                            :: targets(nprocs)
  integer                            :: newproc
 
+#ifdef MPI
  xsendbuf = cell
 
  ! export
@@ -195,6 +200,7 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
+#endif
 
 end subroutine send_celldens
 
@@ -209,6 +215,7 @@ subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
  logical                            :: targets(nprocs)
  integer                            :: newproc
 
+#ifdef MPI
  xsendbuf = cell
 
  ! export
@@ -228,6 +235,7 @@ subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
+#endif
 
 end subroutine send_cellforce
 
@@ -242,6 +250,7 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
  integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
  type(celldens),     intent(inout)  :: xrecvbuf(nprocs)
 
+#ifdef MPI
  logical :: idone(nprocs)
  integer :: newproc
  !
@@ -256,6 +265,7 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
     !--post receives
     call recv_celldens(stack,xrecvbuf,irequestrecv)
  enddo
+#endif
 
 end subroutine check_send_finished_dens
 
@@ -265,6 +275,7 @@ subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
  integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
  type(cellforce),    intent(inout)  :: xrecvbuf(nprocs)
 
+#ifdef MPI
  logical :: idone(nprocs)
  integer :: newproc
  !
@@ -279,6 +290,7 @@ subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
     !--post receives
     call recv_cellforce(stack,xrecvbuf,irequestrecv)
  enddo
+#endif
 
 end subroutine check_send_finished_force
 
@@ -288,6 +300,7 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
  type(celldens),   intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
 
+#ifdef MPI
  integer             :: newproc
 
  do newproc=0,nprocs-1
@@ -306,6 +319,7 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
  !--reset counter for next round
  ncomplete = 0
+#endif
 
 end subroutine recv_while_wait_dens
 
@@ -316,6 +330,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
  integer             :: newproc
 
+#ifdef MPI
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
@@ -332,6 +347,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
  !--reset counter for next round
  ncomplete = 0
+#endif
 
 end subroutine recv_while_wait_force
 
@@ -342,12 +358,13 @@ end subroutine recv_while_wait_force
 !------------------------------------------------
 subroutine recv_celldens(target_stack,xbuf,irequestrecv)
  use io,       only:fatal
- use stack,    only:push_onto_stack
+ use mpistack, only:push_onto_stack
  use mpidens,  only:stackdens,celldens
 
  type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackdens),    intent(inout)  :: target_stack
  integer,            intent(inout)  :: irequestrecv(nprocs)
+#ifdef MPI
  integer                            :: iproc,k,iwait
  logical                            :: igot
 
@@ -376,16 +393,18 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
+#endif
 end subroutine recv_celldens
 
 subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
  use io,       only:fatal
- use stack,    only:push_onto_stack
+ use mpistack, only:push_onto_stack
  use mpiforce, only:stackforce,cellforce
 
  type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackforce),   intent(inout)  :: target_stack
  integer,            intent(inout)  :: irequestrecv(nprocs)
+#ifdef MPI
  integer                            :: iproc,k,iwait
  logical                            :: igot
 
@@ -426,6 +445,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
+#endif
 end subroutine recv_cellforce
 
 !----------------------------------------------------------------
@@ -439,7 +459,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
  type(celldens), intent(in)         :: xsendbuf
-
+#ifdef MPI
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -458,7 +478,7 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
-
+#endif
 end subroutine finish_celldens_exchange
 
 subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
@@ -467,7 +487,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer                            :: newproc,iproc
  type(cellforce), intent(in)        :: xsendbuf
-
+#ifdef MPI
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -486,7 +506,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
-
+#endif
 end subroutine finish_cellforce_exchange
 
 !----------------------------------------------------------------
@@ -495,6 +515,7 @@ end subroutine finish_cellforce_exchange
 !+
 !----------------------------------------------------------------
 subroutine init_tree_comms()
+#ifdef MPI
  integer :: level,groupsize,color
 
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
@@ -522,10 +543,11 @@ subroutine init_tree_comms()
        call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm_owner(level+1), mpierr)
     endif
  enddo
-
+#endif
 end subroutine init_tree_comms
 
 subroutine finish_tree_comms()
+#ifdef MPI
  integer :: level
 
  do level = 0, globallevel
@@ -534,6 +556,7 @@ subroutine finish_tree_comms()
  do level = 1, globallevel
     call MPI_COMM_FREE(comm_owner(level+1), mpierr)
  enddo
+#endif
 end subroutine finish_tree_comms
 
 !----------------------------------------------------------------
@@ -549,12 +572,14 @@ subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
  real,      intent(out)       :: cofmsum(3)
  real,      intent(out)       :: totmassg
 
+#ifdef MPI
  real                         :: cofmpart(3)
 
  cofmpart = xyzcofm * totmass_node
  call MPI_ALLREDUCE(totmass_node,totmassg,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
  call MPI_ALLREDUCE(cofmpart,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
  cofmsum = cofmsum / totmassg
+#endif
 
 end subroutine get_group_cofm
 
@@ -569,8 +594,10 @@ function reduce_group_real(x,string,level) result(xg)
  real,               intent(in)        :: x
  character(len=*),   intent(in)        :: string
  integer,            intent(in)        :: level
- real                                  :: isend, ired
  real                                  :: xg
+
+#ifdef MPI
+ real                                  :: isend, ired
 
  isend = x
 
@@ -586,6 +613,7 @@ function reduce_group_real(x,string,level) result(xg)
  end select
 
  xg = ired
+#endif
 
 end function reduce_group_real
 
@@ -594,8 +622,10 @@ function reduce_group_int(x,string,level) result(xg)
  integer,            intent(in)        :: x
  character(len=*),   intent(in)        :: string
  integer,            intent(in)        :: level
- integer                               :: isend, ired
  integer                               :: xg
+
+#ifdef MPI
+ integer                               :: isend, ired
 
  isend = x
 
@@ -611,7 +641,7 @@ function reduce_group_int(x,string,level) result(xg)
  end select
 
  xg = ired
-
+#endif
 end function reduce_group_int
 
 !----------------------------------------------------------------
@@ -628,6 +658,7 @@ subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
  type(kdnode), intent(in)    :: node_in(n_in)
  type(kdnode), intent(inout) :: node_synced(n_synced)
 
+#ifdef MPI
  integer                     :: dtype_kdnode
 
 !  If there is only 1 owner, do a direct copy
@@ -643,6 +674,7 @@ subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
                           comm_owner(level+1),mpierr)
     endif
  endif
+#endif
 
 end subroutine tree_sync
 
@@ -658,11 +690,13 @@ subroutine tree_bcast(node, nnode, level)
  type(kdnode), intent(inout)     :: node(nnode)
  integer,      intent(in)        :: level
 
+#ifdef MPI
  integer                         :: dtype_kdnode
 
  call get_mpitype_of_kdnode(dtype_kdnode)
  ! the bcast root is relative to the communicator (i.e. it needs to be 0, not ifirstingroup)
  call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm_cofm(level+1), mpierr)
+#endif
 
 end subroutine tree_bcast
 
@@ -672,6 +706,7 @@ end subroutine tree_bcast
 !+
 !----------------------------------------------------------------
 subroutine check_complete
+#ifdef MPI
  use io, only:fatal
  integer :: i
  logical :: countreceived
@@ -692,6 +727,7 @@ subroutine check_complete
        endif
     endif
  enddo
+#endif
 end subroutine check_complete
 
 !----------------------------------------------------------------
@@ -700,6 +736,7 @@ end subroutine check_complete
 !+
 !----------------------------------------------------------------
 subroutine reset_cell_counters
+#ifdef MPI
  use io, only:fatal
  integer :: iproc
  nsent(:) = 0
@@ -713,7 +750,7 @@ subroutine reset_cell_counters
        if (mpierr /= 0) call fatal('reset_cell_counters','error in MPI_IRECV')
     endif
  enddo
+#endif
 end subroutine reset_cell_counters
 
-#endif
 end module mpiderivs

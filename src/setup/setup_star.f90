@@ -50,11 +50,11 @@ module setup
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
-! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, radiation_utils, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, sortutils, spherical,
-!   table_utils, timestep, units
+! :Dependencies: centreofmass, dim, eos, eos_mesa, eos_piecewise,
+!   extern_densprofile, externalforces, infile_utils, io, kernel,
+!   mpidomain, options, part, physcon, prompting, radiation_utils,
+!   relaxstar, rho_profile, setsoftenedcore, setstellarcore, setup_params,
+!   sortutils, spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -137,7 +137,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
  use relaxstar,       only:relax_star
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -268,12 +268,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(iprofile)
  case(ipoly)
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
+    rmin = r(1)
     pres = polyk*den**gamma
  case(ifromfile)
     call read_rhotab_wrapper(trim(input_profile),ng_max,r,den,npts,&
                              polyk,gamma,rhocentre,Mstar,iexist,ierr)
     if (.not.iexist) call fatal('setup','density file does not exist')
     if (ierr > 0)    call fatal('setup','error in reading density file')
+    rmin = r(1)
     pres = polyk*den**gamma
  case(ibpwpoly)
     get_dPdrho => get_dPdrho_piecewise
@@ -339,11 +341,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call rho_evrard(ng_max,Mstar,Rstar,r,den)
     npts = ng_max
     polyk = ui_coef*Mstar/Rstar
+    rmin = r(1)
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  case default  ! set up uniform sphere by default
     call rho_uniform(ng_max,Mstar,Rstar,r,den) ! use this array for continuity of call to set_sphere
     npts = ng_max
+    rmin = r(1)
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  end select
@@ -468,7 +472,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  if (maxvxyzu <= 4) then
     write(*,'(1x,a,f12.5)')       'polyk               = ', polyk
-    write(*,'(1x,a,f10.6,a)')     'specific int. energ = ', polyk*Rstar/Mstar,' GM/R'
+    write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', polyk*Rstar/Mstar,' GM/R'
  endif
  call write_mass('particle mass       = ',massoftype(igas),umass)
  call write_dist('Radius              = ',Rstar,udist)

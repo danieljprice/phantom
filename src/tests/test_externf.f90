@@ -14,7 +14,7 @@ module testexternf
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: domain, extern_corotate, externalforces, io, part,
+! :Dependencies: extern_corotate, externalforces, io, mpidomain, part,
 !   physcon, testutils, unifdis, units
 !
  implicit none
@@ -42,7 +42,7 @@ subroutine test_externf(ntests,npass)
  use unifdis,  only:set_unifdis
  use units,    only:set_units
  use physcon,  only:pc,solarm
- use domain,   only:i_belong
+ use mpidomain,only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,iextf,nfail1,ierr
  logical                :: dotest1,dotest2,dotest3,accreted
