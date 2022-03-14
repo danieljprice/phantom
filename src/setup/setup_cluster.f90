@@ -23,9 +23,9 @@ module setup
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
 !
-! :Dependencies: centreofmass, datafiles, dim, domain, eos, infile_utils,
-!   io, kernel, part, physcon, prompting, ptmass, setup_params, setvfield,
-!   spherical, timestep, units, velfield
+! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
+!   kernel, mpidomain, part, physcon, prompting, ptmass, setup_params,
+!   setvfield, spherical, timestep, units, velfield
 !
  use dim, only: maxvxyzu,mhd
  implicit none
@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
