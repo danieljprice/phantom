@@ -78,13 +78,13 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
- real :: mass_per_H, eps(nElements)
+ real, public :: mass_per_H, eps(nElements)
+ real, public, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
 contains
 
