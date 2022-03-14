@@ -14,8 +14,8 @@ module testgrowth
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, domain, dust, energies,
-!   eos, growth, io, kernel, mpiutils, options, part, physcon,
+! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
+!   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
 !   step_lf_global, testdust, testutils, timestep, unifdis, units,
 !   viscosity
 !
@@ -125,7 +125,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use physcon,        only:au,solarm,Ro,pi
  use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
 
  integer, intent(inout) :: ntests,npass
