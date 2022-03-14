@@ -722,11 +722,11 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     if (gmw <= 0.)  call fatal(label,'mu <= 0')
  case('X')
     read(valstring,*,iostat=ierr) X_in
-    if (X_in <= 0.) call fatal(label,'X <= 0.0')
+    if (X_in <= 0. .or. X_in >= 1.) call fatal(label,'X must be between 0 and 1')
     ngot = ngot + 1
  case('Z')
     read(valstring,*,iostat=ierr) Z_in
-    if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
+    if (Z_in <= 0. .or. Z_in > 1.) call fatal(label,'Z must be between 0 and 1')
     ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
