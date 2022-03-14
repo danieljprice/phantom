@@ -10,7 +10,7 @@ module cons2primsolver
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters: None
 !
@@ -21,7 +21,7 @@ module cons2primsolver
 
  public :: conservative2primitive,primitive2conservative
 
- private :: get_u
+ private :: get_u,conservative2primitive_con_gamma,conservative2primitive_var_gamma
 
  integer, public, parameter :: &
       ien_etotal  = 1, &
@@ -123,7 +123,43 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
 
 end subroutine primitive2conservative
 
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conseerved variables
+!  primitive variables are (v^i,d,u,P); v i
+!  conserved variables are (rho,pmom_i,en)
+!+
+!----------------------------------------------------------------
 subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+ use eos,     only:ieos,gamma
+ use io,      only:fatal
+ real, intent(in)     :: x(1:3),metrici(:,:,:)
+ real, intent(inout)  :: dens,P,u
+ real, intent(out)    :: v(1:3)
+ real, intent(in)     :: rho,pmom(1:3),en
+ integer, intent(out) :: ierr
+ integer, intent(in)  :: ien_type
+ real                 :: enth
+
+ select case (ieos)
+ case (12)
+    if (ien_type == ien_entropy) then
+       call fatal('cons2primsolver','gasplusrad (ieos=12) only works with ien_type=ien_etotal for the moment')
+    endif
+    call conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+ case default
+    call conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
+ end select
+
+end subroutine conservative2primitive
+
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conserved variables
+!  for equations of state where gamma is an OUTPUT
+!+
+!----------------------------------------------------------------
+subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
  use metric_tools, only:unpack_metric
  use units,        only:unit_ergg,unit_density,unit_pressure
  use eos,          only:calc_temp_and_ene,ieos
@@ -135,10 +171,167 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,temp,sqrt_gamma_inv
- real :: ucgs,Pcgs,denscgs
+ real :: f,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,gamma_old,temp,sqrt_gamma_inv
+ real :: u_in,P_in,dens_in,ucgs,Pcgs,denscgs,enth0,gamma0,enth_min,enth_max
+ real :: enth_rad,enth_gas,gamma_rad,gamma_gas
+ integer :: niter,i,ierr1,ierr2
+ real, parameter :: tol = 1.e-12
+ integer, parameter :: nitermax = 500
+ logical :: converged
+ ierr = 0
+
+ ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
+ sqrtg = 1.
+ sqrtg_inv = 1./sqrtg
+
+ ! Get metric components from metric array
+ call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
+
+ pmom2 = 0.
+ do i=1,3
+    pmom2 = pmom2 + pmom(i)*dot_product(gammaijUP(:,i),pmom(:))
+ enddo
+
+ niter = 0
+ converged = .false.
+ sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
+ term = rho*sqrt_gamma_inv
+ pm_dot_b = dot_product(pmom,betaUP)
+
+ ! Guess gamma (using previous values of dens and pressure)
+ if (u > tiny(0.)) then
+    gamma = 1. + P/(dens*u)
+ else
+    gamma = 5./3. ! use gamma for ideal gas
+ endif
+
+ ! NR with const gamma to get boundary value
+ P_in = P
+ dens_in = dens
+ u_in = u
+
+ gamma_gas = 5./3.
+ call conservative2primitive_con_gamma(x,metrici,v,dens_in,u_in,P_in,gamma_gas,enth_gas,rho,pmom,en,ierr1,ien_type)
+
+ P_in = P
+ dens_in = dens
+ u_in = u
+
+ gamma_rad = 4./3.
+ call conservative2primitive_con_gamma(x,metrici,v,dens_in,u_in,P_in,gamma_rad,enth_rad,rho,pmom,en,ierr2,ien_type)
+
+ if (ien_type == ien_entropy) then
+    enth_min = enth_gas
+    enth_max = enth_rad
+    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
+ else
+    enth_min = enth_rad
+    enth_max = enth_gas
+    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
+ endif
+
+ enth = 0.5*(enth_max+enth_min)
+
+ gamfac = gamma/(gamma-1.)
+ enth0 = enth
+ gamma0 = gamma
+
+ do while (.not. converged .and. niter < nitermax)
+    enth_old = enth
+    gamma_old = gamma
+    lorentz_LEO2 = 1.+pmom2/enth_old**2
+    lorentz_LEO = sqrt(lorentz_LEO2)
+    dens = term/lorentz_LEO
+
+    if (ien_type == ien_entropy) then
+       p = en*dens**gamma
+    elseif (ieos==4) then
+       p = (gamma-1.)*dens*polyk
+    else
+       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+    endif
+
+    if (P > 0.) then
+       ucgs = u*unit_ergg
+       Pcgs = P*unit_pressure
+       denscgs = dens*unit_density
+
+       call calc_temp_and_ene(ieos,denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
+       if (ierr /= 0) stop 'Did not converge'
+       u = ucgs/unit_ergg
+
+       gamma = 1. + P/(u*dens)
+       gamfac = gamma/(gamma-1.)
+    endif
+
+    f = 1. + u + P/dens - enth_old
+
+    if (ien_type == ien_etotal) then
+       if (f < 0) then
+          enth_min = enth_old
+       else
+          enth_max = enth_old
+       endif
+    else
+       if (f > 0) then
+          enth_min = enth_old
+       else
+          enth_max = enth_old
+       endif
+    endif
+
+    enth = 0.5*(enth_min + enth_max)
+
+    ! Needed in dust case when f/df = NaN casuses enth = NaN
+    if (abs(enth_old-1.)<tiny(enth_old)) enth=1.
+
+    niter = niter + 1
+
+    if (abs(enth-enth_old)/enth0 < tol) converged = .true.
+ enddo
+
+ if (.not.converged) ierr = 1
+
+ lorentz_LEO = sqrt(1.+pmom2/enth**2)
+ dens = term/lorentz_LEO
+
+ if (ien_type == ien_entropy) then
+    p = en*dens**gamma
+ else
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+ endif
+
+ v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
+
+! Raise index from down to up
+ do i=1,3
+    v(i) = dot_product(gammaijUP(:,i),v3d(:))
+ enddo
+
+ call get_u(u,P,dens,gamma)
+
+end subroutine conservative2primitive_var_gamma
+
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conserved variables
+!  for equations of state where gamma is constant
+!+
+!----------------------------------------------------------------
+subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
+ use metric_tools, only:unpack_metric
+ use eos,          only:calc_temp_and_ene,ieos
+ real, intent(in)    :: x(1:3),metrici(:,:,:),gamma
+ real, intent(inout) :: dens,P,u
+ real, intent(out)   :: enth,v(1:3)
+ real, intent(in)    :: rho,pmom(1:3),en
+ integer, intent(out) :: ierr
+ integer, intent(in)  :: ien_type
+ real, dimension(1:3,1:3) :: gammaijUP
+ real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv
  integer :: niter, i
- real, parameter :: tol = 1.e-13
+ real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
  logical :: converged
  ierr = 0
@@ -156,12 +349,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
- enth = 1. + u + P/dens
- if (u > tiny(0.)) then
-    gamma = 1. + P/(dens*u)
- else
-    gamma = 5./3. ! use gamma for ideal gas
- endif
+ enth = 1 + gamma/(gamma-1.)*P/dens
 
  niter = 0
  converged = .false.
@@ -184,21 +372,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
        p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     endif
 
-    enth = 0.
-    if (p > 0.) then
-       ucgs = u*unit_ergg
-       Pcgs = P*unit_pressure
-       denscgs = dens*unit_density
-
-       call calc_temp_and_ene(ieos,denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
-       u = ucgs/unit_ergg
-
-       enth = 1. + u + P/dens
-       gamma = 1. + P/(u*dens)
-       gamfac = gamma/(gamma-1.)
-    endif
-
-    f = enth-enth_old
+    f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_entropy) then
@@ -212,7 +386,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     enth = enth_old - f/df
 
     ! Needed in dust case when f/df = NaN casuses enth = NaN
-    if (abs(enth_old-1.)<tiny(enth_old)) enth=1.
+    if (enth-1. < tiny(enth)) enth = 1. + 1.5e-6
 
     niter = niter + 1
 
@@ -239,6 +413,6 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
 
  call get_u(u,P,dens,gamma)
 
-end subroutine conservative2primitive
+end subroutine conservative2primitive_con_gamma
 
 end module cons2primsolver
