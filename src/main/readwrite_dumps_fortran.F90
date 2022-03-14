@@ -1501,6 +1501,9 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use dim,            only:use_dust,maxtypes,use_dustgrowth, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
  use units,          only:udist,umass,utime,unit_Bfield
+#ifdef DUST_NUCLEATION
+ use dust_formation, only:mass_per_H,Aw,eps,set_abundances
+#endif
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
  integer(kind=8), intent(in)    :: nparttot,npartoftypetot(:)
@@ -1574,6 +1577,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(polyk2,'polyk2',hdr,ierr)
     call add_to_rheader(qfacdisc,'qfacdisc',hdr,ierr)
     call add_to_rheader(massoftype,'massoftype',hdr,ierr) ! array
+#ifdef DUST_NUCLEATION
+! initial gas composition for dust formation
+    call set_abundances
+    call add_to_rheader(eps,'epsilon',hdr,ierr) ! array
+    call add_to_rheader(Aw,'Amean',hdr,ierr) ! array
+    call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! array
+#endif
     call add_to_rheader(Bextx,'Bextx',hdr,ierr)
     call add_to_rheader(Bexty,'Bexty',hdr,ierr)
     call add_to_rheader(Bextz,'Bextz',hdr,ierr)
