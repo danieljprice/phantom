@@ -152,18 +152,10 @@ module dim
                                            radenxpartvecforce + &
                                            maxxpartvecGR
 
- ! cell storage
- integer, parameter :: maxprocs = 32
-#ifdef STACKSIZE
- integer, parameter :: stacksize = STACKSIZE
-#else
 #ifdef MPI
- integer, parameter :: stacksize = 200000
  logical, parameter :: mpi = .true.
 #else
- integer, parameter :: stacksize = 0
  logical, parameter :: mpi = .false.
-#endif
 #endif
 
  ! storage for artificial viscosity switch
