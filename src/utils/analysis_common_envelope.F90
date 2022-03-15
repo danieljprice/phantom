@@ -81,7 +81,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(30(a,/))", &
+    print "(32(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -111,15 +111,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '28) Companion mass coordinate vs. time', &
             '29) Energy histogram',&
             '30) Analyse disk',&
-            '31) Recombination energy vs time'
+            '31) Recombination energy vs time',&
+            '32) Sound-crossing time profile'
     analysis_to_perform = 1
-    call prompt('Choose analysis type ',analysis_to_perform,1,31)
+    call prompt('Choose analysis type ',analysis_to_perform,1,32)
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
     select case(ieos)
@@ -192,6 +193,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  case(31) ! Recombination energy vs. time
     call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ case(32) ! Sound crossing time profile
+    call tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -1430,7 +1433,7 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
  ! Convert to cgs units (kappa has already been outputted in cgs)
  rho_hist = rho_hist * unit_density
- sepbins = sepbins * udist ! udist should be Rsun in g
+ sepbins = sepbins * udist ! udist should be Rsun in cm
 
  tau_r(nbins) = 0.
  do i=nbins,2,-1
@@ -1450,6 +1453,75 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
 end subroutine tau_profile
+
+
+!----------------------------------------------------------------
+!+
+!  Sound crossing time profile
+!+
+!----------------------------------------------------------------
+subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part,  only:eos_vars,itemp
+ use eos,   only:get_spsound
+ use units, only:unit_velocity
+ integer, intent(in)    :: npart,num
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: rad_part,cs_part
+ real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
+ real                   :: maxloga,minloga,rhoi
+ character(len=17)      :: filename
+ character(len=40)      :: data_formatter
+ integer                :: i,unitnum
+ 
+ call compute_energies(time)
+ nbins      = 500
+ rad_part   = 0.
+ cs_part   = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+ 
+ allocate(cs_hist(nbins),sepbins(nbins),tconv(nbins))
+ filename = '    grid_tconv.ev'
+ 
+ do i=1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    cs_part(i) = get_spsound(eos_type=ieos,xyzi=xyzh(:,i),rhoi=rhoi,vxyzui=vxyzu(:,i),gammai=gamma,mui=gmw,Xi=X_in,Zi=Z_in)
+ enddo
+ 
+ call histogram_setup(rad_part(1:npart),cs_part,cs_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+
+ ! Integrate sound-crossing time from surface inwards
+ sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ ! Convert to cgs units
+ cs_hist = cs_hist * unit_velocity
+ sepbins = sepbins * udist ! udist should be Rsun in cm
+ 
+ tconv(nbins) = 0.
+ do i=nbins,2,-1
+    if (cs_hist(i) < tiny(1.)) then
+       tconv(i-1) = tconv(i)
+    else
+       tconv(i-1) = tconv(i) + (sepbins(i+1) - sepbins(i)) / cs_hist(i)
+    endif
+ enddo
+ 
+ ! Write data row
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    unitnum = 1000
+    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    write(unitnum, "(a)") '# Sound crossing time profile'
+    close(unit=unitnum)
+ endif
+ unitnum=1002
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,tconv
+ close(unit=unitnum)
+
+end subroutine tconv_profile
 
 
 !----------------------------------------------------------------
