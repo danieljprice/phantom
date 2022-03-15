@@ -38,16 +38,20 @@ module timing
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter ::   itimer_fromstart = 1,  &
-                                 itimer_lastdump  = 2,  &
-                                 itimer_step      = 3,  &
-                                 itimer_link      = 4,  &
-                                 itimer_balance   = 5,  &
-                                 itimer_dens      = 6,  &
-                                 itimer_force     = 7,  &
-                                 itimer_extf      = 8,  &
-                                 itimer_ev        = 9,  &
-                                 itimer_io        = 10
+ integer, public, parameter ::   itimer_fromstart     = 1,  &
+                                 itimer_lastdump      = 2,  &
+                                 itimer_step          = 3,  &
+                                 itimer_link          = 4,  &
+                                 itimer_balance       = 5,  &
+                                 itimer_dens          = 6,  &
+                                 itimer_dens_local    = 7,  &
+                                 itimer_dens_remote   = 8,  &
+                                 itimer_force         = 9,  &
+                                 itimer_force_local   = 10, &
+                                 itimer_force_remote  = 11, &
+                                 itimer_extf          = 12, &
+                                 itimer_ev            = 13, &
+                                 itimer_io            = 14
  integer, public, parameter :: ntimers = 10 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
@@ -63,17 +67,21 @@ subroutine setup_timers
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
- !               timer from array  label          parent
- call init_timer(itimer_fromstart, 'all',         0           )
- call init_timer(itimer_lastdump , 'last',        0           )
- call init_timer(itimer_step     , 'step',        0           )
- call init_timer(itimer_link     , 'tree',        itimer_step )
- call init_timer(itimer_balance  , 'balance',     itimer_link )
- call init_timer(itimer_dens     , 'density',     itimer_step )
- call init_timer(itimer_force    , 'force',       itimer_step )
- call init_timer(itimer_extf     , 'extf',        itimer_step )
- call init_timer(itimer_ev       , 'write_ev',    0           )
- call init_timer(itimer_io       , 'write_dump',  0           )
+ !               timer from array     label          parent
+ call init_timer(itimer_fromstart   , 'all',         0            )
+ call init_timer(itimer_lastdump    , 'last',        0            )
+ call init_timer(itimer_step        , 'step',        0            )
+ call init_timer(itimer_link        , 'tree',        itimer_step  )
+ call init_timer(itimer_balance     , 'balance',     itimer_link  )
+ call init_timer(itimer_dens        , 'density',     itimer_step  )
+ call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
+ call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )
+ call init_timer(itimer_force       , 'force',       itimer_step  )
+ call init_timer(itimer_force_local , 'local',       itimer_force )
+ call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_extf        , 'extf',        itimer_step  )
+ call init_timer(itimer_ev          , 'write_ev',    0            )
+ call init_timer(itimer_io          , 'write_dump',  0            )
 
  ! When the timer is initialised, the tree structure is defined as an arary of integers
  ! because the special ASCII characters take up more than 1 space in a character array,
