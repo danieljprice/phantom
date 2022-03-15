@@ -29,7 +29,8 @@ module analysis
  use energies,     only:compute_energies,ekin,etherm,epot,etot
  use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
- use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound,irecomb
+ use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound
+ use eos_gasradrec,only:irecomb
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
                         get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
