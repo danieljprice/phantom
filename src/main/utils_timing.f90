@@ -52,7 +52,7 @@ module timing
                                  itimer_extf          = 12, &
                                  itimer_ev            = 13, &
                                  itimer_io            = 14
- integer, public, parameter :: ntimers = 10 ! should be equal to the largest itimer index
+ integer, public, parameter :: ntimers = 14 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
