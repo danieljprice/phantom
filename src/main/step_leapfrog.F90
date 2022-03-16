@@ -691,7 +691,7 @@ end subroutine step
 #ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh
- use cons2primsolver, only:conservative2primitive,ien_entropy
+ use cons2primsolver, only:conservative2primitive,ien_entropy,ien_etotal
  use eos,             only:ieos,equationofstate
  use io,              only:warning
  use metric_tools,    only:pack_metric
@@ -702,14 +702,20 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
- integer :: i,niter,ierr
+ integer :: i,niter,ierr,ien_type
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
  real    :: pondensi,spsoundi,rhoi,pri
 
+ if (ieos==12) then
+    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
+ else
+    ien_type = ien_entropy
+ endif
+
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
- !$omp shared(pxyzu,metrics,ieos,massoftype) &
+ !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(spsoundi,pondensi,pri,rhoi)
  do i=1,npart
@@ -720,7 +726,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        pri  = pondensi*dens(i)
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
-                                   pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy)
+                                   pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
        if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (a)]','enthalpy did not converge',i=i)
        !
        ! main position update
@@ -732,7 +738,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
           call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
-                                      pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy)
+                                      pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
@@ -757,7 +763,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
- use cons2primsolver,only:conservative2primitive,ien_entropy
+ use cons2primsolver,only:conservative2primitive,ien_entropy,ien_etotal
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
@@ -765,7 +771,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
- integer :: i,itype,nsubsteps,naccreted,its,ierr
+ integer :: i,itype,nsubsteps,naccreted,its,ierr,ien_type
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pri,spsoundi,pondensi
@@ -803,6 +809,12 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  dtextforce_min = huge(dt)
  done           = .false.
 
+ if (ieos==12) then
+    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
+ else
+    ien_type = ien_entropy
+ endif
+
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
@@ -825,7 +837,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt,xtol,ptol) &
-    !$omp shared(ieos,pxyzu,dens,metrics,metricderivs) &
+    !$omp shared(ieos,pxyzu,dens,metrics,metricderivs,ien_type) &
     !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
@@ -867,7 +879,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              its   = its + 1
              pprev = pxyz
              call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,rhoi,&
-                                         pxyz,eni,ierr,ien_entropy)
+                                         pxyz,eni,ierr,ien_type)
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (a)]','enthalpy did not converge',i=i)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
              pxyz = pprev + hdt*(fstar - fexti)
@@ -880,7 +892,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           perrmax = max(pmom_err,perrmax)
 
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,rhoi,&
-                                      pxyz,eni,ierr,ien_entropy)
+                                      pxyz,eni,ierr,ien_type)
           if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (b)]','enthalpy did not converge',i=i)
           xyz = xyz + dt*vxyz
           call pack_metric(xyz,metrics(:,:,:,i))
@@ -895,7 +907,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              its         = its+1
              xyz_prev    = xyz
              call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,pri,rhoi,&
-                                         pxyz,eni,ierr,ien_entropy)
+                                         pxyz,eni,ierr,ien_type)
              if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (c)]','enthalpy did not converge',i=i)
              xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
              x_err = maxval(abs(xyz-xyz_prev))
