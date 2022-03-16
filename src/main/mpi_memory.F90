@@ -97,12 +97,13 @@ subroutine allocate_mpi_memory(npart, stacksize_in)
 end subroutine allocate_mpi_memory
 
 subroutine increase_mpi_memory
+ use io, only:id
  real, parameter :: factor = 1.5
  integer         :: stacksize_new
  integer         :: allocstat
 
  stacksize_new = int(real(stacksize) * factor)
- write(iprint, *) 'MPI stack exceeded, increasing size to', stacksize_new
+ write(iprint, *) 'MPI stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand density
  allocate(dens_cells_tmp(stacksize,3), stat = allocstat)
