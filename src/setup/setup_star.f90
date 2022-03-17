@@ -495,9 +495,10 @@ end subroutine setpart
 !+
 !-----------------------------------------------------------------------
 subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
- use prompting, only:prompt
- use units,     only:select_unit
- use eos,       only:X_in,Z_in,gmw,irecomb
+ use prompting,     only:prompt
+ use units,         only:select_unit
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  real, intent(out)    :: polyk,gamma
  logical, intent(in)  :: iexist
  integer, intent(in)  :: id,master
@@ -719,10 +720,11 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils, only:write_inopt,get_optstring
- use dim,          only:tagline
- use relaxstar,    only:write_options_relax
- use eos,          only:X_in,Z_in,gmw,irecomb
+ use infile_utils,  only:write_inopt,get_optstring
+ use dim,           only:tagline
+ use relaxstar,     only:write_options_relax
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -825,11 +827,12 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,polyk,ierr)
- use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use io,           only:error
- use units,        only:select_unit
- use relaxstar,    only:read_options_relax
- use eos,          only:X_in,Z_in,gmw,irecomb
+ use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
+ use io,            only:error
+ use units,         only:select_unit
+ use relaxstar,     only:read_options_relax
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr

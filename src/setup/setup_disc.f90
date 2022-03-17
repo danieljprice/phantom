@@ -68,6 +68,7 @@ module setup
 !   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - use_mcfost    : *use the mcfost library*
+!   - discstrat     : *stratify disc? (0=no,1=yes)*
 !
 ! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -122,6 +123,10 @@ module setup
  real    :: bhspin,bhspinangle
  logical :: einst_prec
 
+ !--stratification
+ real    :: temp_atm0,temp_mid0
+ real    :: z0_ref
+
  !--discs
  integer, parameter :: maxdiscs = 4
 
@@ -172,8 +177,8 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: questplanets
- integer :: nplanets,setplanets
+ logical :: questplanets,istratify
+ integer :: nplanets,setplanets, discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
  real    :: period_planet_longest
@@ -239,14 +244,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--compute number of discs based on setup options
  call number_of_discs()
 
+ !--setup central object(s), i.e. sink particle(s) or potential
+ call setup_central_objects()
+
  !--setup equation of state
  call equation_of_state(gamma)
 
  !--set surface density profile based on setup options
  call surface_density_profile()
-
- !--setup central object(s), i.e. sink particle(s) or potential
- call setup_central_objects()
 
  !--setup grain size distribution
  call setup_dust_grain_distribution()
@@ -425,6 +430,13 @@ subroutine set_default_options()
  accrplanet    = 0.25
  inclplan      = 0.
 
+ !--stratification
+ istratify     = .false.
+ discstrat     = 0
+ temp_mid0     = 24.
+ temp_atm0     = 63.
+ z0_ref        = 9.
+
  !--simulation time
  deltat  = 0.1
  norbits = 100
@@ -551,10 +563,11 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc
+ use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  real, intent(out) :: gamma
+ real              :: H_R_atm, cs
 
  logical :: is_isothermal
  integer :: i
@@ -609,9 +622,18 @@ subroutine equation_of_state(gamma)
              ieos = 6
              print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
-             ieos = 3
+             if (discstrat > 0) then
+               ieos = 7
+               print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
+               call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
+               call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
+               polyk2 = (cs*(1./R_ref(onlydisc))**qfacdisc2)**2
+               z0 = z0_ref/R_ref(onlydisc)**beta_z
+             else
+               ieos = 3
+               print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
+             end if
              isink = 0 ! In the case isink==3, to be generalized
-             print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
           qfacdisc = qindex(onlydisc)
        endif
@@ -2055,6 +2077,7 @@ end subroutine setup_interactive
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
+ use eos,              only:alpha_z,beta_z,qfacdisc2
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
@@ -2284,11 +2307,11 @@ subroutine write_setupfile(filename)
        case (4)
           call write_inopt(Q_min(i),'Q_min'//trim(disclabel),'minimum Toomre Q',iunit)
        end select
-       call write_inopt(pindex(i),'pindex'//trim(disclabel),'p index',iunit)
-       call write_inopt(qindex(i),'qindex'//trim(disclabel),'q index',iunit)
+       call write_inopt(pindex(i),'pindex'//trim(disclabel),'power law index of surface density sig=sig0*r^-p',iunit)
+       call write_inopt(qindex(i),'qindex'//trim(disclabel),'power law index of sound speed cs=cs0*r^-q',iunit)
        call write_inopt(posangl(i),'posangl'//trim(disclabel),'position angle (deg)',iunit)
        call write_inopt(incl(i),'incl'//trim(disclabel),'inclination (deg)',iunit)
-       call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
+       if (discstrat == 0) call write_inopt(H_R(i),'H_R'//trim(disclabel),'H/R at R=R_ref',iunit)
        if (iwarp(i)) then
           call write_inopt(R_warp(i),'R_warp'//trim(disclabel),'warp radius',iunit)
           call write_inopt(H_warp(i),'H_warp'//trim(disclabel),'warp smoothing length',iunit)
@@ -2343,6 +2366,18 @@ subroutine write_setupfile(filename)
        call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet accretion radius (in Hill radius)',iunit)
     enddo
  endif
+ ! stratification
+ write(iunit,"(/,a)") '# thermal stratification'
+ call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
+ if (discstrat==1) then
+   call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
+   call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
+   call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
+   call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
+   call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
+   call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
+
+ endif
  !--timestepping
  write(iunit,"(/,a)") '# timestepping'
  if (setplanets==1) then
@@ -2376,6 +2411,7 @@ end subroutine write_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
+ use eos,              only:alpha_z,beta_z,qfacdisc2
  use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
@@ -2509,6 +2545,16 @@ subroutine read_setupfile(filename,ierr)
     end select
  end select
 
+ call read_inopt(discstrat,'discstrat',db,errcount=nerr)
+ if (discstrat==1) then
+    call read_inopt(z0_ref,'z0',db,errcount=nerr)
+    call read_inopt(alpha_z,'alpha_z',db,errcount=nerr)
+    call read_inopt(beta_z,'beta_z',db,errcount=nerr)
+    call read_inopt(temp_mid0,'temp_mid0',db,errcount=nerr)
+    call read_inopt(temp_atm0,'temp_atm0',db,errcount=nerr)
+    call read_inopt(qfacdisc2,'qatm',db,errcount=nerr)
+ endif
+
  !--dust
  if (use_dust) then
     call read_dust_setup_options(db,nerr)
@@ -2599,7 +2645,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(qindex(i),'qindex'//trim(disclabel),db,errcount=nerr)
        call read_inopt(posangl(i),'posangl'//trim(disclabel),db,min=0.,max=360.,errcount=nerr)
        call read_inopt(incl(i),'incl'//trim(disclabel),db,min=0.,max=180.,errcount=nerr)
-       call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
+       if (discstrat == 0) call read_inopt(H_R(i),'H_R'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(iwarp(i),'iwarp'//trim(disclabel),db,errcount=nerr)
        if (iwarp(i)) then
           call read_inopt(R_warp(i),'R_warp'//trim(disclabel),db,min=0.,errcount=nerr)
@@ -2829,5 +2875,20 @@ subroutine make_corotate(xyzh,vxyzu,a0,Mstar,npart,npart_disc)
  omega_corotate = omega0
 
 end subroutine make_corotate
+
+
+subroutine temp_to_HR(temp,H_R,radius,M,cs)
+  use units,  only:get_kbmh_code
+  use eos,    only:gmw
+  real,    intent(in)    :: temp,radius,M
+  real,    intent(out)   :: H_R,cs
+  real                   :: omega
+
+  cs = sqrt(temp*get_kbmh_code()/gmw)
+  omega = sqrt(M/radius**3)
+  H_R = cs/(omega*radius)
+
+
+end subroutine temp_to_HR
 
 end module setup
