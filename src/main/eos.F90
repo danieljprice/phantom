@@ -931,6 +931,59 @@ end function diff
 
 !-----------------------------------------------------------------------
 !+
+!  Query function to return whether an EoS is non-ideal
+!  Mainly used to decide whether it is necessary to write
+!  things like pressure and temperature in the dump file or not
+!+
+!-----------------------------------------------------------------------
+logical function eos_is_non_ideal(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(10,12,15,20)
+    eos_is_non_ideal = .true.
+ case default
+    eos_is_non_ideal = .false.
+ end select
+
+end function eos_is_non_ideal
+
+!-----------------------------------------------------------------------
+!+
+!  Query function to return whether an EoS outputs mean molecular weight
+!+
+!-----------------------------------------------------------------------
+logical function eos_outputs_mu(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(20)
+    eos_outputs_mu = .true.
+ case default
+    eos_outputs_mu = .false.
+ end select
+
+end function eos_outputs_mu
+
+!-----------------------------------------------------------------------
+!+
+!  Query function to whether to print pressure to dump file
+!+
+!-----------------------------------------------------------------------
+logical function eos_outputs_gasP(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(8,9,10,15)
+    eos_outputs_gasP = .true.
+ case default
+    eos_outputs_gasP = .false.
+ end select
+
+end function eos_outputs_gasP
+
+!-----------------------------------------------------------------------
+!+
 !  prints equation of state info in the run header
 !+
 !-----------------------------------------------------------------------
@@ -1003,59 +1056,6 @@ subroutine eosinfo(eos_type,iprint)
  write(iprint,*)
 
 end subroutine eosinfo
-
-!-----------------------------------------------------------------------
-!+
-!  Query function to return whether an EoS is non-ideal
-!  Mainly used to decide whether it is necessary to write
-!  things like pressure and temperature in the dump file or not
-!+
-!-----------------------------------------------------------------------
-logical function eos_is_non_ideal(ieos)
- integer, intent(in) :: ieos
-
- select case(ieos)
- case(10,12,15,20)
-    eos_is_non_ideal = .true.
- case default
-    eos_is_non_ideal = .false.
- end select
-
-end function eos_is_non_ideal
-
-!-----------------------------------------------------------------------
-!+
-!  Query function to return whether an EoS outputs mean molecular weight
-!+
-!-----------------------------------------------------------------------
-logical function eos_outputs_mu(ieos)
- integer, intent(in) :: ieos
-
- select case(ieos)
- case(20)
-    eos_outputs_mu = .true.
- case default
-    eos_outputs_mu = .false.
- end select
-
-end function eos_outputs_mu
-
-!-----------------------------------------------------------------------
-!+
-!  Query function to whether to print pressure to dump file
-!+
-!-----------------------------------------------------------------------
-logical function eos_outputs_gasP(ieos)
- integer, intent(in) :: ieos
-
- select case(ieos)
- case(8,9,10,15)
-    eos_outputs_gasP = .true.
- case default
-    eos_outputs_gasP = .false.
- end select
-
-end function eos_outputs_gasP
 
 !-----------------------------------------------------------------------
 !+
