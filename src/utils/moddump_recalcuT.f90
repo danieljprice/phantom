@@ -15,7 +15,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, part, units
+! :Dependencies: eos, eos_gasradrec, io, part, units
 !
  implicit none
 
