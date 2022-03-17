@@ -30,7 +30,7 @@ module units
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity
 
  public :: set_units, set_units_extra, print_units
- public :: get_G_code, get_c_code, get_radconst_code
+ public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
 
 contains
@@ -303,6 +303,18 @@ real(kind=8) function get_radconst_code() result(radconst_code)
 
  radconst_code = radconst/unit_energ*udist**3
 end function get_radconst_code
+
+!---------------------------------------------------------------------------
+!+
+!  speed of light in code units
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function get_kbmh_code() result(kbmh_code)
+ use physcon, only:kb_on_mh
+
+ kbmh_code = kb_on_mh/unit_velocity**2
+
+end function get_kbmh_code
 
 !---------------------------------------------------------------------------
 !+

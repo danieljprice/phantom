@@ -900,7 +900,7 @@ end subroutine sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,ixyzcachesize,ifirstincell,&
-& get_hj,fnode,remote_export)
+& get_hj,get_f,fnode,remote_export)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -920,6 +920,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  real,    intent(out)               :: xyzcache(:,:)
  integer, intent(in)                :: ifirstincell(:)
  logical, intent(in)                :: get_hj
+ logical, intent(in)                :: get_f
  real,    intent(out),    optional  :: fnode(lenfgrav)
  logical, intent(out),    optional  :: remote_export(:)
  integer, parameter :: istacksize = 300
@@ -943,7 +944,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
  hdlz = 0.5*dzbound
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
- if (present(fnode)) fnode(:) = 0.
+ if (get_f) fnode(:) = 0.
  rcut     = rcuti
 
  if (ixyzcachesize > 0) then
@@ -1070,7 +1071,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,ndim,listneigh,nneigh,xyzh,xyzcache,i
           endif
        endif if_leaf
 #ifdef GRAVITY
-    elseif (present(fnode)) then ! if_open_node
+    elseif (get_f) then ! if_open_node
 ! When searching for neighbours of this node, the tree walk may encounter
 ! nodes on the global tree that it does not need to open, so it should
 ! just add the contribution to fnode. However, when walking a different
