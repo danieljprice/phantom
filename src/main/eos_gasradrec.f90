@@ -13,12 +13,15 @@ module eos_gasradrec
 !
 ! :Owner: Mike Lau
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !
-! :Dependencies: ionization_mod, physcon
+! :Dependencies: infile_utils, io, ionization_mod, physcon
 !
  implicit none
- public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec
+ integer, public :: irecomb = 0 ! types of recombination energy to include for ieos=20
+ public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec,read_options_eos_gasradrec,&
+           write_options_eos_gasradrec,eos_info_gasradrec,init_eos_gasradrec
  private
 
 contains
@@ -116,5 +119,86 @@ subroutine calc_uT_from_rhoP_gasradrec(rhoi,presi,X,Y,T,eni,mui,ierr)
  mui = 1./imu
 
 end subroutine calc_uT_from_rhoP_gasradrec
+
+
+!-----------------------------------------------------------------------
+!+
+!  Initialise eos by setting ionisation energy array according to
+!  irecomb option
+!+
+!-----------------------------------------------------------------------
+subroutine init_eos_gasradrec(ierr)
+ use ionization_mod, only:ionization_setup,eion
+ integer, intent(out) :: ierr
+
+ ierr = 0
+ call ionization_setup
+ if (irecomb == 1) then
+    eion(1) = 0.  ! H and He recombination only (no recombination to H2)
+ elseif (irecomb == 2) then
+    eion(1:2) = 0.  ! He recombination only
+ elseif (irecomb == 3) then
+    eion(1:4) = 0.  ! No recombination energy
+ elseif (irecomb < 0 .or. irecomb > 3) then
+    ierr = 1
+ endif
+ write(*,'(1x,a,i1,a)') 'Initialising gas+rad+rec EoS (irecomb = ',irecomb,')'
+
+end subroutine init_eos_gasradrec
+
+
+!----------------------------------------------------------------
+!+
+!  print eos information
+!+
+!----------------------------------------------------------------
+subroutine eos_info_gasradrec(iprint)
+ integer, intent(in) :: iprint
+
+ write(iprint,"(/,a,i1)") ' Gas+rad+rec EoS: irecomb = ',irecomb
+
+end subroutine eos_info_gasradrec
+
+
+!-----------------------------------------------------------------------
+!+
+!  reads equation of state options from the input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_eos_gasradrec(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
+ character(len=*),  intent(in)  :: name,valstring
+ logical,           intent(out) :: imatch,igotall
+ integer,           intent(out) :: ierr
+ integer,           save        :: ngot  = 0
+ character(len=30), parameter   :: label = 'eos_gasradrec'
+
+ imatch  = .true.
+ select case(trim(name))
+ case('irecomb')
+    read(valstring,*,iostat=ierr) irecomb
+    if ((irecomb < 0) .or. (irecomb > 3)) call fatal(label,'irecomb = 0,1,2,3')
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+
+ igotall = (ngot >= 1)
+
+end subroutine read_options_eos_gasradrec
+
+
+!-----------------------------------------------------------------------
+!+
+!  writes equation of state options to the input file
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_eos_gasradrec(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He, 3=none',iunit)
+
+end subroutine write_options_eos_gasradrec
 
 end module eos_gasradrec

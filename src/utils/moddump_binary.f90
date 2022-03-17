@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                   :: nstar1,nstar2,nptmass1
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
- real                      :: a1,a2,e,omega_vec(3),omegacrossr(3),vr = 0.0,hsoft_default = 3.
+ real                      :: a1,a2,e,vr,hsoft_default = 3.
  real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  real                      :: time2,hfact2,Rstar
@@ -168,22 +168,23 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     case(1,8)
        ! set binary defaults
        companion_mass_1 = 0.6
-       call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
-
-       Rstar = 0.
-       do i = 1,npart
-          Rstar  = max(Rstar,sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i))))
-       enddo
-       print*, 'Current length unit is ', udist ,'cm):'
-       print*, 'Domain size ', Rstar ,' code cm):'
        a1 = 100.
        e = 0.0
        mcore = 0.
        hacc1 = 0.
        hacc2 = 0.
+       vr = 0.
+
+       ! find current stellar radius
+       Rstar = 0.
+       do i = 1,npart
+          Rstar  = max(Rstar,sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i))))
+       enddo
+
        print*, 'Current mass unit is ', umass,'g):'
        call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
        print*, 'Current length unit is ', udist ,'cm):'
+       print*, 'Current stellar radius in code units is ', Rstar
        call prompt('Enter orbit semi-major axis in code units', a1, 0.)
        call prompt('Enter orbit eccentricity', e, 0., 1.)
        call prompt('Enter companion radial velocity', vr)
@@ -208,8 +209,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        !sets up the binary system orbital parameters
        if (nptmass == 1) then
           mcore = xyzmh_ptmass(4,1)
+          hsoft_primary = xyzmh_ptmass(ihsoft,1)  ! stash primary core hsoft before calling set_binary, which resets the softening lengths
        elseif (nptmass == 0) then
           mcore = 0.
+          hsoft_primary = 0.
        else
           print *,'[S-moddump_binary] mcore not defined! nptmass = ',nptmass
           stop '[S-moddump_binary]'
@@ -217,9 +220,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
        print*, 'Current primary mass in code units is ',primary_mass
-
-       ! stash primary core hsoft before calling set_binary, which resets the softening lengths
-       hsoft_primary = xyzmh_ptmass(ihsoft,1)
 
        ! set the binary
        if (corotate_answer) then ! corotating frame
@@ -256,7 +256,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
           xyzmh_ptmass(ihsoft,1) = hsoft_primary
           print*, 'Current softening length of the primary core is ', xyzmh_ptmass(ihsoft,1),' code units'
-          call prompt('Enter softening length for the primary core',xyzmh_ptmass(ihsoft,1),0.)
           if (setup_case == 1) call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
 
        elseif (nptmass == 2) then ! if original star is coreless
