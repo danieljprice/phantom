@@ -840,6 +840,7 @@ end function get_mean_molecular_weight
 !-----------------------------------------------------------------------
 subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  use part, only:xyzmh_ptmass
+ use io,   only:id,master
  integer, intent(in) :: eos_type,iprint
  real,    intent(in) :: utherm(:)
  real,    intent(in) :: xyzhi(:,:)
@@ -857,7 +858,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
 !
     polykalt = 2./3.*utherm(ipart)
     !--check all other utherms identical
-    if (any(utherm(1:npart) /= utherm(ipart))) then
+    if (any(utherm(1:npart) /= utherm(ipart)) .and. id==master) then
        write(iprint,*) 'WARNING! different utherms but run is isothermal'
     endif
 
@@ -866,7 +867,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
 !--adiabatic/polytropic eos
 !  this routine is ONLY called if utherm is NOT stored, so polyk matters
 !
-    write(iprint,*) 'Using polytropic equation of state, gamma = ',gamma
+    if (id==master) write(iprint,*) 'Using polytropic equation of state, gamma = ',gamma
     polykalt = 2./3.*utherm(ipart)
     if (gamma <= 1.00000001) then
        stop 'silly to use gamma==1 without using isothermal eos'
@@ -896,12 +897,12 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
 !--don't die in this routine as it can be called from readdump
 !  (ie. not necessarily as part of a run)
 !
-    write(iprint,*) ' WARNING! unknown equation of state in setpolyk'
+    if (id==master) write(iprint,*) ' WARNING! unknown equation of state in setpolyk'
     polykalt = polyk
 
  end select
 
- if (diff(polykalt,polyk)) then
+ if (diff(polykalt,polyk) .and. id==master) then
     write(iprint,*) 'WARNING! polyk set using RK2 in dump differs from that set using thermal energy'
     write(iprint,*) 'using polyk = ',polykalt, ' (from RK2 = ',polyk,')'
  endif
@@ -912,7 +913,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
  if (polyk < 0.) then
     write(iprint,*) 'ERROR: polyk < 0 in setting equation of state'
     stop
- elseif (polyk < tiny(polyk)) then
+ elseif (polyk < tiny(polyk) .and. id==master) then
     write(iprint,*) 'WARNING: polyk = 0 in equation of state'
  endif
 
@@ -989,13 +990,15 @@ end function eos_outputs_gasP
 !-----------------------------------------------------------------------
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
- use io,             only:fatal
+ use io,             only:fatal,id,master
  use eos_helmholtz,  only:eos_helmholtz_eosinfo
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
+
+ if (id/=master) return
 
  select case(eos_type)
  case(1,11)
@@ -1126,10 +1129,10 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  ierr = 0
  if (ieos==3 .or. ieos==6 .or. ieos==7) then
     if (qfacdisc <= tiny(qfacdisc)) then
-       write(iprint,*) 'ERROR: qfacdisc <= 0'
+       if (id==master) write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
   endif
 
@@ -1138,10 +1141,10 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
     call extract('beta_z', beta_z, hdr,ierr)
     call extract('z0',z0,hdr,ierr)
     if (qfacdisc2 <= tiny(qfacdisc2)) then
-       write(iprint,*) 'ERROR: qfacdisc2 <= 0'
+       if (id==master) write(iprint,*) 'ERROR: qfacdisc2 <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
   endif
 
