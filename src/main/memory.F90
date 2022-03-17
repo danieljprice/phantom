@@ -24,7 +24,7 @@ contains
  !
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
-subroutine allocate_memory(n, part_only)
+subroutine allocate_memory(ntot, part_only)
  use io,         only:iprint,warning,nprocs,id,master
  use dim,        only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
@@ -37,9 +37,10 @@ subroutine allocate_memory(n, part_only)
  use photoevap,  only:allocate_photoevap
 #endif
 
- integer,           intent(in) :: n
+ integer(kind=8),   intent(in) :: ntot
  logical, optional, intent(in) :: part_only
 
+ integer :: n
  logical :: part_only_
  character(len=11) :: sizestring
 
@@ -48,6 +49,9 @@ subroutine allocate_memory(n, part_only)
  else
     part_only_ = .false.
  endif
+
+ n = min(nprocs,8) * ntot / nprocs
+
  if (nbytes_allocated > 0.0 .and. n <= maxp) then
     !
     ! just silently skip if arrays are already large enough
