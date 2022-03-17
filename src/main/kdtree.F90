@@ -1499,16 +1499,16 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use part,         only:isdead_or_accreted,iactive,ibelong
  use timing,       only:increment_timer,get_timings,itimer_balance
 
- type(kdnode), intent(out)     :: nodeglobal(:) !ncellsmax+1)
- type(kdnode), intent(out)     :: node(:) !ncellsmax+1)
- integer,      intent(out)     :: nodemap(:) !ncellsmax+1)
+ type(kdnode), intent(out)     :: nodeglobal(:)    ! ncellsmax+1
+ type(kdnode), intent(out)     :: node(:)          ! ncellsmax+1
+ integer,      intent(out)     :: nodemap(:)       ! ncellsmax+1
  integer,      intent(out)     :: globallevel
  integer,      intent(out)     :: refinelevels
  integer,      intent(inout)   :: np
  integer,      intent(in)      :: ndim
  real,         intent(inout)   :: xyzh(:,:)
- integer,      intent(out)     :: cellatid(:) !ncellsmax+1)
- integer,      intent(out)     :: ifirstincell(:) !ncellsmax+1)
+ integer,      intent(out)     :: cellatid(:)      ! ncellsmax+1
+ integer,      intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
@@ -1649,6 +1649,8 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
     nnodestart = offset
     nnodeend   = 2*nnodestart-1
+
+    if (nnodeend > ncellsmax) call fatal('kdtree', 'global tree refinement has exceeded ncellsmax')
 
     locstart   = roffset
     locend     = 2*locstart-1
