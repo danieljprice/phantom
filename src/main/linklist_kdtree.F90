@@ -190,6 +190,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  use dim,    only:mpi
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
+ use part,   only:gravity
 #ifdef PERIODIC
  use io,       only:warning
  use boundary, only:dxbound,dybound,dzbound
@@ -206,7 +207,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real :: xpos(3)
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
- logical :: get_j,global_search
+ logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
 !
@@ -239,30 +240,22 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  get_j = .false.
  if (present(getj)) get_j = getj
 
- if (present(f)) then
+ get_f = (gravity .and. present(f))
+
+ if (mpi .and. global_search) then
+    ! Find MPI tasks that have neighbours of this cell, output to remote_export
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+            cellatid,get_j,get_f,fgrav_global,remote_export)
+ elseif (get_f) then
+    ! Set fgrav to zero, which matters if gravity is enabled but global search is not
     fgrav_global = 0.0
-
-    if (mpi .and. global_search) then
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                cellatid,get_j,fgrav_global,remote_export=remote_export)
-    endif
-
-    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              ifirstincell,get_j,fgrav)
-
-    f = fgrav + fgrav_global
-
- else
-
-    if (mpi .and. global_search) then
-       remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              cellatid,get_j,remote_export=remote_export)
-    endif
-
-    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-               ifirstincell,get_j)
  endif
+
+ ! Find neighbours of this cell on this node
+ call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+              ifirstincell,get_j,get_f,fgrav)
+
+ if (get_f) f = fgrav + fgrav_global
 
 end subroutine get_neighbour_list
 
@@ -278,7 +271,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-               ifirstincell,.false.)
+               ifirstincell,.false.,.false.)
 
 end subroutine getneigh_pos
 
