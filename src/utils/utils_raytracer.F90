@@ -49,16 +49,11 @@ module raytracer
          theta0 = asin(R/normCompanion)
          unitCompanion = unitCompanion/normCompanion
 
-         nrays = int(12*4**minOrder*(-1+2**(refineLevel) + 2**(refineLevel+1))/2)
-         nsides = 2**(minOrder+refineLevel)
-         allocate(dirs(3, nrays))
-         allocate(indices(12*4**(minOrder+refineLevel)))
+         call get_rays(primary, companion, xyzh, size(taus), minOrder, refineLevel, R, dirs, indices, nrays)
          allocate(listsOfDists(200, nrays))
          allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
          allocate(tau(size(listsOfDists(:,1))))
          allocate(dists(size(listsOfDists(:,1))))
-
-         call get_rays(primary, companion, xyzh, size(taus), minOrder, refineLevel, R, dirs, indices)
          !$omp parallel do private(tau,dist,dir,dists,root,theta)
          do i = 1, nrays
             tau=0.
@@ -77,13 +72,13 @@ module raytracer
          enddo
          !$omp end parallel do
          
+         nsides = 2**(minOrder+refineLevel)
          taus = 0.
          !$omp parallel do private(index,vec)
          do i = 1, size(taus(:))
-            vec = xyzh(1:3,i)-primary
             call vec2pix_nest(nsides, vec, index)
             index = indices(index + 1)
-            call get_tau_outwards(dot_product(vec, dirs(:,index)), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
+            call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
          enddo
          !$omp end parallel do
 
@@ -113,17 +108,22 @@ module raytracer
    !                       deepest order and the rays in the adaptive ray-tracing scheme
    !+
    !--------------------------------------------------------------------------
-   subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, rays, indices)
+   subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, rays, indices, nrays)
       real, intent(in)     :: primary(3), companion(3), xyzh(:,:), R
       integer, intent(in)  :: minOrder, refineLevel, npart
-      real, intent(out)    :: rays(:,:)
-      integer, intent(out) :: indices(:)
+      real, allocatable, intent(out)    :: rays(:,:)
+      integer, allocatable, intent(out) :: indices(:)
+      integer, intent(out) :: nrays
 
       real    :: theta, dist, phi, cosphi, sinphi
       real, dimension(:,:), allocatable  :: circ
       integer :: i, j, minNsides, minNrays, ind,n, maxOrder, max, distr(12*4**(minOrder+refineLevel))
       integer, dimension(:,:), allocatable  :: distrs
 
+      maxOrder = minOrder+refineLevel
+      nrays = 12*4**(maxOrder)!int(12*4**minOrder*(-1+2**(refineLevel) + 2**(refineLevel+1))/2)!
+      allocate(rays(3, nrays))
+      allocate(indices(12*4**(maxOrder)))
       rays = 0.
       indices = 0
 
@@ -139,7 +139,6 @@ module raytracer
       endif
 
       !Fill a list to have the number distribution in angular space
-      maxOrder = minOrder+refineLevel
       distr = 0
       !$omp parallel do private(ind)
       do i = 1, npart 
@@ -152,7 +151,6 @@ module raytracer
       dist = norm2(primary-companion)
       theta = asin(R/dist)
       phi = atan2(companion(2)-primary(2),companion(1)-primary(1))
-      phi = 0.76! TODO: FIX
       cosphi = cos(phi)
       sinphi = sin(phi)
       dist = dist*cos(theta)
@@ -166,7 +164,7 @@ module raytracer
       enddo
       do i=1, n !Make sure the boundary is maximally refined
          call vec2pix_nest(minNsides,circ(i,:),ind)
-         distr(ind) = max
+         distr(ind+1) = max
       enddo
 
       !Calculate the number distribution in all the orders needed
@@ -184,13 +182,15 @@ module raytracer
       ind=1
       do i=0, refineLevel-1
          call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
-         do j=1, 6*4**minOrder*2**(i)
+         j=1
+         do while (distrs(distr(j),refineLevel-i+1)<npart/(12*4**(minOrder+i)))
             call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
             indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
             ind=ind+1
             distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+            j=j+1
          enddo
-         do j = j+1, 12*4**(minOrder+i)
+         do j = j, 12*4**(minOrder+i)
             if (distrs(distr(j),refineLevel-i+1) == max) then
                distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
             endif
@@ -203,6 +203,7 @@ module raytracer
             ind=ind+1
          endif
       enddo
+      nrays = ind-1
    end subroutine get_rays
 
    !--------------------------------------------------------------------------
@@ -318,7 +319,7 @@ module raytracer
       
       integer  :: i, nrays, nsides, index
       real     :: vec(3)
-      real     :: dist, dir(3)
+      real     :: dir(3)
       real, dimension(:,:), allocatable  :: dirs, listsOfDists, listsOfTaus
       real, dimension(:), allocatable    :: tau, dists
       nrays = 12*4**order
@@ -330,7 +331,7 @@ module raytracer
       allocate(tau(size(listsOfDists(:,1))))
       allocate(dists(size(listsOfDists(:,1))))
      
-      !$omp parallel do private(dir,tau,dists,dist)
+      !$omp parallel do private(dir,tau,dists)
       do i = 1, nrays
          tau=0.
          dists=0.
@@ -348,7 +349,7 @@ module raytracer
          vec = xyzh(1:3,i)-primary
          call vec2pix_nest(nsides, vec, index)
          index = index + 1
-         call get_tau_outwards(dot_product(vec, dirs(:,index)), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
+         call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
       enddo
       !$omp end parallel do
    end subroutine get_all_tau_outwards_single
@@ -424,7 +425,7 @@ module raytracer
          vec = (/cosphi*vec(1) + sinphi*vec(2),-sinphi*vec(1) + cosphi*vec(2), vec(3)/)
          call vec2pix_nest(nsides, vec, index)
          index = index + 1
-         call get_tau_outwards(dot_product(vec, dirs(:,index)), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
+         call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
       enddo
       !$omp end parallel do
    end subroutine get_all_tau_outwards_companion

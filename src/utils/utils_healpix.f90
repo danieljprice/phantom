@@ -144,7 +144,42 @@ module healpix
  INTEGER(KIND=i4b), private, PARAMETER :: ns_max4=8192     ! 2^13
  integer(KIND=i4b), private, save, dimension(0:127) :: x2pix1=-1,y2pix1=-1
  integer(KIND=i4b), private, save, dimension(0:1023) :: pix2x=-1, pix2y=-1
+ integer(i4b), parameter :: oddbits=89478485   ! 2^0 + 2^2 + 2^4+..+2^26
+ integer(i4b), parameter :: evenbits=178956970 ! 2^1 + 2^3 + 2^4+..+2^27
+ INTEGER(KIND=i4b), private, PARAMETER :: ns_max=268435456! 2^28
 contains
+
+!! Returns i with even and odd bit positions interchanged.
+function swapLSBMSB(i)
+   integer(i4b) :: swapLSBMSB
+   integer(i4b), intent(in) :: i
+ 
+   swapLSBMSB = IAND(i,evenbits)/2 + IAND(i,oddbits)*2
+ end function swapLSBMSB
+ 
+ !! Returns NOT(i) with even and odd bit positions interchanged.
+ function invswapLSBMSB(i)
+   integer(i4b) :: invswapLSBMSB
+   integer(i4b), intent(in) :: i
+ 
+   invswapLSBMSB = NOT(swapLSBMSB(i))
+ end function invswapLSBMSB
+ 
+ !! Returns i with odd (1,3,5,...) bits inverted.
+ function invLSB(i)
+   integer(i4b) :: invLSB
+   integer(i4b), intent(in) :: i
+ 
+   invLSB = IEOR(i,oddbits)
+ end function invLSB
+ 
+ !! Returns i with even (0,2,4,...) bits inverted.
+ function invMSB(i)
+   integer(i4b) :: invMSB
+   integer(i4b), intent(in) :: i
+ 
+   invMSB = IEOR(i,evenbits)
+ end function invMSB
  
 !=======================================================================
 !     vec2pix_nest
@@ -644,31 +679,546 @@ subroutine mk_pix2xy()
       print *,'program exits with exit code ', code
       call exit (code)
     end subroutine exit_with_status
+    !====================================================================
+! The following is a routine which finds the 7 or 8 neighbours of
+! any pixel in the nested scheme of the HEALPIX pixelisation.
+!====================================================================
+!  neighbours_nest
+!
+!   Returns list n(8) of neighbours of pixel ipix (in NESTED scheme)
+!   the neighbours are ordered in the following way:
+!   First pixel is the one to the south (the one west of the south
+! direction is taken
+! for the pixels which don't have a southern neighbour). From
+! then on the neighbours are ordered in the clockwise direction
+! about the pixel with number ipix.
+!
+!   nneigh is the number of neighbours (mostly 8, 8 pixels have 7 neighbours)
+!
+!   Benjamin D. Wandelt October 1997
+!   Added to pix_tools in March 1999
+!   added 'return' for case nside=1, EH, Oct 2005
+!   corrected bugs in case nside=1 and ipix=7, 9 or 11, EH, June 2006
+!   2009-06-16: deals with Nside > 8192
+!====================================================================
+subroutine neighbours_nest(nside, ipix, n, nneigh)
+!   use bit_manipulation
+  integer(kind=i4b), parameter  ::   MKD = I4B
+  !====================================================================
+  integer(kind=i4b), intent(in)::  nside
+  integer(kind=MKD), intent(in)::  ipix
+  integer(kind=MKD), intent(out), dimension(1:):: n
+  integer(kind=i4b), intent(out):: nneigh
+
+  integer(kind=i4b) :: ix,ixm,ixp,iy,iym,iyp,ixo,iyo
+  integer(kind=i4b) :: face_num,other_face
+  integer(kind=i4b) :: ia,ib,ibp,ibm,ib2,icase
+  integer(kind=MKD) :: npix,ipf,ipo
+  integer(kind=MKD) :: local_magic1,local_magic2,nsidesq
+  character(len=*), parameter :: code = "neighbours_nest"
+
+!     integer(kind=i4b), intrinsic :: IAND
+
+  !--------------------------------------------------------------------
+  if (nside <1 .or. nside > ns_max4) call fatal_error(code//"> nside out of range")
+   npix = nside2npix(nside) ! total number of points
+   nsidesq = npix / 12
+   if (ipix <0 .or. ipix>npix-1) call fatal_error(code//"> ipix out of range")
+
+   ! quick and dirty hack for Nside=1
+
+   if (nside == 1) then
+      nneigh = 6
+      if (ipix==0 ) n(1:6) = (/ 8, 4, 3, 2, 1, 5 /)
+      if (ipix==1 ) n(1:6) = (/ 9, 5, 0, 3, 2, 6 /)
+      if (ipix==2 ) n(1:6) = (/10, 6, 1, 0, 3, 7 /)
+      if (ipix==3 ) n(1:6) = (/11, 7, 2, 1, 0, 4 /)
+      if (ipix==4 ) n(1:6) = (/11, 7, 3, 0, 5, 8 /)
+      if (ipix==5 ) n(1:6) = (/ 8, 4, 0, 1, 6, 9 /)
+      if (ipix==6 ) n(1:6) = (/ 9, 5, 1, 2, 7,10 /)
+      if (ipix==7 ) n(1:6) = (/10, 6, 2, 3, 4,11 /)
+      if (ipix==8 ) n(1:6) = (/10,11, 4, 0, 5, 9 /)
+      if (ipix==9 ) n(1:6) = (/11, 8, 5, 1, 6,10 /)
+      if (ipix==10) n(1:6) = (/ 8, 9, 6, 2, 7,11 /)
+      if (ipix==11) n(1:6) = (/ 9,10, 7, 3, 4, 8 /)
+      return
+   endif
+
+   !     initiates array for (x,y)-> pixel number -> (x,y) mapping
+   if (x2pix1(127) <= 0) call mk_xy2pix1()
+
+   local_magic1=(nsidesq-1)/3
+   local_magic2=2*local_magic1
+   face_num=ipix/nsidesq
+
+   ipf=modulo(ipix,nsidesq)   !Pixel number in face
+
+   call pix2xy_nest(nside,ipf,ix,iy)
+   ixm=ix-1
+   ixp=ix+1
+   iym=iy-1
+   iyp=iy+1
+
+   nneigh=8                  !Except in special cases below
+
+   !     Exclude corners
+   if(ipf==local_magic2)     then !WestCorner
+      icase=5
+      goto 100
+   endif
+   if(ipf==(nsidesq-1)) then !NorthCorner
+      icase=6
+      goto 100
+   endif
+   if(ipf==0)           then !SouthCorner
+      icase=7
+      goto 100
+   endif
+   if(ipf==local_magic1)     then !EastCorner
+      icase=8
+      goto 100
+   endif
+
+   !     Detect edges
+   if(IAND(ipf,local_magic1)==local_magic1) then !NorthEast
+      icase=1
+      goto 100
+   endif
+   if(IAND(ipf,local_magic1)==0)      then !SouthWest
+      icase=2
+      goto 100
+   endif
+   if(IAND(ipf,local_magic2)==local_magic2) then !NorthWest
+      icase=3
+      goto 100
+   endif
+   if(IAND(ipf,local_magic2)==0)      then !SouthEast
+      icase=4
+      goto 100
+   endif
+
+   !     Inside a face
+   call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+   call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+   call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+   call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+   call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+   call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+   call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+   call xy2pix_nest(nside, ix , iym, face_num, n(8))
+   return
+
+   100 continue
+
+   ia= face_num/4            !in {0,2}
+   ib= modulo(face_num,4)       !in {0,3}
+   ibp=modulo(ib+1,4)
+   ibm=modulo(ib+4-1,4)
+   ib2=modulo(ib+2,4)
+
+   if(ia==0) then          !North Pole region
+      select case(icase)
+      case(1)              !NorthEast edge
+         other_face=0+ibp
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         ipo=modulo(swapLSBMSB(ipf),nsidesq)    !East-West flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo+1 , iyo, other_face, n(5))
+         n(6)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(7))
+      case(2)              !SouthWest edge
+         other_face=4+ib
+         ipo=modulo(invLSB(ipf),nsidesq)        !SW-NE flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(1))
+         n(2)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo+1, other_face, n(3))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+      case(3)              !NorthWest edge
+         other_face=0+ibm
+         ipo=modulo(swapLSBMSB(ipf),nsidesq)    !East-West flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(3))
+         n(4)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo+1, other_face, n(5))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+      case(4)              !SouthEast edge
+         other_face=4+ibp
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         ipo=modulo(invMSB(ipf),nsidesq) !SE-NW flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo+1, iyo, other_face, n(7))
+         n(8)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(1))
+      case(5)              !West corner
+         nneigh=7
+         other_face=4+ib
+         n(2)=other_face*nsidesq+nsidesq-1
+         n(1)=n(2)-2
+         other_face=0+ibm
+         n(3)=other_face*nsidesq+local_magic1
+         n(4)=n(3)+2
+         n(5)=ipix+1
+         n(6)=ipix-1
+         n(7)=ipix-2
+      case(6)              !North corner
+         n(1)=ipix-3
+         n(2)=ipix-1
+         n(8)=ipix-2
+         other_face=0+ibm
+         n(4)=other_face*nsidesq+nsidesq-1
+         n(3)=n(4)-2
+         other_face=0+ib2
+         n(5)=other_face*nsidesq+nsidesq-1
+         other_face=0+ibp
+         n(6)=other_face*nsidesq+nsidesq-1
+         n(7)=n(6)-1
+      case(7)              !South corner
+         other_face=8+ib
+         n(1)=other_face*nsidesq+nsidesq-1
+         other_face=4+ib
+         n(2)=other_face*nsidesq+local_magic1
+         n(3)=n(2)+2
+         n(4)=ipix+2
+         n(5)=ipix+3
+         n(6)=ipix+1
+         other_face=4+ibp
+         n(8)=other_face*nsidesq+local_magic2
+         n(7)=n(8)+1
+      case(8)              !East corner
+         nneigh=7
+         n(2)=ipix-1
+         n(3)=ipix+1
+         n(4)=ipix+2
+         other_face=0+ibp
+         n(6)=other_face*nsidesq+local_magic2
+         n(5)=n(6)+1
+         other_face=4+ibp
+         n(7)=other_face*nsidesq+nsidesq-1
+         n(1)=n(7)-1
+      end select ! north
+
+   elseif(ia==1) then      !Equatorial region
+      select case(icase)
+      case(1)              !NorthEast edge
+         other_face=0+ib
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         ipo=modulo(invLSB(ipf),nsidesq)    !NE-SW flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo , iyo+1, other_face, n(5))
+         n(6)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(7))
+      case(2)              !SouthWest edge
+         other_face=8+ibm
+         ipo=modulo(invLSB(ipf),nsidesq)        !SW-NE flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(1))
+         n(2)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo+1, other_face, n(3))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+      case(3)              !NorthWest edge
+         other_face=0+ibm
+         ipo=modulo(invMSB(ipf),nsidesq)    !NW-SE flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(3))
+         n(4)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo+1, iyo, other_face, n(5))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+      case(4)              !SouthEast edge
+         other_face=8+ib
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         ipo=modulo(invMSB(ipf),nsidesq) !SE-NW flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo+1, iyo, other_face, n(7))
+         n(8)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(1))
+      case(5)              !West corner
+         other_face=8+ibm
+         n(2)=other_face*nsidesq+nsidesq-1
+         n(1)=n(2)-2
+         other_face=4+ibm
+         n(3)=other_face*nsidesq+local_magic1
+         other_face=0+ibm
+         n(4)=other_face*nsidesq
+         n(5)=n(4)+1
+         n(6)=ipix+1
+         n(7)=ipix-1
+         n(8)=ipix-2
+      case(6)              !North corner
+         nneigh=7
+         n(1)=ipix-3
+         n(2)=ipix-1
+         other_face=0+ibm
+         n(4)=other_face*nsidesq+local_magic1
+         n(3)=n(4)-1
+         other_face=0+ib
+         n(5)=other_face*nsidesq+local_magic2
+         n(6)=n(5)-2
+         n(7)=ipix-2
+      case(7)              !South corner
+         nneigh=7
+         other_face=8+ibm
+         n(1)=other_face*nsidesq+local_magic1
+         n(2)=n(1)+2
+         n(3)=ipix+2
+         n(4)=ipix+3
+         n(5)=ipix+1
+         other_face=8+ib
+         n(7)=other_face*nsidesq+local_magic2
+         n(6)=n(7)+1
+      case(8)              !East corner
+         other_face=8+ib
+         n(8)=other_face*nsidesq+nsidesq-1
+         n(1)=n(8)-1
+         n(2)=ipix-1
+         n(3)=ipix+1
+         n(4)=ipix+2
+         other_face=0+ib
+         n(6)=other_face*nsidesq
+         n(5)=n(6)+2
+         other_face=4+ibp
+         n(7)=other_face*nsidesq+local_magic2
+      end select ! equator
+   else                    !South Pole region
+      select case(icase)
+      case(1)              !NorthEast edge
+         other_face=4+ibp
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         ipo=modulo(invLSB(ipf),nsidesq)    !NE-SW flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo , iyo+1, other_face, n(5))
+         n(6)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(7))
+      case(2)              !SouthWest edge
+         other_face=8+ibm
+         ipo=modulo(swapLSBMSB(ipf),nsidesq)        !W-E flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(1))
+         n(2)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo+1, iyo, other_face, n(3))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+      case(3)              !NorthWest edge
+         other_face=4+ib
+         ipo=modulo(invMSB(ipf),nsidesq)    !NW-SE flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo-1, iyo, other_face, n(3))
+         n(4)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo+1, iyo, other_face, n(5))
+         call xy2pix_nest(nside, ixm, iym, face_num, n(1))
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ix , iym, face_num, n(8))
+         call xy2pix_nest(nside, ixp, iym, face_num, n(7))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+      case(4)              !SouthEast edge
+         other_face=8+ibp
+         call xy2pix_nest(nside, ixm, iy , face_num, n(2))
+         call xy2pix_nest(nside, ixm, iyp, face_num, n(3))
+         call xy2pix_nest(nside, ix , iyp, face_num, n(4))
+         call xy2pix_nest(nside, ixp, iyp, face_num, n(5))
+         call xy2pix_nest(nside, ixp, iy , face_num, n(6))
+         ipo=modulo(swapLSBMSB(ipf),nsidesq) !E-W flip
+         call pix2xy_nest(nside,ipo,ixo,iyo)
+         call xy2pix_nest(nside, ixo, iyo+1, other_face, n(7))
+         n(8)=other_face*nsidesq+ipo
+         call xy2pix_nest(nside, ixo, iyo-1, other_face, n(1))
+      case(5)              !West corner
+         nneigh=7
+         other_face=8+ibm
+         n(2)=other_face*nsidesq+local_magic1
+         n(1)=n(2)-1
+         other_face=4+ib
+         n(3)=other_face*nsidesq
+         n(4)=n(3)+1
+         n(5)=ipix+1
+         n(6)=ipix-1
+         n(7)=ipix-2
+      case(6)              !North corner
+         n(1)=ipix-3
+         n(2)=ipix-1
+         other_face=4+ib
+         n(4)=other_face*nsidesq+local_magic1
+         n(3)=n(4)-1
+         other_face=0+ib
+         n(5)=other_face*nsidesq
+         other_face=4+ibp
+         n(6)=other_face*nsidesq+local_magic2
+         n(7)=n(6)-2
+         n(8)=ipix-2
+      case(7)              !South corner
+         other_face=8+ib2
+         n(1)=other_face*nsidesq
+         other_face=8+ibm
+         n(2)=other_face*nsidesq
+         n(3)=n(2)+1
+         n(4)=ipix+2
+         n(5)=ipix+3
+         n(6)=ipix+1
+         other_face=8+ibp
+         n(8)=other_face*nsidesq
+         n(7)=n(8)+2
+      case(8)              !East corner
+         nneigh=7
+         other_face=8+ibp
+         n(7)=other_face*nsidesq+local_magic2
+         n(1)=n(7)-2
+         n(2)=ipix-1
+         n(3)=ipix+1
+         n(4)=ipix+2
+         other_face=4+ibp
+         n(6)=other_face*nsidesq
+         n(5)=n(6)+2
+      end select ! south
+   endif
+
+   return
+end subroutine neighbours_nest
 
 
+!=======================================================================
+!  pix2xy_nest
+!     gives the x, y coords in a face from pixel number within the face (NESTED)
+!
+!     Benjamin D. Wandelt 13/10/97
+!
+!     using code from HEALPIX toolkit by K.Gorski and E. Hivon
+!     2009-06-15: deals with Nside > 8192
+!     2012-03-02: test validity of ipf_in instead of undefined ipf
+!                 define ipf as MKD
+!     2012-08-27:  corrected bug on (ix,iy) for Nside > 8192 (MARK)
+!=======================================================================
+  subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
+    integer(kind=i4b), parameter  ::   MKD = I4B
+    INTEGER(KIND=I4B), INTENT(IN)  :: nside
+    INTEGER(KIND=MKD), INTENT(IN)  :: ipf_in
+    INTEGER(KIND=I4B), INTENT(OUT) :: ix, iy
 
-   subroutine vec2pix_nest_2d(nrays, vector, ipix)
-      integer(i4b), parameter :: MKD = I4B
-      INTEGER(KIND=I4B), INTENT(IN)                :: nrays
-      REAL,              INTENT(IN), dimension(1:) :: vector
-      INTEGER(KIND=MKD), INTENT(OUT)               :: ipix
+    integer(kind=MKD) :: ipf
+    INTEGER(KIND=I4B) ::  ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
+    character(len=*), parameter :: code = "pix2xy_nest"
 
-      real :: zero(2) = (/1.,0./)
-      real :: temp
-      
-      temp = (sign(1., vector(2))*acos(dot_product(vector/norm2(vector), zero))+PI*(1-sign(1., vector(2))))/(TWOPI/nrays)+0.5
-      ipix = modulo(int(temp),nrays)
-   end subroutine vec2pix_nest_2d
+    !-----------------------------------------------------------------------
+    if (nside<1 .or. nside>ns_max) call fatal_error(code//"> nside out of range")
+    if (ipf_in<0 .or. ipf_in>nside*nside-1) &
+         &     call fatal_error(code//"> ipix out of range")
+    if (pix2x(1023) <= 0) call mk_pix2xy()
 
-   subroutine pix2vec_nest_2d(nrays, ipix, vector)
-      integer(i4b), parameter :: MKD = I4B
-      INTEGER(KIND=I4B), INTENT(IN)                 :: nrays
-      INTEGER(KIND=MKD), INTENT(IN)                 :: ipix
-      REAL,              INTENT(OUT), dimension(1:) :: vector
+    ipf = ipf_in
+    if (nside <= ns_max4) then
+       ip_low = iand(ipf,1023_MKD)   ! content of the last 10 bits
+       ip_trunc =    ipf/1024        ! truncation of the last 10 bits
+       ip_med = iand(ip_trunc,1023)  ! content of the next 10 bits
+       ip_hi  =      ip_trunc/1024   ! content of the high weight 10 bits
 
-      real :: theta
+       ix = 1024*pix2x(ip_hi) + 32*pix2x(ip_med) + pix2x(ip_low)
+       iy = 1024*pix2y(ip_hi) + 32*pix2y(ip_med) + pix2y(ip_low)
+    else
+       ix = 0
+       iy = 0
+       scale = 1
+       ismax = 4
+       do i=0, ismax
+          ip_low = iand(ipf,1023_MKD)
+          ix = ix + scale * pix2x(ip_low)
+          iy = iy + scale * pix2y(ip_low) ! corrected 2012-08-27
+          scale = scale * 32
+          ipf   = ipf/1024
+       enddo
+       ix = ix + scale * pix2x(ipf)
+       iy = iy + scale * pix2y(ipf) ! corrected 2012-08-27
+    endif
 
-      theta = TWOPI/nrays*ipix
-      vector = (/cos(theta), sin(theta)/)
-   end subroutine pix2vec_nest_2d
+    return
+
+  end subroutine pix2xy_nest
+
+!  =======================================================================
+!     gives the pixel number ipix (NESTED)
+!     corresponding to ix, iy and face_num
+!
+!     Benjamin D. Wandelt 13/10/97
+!     using code from HEALPIX toolkit by K.Gorski and E. Hivon
+!     2009-06-15: deals with Nside > 8192
+!     2012-03-02: test validity of ix_in and iy_in instead of undefined ix and iy
+!=======================================================================
+  subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
+    integer(kind=i4b), parameter  ::   MKD = I4B
+    !=======================================================================
+    INTEGER(KIND=I4B), INTENT(IN) ::  nside, ix_in, iy_in, face_num
+    INTEGER(KIND=MKD), INTENT(OUT) :: ipix
+    INTEGER(KIND=I4B) ::  ix, iy, ix_low, iy_low, i, ismax
+    integer(kind=MKD) :: ipf, scale, scale_factor
+    character(len=*), parameter :: code = "xy2pix_nest"
+
+    !-----------------------------------------------------------------------
+    if (nside<1 .or. nside>ns_max) call fatal_error(code//"> nside out of range")
+    if (ix_in<0 .or. ix_in>(nside-1)) call fatal_error(code//"> ix out of range")
+    if (iy_in<0 .or. iy_in>(nside-1)) call fatal_error(code//"> iy out of range")
+    if (x2pix1(127) <= 0) call mk_xy2pix1()
+
+    ix = ix_in
+    iy = iy_in
+    if (nside <= ns_max4) then 
+       ix_low = iand(ix, 127)
+       iy_low = iand(iy, 127)
+       ipf =     x2pix1(ix_low) + y2pix1(iy_low) &
+            & + (x2pix1(ix/128) + y2pix1(iy/128)) * 16384
+    else
+       scale = 1_MKD
+       scale_factor = 16384_MKD ! 128*128
+       ipf = 0_MKD
+       ismax = 1 ! for nside in [2^14, 2^20]
+       if (nside >  1048576 ) ismax = 3
+       do i=0, ismax
+          ix_low = iand(ix, 127) ! last 7 bits
+          iy_low = iand(iy, 127) ! last 7 bits
+          ipf = ipf + (x2pix1(ix_low)+y2pix1(iy_low)) * scale
+          scale = scale * scale_factor
+          ix  =     ix / 128 ! truncate out last 7 bits
+          iy  =     iy / 128
+       enddo
+       ipf =  ipf + (x2pix1(ix)+y2pix1(iy)) * scale
+    endif
+    ipix = ipf + face_num* int(nside,MKD) * nside    ! in {0, 12*nside**2 - 1}
+    return
+  end subroutine xy2pix_nest
 end module healpix
