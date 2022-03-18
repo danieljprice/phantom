@@ -251,8 +251,8 @@ The eight pre-defined data types are, in order:
   iv) 4-byte integer (integer*4)
   v) 8-byte integer (integer*8)
   vi) default real
-  v) 4-byte real (real*4)
-  vi) 8-byte real (real*8)
+  vii) 4-byte real (real*4)
+  viii) 8-byte real (real*8)
 
 The 'default integer' and 'default real' are floating precision types
 which can be 4-byte or 8-byte. Their type is determined by reading the
@@ -271,6 +271,7 @@ The global header is a simple loop over the 8 predefined data types, where for e
  end loop
 
 where:
+
 - 'nvars' is a 4-byte integer
 - tags is an array of strings, each tag is 16 characters in length
 - vals is an array of variables of the specified type
