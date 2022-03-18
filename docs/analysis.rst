@@ -55,7 +55,7 @@ other formats, and it is simple to write your own.
 
 The data format
 ~~~~~~~~~~~~~~~
-A fuller description of the data format can be found :doc:`here <the-phantom-native-binary-format>`.
+A fuller description of the data format can be found :doc:`here <dumpfile>`.
 
 Global quantities
 ~~~~~~~~~~~~~~~~~
