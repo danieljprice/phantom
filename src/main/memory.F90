@@ -50,7 +50,7 @@ subroutine allocate_memory(ntot, part_only)
     part_only_ = .false.
  endif
 
- n = min(nprocs,8) * ntot / nprocs
+ n = int(min(nprocs,8) * ntot / nprocs)
 
  if (nbytes_allocated > 0.0 .and. n <= maxp) then
     !
@@ -65,7 +65,6 @@ subroutine allocate_memory(ntot, part_only)
     ! skip remaining memory allocation (arrays already big enough)
     return
  endif
- call update_max_sizes(n)
 
  if (nprocs == 1) then
     write(iprint, *)
@@ -80,9 +79,9 @@ subroutine allocate_memory(ntot, part_only)
     call warning('memory', 'Attempting to allocate memory, but memory is already allocated. &
     & Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
-    call update_max_sizes(n)
  endif
 
+ call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
     call allocate_linklist
