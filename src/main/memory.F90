@@ -50,7 +50,7 @@ subroutine allocate_memory(ntot, part_only)
     part_only_ = .false.
  endif
 
- n = int(min(nprocs,8) * ntot / nprocs)
+ n = int(min(nprocs,4) * ntot / nprocs)
 
  if (nbytes_allocated > 0.0 .and. n <= maxp) then
     !
