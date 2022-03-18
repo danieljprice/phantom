@@ -292,21 +292,21 @@ subroutine print_timer(lu,itimer,time_total)
  ! Print timings
  if (timers(itimer)%wall > epsilon(0._4)) then
     if (time_total > 7200.0) then
-       write(lu,"(f7.2,'h   ',f7.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
+       write(lu,"('  ',f7.2,'h   ',f8.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/3600.,&
             timers(itimer)%cpu/3600.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
             timers(itimer)%efficiency*100.,&
             timers(itimer)%wall/time_total*100.
     elseif (time_total > 120.0) then
-       write(lu,"(f7.2,'min ',f7.2,'min  ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
+       write(lu,"(f7.2,'min ',f8.2,'min    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/60.,&
             timers(itimer)%cpu/60.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
             timers(itimer)%efficiency*100.,&
             timers(itimer)%wall/time_total*100.
     else
-       write(lu,"(f7.2,'s   ',f7.2,'s    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
+       write(lu,"('  ',f7.2,'s   ',f8.2,'s    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall,&
             timers(itimer)%cpu,&
             timers(itimer)%cpu/timers(itimer)%wall,&
