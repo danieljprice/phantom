@@ -31,7 +31,7 @@ module dust_formation
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_Eddington_factor,calc_muGamma,init_muGamma
+      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation
 !
 !--runtime settings for this module
 !
@@ -87,6 +87,26 @@ module dust_formation
  real, public, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
 contains
+
+subroutine init_nucleation
+ use dim ,  only:inucleation
+ use part,  only:npart,nucleation,n_nucleation
+ use eos,   only:gamma,gmw
+ integer :: i
+ real :: JKmuS(n_nucleation)
+
+ call set_abundances
+
+ !initialize nucleation array
+ gamma = 5./3.
+ JKmuS = 0.
+ jKmuS(idmu)    = gmw
+ jKmuS(idgamma) = gamma
+ do i=1,npart
+    nucleation(:,i) = JKmuS(:)
+ enddo
+
+end subroutine init_nucleation
 
 subroutine set_abundances
 ! all quantities in cgs

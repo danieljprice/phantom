@@ -118,7 +118,7 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -191,6 +191,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef BINPOS
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
+#endif
+#ifdef DUST_NUCLEATION
+ use dust_formation,   only:init_nucleation
 #endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
@@ -526,11 +529,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
  endif
+#if defined(DUST_NUCLEATION) && !defined(INJECT_PARTICLES)
+ if (do_nucleation) call init_nucleation
+#endif
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
 #ifdef INJECT_PARTICLES
- call init_inject(ierr)
+call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  !rename wind profile filename
  inquire(file='wind_profile1D.dat',exist=iexist)
