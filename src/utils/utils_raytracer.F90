@@ -8,7 +8,6 @@ module raytracer
    !*********************************************************************!
    !***************************   ADAPTIVE   ****************************!
    !*********************************************************************!
-  
 
    !--------------------------------------------------------------------------
    !+
@@ -76,6 +75,7 @@ module raytracer
          taus = 0.
          !$omp parallel do private(index,vec)
          do i = 1, size(taus(:))
+            vec = xyzh(1:3,i)-primary
             call vec2pix_nest(nsides, vec, index)
             index = indices(index + 1)
             call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
@@ -163,7 +163,7 @@ module raytracer
          circ(i,:) = (/cosphi*circ(i,1) - sinphi*circ(i,2),sinphi*circ(i,1) + cosphi*circ(i,2), circ(i,3)/)
       enddo
       do i=1, n !Make sure the boundary is maximally refined
-         call vec2pix_nest(minNsides,circ(i,:),ind)
+         call vec2pix_nest(2**maxOrder,circ(i,:),ind)
          distr(ind+1) = max
       enddo
 
