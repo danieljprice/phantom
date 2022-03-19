@@ -33,45 +33,16 @@
 ! once without DOI8B, and once with DOI8B
 ! in order to respectively support 4-byte and 8-byte pixel indexing
 !
-!   s pix2ang_ring
-!   s pix2vec_ring
-!   s ang2pix_ring
-!   s vec2pix_ring
-!   s pix2ang_nest
 !   s pix2vec_nest
-!   s ang2pix_nest
 !   s vec2pix_nest
-!   s nest2ring
-!   s ring2nest
 !   f npix2nside
-!   s in_ring
-!   s getdisc_ring
-!   s query_disc
-!   s query_strip
-!   s query_polygon
-!   s query_triangle
 !   s xy2pix_nest
 !   s pix2xy_nest
 !   s neighbours_nest
-!   s next_in_line_nest
-!   s template_pixel_ring
-!   s same_shape_pixels_ring
-!   s template_pixel_nest
-!   s same_shape_pixels_nest
-!   s uniq2nest
-!   s nest2uniq
 !
 ! 2012-03-02: make sure that both arguments of iand and modulo 
 !      are of the same type (for XL Fortran compiler)
-!=======================================================================
-!     pix2vec_ring
 !
-!     renders vector (x,y,z) coordinates of the nominal pixel center
-!     for the pixel number ipix (RING scheme)
-!     given the map resolution parameter nside
-!     also returns the (x,y,z) position of the 4 pixel vertices (=corners)
-!     in the order N,W,S,E
-!=======================================================================
 module healpix
    implicit none
    ! This module sets the types used in the Fortran 90 modules (healpix_types.f90)
@@ -288,6 +259,7 @@ subroutine vec2pix_nest  (nside, vector, ipix)
 
   return
 end subroutine vec2pix_nest
+
 !=======================================================================
 !     pix2vec_nest
 !
@@ -658,28 +630,27 @@ subroutine mk_pix2xy()
    return
  end subroutine mk_xy2pix1
 
-  subroutine fatal_error (msg)
-    character(len=*), intent(in), optional :: msg
+subroutine fatal_error (msg)
+   character(len=*), intent(in), optional :: msg
 
-    if (present(msg)) then
-       print *,'Fatal error: ', trim(msg)
-    else
-       print *,'Fatal error'
-    endif
-    call exit_with_status(1)
-  end subroutine fatal_error
+   if (present(msg)) then
+      print *,'Fatal error: ', trim(msg)
+   else
+      print *,'Fatal error'
+   endif
+   call exit_with_status(1)
+end subroutine fatal_error
 
-      ! ===========================================================
-    subroutine exit_with_status (code, msg)
-      ! ===========================================================
-      integer(i4b), intent(in) :: code
-      character (len=*), intent(in), optional :: msg
-      ! ===========================================================
-      if (present(msg)) print *,trim(msg)
-      print *,'program exits with exit code ', code
-      call exit (code)
-    end subroutine exit_with_status
-    !====================================================================
+! ===========================================================
+subroutine exit_with_status (code, msg)
+integer(i4b), intent(in) :: code
+character (len=*), intent(in), optional :: msg
+if (present(msg)) print *,trim(msg)
+print *,'program exits with exit code ', code
+call exit (code)
+end subroutine exit_with_status
+
+!====================================================================
 ! The following is a routine which finds the 7 or 8 neighbours of
 ! any pixel in the nested scheme of the HEALPIX pixelisation.
 !====================================================================
