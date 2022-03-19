@@ -262,7 +262,65 @@ module raytracer
       end do
 
       return
-  end subroutine 
+  end subroutine merge_argsort
+  
+  !--------------------------------------------------------------------------
+  !+
+  !  Routine that returns the arguments of the sorted array
+  !  Source: https://github.com/Astrokiwi/simple_fortran_argsort/blob/master/sort_test.f90
+  !+
+  !--------------------------------------------------------------------------
+  subroutine merge_argsort2(r,d)
+     real, intent(in), dimension(:) :: r
+     integer, intent(out), dimension(size(r)) :: d
+   
+     integer, dimension(size(r)) :: il
+
+     integer :: stepsize
+     integer :: i,j,n,left,k,ksize
+   
+     n = size(r)
+   
+     do i=1,n
+         d(i)=i
+     end do
+   
+     if ( n==1 ) return
+   
+     stepsize = 1
+     do while (stepsize<n)
+         do left=1,n-stepsize,stepsize*2
+             i = left
+             j = left+stepsize
+             ksize = min(stepsize*2,n-left+1)
+             k=1
+       
+             do while ( i<left+stepsize .and. j<left+ksize )
+                 if ( r(d(i))<r(d(j)) ) then
+                     il(k)=d(i)
+                     i=i+1
+                     k=k+1
+                 else
+                     il(k)=d(j)
+                     j=j+1
+                     k=k+1
+                 endif
+             enddo
+       
+             if ( i<left+stepsize ) then
+                 ! fill up remaining from left
+                 il(k:ksize) = d(i:left+stepsize-1)
+             else
+                 ! fill up remaining from right
+                 il(k:ksize) = d(j:left+ksize-1)
+             endif
+             d(left:left+ksize-1) = il(1:ksize)
+         end do
+         stepsize=stepsize*2
+     end do
+
+     return
+ end subroutine merge_argsort2
 
    !*********************************************************************!
    !***************************   OUTWARDS   ****************************!
@@ -317,8 +375,7 @@ module raytracer
       real, intent(in)    :: primary(3), opacities(:), Rstar, xyzh(:,:)
       real, intent(out)   :: taus(:)
       
-      integer  :: i, nrays, nsides, index
-      real     :: vec(3)
+      integer  :: i, nrays, nsides
       real     :: dir(3)
       real, dimension(:,:), allocatable  :: dirs, listsOfDists, listsOfTaus
       real, dimension(:), allocatable    :: tau, dists
@@ -344,12 +401,10 @@ module raytracer
       !$omp end parallel do
 
       taus = 0.
-      !$omp parallel do private(index,vec)
+      !$omp parallel do private(dir)
       do i = 1, size(taus)
-         vec = xyzh(1:3,i)-primary
-         call vec2pix_nest(nsides, vec, index)
-         index = index + 1
-         call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
+         dir = xyzh(1:3,i)-primary
+         call ray_polation(nsides, dir, listsOfTaus, listsOfDists, taus(i))
       enddo
       !$omp end parallel do
    end subroutine get_all_tau_outwards_single
@@ -375,8 +430,8 @@ module raytracer
       real, intent(in)    :: primary(3), companion(3), opacities(:), Rstar, xyzh(:,:), R
       real, intent(out)   :: taus(:)
       
-      integer  :: i, nrays, nsides, index
-      real     :: normCompanion = 0., theta0 = 0., unitCompanion(3) = 0., vec(3)
+      integer  :: i, nrays, nsides
+      real     :: normCompanion = 0., theta0 = 0., unitCompanion(3) = 0.
       real     :: theta, root, dist, dir(3), phi = 0., cosphi = 0., sinphi = 0.
       real, dimension(:,:), allocatable  :: dirs
       real, dimension(:,:), allocatable  :: listsOfDists, listsOfTaus
@@ -419,16 +474,85 @@ module raytracer
       !$omp end parallel do
 
       taus = 0.
-      !$omp parallel do private(index,vec,dir)
+      !!$omp parallel do private(dir)
       do i = 1, size(taus)
-         vec = xyzh(1:3,i)-primary
-         vec = (/cosphi*vec(1) + sinphi*vec(2),-sinphi*vec(1) + cosphi*vec(2), vec(3)/)
+         dir = xyzh(1:3,i)-primary
+         dir = (/cosphi*dir(1) + sinphi*dir(2),-sinphi*dir(1) + cosphi*dir(2), dir(3)/)
+         call ray_polation(nsides, dir, listsOfTaus, listsOfDists, taus(i))
+      enddo
+      !!$omp end parallel do
+   end subroutine get_all_tau_outwards_companion
+
+   !--------------------------------------------------------------------------
+   !+
+   !  Calculate the optical depth of a particle with a distance on the ray
+   !+
+   !  IN: dist:            The distance of a point on the ray
+   !  IN: listOfTaus:      The distribution of optical depths throughout the ray
+   !  IN: listOfDists:     The distribution of distances throughout the ray
+   !+
+   !  OUT: tau:            The list of optical depths for the particle
+   !+
+   !--------------------------------------------------------------------------
+   subroutine ray_polation(nsides, vec, listsOfTaus, listsOfDists, tau)
+      integer, intent(in) :: nsides
+      real, intent(in)    :: vec(:), listsOfDists(:,:), listsOfTaus(:,:)
+      real, intent(out)   :: tau
+   
+      integer :: index, n(9), nneigh, i, nmin(9), raypolation = 1
+      real    :: tautemp, vectemp(3), tempdist2, suminvdist2, tempdist(9)
+      
+      if (raypolation==0) then
          call vec2pix_nest(nsides, vec, index)
          index = index + 1
-         call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), taus(i))
-      enddo
-      !$omp end parallel do
-   end subroutine get_all_tau_outwards_companion
+         call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), tau)
+      else if (raypolation==1) then
+         call vec2pix_nest(nsides, vec, index)
+         call neighbours_nest(nsides, index, n, nneigh)
+         do i=1,nneigh
+            call pix2vec_nest(nsides, n(i), vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist(i) = norm2(vectemp)
+         enddo
+         call merge_argsort2(tempdist, nmin)
+         do i=1,3
+            nmin(i) = n(nmin(i))
+         enddo
+         n = nmin
+         nneigh = 4
+         n(nneigh) = index
+         n = n+1
+         suminvdist2 = 0.
+         tau = 0
+         do i=1,nneigh
+            call get_tau_outwards(norm2(vec), listsOfTaus(:,n(i)), listsOfDists(:,n(i)), tautemp)
+            call pix2vec_nest(nsides, n(i)-1, vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist2 = dot_product(vectemp,vectemp)
+            tau = tau + tautemp/tempdist2
+            suminvdist2 = suminvdist2 + 1./tempdist2
+         enddo
+         tau = tau / suminvdist2
+      else if (raypolation==2) then
+         call vec2pix_nest(nsides, vec, index)
+         call neighbours_nest(nsides, index, n, nneigh)
+         nneigh = nneigh + 1
+         n(nneigh) = index
+         n = n+1
+         suminvdist2 = 0.
+         tau = 0
+         do i=1,nneigh
+            call get_tau_outwards(norm2(vec), listsOfTaus(:,n(i)), listsOfDists(:,n(i)), tautemp)
+            call pix2vec_nest(nsides, n(i)-1, vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist2 = dot_product(vectemp,vectemp)
+            tau = tau + tautemp/tempdist2
+            suminvdist2 = suminvdist2 + 1./tempdist2
+         enddo
+         tau = tau / suminvdist2
+      endif
+   end subroutine ray_polation
+   
     
    !--------------------------------------------------------------------------
    !+
