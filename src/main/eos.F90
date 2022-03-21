@@ -36,9 +36,9 @@ module eos
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, eos_barotropic, eos_gasradrec, eos_helmholtz,
-!   eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen, infile_utils, io,
-!   mesa_microphysics, options, part, physcon, units
+! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+!   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
+!   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  integer, parameter, public :: maxeos = 20
@@ -84,9 +84,9 @@ module eos
 !
 ! 2D temperature structure fit parameters for HD 163296
 !
-real, public :: z0      = 1.
-real, public :: alpha_z = 3.01
-real, public :: beta_z  = 0.42
+ real, public :: z0      = 1.
+ real, public :: alpha_z = 3.01
+ real, public :: beta_z  = 0.42
 
 
 contains
@@ -1160,9 +1160,9 @@ subroutine write_headeropts_eos(ieos,hdr,ierr)
  call add_to_rheader(qfacdisc2,'qfacdisc2',hdr,ierr)
 
  if (ieos==7) then
-   call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
-   call add_to_rheader(beta_z,'beta_z',hdr,ierr)
-   call add_to_rheader(z0,'z0',hdr,ierr)
+    call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
+    call add_to_rheader(beta_z,'beta_z',hdr,ierr)
+    call add_to_rheader(z0,'z0',hdr,ierr)
 
  endif
 
@@ -1213,11 +1213,11 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
-  endif
+ endif
 
-  if (ieos==7) then
+ if (ieos==7) then
     call extract('alpha_z',alpha_z,hdr,ierr)
     call extract('beta_z', beta_z, hdr,ierr)
     call extract('z0',z0,hdr,ierr)
@@ -1225,9 +1225,9 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        write(iprint,*) 'ERROR: qfacdisc2 <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
-  endif
+ endif
 
 end subroutine read_headeropts_eos
 
