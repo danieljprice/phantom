@@ -15,14 +15,13 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dtypekdtree, io, mpi, mpidens, mpiforce, mpistack,
-!   mpiutils
+! :Dependencies: allocutils, dtypekdtree, io, mpi, mpidens, mpiforce,
+!   mpimemory, mpiutils
 !
 #ifdef MPI
  use mpi
 #endif
  use io,             only:id,nprocs
- use dim,            only:maxprocs
  use mpiutils,       only:mpierr,status,comm_cellexchange,comm_cellcount
  use dtypekdtree,    only:kdnode,ndimtree
 
@@ -56,6 +55,9 @@ module mpiderivs
   module procedure reduce_group_real, reduce_group_int
  end interface reduce_group
 
+ public :: allocate_comms_arrays
+ public :: deallocate_comms_arrays
+
  public :: init_cell_exchange
  public :: send_cell
  public :: recv_cells
@@ -67,7 +69,6 @@ module mpiderivs
 
  public :: tree_sync
  public :: tree_bcast
- public :: init_tree_comms
  public :: finish_tree_comms
  public :: reset_cell_counters
 
@@ -80,17 +81,38 @@ module mpiderivs
  integer :: dtype_cellforce
 
  integer :: globallevel
- integer :: comm_cofm(maxprocs)  ! only comms up to globallevel are used
- integer :: comm_owner(maxprocs) ! only comms up to globallevel are used
-
- integer :: nsent(maxprocs)     ! counter for number of cells sent to i
- integer :: nexpect(maxprocs)   ! counter for number of cells expecting from i
- integer :: nrecv(maxprocs)     ! counter for number of cells received from i
-
- integer :: countrequest(maxprocs)
 #endif
+ integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
+ integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
+
+ integer,allocatable :: nsent(:)     ! counter for number of cells sent to i
+ integer,allocatable :: nexpect(:)   ! counter for number of cells expecting from i
+ integer,allocatable :: nrecv(:)     ! counter for number of cells received from i
+
+ integer,allocatable :: countrequest(:)
 
 contains
+
+subroutine allocate_comms_arrays
+ use allocutils, only:allocate_array
+ call allocate_array('nsent',       nsent,       nprocs)
+ call allocate_array('nexpect',     nexpect,     nprocs)
+ call allocate_array('nrecv',       nrecv,       nprocs)
+ call allocate_array('countrequest',countrequest,nprocs)
+ call allocate_array('comm_cofm',   comm_cofm,   nprocs)
+ call allocate_array('comm_owner',  comm_owner,  nprocs)
+
+ call init_tree_comms
+end subroutine allocate_comms_arrays
+
+subroutine deallocate_comms_arrays
+   if (allocated(nsent       )) deallocate(nsent       )
+   if (allocated(nexpect     )) deallocate(nexpect     )
+   if (allocated(nrecv       )) deallocate(nrecv       )
+   if (allocated(countrequest)) deallocate(countrequest)
+   if (allocated(comm_cofm   )) deallocate(comm_cofm   )
+   if (allocated(comm_owner  )) deallocate(comm_owner  )
+end subroutine deallocate_comms_arrays
 
 !----------------------------------------------------------------
 !+
@@ -169,34 +191,30 @@ end subroutine init_cellforce_exchange
 !  Subroutine to broadcast particle buffer to a bunch of processors
 !+
 !-----------------------------------------------------------------------
-subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
+subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  use mpidens,  only:celldens
 
  type(celldens),     intent(in)     :: cell
- integer,            intent(in)     :: direction
+ logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(celldens),     intent(out)    :: xsendbuf
 
- logical                            :: targets(nprocs)
  integer                            :: newproc
+ integer                            :: tag
 
 #ifdef MPI
  xsendbuf = cell
-
- ! export
- if (direction == 0) then
-    targets = cell%remote_export(1:nprocs)
-    ! return
- elseif (direction == 1) then
-    targets = .false.
-    targets(cell%owner+1) = .true.
- endif
-
  irequestsend = MPI_REQUEST_NULL
+
+ if (targets(cell%owner+1)) then
+    tag = 2
+ else
+    tag = 1
+ endif
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1+direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
@@ -204,34 +222,30 @@ subroutine send_celldens(cell,direction,irequestsend,xsendbuf)
 
 end subroutine send_celldens
 
-subroutine send_cellforce(cell,direction,irequestsend,xsendbuf)
+subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  use mpiforce, only:cellforce
 
  type(cellforce),    intent(in)     :: cell
- integer,            intent(in)     :: direction
+ logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(cellforce),    intent(out)    :: xsendbuf
 
- logical                            :: targets(nprocs)
  integer                            :: newproc
+ integer                            :: tag
 
 #ifdef MPI
  xsendbuf = cell
-
- ! export
- if (direction == 0) then
-    targets = cell%remote_export(1:nprocs)
-    ! return
- elseif (direction == 1) then
-    targets = .false.
-    targets(cell%owner+1) = .true.
- endif
-
  irequestsend = MPI_REQUEST_NULL
+
+ if (targets(cell%owner+1)) then
+    tag = 2
+ else
+    tag = 1
+ endif
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1+direction,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
@@ -357,9 +371,9 @@ end subroutine recv_while_wait_force
 !+
 !------------------------------------------------
 subroutine recv_celldens(target_stack,xbuf,irequestrecv)
- use io,       only:fatal
- use mpistack, only:push_onto_stack
- use mpidens,  only:stackdens,celldens
+ use io,        only:fatal
+ use mpimemory, only:push_onto_stack
+ use mpidens,   only:stackdens,celldens
 
  type(celldens),     intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackdens),    intent(inout)  :: target_stack
@@ -380,10 +394,6 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
              target_stack%cells(iwait)%rhosums(:,k) = target_stack%cells(iwait)%rhosums(:,k) + xbuf(iproc)%rhosums(:,k)
              target_stack%cells(iwait)%nneigh(k) = target_stack%cells(iwait)%nneigh(k) + xbuf(iproc)%nneigh(k)
           enddo
-          do k = 1,nprocs
-             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) &
-                  .and. xbuf(iproc)%remote_export(k)
-          enddo
           target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
           nrecv(iproc) = nrecv(iproc) + 1
        elseif (status(MPI_TAG) == 1) then
@@ -397,9 +407,9 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
 end subroutine recv_celldens
 
 subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
- use io,       only:fatal
- use mpistack, only:push_onto_stack
- use mpiforce, only:stackforce,cellforce
+ use io,        only:fatal
+ use mpimemory, only:push_onto_stack
+ use mpiforce,  only:stackforce,cellforce
 
  type(cellforce),    intent(inout)  :: xbuf(:)  ! just need memory address
  type(stackforce),   intent(inout)  :: target_stack
@@ -430,10 +440,6 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
              target_stack%cells(iwait)%fgrav(k) = target_stack%cells(iwait)%fgrav(k) + xbuf(iproc)%fgrav(k)
           enddo
 #endif
-          do k =1,nprocs
-             target_stack%cells(iwait)%remote_export(k) = target_stack%cells(iwait)%remote_export(k) &
-               .and. xbuf(iproc)%remote_export(k)
-          enddo
           target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
           target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
