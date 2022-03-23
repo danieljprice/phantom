@@ -2743,12 +2743,14 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
  integer :: i,j
  real    :: R,z
- real    :: dust_to_gas(maxdusttypes)
+ !--this line leads to confusion with dust_to_gas in set_dust_option
+ !real    :: dust_to_gas(maxdusttypes) 
+ real    :: dusttogas_array(maxdusttypes)
  real    :: Hg,Hd
  real    :: sigma_gas
  real    :: sigma_dust
 
- dust_to_gas = 0.
+ dusttogas_array = 0.
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -2765,7 +2767,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
     do j=1,ndustsmall
        if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
-          dust_to_gas(j) = tiny(dust_to_gas(j))
+          dusttogas_array(j) = tiny(dusttogas_array(j))
        else
           Hd = get_H(H_R_dust(disc_index,j)*R_ref(disc_index),qindex_dust(disc_index,j),R/R_ref(disc_index))
           sigma_dust = sig_normdust(disc_index,j) * scaled_sigma(R,&
@@ -2775,15 +2777,18 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            R_indust(disc_index,j),&
                                            R_outdust(disc_index,j),&
                                            R_c_dust(disc_index,j))
-          dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
+          !--This line does not work and produces the wrong dust-to-gas ratio 
+          !dust_to_gas(j) =  (sigma_dust/sigma_gas) * (Hg/Hd) *
+          !exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
+          !--the following line is a workaround: all dust species have the gas
+          !vertical displacement
+          dusttogas_array(j) = dust_to_gas 
        endif
     enddo
-    dustfrac(1:ndustsmall,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(1:ndustsmall)
+    dustfrac(1:ndustsmall,i) = dusttogas_array(:)*dustbinfrac(1:ndustsmall)/(1+dust_to_gas)
 
  enddo
-
 end subroutine set_dustfrac
-
 !--------------------------------------------------------------------------
 !
 ! Scale height as a function of radius
