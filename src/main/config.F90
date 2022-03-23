@@ -53,14 +53,6 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
- ! storage of temperature
- integer :: maxtemp = 0
-#ifdef STORE_TEMPERATURE
- logical, parameter :: store_temperature = .true.
-#else
- logical, parameter :: store_temperature = .false.
-#endif
-
  integer :: maxTdust = 0
  logical :: store_dust_temperature = .false.
 #ifdef SINK_RADIATION

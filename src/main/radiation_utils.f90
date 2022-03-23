@@ -407,7 +407,7 @@ end subroutine get_opacity
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
-!   use eos,     only: get_spsound
+!   use part,    only: eos_vars,ics
 !   use options, only: ieos
 !   use physcon, only:c
 !   use units,   only:unit_velocity
@@ -442,7 +442,7 @@ end subroutine get_opacity
 !     !     radiation(ithick,i) = 0
 !     !   endif
 !     ! endif
-!     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
+!     cs = eos_vars(ics,i)
 !     r  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
 !     H  = cs*sqrt(r**3)
 !     if (abs(xyzh(3,i)) > sch*H) then

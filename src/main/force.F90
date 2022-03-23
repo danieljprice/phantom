@@ -841,7 +841,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,         only:use_dust,use_dustgrowth,store_temperature
+ use dim,         only:use_dust,use_dustgrowth
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
@@ -1271,8 +1271,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
        if (iamgasj .and. maxvxyzu >= 4) then
-          enj   = vxyzu(4,j)
-          if (store_temperature .and. eos_is_non_ideal(ieos)) then
+          enj = vxyzu(4,j)
+          if (eos_is_non_ideal(ieos)) then  ! Is this condition required, or should this be always true?
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
           else
