@@ -24,7 +24,7 @@ contains
  !
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
-subroutine allocate_memory(n, part_only)
+subroutine allocate_memory(ntot, part_only)
  use io,         only:iprint,warning,nprocs,id,master
  use dim,        only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
@@ -37,9 +37,10 @@ subroutine allocate_memory(n, part_only)
  use photoevap,  only:allocate_photoevap
 #endif
 
- integer,           intent(in) :: n
+ integer(kind=8),   intent(in) :: ntot
  logical, optional, intent(in) :: part_only
 
+ integer :: n
  logical :: part_only_
  character(len=11) :: sizestring
 
@@ -48,6 +49,9 @@ subroutine allocate_memory(n, part_only)
  else
     part_only_ = .false.
  endif
+
+ n = int(min(nprocs,4) * ntot / nprocs)
+
  if (nbytes_allocated > 0.0 .and. n <= maxp) then
     !
     ! just silently skip if arrays are already large enough
@@ -61,7 +65,6 @@ subroutine allocate_memory(n, part_only)
     ! skip remaining memory allocation (arrays already big enough)
     return
  endif
- call update_max_sizes(n)
 
  if (nprocs == 1) then
     write(iprint, *)
@@ -76,9 +79,9 @@ subroutine allocate_memory(n, part_only)
     call warning('memory', 'Attempting to allocate memory, but memory is already allocated. &
     & Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
-    call update_max_sizes(n)
  endif
 
+ call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
     call allocate_linklist

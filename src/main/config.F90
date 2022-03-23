@@ -53,14 +53,6 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
- ! storage of temperature
- integer :: maxtemp = 0
-#ifdef STORE_TEMPERATURE
- logical, parameter :: store_temperature = .true.
-#else
- logical, parameter :: store_temperature = .false.
-#endif
-
  integer :: maxTdust = 0
  logical :: store_dust_temperature = .false.
 #ifdef SINK_RADIATION
@@ -77,7 +69,8 @@ module dim
 #endif
 
 ! maxmimum storage in linklist
- integer :: ncellsmax
+ integer         :: ncellsmax
+ integer(kind=8) :: ncellsmaxglobal
 
 !------
 ! Dust
@@ -364,8 +357,9 @@ module dim
 
 contains
 
-subroutine update_max_sizes(n)
- integer, intent(in) :: n
+subroutine update_max_sizes(n,ntot)
+ integer,                   intent(in) :: n
+ integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
 
@@ -378,9 +372,15 @@ subroutine update_max_sizes(n)
 #endif
 
 #ifdef NCELLSMAX
- ncellsmax = NCELLSMAX
+ ncellsmax       = NCELLSMAX
+ ncellsmaxglobal = NCELLSMAX
 #else
  ncellsmax = 2*maxp
+ if (present(ntot)) then
+    ncellsmaxglobal = 2*ntot
+ else
+    ncellsmaxglobal = ncellsmax
+ endif
 #endif
 
 #ifdef DUST

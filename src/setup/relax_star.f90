@@ -118,7 +118,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! compute derivatives the first time around (needed if using actual step routine)
  !
  t = 0.
- call allocate_memory(2*npart)
+ call allocate_memory(int(2*npart,kind=8))
  call get_derivs_global()
  call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)

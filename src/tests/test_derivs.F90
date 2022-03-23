@@ -2352,15 +2352,16 @@ end function psi
 
 real function dpsidt(xyzhi)
  use options, only:ieos,psidecayfac
- use eos,     only:equationofstate
+ use eos,     only:get_spsound
  use part,    only:rhoh
  real, intent(in) :: xyzhi(4)
- real :: vsig,spsoundi,ponrhoi
+ real :: vsig,spsoundi,vdummy(3)
 
- call equationofstate(ieos,ponrhoi,spsoundi,rhoh(xyzhi(4),massoftype(1)),xyzhi(1),xyzhi(2),xyzhi(3))
- vsig = sqrt(valfven(xyzhi)**2 + spsoundi**2)
- dpsidt = -vsig**2*divBfunc(xyzhi) - psi(xyzhi)*psidecayfac*vsig/xyzhi(4) &
-          -0.5*psi(xyzhi)*divvfunc(xyzhi)
+ vdummy   = 0.
+ spsoundi = get_spsound(ieos,xyzhi,rhoh(xyzhi(4),massoftype(1)),vdummy)
+ vsig     = sqrt(valfven(xyzhi)**2 + spsoundi**2)
+ dpsidt   = -vsig**2*divBfunc(xyzhi) - psi(xyzhi)*psidecayfac*vsig/xyzhi(4) &
+            -0.5*psi(xyzhi)*divvfunc(xyzhi)
 
 end function dpsidt
 
