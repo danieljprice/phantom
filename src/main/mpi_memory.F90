@@ -148,6 +148,7 @@ subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
  use io,  only:nprocs,id,master
  integer, intent(in) :: npart
+ integer, parameter  :: safety = 4
 
  ! size of the stack needed for communication,
  ! should be at least the maximum number of cells that need
@@ -157,7 +158,8 @@ subroutine calculate_stacksize(npart)
 
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
-    stacksize = npart / minpart / nprocs ! assumes that every cell will be exported
+    ! assume that every cell will be exported, with some safety factor
+    stacksize = (npart / minpart / nprocs) * 4
 
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize

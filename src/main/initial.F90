@@ -135,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef GR
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
- use eos,              only:equationofstate,ieos
+ use eos,              only:ieos
  use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
