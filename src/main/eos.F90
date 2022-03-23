@@ -30,15 +30,15 @@ module eos
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - X           : *hydrogen mass fraction*
+!   - X           : *H mass fraction (ignored if variable composition)*
+!   - Z           : *metallicity (ignored if variable composition)*
 !   - ieos        : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
-!   - irecomb     : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, eos_barotropic, eos_gasradrec, eos_helmholtz,
-!   eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen, infile_utils, io,
-!   ionization_mod, mesa_microphysics, part, physcon, units
+! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+!   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
+!   infile_utils, io, mesa_microphysics, part, physcon, units
 !
  implicit none
  integer, parameter, public :: maxeos = 20
@@ -63,7 +63,7 @@ module eos
 
  integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0 ! used for radiation
- integer, public :: irecomb       = 0 ! types of recombination energy to include for ieos=20
+ logical, public :: use_var_comp = .false. ! use variable composition
  !--Mean molecular weight if temperature required
  real,    public :: gmw           = 2.381
  real,    public :: X_in = 0.74, Z_in = 0.02
@@ -84,9 +84,9 @@ module eos
 !
 ! 2D temperature structure fit parameters for HD 163296
 !
-real, public :: z0      = 1.
-real, public :: alpha_z = 3.01
-real, public :: beta_z  = 0.42
+ real, public :: z0      = 1.
+ real, public :: alpha_z = 3.01
+ real, public :: beta_z  = 0.42
 
 
 contains
@@ -496,16 +496,16 @@ end function get_temperature_from_ponrho
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos(eos_type,ierr)
- use units,    only:unit_velocity
- use physcon,  only:mass_proton_cgs,kboltz
- use io,       only:error,warning
- use eos_mesa, only:init_eos_mesa
- use eos_helmholtz, only:eos_helmholtz_init
+ use units,          only:unit_velocity
+ use physcon,        only:mass_proton_cgs,kboltz
+ use io,             only:error,warning
+ use eos_mesa,       only:init_eos_mesa
+ use eos_helmholtz,  only:eos_helmholtz_init
  use eos_piecewise,  only:init_eos_piecewise
  use eos_barotropic, only:init_eos_barotropic
- use eos_shen, only:init_eos_shen_NL3
- use dim,      only:maxvxyzu,do_radiation
- use ionization_mod, only:eion,ionization_setup
+ use eos_shen,       only:init_eos_shen_NL3
+ use eos_gasradrec,  only:init_eos_gasradrec
+ use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -571,19 +571,16 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_shen_NL3(ierr)
 
  case(20)
+
+    call init_eos_gasradrec(ierr)
+    if (.not. use_var_comp) then
+       write(*,'(a,f7.5,a,f7.5)') 'Assuming fixed composition X = ',X_in,', Z = ',Z_in
+    endif
     if (do_radiation) then
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
-    call ionization_setup
-    if (irecomb == 1) then
-       eion(1) = 0.  ! H and He recombination only (no recombination to H2)
-    elseif (irecomb == 2) then
-       eion(1:2) = 0.  ! He recombination only
-    elseif (irecomb == 3) then
-       eion(1:4) = 0.  ! No recombination energy
-    endif
-    write(*,'(1x,a,i1)') 'Initialising gas+rad+rec EoS with irecomb=',irecomb
+
  end select
  done_init_eos = .true.
 
@@ -662,6 +659,7 @@ subroutine write_options_eos(iunit)
  use eos_helmholtz,  only:eos_helmholtz_write_inopt
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
+ use eos_gasradrec,  only:write_options_eos_gasradrec
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -680,7 +678,11 @@ subroutine write_options_eos(iunit)
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
  case(20)
-    call write_inopt(irecomb,'irecomb','recombination energy to include. 0=H2+H+He, 1=H+He, 2=He',iunit)
+    call write_options_eos_gasradrec(iunit)
+    if (.not. use_var_comp) then
+       call write_inopt(X_in,'X','H mass fraction (ignored if variable composition)',iunit)
+       call write_inopt(Z_in,'Z','metallicity (ignored if variable composition)',iunit)
+    endif
  end select
 
 end subroutine write_options_eos
@@ -695,17 +697,19 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use eos_helmholtz,  only:eos_helmholtz_set_relaxflag
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
+ use eos_gasradrec,  only:read_options_eos_gasradrec
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer,          save        :: ngot  = 0
  character(len=30), parameter  :: label = 'read_options_eos'
  integer :: tmp
- logical :: igotall_barotropic,igotall_piecewise
+ logical :: igotall_barotropic,igotall_piecewise,igotall_gasradrec
 
  imatch  = .true.
  igotall_barotropic = .true.
  igotall_piecewise = .true.
+ igotall_gasradrec = .true.
 
  select case(trim(name))
  case('ieos')
@@ -724,10 +728,6 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) Z_in
     if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
     ngot = ngot + 1
- case('irecomb')
-    read(valstring,*,iostat=ierr) irecomb
-    if ((irecomb < 0) .or. (irecomb > 2)) call fatal(label,'irecomb = 0,1,2')
-    ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
     ! but it's a bit of a pain and this is easy
@@ -739,9 +739,10 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  end select
  if (.not.imatch .and. ieos==8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
  if (.not.imatch .and. ieos==9) call read_options_eos_piecewise(name,valstring,imatch,igotall_piecewise,ierr)
+ if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec(name,valstring,imatch,igotall_gasradrec,ierr)
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
- igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic
+ igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec
 
 end subroutine read_options_eos
 
@@ -847,13 +848,13 @@ end function diff
 !  prints equation of state info in the run header
 !+
 !----------------------------------------------------------------
-
 subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu,gr
  use io,             only:fatal
  use eos_helmholtz,  only:eos_helmholtz_eosinfo
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
+ use eos_gasradrec,  only:eos_info_gasradrec
  integer, intent(in) :: eos_type,iprint
  real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
 
@@ -905,6 +906,13 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Gas + radiation equation of state: gmw = ',gmw,' gamma = ',gamma
  case(15)
     call eos_helmholtz_eosinfo(iprint)
+ case(20)
+    call eos_info_gasradrec(iprint)
+    if (use_var_comp) then
+       write(*,'(1x,a,i1,a)') 'Using variable composition'
+    else
+       write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
+    endif
  end select
  write(iprint,*)
 
@@ -1152,9 +1160,9 @@ subroutine write_headeropts_eos(ieos,hdr,ierr)
  call add_to_rheader(qfacdisc2,'qfacdisc2',hdr,ierr)
 
  if (ieos==7) then
-   call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
-   call add_to_rheader(beta_z,'beta_z',hdr,ierr)
-   call add_to_rheader(z0,'z0',hdr,ierr)
+    call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
+    call add_to_rheader(beta_z,'beta_z',hdr,ierr)
+    call add_to_rheader(z0,'z0',hdr,ierr)
 
  endif
 
@@ -1205,11 +1213,11 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        write(iprint,*) 'ERROR: qfacdisc <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc = ',qfacdisc
+       if (id==master) write(iprint,*) 'qfacdisc = ',qfacdisc
     endif
-  endif
+ endif
 
-  if (ieos==7) then
+ if (ieos==7) then
     call extract('alpha_z',alpha_z,hdr,ierr)
     call extract('beta_z', beta_z, hdr,ierr)
     call extract('z0',z0,hdr,ierr)
@@ -1217,9 +1225,9 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        write(iprint,*) 'ERROR: qfacdisc2 <= 0'
        ierr = 2
     else
-       write(iprint,*) 'qfacdisc2 = ',qfacdisc2
+       if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2
     endif
-  endif
+ endif
 
 end subroutine read_headeropts_eos
 
