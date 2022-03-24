@@ -41,9 +41,9 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpistack, mpiutils, nicil, options, part, physcon,
-!   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
-!   timestep_sts, units, utils_gr, viscosity
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omp_cache, options,
+!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   timestep_ind, timestep_sts, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -56,7 +56,7 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 50000
+ integer, parameter :: maxcellcache = 10000
 
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
@@ -220,9 +220,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters
- use mpistack,     only:reserve_stack,reset_stacks
- use mpistack,     only:stack_remote  => force_stack_1
- use mpistack,     only:stack_waiting => force_stack_2
+ use mpimemory,    only:reserve_stack,reset_stacks
+ use mpimemory,    only:stack_remote  => force_stack_1
+ use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
@@ -456,7 +456,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
     cell%owner                   = id
-    cell%remote_export(1:nprocs) = remote_export
+
     do_export = any(remote_export)
 
     if (mpi) then
@@ -465,7 +465,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        if (do_export) then
           if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
+          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send to remote
        endif
        !$omp end critical (send_and_recv_remote)
     endif
@@ -522,12 +522,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                          dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                          rad,radprop,dens,metrics)
 
-       cell%remote_export(id+1) = .false.
-
+       remote_export = .false.
+       remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
        !$omp critical (send_and_recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-       call send_cell(cell,1,irequestsend,xsendbuf)
+       call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
        !$omp end critical (send_and_recv_waiting)
 
     enddo over_remote
@@ -552,10 +552,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
-
-       if (any(cell%remote_export(1:nprocs))) then
-          call fatal('force', 'not all results returned from remote processor')
-       endif
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -841,7 +837,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,         only:use_dust,use_dustgrowth,store_temperature
+ use dim,         only:use_dust,use_dustgrowth
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
@@ -1271,8 +1267,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
        if (iamgasj .and. maxvxyzu >= 4) then
-          enj   = vxyzu(4,j)
-          if (store_temperature .and. eos_is_non_ideal(ieos)) then
+          enj = vxyzu(4,j)
+          if (eos_is_non_ideal(ieos)) then  ! Is this condition required, or should this be always true?
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
           else
@@ -2998,24 +2994,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
-
-pure subroutine combine_cells(cella, cellb)
- type(cellforce),   intent(inout)        :: cella
- type(cellforce),   intent(in)           :: cellb
-
- integer                                 :: i
-
- do i = 1,cella%npcell
-    cella%fsums(:,i) = cella%fsums(:,i) + cellb%fsums(:,i)
- enddo
-
- cella%ndrag   = cella%ndrag     + cellb%ndrag
- cella%nstokes = cella%nstokes   + cellb%nstokes
- cella%nsuper  = cella%nsuper    + cellb%nsuper
-
- cella%remote_export = (cella%remote_export .and. cellb%remote_export)
-
-end subroutine combine_cells
 
 !-----------------------------------------------------------------------------
 !+
