@@ -41,9 +41,9 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omp_cache, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
-!   timestep_ind, timestep_sts, units, utils_gr, viscosity
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
+!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation

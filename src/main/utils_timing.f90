@@ -264,11 +264,11 @@ subroutine reduce_timer_mpi(itimer)
  ! where the average is taken over all tasks except for the max
  ! When every time takes the same time, efficiency = 1
  if (nprocs > 1) then
-   max = reduce_mpi('max',timers(itimer)%cpu)
-   mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
-   timers(itimer)%efficiency = mean / max
+    max = reduce_mpi('max',timers(itimer)%cpu)
+    mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
+    timers(itimer)%efficiency = mean / max
  else
-   timers(itimer)%efficiency = 1.0_4
+    timers(itimer)%efficiency = 1.0_4
  endif
 
  timers(itimer)%cpu  = cputot

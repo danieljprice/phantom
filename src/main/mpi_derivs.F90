@@ -106,12 +106,12 @@ subroutine allocate_comms_arrays
 end subroutine allocate_comms_arrays
 
 subroutine deallocate_comms_arrays
-   if (allocated(nsent       )) deallocate(nsent       )
-   if (allocated(nexpect     )) deallocate(nexpect     )
-   if (allocated(nrecv       )) deallocate(nrecv       )
-   if (allocated(countrequest)) deallocate(countrequest)
-   if (allocated(comm_cofm   )) deallocate(comm_cofm   )
-   if (allocated(comm_owner  )) deallocate(comm_owner  )
+ if (allocated(nsent       )) deallocate(nsent       )
+ if (allocated(nexpect     )) deallocate(nexpect     )
+ if (allocated(nrecv       )) deallocate(nrecv       )
+ if (allocated(countrequest)) deallocate(countrequest)
+ if (allocated(comm_cofm   )) deallocate(comm_cofm   )
+ if (allocated(comm_owner  )) deallocate(comm_owner  )
 end subroutine deallocate_comms_arrays
 
 !----------------------------------------------------------------
