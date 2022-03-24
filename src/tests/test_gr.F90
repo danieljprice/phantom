@@ -290,7 +290,7 @@ subroutine test_combinations(ntests,npass)
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
  real    :: utherm(7),density(7),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
- real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
+ real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,t,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
  integer :: i,j,k,l,m,n,ii,jj
  integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim
@@ -331,6 +331,8 @@ subroutine test_combinations(ntests,npass)
  utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
  density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
 
+ t = -1. ! initial temperature guess to avoid complier warning
+
  do i=1,size(radii)
     ri = radii(i)
     do j=1,size(theta)
@@ -370,7 +372,7 @@ subroutine test_combinations(ntests,npass)
                          u = utherm(ii)
                          do jj=1,size(density)
                             dens = density(jj)
-                            call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
+                            call equationofstate(ieos,pondens,spsound,dens,x,y,z,t,u)
                             p = pondens*dens
                             call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
                          enddo
@@ -481,7 +483,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
  real :: rho2,pmom2(1:3),en2
- real :: p2,u2,dens2,gamma2,v2(1:3)
+ real :: p2,u2,t2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
  real :: toli
@@ -491,8 +493,9 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  ! perturb the state
  dens2 = dens**2
  u2 = u**2
+ t2 = -1.
 
- call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),u2)
+ call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
  P2 = pondens2 * dens2
  v2 = v
 
