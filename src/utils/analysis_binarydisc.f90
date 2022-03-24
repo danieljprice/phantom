@@ -603,9 +603,9 @@ subroutine get_utherm(ieos,xi,yi,zi,gamma,ui,csi)
 
  real :: rhoi = 1.0 ! this is essentially a dummy variable, not needed here
 !(only needed if adiabatic, but this routine is not called in that case...)
- real :: ponrhoi
+ real :: ponrhoi,tempi
 
- call equationofstate(ieos,ponrhoi,csi,rhoi,xi,yi,zi)
+ call equationofstate(ieos,ponrhoi,csi,rhoi,xi,yi,zi,tempi)
 
  if (gamma == 1.0) then
     ui = ponrhoi
