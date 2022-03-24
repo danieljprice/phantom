@@ -15,26 +15,25 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, part, units
+! :Dependencies: eos, eos_gasradrec, io, part, units
 !
  implicit none
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use eos,           only:equationofstate,ieos,init_eos,done_init_eos,calc_temp_and_ene,&
-                         finish_eos,gmw,X_in,Z_in,gamma,eosinfo
+ use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
+                         gmw,X_in,Z_in,irecomb,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
- use part,          only:rhoh,eos_vars,itemp,igasP,igas,store_temperature
+ use part,          only:rhoh,eos_vars,itemp,igasP,igas
  use units,         only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,ierr
- real :: densi,eni,tempi,ponrhoi
- real :: dum,dum2
+ real    :: densi,eni,tempi
 
  write(iprint,"(/,a,i2)") 'Assuming input dump has ieos = ',ieos
  if (.not. done_init_eos) call init_eos(ieos,ierr)
@@ -47,8 +46,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     densi = rhoh(xyzh(4,i),massoftype(igas))
 
     ! Get pressure
-    call equationofstate(ieos,ponrhoi,dum2,densi,dum,dum,dum,vxyzu(4,i))
-    eos_vars(igasP,i) = ponrhoi * densi
+    eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
@@ -74,7 +72,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     densi = rhoh(xyzh(4,i),massoftype(igas))
     call calc_temp_and_ene(ieos,densi*unit_density,eos_vars(igasP,i)*unit_pressure,eni,tempi,ierr)
     vxyzu(4,i) = eni / unit_ergg
-    if (store_temperature) eos_vars(itemp,i) = tempi
+    eos_vars(itemp,i) = tempi
  enddo
 
  call finish_eos(ieos,ierr)

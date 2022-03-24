@@ -14,7 +14,7 @@ module eos_gasradrec
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
+!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He, 3=none*
 !
 ! :Dependencies: infile_utils, io, ionization_mod, physcon
 !
