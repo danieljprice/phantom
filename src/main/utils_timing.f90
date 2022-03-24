@@ -33,7 +33,7 @@ module timing
     character(len=10)            :: label
     real(kind=4)                 :: wall
     real(kind=4)                 :: cpu
-    real(kind=4)                 :: efficiency
+    real(kind=4)                 :: loadbal
     integer                      :: parent
     integer                      :: treesymbol(5) = -1
     character(len=treelabel_len) :: treelabel
@@ -260,15 +260,15 @@ subroutine reduce_timer_mpi(itimer)
 
  cputot = reduce_mpi('+',timers(itimer)%cpu)
 
- ! Efficiency = average time / max time (cpu)
+ ! load balance = average time / max time (cpu)
  ! where the average is taken over all tasks except for the max
- ! When every time takes the same time, efficiency = 1
+ ! When every time takes the same time, loadbal = 1
  if (nprocs > 1) then
     max = reduce_mpi('max',timers(itimer)%cpu)
     mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
-    timers(itimer)%efficiency = mean / max
+    timers(itimer)%loadbal = mean / max
  else
-    timers(itimer)%efficiency = 1.0_4
+    timers(itimer)%loadbal = 1.0_4
  endif
 
  timers(itimer)%cpu  = cputot
@@ -296,21 +296,21 @@ subroutine print_timer(lu,itimer,time_total)
             timers(itimer)%wall/3600.,&
             timers(itimer)%cpu/3600.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
-            timers(itimer)%efficiency*100.,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     elseif (time_total > 120.0) then
        write(lu,"(f7.2,'min ',f8.2,'min    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/60.,&
             timers(itimer)%cpu/60.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
-            timers(itimer)%efficiency*100.,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     else
        write(lu,"('  ',f7.2,'s   ',f8.2,'s    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall,&
             timers(itimer)%cpu,&
             timers(itimer)%cpu/timers(itimer)%wall,&
-            timers(itimer)%efficiency*100.,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     endif
  else
