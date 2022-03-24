@@ -24,7 +24,7 @@ program phantomtest
  implicit none
  integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: string
- integer, parameter :: maxp_test = 1000000
+ integer(kind=8), parameter :: maxp_test = 1000000
 
  ntests = 0
  npass  = 0

@@ -52,25 +52,24 @@ end subroutine get_grforce
 
 subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtexternal)
  use timestep, only:C_force
- use eos,      only:equationofstate,ieos
+ use eos,      only:ieos,get_pressure
  use part,     only:isdead_or_accreted
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
  real, intent(inout) :: vxyzu(:,:)
  real, intent(out)   :: fext(:,:), dtexternal
  integer :: i
- real    :: dtf,pi,pondensi,spsoundi
+ real    :: dtf,pi
 
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force) &
- !$omp private(i,dtf,spsoundi,pondensi,pi) &
+ !$omp private(i,dtf,pi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-       pi = pondensi*dens(i)
+       pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
        dtexternal = min(dtexternal,C_force*dtf)
     endif

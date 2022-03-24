@@ -26,6 +26,7 @@ module cooling_molecular
  real, dimension(36, 102, 6, 8, 5)   :: cdTable
  logical                             :: do_molecular_cooling = .false.
  real                                :: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
+ real                                :: Tfloor = 0. ![K]  to prevent u < 0 (this is independent of Tfloor in cooling.F90)
 
 contains
 
@@ -103,7 +104,7 @@ end subroutine init_cooling_molec
 subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
 
  use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
- use eos,     only:gmw, Tfloor
+ use eos,     only:gmw
 
 ! Data dictionary: Arguments
  real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale

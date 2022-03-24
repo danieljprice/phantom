@@ -37,12 +37,14 @@ module allocutils
       allocate_array_real4_4d, &
       allocate_array_integer8_1d, &
       allocate_array_integer4_1d, &
+      allocate_array_integer4_1d_long, &
       allocate_array_integer4_2d, &
       allocate_array_integer4_3d, &
       allocate_array_integer1_1d, &
       allocate_array_integer1_2d, &
       allocate_array_integer1_3d, &
       allocate_array_kdnode_1d, &
+      allocate_array_kdnode_1d_long, &
       allocate_array_logical
  end interface allocate_array
 
@@ -58,7 +60,7 @@ subroutine allocate_array_real8_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'real(8)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'real(8)')
 
 end subroutine allocate_array_real8_1d
 
@@ -70,7 +72,7 @@ subroutine allocate_array_real8_2d(name, x, n1, n2)
 
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2/), 'real(8)')
+ call print_allocation_stats(name, int((/n1, n2/),kind=8), 'real(8)')
 
 end subroutine allocate_array_real8_2d
 
@@ -82,7 +84,7 @@ subroutine allocate_array_real8_3d(name, x, n1, n2, n3)
 
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3/), 'real(8)')
+ call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'real(8)')
 
 end subroutine allocate_array_real8_3d
 
@@ -94,7 +96,7 @@ subroutine allocate_array_real8_4d(name, x, n1, n2, n3, n4)
 
  allocate(x(n1, n2, n3, n4), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(8)')
+ call print_allocation_stats(name, int((/n1, n2, n3, n4/),kind=8), 'real(8)')
 
 end subroutine allocate_array_real8_4d
 
@@ -106,7 +108,7 @@ subroutine allocate_array_real4_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'real(4)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'real(4)')
 
 end subroutine allocate_array_real4_1d
 
@@ -118,7 +120,7 @@ subroutine allocate_array_real4_2d(name, x, n1, n2)
 
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2/), 'real(4)')
+ call print_allocation_stats(name, int((/n1, n2/),kind=8), 'real(4)')
 
 end subroutine allocate_array_real4_2d
 
@@ -130,7 +132,7 @@ subroutine allocate_array_real4_3d(name, x, n1, n2, n3)
 
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3/), 'real(4)')
+ call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'real(4)')
 
 end subroutine allocate_array_real4_3d
 
@@ -142,7 +144,7 @@ subroutine allocate_array_real4_4d(name, x, n1, n2, n3, n4)
 
  allocate(x(n1, n2, n3, n4), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3, n4/), 'real(4)')
+ call print_allocation_stats(name, int((/n1, n2, n3, n4/),kind=8), 'real(4)')
 
 end subroutine allocate_array_real4_4d
 
@@ -154,7 +156,7 @@ subroutine allocate_array_integer8_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'integer(8)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'integer(8)')
 end subroutine allocate_array_integer8_1d
 
 subroutine allocate_array_integer4_1d(name, x, n1)
@@ -165,9 +167,21 @@ subroutine allocate_array_integer4_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'integer(4)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'integer(4)')
 
 end subroutine allocate_array_integer4_1d
+
+subroutine allocate_array_integer4_1d_long(name, x, n1)
+   character(len=*),               intent(in)     :: name
+   integer(kind=4), allocatable,   intent(inout)  :: x(:)
+   integer(kind=8),                intent(in)     :: n1
+   integer                                        :: allocstat
+
+   allocate(x(n1), stat = allocstat)
+   call check_allocate(name, allocstat)
+   call print_allocation_stats(name, (/n1/), 'integer(4)')
+
+  end subroutine allocate_array_integer4_1d_long
 
 subroutine allocate_array_integer4_2d(name, x, n1, n2)
  character(len=*),               intent(in)     :: name
@@ -177,7 +191,7 @@ subroutine allocate_array_integer4_2d(name, x, n1, n2)
 
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2/), 'integer(4)')
+ call print_allocation_stats(name, int((/n1, n2/),kind=8), 'integer(4)')
 
 end subroutine allocate_array_integer4_2d
 
@@ -189,7 +203,7 @@ subroutine allocate_array_integer4_3d(name, x, n1, n2, n3)
 
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3/), 'integer(4)')
+ call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'integer(4)')
 
 end subroutine allocate_array_integer4_3d
 
@@ -201,7 +215,7 @@ subroutine allocate_array_integer1_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'integer(1)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'integer(1)')
 
 end subroutine allocate_array_integer1_1d
 
@@ -213,7 +227,7 @@ subroutine allocate_array_integer1_2d(name, x, n1, n2)
 
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2/), 'integer(1)')
+ call print_allocation_stats(name, int((/n1, n2/),kind=8), 'integer(1)')
 
 end subroutine allocate_array_integer1_2d
 
@@ -225,7 +239,7 @@ subroutine allocate_array_integer1_3d(name, x, n1, n2, n3)
 
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1, n2, n3/), 'integer(1)')
+ call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'integer(1)')
 
 end subroutine allocate_array_integer1_3d
 
@@ -237,9 +251,21 @@ subroutine allocate_array_kdnode_1d(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'kdnode')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'kdnode')
 
 end subroutine allocate_array_kdnode_1d
+
+subroutine allocate_array_kdnode_1d_long(name, x, n1)
+   character(len=*),               intent(in)     :: name
+   type(kdnode), allocatable,      intent(inout)  :: x(:)
+   integer(kind=8),                intent(in)     :: n1
+   integer                                        :: allocstat
+
+   allocate(x(n1), stat = allocstat)
+   call check_allocate(name, allocstat)
+   call print_allocation_stats(name, (/n1/), 'kdnode')
+
+end subroutine allocate_array_kdnode_1d_long
 
 subroutine allocate_array_logical(name, x, n1)
  character(len=*),          intent(in)     :: name
@@ -249,7 +275,7 @@ subroutine allocate_array_logical(name, x, n1)
 
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
- call print_allocation_stats(name, (/n1/), 'integer(4)')
+ call print_allocation_stats(name, int((/n1/),kind=8), 'integer(4)')
 
 end subroutine allocate_array_logical
 
@@ -263,7 +289,7 @@ end subroutine check_allocate
 
 subroutine print_allocation_stats(name, xdim, type)
  character(len=*),   intent(in) :: name
- integer,            intent(in) :: xdim(:)
+ integer(kind=8),    intent(in) :: xdim(:)
  character(len=*),   intent(in) :: type
  character(len=10)              :: number
  character(len=14)              :: dimstring
