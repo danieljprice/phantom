@@ -89,7 +89,6 @@ module dust_formation
 contains
 
 subroutine init_nucleation
- use dim ,  only:inucleation
  use part,  only:npart,nucleation,n_nucleation
  use eos,   only:gamma,gmw
  integer :: i
@@ -167,11 +166,16 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
 
  nH_tot = rho_cgs/mass_per_H
  epsC   = eps(iC) - JKmuS(idK3)
- if (epsC < 0.) stop '[S-dust_formation] epsC < 0!'
+ if (epsC < 0.) then
+    print *,'eps(C) =',eps(iC),', K3=',JKmuS(idK3),', epsC=',epsC,', T=',T,' rho=',rho_cgs
+    print *,'JKmuS=',JKmuS
+    stop '[S-dust_formation] epsC < 0!'
+ endif
  if (T > 450.) then
     call chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(idmu), JKmuS(idgamma))
     S = pC/psat_C(T)
     if (S > Scrit) then
+       !call nucleation(T, pC, pC2, 0., pC2H, pC2H2, S, JstarS, taustar, taugr)
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
        JstarS = JstarS/ nH_tot
        call evol_K(JKmuS(idJstar), JKmuS(idK0:idK3), JstarS, taustar, taugr, dt, Jstar_new, K_new)
@@ -254,10 +258,10 @@ end function calc_Eddington_factor
 !  Compute nucleation rate
 !
 !----------------------------
-subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
+subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
 ! all quantities are in cgs
  real, intent(in)  :: T, pC, pC2, pC3, pC2H, pC2H2, S
- real, intent(out) :: Jstar, taustar, taugr
+ real, intent(out) :: JstarS, taustar, taugr
  real, parameter   :: A0 = 20.7d-16
  real, parameter   :: sigma = 1400.
  real, parameter   :: theta_inf = A0*sigma/kboltz
@@ -288,7 +292,7 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  else
     c_star = pC/(kboltz*T) * exp(expon)
  endif
- Jstar   = beta * A_Nstar * Z * c_star
+ JstarS  = beta * A_Nstar * Z * c_star
  taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
  taugr   = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
@@ -327,6 +331,7 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
+ !if (K_new(3).gt.1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
 end subroutine evol_K
 
 !----------------------------------------
