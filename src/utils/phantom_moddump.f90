@@ -111,7 +111,7 @@ program phantommoddump
 !  will be reallocated automatically if npart > maxp_hard
 !  but allows user to manually preset array sizes if necessary
 !
- call allocate_memory(maxp_hard)
+ call allocate_memory(int(maxp_hard,kind=8))
 !
 !--read particle setup from dumpfile
 !
