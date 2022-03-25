@@ -530,7 +530,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
  endif
 #if defined(DUST_NUCLEATION) && !defined(INJECT_PARTICLES)
- if (do_nucleation) call init_nucleation
+ !initialize nucleation array at the start of the run only
+ if (do_nucleation .and. time == 0.) call init_nucleation
 #endif
 !
 !--inject particles at t=0, and get timestep constraint on this
