@@ -46,7 +46,10 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     endif
     corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
            / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
-    if (abs(corr) > W4err*T) then
+    if (-corr > 1.e2*T) then  ! do not let temperature guess increase by more than a factor of 1000
+       T = 1.e2*T
+       Tdot = 0.
+    elseif (abs(corr) > W4err*T) then
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
