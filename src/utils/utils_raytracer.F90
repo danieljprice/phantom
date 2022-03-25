@@ -499,7 +499,7 @@ module raytracer
       real, intent(in)    :: vec(:), listsOfDists(:,:), listsOfTaus(:,:)
       real, intent(out)   :: tau
    
-      integer :: index, n(9), nneigh, i, nmin(9), raypolation = 1
+      integer :: index, n(9), nneigh, i, nmin(9), raypolation = 2
       real    :: tautemp, vectemp(3), tempdist2, suminvdist2, tempdist(9)
       
       if (raypolation==0) then
@@ -514,7 +514,51 @@ module raytracer
             vectemp = vec - norm2(vec)*vectemp
             tempdist(i) = norm2(vectemp)
          enddo
-         call merge_argsort2(tempdist, nmin)
+         call merge_argsort2(tempdist(1:nneigh), nmin(1:nneigh))
+         do i=1,3
+            nmin(i) = n(nmin(i))
+         enddo
+         n = nmin
+         nneigh = 4
+         n(nneigh) = index
+         n = n+1
+         suminvdist2 = 0.
+         tau = 0
+         do i=1,nneigh
+            call get_tau_outwards(norm2(vec), listsOfTaus(:,n(i)), listsOfDists(:,n(i)), tautemp)
+            call pix2vec_nest(nsides, n(i)-1, vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist2 = norm2(vectemp)**2
+            tau = tau + tautemp/tempdist2
+            suminvdist2 = suminvdist2 + 1./tempdist2
+         enddo
+         tau = tau / suminvdist2
+      else if (raypolation==2) then
+         call vec2pix_nest(nsides, vec, index)
+         call neighbours_nest(nsides, index, n, nneigh)
+         nneigh = nneigh + 1
+         n(nneigh) = index
+         n = n+1
+         suminvdist2 = 0.
+         tau = 0
+         do i=1,nneigh
+            call get_tau_outwards(norm2(vec), listsOfTaus(:,n(i)), listsOfDists(:,n(i)), tautemp)
+            call pix2vec_nest(nsides, n(i)-1, vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist2 = norm2(vectemp)**2
+            tau = tau + tautemp/tempdist2
+            suminvdist2 = suminvdist2 + 1./tempdist2
+         enddo
+         tau = tau / suminvdist2
+      else if (raypolation==3) then
+         call vec2pix_nest(nsides, vec, index)
+         call neighbours_nest(nsides, index, n, nneigh)
+         do i=1,nneigh
+            call pix2vec_nest(nsides, n(i), vectemp)
+            vectemp = vec - norm2(vec)*vectemp
+            tempdist(i) = norm2(vectemp)
+         enddo
+         call merge_argsort2(tempdist(1:nneigh), nmin(1:nneigh))
          do i=1,3
             nmin(i) = n(nmin(i))
          enddo
@@ -533,7 +577,7 @@ module raytracer
             suminvdist2 = suminvdist2 + 1./tempdist2
          enddo
          tau = tau / suminvdist2
-      else if (raypolation==2) then
+      else if (raypolation==4) then
          call vec2pix_nest(nsides, vec, index)
          call neighbours_nest(nsides, index, n, nneigh)
          nneigh = nneigh + 1

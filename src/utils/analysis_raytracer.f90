@@ -100,7 +100,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print *, '(1) Analysis'
    print *, '(2) Method'
    print *, '(3) Preloaded settings'
-   read *,analyses
+   ! read *,analyses
+   analyses=3
    
    if (analyses==1) then
       print *,'Which analysis would you like to run?'
@@ -358,11 +359,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    endif
 
    if (analyses == 3) then
-      ! do i=1,npart
-      !    if (norm2(xyzh2(1:3,i) - (/10.,10.,10./)) < 4.) then
-      !       kappa(i) = 1e10
-      !    endif
-      ! enddo
+      do i=1,npart
+         if (norm2(xyzh2(1:3,i) - (/10.,10.,10./)) < 4.) then
+            kappa(i) = 1e10
+         endif
+      enddo
       ! allocate(neighb(npart2+2,100))
       ! neighb = 0
       ! open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
@@ -374,12 +375,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       print*, 'Start calculating optical depth outwards'
       call system_clock(start)
       call get_all_tau_outwards(primsec(:,1), xyzh2, rho*kappa*1.496e+13, &
-                                 2.37686663, 5, tau, primsec(:,2),0.1)
+                                 2.37686663, 7, tau, primsec(:,2),0.1)
       call system_clock(finish)
       timeTau = (finish-start)/1000.
       print*,'Time = ',timeTau,' seconds.'
       totalTime = totalTime + timeTau
-      open(newunit=iu2, file='taus_'//dumpfile//'_raypolation_5.txt', status='replace', action='write')
+      open(newunit=iu2, file='taus_'//dumpfile//'_raypolation_7.txt', status='replace', action='write')
       do i=1, size(tau)
          write(iu2, *) tau(i)
       enddo
