@@ -847,7 +847,7 @@ end subroutine update_ptmass
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink
+                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
@@ -859,7 +859,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  use part,     only:ibin,ibin_wake
 #endif
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use eos,           only:equationofstate,gamma,utherm
+ use eos,           only:gamma,utherm
  use eos_piecewise, only:gamma_pwp
  use options,  only:ieos
  use units,    only:unit_density
@@ -890,7 +890,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: alpha_grav,alphabeta_grav,radxy2,radxz2,radyz2
  real    :: etot,epot,ekin,etherm,erot,erotx,eroty,erotz
  real    :: rcrossvx,rcrossvy,rcrossvz,fxj,fyj,fzj
- real    :: pmassi,pmassj,pmassk,ponrhoj,rhoj,spsoundj
+ real    :: pmassi,pmassj,pmassk,rhoj
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
@@ -1021,7 +1021,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp parallel default(none) &
 !$omp shared(nprocs) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2) &
+!$omp shared(nneigh,listneigh,xyzh,xyzcache,vxyzu,massoftype,iphase,pmassgas1,calc_exact_epot,hcheck2,eos_vars) &
 !$omp shared(itest,id,id_rhomax,ifail,xi,yi,zi,hi,vxi,vyi,vzi,hi1,hi21,itype,pmassi,ieos,gamma,poten) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
@@ -1031,7 +1031,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #endif
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
-!$omp private(rhoj,ponrhoj,spsoundj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
+!$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
 !$omp firstprivate(pmassj,pmassk,itypej,iactivej,itypek) &
 !$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
 !$omp reduction(min:potenj_min)
@@ -1104,13 +1104,12 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassj*utherm(vxyzu(4,j),rhoj)
           else
-             call equationofstate(ieos,ponrhoj,spsoundj,rhoj,xj,yj,zj)
              if (ieos==2 .and. gamma > 1.001) then
-                etherm = etherm + pmassj*ponrhoj/(gamma - 1.)
+                etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
              elseif (ieos==9) then
-                etherm = etherm + pmassj*ponrhoj/(gamma_pwp(rhoj) - 1.)
+                etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma_pwp(rhoj) - 1.)
              else
-                etherm = etherm + pmassj*1.5*ponrhoj
+                etherm = etherm + pmassj*1.5*(eos_vars(igasP,j)/rhoj)
              endif
           endif
        endif

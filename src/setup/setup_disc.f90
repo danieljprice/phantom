@@ -29,7 +29,9 @@ module setup
 !   - accr2a        : *tight binary primary accretion radius*
 !   - accr2b        : *tight binary secondary accretion radius*
 !   - alphaSS       : *desired alphaSS*
+!   - alpha_z       : *height of transition in tanh vertical temperature profile*
 !   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - beta_z        : *variation in transition height over radius*
 !   - bhspin        : *black hole spin*
 !   - bhspinangle   : *black hole spin angle (deg)*
 !   - binary2_O     : *tight binary Omega, PA of ascending node (deg)*
@@ -45,6 +47,7 @@ module setup
 !   - binary_i      : *wide binary i, inclination (deg)*
 !   - binary_w      : *wide binary w, argument of periapsis (deg)*
 !   - deltat        : *output interval as fraction of orbital period*
+!   - discstrat     : *stratify disc? (0=no,1=yes)*
 !   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
 !   - einst_prec    : *include Einstein precession*
 !   - flyby_O       : *position angle of ascending node (deg)*
@@ -61,14 +64,17 @@ module setup
 !   - nplanets      : *number of planets*
 !   - nsinks        : *number of sinks*
 !   - q2            : *tight binary mass ratio*
+!   - qatm          : *sound speed power law index of atmosphere*
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
 !   - setplanets    : *add planets? (0=no,1=yes)*
 !   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
+!   - temp_atm0     : *atmosphere temperature scaling factor*
+!   - temp_mid0     : *midplane temperature scaling factor*
 !   - use_mcfost    : *use the mcfost library*
-!   - discstrat     : *stratify disc? (0=no,1=yes)*
+!   - z0            : *z scaling factor*
 !
 ! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -623,16 +629,16 @@ subroutine equation_of_state(gamma)
              print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
              if (discstrat > 0) then
-               ieos = 7
-               print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
-               call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
-               call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
-               polyk2 = (cs*(1./R_ref(onlydisc))**qfacdisc2)**2
-               z0 = z0_ref/R_ref(onlydisc)**beta_z
+                ieos = 7
+                print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
+                call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
+                call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
+                polyk2 = (cs*(1./R_ref(onlydisc))**qfacdisc2)**2
+                z0 = z0_ref/R_ref(onlydisc)**beta_z
              else
-               ieos = 3
-               print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
-             end if
+                ieos = 3
+                print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
+             endif
              isink = 0 ! In the case isink==3, to be generalized
           endif
           qfacdisc = qindex(onlydisc)
@@ -2370,12 +2376,12 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
-   call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
-   call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
-   call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
-   call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
-   call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
-   call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
+    call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
+    call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
+    call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
+    call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
+    call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
+    call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
 
  endif
  !--timestepping
@@ -2878,15 +2884,15 @@ end subroutine make_corotate
 
 
 subroutine temp_to_HR(temp,H_R,radius,M,cs)
-  use units,  only:get_kbmh_code
-  use eos,    only:gmw
-  real,    intent(in)    :: temp,radius,M
-  real,    intent(out)   :: H_R,cs
-  real                   :: omega
+ use units,  only:get_kbmh_code
+ use eos,    only:gmw
+ real,    intent(in)    :: temp,radius,M
+ real,    intent(out)   :: H_R,cs
+ real                   :: omega
 
-  cs = sqrt(temp*get_kbmh_code()/gmw)
-  omega = sqrt(M/radius**3)
-  H_R = cs/(omega*radius)
+ cs = sqrt(temp*get_kbmh_code()/gmw)
+ omega = sqrt(M/radius**3)
+ H_R = cs/(omega*radius)
 
 
 end subroutine temp_to_HR
