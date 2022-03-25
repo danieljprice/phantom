@@ -887,7 +887,7 @@ endif
 ifeq ($(SETUP), radwind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= utils_getneighbours.f90 utils_healpix.f90 utils_raytracer.F90 analysis_raytracer.f90
+    ANALYSIS= utils_getneighbours.f90 utils_healpix.f90 utils_raytracer_copy.F90 utils_raytracer.F90 analysis_raytracer.f90
     WIND=yes
 endif
 
