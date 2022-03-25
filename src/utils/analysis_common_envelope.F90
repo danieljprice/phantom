@@ -320,6 +320,60 @@ end subroutine separation_vs_time
 
 !----------------------------------------------------------------
 !+
+!  Separation vs. time (sink-gas sphere)
+!+
+!----------------------------------------------------------------
+subroutine sink_gas_sep(time,npart,particlemass,xyzh)
+ real, intent(in)               :: time
+ character(len=17), allocatable :: columns(:)
+ real                           :: data_cols(4),planet_com(3),sep(3)
+ integer                        :: i,ncols,iorder(npart)
+ logical, save                  :: isstar(npart)
+ real, save                     :: Rmask
+
+ ! select donor star particles by masking with radius centred on point mass
+ if (num == 0) then  ! First dump
+    Rmask = 4.05
+    call prompt('Enter masking radius for host star particles:',Rmask,0.)
+    call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+   
+    do i = 1,npart
+       k = iorder(i)
+       if ( separation(xyzh(1:3,k), xyzmh_ptmass(1:3,1)) > Rmask) ) then
+          exit
+       else
+          isstar(k) = .true.
+       endif
+    enddo
+ endif
+
+ allocate(columns(4))
+ columns = (/'       x sep', & ! Total bound number of particles
+             '      b mass', & ! Total bound gas mass
+             '   b ang mom', & ! Total bound gas angular momentum wrt CoM of entire system
+             '    b tot en', & ! Total bound energy of gas
+             ' ub num part', &
+
+ ! Get CoM of planet particles
+ planet_com = 0.
+ do i = 1,npart
+    if (isstar(i)) cycle
+    planet_com = planet_com + xyzh(1:3,i)
+ enddo
+
+ sep = planet_com - xyzmh_ptmass(1:3,1)
+ data_cols = (/ planet_com(1), planet_com(2), planet_com(3), separation(planet_com,planet_com) /)
+ ncols = 4
+ allocate(columns(ncols))  
+ call write_time_file('sink_gas_sep', columns, time, data_cols, ncols, dump_number)
+ deallocate(columns)
+
+end subroutine sink_gas_sep
+
+
+!----------------------------------------------------------------
+!+
 !  Companion mass coordinate (spherical mass shells) vs. time
 !+
 !----------------------------------------------------------------
@@ -1122,7 +1176,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '7) Fractional entropy gain', &
            '8) Specific recombination energy', &
            '9) Total energy (kin + pot)', &
-           '10) Mass coordinate'
+           '10) Mass coordinate', &
+           '11) Gas omega w.r.t. CoM'
     ans = 1
     call prompt('Choose first quantity to compute ',ans,1,Nquantities)
     quantities_to_calculate(1) = ans
@@ -1142,11 +1197,15 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  do k=1,4
     select case (quantities_to_calculate(k))
     case(1,2,3,6,8,9) ! Nothing to do
-    case(4,5) ! Fractional difference between gas and orbital omega
-       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+    case(4,5,11) ! Fractional difference between gas and orbital omega
+       com_xyz = 0.
+       com_vxyz = 0.
+       if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
+          com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+          com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       endif
        omega_orb = 0.
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
@@ -1179,6 +1238,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           elseif (quantities_to_calculate(k)==9) then
              quant(k,i) = (ekini + epoti) / particlemass ! Specific energy
           endif
+          print*,quant(k,i)
+          read*
 
        case(2) ! Mach number
           rhopart = rhoh(xyzh(4,i), particlemass)
@@ -1195,7 +1256,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              quant(k,i) = 0.
           endif
 
-       case(4) ! Gas omega w.r.t. effective CoM
+       case(4,11) ! Gas omega w.r.t. effective CoM
           xyz_a(1:3)  = xyzh(1:3,i)  - com_xyz(1:3)
           vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
           quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
