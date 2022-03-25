@@ -16,7 +16,8 @@ module analysis
 !
 ! :Dependencies: raytracer, part, dump_utils, dust_formation, linklist
 !
-   use raytracer,        only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
+   use raytracer_copy,   only:get_all_tau_inwards, get_all_tau_adaptive
+   use raytracer,        only:get_all_tau_outwards
    use part,             only:rhoh,isdead_or_accreted
    use dump_utils,       only:read_array_from_file
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
@@ -100,8 +101,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print *, '(1) Analysis'
    print *, '(2) Method'
    print *, '(3) Preloaded settings'
-   ! read *,analyses
-   analyses=3
+   read *,analyses
+   ! analyses=3
    
    if (analyses==1) then
       print *,'Which analysis would you like to run?'
