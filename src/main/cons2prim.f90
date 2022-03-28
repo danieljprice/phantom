@@ -35,14 +35,14 @@ contains
 
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
- use eos,          only:ieos
+ use options,      only:ien_type
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
  real,    intent(out) :: pxyzu(:,:)
  logical, intent(in), optional :: use_dens
  logical :: usedens
- integer :: i,ien_type
+ integer :: i
 
 !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -51,12 +51,6 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
     usedens = use_dens
  else
     usedens = .false.
- endif
-
- if (ieos==12) then
-    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
- else
-    ien_type = ien_entropy
  endif
 
 !$omp parallel do default (none) &
@@ -120,19 +114,15 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
  use io,              only:fatal
  use eos,             only:equationofstate,ieos,gamma,done_init_eos,init_eos
+ use options,         only:ien_type
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
- integer :: i,ierr,ien_type
+ integer :: i,ierr
  real    :: p_guess,rhoi,pondens,spsound
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
- if (ieos==12) then
-    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
- else
-    ien_type = ien_entropy
- endif
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
