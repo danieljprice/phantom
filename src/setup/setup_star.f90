@@ -50,11 +50,11 @@ module setup
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile to file*
 !
-! :Dependencies: centreofmass, dim, domain, eos, eos_mesa, eos_piecewise,
-!   extern_densprofile, externalforces, infile_utils, io, kernel, options,
-!   part, physcon, prompting, radiation_utils, relaxstar, rho_profile,
-!   setsoftenedcore, setstellarcore, setup_params, sortutils, spherical,
-!   table_utils, timestep, units
+! :Dependencies: centreofmass, dim, eos, eos_gasradrec, eos_mesa,
+!   eos_piecewise, extern_densprofile, externalforces, infile_utils, io,
+!   kernel, mpidomain, options, part, physcon, prompting, radiation_utils,
+!   relaxstar, rho_profile, setsoftenedcore, setstellarcore, setup_params,
+!   sortutils, spherical, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity
@@ -72,7 +72,7 @@ module setup
  !
  integer            :: iprofile,np,EOSopt,isoftcore,isofteningopt
  integer            :: nstar
- integer            :: need_iso, need_temp
+ integer            :: need_iso
  real(kind=8)       :: udist,umass
  real               :: Rstar,Mstar,rhocentre,maxvxyzu,ui_coef,hsoft
  real               :: initialtemp
@@ -132,12 +132,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_mesa,        only:get_eos_eT_from_rhop_mesa,get_eos_pressure_temp_mesa
  use radiation_utils, only:set_radiation_and_gas_temperature_equal,ugas_from_Tgas,radE_from_Trad
  use dim,             only:do_radiation
- use part,            only:rad,eos_vars,itemp,igasP,iX,iZ,imu,store_temperature,ihsoft
+ use part,            only:rad,eos_vars,itemp,igasP,iX,iZ,imu,ihsoft
  use setstellarcore,  only:set_stellar_core
  use setsoftenedcore, only:set_softened_core
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,set_particle_type,iorder=>ll
  use relaxstar,       only:relax_star
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -195,7 +195,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! defaults needed for error checking
  !
  need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
- need_temp   = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
  ! determine if an .in file exists
  !
@@ -240,8 +239,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
- if (maxvxyzu < 4  .and. need_temp==-1) call fatal('setup','require ISOTHERMAL=no')
- if (need_temp==1 .and. .not. store_temperature) call fatal('setup','require TEMPERATURE=yes')
  !
  ! set units
  !
@@ -433,9 +430,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           yi    = xyzh(2,i)
           zi    = xyzh(3,i)
           tempi = initialtemp
-          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,eni,tempi)
+          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
           vxyzu(4,i) = eni
-          if (store_temperature) eos_vars(itemp,i) = initialtemp
+          eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
           if (use_var_comp) then
              call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
@@ -449,7 +446,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           else
              vxyzu(4,i) = eni / unit_ergg
           endif
-          if (store_temperature) eos_vars(itemp,i) = tempi
+          eos_vars(itemp,i) = tempi
        end select
     enddo
  endif
@@ -498,9 +495,10 @@ end subroutine setpart
 !+
 !-----------------------------------------------------------------------
 subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
- use prompting, only:prompt
- use units,     only:select_unit
- use eos,       only:X_in,Z_in,gmw,irecomb
+ use prompting,     only:prompt
+ use units,         only:select_unit
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  real, intent(out)    :: polyk,gamma
  logical, intent(in)  :: iexist
  integer, intent(in)  :: id,master
@@ -722,10 +720,11 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
- use infile_utils, only:write_inopt,get_optstring
- use dim,          only:tagline
- use relaxstar,    only:write_options_relax
- use eos,          only:X_in,Z_in,gmw,irecomb
+ use infile_utils,  only:write_inopt,get_optstring
+ use dim,           only:tagline
+ use relaxstar,     only:write_options_relax
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -828,11 +827,12 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,polyk,ierr)
- use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
- use io,           only:error
- use units,        only:select_unit
- use relaxstar,    only:read_options_relax
- use eos,          only:X_in,Z_in,gmw,irecomb
+ use infile_utils,  only:open_db_from_file,inopts,close_db,read_inopt
+ use io,            only:error
+ use units,         only:select_unit
+ use relaxstar,     only:read_options_relax
+ use eos,           only:X_in,Z_in,gmw
+ use eos_gasradrec, only:irecomb
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr

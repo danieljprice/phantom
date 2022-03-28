@@ -76,7 +76,7 @@ listofcomponents='main utils setup';
 #
 # get list of targets, components and setups to check
 #
-allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))

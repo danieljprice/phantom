@@ -26,9 +26,9 @@ module part
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
-               maxp_h2,nabundances,maxtemp,periodic,&
+               maxp_h2,nabundances,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,use_dustgrowth,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
@@ -633,6 +633,8 @@ subroutine init_part
  ibin(:)       = 0
  ibin_old(:)   = 0
  ibin_wake(:)  = 0
+ dt_in(:)      = 0.
+ twas(:)       = 0.
 #endif
 
  ideadhead = 0
@@ -1319,7 +1321,8 @@ end subroutine reorder_particles
 !+
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
- use io, only:fatal
+ use io,  only:fatal
+ use dim, only: mpi
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -1330,9 +1333,7 @@ subroutine shuffle_part(np)
           ! move particle to new position
           call copy_particle_all(np,newpart,.false.)
           ! move ibelong to new position
-#ifdef MPI
-          ibelong(newpart) = ibelong(np)
-#endif
+          if (mpi) ibelong(newpart) = ibelong(np)
           ! update deadhead
           ideadhead = ll(newpart)
        endif

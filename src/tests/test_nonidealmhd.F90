@@ -21,9 +21,9 @@ module testnimhd
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   nicil, options, part, physcon, step_lf_global, testutils, timestep,
-!   timestep_sts, unifdis, units
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, nicil, options, part, physcon, step_lf_global, testutils,
+!   timestep, timestep_sts, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -114,7 +114,7 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:sts_initialise
  use timestep,       only:dtdiff,dtcourant,dtforce
@@ -289,7 +289,7 @@ subroutine test_standingshock(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,Cdt_diff,Cdt_hall
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,ny,nz,nsteps,ierr,idr,npts,itype
  integer                :: nerr(6)
@@ -542,7 +542,7 @@ subroutine test_etaval(ntests,npass)
  use dim,            only:periodic
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,nicil_update_nimhd,eta_constant,use_ohm,use_hall,use_ambi,unit_eta
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
  integer                :: i,k,nx,ierr,itmp
