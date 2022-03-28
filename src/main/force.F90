@@ -875,13 +875,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac
+ use options,     only:overcleanfac,use_dustfrac,ien_type
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
 #endif
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
+ use cons2primsolver, only:ien_entropy,ien_etotal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -970,7 +971,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
- real    :: vxi,vyi,vzi,vxj,vyj,vzj
+ real    :: vxi,vyi,vzi,vxj,vyj,vzj,projvi,projvj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
  real    :: densj
@@ -1284,6 +1285,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        vxj = vxyzu(1,j)
        vyj = vxyzu(2,j)
        vzj = vxyzu(3,j)
+       projvi = vxi*runix + vyi*runiy + vzi*runiz
+       projvj = vxj*runix + vyj*runiy + vzj*runiz
        dvx = vxi - vxj
        dvy = vyi - vyj
        dvz = vzi - vzj
@@ -1455,6 +1458,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           qrho2i = 0.
           qrho2j = 0.
+#ifdef GR
+          enthi  = 1.+eni+pri/densi
+          enthj  = 1.+enj+prj/densj
+#endif
 
 !------------------
 #ifdef DISC_VISCOSITY
@@ -1466,15 +1473,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !   with beta viscosity only applied to approaching pairs)
           !
 #ifdef GR
-          enthi  = 1.+eni+pri/densi
-          enthj  = 1.+enj+prj/densj
-#ifdef FINVSQRT
-          lorentzi_star = finvsqrt(1.-projbigvi**2)
-          lorentzj_star = finvsqrt(1.-projbigvj**2)
-#else
           lorentzi_star = 1./sqrt(1.-projbigvi**2)
           lorentzj_star = 1./sqrt(1.-projbigvj**2)
-#endif
           dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
           if (projv < 0.) then
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
@@ -1483,7 +1483,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
              if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
           endif
-          dudtdissi = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+             dudtdissi = pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+                                 (pro2j + qrho2j)*projvi*grkernj)
+          else
+             dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+          endif
 #else
           if (projv < 0.) then
              qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
@@ -1498,12 +1503,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 !--DISC_VISCOSITY--
 #else
 !------------------
-
-#ifdef GR
-          enthi  = 1.+eni+pri/densi
-          enthj  = 1.+enj+prj/densj
-#endif
-
           if (projv < 0.) then
 #ifdef GR
              lorentzi_star = 1./sqrt(1.-projbigvi**2)
@@ -1517,7 +1516,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
           endif
           !--energy conservation from artificial viscosity (don't need j term)
-          dudtdissi = pmassj*qrho2i*projv*grkerni
+          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+                                 (pro2j + qrho2j)*projvi*grkernj)
+          else
+             dudtdissi = - pmassj*qrho2i*projv*grkerni
+          endif
 !--DISC_VISCOSITY--
 #endif
 !------------------
@@ -2412,7 +2416,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos,iopacity_type
- use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
+ use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
+                          use_dustfrac,damp,ien_type
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
@@ -2449,6 +2454,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use physcon,        only:c
  use units,          only:unit_velocity
  use timestep,       only:C_rad
+ use cons2primsolver,only:ien_entropy,ien_etotal
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
@@ -2712,7 +2718,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (use_entropy .or. gr) then ! here eni is the entropy
+          if (ien_type == ien_etotal) then
+             fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
+          elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
              elseif (ishock_heating > 0) then
