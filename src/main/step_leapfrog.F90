@@ -689,7 +689,7 @@ end subroutine step
 #ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh
- use cons2primsolver, only:conservative2primitive,ien_entropy,ien_etotal
+ use cons2primsolver, only:conservative2primitive
  use eos,             only:ieos,get_pressure
  use io,              only:warning
  use metric_tools,    only:pack_metric
@@ -755,7 +755,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
- use cons2primsolver,only:conservative2primitive,ien_entropy,ien_etotal
+ use cons2primsolver,only:conservative2primitive
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
