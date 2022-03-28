@@ -22,8 +22,8 @@ module ptmass_radiation
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
 !   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel,
-!   options, part, physcon, units
+! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel, part,
+!   physcon, units
 !
 
 
@@ -188,8 +188,8 @@ end subroutine get_radiative_acceleration_from_star
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
  use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu,idgamma
- use options, only:ieos
- use eos,     only:get_temperature
+ use part,    only:eos_vars,itemp
+ use eos,     only:ieos,get_temperature
  use dim,     only:do_nucleation
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -230,9 +230,9 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
     call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  case default
     ! sets Tdust = Tgas
-    pmassi         = massoftype(igas)
+    pmassi = massoftype(igas)
     !$omp parallel  do default(none) &
-    !$omp shared(npart,ieos,xyzh,vxyzu,pmassi,dust_temp) &
+    !$omp shared(npart,ieos,xyzh,vxyzu,eos_vars,pmassi,dust_temp) &
     !$omp shared(nucleation,do_nucleation) &
     !$omp private(i,vxyzui)
     do i=1,npart
@@ -241,8 +241,9 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
           if (do_nucleation) then
              dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui,&
                   gammai=nucleation(idgamma,i),mui=nucleation(idmu,i))
+
           else
-             dust_temp(i) = get_temperature(ieos,xyzh(:,i),rhoh(xyzh(4,i),pmassi),vxyzui)
+             dust_temp(i) = eos_vars(itemp,i)
           endif
        endif
     enddo

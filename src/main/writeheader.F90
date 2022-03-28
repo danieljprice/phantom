@@ -80,8 +80,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,&
-                            gravity,h2chemistry,periodic,npartoftype,massoftype,&
-                            npartoftypetot,&
+                            gravity,h2chemistry,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
@@ -96,7 +95,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef GR
  use metric_tools,     only:print_metricinfo
 #endif
- integer                      :: Nneigh,i,npartoftypetoti
+ integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
  integer(kind=8),  intent(in), optional :: ntot
