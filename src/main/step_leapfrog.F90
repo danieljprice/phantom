@@ -696,22 +696,17 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
+ use options,         only:ien_type
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:),metrics(:,:,:,:)
  real,    intent(in)    :: pxyzu(:,:)
  real,    intent(out)   :: vxyzu(:,:)
  integer, parameter :: nitermax = 50
- integer :: i,niter,ierr,ien_type
+ integer :: i,niter,ierr
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
  real    :: pondensi,spsoundi,rhoi,pri
-
- if (ieos==12) then
-    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
- else
-    ien_type = ien_entropy
- endif
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
@@ -767,11 +762,12 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
+ use options,        only:ien_type
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
- integer :: i,itype,nsubsteps,naccreted,its,ierr,ien_type
+ integer :: i,itype,nsubsteps,naccreted,its,ierr
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pri,spsoundi,pondensi
@@ -808,12 +804,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
-
- if (ieos==12) then
-    ien_type = ien_etotal  ! use ien_etotal for gasplusrad
- else
-    ien_type = ien_entropy
- endif
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
