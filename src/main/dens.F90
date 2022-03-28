@@ -16,7 +16,7 @@ module densityforce
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, io, io_summary, kdtree, kernel, linklist,
-!   mpidens, mpiderivs, mpistack, mpiutils, options, part, timestep,
+!   mpidens, mpiderivs, mpimemory, mpiutils, options, part, timestep,
 !   timing, viscosity
 !
  use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
@@ -99,7 +99,7 @@ module densityforce
 
  !--kernel related parameters
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
- integer, parameter :: isizecellcache = 50000
+ integer, parameter :: isizecellcache = 10000
  integer, parameter :: isizeneighcache = 0
  integer, parameter :: maxdensits = 50
 
@@ -127,10 +127,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:mhd,rhoh,dhdrho,rhoanddhdrho,ll,get_partinfo,iactive,&
                      hrho,iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,  only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
- use mpistack,  only:reserve_stack,swap_stacks,reset_stacks
- use mpistack,  only:stack_remote  => dens_stack_1
- use mpistack,  only:stack_waiting => dens_stack_2
- use mpistack,  only:stack_redo    => dens_stack_3
+ use mpimemory, only:reserve_stack,swap_stacks,reset_stacks
+ use mpimemory, only:stack_remote  => dens_stack_1
+ use mpimemory, only:stack_waiting => dens_stack_2
+ use mpimemory, only:stack_redo    => dens_stack_3
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                      finish_cell_exchange,recv_while_wait,reset_cell_counters
  use timestep,  only:rhomaxnow
@@ -302,7 +302,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%owner                   = id
     cell%nits                    = 0
     cell%nneigh                  = 0
-    cell%remote_export(1:nprocs) = remote_export
 
     call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -314,7 +313,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        if (do_export) then
           if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
           call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
-          call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
+          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send the cell to remote
        endif
        !$omp end critical (send_and_recv_remote)
     endif
@@ -336,14 +335,13 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
-                cell%remote_export(1:nprocs) = remote_export
 
                 if (any(remote_export)) then
                    do_export = .true.
                    !$omp critical (send_and_recv_remote)
                    if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
                    call reserve_stack(stack_waiting,cell%waiting_index)
-                   call send_cell(cell,0,irequestsend,xsendbuf)  ! direction export (0)
+                   call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell to remote
                    !$omp end critical (send_and_recv_remote)
                 endif
                 nrelink = nrelink + 1
@@ -407,14 +405,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
-          cell%remote_export(id+1) = .false.
+          remote_export = .false.
+          remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
           ! communication happened while computing contributions to remote cells
           !$omp critical (send_and_recv_waiting)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
           call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-          ! direction return (1)
-          call send_cell(cell,1,irequestsend,xsendbuf)
+          call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
           !$omp end critical (send_and_recv_waiting)
        enddo over_remote
        !$omp enddo
@@ -441,10 +439,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
 
-          if (any(cell%remote_export(1:nprocs))) then
-             call fatal('dens', 'not all results returned from remote processor')
-          endif
-
           if (calculate_density) then
              call finish_cell(cell,converged)
              call compute_hmax(cell,redo_neighbours)
@@ -461,12 +455,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
-             cell%remote_export(1:nprocs) = remote_export
+
              !$omp critical (send_and_recv_remote)
              call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
              call reserve_stack(stack_redo,cell%waiting_index)
-             ! direction export (0)
-             call send_cell(cell,0,irequestsend,xsendbuf)
+             call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell to remote
              !$omp end critical (send_and_recv_remote)
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
