@@ -109,7 +109,9 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
     enddo
  enddo
 
- if (ien_type == ien_entropy) then
+ if (ien_type == ien_etotal) then
+    en = U0*enth*gvv + (1.+u)/U0
+ else
     if (u > 0) then
        gam1 = 1. + P/(dens*u)
        en = P/(dens**gam1)
@@ -117,8 +119,6 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
        ! handle the case for u = 0
        en = P/dens
     endif
- else
-    en = U0*enth*gvv + (1.+u)/U0
  endif
 
 end subroutine primitive2conservative
@@ -329,7 +329,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth0
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
@@ -350,7 +350,6 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
 
  ! Guess enthalpy (using previous values of dens and pressure)
  enth = 1 + gamma/(gamma-1.)*P/dens
- enth0 = enth
 
  niter = 0
  converged = .false.
@@ -365,23 +364,23 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
 
-    if (ien_type == ien_entropy) then
-       p = en*dens**gamma
+    if (ien_type == ien_etotal) then
+       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     elseif (ieos==4) then
        p = (gamma-1.)*dens*polyk
     else
-       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+       p = en*dens**gamma
     endif
 
     f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
-    if (ien_type == ien_entropy) then
-       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
+    if (ien_type == ien_etotal) then
+       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     else
-       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
+       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
     enth = enth_old - f/df
@@ -391,7 +390,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
 
     niter = niter + 1
 
-    if (abs(enth-enth_old)/enth0 < tol) converged = .true.
+    if (abs(enth-enth_old)/enth < tol) converged = .true.
  enddo
 
  if (.not.converged) ierr = 1
@@ -399,10 +398,12 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
 
- if (ien_type == ien_entropy) then
-    p = en*dens**gamma
+ if (ien_type == ien_etotal) then
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+ elseif (ieos==4) then
+    p = (gamma-1.)*dens*polyk
  else
-    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+    p = en*dens**gamma
  endif
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
