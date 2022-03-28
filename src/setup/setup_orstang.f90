@@ -24,7 +24,7 @@ module setup
 !   - vzero    : *velocity amplitude*
 !   - xymin    : *xmin ~ ymin*
 !
-! :Dependencies: boundary, domain, infile_utils, io, mpiutils, part,
+! :Dependencies: boundary, infile_utils, io, mpidomain, mpiutils, part,
 !   physcon, prompting, setup_params, timestep, unifdis, units
 !
  implicit none
@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi,fourpi
  use timestep,     only:dtmax,tmax
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

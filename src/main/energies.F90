@@ -60,8 +60,7 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
-                          lightcurve,use_dust,store_temperature,&
-                          maxdusttypes,do_radiation
+                          lightcurve,use_dust,maxdusttypes,do_radiation
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -73,7 +72,7 @@ subroutine compute_energies(t)
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
- use eos,            only:polyk,utherm,gamma,equationofstate
+ use eos,            only:polyk,utherm,gamma,eos_is_non_ideal,eos_outputs_gasP
  use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -362,6 +361,8 @@ subroutine compute_energies(t)
           mgas = mgas + pmassi*gasfrac
 
           ! thermal energy
+          ponrhoi  = eos_vars(igasP,i)/rhoi
+          spsoundi = eos_vars(ics,i)
           if (maxvxyzu >= 4) then
              ethermi = pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
 #ifdef GR
@@ -369,13 +370,9 @@ subroutine compute_energies(t)
 #endif
              etherm = etherm + ethermi
 
-             ponrhoi = eos_vars(igasP,i)/rhoi
-             spsoundi = eos_vars(ics,i)
-
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
-             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
              if (ieos==2 .and. gamma > 1.001) then
                 !--thermal energy using polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma-1.)*gasfrac
@@ -386,14 +383,18 @@ subroutine compute_energies(t)
              if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
-          ! entropy
 
+          ! entropy
 #ifdef KROME
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
 #else
           call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
 #endif
 
+          ! gas temperature
+          if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+             call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
+          endif
 #ifdef DUST
           ! min and mean stopping time
           if (use_dustfrac) then
@@ -459,7 +460,6 @@ subroutine compute_energies(t)
                 call nicil_update_nimhd(0,etaohm,etahall,etaambi,Bi,rhoi, &
                                         eos_vars(itemp,i),nden_nimhd(:,i),ierrlist,data_out)
                 curlBi = divcurlB(2:4,i)
-                call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
                 if (use_ohm) then
                    call ev_data_update(ev_data_thread,iev_etao,   etaohm      )
                 endif

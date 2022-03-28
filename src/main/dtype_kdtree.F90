@@ -45,9 +45,7 @@ module dtypekdtree
  public :: ndimtree
  public :: kdnode
  public :: kdnode_bytes
-#ifdef MPI
  public :: get_mpitype_of_kdnode
-#endif
  type kdnode
     sequence
     real :: xcen(ndimtree)
@@ -75,18 +73,16 @@ contains
 !  - MPI commit the datatype just once, rather than rebuilding it every time
 !+
 !----------------------------------------------------------------
-#ifdef MPI
 subroutine get_mpitype_of_kdnode(dtype)
+#ifdef MPI
  use mpi
  use mpiutils, only:mpierr
  use io,       only:error
 
  integer, parameter              :: ndata = 20
-
  integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
-
  type(kdnode)                    :: node
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
 
@@ -166,7 +162,10 @@ subroutine get_mpitype_of_kdnode(dtype)
     call error('dtype_kdtree','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_kdnode
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+end subroutine get_mpitype_of_kdnode
 
 end module dtypekdtree

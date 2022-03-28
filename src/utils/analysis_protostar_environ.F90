@@ -23,9 +23,9 @@ module analysis
  use dim,         only: maxp,maxvxyzu,mhd_nonideal
  use options,     only: alphaB
  use part,        only: maxptmass,nden_nimhd
+ use part,        only: eos_vars,ics,itemp
  use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
- use eos,         only: ieos,init_eos,equationofstate,init_eos, &
-                        get_spsound,get_temperature,get_temperature_from_ponrho
+ use eos,         only: ieos,init_eos,get_TempPresCs
  use nicil,       only: nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
  use physcon,     only: pi
  implicit none
@@ -230,7 +230,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -240,7 +240,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           if (maxphase==maxp) itype = iamtype(iphase(i))
           rhoi = rhoh(hi,massoftype(itype))
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
-             etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i))
+             etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i),eos_vars(ics,i))
           endif
        endif
     enddo
@@ -376,7 +376,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! Determines disc mass and properties
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
@@ -407,7 +407,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                    rad2(i) = rtmp2
                 endif
                 if (isink==isink0 .and. calc_eta) then
-                   call get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd(:,i),Bxyz(1:3,i))
+                   call get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd(:,i),Bxyz(1:3,i),eos_vars(itemp,i))
                    eta_1 = eta_1 + etaart(i)
                    eta_2 = eta_2 + etaohm
                    eta_3 = eta_3 + etahall
@@ -674,22 +674,15 @@ end subroutine get_mass_and_radius
 !  Calculate the global eta values for rho > rho_crit
 !+
 !----------------------------------------------------------------
-subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd0,B)
+subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd0,B,temperature)
  real,   intent(inout) :: nden_nimhd0(:)
- real,   intent(in)    :: rhoi
+ real,   intent(in)    :: rhoi,temperature
  real,   intent(in)    :: B(3)
  real,   intent(out)   :: etaohm,etahall,etaambi
  integer               :: ierrlist(n_warn)
- real                  :: temperature,B2i,vdummy(maxvxyzu),xdummy(3)
+ real                  :: B2i
 
- ! Calculate temperature
- xdummy      = 0.0
- vdummy      = 0.0
- temperature = get_temperature(ieos,xdummy,rhoi,vdummy)
-
- ! Calculate the artificial coefficient
  B2i         = sqrt( dot_product(B,B) )
- ! Calculate physical coefficients
  call nicil_update_nimhd(0,etaohm,etahall,etaambi,sqrt(B2i),real(rhoi), &
                          temperature,nden_nimhd0,ierrlist)
 
@@ -699,17 +692,12 @@ end subroutine get_eta_global
 !  Calculate artificial resistivity assuming old resistivity
 !+
 !----------------------------------------------------------------
-real function etaart_old(hi,rhoi,alphaB_in,B)
- real, intent(in)    :: hi,rhoi,alphaB_in
- real, intent(in)    :: B(3)
- real                :: spsoundi,B2i,valfven2i,vsigi,vdummy(maxvxyzu),xdummy(3)
- !
- xdummy   = 0.0
- vdummy   = 0.0
- spsoundi = get_spsound(ieos,xdummy,rhoi,vdummy)
+real function etaart_old(hi,rhoi,alphaB_in,B,spsoundi)
+ real, intent(in) :: hi,rhoi,alphaB_in,spsoundi
+ real, intent(in) :: B(3)
+ real             :: B2i,valfven2i,vsigi
 
- ! Calculate the artificial coefficient
- B2i       = sqrt( dot_product(B,B) )
+ B2i       = dot_product(B,B)
  valfven2i = B2i/rhoi
  vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
  etaart_old = 0.5*hi*vsigi*alphaB_in
@@ -726,13 +714,13 @@ end function etaart_old
 !----------------------------------------------------------------
 real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
  use kernel, only: get_kernel,radkern2,cnormk
- integer,      intent(in)    :: ipart,npart
- real,         intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:)
- integer                     :: j
- real                        :: xi,yi,zi,hi,hi2,vxi,vyi,vzi,xj,yj,zj,hj,hj2,dx2,dy2,dz2,rad2
- real                        :: runix,runiy,runiz,rhoj
- real                        :: qi,q2i,radkern2i,wkern,grkern
- real                        :: vsigx,vsigy,vsigz,vsigB
+ integer, intent(in) :: ipart,npart
+ real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:)
+ integer             :: j
+ real                :: xi,yi,zi,hi,hi2,vxi,vyi,vzi,xj,yj,zj,hj,hj2,dx2,dy2,dz2,rad2
+ real                :: runix,runiy,runiz,rhoj
+ real                :: qi,q2i,radkern2i,wkern,grkern
+ real                :: vsigx,vsigy,vsigz,vsigB
 
  xi  = xyzh(1,ipart)
  yi  = xyzh(2,ipart)
@@ -969,8 +957,8 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
  integer                      :: i,j,k,p,nobj
  integer                      :: volN(5),ibins(4,nbins),ierrlist(n_warn)
  real                         :: hi,rhoi,rtmp2,rtmp3d2,B2i,Bi,anglei
- real                         :: vr,vphi,Br,Bphi,plasmab,temperature,rr1
- real                         :: spsoundi,ponrhoi,angx,angy,angz,ang,massint
+ real                         :: vr,vphi,Br,Bphi,plasmab,temperature,pressure,rr1
+ real                         :: angx,angy,angz,ang,massint
  real                         :: xi,yi,zi,vxi,vyi,vzi,Bxi,Byi,Bzi
  real                         :: Bi1,rho1i,etaohm,etahall,etaambi,etaart1,volL
  real                         :: volP(13),Dbins(iD,nbins),Cbins(7,nbins),Hbins(2,iH)
@@ -1044,23 +1032,18 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        angy =   zi*vxi - xi*vzi
        angz =   xi*vyi - yi*vxi
        rhoi = rhoh(hi,particlemass)
-       if (maxvxyzu >= 4) then
-          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,vxyzu(4,i))
-       else
-          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
-       endif
+       call get_TempPresCs(ieos,xyzh(:,i),vxyzu(:,i),rhoi,tempi=temperature,presi=pressure,spsoundi=eos_vars(ics,i))
+       eos_vars(itemp,i) = temperature
        if (B2i > 0.0) then
-          plasmab  = 2.0*ponrhoi*rhoi/B2i
+          plasmab  = 2.0*pressure/B2i
           Bi1      = 1.0/Bi
        else
           plasmab  = 0.0
           Bi1      = 0.0
        endif
        rho1i     = 1./rhoi
-       temperature = get_temperature_from_ponrho(ponrhoi)
        if ( mhd_nonideal .and. mhd ) then
-          call nicil_update_nimhd(0,etaohm,etahall,etaambi,sqrt(B2i),rhoi, &
-                                  temperature,nden_nimhd(:,i),ierrlist,data_out)
+          call nicil_update_nimhd(0,etaohm,etahall,etaambi,sqrt(B2i),rhoi,temperature,nden_nimhd(:,i),ierrlist,data_out)
        endif
        if (etaart(i) > 0.0) then
           etaart1 = 1.0/etaart(i)

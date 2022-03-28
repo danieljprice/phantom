@@ -23,10 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
-!   derivutils, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, h2cooling, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing
+!   dim, dust_formation, eos, extern_gr, externalforces, growth, h2cooling,
+!   io, io_summary, krome_interface, metric_tools, mpiutils, options, part,
+!   ptmass, ptmass_radiation, timestep, timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
@@ -128,8 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #endif
- use timing,         only:increment_timer,get_timings
- use derivutils,     only:timer_extf
+ use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -258,7 +256,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 #endif
  call get_timings(t2,tcpu2)
- call increment_timer(timer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0
@@ -692,7 +690,7 @@ end subroutine step
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh
  use cons2primsolver, only:conservative2primitive,ien_entropy,ien_etotal
- use eos,             only:ieos,equationofstate
+ use eos,             only:ieos,get_pressure
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
@@ -706,19 +704,18 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  integer :: i,niter,ierr
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
- real    :: pondensi,spsoundi,rhoi,pri
+ real    :: rhoi,pri
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
  !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
- !$omp private(spsoundi,pondensi,pri,rhoi)
+ !$omp private(pri,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 
        !-- Compute pressure for the first guess in cons2prim
-       call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-       pri  = pondensi*dens(i)
+       pri  = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
                                    pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -770,7 +767,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  integer :: i,itype,nsubsteps,naccreted,its,ierr
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
- real    :: pri,spsoundi,pondensi
+ real    :: pri,spsoundi,pondensi,tempi
  real, save :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3)
 !$omp threadprivate(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti)
  real    :: x_err,pmom_err,accretedmass,damp_fac
@@ -828,7 +825,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(maxphase,maxp) &
     !$omp shared(dt,hdt,xtol,ptol) &
     !$omp shared(ieos,pxyzu,dens,metrics,metricderivs,ien_type) &
-    !$omp private(i,its,pondensi,spsoundi,rhoi,hi,eni,uui,densi) &
+    !$omp private(i,its,pondensi,spsoundi,tempi,rhoi,hi,eni,uui,densi) &
     !$omp private(converged,pmom_err,x_err,pri,ierr) &
     !$omp firstprivate(pmassi,itype) &
     !$omp reduction(max:xitsmax,pitsmax,perrmax,xerrmax) &
@@ -860,7 +857,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           pxyz      = pxyz + hdt*fexti
 
           !-- Compute pressure for the first guess in cons2prim
-          call equationofstate(ieos,pondensi,spsoundi,densi,xyz(1),xyz(2),xyz(3),uui)
+          call equationofstate(ieos,pondensi,spsoundi,densi,xyz(1),xyz(2),xyz(3),tempi,uui)
           pri  = pondensi*densi
           rhoi = rhoh(hi,massoftype(igas))
 
@@ -945,7 +942,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp shared(maxphase,maxp) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
-    !$omp private(pri,pondensi,spsoundi,dtf) &
+    !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
     !$omp reduction(+:accretedmass,naccreted) &
@@ -959,7 +956,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              !  if (itype==iboundary) cycle accreteloop
           endif
 
-          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
+          call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           pri = pondensi*dens(i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
           dtextforce_min = min(dtextforce_min,C_force*dtf)
@@ -1058,7 +1055,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,do_nucleation
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1081,6 +1078,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_implicit
 #ifdef DUST_NUCLEATION
+ use dim,            only:do_nucleation
  use part,           only:nucleation,idK2,idmu,idkappa
  use dust_formation, only:evolve_dust
 #endif

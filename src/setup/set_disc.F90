@@ -44,12 +44,11 @@ module setdisc
 !   - umass       : *mass units (cgs)*
 !   - utime       : *time units (cgs)*
 !
-! :Dependencies: centreofmass, dim, domain, eos, externalforces,
-!   infile_utils, io, mpiutils, options, part, physcon, random, units,
-!   vectorutils
+! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, random, units, vectorutils
 !
  use dim,      only:maxvxyzu
- use domain,   only:i_belong_i4
+ use mpidomain,only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
@@ -940,9 +939,9 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  !--print some of these diagnostics in more useful form
  if (itype == igas) then
     if (T_ref < 1.0d3) then
-       write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)")  '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+       write(iunit,"(a,f5.1,a,f5.1,a,f5.2,a,/)")  '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
     else
-       write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+       write(iunit,"(a,es9.2,a,f5.1,a,f5.2,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
     endif
  endif
  if (sigmaprofile==0) then
