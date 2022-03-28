@@ -24,8 +24,8 @@ module cons2primsolver
  private :: get_u,conservative2primitive_con_gamma,conservative2primitive_var_gamma
 
  integer, public, parameter :: &
-      ien_etotal  = 1, &
-      ien_entropy = 2
+      ien_entropy = 1, &
+      ien_etotal  = 2
 
 
 !!!!!!====================================================
@@ -329,7 +329,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth0
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
@@ -350,6 +350,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
 
  ! Guess enthalpy (using previous values of dens and pressure)
  enth = 1 + gamma/(gamma-1.)*P/dens
+ enth0 = enth
 
  niter = 0
  converged = .false.
@@ -390,7 +391,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
 
     niter = niter + 1
 
-    if (abs(enth-enth_old)/enth < tol) converged = .true.
+    if (abs(enth-enth_old)/enth0 < tol) converged = .true.
  enddo
 
  if (.not.converged) ierr = 1
