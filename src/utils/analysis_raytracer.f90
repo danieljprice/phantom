@@ -44,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    integer,          intent(in) :: num,npart,iunit
    real(kind=8),     intent(in) :: xyzh(:,:),vxyzu(:,:)
    real(kind=8),     intent(in) :: particlemass,time
-   
+
    logical :: existneigh
    character(100) :: neighbourfile
    character(100)   :: jstring, kstring
@@ -96,7 +96,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          kappa(i)=calc_kappa_bowen(temp(i))
       enddo
    endif
-   
+
    j=1
    do i=1,npart
       if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -126,7 +126,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print *, '(3) Preloaded settings'
    read *,analyses
    ! analyses=3
-   
+
    if (analyses==1) then
       print *,'Which analysis would you like to run?'
       print *, '(1) Outwards Integration'
@@ -148,7 +148,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print *,'At which order would you like to stop?'
          read *,maxOrder
       else if (method == 3) then
-         
+
       endif
    else if (analyses==2) then
       print *,'Which algorithm would you like to run?'
@@ -243,7 +243,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             close(iu4)
             totalTime=0
          endif
-   
+
          do j = minOrder, maxOrder
             write(jstring,'(i0)') j
             print*,''
@@ -307,7 +307,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             close(iu4)
             totalTime=0
          endif
-   
+
          do j = minOrder, maxOrder
             write(jstring,'(i0)') j
             do k = minOrder,maxOrder-j
