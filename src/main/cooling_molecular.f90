@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,6 +26,7 @@ module cooling_molecular
  real, dimension(36, 102, 6, 8, 5)   :: cdTable
  logical                             :: do_molecular_cooling = .false.
  real                                :: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
+ real                                :: Tfloor = 0. ![K]  to prevent u < 0 (this is independent of Tfloor in cooling.F90)
 
 contains
 
@@ -40,11 +41,11 @@ subroutine write_options_molecularcooling(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(CO_abun, 'CO_abun', 'set to value>0 to activate CO radiative cooling &
- & (typical value O-rich AGB star=1.0e-4)',iunit)
+ & (typical value O-rich AGB star=1e-4)',iunit)
  call write_inopt(HCN_abun,'HCN_abun','set to value>0 to activate HCN radiative cooling &
- & (typical value O-rich AGB star=1.0e-7)',iunit)
+ & (typical value O-rich AGB star=1e-7)',iunit)
  call write_inopt(H2O_abun,'H2O_abun','set to value>0 to activate H2O radiative cooling &
- & (typical value O-rich AGB star=5.0e-5)',iunit)
+ & (typical value O-rich AGB star=5e-5)',iunit)
 
 end subroutine write_options_molecularcooling
 
@@ -100,19 +101,20 @@ end subroutine init_cooling_molec
 !  Calculate the molecular cooling
 !+
 !-----------------------------------------------------------------------
-subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
+subroutine calc_cool_molecular( T, r, rho_sph, Q, dlnQdlnT)
 
- use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs
- use eos,     only:gmw, Tfloor
+ use physcon, only:atomic_mass_unit,kboltz,mass_proton_cgs,au
+ use eos,     only:gmw
+ use units,   only:udist
 
 ! Data dictionary: Arguments
- real, intent(out)  :: Q, dlnQdlnT                 ! In CGS and linear scale
- real, intent(in)   :: T                           ! In CGS
- real, intent(in)   :: r_part, rho_sph             ! In AU, CGS
+ real, intent(out)  :: Q, dlnQdlnT           ! In CGS and linear scale
+ real, intent(in)   :: T, rho_sph            ! In CGS
+ real, intent(in)   :: r                     ! code units
 
 ! Data dictionary: Additional parameters for calculations
  integer                                     :: i
- real                                        :: rho_H, n_H, Temp, Lambda
+ real                                        :: rho_H, n_H, Temp, Lambda, r_au
  real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
  real                                        :: abundance, widthLine_molecule
  real, dimension(3)                          :: lambda_log, params_cool, widthLine,Qi
@@ -123,10 +125,11 @@ subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
  character(len=3)                            :: moleculeName
 
 ! Initialise variables
- if (r_part <= r_compOrb) then
+ r_au = r*udist/au
+ if (r_au <= r_compOrb) then
     rho_H = fit_rho_inner
  else
-    rho_H = fit_rho_inner*(r_compOrb/r_part)**fit_rho_power
+    rho_H = fit_rho_inner*(r_compOrb/r_au)**fit_rho_power
  endif
 
  Temp=T
@@ -150,7 +153,7 @@ subroutine calc_cool_molecular( T, r_part, rho_sph, Q, dlnQdlnT)
     widthLine_molecule = widthLine(i)
     abundance          = molecular_abun(i)
     moleculeName       = moleculeNames(i)
-    params_cd          = [r_part, widthLine_molecule, fit_rho_power, r_compOrb]
+    params_cd          = [r_au, widthLine_molecule, fit_rho_power, r_compOrb]
     call ColumnDensity(cdTable, params_cd, N_hydrogen)
 
     if (N_hydrogen /= 0.) then
@@ -383,9 +386,10 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
  real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
 
  ! Data dictionary: Find index values
+ integer, parameter  :: N_compZone = 15, N_r_part_sample = 36
  real                :: dr_part, r_sep
  real, parameter     :: dv = 0.02, dm = 0.3, widthLine_min = 0.001, widthLine_max = 2., perturbation = 0.0001
- real, parameter     :: N_compZone = 15, N_r_part_sample = 36, r_part_min = 1.1, r_part_max = 250.
+ real, parameter     :: r_part_min = 1.1, r_part_max = 250.
  integer             :: i, j, k, l
  real, dimension(4)  :: min_array, max_array
 
@@ -401,7 +405,7 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
 
  if (all(params <= max_array) .AND. all(min_array <= params)) then
     ! Index r_sep
-    l   = nint(params(4)) - min_array(4) + 1
+    l   = nint( params(4) - min_array(4) ) + 1
     r_sep = params(4)
 
     ! Index m_exp

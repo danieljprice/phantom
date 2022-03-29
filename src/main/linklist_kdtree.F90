@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,7 +21,7 @@ module linklist
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
 !   kdtree, kernel, mpiutils, part
 !
- use dim,          only:ncellsmax
+ use dim,          only:ncellsmax,ncellsmaxglobal
  use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
@@ -58,11 +58,11 @@ subroutine allocate_linklist
  use kdtree,     only:allocate_kdtree
  use dim,        only:maxp
 
- call allocate_array('cellatid', cellatid, ncellsmax+1)
- call allocate_array('ifirstincell', ifirstincell, ncellsmax+1)
- call allocate_array('nodeglobal', nodeglobal, ncellsmax+1)
- call allocate_array('node', node, ncellsmax+1)
- call allocate_array('nodemap', nodemap, ncellsmax+1)
+ call allocate_array('cellatid',     cellatid,     ncellsmaxglobal+1 )
+ call allocate_array('ifirstincell', ifirstincell, ncellsmax+1       )
+ call allocate_array('nodeglobal',   nodeglobal,   ncellsmaxglobal+1 )
+ call allocate_array('node',         node,         ncellsmax+1       )
+ call allocate_array('nodemap',      nodemap,      ncellsmax+1       )
  call allocate_kdtree()
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
@@ -107,9 +107,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
  ! walk tree up
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-!$omp critical (hmax)
+!$omp critical (node_hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (hmax)
+!$omp end critical (node_hmax)
  enddo
 
 end subroutine set_hmaxcell
@@ -157,26 +157,21 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 end subroutine get_distance_from_centre_of_mass
 
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
+ use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
- use kdtree,       only:maketree
-#ifdef MPI
- use kdtree,       only: maketreeglobal
-#endif
+ use kdtree,       only:maketree,maketreeglobal
+ use dim,          only:mpi
 
-#ifdef MPI
  integer, intent(inout) :: npart
-#else
- integer, intent(in)    :: npart
-#endif
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
 
-#ifdef MPI
- call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
-#else
- call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
-#endif
+ if (mpi .and. nprocs > 1) then
+    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+ else
+    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+ endif
 
 end subroutine set_linklist
 
@@ -190,9 +185,12 @@ end subroutine set_linklist
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
-                              cell_xpos,cell_xsizei,cell_rcuti,local_gravity)
+                              cell_xpos,cell_xsizei,cell_rcuti)
+ use io,     only:nprocs
+ use dim,    only:mpi
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
+ use part,   only:gravity
 #ifdef PERIODIC
  use io,       only:warning
  use boundary, only:dxbound,dybound,dzbound
@@ -206,11 +204,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real,    intent(out), optional :: f(lenfgrav)
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
- logical, intent(in),  optional :: local_gravity
  real :: xpos(3)
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
- logical :: get_j
+ logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
 !
@@ -220,6 +217,13 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     rcuti = cell_rcuti
  else
     call get_cell_location(inode,xpos,xsizei,rcuti)
+ endif
+
+ if (present(remote_export)) then
+    if (nprocs > 1) global_search = .true.
+    remote_export = .false.
+ else
+    global_search = .false.
  endif
 
 #ifdef PERIODIC
@@ -236,33 +240,22 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  get_j = .false.
  if (present(getj)) get_j = getj
 
- if (present(f)) then
+ get_f = (gravity .and. present(f))
+
+ if (mpi .and. global_search) then
+    ! Find MPI tasks that have neighbours of this cell, output to remote_export
+    call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+            cellatid,get_j,get_f,fgrav_global,remote_export)
+ elseif (get_f) then
+    ! Set fgrav to zero, which matters if gravity is enabled but global search is not
     fgrav_global = 0.0
-#ifdef MPI
-    if (present(remote_export)) then
-       remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-                cellatid,get_j,fgrav_global,remote_export=remote_export)
-    endif
-#endif
-    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              ifirstincell,get_j,fgrav)
-    if (present(local_gravity)) then
-       f = fgrav
-    else
-       f = fgrav + fgrav_global
-    endif
- else
-#ifdef MPI
-    if (present(remote_export)) then
-       remote_export = .false.
-       call getneigh(nodeglobal,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-              cellatid,get_j,remote_export=remote_export)
-    endif
-#endif
-    call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
-               ifirstincell,get_j)
  endif
+
+ ! Find neighbours of this cell on this node
+ call getneigh(node,xpos,xsizei,rcuti,3,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize,&
+              ifirstincell,get_j,get_f,fgrav)
+
+ if (get_f) f = fgrav + fgrav_global
 
 end subroutine get_neighbour_list
 
@@ -278,7 +271,7 @@ subroutine getneigh_pos(xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,
  integer, intent(in)  :: ifirstincell(:) !ncellsmax+1)
 
  call getneigh(node,xpos,xsizei,rcuti,ndim,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
-               ifirstincell,.false.)
+               ifirstincell,.false.,.false.)
 
 end subroutine getneigh_pos
 

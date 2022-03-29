@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -111,7 +111,7 @@ program phantommoddump
 !  will be reallocated automatically if npart > maxp_hard
 !  but allows user to manually preset array sizes if necessary
 !
- call allocate_memory(maxp_hard)
+ call allocate_memory(int(maxp_hard,kind=8))
 !
 !--read particle setup from dumpfile
 !

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module deriv
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, linklist, part, photoevap, ptmass,
-!   ptmass_radiation, timestep, timestep_ind, timing
+!   forces, forcing, growth, io, linklist, metric_tools, part, photoevap,
+!   ptmass, ptmass_radiation, timestep, timestep_ind, timing
 !
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -38,13 +38,14 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use ptmass,         only:ipart_rhomax
+ use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass
  use externalforces, only:externalforce
- use part,           only:dustgasprop,gamma_chem,dvdx,Bxyz,set_boundaries_to_active
+ use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
+                          nptmass,xyzmh_ptmass,sinks_have_heating
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -62,23 +63,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use growth,         only:get_growth_rate
  use part,           only:VrelVf
 #endif
-#ifdef SINK_RADIATION
+#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
- use part,             only:dust_temp,nptmass,xyzmh_ptmass
+ use part,             only:dust_temp
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
- use part,           only:nptmass,xyzmh_ptmass
 #endif
  use part,           only:mhd,gradh,alphaind,igas
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
-#ifdef GR
- use cons2prim,      only:cons2primall
-#endif
- use cons2prim,      only:cons2prim_everything
+ use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
+ use metric_tools,   only:init_metric
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -101,7 +99,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
- real,         intent(in)    :: metrics(:,:,:,:)
+ real,         intent(inout) :: metrics(:,:,:,:)
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
  t1    = 0.
@@ -126,6 +124,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
  if (icall==1 .or. icall==0) then
     call set_linklist(npart,nactive,xyzh,vxyzu)
+
+    if (gr) then
+       ! Recalculate the metric after moving particles to their new tasks
+       call init_metric(npart,xyzh,metrics)
+       call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+    endif
+
 #ifdef PERIODIC
     if (nptmass > 0) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
 #endif
@@ -163,7 +168,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef GR
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 #else
- call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,gamma_chem,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+ call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
 #endif
 
 !
@@ -175,6 +180,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call do_timing('driving',tlast,tcpulast)
 #endif
  stressmax = 0.
+ if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
@@ -185,7 +191,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 
-#ifdef SINK_RADIATION
+#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  !compute dust temperature
  call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
 #endif

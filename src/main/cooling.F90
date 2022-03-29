@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module cooling
 !     2 = Townsend (2009) cooling tables [implicitly calculated]
 !     3 = Gammie cooling [explicitly calculated]
 !     5 = Koyama & Inutuska (2002) [explicitly calculated]
-!     6 = Koyama & Inutuska (2002) [implicitly calculated][not yet implemented; JHW]
+!     6 = Koyama & Inutuska (2002) [implicitly calculated]
 !
 ! :References:
 !   Koyama & Inutsuka (2002), ApJL 564, 97-100
@@ -33,7 +33,7 @@ module cooling
 !   - dust_collision : *dust collision [1=on/0=off]*
 !   - excitation_HI  : *cooling via electron excitation of HI [1=on/0=off]*
 !   - habund         : *Hydrogen abundance assumed in cooling function*
-!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)*
+!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)*
 !   - relax_bowen    : *Bowen (diffusive) relaxation [1=on/0=off]*
 !   - relax_stefan   : *radiative relaxation [1=on/0=off]*
 !   - temp_floor     : *Minimum allowed temperature in K for Townsend cooling table*
@@ -55,19 +55,24 @@ module cooling
  logical, public :: cooling_implicit
  logical, public :: cooling_explicit
  real,    public :: bowen_Cprime = 3.000d-5
+ real,    public :: GammaKI_cgs = 2.d-26 ! [erg/s] heating rate for Koyama & Inutuska cooling
 
  private
  integer, parameter :: nTg = 64
  integer, parameter :: maxt = 1000
  real,    parameter :: Tref = 1.d5, T_floor = 10.   ! required for exact_cooling
  integer :: nt
- real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt)
+ real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt),rhov4_KI02(2,maxt)
  real    :: beta_cool  = 3.
  real    :: habund     = 0.7
  real    :: temp_floor = 1.e4                       ! required for exact_cooling_table
  real    :: Tgrid(nTg)
- real    :: crate_coef
+ real    :: LambdaKI_coef,GammaKI
+ real    :: KI02_rho_min_cgs = 1.0d-30  ! minimum density of the KI02 cooling curve
+ real    :: KI02_rho_max_cgs = 1.0d-14  ! maximum density of the KI02 cooling curve
+ real    :: KI02_rho_min,KI02_rho_max
  integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
+ integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0. ! [K]; set in .in file.  On if Tfloor > 0.
@@ -122,8 +127,11 @@ subroutine init_cooling(id,master,iprint,ierr)
     !--initialise remaining variables
     if (icooling == 2) then
        call init_cooltable(ierr)
-    elseif (icooling == 5) then
-       crate_coef = 2.0d-26*umass*utime**3/(mass_proton_cgs**2 * udist**5)
+    elseif (icooling == 5 .or. icooling == 6) then
+       LambdaKI_coef = GammaKI_cgs*umass*utime**3/(mass_proton_cgs**2 * udist**5)
+       GammaKI       = GammaKI_cgs*utime**3/(mass_proton_cgs*udist**2)
+       call init_hv4table(ierr)
+       if (ierr > 0) call fatal('init_cooling','Failed to create KI02 cooling table')
     elseif (icooling > 0) then
        call set_Tgrid
     endif
@@ -210,17 +218,82 @@ subroutine init_cooltable(ierr)
 end subroutine init_cooltable
 
 !-----------------------------------------------------------------------
+!+
+!  create a h-v4 table based upon the cooling curve of KI02
+!+
+!-----------------------------------------------------------------------
+subroutine init_hv4table(ierr)
+ use part,    only:hrho,igas
+ use physcon, only:mass_proton_cgs,kboltz
+ use units,   only:unit_density,unit_velocity
+ use eos,     only:gmw,gamma
+ integer, intent(out) :: ierr
+ integer              :: i,ctr
+ real                 :: nrho0_min,nrho0_max,nrho,dnrho,dGammaKI,Lambda,dLambda
+ real                 :: T,Tnew,Trat,fatT,faTdT
+ logical              :: iterate
+ logical              :: print_cc = .false. ! Print the cooling curve (for testing)
+
+ !--Initialise densities
+ KI02_rho_min = KI02_rho_min_cgs/unit_density
+ KI02_rho_max = KI02_rho_max_cgs/unit_density
+ nrho0_min    = KI02_rho_min_cgs/mass_proton_cgs
+ nrho0_max    = KI02_rho_max_cgs/mass_proton_cgs
+ dnrho        = (log10(nrho0_max) - log10(nrho0_min))/maxt
+ !--Initialise additional variables
+ dGammaKI     = 0.0
+ ierr         = 0
+
+ if (print_cc) open(unit=1031,file='coolingcurve.dat')
+
+ !--Iterate (in cgs units)!
+ T = 20000.
+ do i = 1,maxt
+    ctr     = 0
+    iterate = .true.
+    nrho    = 10**(log10(nrho0_min) + (i-1)*dnrho)
+    do while ( iterate )
+       Lambda  = 1.d7*exp(-1.184d5/(T+1.d3)) + 0.014*sqrt(T)*exp(-92./T) ! This is actually Lamda / Gamma
+       dLambda = 0.007*exp(-92./T)*(T+184.)*T**(-1.5) + 1.184d12*exp(-1.184d5/(T+1.d3))*(T+1.d3)**(-2)
+       fatT    =  Lambda*GammaKI_cgs*nrho -  GammaKI_cgs
+       faTdT   = dLambda*GammaKI_cgs*nrho - dGammaKI
+       Tnew    = abs(T - fatT/faTdT)
+       Trat    = abs( 1.0 - T/Tnew )
+       T       = Tnew
+       ctr     = ctr + 1
+       !--converged
+       if (Trat < 1.0d-6) iterate = .false.
+       !--failed to converge
+       if (T < 0. .or. ctr > 2000) then
+          iterate = .false.
+          ierr    = 1
+       endif
+    enddo
+    if (print_cc) write(1031,*) nrho,nrho*mass_proton_cgs,T,T*nrho,Lambda*GammaKI_cgs
+    rhov4_KI02(1,i) = nrho
+    rhov4_KI02(2,i) = T
+ enddo
+ if (print_cc) close(1031)
+
+ !--Convert to useful values
+ do i = 1,maxt
+    rhov4_KI02(1,i) = rhov4_KI02(1,i)*mass_proton_cgs/unit_density                               ! number density (cm^-3) -> mass density (code units)
+    rhov4_KI02(2,i) = kboltz*rhov4_KI02(2,i)/(gmw*mass_proton_cgs*(gamma-1.0))/unit_velocity**2  ! T -> internal energy (code units)
+ enddo
+
+end subroutine init_hv4table
+!-----------------------------------------------------------------------
 !
 !  calculate cooling rates
 !
 !-----------------------------------------------------------------------
-subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
+subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  use units,             only:unit_ergg,unit_density
  use cooling_molecular, only:do_molecular_cooling,calc_cool_molecular
 
  real, intent(in) :: rho, T, Teq               !rho in code units
- real, intent(in) :: r
- real, intent(in), optional :: mu, K2, kappa   !cgs
+ real, intent(in) :: r, mu, gamma
+ real, intent(in), optional :: K2, kappa       !cgs
  real, intent(out) :: Q, dlnQ_dlnT             !code units
  real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_molec, rho_cgs
  real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan, dlnQ_molec
@@ -238,11 +311,16 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, K2, kappa)
  dlnQ_relax_Stefan = 0.
  dlnQ_molec        = 0.
 
- if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
- if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, Q_relax_Bowen, dlnQ_relax_Bowen)
- if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
- if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
- if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
+ if (excitation_HI  == 1) &
+                    call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (relax_Bowen    == 1 ) &
+                    call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, gamma, Q_relax_Bowen, dlnQ_relax_Bowen)
+ if (dust_collision == 1 .and. present(K2)) &
+                    call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
+ if (relax_Stefan   == 1 .and. present(kappa)) &
+                    call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
+ if (do_molecular_cooling) &
+                    call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0.) then
@@ -262,11 +340,10 @@ end subroutine calc_cooling_rate
 !  Bowen 1988 cooling prescription
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, Q, dlnQ_dlnT)
+subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, gamma, Q, dlnQ_dlnT)
 ! all quantities in cgs
- use eos,     only:gamma
  use physcon, only:Rg
- real, intent(in) :: T, Teq, rho, mu
+ real, intent(in)  :: T, Teq, rho, mu, gamma
  real, intent(out) :: Q,dlnQ_dlnT
 
  Q         = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
@@ -395,43 +472,104 @@ end subroutine cooling_Gammie
 !+
 !   Cooling rate as per Koyama & Inutuska (2002; eqns 4 & 5);
 !   typos corrected as per Vazquez-Semadeni+ (2007)
+!   This is for the explicit calculation
+!   In equilibrium, n*LambdaKI = (rho/mp)*LambdaKI = GammaKI
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_KoyamaInutuska(rhoi,Tgas,dudti)
+subroutine cooling_KoyamaInutuska_explicit(rhoi,Tgas,dudti)
  real, intent(in)    :: rhoi,Tgas
  real, intent(inout) :: dudti
- real                :: crate
+ real                :: LambdaKI
 
- crate = crate_coef*(1.d7*exp(-118400./(Tgas+1000.))+0.014*sqrt(Tgas)*exp(-92./Tgas))
- dudti = dudti - crate*rhoi
+ ! Derivation to obtain correct units; used Koyama & Inutuska (2002) as the reference
+ !LambdaKI = GammaKI_cgs * (1.d7*exp(-118400./(Tgas+1000))+0.014*sqrt(Tgas)*exp(-92./Tgas)) ! The cooling rate in erg cm^3/s = g cm^5/s^3
+ !LambdaKI = LambdaKI/mass_proton_cgs**2                                                    ! units are now cm^5/(g s^3) ! since [u] = erg/g = cm^2/s^2
+ !LambdaKI = LambdaKI*umass*utime**3/udist**5                                               ! convert to from cm^5/(g s^3) to code units
+ !dudti    = dudti - LambdaKI*rhoi*fac                                                      ! multiply by rho (code) to get l^5/(m t^3) * m/l^3 = l^2/s^3 = [u]
+ !
+ !GammaKI = GammaKI_cgs                                                                     ! The heating rate in erg /s = g cm^2/s^3
+ !GammaKI = GammaKI/mass_proton_cgs                                                         ! divide by proton mass.  Units are now g cm^2 / s^3 / g = cm^2/s^3
+ !GammaKI = GammaKI*utime**3/udist**2                                                       ! convert from cm^2/s^3 to code units
+ !dudti   = dudti + GammaKI                                                                 ! units and dependencies are correct
 
-end subroutine cooling_KoyamaInutuska
+ LambdaKI = LambdaKI_coef*(1.d7*exp(-118400./(Tgas+1000.))+0.014*sqrt(Tgas)*exp(-92./Tgas))
+ dudti    = dudti - LambdaKI*rhoi + GammaKI
+
+end subroutine cooling_KoyamaInutuska_explicit
+
+!-----------------------------------------------------------------------
+!+
+!   Cooling rate as per Koyama & Inutuska (2002; eqns 4 & 5);
+!   typos corrected as per Vazquez-Semadeni+ (2007)
+!   This is the implicit method given by (5)-(6) in Vazquez-Semadeni+ (2007)
+!+
+!-----------------------------------------------------------------------
+subroutine cooling_KoyamaInutuska_implicit(eni,rhoi,dt,dudti)
+ use eos, only: gamma,temperature_coef,gmw
+ real, intent(in)    :: rhoi,eni,dt
+ real, intent(out)   :: dudti
+ integer             :: i,j,jm1
+ real                :: ponrhoi,tempi,eni_equil,eni_final,deni,tau1,LambdaKI
+
+ !--Determine the indicies surrounding the input h
+ i = minloc(abs(rhov4_KI02(1,1:maxt)-rhoi), 1)
+ if (i==1) then
+    !print*, 'min density too large! extrapolating using two smallest densities'
+    j = 2
+ elseif (i==maxt) then
+    !print*, 'max density too small! extrapolating using two largest densities'
+    j = maxt
+ elseif (rhov4_KI02(1,i-1) <= rhoi .and. rhoi <= rhov4_KI02(1,i  )) then
+    j = i
+ elseif (rhov4_KI02(1,i  ) <= rhoi .and. rhoi <= rhov4_KI02(1,i+1)) then
+    j = i+1
+ else
+    print*, rhoi,rhov4_KI02(1,i-1:i+1)
+    print*, 'this should not happen'
+    stop
+ endif
+
+ !--Calculate the equilibrium energy by linear interpolation
+ jm1       = j - 1
+ eni_equil = rhov4_KI02(2,j) + (rhov4_KI02(2,jm1)-rhov4_KI02(2,j))/(rhov4_KI02(1,jm1)-rhov4_KI02(1,j))*(rhoi-rhov4_KI02(1,j))
+
+ !--Determine the inverse time require to radiate/acquire excess/deficit energy & Update energy
+ ponrhoi  = (gamma-1.)*eni
+ tempi    = temperature_coef*gmw*ponrhoi
+ LambdaKI = LambdaKI_coef*(1.d7*exp(-118400./(tempi+1000.))+0.014*sqrt(tempi)*exp(-92./tempi))
+ dudti    = LambdaKI*rhoi - GammaKI
+ deni     = eni - eni_equil
+
+ if (abs(deni) > 0.) then
+    ! in both limits, this will approach the correct value
+    tau1      = abs(dudti/deni)
+    eni_final = eni_equil + deni*exp(-dt*tau1)
+    dudti     = -(eni - eni_final)/dt
+ else
+    ! in the unlikly chance deni = 0
+    dudti = -dudti
+ endif
+
+end subroutine cooling_KoyamaInutuska_implicit
 
 !-----------------------------------------------------------------------
 !
 !   explicit cooling
 !
 !-----------------------------------------------------------------------
-subroutine explicit_cooling (xi,yi,zi,ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
- use eos,     only:gamma,gmw
+subroutine explicit_cooling (xi,yi,zi,ui, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
- real, intent(in) :: xi, yi, zi, ui, rho, dt, Trad !code units
- real, intent(in), optional :: mu_in, K2, kappa
+ real, intent(in) :: xi, yi, zi, ui, rho, dt, Trad, mu, gamma !code units
+ real, intent(in), optional ::  K2, kappa
  real, intent(out) :: dudt !code units
- real :: u,Q,dlnQ_dlnT,T,mu,T_on_u
- real :: r                         !in au
+ real :: u,Q,dlnQ_dlnT,T,T_on_u, r
 
  r  = sqrt(xi*xi + yi*yi + zi*zi)
 
- if (.not.present(mu_in)) then
-    mu = gmw
- else
-    mu = mu_in
- endif
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T = T_on_u*ui
- call calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
+ call calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Trad, mu, gamma, K2, kappa)
  if (-Q*dt  > ui) then   ! assume thermal equilibrium
     u = Trad/T_on_u
     dudt = (u-ui)/dt
@@ -497,32 +635,39 @@ end subroutine implicit_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,K2,kappa,Tgas)
- use io, only: fatal
- real, intent(in)           :: xi,yi,zi,ui,rho,dt         ! in code units
- real, intent(in), optional :: Tgas,Trad,mu_in,K2,kappa   ! in cgs units
- real, intent(inout)        :: dudt                       ! in code units
- real                       :: r
+subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tgas)
+ use io,  only: fatal
+ use eos, only: gmw,gamma
+ real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
+ real, intent(in), optional :: Tgas,Trad,mu_in,gamma_in,K2,kappa   ! in cgs
+ real, intent(inout)        :: dudt                                ! in code units
+ real                       :: mu,polyIndex
 
- r  = sqrt(xi*xi + yi*yi + zi*zi)
+ mu         = gmw
+ polyIndex  = gamma
+ if (present(gamma_in)) polyIndex = gamma_in
+ if (present(mu_in))    mu        = mu_in
 
  select case (icooling)
  case(1)
-    call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
+!     call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
+    call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
  case (3)
     call cooling_Gammie(xi,yi,zi,ui,dudt)
  case (2)
-    call exact_cooling_table(ui,rho,dt,dudt)
+    call exact_cooling_table(ui,rho,dt,dudt,mu,polyIndex)
  case (5)
     if (present(Tgas)) then
-       call cooling_KoyamaInutuska(rho,Tgas,dudt)
+       call cooling_KoyamaInutuska_explicit(rho,Tgas,dudt)
     else
        call fatal('energ_cooling','Koyama & Inutuska cooling requires gas temperature')
     endif
+ case (6)
+    call cooling_KoyamaInutuska_implicit(ui,rho,dt,dudt)
  case default
     !call exact_cooling(r, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
     !call implicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-    if (present(Trad) .and. present(mu_in) .and. present(K2) .and. present(kappa)) then
+    if (present(Trad) .and. present(K2) .and. present(kappa)) then
        call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
     else
        call fatal('energ_cooling','default requires optional arguments; change icooling or ask D Price or L Siess to patch')
@@ -537,41 +682,36 @@ end subroutine energ_cooling
 !   analytical cooling rate prescriptions
 !
 !-----------------------------------------------------------------------
-subroutine exact_cooling (r, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
- use eos,     only:gamma,gmw
+subroutine exact_cooling (xi,yi,zi, u, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
- real, intent(in) :: u, rho, dt, Trad
- real, intent(in), optional :: mu_in, K2, kappa
+ real, intent(in) :: xi,yi,zi, u, rho, dt, Trad, mu, gamma
+ real, intent(in), optional :: K2, kappa
  real, intent(out) :: dudt
 
  real, parameter :: tol = 1.d-12
- real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,mu,T_on_u
- real :: r  ! in au
+ real :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u
+ real :: r
  integer :: k
 
- if (.not.present(mu_in)) then
-    mu = gmw
- else
-    mu = mu_in
- endif
+ r  = sqrt(xi*xi + yi*yi + zi*zi)
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T = T_on_u*u
 
  if (T < T_floor) then
     Temp = T_floor
  elseif (T > Tref) then
-    call calc_cooling_rate(r,Q, dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
+    call calc_cooling_rate(r,Q, dlnQ_dlnT, rho, T, Trad, mu, gamma, K2, kappa)
     Temp = T+T_on_u*Q*dt
  else
-    call calc_cooling_rate(r,Qref,dlnQref_dlnT, rho, Tref, Trad, mu, K2, kappa)
+    call calc_cooling_rate(r,Qref,dlnQref_dlnT, rho, Tref, Trad, mu, gamma, K2, kappa)
     Y = 0.
     k = nTg
     Q = Qref                  ! default value if Tgrid < T for all k
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
     do while (Tgrid(k) > T)
        k = k-1
-       call calc_cooling_rate(r,Q, dlnQ_dlnT, rho, Tgrid(k), Trad, mu, K2, kappa)
+       call calc_cooling_rate(r,Q, dlnQ_dlnT, rho, Tgrid(k), Trad, mu, gamma, K2, kappa)
        ! eqs A6
        if (abs(dlnQ_dlnT-1.) < tol) then
           y = y - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
@@ -615,18 +755,17 @@ end subroutine exact_cooling
 !   produced e.g. by CLOUDY.
 !+
 !-----------------------------------------------------------------------
-subroutine exact_cooling_table(uu,rho,dt,dudt)
- use eos,     only:gamma,gmw
+subroutine exact_cooling_table(uu,rho,dt,dudt,mu,gamma)
  use physcon, only:atomic_mass_unit,kboltz,Rg
  use units,   only:unit_density,unit_ergg,utime
- real, intent(in)  :: uu, rho,dt
+ real, intent(in)  :: uu, rho,dt,mu,gamma
  real, intent(out) :: dudt
  real    :: gam1,density_cgs,dt_cgs,amue,amuh,dtemp
  real    :: sloperef,slopek,temp,temp1,tref,yfunx,yinv0
  integer :: k
 
  gam1 = gamma - 1.
- temp = gam1*uu/Rg*gmw*unit_ergg
+ temp = gam1*uu/Rg*mu*unit_ergg
 
  tref     = temper(nt)
  sloperef = slope(nt)
@@ -640,10 +779,10 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
     dt_cgs      = dt*utime
 
     !Lionel Siess : I think there is an error. in dtemp sloperef should be replaced by lambda(nt)
-    !original dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))* &
+    !original dtemp = gam1*density_cgs*(atomic_mass_unit*mu/(amue*amuh*kboltz))* &
     !     sloperef/tref*dt_cgs
     ! Eq 26
-    dtemp = gam1*density_cgs*(atomic_mass_unit*gmw/(amue*amuh*kboltz))*lambda(nt)/tref*dt_cgs
+    dtemp = gam1*density_cgs*(atomic_mass_unit*mu/(amue*amuh*kboltz))*lambda(nt)/tref*dt_cgs
 
     k = find_in_table(nt,temper,temp)
     slopek = slope(k)
@@ -668,7 +807,7 @@ subroutine exact_cooling_table(uu,rho,dt,dudt)
     endif
  endif
 
- dudt = (temp1 - temp)*Rg/(gam1*gmw*unit_ergg)/dt
+ dudt = (temp1 - temp)*Rg/(gam1*mu*unit_ergg)/dt
 
 end subroutine exact_cooling_table
 
@@ -722,7 +861,7 @@ subroutine write_options_cooling(iunit)
        call write_options_h2cooling(iunit)
     endif
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5=KI02)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)',iunit)
     select case(icooling)
     case(1)
        call write_options_molecularcooling(iunit)

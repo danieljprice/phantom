@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -575,7 +575,7 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  use extern_binary, only:binary_accreted,accradius1
  use part,          only:set_particle_type,iboundary,maxphase,maxp,igas
  !use part,          only:npartoftype
@@ -583,7 +583,6 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
- integer, intent(in), optional :: i
  real :: r2
 
  accreted = .false.
@@ -591,12 +590,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
 
     r2 = xi*xi + yi*yi + zi*zi
-    if (r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
-       call set_particle_type(i,iboundary)
-       !npartoftype(igas) = npartoftype(igas) - 1
-       !npartoftype(iboundary) = npartoftype(iboundary) + 1
-    endif
-    if (r2 < (accradius1_hard)**2) accreted = .true.
+    if (r2 < (accradius1)**2) accreted = .true.
 
  case(iext_binary,iext_corot_binary)
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   gravwaveutils, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
+!   units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
+                do_radiation,n_nden_phantom,mhd_nonideal
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -53,7 +53,6 @@ subroutine check_setup(nerror,nwarn,restart)
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
- use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
@@ -114,10 +113,6 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
-    print*,'WARNING! Using non-ideal EoS but not storing temperature'
-    nwarn = nwarn + 1
- endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -334,16 +329,6 @@ subroutine check_setup(nerror,nwarn,restart)
           print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
-    endif
- endif
-!
-!--check that if ccode=1 that all particles are gas particles
-!  otherwise warn that gravitational wave strain calculation is wrong
-!
- if (calc_gravitwaves) then
-    if (any(npartoftype(2:) > 0)) then
-       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
-       nwarn = nwarn + 1
     endif
  endif
 !

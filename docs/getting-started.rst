@@ -31,5 +31,4 @@ Contents
    monarch
    pawsey
    running-mac
-   stable
    data-curation
