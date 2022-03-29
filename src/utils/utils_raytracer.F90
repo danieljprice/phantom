@@ -72,7 +72,7 @@ module raytracer
       allocate(listOfLens(nrays))
       allocate(tau(size(listsOfDists(:,1))))
       allocate(dists(size(listsOfDists(:,1))))
-     
+
       !$omp parallel do private(dir,tau,dists,len)
       do i = 1, nrays
          tau=0.
@@ -347,7 +347,7 @@ module raytracer
    subroutine find_next(inpoint, h, ray, xyzh, opacities, opacity, dist, next)
       use linklist, only:getneigh_pos,ifirstincell,listneigh
       use kernel,   only:radkern,cnormk,wkern
-      use part,     only:hfact
+      use part,     only:hfact, rhoh, massoftype, igas
       real, intent(in)       :: xyzh(:,:), opacities(:), inpoint(:), ray(:), h
       integer, intent(inout) :: next
       real, intent(out)      :: dist, opacity
@@ -370,7 +370,7 @@ module raytracer
          vec=xyzh(1:3,listneigh(i)) - inpoint
          norm2 = dot_product(vec,vec)
          q = sqrt(norm2)/xyzh(4,listneigh(i))
-         opacity=opacity+wkern(q*q,q)*opacities(listneigh(i))
+         opacity=opacity+wkern(q*q,q)*opacities(listneigh(i))*rhoh(xyzh(4,listneigh(i)), massoftype(igas))
 
          if (listneigh(i) .ne. prev) then
             tempdist = dot_product(vec,ray)
