@@ -33,7 +33,7 @@ module raytracer
       real, intent(out)   :: taus(:)
 
       if (present(companion) .and. present(R)) then
-         call get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R)
+         call get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, companion, R, order, taus)
       else
          call get_all_tau_outwards_single(primary, xyzh, opacities, Rstar, order, taus)
       endif
@@ -111,7 +111,7 @@ module raytracer
    !  OUT: taus:           The list of optical depths for each particle
    !+
    !--------------------------------------------------------------------------
-   subroutine get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, order, taus, companion, R)
+   subroutine get_all_tau_outwards_companion(primary, xyzh, opacities, Rstar, companion, R, order, taus)
       integer, intent(in) :: order
       real, intent(in)    :: primary(3), companion(3), opacities(:), Rstar, xyzh(:,:), R
       real, intent(out)   :: taus(:)
@@ -174,11 +174,13 @@ module raytracer
 
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth of a particle with a distance on the ray
+   !  Calculate the optical depth of a particle
    !+
-   !  IN: dist:            The distance of a point on the ray
+   !  IN: nsides:          the healpix nsides of the simulation
+   !  IN: vec:             the vector from the primary to the point
    !  IN: listOfTaus:      The distribution of optical depths throughout the ray
    !  IN: listOfDists:     The distribution of distances throughout the ray
+   !  IN: listOfLens:      The list of lengths of listOfTaus and listOfDists
    !+
    !  OUT: tau:            The list of optical depths for the particle
    !+
@@ -191,11 +193,6 @@ module raytracer
       integer :: index, n(8), nneigh, i
       real    :: tautemp, vectemp(3), suminvdist2, tempdist(8), tempdistIndex
       logical :: mk(8)
-      
-
-      ! call vec2pix_nest(nsides, vec, index)
-      ! index = index + 1
-      ! call get_tau_outwards(norm2(vec), listsOfTaus(:,index), listsOfDists(:,index), listOfLens(index), tau)
       
       call vec2pix_nest(nsides, vec, index)
       call pix2vec_nest(nsides, index, vectemp)
@@ -232,6 +229,7 @@ module raytracer
    !  IN: dist:            The distance of a point on the ray
    !  IN: listOfTaus:      The distribution of optical depths throughout the ray
    !  IN: listOfDists:     The distribution of distances throughout the ray
+   !  IN: len:             The length of listOfTaus and listOfDists
    !+
    !  OUT: tau:            The list of optical depths for the particle
    !+
@@ -264,7 +262,7 @@ module raytracer
     
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth along a given ray
+   !  Calculate the optical depts along a given ray
    !+
    !  IN: primary:         The location of the primary star
    !  IN: ray:             The direction of the ray that needs to be traced
@@ -279,41 +277,33 @@ module raytracer
    !+
    !--------------------------------------------------------------------------
    subroutine ray_tracer(primary, ray, xyzh, opacities, Rstar, taus, listOfDist, len, maxDist)
-      use linklist, only:getneigh_pos,ifirstincell,listneigh
-      use kernel,   only:radkern
       real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), opacities(:)
       real, optional       :: maxDist
       real, intent(out)    :: listOfDist(:), taus(:)
       integer, intent(out) :: len
       
-      integer, parameter :: maxcache = 0
-      real, allocatable  :: xyzcache(:,:)
-      real :: dist, h, opacity, previousOpacity, nextOpacity
-      integer :: nneigh, next, i
+      real    :: dist, nextDist, h, opacity, previousOpacity, nextOpacity, totalDist
+      integer :: next, i
 
-      dist = Rstar
-      listOfDist(1)=dist
       h = Rstar/100.
-
       next=0
       do while (next==0)
          h = h*2.
-         call getneigh_pos(primary+Rstar*ray,0.,h,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-         call find_next(primary, ray, dist, xyzh, listneigh, next, nneigh)
+         call find_next(primary+Rstar*ray, h, ray, xyzh, opacities, previousOpacity, dist, next)
       enddo
-      call calc_opacity(primary+Rstar*ray, xyzh, opacities, listneigh, nneigh, previousOpacity)
 
       i = 1
-      do while (hasNext(next,dist,maxDist))
+      totalDist = Rstar
+      listOfDist(i)=TotalDist
+      do while (hasNext(next,totalDist,maxDist))
+         totalDist = totalDist+dist
+         call find_next(primary + totalDist*ray, xyzh(4,next), ray, xyzh, opacities, nextOpacity, nextDist, next)
          i = i + 1
-         call getneigh_pos(primary + dist*ray,0.,xyzh(4,next)*radkern, &
-                           3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
-         call calc_opacity(primary + dist*ray, xyzh, opacities, listneigh, nneigh, nextOpacity)
          opacity = (nextOpacity+previousOpacity)/2
          previousOpacity=nextOpacity
-         taus(i) = taus(i-1)+(dist-listOfDist(i-1))*opacity
-         listOfDist(i)=dist
-         call find_next(primary, ray, dist, xyzh, listneigh, next,nneigh)
+         taus(i) = taus(i-1)+(dist)*opacity
+         listOfDist(i)=TotalDist
+         dist=nextDist
       enddo
       len = i
    end subroutine ray_tracer
@@ -336,93 +326,64 @@ module raytracer
    
    !--------------------------------------------------------------------------
    !+
-   !  Find the next point on a ray
+   !  First finds the opacity at the starting point, then finds the next 
+   !                       point on a ray and the distance to this point
    !+
-   !  IN: inpoint:         The initial point for which the next point will 
-   !                       be calculated
+   !  IN: inpoint:         The initial point for which the opacity and the 
+   !                       next point will be calculated
+   !  IN: h:               The smoothing point at the initial point
    !  IN: ray:             The unit vector of the direction in which the next 
    !                       point will be calculated
    !  IN: xyzh:            The xyzh of all the particles
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
-   !                       the initial point
+   !  IN: opacities:       The list of the opacities of the particles
    !  IN: next:            The index of the initial point
    !                       (this point will not be considered as possible next point)
-   !  IN: nneighin:        The amount of neighbors
    !+
+   !  OUT: opacity:        The opacity at the given location
+   !  OUT: dist:           The distance to the next point
    !  OUT: next:           The next point on the ray
    !+
    !--------------------------------------------------------------------------
-   subroutine find_next(inpoint, ray, dist, xyzh, neighbors, next, nneighin)
-      integer, intent(in)    :: neighbors(:)
-      real, intent(in)       :: xyzh(:,:), inpoint(:), ray(:)
+   subroutine find_next(inpoint, h, ray, xyzh, opacities, opacity, dist, next)
+      use linklist, only:getneigh_pos,ifirstincell,listneigh
+      use kernel,   only:radkern,cnormk,wkern
+      use part,     only:hfact
+      real, intent(in)       :: xyzh(:,:), opacities(:), inpoint(:), ray(:), h
       integer, intent(inout) :: next
-      real, intent(inout)    :: dist
-      integer, optional      :: nneighin
+      real, intent(out)      :: dist, opacity
+
+      integer, parameter :: maxcache = 0
+      real, allocatable  :: xyzcache(:,:)
       
-      real     :: trace_point(3), dmin, vec(3), tempdist, raydist
-      real     :: nextdist
-      integer  :: i, nneigh, prev
-      
-      dmin = huge(0.)
-      if (present(nneighin)) then
-         nneigh = nneighin
-      else
-         nneigh = size(neighbors)
-      endif
+      integer  :: nneigh, i, prev
+      real     :: dmin, vec(3), tempdist, raydist, q, norm2
 
       prev=next
       next=0
-      nextDist=dist
-      trace_point = inpoint + dist*ray
+      dist=0.
 
-      i = 1
-      do while (i <= nneigh .and. neighbors(i) /= 0)
-         if (neighbors(i) .ne. prev) then
-            vec=xyzh(1:3,neighbors(i)) - trace_point
+      call getneigh_pos(inpoint,0.,h*radkern, 3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+
+      opacity=0
+      dmin = huge(0.)
+      do i=1,nneigh
+         vec=xyzh(1:3,listneigh(i)) - inpoint
+         norm2 = dot_product(vec,vec)
+         q = sqrt(norm2)/xyzh(4,listneigh(i))
+         opacity=opacity+wkern(q*q,q)*opacities(listneigh(i))
+
+         if (listneigh(i) .ne. prev) then
             tempdist = dot_product(vec,ray)
             if (tempdist>0.) then
-               raydist = dot_product(vec,vec) - tempdist**2
+               raydist = norm2 - tempdist**2
                if (raydist < dmin) then
                   dmin = raydist
-                  next = neighbors(i)
-                  nextdist = dist+tempdist
+                  next = listneigh(i)
+                  dist = tempdist
                end if
             end if
          endif
-         i = i+1
       enddo
-      dist=nextdist
+      opacity = opacity*cnormk/hfact**3
    end subroutine find_next
-
-   !--------------------------------------------------------------------------
-   !+
-   !  Calculate the opacity in a given location
-   !+
-   !  IN: r0:              The location where the opacity will be calculated
-   !  IN: xyzh:            The xyzh of all the particles
-   !  IN: opacities:       The list of the opacities of the particles
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
-   !                       the initial point
-   !  IN: nneigh:          The amount of neighbors
-   !+
-   !  OUT: opacity:        The opacity at the given location
-   !+
-   !--------------------------------------------------------------------------
-   subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, opacity)
-      use kernel,   only:cnormk,wkern
-      use part,     only:hfact
-      real, intent(in)    :: r0(:), xyzh(:,:), opacities(:)
-      integer, intent(in) :: neighbors(:), nneigh
-      real, intent(out)   :: opacity
-
-      integer :: i
-      real    :: fact, q
-
-      fact = cnormk/hfact**3
-      opacity=0
-      do i=1,nneigh
-         q = norm2(r0 - xyzh(1:3,neighbors(i)))/xyzh(4,neighbors(i))
-         opacity=opacity+fact*wkern(q*q,q)*opacities(neighbors(i))
-      enddo
-   end subroutine calc_opacity
 end module raytracer
