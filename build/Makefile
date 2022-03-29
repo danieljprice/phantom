@@ -21,9 +21,9 @@
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2021
+PHANTOM_VERSION_MAJOR=2022
 PHANTOM_VERSION_MINOR=0
-PHANTOM_VERSION_MICRO=0
+PHANTOM_VERSION_MICRO=1
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -40,23 +40,22 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
 #
 ifndef DOUBLEPRECISION
-  DOUBLEPRECISION= yes
+    DOUBLEPRECISION= yes
 endif
 ifndef EDITOR
-  EDITOR= emacs
+    EDITOR= emacs
 endif
 ifndef OPENMP
-  OPENMP= yes
+    OPENMP= yes
 endif
 ifndef SPLASH_DIR
-   SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
+    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
 endif
 #MPI= yes
 #
@@ -88,6 +87,7 @@ LIBTOOL=libtool
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
+
 #----------------------------------------------------------------
 #
 # Check for obsolete setups and replace with generic version
@@ -1123,26 +1123,7 @@ ifeq ($(SETUP), sfmcfost) # [buildbot skip]
     MCFOST=yes
 endif
 
-ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
-#   live feedback from mcfost, superseded by mcfost setup
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_mcfostcmdline.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), radiativebox)
-    SETUPFILE=setup_radiativebox.f90
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    RADIATION=yes
-    IND_TIMESTEPS=no
-    PERIODIC=yes
-endif
+include Makefile_setups
 
 ifndef SETUPFILE
     SETUPFILE= setup_unifdis.f90
@@ -1180,264 +1161,24 @@ ifeq ($(MCFOST), yes)
 	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 -lz -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
 endif
 
-
-#----------------------------------------------------------------
-ifeq ($(SYSTEM),cray)
-    FC=ftn
-    FFLAGS=-Oaggress -Ovector3 -Oipa4
-    DBLFLAG= -s real64
-    CC=cc
-    CCFLAGS=-O3
-    KNOWN_SYSTEM=yes
-ifeq ($(MAP),yes)
-    LDFLAGS+=-dynamic -L/${ALLINEA_DIR}/allinea -lmap-sampler -Wl,--eh-frame-hdr
-    FFLAGS+= -G2
-endif
-endif
-
-ifeq ($(SYSTEM),daint)
-    include Makefile_defaults_ifort
-    FC=ftn
-    FFLAGS+= -heap-arrays
-    QSYS = slurm
-ifeq ($(MPI),daint)
-    USEMPI=yes
-endif
-endif
-
-ifeq ($(SYSTEM),xc40)
-#massively copied from the Daint system
-    include Makefile_defaults_ifort
-    FC=ftn
-    FFLAGS+= -heap-arrays -dynamic
-    KNOWN_SYSTEM=yes
-    CC = cc
-    QSYS = slurm
-    OMPFLAGS = -openmp
-ifeq ($(MPI),xc40)
-    USEMPI=yes
-endif
-endif
-
-ifeq ($(SYSTEM), msg)
-    include Makefile_defaults_ifort
-    QSYS = sge
-    QSHELL = tcsh
-    ifeq ($(OPENMP),yes)
-       QPE = smp
-       NOMP = '$$NSLOTS'
-       ifndef NPAR
-          NPAR = '4-32'
-       endif
-    endif
-    ifeq ($(MPI),yes)
-       QPE = mpi
-       ifeq ($(OPENMP),yes)
-            QPE = mqu4
-            NOMP = 4
-       endif
-    endif
-    #QEXTRA='-l dpod=true -q mqu2'
-    #HDF5=yes
-#    HDF5ROOT=/opt/sw/hdf5-1.8.0/
-endif
-
-ifeq ($(SYSTEM), m2)
-#   MASSIVE facility: massive.org.au
-    include Makefile_defaults_ifort
-    QSYS = pbs
-    ifeq ($(OPENMP),yes)
-       NOMP='12'
-    else
-       NOMP='1'
-    endif
-    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
-    WALLTIME='500:00:00'
-endif
-
-ifeq ($(SYSTEM), g2)
-#   gstar facility
-#   Note: gstar has nomp=12; sstar has nomp=16
-    include Makefile_defaults_ifort
-    QSYS = pbs
-    ifeq ($(OPENMP),yes)
-       NOMP='16'
-    else
-       NOMP='1'
-    endif
-    QNAME='sstar'
-    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
-    WALLTIME='168:00:00'
-    MPIEXEC='mpiexec -npernode 1'
-endif
-
-ifeq ($(SYSTEM), ozstar)
-#   ozstar facility
-    include Makefile_defaults_ifort
-    OMPFLAGS=-qopenmp
-    NOMP=32
-    #QNAME='skylake'
-    QSYS = slurm
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), monarch)
-    include Makefile_defaults_ifort
-    OMPFLAGS=-qopenmp -qopt-report
-    QSYS = slurm
-    QPROJECT='p01'
-    WALLTIME='100:59:59'
-    QPARTITION='comp'
-endif
-
-ifeq ($(SYSTEM), monarchpsxe)
-    include Makefile_defaults_ifort
-    QSYS = slurm
-    QPROJECT='p01'
-endif
-
-ifeq ($(SYSTEM), nci)
-#   gadi (NCI machine)
-    include Makefile_defaults_ifort
-    #MPI=intel
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
-    DEBUGFLAG+= -fpe0 -fp-stack-check
-    CCFLAGS= -O3 -ip
-    QSYS= pbs
-    #PBSRESUBMIT=yes
-    NOMP=48
-    ifeq ($(MPI),yes)
-       NPAR=32
-    endif
-    QPROJECT='fu7'
-    QNAME='normal'
-    WALLTIME='48:00:00'
-    MPIEXEC='mpiexec -npernode 1'
-    QNODES='ncpus='$(NPAR)
-    QEXTRA='-l other=hyperthread'
-endif
-
-ifeq ($(SYSTEM), gfortran)
-    include Makefile_defaults_gfortran
-ifneq ($(UNAME), Darwin)
-    FFLAGS+= -mcmodel=medium
-endif
-endif
-
-ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
-    include Makefile_defaults_gfortran
-endif
-
-ifeq ($(SYSTEM), gfortran44)
-    include Makefile_defaults_gfortran
-    FC= gfortran -gdwarf-2
-    FFLAGS= -O3 -Wall -frecord-marker=4 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
-    DEBUGFLAG= -g -frange-check -ffpe-trap=invalid,denormal -finit-real=nan -finit-integer=nan -fbacktrace
-endif
-
-ifeq ($(SYSTEM), gfortran47)
-    include Makefile_defaults_gfortran
-    FC= gfortran-mp-4.7 -gdwarf-2
-    FFLAGS= -Wall -m64 -O3 -ffast-math -funroll-loops -ftree-loop-linear \
-            -finline-functions-called-once \
-            -fomit-frame-pointer -finline-limit=3000 --param min-vect-loop-bound=2
-    DEBUGFLAG= -Wextra -g -frange-check -fcheck=all -ffpe-trap=denormal -finit-real=nan -finit-integer=nan -fbacktrace
-endif
-
-ifeq ($(SYSTEM), complexity)
-#   complexity.leicester.dirac.ac.uk
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
-    QSYS=pbs
-    QNAME=q64
-    WALLTIME='48:00:00'
-endif
-
-ifeq ($(SYSTEM), isca)
-    # local cluster at the University of Exeter
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -axAVX -mcmodel=medium \
-            -warn uninitialized -warn truncated_source\
-            -warn interfaces -nogen-interfaces
-    OMPFLAGS= -qopenmp
-    DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
-    QNAME=pq
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), skylake)
-# HPCs Skylake cluster at Cambridge
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn \
-            truncated_source -xCORE-AVX512 -ipo
-    OMPFLAGS = -qopenmp
-    CCFLAGS = -O3 -mcmodel=medium -xCORE-AVX512 -ipo
-    QSYS = slurm
-    QPROJECT='DIRAC-DP005-CPU'
-    WALLTIME='36:00:00'
-endif
-
-ifeq ($(SYSTEM), kennedy)
-# HPCs cluster at University of St. Andrews
-    include Makefile_defaults_ifort
-    OMPFLAGS = -qopenmp
-    QSYS = slurm
-endif
-
-ifeq ($(SYSTEM), ifort)
-    include Makefile_defaults_ifort
-endif
-
-ifeq ($(SYSTEM), ifortmac)
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-endif
-
-ifeq ($(SYSTEM), ifortgcc)
-    include Makefile_defaults_ifort
-    CC = gcc
-    CCFLAGS = -O3
-endif
-
-ifeq ($(SYSTEM), hydra)
-# this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
-endif
-
-ifeq ($(SYSTEM), lyoccf)
-# LIO CCF cluster
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
-            -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
-            -warn unused -warn truncated_source
-    LIBCXX = -cxxlib
-endif
+include Makefile_systems
 
 FFLAGS+=-fPIC
 # Set some default files if not defined above
 ifdef MAXP
-   FPPFLAGS += -DMAXP=${MAXP}
+    FPPFLAGS += -DMAXP=${MAXP}
 endif
 ifdef MAXPTMASS
-   FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
+    FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
 endif
 ifdef MAXNEIGH
-   FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
+    FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
 endif
 ifdef NCELLSMAX
-   FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
+    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
 ifdef STACKSIZE
-   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+    FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
 # Set other optional flags depending on settings
 
@@ -1471,10 +1212,6 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
-ifeq ($(STORE_TEMP), yes)
-    FPPFLAGS += -DSTORE_TEMPERATURE
-endif
-
 ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
@@ -1494,15 +1231,15 @@ endif
 ifeq ($(DUST), yes)
     FPPFLAGS += -DDUST
     ifndef KERNEL
-       KERNEL=quintic
+        KERNEL=quintic
     endif
 endif
 
 ifdef MAXDUSTSMALL
-   FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
+    FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
 endif
 ifdef MAXDUSTLARGE
-   FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
+    FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
 endif
 
 ifeq ($(DUSTGROWTH), yes)
@@ -1576,10 +1313,10 @@ endif
 #
 ifndef SRCKERNEL
 ifdef KERNEL
-   SRCKERNEL= kernel_${KERNEL}.f90
+    SRCKERNEL= kernel_${KERNEL}.f90
 else
-   SRCKERNEL= kernel_cubic.f90
-   KERNEL=cubic
+    SRCKERNEL= kernel_cubic.f90
+    KERNEL=cubic
 endif
 endif
 
@@ -1590,7 +1327,7 @@ endif
 # if injection module selected
 #
 ifeq ($(INJECT_PARTICLES), no)
-   SRCINJECT=
+    SRCINJECT=
 else
 ifdef SRCINJECT
     FPPFLAGS += -DINJECT_PARTICLES
@@ -1755,12 +1492,12 @@ endif
 # metrics for GR
 #
 ifeq ($(GR),yes)
-   SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
+    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
-   SRCMETRIC= metric_${METRIC}.f90
+    SRCMETRIC= metric_${METRIC}.f90
 else
-   SRCMETRIC= metric_minkowski.f90
+    SRCMETRIC= metric_minkowski.f90
 endif
 SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
 #
@@ -1774,15 +1511,15 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = eos_barotropic.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-   SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
-  SRCKROME=krome.f90
+    SRCKROME=krome.f90
 else
-  SRCKROME=
+    SRCKROME=
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
@@ -1796,12 +1533,13 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          checkoptions.F90 viscosity.f90 options.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM}\
-         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 \
-         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
+         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
+         mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
-         evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
+         evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         mf_write.f90 evolve.F90 \
          checksetup.F90 initial.F90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
@@ -1868,11 +1606,14 @@ edit: checksetup
 # these are the sources for anything which uses the readwrite_dumps module
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
-         utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} kdtree.F90 linklist_kdtree.F90 \
+         utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
+         mpi_dens.F90 mpi_force.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 \
+         ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
@@ -1904,19 +1645,19 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
-          mpi_balance.F90 set_dust_options.f90 \
-          utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
+SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
+          set_dust_options.f90 \
+          utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
+          set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 ifeq ($(KROME), krome)
-       OBJSETUP1 += $(KROME_OBJS)
+    OBJSETUP1 += $(KROME_OBJS)
 endif
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -1947,9 +1688,9 @@ SRCTEST=${SRCTESTS}
 endif
 # replace a few test routines for the GR code
 ifeq ($(GR),yes)
-   SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-   SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
+    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
+    SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
+    SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 OBJTEST1= $(SRCTEST:.f90=.o)
 OBJTEST= $(OBJTEST1:.F90=.o)
@@ -2304,12 +2045,12 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH} \
+SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 utils_timing.f90 dtype_kdtree.F90 ${SRCFASTMATH} \
           units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 setup_params.f90 \
-          utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 \
-          viscosity.f90 options.f90 damping.f90 ${SRCEOS} utils_gravwave.f90 \
-          utils_infiles.f90 utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
-          ${SRCCHEM} ${DOMAIN} ${SRCPOT} ptmass.F90 ${LINKLIST} ${SRCTURB} \
+          utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 utils_infiles.f90 \
+          ${SRCEOS} viscosity.f90 options.f90 damping.f90 utils_gravwave.f90 \
+          utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
+          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_memory.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
           checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
@@ -2482,317 +2223,8 @@ cleancombinedustdumps:
 	rm -f $(BINDIR)/combinedustdumps
 
 
+include Makefile_qscripts
 
-#----------------------------------------------------
-# target to write appropriate queue submission script
-#
-ifndef QSYS
-   QSYS=pbs
-endif
-ifndef WALLTIME
-   WALLTIME='1000:00:00'
-endif
-ifndef MAXMEM
-   MAXMEM='16G'
-endif
-ifeq ($(OPENMP),yes)
- ifndef NOMP
-   ifdef OMP_NUM_THREADS
-      NOMP=$(OMP_NUM_THREADS)
-   else
-      NOMP=2
-   endif
- endif
- ifndef OMP_SCHEDULE
-    OMP_SCHEDULE=dynamic
- endif
- ifndef QPE
-    QPE=omp
- endif
- ifndef NPAR
-    NPAR=$(NOMP)
- endif
-endif
-ifeq ($(USEMPI),yes)
- ifndef NMPI
-    NMPI=8
- endif
- ifndef QPE
-    QPE=mpi
- endif
- ifndef NPAR
-    NPAR=$(NMPI)
- endif
- ifndef MPIEXEC
-    MPIEXEC=mpiexec -np ${NMPI}
- endif
-else
- ifndef NMPI
-    NMPI=1
- endif
-endif
-ifndef OUTFILE
-  ifeq ($(QSYS),sge)
-    OUTFILE=$(INFILE)'.sgeout'
-  else
-    ifeq ($(QSYS),pbs)
-       OUTFILE=$(INFILE)'.pbsout'
-    else
-       OUTFILE=$(INFILE)'.qout'
-    endif
-  endif
-endif
-ifndef MAILTO
-   MAILTO=`git config --get user.email`
-endif
-GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`'
-
-ifndef CMD
-CMD='./phantom $(INFILE) >& $$outfile'
-endif
-
-.PHONY: qscript
-
-qscript:
-    ifneq ($(KNOWN_SYSTEM), yes)
-	@echo "Error: qscript needs known SYSTEM variable set"
-	@${MAKE} err;
-    endif
-    ifndef INFILE
-	@echo
-	@echo "Usage: make qscript INFILE=infile"
-	@echo
-	@${MAKE} err;
-    endif
-    # set default values for variables not set
-    ifeq ($(QSHELL),tcsh)
-	@echo '#!/bin/tcsh'
-    else
-	@echo '#!/bin/bash'
-    endif
-    ifeq ($(QSYS),sge)
-	@echo '## Sun Grid Engine Script, created by "make qscript" '`date`
-        ifeq ($(QSHELL),tcsh)
-	    @echo '#$$ -S /bin/tcsh'
-        else
-	    @echo '#$$ -S /bin/bash'
-        endif
-	@echo '#$$ -cwd'
-	@echo '#$$ -N '`../scripts/randomword.pl`
-	@echo '#$$ -o '$(OUTFILE)' -j y'
-	@echo '#$$ -l h_rt='$(WALLTIME)
-	@echo '#$$ -l h_vmem='$(MAXMEM)
-        ifdef MAILTO
-	   @echo '#$$ -m ae'
-	   @echo '#$$ -M '$(MAILTO)
-        endif
-        ifdef QPE
-	   @echo '#$$ -pe '$(QPE) $(NPAR)
-        endif
-        ifdef QEXTRA
-	   @echo '#$$ '$(QEXTRA)
-        endif
-	@echo
-	@echo 'echo "SGE: HOSTS   = "`cat $$PE_HOSTFILE`'
-	@echo 'echo "SGE: NHOSTS  = $$NHOSTS"'
-	@echo 'echo "SGE: NSLOTS  = $$NSLOTS"'
-	@echo 'echo "SGE: NQUEUES = $$NQUEUES"'
-    else ifeq ($(QSYS),pbs)
-	@echo '## PBS Job Submission Script, created by "make qscript" '`date`
-        ifdef QNODES
-	   @echo '#PBS -l '$(QNODES)
-        else
-           ifeq ($(SYSTEM),zen)
-	      @echo '#PBS -l nodes='$(NMPI)':ppn=8:StandardMem'
-           else
-	      @echo '#PBS -l nodes='$(NMPI)':ppn='$(NOMP)
-           endif
-        endif
-        ifdef JOBNAME
-	   @echo '#PBS -N '$(JOBNAME)
-        else
-	   @echo '#PBS -N '`../scripts/randomword.pl`
-        endif
-        ifdef QNAME
-	   @echo '#PBS -q '$(QNAME)
-        endif
-        ifdef QPROJECT
-	   @echo '#PBS -P '$(QPROJECT)
-        endif
-	@echo '#PBS -o '$(OUTFILE)
-	@echo '#PBS -j oe'
-        ifdef MAILTO
-	   @echo '#PBS -m e'
-	   @echo '#PBS -M '$(MAILTO)
-        endif
-	@echo '#PBS -l walltime='$(WALLTIME)
-	@echo '#PBS -l mem='$(MAXMEM)
-        ifdef QEXTRA
-	   @echo '#PBS '$(QEXTRA)
-        endif
-	@echo '## phantom jobs can be restarted:'
-	@echo '#PBS -r y'
-        ifeq ($(PBSRESUBMIT),yes)
-             ifeq ($(QSHELL),tcsh)
-	          $(error error: resubmittable scripts require bash, cannot use QSHELL=tcsh);
-             endif
-	     @echo '#PBS -v NJOBS,NJOB'
-	     @echo
-	     @echo '#------------------------------------------------------------------------------'
-	     @echo '# this is a self-resubmitting PBS script'
-	     @echo '# use qsub -v NJOBS=10 <scriptname> to submit'
-	     @echo '# with an appropriate value for NJOBS'
-	     @echo '#'
-	     @echo '# These variables are assumed to be set:'
-	     @echo '#   NJOBS is the total number of jobs in a sequence of jobs (defaults to 1)'
-	     @echo '#   NJOB is the number of the previous job in the sequence (defaults to 0)'
-	     @echo '#------------------------------------------------------------------------------'
-	     @echo 'if [ X$$NJOBS == X ]; then'
-	     @echo '    echo "NJOBS (total number of jobs in sequence) is not set - defaulting to 1"'
-	     @echo '    export NJOBS=1'
-	     @echo 'fi'
-	     @echo 'if [ X$$NJOB == X ]; then'
-	     @echo '    echo "NJOB (previous job number in sequence) is not set - defaulting to 0"'
-	     @echo '    export NJOB=0'
-	     @echo 'fi'
-	     @echo '#'
-	     @echo '# Quick termination of job sequence - look for a file called STOP_SEQUENCE'
-	     @echo '#'
-	     @echo 'if [ -f $$PBS_O_WORKDIR/STOP_SEQUENCE ]; then'
-	     @echo '    echo  "Terminating sequence after $$NJOB jobs"'
-	     @echo '    exit 0'
-	     @echo 'fi'
-	     @echo '#'
-	     @echo '# Increment the counter to get current job number'
-	     @echo '#'
-	     @echo 'NJOB=$$(($$NJOB+1))'
-	     @echo '#'
-	     @echo '# Are we in an incomplete job sequence - more jobs to run ?'
-	     @echo '#'
-	     @echo 'if [ $$NJOB -lt $$NJOBS ]; then'
-	     @echo '    #'
-	     @echo '    # Now submit the next job'
-	     @echo '    #'
-	     @echo '    NEXTJOB=$$(($$NJOB+1))'
-	     @echo '    echo "Submitting job number $$NEXTJOB in sequence of $$NJOBS jobs"'
-	     @echo '    qsub -z -W depend=afterany:$$PBS_JOBID $$0'
-	     @echo 'else'
-	     @echo '    echo "Running last job in sequence of $NJOBS jobs"'
-	     @echo 'fi'
-#	     @echo '#'
-#	     @echo '# File manipulation prior to job commencing, eg. clean up previous output files,'
-#	     @echo '# check for consistency of checkpoint files, ...'
-#	     @echo '#'
-#	     @echo 'if [ $$NJOB -gt 1 ]; then'
-#	     @echo '   echo " "'
-#	     @echo '   # .... USER INSERTION HERE '
-#	     @echo 'fi'
-	     @echo '#------------------------------------------------------------------------------'
-        endif
-	@echo
-	@echo 'cd $$PBS_O_WORKDIR'
-	@echo 'echo "PBS_O_WORKDIR is $$PBS_O_WORKDIR"'
-	@echo 'echo "PBS_JOBNAME is $$PBS_JOBNAME"'
-	@echo 'env | grep PBS'
-	@echo 'cat $$PBS_NODEFILE > nodefile'
-    else
-        ifdef QNODES
-	   @echo '#SBATCH --nodes='$(QNODES)
-        else
-	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
-        endif
-	@echo '#SBATCH --cpus-per-task=1'
-        ifdef JOBNAME
-	   @echo '#SBATCH --job-name='$(JOBNAME)
-        else
-	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
-        endif
-        ifdef QNAME
-	   @echo '#SBATCH --queue='$(QNAME)
-        endif
-        ifdef QPROJECT
-	   @echo '#SBATCH --account='$(QPROJECT)
-        endif
-        ifdef QPARTITION
-	   @echo '#SBATCH --partition='$(QPARTITION)
-        endif
-	@echo '#SBATCH --output='$(OUTFILE)
-        ifdef MAILTO
-	   @echo '#SBATCH --mail-type=BEGIN'
-	   @echo '#SBATCH --mail-type=FAIL'
-	   @echo '#SBATCH --mail-type=END'
-	   @echo '#SBATCH --mail-user='$(MAILTO)
-        endif
-	@echo '#SBATCH --time=0-'$(WALLTIME)
-	@echo '#SBATCH --mem='$(MAXMEM)
-        ifdef QEXTRA
-	   @echo '#SBATCH '$(QEXTRA)
-        endif
-    endif
-	@echo 'echo "HOSTNAME = $$HOSTNAME"'
-	@echo 'echo "HOSTTYPE = $$HOSTTYPE"'
-	@echo 'echo Time is `date`'
-	@echo 'echo Directory is `pwd`'
-	@echo
-    ifeq ($(QSHELL),tcsh)
-	@echo 'limit stacksize unlimited'
-    else
-	@echo 'ulimit -s unlimited'
-    endif
-    #-- set openMP environment variables
-    ifeq ($(OPENMP),yes)
-        ifeq ($(QSHELL),tcsh)
-	   @echo 'setenv OMP_SCHEDULE "'$(OMP_SCHEDULE)'"'
-	   @echo 'setenv OMP_NUM_THREADS '$(NOMP)
-	   @echo 'setenv OMP_STACKSIZE 1024m'
-        else
-	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
-	   @echo 'export OMP_NUM_THREADS='$(NOMP)
-	   @echo 'export OMP_STACKSIZE=1024m'
-        endif
-    endif
-	@echo
-    #-- add lines specific to particular machines
-    ifeq ($(SYSTEM),msg)
-        ifeq ($(QSHELL),bash)
-	   @echo 'source /etc/profile'
-	   @echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'
-        else
-	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
-        endif
-	@cat ~/.modules
-    endif
-	@echo
-    #--final line is code execution
-	@echo 'echo "starting phantom run..."'
-    ifeq ($(QSHELL),tcsh)
-	@echo 'setenv outfile '$(GETLOG)
-    else
-	@echo 'export outfile='$(GETLOG)
-    endif
-	@echo 'echo "writing output to $$outfile"'
-    ifeq ($(USEMPI),yes)
-	@echo $(MPIEXEC)' '$(CMD)
-    else
-	@echo $(CMD)
-    endif
-    ifeq ($(PBSRESUBMIT),yes)
-	@echo
-	@echo '#------------------------------------------------------------------------------'
-	@echo '# Not expected to reach this point in general but if we do, check that all '
-	@echo '# is OK.  If the job command exited with an error, terminate the job'
-	@echo '#'
-	@echo 'errstat=$$?'
-	@echo 'if [ $$errstat -ne 0 ]; then'
-	@echo '    # A brief nap so PBS kills us in normal termination. Prefer to '
-	@echo '    # be killed by PBS if PBS detected some resource excess'
-	@echo '    sleep 5  '
-	@echo '    echo "Job number $$NJOB returned an error status $$errstat - stopping job sequence."'
-	@echo '    touch $$PBS_O_WORKDIR/STOP_SEQUENCE'
-	@echo '    exit $$errstat'
-	@echo 'fi'
-	@echo '#------------------------------------------------------------------------------'
-    endif
 
 #----------------------------------------------------
 # unit test for block limits
@@ -2833,185 +2265,14 @@ testnimhd:
 
 testall: test test2 testcyl testgrav
 
-#----------------------------------------------------
-# this is a utility to test the fast sqrt functions
-# to see if they are faster than the native calls
-# if so, then the appropriate pre-processor flags
-# are added
-#
-.PHONY: .make_mathflags .make_nofastmath getmathflags checkmath
-ifndef FASTSQRT
-   FASTSQRT=${shell if [ -e .make_nofastmath ]; then echo no; fi}
-endif
-
-ifeq ($(FASTSQRT), no)
-   OBJTESTMATH=
-   FASTMATH=no
-else
-   OBJTESTMATH= random.o io.o fastmath.o mpi_utils.o test_fastmath.o getmathflags.o
-   FASTMATH=${shell if [ -e .make_mathflags ]; then cat .make_mathflags; fi}
-endif
-
-.make_mathflags: checksys $(OBJTESTMATH)
-     ifeq ($(FASTSQRT), no)
-	@touch .make_mathflags
-     else
-	@if [ ! -e $@ ]; then \
-	    $(FC) $(FFLAGS) -o $(BINDIR)/getmathflags $(OBJTESTMATH) || ${MAKE} fastmathlinkerr; \
-	    $(BINDIR)/getmathflags > .make_mathflags; \
-	fi
-     endif
-
-ifeq ($(FASTMATH), yes)
-   SRCFASTMATH=fastmath.o
-   TEST_FASTMATH=test_fastmath.F90
-   FPPFLAGS+=-DFINVSQRT
-else
-   SRCFASTMATH=
-   TEST_FASTMATH=
-endif
-
-fastmath.o: fastmath.f90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-test_fastmath.o: test_fastmath.F90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-getmathflags.o: getmathflags.f90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-
-fastmathlinkerr:
-	@echo "***********************************************************************"
-	@echo "*** ERROR linking fastsqrt stuff (requires Fortran->C call)         ***"
-	@echo "*** Type make again to ignore this and compile without it           ***"
-	@echo "***********************************************************************"
-	@touch .make_mathflags
-	@touch .make_nofastmath
-	${MAKE} err;
-
-#----------------------------------------------------
+include Makefile_fastmath
 
 LASTSYSTEM = ${shell if [ -e .make_lastsystem ]; then cat .make_lastsystem; fi}
 LASTSETUP = ${shell if [ -e .make_lastsetup ]; then cat .make_lastsetup; fi}
 LASTFPPFLAGS = ${shell if [ -e .make_lastfppflags ]; then cat .make_lastfppflags; fi}
 LASTFFLAGS = ${shell if [ -e .make_lastfflags ]; then cat .make_lastfflags; fi}
 
-.PHONY: checksystem checkparams checksplash checksys
-
-checksystem: checksys checksetup
-
-checksys:
-   ifeq ($(KNOWN_SYSTEM), yes)
-	@echo ""
-	@echo "Compiling Phantom v$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO) for $(SYSTEM) system..........."
-	@echo ""
-        ifneq ($(SYSTEM),$(LASTSYSTEM))
-	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
-	    @${MAKE} clean
-	    @${MAKE} cleanmathflags
-        endif
-	@echo $(SYSTEM) > .make_lastsystem
-   else
-	@echo ""
-	@echo "make: WARNING: value of SYSTEM = $(SYSTEM) not recognised..."
-	@echo "=> set the environment variable SYSTEM to one listed "
-	@echo "   in build/Makefile and try again"
-	@echo ""
-	@${MAKE} compilers
-	@${MAKE} err;
-   endif
-
-checksetup:
-   ifeq ($(OBSOLETE_SETUP), yes)
-	@echo "make: WARNING: value of SETUP = $(OLDSETUP) is obsolete..."
-	@echo "=> setting SETUP = $(SETUP)"
-	@echo
-   endif
-   ifeq ($(KNOWN_SETUP), yes)
-	@echo "Using options for "$(SETUP)" setup"
-	@echo ""
-        ifneq ($(SETUP),$(LASTSETUP))
-	    @echo setup changed from ${LASTSETUP} to ${SETUP}
-	    @${MAKE} clean
-        endif
-	@echo $(SETUP) > .make_lastsetup
-   else
-	@echo "setup '$(SETUP)' not recognised..."
-	@echo ""
-	@echo "Please set SETUP to one listed in build/Makefile"
-	@echo ""
-	@echo " e.g.:"
-	@echo " make SETUP=sedov"
-	@echo " make SETUP=disc"
-	@echo " make SETUP=turbdrive"
-	@echo ""
-	@echo " or:"
-	@echo " export SETUP=sedov"
-	@echo " make"
-	@echo ""
-	@echo "You may also wish to consider the following compile-time options:"
-	@echo ""
-	@echo " DEBUG=yes/no"
-	@echo " DOUBLEPRECISION=yes/no"
-	@echo " OPENMP=yes/no"
-	@echo " ENDIAN=BIG/LITTLE"
-	@echo ""
-	@${MAKE} err;
-   endif
-
-checkparams:
-	@echo "Using $(KERNEL) kernel"
-   ifeq ($(DEBUG), yes)
-	@echo "Debugging flags are ON"
-   endif
-   ifeq ($(DOUBLEPRECISION), yes)
-	@echo "Flags set for DOUBLE PRECISION"
-   else
-	@echo "Flags set for SINGLE PRECISION"
-   endif
-   ifeq ($(OPENMP), yes)
-	@echo "Compiling in PARALLEL (OpenMP)"
-   else
-	@echo "Compiling in SERIAL"
-   endif
-   ifeq ($(ENDIAN), BIG)
-	@echo "Flags set for conversion to BIG endian"
-   endif
-   ifeq ($(ENDIAN), LITTLE)
-	@echo "Flags set for conversion to LITTLE endian"
-   endif
-   ifneq ($(FPPFLAGS),$(LASTFPPFLAGS))
-	@echo 'pre-processor flags changed from "'${LASTFPPFLAGS}'" to "'${FPPFLAGS}'"'
-	@${MAKE} clean;
-	#for x in ../src/*/*.F90; do y=`basename $$x`; rm -f $${y/.F90/.o}; done
-   endif
-	@echo "Preprocessor flags are "${FPPFLAGS}
-	@echo "${FPPFLAGS}" > .make_lastfppflags
-   ifneq ($(FFLAGS),$(LASTFFLAGS))
-	@echo 'Fortran flags changed from "'${LASTFFLAGS}'" to "'${FFLAGS}'"'
-	@${MAKE} clean;
-   endif
-	@echo "Fortran flags are "${FFLAGS}
-	@echo "${FFLAGS}" > .make_lastfflags
-
-checksplash:
-   ifneq ("X$(SPLASH_DIR)","X")
-	@echo; echo "Compiling SPLASH source files from "$(SPLASH_DIR); echo
-   else
-	@echo; echo "ERROR: cannot find SPLASH directory needed for some source files - try \"export SPLASH_DIR=${HOME}/splash\""; echo
-   endif
-
-checkmcfost:
-   ifneq ("X$(MCFOST_DIR)","X")
-	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
-   else
-	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
-   endif
-
-checksmol:
-   ifneq ("X$(SMOL_DIR)","X")
-	@echo; echo "Linking SMOLUCHOWSKY library from "$(SMOL_DIR); echo
-   else
-	@echo; echo "ERROR: cannot find SMOL_DIR directory needed for Smoluchowsky library - try \"export SMOL_DIR=${HOME}/smol\""; echo
-   endif
+include Makefile_checks
 
 giza-fortran.o : $(SPLASH_DIR)/giza/interface/giza-fortran.F90 $(SPLASH_DIR)/giza/lib/libgiza.a
 	$(FC) $(FFLAGS) -I$(SPLASH_DIR)/giza/include/ -c $< -o $@
