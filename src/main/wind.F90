@@ -534,7 +534,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        icount = icount+1
     enddo
     if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs,', icount=',icount
-    if (icount == ncount_max .or. v0/cs < v_over_cs_min) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
+    if (icount == ncount_max .or. v0/cs < v_over_cs_min) call fatal(label, &
+    		'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
 
     ! Find upper bound for initial velocity

@@ -22,7 +22,7 @@ module analysis
    use dump_utils,       only:read_array_from_file
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                               neighcount,neighb,neighmax
-   use dust_formation,   only:kappa_dust_bowen
+   use dust_formation,   only:calc_kappa_bowen
    use linklist, only:set_linklist,allocate_linklist,deallocate_linklist
    implicit none
    character(len=20), parameter, public :: analysistype = 'raytracer'
@@ -69,7 +69,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          enddo
       endif
       do i=1,npart
-         kappa(i)=kappa_dust_bowen(temp(i))
+         kappa(i)=calc_kappa_bowen(temp(i))
       enddo
    endif
    
