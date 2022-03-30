@@ -17,7 +17,7 @@ module mpidens
 ! :Dependencies: dim, io, mpi, mpiutils
 !
  use io,       only:nprocs,fatal,error
- use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
+ use dim,      only:minpart,maxrhosum,maxxpartvecidens
 
  implicit none
  private
@@ -44,9 +44,8 @@ module mpidens
     integer          :: nneightry
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8))
+    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart) + minpart, 8))
  end type celldens
 
  type stackdens
@@ -54,8 +53,7 @@ module mpidens
     type(celldens), pointer   :: cells(:)
     integer                   :: maxlength = 0
     integer                   :: n = 0
-    integer                   :: mem_start
-    integer                   :: mem_end
+    integer                   :: number
  end type stackdens
 
 contains
@@ -66,7 +64,7 @@ subroutine get_mpitype_of_celldens(dtype)
  use mpiutils, only:mpierr
  use io,       only:error
 
- integer, parameter              :: ndata = 20
+ integer, parameter              :: ndata = 18
 
  integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
@@ -176,19 +174,13 @@ subroutine get_mpitype_of_celldens(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%remote_export)
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%iphase)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8)
+ blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
