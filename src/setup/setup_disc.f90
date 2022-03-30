@@ -633,7 +633,7 @@ subroutine equation_of_state(gamma)
                 print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
                 call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
                 call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
-                polyk2 = (cs*(1./R_ref(onlydisc))**qfacdisc2)**2
+                polyk2 = (cs*(1./R_ref(onlydisc))**(-qfacdisc2))**2
                 z0 = z0_ref/R_ref(onlydisc)**beta_z
              else
                 ieos = 3
