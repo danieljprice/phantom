@@ -17,7 +17,7 @@ module setcubiccore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, kernel, physcon, table_utils
+! :Dependencies: io, kernel, physcon, table_utils
 !
  use physcon, only:solarm,solarr
  use table_utils, only:interpolator,diff
@@ -38,7 +38,6 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  use io,          only:fatal
- use eos,         only:ieos
  real, intent(inout):: r(:),rho(:),m(:),pres(:)
  real, allocatable  :: phi(:)
  real, intent(in)   :: mcore,rcore
@@ -46,10 +45,10 @@ subroutine set_cubic_core(mcore,rcore,rho,r,pres,m)
  integer            :: icore,i
 
  rc       = rcore * solarr      ! Convert to cm
- hsoft_cm = 0.5*rc             ! Convert to cm
+ hsoft_cm = 0.5*rc              ! Convert to cm
  mc       = mcore * solarm      ! Convert to g
- call interpolator(r,rc,icore)   ! Find index in r closest to rc
- msoft = m(icore) - mc
+ call interpolator(r,rc,icore)  ! Find index in r closest to rc
+ msoft    = m(icore) - mc
 
  call calc_rho_and_m(rho, m, r, mc, rc)
  call calc_phi(r, mc, m-mc, hsoft_cm, phi)
