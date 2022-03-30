@@ -93,7 +93,7 @@ program phantomsetup
 !  also rely on maxp being set to the number of desired particles. Allocate only
 !  part, not kdtree or linklist
 !
- call allocate_memory(maxp_hard, part_only=.true.)
+ call allocate_memory(int(maxp_hard,kind=8), part_only=.true.)
 
  call set_default_options
 !

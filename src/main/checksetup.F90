@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
+                do_radiation,n_nden_phantom,mhd_nonideal
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer      :: i,j,nbad,itype,nunity,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas
+ real         :: hi,hmin,hmax,dust_to_gas_mean
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -113,10 +113,6 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
-    print*,'WARNING! Using non-ideal EoS but not storing temperature'
-    nwarn = nwarn + 1
- endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -391,7 +387,7 @@ subroutine check_setup(nerror,nwarn,restart)
  if (use_dustfrac) then
     nbad = 0
     nunity = 0
-    dust_to_gas = 0.
+    dust_to_gas_mean = 0.
     do i=1,npart
        do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
@@ -400,10 +396,11 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo
+    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
@@ -421,7 +418,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
+    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
  endif
 
 #ifdef GR
