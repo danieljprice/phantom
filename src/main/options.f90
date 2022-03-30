@@ -102,7 +102,7 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
- polyk2             = 0 ! only used for ieos=8
+ polyk2             = 0. ! only used for ieos=8
 
  ! artificial viscosity
  if (maxalpha>0 .and. maxalpha==maxp) then

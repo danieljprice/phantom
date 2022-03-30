@@ -29,10 +29,10 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
- use dim,          only:maxp
+ use dim,     only:maxp
  use physcon, only:pi
  use part, only: rhoh,Bxyz,massoftype,iphase,iamtype,igas,maxphase,mhd
- use eos,  only: equationofstate
+ use eos,  only: get_pressure
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
  real,             intent(in) :: pmass,time
@@ -333,8 +333,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     Bz_net = Bz_net + Bz
 
     rho = rhoh(xyzh(4,i),pmass)
-    call equationofstate(3,ponrhoi,cssqrd,rho,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-    pressure = cssqrd*rho
+    pressure = get_pressure(3,xyzh(:,i),rho,vxyzu(:,i))
+    !pressure = cssqrd*rho  BUG?  This is the original version, which is pressure = spsound * rho
 
     Br = (Bx*xyzh(1,i)/ri) + (By*xyzh(2,i)/ri) + (Bz*xyzh(3,i)/ri)
     Bphi = (-Bx*xyzh(2,i)/rcyli) + (By*xyzh(1,i)/rcyli)

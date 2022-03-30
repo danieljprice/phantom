@@ -587,10 +587,10 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        polyk       = uthermconst
        densleft    = 10.
        densright   = 1.
-       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.)
+       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.,Tgas)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
        leftstate(1:iBz)  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
-       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.)
+       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.,Tgas)
        rightstate(1:iBz) = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
     case default

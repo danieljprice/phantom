@@ -91,7 +91,7 @@ program combinedustdumps
  !
  ! allocate memory
  !
- call allocate_memory(counter)
+ call allocate_memory(int(counter,kind=8))
  !
  ! read gas particles from first file
  !
