@@ -216,6 +216,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  case(7)
 !
 !-- z-dependent locally isothermal eos
+!
     r2 = xi**2 + yi**2
     cs2mid = polyk * r2**(-qfacdisc)
     cs2atm = polyk2 * r2**(-qfacdisc2)
