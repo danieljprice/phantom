@@ -99,7 +99,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:kb_on_mh
+ use physcon,       only:kb_on_mh,radconst
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -222,7 +222,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     zq = z0 * r2**(0.5*beta_z)
 
     ! modified equation 6 from Law et al. (2021)
-    cs2      = (cs2mid**4 + 0.5*(1 + tanh((zi - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
+    cs2      = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
     ponrhoi  = cs2
     spsoundi = sqrt(cs2)
     tempi    = temperature_coef*mui*ponrhoi
@@ -323,7 +323,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (tempi > 0.) then
        temperaturei = tempi
     else
-       temperaturei = 0.67 * cgseni * mui / kb_on_mh
+       temperaturei = min(0.67 * cgseni * mui / kb_on_mh, (cgseni*cgsrhoi/radconst)**0.25)
     endif
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
     ponrhoi  = cgspresi / (unit_pressure * rhoi)
@@ -1223,11 +1223,11 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     if (gmw <= 0.)  call fatal(label,'mu <= 0')
  case('X')
     read(valstring,*,iostat=ierr) X_in
-    if (X_in <= 0.) call fatal(label,'X <= 0.0')
+    if (X_in <= 0. .or. X_in >= 1.) call fatal(label,'X must be between 0 and 1')
     ngot = ngot + 1
  case('Z')
     read(valstring,*,iostat=ierr) Z_in
-    if (Z_in <= 0.) call fatal(label,'Z <= 0.0')
+    if (Z_in <= 0. .or. Z_in > 1.) call fatal(label,'Z must be between 0 and 1')
     ngot = ngot + 1
  case('relaxflag')
     ! ideally would like this to be self-contained within eos_helmholtz,
@@ -1246,6 +1246,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec
 
 end subroutine read_options_eos
+
 
 !-----------------------------------------------------------------------
 
