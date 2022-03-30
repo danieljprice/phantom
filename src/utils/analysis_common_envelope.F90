@@ -85,7 +85,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(29(a,/))", &
+    print "(32(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -114,12 +114,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '27) Print dumps number matching separation', &
             '28) Companion mass coordinate vs. time', &
             '29) Energy histogram',&
-            '30) Analyse disk'
-
+            '30) Analyse disk',&
+            '31) Sink-gas-sphere separation',&
+            '32) Planet mass vs. time',&
+            '33) Planet velocity vs. time'
     analysis_to_perform = 1
-
-    call prompt('Choose analysis type ',analysis_to_perform,1,30)
-
+    call prompt('Choose analysis type ',analysis_to_perform,1,33)
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -196,6 +196,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(30) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
+ case(31) ! Sink-gas-sphere separation
+    call sink_gas_sep(time,particlemass,npart,xyzh)
+ case(32) ! Planet mass vs. time
+    call planet_mass_vs_time(time,particlemass,npart,xyzh)
+ case(33) ! Planet velocity vs. time
+    call planet_velocity(time,particlemass,npart,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
@@ -323,53 +329,137 @@ end subroutine separation_vs_time
 !  Separation vs. time (sink-gas sphere)
 !+
 !----------------------------------------------------------------
-subroutine sink_gas_sep(time,npart,particlemass,xyzh)
- real, intent(in)               :: time
+subroutine sink_gas_sep(time,particlemass,npart,xyzh)
+ integer, intent(in)            :: npart
+ real, intent(in)               :: time,xyzh(:,:),particlemass
  character(len=17), allocatable :: columns(:)
- real                           :: data_cols(4),planet_com(3),sep(3)
- integer                        :: i,ncols,iorder(npart)
- logical, save                  :: isstar(npart)
- real, save                     :: Rmask
-
+ real                           :: data_cols(4),planet_com(3),sep(3),rhoi,rhoprev
+ integer                        :: i,ncols,maxrho_ID
+ integer, save                  :: nplanet
+ integer, allocatable, save     :: planetIDs(:)
+ 
+ ncols = 4
  ! select donor star particles by masking with radius centred on point mass
- if (num == 0) then  ! First dump
-    Rmask = 4.05
-    call prompt('Enter masking radius for host star particles:',Rmask,0.)
-    call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
-    call indexxfunc(npart,r2func_origin,xyzh,iorder)
-   
-    do i = 1,npart
-       k = iorder(i)
-       if ( separation(xyzh(1:3,k), xyzmh_ptmass(1:3,1)) > Rmask) ) then
-          exit
-       else
-          isstar(k) = .true.
-       endif
-    enddo
- endif
+ if (dump_number == 0) call get_planetIDs(xyzh,xyzmh_ptmass,npart,nplanet,planetIDs)
 
- allocate(columns(4))
- columns = (/'       x sep', & ! Total bound number of particles
-             '      b mass', & ! Total bound gas mass
-             '   b ang mom', & ! Total bound gas angular momentum wrt CoM of entire system
-             '    b tot en', & ! Total bound energy of gas
-             ' ub num part', &
+ allocate(columns(ncols))
+ columns = (/'       x sep', &
+             '       y sep', &
+             '       z sep', &
+             '         sep'/)
 
- ! Get CoM of planet particles
- planet_com = 0.
- do i = 1,npart
-    if (isstar(i)) cycle
-    planet_com = planet_com + xyzh(1:3,i)
+ ! Find particle with highest density
+ rhoprev = 0.
+ maxrho_ID = 1
+ do i = 1,nplanet
+    rhoi = rhoh(xyzh(4,planetIDs(i)), particlemass)
+    if (rhoi > rhoprev) maxrho_ID = planetIDs(i)
+    rhoprev = rhoi
  enddo
+ planet_com = xyzh(1:3,maxrho_ID)
 
  sep = planet_com - xyzmh_ptmass(1:3,1)
- data_cols = (/ planet_com(1), planet_com(2), planet_com(3), separation(planet_com,planet_com) /)
- ncols = 4
- allocate(columns(ncols))  
+ data_cols = (/ planet_com(1), planet_com(2), planet_com(3), distance(planet_com) /)
  call write_time_file('sink_gas_sep', columns, time, data_cols, ncols, dump_number)
  deallocate(columns)
 
 end subroutine sink_gas_sep
+
+
+!----------------------------------------------------------------
+!+
+! Planet velocity and radius
+!+
+!----------------------------------------------------------------
+subroutine planet_velocity(time,particlemass,npart,xyzh,vxyzu)
+ integer, intent(in)            :: npart
+ real, intent(in)               :: time,xyzh(:,:),vxyzu(:,:),particlemass
+ character(len=17), allocatable :: columns(:)
+ real                           :: data_cols(2),rhoi,rhoprev,planet_vel,planet_sep
+ integer                        :: i,ncols,maxrho_ID
+ integer, save                  :: nplanet
+ integer, allocatable, save     :: planetIDs(:)
+
+ ncols = 2
+ ! select donor star particles by masking with radius centred on point mass
+ if (dump_number == 0) call get_planetIDs(xyzh,xyzmh_ptmass,npart,nplanet,planetIDs)
+
+ allocate(columns(ncols))
+ columns = (/'       speed', &
+             '         sep'/)
+
+ ! Find particle with highest density
+ rhoprev = 0.
+ maxrho_ID = 0
+ do i = 1,nplanet
+    rhoi = rhoh(xyzh(4,planetIDs(i)), particlemass)
+    if (rhoi > rhoprev) maxrho_ID = planetIDs(i)
+    rhoprev = rhoi
+ enddo
+ planet_vel = distance(vxyzu(1:3,maxrho_ID))
+ planet_sep = distance(xyzh(1:3,maxrho_ID) - xyzmh_ptmass(1:3,1))
+
+ data_cols = (/ planet_vel, planet_sep /)
+ call write_time_file('planet_speed', columns, time, data_cols, ncols, dump_number)
+ deallocate(columns)
+
+end subroutine planet_velocity
+
+
+!----------------------------------------------------------------
+!+
+!  Planet mass vs. time
+!+
+!----------------------------------------------------------------
+subroutine planet_mass_vs_time(time,particlemass,npart,xyzh)
+ integer, intent(in)            :: npart
+ real, intent(in)               :: time,xyzh(:,:),particlemass
+ character(len=17), allocatable :: columns(:)
+ real                           :: planet_com(3),sep,rhoi,rhoprev
+ real, allocatable              :: Rmasks(:),mass(:)
+ integer                        :: i,j,maxrho_ID,Nmasks
+ integer, save                  :: nplanet
+ integer, allocatable, save     :: planetIDs(:)
+
+ ! select donor star particles by masking with radius centred on point mass
+ Nmasks = 6  ! number of radius masks
+ allocate(Rmasks(Nmasks))
+ Rmasks = (/0.15, 0.18, 0.21, 0.24, 0.27, 0.30/)
+
+ if (dump_number == 0) call get_planetIDs(xyzh,xyzmh_ptmass,npart,nplanet,planetIDs)
+
+ allocate(columns(Nmasks))
+ columns = (/'         col1',&
+             '         col2',&
+             '         col3',&
+             '         col4',&
+             '         col5',&
+             '         col6'/)
+
+ ! Find particle with highest density
+ rhoprev = 0.
+ maxrho_ID = 0
+ do i = 1,nplanet
+    rhoi = rhoh(xyzh(4,planetIDs(i)), particlemass)
+    if (rhoi > rhoprev) maxrho_ID = planetIDs(i)
+    rhoprev = rhoi
+ enddo
+ planet_com = xyzh(1:3,maxrho_ID)
+
+ allocate(mass(Nmasks))
+ mass = 0.
+ do i = 1,nplanet
+    sep = separation(xyzh(1:3,planetIDs(i)),planet_com)
+    do j = 1,Nmasks
+       if (sep < Rmasks(j)) mass(j) = mass(j) + 1
+    enddo
+ enddo
+ mass = mass * particlemass
+
+ call write_time_file('planet_mass_vs_time', columns, time, mass, Nmasks, dump_number)
+ deallocate(columns)
+
+end subroutine planet_mass_vs_time
 
 
 !----------------------------------------------------------------
@@ -1194,19 +1284,19 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
  ! Calculations performed outside particle loop
  call compute_energies(time)
+ com_xyz = 0.
+ com_vxyz = 0.
+ omega_orb = 0.
  do k=1,4
     select case (quantities_to_calculate(k))
     case(1,2,3,6,8,9) ! Nothing to do
     case(4,5,11) ! Fractional difference between gas and orbital omega
-       com_xyz = 0.
-       com_vxyz = 0.
        if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
           com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                      / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
           com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
                      / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
        endif
-       omega_orb = 0.
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
           vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
@@ -1268,6 +1358,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           quant(k,i) = (quant(k,i) - omega_orb) / omega_orb
 
        case(6,7) ! Calculate MESA EoS entropy
+          entropyi = 0.
           if (ieos==10) then
              rhopart = rhoh(xyzh(4,i), particlemass)
              call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
@@ -1433,6 +1524,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
        mu = gmw
     endif
     ! MESA ENTROPY
+    Si = 0.
     if (ieos==10) then
        Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
     endif
@@ -1719,6 +1811,8 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
     allocate(filename(nvars),headerline(nvars),quant(npart,nvars))
  endif
 
+ coord = 0.
+ quant = 0.
  select case (iquantity)
  case(1) ! Energy
     filename = '     grid_Etot.ev'
@@ -1761,8 +1855,6 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
     iorder = (/(i, i=1,npart, 1)/) ! Have iorder(k) be same as k
  endif
 
- coord = 0.
- quant = 0.
  do k=1,npart
     i = iorder(k) ! Loop from innermost to outermost particle
     if (use_mass_coord) then
@@ -3192,6 +3284,14 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
     orbit_centre_vel = vxyz_ptmass(1:3,3-i)
  endif
 
+ Rsphere = 0.2 * separation(orbit_centre, xyzmh_ptmass(1:3,i))
+ Rsinksink = separation(xyzmh_ptmass(1:2,i), xyzmh_ptmass(1:2,3-i))                          ! [(x2-x1)^2 + (y2-y1)^2]^0.5
+ dR = 0.2*Rsinksink
+ dz = 0.2*Rsinksink
+ vol_npart = 0
+ vol_mass = 0.
+ omega = 0.
+
  ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
  if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
     select case (iavgopt)
@@ -3208,7 +3308,6 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
 
     ! Sum velocities, cs, and densities of all particles within averaging sphere
-    Rsphere = 0.2 * separation(orbit_centre, xyzmh_ptmass(1:3,i))
     do j = 1,npart
        k = iorder(j) ! Only use particles within the averaging sphere
        if (.not. isdead_or_accreted(xyzh(4,k))) then
@@ -3229,10 +3328,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
     Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
     zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
-    Rsinksink = separation(xyzmh_ptmass(1:2,i), xyzmh_ptmass(1:2,3-i))                          ! [(x2-x1)^2 + (y2-y1)^2]^0.5
     if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
-    dR = 0.2*Rsinksink
-    dz = 0.2*Rsinksink
     do k = 1,npart
        if ( (iavgopt == 4) .and. (separation(xyzh(1:3,k), xyzmh_ptmass(1:3,i)) < Rsphere) ) cycle
        if ( (abs(Rarray(k) - Rsinksink) < 0.5*dR) .and.&
@@ -3593,5 +3689,28 @@ subroutine minv (M, M_inv)
  return
 
 end subroutine minv
+
+
+!----------------------------------------------------------------
+!+
+!  Determine ID of planet particles based on distance from host star core
+!+
+!----------------------------------------------------------------
+subroutine get_planetIDs(xyzh,xyzmh_ptmass,npart,nplanet,planetIDs)
+ integer, intent(in)               :: npart
+ real, intent(in)                  :: xyzmh_ptmass(:,:),xyzh(:,:)
+ integer, allocatable, intent(out) :: planetIDs(:)
+ integer, intent(out)              :: nplanet
+ integer                           :: iorder(npart)
+
+ ! Determine planet particle IDs (the nplanet particles initially farthest from the donor star)
+ nplanet = 1261
+ call prompt('Enter number of planet particles:',nplanet,0)
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ allocate(planetIDs(nplanet))
+ planetIDs = iorder( size(iorder)-nplanet+1:size(iorder))
+
+end subroutine get_planetIDs
 
 end module analysis
