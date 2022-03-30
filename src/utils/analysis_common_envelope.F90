@@ -29,7 +29,8 @@ module analysis
  use energies,     only:compute_energies,ekin,etherm,epot,etot
  use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,       only:kernel_softening,radkern,wkern,cnormk
- use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound,irecomb
+ use eos,          only:equationofstate,ieos,init_eos,finish_eos,X_in,Z_in,gmw,get_spsound
+ use eos_gasradrec,only:irecomb
  use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
                         get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
  use setbinary,    only:Rochelobe_estimate,L1_point
@@ -51,30 +52,26 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
-
  !general variables
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: particlemass,time
- integer                      :: unitnum,i,ierr,ncols
-
+ real,             intent(in)    :: particlemass,time
+ integer                         :: unitnum,i,ierr,ncols
 
  !case 5 variables
  real                         :: rhopart
 
  !case 7 variables
- character(len=17), dimension(:), allocatable :: columns
+ character(len=17), allocatable :: columns(:)
 
  !case 12 variables
  real                         :: etoti, ekini, einti, epoti, phii
-
 
  real, dimension(3)           :: com_xyz, com_vxyz
  real, dimension(3)           :: xyz_a, vxyz_a
  real, dimension(6,npart)     :: histogram_data
  real                         :: ang_vel
-
 
  real, dimension(npart)      :: pres_1, proint_1, peint_1, temp_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
 
@@ -85,7 +82,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(32(a,/))", &
+    print "(34(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -115,17 +112,19 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '28) Companion mass coordinate vs. time', &
             '29) Energy histogram',&
             '30) Analyse disk',&
-            '31) Sink-gas-sphere separation',&
-            '32) Planet mass vs. time',&
-            '33) Planet velocity vs. time'
+            '31) Recombination energy vs time',&
+            '32) Sound-crossing time profile',&
+            '33) Sink-gas-sphere separation',&
+            '34) Planet mass vs. time',&
+            '35) Planet velocity vs. time'
     analysis_to_perform = 1
-    call prompt('Choose analysis type ',analysis_to_perform,1,33)
+    call prompt('Choose analysis type ',analysis_to_perform,1,35)
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30/) == analysis_to_perform) .and. dump_number == 0 ) then
+ if ( ANY((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32/) == analysis_to_perform) .and. dump_number == 0 ) then
     ieos = 2
     call prompt('Enter ieos:',ieos)
     select case(ieos)
@@ -196,11 +195,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call energy_hist(time,npart,particlemass,xyzh,vxyzu)
  case(30) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
- case(31) ! Sink-gas-sphere separation
+ case(31) ! Recombination energy vs. time
+    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ case(32) ! Sound crossing time profile
+    call tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(33) ! Sink-gas-sphere separation
     call sink_gas_sep(time,particlemass,npart,xyzh)
- case(32) ! Planet mass vs. time
+ case(34) ! Planet mass vs. time
     call planet_mass_vs_time(time,particlemass,npart,xyzh)
- case(33) ! Planet velocity vs. time
+ case(35) ! Planet velocity vs. time
     call planet_velocity(time,particlemass,npart,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
@@ -1587,7 +1590,7 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
  ! Convert to cgs units (kappa has already been outputted in cgs)
  rho_hist = rho_hist * unit_density
- sepbins = sepbins * udist ! udist should be Rsun in g
+ sepbins = sepbins * udist ! udist should be Rsun in cm
 
  tau_r(nbins) = 0.
  do i=nbins,2,-1
@@ -1607,6 +1610,75 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
 end subroutine tau_profile
+
+
+!----------------------------------------------------------------
+!+
+!  Sound crossing time profile
+!+
+!----------------------------------------------------------------
+subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part,  only:itemp
+ use eos,   only:get_spsound
+ use units, only:unit_velocity
+ integer, intent(in)    :: npart,num
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: rad_part,cs_part
+ real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
+ real                   :: maxloga,minloga,rhoi
+ character(len=17)      :: filename
+ character(len=40)      :: data_formatter
+ integer                :: i,unitnum
+ 
+ call compute_energies(time)
+ nbins      = 500
+ rad_part   = 0.
+ cs_part   = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+ 
+ allocate(cs_hist(nbins),sepbins(nbins),tconv(nbins))
+ filename = '    grid_tconv.ev'
+ 
+ do i=1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    cs_part(i) = get_spsound(eos_type=ieos,xyzi=xyzh(:,i),rhoi=rhoi,vxyzui=vxyzu(:,i),gammai=gamma,mui=gmw,Xi=X_in,Zi=Z_in)
+ enddo
+ 
+ call histogram_setup(rad_part(1:npart),cs_part,cs_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+
+ ! Integrate sound-crossing time from surface inwards
+ sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ ! Convert to cgs units
+ cs_hist = cs_hist * unit_velocity
+ sepbins = sepbins * udist ! udist should be Rsun in cm
+ 
+ tconv(nbins) = 0.
+ do i=nbins,2,-1
+    if (cs_hist(i) < tiny(1.)) then
+       tconv(i-1) = tconv(i)
+    else
+       tconv(i-1) = tconv(i) + (sepbins(i+1) - sepbins(i)) / cs_hist(i)
+    endif
+ enddo
+ 
+ ! Write data row
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    unitnum = 1000
+    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    write(unitnum, "(a)") '# Sound crossing time profile'
+    close(unit=unitnum)
+ endif
+ unitnum=1002
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,tconv
+ close(unit=unitnum)
+
+end subroutine tconv_profile
 
 
 !----------------------------------------------------------------
@@ -2963,6 +3035,38 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  deallocate(columns)
 
 end subroutine analyse_disk
+
+
+!----------------------------------------------------------------
+!+
+!  Recombination energy vs. time
+!+
+!----------------------------------------------------------------
+subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+ use ionization_mod, only:get_erec_components
+ integer, intent(in) :: npart
+ real, intent(in)    :: time,particlemass
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=17)   :: filename,columns(4)
+ integer             :: i
+ real                :: ereci(4),erec(4),tempi,rhoi
+
+ columns = (/'          H2', &
+             '          HI', &
+             '         HeI', &
+             '        HeII'/)
+
+ erec = 0.
+ do i = 1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    call get_erec_components( log10(rhoi*unit_density), tempi, X_in, 1.-X_in-Z_in, ereci)
+    erec = erec + ereci
+ enddo
+
+ write (filename, "(A16,I0)") "erec_vs_t"
+ call write_time_file(trim(adjustl(filename)),columns,time,erec,4,dump_number)
+
+end subroutine erec_vs_t
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!        Routines used in analysis routines        !!!!!

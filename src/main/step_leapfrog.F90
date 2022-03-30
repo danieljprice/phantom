@@ -23,10 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: chem, cons2prim, cons2primsolver, cooling, damping, deriv,
-!   derivutils, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, h2cooling, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing
+!   dim, dust_formation, eos, extern_gr, externalforces, growth, h2cooling,
+!   io, io_summary, krome_interface, metric_tools, mpiutils, options, part,
+!   ptmass, ptmass_radiation, timestep, timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation
  use part, only:vpred,Bpred,dustpred,ppred
@@ -128,8 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #endif
- use timing,         only:increment_timer,get_timings
- use derivutils,     only:timer_extf
+ use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -258,7 +256,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 #endif
  call get_timings(t2,tcpu2)
- call increment_timer(timer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0
