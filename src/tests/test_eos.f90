@@ -31,9 +31,10 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_eos(ntests,npass)
- use io,        only:id,master,stdout
- use physcon,   only:solarm
- use units,     only:set_units
+ use io,            only:id,master,stdout
+ use physcon,       only:solarm
+ use units,         only:set_units
+ use eos_gasradrec, only:irecomb
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -44,7 +45,10 @@ subroutine test_eos(ntests,npass)
  call test_barotropic(ntests, npass)
 !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
- call test_hormone(ntests,npass)
+
+ do irecomb = 0,3
+    call test_hormone(ntests,npass)
+ enddo
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -181,9 +185,10 @@ subroutine test_hormone(ntests, npass)
  ! Testing
  dum = 0.
  tol = 1.e-12
- tempi = 1.
+ tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
- if (.not. done_init_eos) call init_eos(ieos,ierr)
+ call init_eos(ieos,ierr)
+
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T
@@ -196,6 +201,7 @@ subroutine test_hormone(ntests, npass)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate P, T from rho, u, mu
+       tempi = -1.
        eni_code = eni/unit_ergg
        rhocodei = rhogrid(i)/unit_density
        call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
@@ -230,10 +236,10 @@ subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
  real :: delta_logQ,delta_logT,logQi,logTi
 
  ! Initialise grids in Q and T (cgs units)
- npts = 10
- logQmin = -6.
+ npts = 30
+ logQmin = -10.
  logQmax = -2.
- logTmin = 3.
+ logTmin = 1.
  logTmax = 8.
 
  ! Note: logQ = logrho - 2logT + 12 in cgs units
