@@ -161,7 +161,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use eos,               only:equationofstate,ieos,eos_outputs_mu,get_temperature,done_init_eos,&
                              init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
- use dim,               only:store_temperature,store_gamma,mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
+ use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
@@ -199,7 +199,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_var_comp,do_nucleation,store_gamma) &
+!$omp shared(iopacity_type,use_var_comp,do_nucleation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &

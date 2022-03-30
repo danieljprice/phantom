@@ -157,6 +157,7 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 end subroutine get_distance_from_centre_of_mass
 
 subroutine set_linklist(npart,nactive,xyzh,vxyzu)
+ use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
  use dim,          only:mpi
@@ -166,7 +167,7 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
 
- if (mpi) then
+ if (mpi .and. nprocs > 1) then
     call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
  else
     call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
@@ -185,6 +186,7 @@ end subroutine set_linklist
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export, &
                               cell_xpos,cell_xsizei,cell_rcuti)
+ use io,     only:nprocs
  use dim,    only:mpi
  use kdtree, only:getneigh,lenfgrav
  use kernel, only:radkern
@@ -217,7 +219,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  if (present(remote_export)) then
-    global_search = .true.
+    if (nprocs > 1) global_search = .true.
     remote_export = .false.
  else
     global_search = .false.
