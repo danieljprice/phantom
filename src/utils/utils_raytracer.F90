@@ -84,14 +84,14 @@ module raytracer
       do i = 1, nrays
          tau   = 0.
          dist  = 0.
-         !returns ray_dir(3), the unit vector identifying ray number i-1  !LS why i-1 and not i ??
+         !returns ray_dir(3), the unit vector identifying ray number i-1
          call pix2vec_nest(nsides, i-1, ray_dir)
          ray_directions(:,i) = ray_dir
          !calculate the optical depth along a given ray, len is the number of points on the ray
          call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len)
          ray_taus(:,i)  = tau
          ray_dists(:,i) = dist
-         ray_dims(i)    = len !LS missing index
+         ray_dims(i)    = len
       enddo
       !$omp end parallel do
 
@@ -173,11 +173,7 @@ module raytracer
          call pix2vec_nest(nsides, i-1, ray_dir)
          ray_directions(:,i) = ray_dir
          !rotate vector ray_dir by an angle = phi
-!LS SHOULDN'T IT BE -PHI ?????
-!WARNING !!!!!!!!!!
          ray_dir = (/cosphi*ray_dir(1) - sinphi*ray_dir(2),sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
-         !LS I would write as you do below
-         !dir   = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
          theta = acos(dot_product(unitCompanion, ray_dir))
          !the ray intersects the companion: only calculate tau up to the companion
          if (theta < theta0) then
@@ -195,7 +191,7 @@ module raytracer
       !$omp end parallel do
 
 
-      !_----------------------------------------------
+      !-----------------------------------------------
       ! DETERMINE the optical depth for each particle
       ! using the values available on the rays
       !-----------------------------------------------
@@ -205,7 +201,6 @@ module raytracer
       !$omp parallel do private(ray_dir)
       do i = 1, npart
          ray_dir = xyzh(1:3,i)-primary
-         !LS here it seems that it is done properly with  a rotation of -phi
          ray_dir = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
          call ray_polation(nsides, ray_dir, ray_taus, ray_dists, ray_dims, taus(i))
       enddo
@@ -214,12 +209,12 @@ module raytracer
 
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth of a particle
+   !  Calculate the particle's optical using the rays
    !+
    !  IN: nsides:          the healpix nsides of the simulation
    !  IN: vec:             the vector originating from the primary star and pointing to the particle
-   !  IN: listOfTaus:      array containing the optical depths at each locations an the rays
-   !  IN: listOfDists:     array containing the locations along the ray where tau has been calculated
+   !  IN: ray_taus:        array containing the optical depths at each locations an the rays
+   !  IN: ray_dists:       array containing the locations along the ray where tau has been calculated
    !  IN: ray_dims:        array containing the number of point along the ray where tau has been calculated
    !+
    !  OUT: tau:            interpolated particle's optical depth
@@ -257,12 +252,12 @@ module raytracer
       enddo
       n=n+1
       mk = .true.
-      if (nneigh <8) mk(nneigh+1:8) = .false. !LS to avoid memory leakage
+      if (nneigh <8) mk(nneigh+1:8) = .false.
       !take tau contribution from the 3 closest rays
       do i=1,3
          index       = minloc(tempdist,1,mk)
          mk(index)   = .false.
-         call get_tau_on_ray(vec_norm2, ray_taus(:,n(index)), ray_dists(:,n(index)), ray_dims(n(index)), tau_ray) !LS change name
+         call get_tau_on_ray(vec_norm2, ray_taus(:,n(index)), ray_dists(:,n(index)), ray_dims(n(index)), tau_ray)
          tau         = tau + tau_ray/tempdist(index)
          suminvdist2 = suminvdist2 + 1./tempdist(index)
       enddo
@@ -272,14 +267,14 @@ module raytracer
 
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth of a particle at a given distance on the ray
+   !  Calculate the optical depth at a given distance on the ray
    !+
    !  IN: dist:            The radial distance of the particle
    !  IN: ray_tau:         array containing the optical depths at each locations along the rays
    !  IN: ray_dist:        array containing the locations along the ray where tau has been calculated
    !  IN: len:             length of ray_tau and ray_dist
    !+
-   !  OUT: tau:            The list of optical depths for the particle
+   !  OUT: tau:            the optical depth at distance dist
    !+
    !--------------------------------------------------------------------------
    subroutine get_tau_on_ray(dist, ray_tau, ray_dist, len, tau)
@@ -345,7 +340,7 @@ module raytracer
       enddo
 
       i = 1
-      taus (1)    = 0. !LS missing initialization ?
+      taus (1)    = 0.
       totalDist   = Rstar
       ray_dist(i) = TotalDist
       do while (hasNext(next,totalDist,maxDist))
@@ -409,7 +404,7 @@ module raytracer
       real, allocatable  :: xyzcache(:,:)
 
       integer  :: nneigh, i, prev
-      real     :: dmin, vec(3), dr_ray, dh_ray, q, norm_sq !LS i rename norm2-> norm_sq because norm2 is already defined as an intrinsinc fortran routine
+      real     :: dmin, vec(3), dr_ray, dh_ray, q, norm_sq
 
       prev=next
       next=0
