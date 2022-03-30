@@ -24,10 +24,9 @@ module setup
 !   - stardensprofile : *star density profile (1=adiabatic, 2=kepler)*
 !   - theta           : *inclination of orbit (degrees)*
 !
-! :Dependencies: dim, eos, extern_densprofile, externalforces,
-!   gravwaveutils, infile_utils, io, kernel, metric, part, physcon,
-!   rho_profile, setbinary, spherical, table_utils, timestep, units,
-!   vectorutils
+! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
+!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
+!   setbinary, spherical, table_utils, timestep, units, vectorutils
 !
  implicit none
  public :: setpart
@@ -48,7 +47,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity,eos_vars,itemp
  use setbinary, only:set_binary
  use spherical, only:set_sphere
- use dim,       only:store_temperature
  use units,     only:set_units,umass,udist,unit_density,unit_pressure,unit_ergg
  use physcon,   only:solarm,pi,solarr
  use table_utils,only:yinterp
@@ -222,7 +220,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        presi     = yinterp(pres(1:npts),rtab(1:npts),ri)
        call calc_temp_and_ene(ieos,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
        vxyzu(4,i) = eni / unit_ergg
-       if (store_temperature) eos_vars(itemp,i) = tempi
+       eos_vars(itemp,i) = tempi
     case default
        vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
     end select

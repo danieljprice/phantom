@@ -30,7 +30,8 @@ ifeq ($(OPENMP),yes)
 endif
 ifeq ($(USEMPI),yes)
     ifndef NMPI
-        NMPI=8
+        NMPI=4
+        NOMP=8
     endif
     ifndef QPE
         QPE=mpi
@@ -38,7 +39,9 @@ ifeq ($(USEMPI),yes)
     ifndef NPAR
         NPAR=$(NMPI)
     endif
-    ifndef MPIEXEC
+    ifeq ($(QSYS),slurm)
+        MPIEXEC=srun
+    else ifndef MPIEXEC
         MPIEXEC=mpiexec -np ${NMPI}
     endif
 else
@@ -213,10 +216,11 @@ qscript:
     else
         ifdef QNODES
 	   @echo '#SBATCH --nodes='$(QNODES)
+	   @echo '#SBATCH --cpus-per-task=1'
         else
-	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
+	   @echo '#SBATCH --ntasks='$(NMPI)
+	   @echo '#SBATCH --cpus-per-task='$(NOMP)
         endif
-	@echo '#SBATCH --cpus-per-task=1'
         ifdef JOBNAME
 	   @echo '#SBATCH --job-name='$(JOBNAME)
         else

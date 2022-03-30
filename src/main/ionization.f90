@@ -19,9 +19,10 @@ module ionization_mod
  implicit none
 
  real, allocatable, public, dimension(:)  :: eion
+ logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
  real, private                            :: frec,edge,tanh_c,dtanh_c
- real, parameter, private                 :: tanh_edge=3.6467
+ real, parameter, private                 :: tanh_edge = 3.6467
 
  interface rapid_tanh
   module procedure rapid_tanhs,rapid_tanhv
@@ -126,8 +127,10 @@ subroutine ionization_setup
  use physcon, only:Rg
  real :: x
 
- allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
-          arec1c(1:2),brec1c(1:2),logeion(1:4))
+ if (.not. done_ion_setup) then
+    allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
+             arec1c(1:2),brec1c(1:2),logeion(1:4))
+ endif
 
  eion(1) = 4.36e12   ! H2   [erg/mol]
  eion(2) = 1.312e13  ! HI   [erg/mol]
@@ -152,6 +155,7 @@ subroutine ionization_setup
  dtanh_c= x*x*((((x*x-21.)*x*x+420.)*x*x-6615.)*x*x+59535.)&
                / (15.*((x*x+28.)*x*x+63.)**2)
 
+ done_ion_setup = .true.
  return
 end subroutine ionization_setup
 

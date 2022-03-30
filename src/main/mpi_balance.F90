@@ -14,33 +14,50 @@ module mpibalance
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpi, mpiutils, part, timing
+! :Dependencies: allocutils, io, mpi, mpiutils, part, timing
 !
 #ifdef MPI
  use mpi
- use io,       only:id,nprocs
- use dim,      only:maxprocs
+ use io,       only:id
  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
                     comm_balance,comm_balancecount
  use part,     only:ipartbufsize
 #endif
+ use io,       only:nprocs
 
  implicit none
 
+ public :: allocate_balance_arrays
+ public :: deallocate_balance_arrays
  public :: balancedomains
 
  private
 
 #ifdef MPI
- real, dimension(ipartbufsize)  :: xsendbuf,xbuffer
- integer, dimension(1) :: irequestrecv,irequestsend
- integer(kind=8) :: ntot_start
- integer :: nsent(maxprocs),nexpect(maxprocs),nrecv(maxprocs)
- integer :: countrequest(maxprocs)
- integer :: npartnew, ncomplete
+ real,            dimension(ipartbufsize)  :: xsendbuf,xbuffer
+ integer,         dimension(1)             :: irequestrecv,irequestsend
+ integer(kind=8)                           :: ntot_start
+ integer                                   :: npartnew, ncomplete
 #endif
+ integer,allocatable :: nsent(:),nexpect(:),nrecv(:)
+ integer,allocatable :: countrequest(:)
 
 contains
+
+subroutine allocate_balance_arrays
+ use allocutils, only:allocate_array
+ call allocate_array('nsent',       nsent,       nprocs)
+ call allocate_array('nexpect',     nexpect,     nprocs)
+ call allocate_array('nrecv',       nrecv,       nprocs)
+ call allocate_array('countrequest',countrequest,nprocs)
+end subroutine allocate_balance_arrays
+
+subroutine deallocate_balance_arrays
+   if (allocated(nsent       )) deallocate(nsent       )
+   if (allocated(nexpect     )) deallocate(nexpect     )
+   if (allocated(nrecv       )) deallocate(nrecv       )
+   if (allocated(countrequest)) deallocate(countrequest)
+end subroutine deallocate_balance_arrays
 
 !----------------------------------------------------------------
 !+
@@ -231,7 +248,7 @@ end subroutine recv_part
 !+
 !-----------------------------------------------------------------------
 subroutine send_part(i,newproc,replace)
- use io,   only:fatal,nprocs
+ use io,   only:fatal
  use part, only:fill_sendbuf,kill_particle
  integer, intent(in) :: i,newproc
  logical, intent(in), optional :: replace
@@ -271,7 +288,7 @@ end subroutine send_part
 !+
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
- use io,    only:id,nprocs,fatal,iverbose
+ use io,    only:id,fatal,iverbose
  use part,  only:recount_npartoftype
  integer, intent(out)            :: npart
  logical, intent(in), optional   :: replace
