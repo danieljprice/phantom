@@ -1496,7 +1496,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
                                  (pro2j + qrho2j)*projvi*grkernj)
           else
-             dudtdissi = - pmassj*qrho2i*projv*grkerni
+             dudtdissi = pmassj*qrho2i*projv*grkerni
           endif
 !--DISC_VISCOSITY--
 #endif
