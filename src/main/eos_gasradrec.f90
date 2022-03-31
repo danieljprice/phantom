@@ -33,6 +33,7 @@ contains
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  use ionization_mod, only:get_erec_imurec
  use physcon,        only:radconst,Rg
+ use io,             only:fatal
  real, intent(in)    :: d,eint
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
@@ -49,7 +50,10 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     endif
     corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
            / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
-    if (abs(corr) > W4err*T) then
+    if (-corr > 1.e3*T) then  ! do not let temperature guess increase by more than a factor of 1000
+       T = 1.e3*T
+       Tdot = 0.
+    elseif (abs(corr) > W4err*T) then
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
@@ -60,9 +64,8 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if (n>50) dt=0.5
  enddo
  if (n > 500) then
-    print*,'Error in equationofstate_gasradrec'
-    print*,'d=',d,'eint=',eint,'mu=',1./imu
-    stop
+    print*,'d=',d,'eint=',eint/d,'mu=',1./imu
+    call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  p = ( Rg*imu*d + radconst*T**3/3. )*T
  gamma_eff = 1.+p/(eint-d*erec)
