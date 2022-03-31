@@ -360,7 +360,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  real                           :: etoti,ekini,epoti,phii,einti,ethi
  real                           :: E_H2,E_HI,E_HeI,E_HeII,Zfrac
  real, save                     :: Xfrac,Yfrac
- real                           :: rhopart,ponrhoi,spsoundi,dum
+ real                           :: rhopart,ponrhoi,spsoundi,dum1,dum2,dum3
  real, dimension(3)             :: rcrossmv
  real, dimension(28)            :: bound
  integer                        :: i,bound_i,ncols
@@ -424,7 +424,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  do i = 1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
-       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum,dum,dum,phii)
+       call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum1,dum2,dum3,phii)
        rhopart = rhoh(xyzh(4,i), particlemass)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
@@ -1103,8 +1103,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer                      :: i,k,Nquantities,ierr
  integer, save                :: ans,quantities_to_calculate(4)
  integer, allocatable         :: iorder(:)
- real                         :: ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi
+ real                         :: ekini,einti,epoti,ethi,phii,rhopart,ponrhoi,spsoundi,&
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,&
+                                 dum1,dum2,dum3,dum4,dum5
  real, allocatable, save      :: init_entropy(:)
  real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
@@ -1171,7 +1172,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(1,9) ! Total energy (kin + pot + therm)
           rhopart = rhoh(xyzh(4,i), particlemass)
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i))
-          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum1)
           if (quantities_to_calculate(k)==1) then
              call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),gamma,ethi)
              quant(k,i) = (ekini + epoti + ethi) / particlemass ! Specific energy
@@ -1186,7 +1187,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
        case(3) ! Opacity from MESA tables
           rhopart = rhoh(xyzh(4,i), particlemass)
-          call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum,dum,dum,dum,dum)
+          call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
           if (ieos == 10) then
              call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
              quant(k,i) = kappai
@@ -1483,7 +1484,7 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  nbins      = 300 ! Number of radial bins
  minloga    = 0.5
  maxloga    = 4.3
- allocate(rho_hist(nbins),kappa_hist(nbins),sepbins(nbins),tau_r(nbins))
+ allocate(rho_hist(nbins),kappa_hist(nbins),sepbins(nbins),sepbins_cm(nbins),tau_r(nbins))
  if (dump_number == 0) then
     allocate(tau_recombined(npart),prev_recombined(npart))
     tau_recombined = -1. ! Store tau of newly-recombined particles. -ve data means particle never recombined]
@@ -1779,13 +1780,13 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
 
  nbins = 500
  rad_part = 0.
- dist_part = 0.
  minloga = 0.5
  maxloga = 4.3
  iradius = 1 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius from CM
 
  nfiles = 2
  allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart))
+ dist_part = 0.
  grid_file = (/ '    grid_omega.ev', &
                 '       grid_Jz.ev' /)
 
@@ -1849,7 +1850,7 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  real,    dimension(5,npart)                  :: dist_part,rad_part
  real,    dimension(:), allocatable           :: hist_var
  real                                         :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,maxloga,minloga
- character(len=18), dimension(:), allocatable :: grid_file
+ character(len=18), dimension(4)              :: grid_file
  character(len=40)                            :: data_formatter
  logical, allocatable, save                   :: prev_unbound(:,:),prev_bound(:,:)
  integer                                      :: i,unitnum,nbins
@@ -2220,7 +2221,7 @@ subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  real, intent(in)       :: particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                :: i
- real                   :: ethi,phii,rhoi,ponrhoi,spsoundi,dum
+ real                   :: ethi,phii,rhoi,ponrhoi,spsoundi,dum1,dum2,dum3
  real                   :: bind_g,bind_th,bind_int,eth_tot,eint_tot
 
  bind_g = 0.
@@ -2234,7 +2235,7 @@ subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
 
     ! Sink-sink potential
     phii = 0.
-    call get_accel_sink_gas(1,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass(:,1),dum,dum,dum,phii) ! Include only core particle; no companion
+    call get_accel_sink_gas(1,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass(:,1),dum1,dum2,dum3,phii) ! Include only core particle; no companion
     bind_g = bind_g + particlemass * phii
 
     rhoi = rhoh(xyzh(4,i), particlemass)
@@ -2605,7 +2606,7 @@ subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  real,    intent(in) :: particlemass,xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  integer :: ncols,i
- real :: com_xyz(3),com_vxyz(3),dum,etoti,angmom_com(3),angmom_core(3)
+ real :: com_xyz(3),com_vxyz(3),dum1,dum2,dum3,dum4,etoti,angmom_com(3),angmom_core(3)
  real, allocatable :: data(:,:)
 
  ncols = 7
@@ -2621,7 +2622,7 @@ subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  call get_centreofmass(com_xyz,com_vxyz,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  do i=1,npart
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,dum,dum,dum,dum,etoti)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,dum1,dum2,dum3,dum4,etoti)
     data(1,i) = etoti
     call cross(xyzh(1:3,i)-xyzmh_ptmass(1:3,1), vxyzu(1:3,i)-vxyz_ptmass(1:3,1), angmom_core)
     data(5:7,i) = angmom_core
@@ -2650,10 +2651,10 @@ subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  integer, allocatable, save            :: iorder(:)
  integer                               :: ncols,j,k
 
- mytable = 0.
  ncols = 12
  allocate(columns(ncols))
  allocate(mytable(ncols))
+ mytable = 0.
  columns = (/'   gas_com_x', &
              '   gas_com_y', &
              '   gas_com_z', &
@@ -3345,11 +3346,11 @@ subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
 
  open(unit=unitnum, file='./'//dir_in//'/'//file_name, status='replace')
 
- write(column_formatter, "(a,I2,a)") "('#',3x,", ncols, "('[',a15,']',5x))"
- write(data_formatter, "(a,I2,a)") "(", ncols, "(3x,es19.11e3,1x))"
+ write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols, "('[',a15,']',3x))"
+ write(data_formatter, "(a,I2.2,a)") "(", ncols, "(2x,es19.11e3))"
 
  do i=1,ncols
-    write(columns(i), "(I2,a)") i, cols(i)
+    write(columns(i), "(I2.2,a)") i, cols(i)
  enddo
 
  !set column headings
@@ -3376,8 +3377,8 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
  real, dimension(ncols), intent(in) :: data_in
  integer                      :: i, unitnum
 
- write(column_formatter, "(a,I2,a)") "('#',3x,", ncols+1, "('[',a15,']',5x))"
- write(data_formatter, "(a,I2,a)") "(", ncols+1, "(3x,es18.11e2,1x))"
+ write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols+1, "('[',a15,']',3x))"
+ write(data_formatter, "(a,I2.2,a)") "(", ncols+1, "(2x,es18.11e2))"
  write(file_name,"(2a,i3.3,a)") name_in, '.ev'
 
  if (num == 0) then

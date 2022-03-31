@@ -28,9 +28,9 @@ module setup
 !   - zmax        : *zmax boundary*
 !   - zmin        : *zmin boundary*
 !
-! :Dependencies: boundary, cooling, dim, domain, eos, h2cooling,
-!   infile_utils, io, mpiutils, options, part, physcon, prompting,
-!   set_dust, setup_params, timestep, unifdis, units
+! :Dependencies: boundary, cooling, dim, eos, h2cooling, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
+!   setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac
@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
  use units,        only:set_units,unit_density
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv

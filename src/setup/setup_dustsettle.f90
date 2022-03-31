@@ -28,9 +28,10 @@ module setup
 !   - smincgs           : *minimum grain size [cm]*
 !   - stellar_mass      : *mass of the central star [Msun]*
 !
-! :Dependencies: boundary, dim, domain, dust, externalforces, infile_utils,
-!   io, mpiutils, options, part, physcon, prompting, radiation_utils,
-!   set_dust, setup_params, table_utils, timestep, unifdis, units
+! :Dependencies: boundary, dim, dust, externalforces, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, prompting,
+!   radiation_utils, set_dust, setup_params, table_utils, timestep,
+!   unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall
  use dust,           only:grainsizecgs,graindenscgs
@@ -70,7 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use radiation_utils,only:set_radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
