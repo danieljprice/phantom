@@ -1005,6 +1005,27 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           xorigini  = xyzmh_ptmass(1:3,1)
           vorigini  = vxyz_ptmass(1:3,1)
           Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+       case(1)
+          !--circumbinary
+          ! Check if there is a triple
+          if (iuse_disc(1)) then
+             ! Find CoM location and velocity
+             print*,'##############@!!!!!!!!!!!!!!!'
+             xorigini  = (1/(q2+1)*xyzmh_ptmass(1:3,3) + q2/(q2+1)*xyzmh_ptmass(1:3,2))
+             print*, 'the centre of mass is', xorigini
+             print*, 1/(q2+1)*xyzmh_ptmass(1:3,3)
+             print*, q2/(q2+1)*xyzmh_ptmass(1:3,2)
+             print*, 'm2a ', m2a, 'm2b ', m2b, 'q2 ', q2 
+             print*, xyzmh_ptmass(1:4, 3)
+             print*, xyzmh_ptmass(1:4, 2)
+             ! Velocity should be negative of mass weighted velocity of outer star
+             vorigini  = -m1/m2*vxyz_ptmass(1:3, 1)
+             Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+          else
+             xorigini  = 0.
+             vorigini  = 0.
+             Rochelobe = huge(0.)
+          endif
        case default
           !--single disc or circumbinary or circumtriple
           !  centre of mass of binary defined to be zero (see set_binary)
@@ -2224,7 +2245,7 @@ subroutine write_setupfile(filename)
             'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 3) then
        write(iunit,"(/,a)") '# options for multiple discs'
-       do i=4,maxdiscs
+       do i=1,maxdiscs
           call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                //trim(disctype(i))//' disc',iunit)
        enddo
@@ -2554,6 +2575,9 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
     elseif (nsinks == 3) then
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+       call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
+       call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
     endif
  else
