@@ -2790,6 +2790,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            R_indust(disc_index,j),&
                                            R_outdust(disc_index,j),&
                                            R_c_dust(disc_index,j))
+
           dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
        endif
        !--Sum the dust masses
@@ -2811,7 +2812,6 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  endif
 
 end subroutine set_dustfrac
-
 !--------------------------------------------------------------------------
 !
 ! Scale height as a function of radius
