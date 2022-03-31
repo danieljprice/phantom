@@ -1850,7 +1850,10 @@ subroutine setup_interactive()
        iuse_disc(2) = .false.
        iuse_disc(3) = .false.
        iuse_disc(4) = .true.
-       print "(/,a)",'Setting circum-triple disc.'
+       call prompt('Do you want a circumbinary disc?',iuse_disc(1))
+       call prompt('Do you want a circumprimary disc?',iuse_disc(2))
+       call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
+       call prompt('Do you want a circumtriple disc?',iuse_disc(4))
     endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
