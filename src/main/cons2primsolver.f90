@@ -220,15 +220,9 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
  gamma_rad = 4./3.
  call conservative2primitive_con_gamma(x,metrici,v,dens_in,u_in,P_in,gamma_rad,enth_rad,rho,pmom,en,ierr2,ien_type)
 
- if (ien_type == ien_entropy) then
-    enth_min = enth_gas
-    enth_max = enth_rad
-    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
- else
-    enth_min = enth_rad
-    enth_max = enth_gas
-    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
- endif
+ enth_min = enth_rad
+ enth_max = enth_gas
+ if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
 
  enth = 0.5*(enth_max+enth_min)
 
@@ -243,13 +237,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
 
-    if (ien_type == ien_entropy) then
-       p = en*dens**gamma
-    elseif (ieos==4) then
-       p = (gamma-1.)*dens*polyk
-    else
-       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
-    endif
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
 
     if (P > 0.) then
        ucgs = u*unit_ergg
@@ -266,18 +254,10 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
 
     f = 1. + u + P/dens - enth_old
 
-    if (ien_type == ien_etotal) then
-       if (f < 0) then
-          enth_min = enth_old
-       else
-          enth_max = enth_old
-       endif
+    if (f < 0) then
+       enth_min = enth_old
     else
-       if (f > 0) then
-          enth_min = enth_old
-       else
-          enth_max = enth_old
-       endif
+       enth_max = enth_old
     endif
 
     enth = 0.5*(enth_min + enth_max)
