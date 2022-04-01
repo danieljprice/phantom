@@ -95,12 +95,12 @@ module raytracer
       allocate(listOfLens(nrays))
       allocate(tau(ndim))
       allocate(dist(ndim))
-     
+
       !-------------------------------------------
       ! CONSTRUCT the RAYS given the ORDER
       ! and determine the optical depth along them
       !-------------------------------------------
-      
+
       !$omp parallel do private(ray_dir,tau,dist,len)
       do i = 1, nrays
          tau   = 0.
@@ -424,7 +424,7 @@ module raytracer
 
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
-      
+
       integer  :: nneigh, i, prev
       real     :: dmin, vec(3), dr, raydistance, q, norm_sq
 
