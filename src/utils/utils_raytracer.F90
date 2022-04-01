@@ -60,7 +60,7 @@ module raytracer
 
       integer  :: i, nrays, nsides, len, npart
       real     :: ray_dir(3)
-      real, dimension(:,:),  allocatable :: ray_directions, ray_dists, ray_taus
+      real, dimension(:,:),  allocatable :: ray_dists, ray_taus
       real, dimension(:),    allocatable :: tau, dist
       integer, dimension(:), allocatable :: ray_dims
 
@@ -68,7 +68,6 @@ module raytracer
       nrays = 12*4**order
       nsides = 2**order
 
-      allocate(ray_directions(3, nrays)) !This array is not used
       allocate(ray_dists(ndim, nrays))
       allocate(ray_taus(ndim, nrays))
       allocate(ray_dims(nrays))
@@ -84,14 +83,13 @@ module raytracer
       do i = 1, nrays
          tau   = 0.
          dist  = 0.
-         !returns ray_dir(3), the unit vector identifying ray number i-1  !LS why i-1 and not i ??
+         !returns ray_dir(3), the unit vector identifying ray number i-1; i-1 as healpix starts counting at 0 and fortran at 1
          call pix2vec_nest(nsides, i-1, ray_dir)
-         ray_directions(:,i) = ray_dir
          !calculate the optical depth along a given ray, len is the number of points on the ray
          call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len)
          ray_taus(:,i)  = tau
          ray_dists(:,i) = dist
-         ray_dims(i)    = len !LS missing index
+         ray_dims(i)    = len
       enddo
       !$omp end parallel do
 
@@ -135,8 +133,7 @@ module raytracer
 
       integer  :: i, nrays, nsides, len, npart
       real     :: normCompanion = 0., theta0 = 0., unitCompanion(3) = 0.
-      real     :: theta, sep, delta, ray_dir(3), phi = 0., cosphi = 0., sinphi = 0.
-      real, dimension(:,:), allocatable  :: ray_directions
+      real     :: theta, sep, root, ray_dir(3), phi = 0., cosphi = 0., sinphi = 0.
       real, dimension(:,:), allocatable  :: ray_dists, ray_taus
       real, dimension(:), allocatable    :: tau, dist
       integer, dimension(:), allocatable :: ray_dims
@@ -145,7 +142,6 @@ module raytracer
       nrays = 12*4**order
       nsides = 2**order
 
-      allocate(ray_directions(3, nrays)) !This array is not used
       allocate(ray_dists(ndim, nrays))
       allocate(ray_taus(ndim, nrays))
       allocate(ray_dims(nrays))
@@ -169,20 +165,14 @@ module raytracer
       do i = 1, nrays
          tau   = 0.
          dist  = 0.
-         !returns ray_dir, the unit vector identifying ray number i-1
+         !returns ray_dir, the unit vector identifying ray number i-1; i-1 as healpix starts counting at 0 and fortran at 1
          call pix2vec_nest(nsides, i-1, ray_dir)
-         ray_directions(:,i) = ray_dir
-         !rotate vector ray_dir by an angle = phi
-!LS SHOULDN'T IT BE -PHI ?????
-!WARNING !!!!!!!!!!
          ray_dir = (/cosphi*ray_dir(1) - sinphi*ray_dir(2),sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
-         !LS I would write as you do below
-         !dir   = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
          theta = acos(dot_product(unitCompanion, ray_dir))
          !the ray intersects the companion: only calculate tau up to the companion
          if (theta < theta0) then
-            !delta = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
-            delta = sqrt(Rcomp**2-normCompanion**2*sin(theta)**2)
+            !root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
+            root = sqrt(Rcomp**2-normCompanion**2*sin(theta)**2)
             sep   = normCompanion*cos(theta)-root
             call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len, sep)
          else
@@ -205,7 +195,6 @@ module raytracer
       !$omp parallel do private(ray_dir)
       do i = 1, npart
          ray_dir = xyzh(1:3,i)-primary
-         !LS here it seems that it is done properly with  a rotation of -phi
          ray_dir = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
          call ray_polation(nsides, ray_dir, ray_taus, ray_dists, ray_dims, taus(i))
       enddo
@@ -242,7 +231,7 @@ module raytracer
       call pix2vec_nest(nsides, index, ray)
       vectemp     = vec - vec_norm2*ray
       sq_dist2ray = dot_product(vectemp,vectemp) !LS it is an approximation. It should be the length of the arc :
-      !  vec_norm2*angle_between_ray_and_vec but I guess it doesn't mak any difference
+                                                 !vec_norm2*angle_between_ray_and_vec but I guess it doesn't mak any difference
       call get_tau_on_ray(vec_norm2, ray_taus(:,index+1), ray_dists(:,index+1), ray_dims(index+1), tau_ray)
       tau         = tau_ray/sq_dist2ray
       suminvdist2 = 1./sq_dist2ray
@@ -257,12 +246,12 @@ module raytracer
       enddo
       n=n+1
       mk = .true.
-      if (nneigh <8) mk(nneigh+1:8) = .false. !LS to avoid memory leakage
+      if (nneigh <8) mk(nneigh+1:8) = .false.
       !take tau contribution from the 3 closest rays
       do i=1,3
          index       = minloc(tempdist,1,mk)
          mk(index)   = .false.
-         call get_tau_on_ray(vec_norm2, ray_taus(:,n(index)), ray_dists(:,n(index)), ray_dims(n(index)), tau_ray) !LS change name
+         call get_tau_on_ray(vec_norm2, ray_taus(:,n(index)), ray_dists(:,n(index)), ray_dims(n(index)), tau_ray)
          tau         = tau + tau_ray/tempdist(index)
          suminvdist2 = suminvdist2 + 1./tempdist(index)
       enddo
@@ -345,7 +334,7 @@ module raytracer
       enddo
 
       i = 1
-      taus (1)    = 0. !LS missing initialization ?
+      taus (1)    = 0.
       totalDist   = Rstar
       ray_dist(i) = TotalDist
       do while (hasNext(next,totalDist,maxDist))
@@ -409,7 +398,7 @@ module raytracer
       real, allocatable  :: xyzcache(:,:)
 
       integer  :: nneigh, i, prev
-      real     :: dmin, vec(3), dr_ray, dh_ray, q, norm_sq !LS i rename norm2-> norm_sq because norm2 is already defined as an intrinsinc fortran routine
+      real     :: dmin, vec(3), dr_ray, dh_ray, q, norm_sq
 
       prev=next
       next=0
