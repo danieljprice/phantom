@@ -185,7 +185,7 @@ module raytracer
       !$omp end parallel do
 
 
-      !_----------------------------------------------
+      !-----------------------------------------------
       ! DETERMINE the optical depth for each particle
       ! using the values available on the rays
       !-----------------------------------------------
@@ -203,12 +203,12 @@ module raytracer
 
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth of a particle
+   !  Calculate the particle's optical using the rays
    !+
    !  IN: nsides:          the healpix nsides of the simulation
    !  IN: vec:             the vector originating from the primary star and pointing to the particle
-   !  IN: listOfTaus:      array containing the optical depths at each locations an the rays
-   !  IN: listOfDists:     array containing the locations along the ray where tau has been calculated
+   !  IN: ray_taus:        array containing the optical depths at each locations an the rays
+   !  IN: ray_dists:       array containing the locations along the ray where tau has been calculated
    !  IN: ray_dims:        array containing the number of point along the ray where tau has been calculated
    !+
    !  OUT: tau:            interpolated particle's optical depth
@@ -261,14 +261,14 @@ module raytracer
 
    !--------------------------------------------------------------------------
    !+
-   !  Calculate the optical depth of a particle at a given distance on the ray
+   !  Calculate the optical depth at a given distance on the ray
    !+
    !  IN: dist:            The radial distance of the particle
    !  IN: ray_tau:         array containing the optical depths at each locations along the rays
    !  IN: ray_dist:        array containing the locations along the ray where tau has been calculated
    !  IN: len:             length of ray_tau and ray_dist
    !+
-   !  OUT: tau:            The list of optical depths for the particle
+   !  OUT: tau:            the optical depth at distance dist
    !+
    !--------------------------------------------------------------------------
    subroutine get_tau_on_ray(dist, ray_tau, ray_dist, len, tau)

@@ -296,7 +296,7 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wind setup routine'
  if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff_au > 0.) &
-      primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Reff_au*au))**0.25
+      primary_Teff = (primary_lum_lsun*solarl/(4.*pi*(steboltz*primary_Reff_au*au)**2))**0.25
  if (primary_Reff_au == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) &
       primary_Reff_au = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/au
  if (primary_Reff_au > 0. .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) &
@@ -311,7 +311,7 @@ subroutine write_setupfile(filename)
  call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system',iunit)
  if (icompanion_star > 0) then
     if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
-         secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Reff_au*au))**0.25
+         secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
     if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
          secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
     if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
@@ -374,12 +374,12 @@ subroutine read_setupfile(filename,ierr)
  if (icompanion_star > 0) then
     call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
     secondary_mass = secondary_mass_msun * (solarm / umass)
-    call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1000.,errcount=nerr)
+    call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1e7,errcount=nerr)
     secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
-    call read_inopt(secondary_Teff,'secondary_Teff',db,min=0.,max=1000.,errcount=nerr)
-    call read_inopt(secondary_Reff_au,'secondary_Reff',db,min=0.,max=1000.,errcount=nerr)
+    call read_inopt(secondary_Teff,'secondary_Teff',db,min=0.,errcount=nerr)
+    call read_inopt(secondary_Reff_au,'secondary_Reff',db,min=0.,errcount=nerr)
     secondary_Reff = secondary_Reff_au * au / udist
-    call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
+    call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,errcount=nerr)
     secondary_racc = secondary_racc_au * au / udist
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
@@ -396,7 +396,7 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
  if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff > 0.) then
     ichange = ichange+1
-    primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Reff*udist))**0.25
+    primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*(primary_Reff*udist)**2))**0.25
  endif
  if (primary_Reff == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) then
     ichange = ichange+1
@@ -405,12 +405,12 @@ subroutine read_setupfile(filename,ierr)
  endif
  if (primary_Reff > 0.  .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) then
     ichange = ichange+1
-    primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff_au*au)**2/solarl
+    primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff*udist)**2/solarl
  endif
  if (icompanion_star > 0) then
     if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
        ichange = ichange+1
-       secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Reff*udist))**0.25
+       secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff*udist)**2))**0.25
     endif
     if (secondary_Reff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) then
        ichange = ichange+1
