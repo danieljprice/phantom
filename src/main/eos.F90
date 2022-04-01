@@ -342,7 +342,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
      ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2+xyzmh_ptmass(4,3)/r3)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
      spsoundi=sqrt(ponrhoi)
-     if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
+
+     tempi = temperature_coef*mui*ponrhoi
 
  case default
     spsoundi = 0. ! avoids compiler warnings
