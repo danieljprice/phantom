@@ -145,6 +145,7 @@ module setup
  integer :: itapersetgas(maxdiscs)
  logical :: iwarp(maxdiscs)
  logical :: use_global_iso
+ logical :: triple
  real    :: alphaSS
 
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
@@ -361,6 +362,7 @@ subroutine set_default_options()
 
  !--eos
  use_global_iso = .false.
+ triple = .false.
 
  !--dust distribution
  call set_dust_default_options()
@@ -569,7 +571,7 @@ subroutine equation_of_state(gamma)
 
     !--isothermal
     gamma = 1.0
-    if (ndiscs /= 1) then
+    if ((ndiscs /= 1) .or. (triple)) then
        !--multiple discs
        if (use_global_iso) then
           !--globally isothermal
@@ -587,8 +589,13 @@ subroutine equation_of_state(gamma)
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
-          ieos = 14
-          print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+          if (triple) then
+            ieos = 21
+            print "(/,a)",' setting ieos=21 for locally isothermal from Farris et al. (2014) for triples'
+          else
+            ieos = 14
+            print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+          endif
           if (iuse_disc(1)) then
              qfacdisc = qindex(1)
              call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
@@ -1010,14 +1017,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           ! Check if there is a triple
           if (iuse_disc(1)) then
              ! Find CoM location and velocity
-             print*,'##############@!!!!!!!!!!!!!!!'
              xorigini  = (1/(q2+1)*xyzmh_ptmass(1:3,3) + q2/(q2+1)*xyzmh_ptmass(1:3,2))
-             print*, 'the centre of mass is', xorigini
-             print*, 1/(q2+1)*xyzmh_ptmass(1:3,3)
-             print*, q2/(q2+1)*xyzmh_ptmass(1:3,2)
-             print*, 'm2a ', m2a, 'm2b ', m2b, 'q2 ', q2 
-             print*, xyzmh_ptmass(1:4, 3)
-             print*, xyzmh_ptmass(1:4, 2)
              ! Velocity should be negative of mass weighted velocity of outer star
              vorigini  = -m1/m2*vxyz_ptmass(1:3, 1)
              Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
@@ -2575,6 +2575,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
     elseif (nsinks == 3) then
+      triple = .true.
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)

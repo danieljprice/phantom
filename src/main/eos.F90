@@ -41,7 +41,7 @@ module eos
 !   ionization_mod, mesa_microphysics, part, physcon, units
 !
  implicit none
- integer, parameter, public :: maxeos = 20
+ integer, parameter, public :: maxeos = 21
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc
  logical, parameter, public :: use_entropy = .false.
@@ -98,7 +98,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
- use eos_gasradrec, only:equationofstate_gasradrec
+ use eos_gasradrec,  only:equationofstate_gasradrec
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
  integer, intent(in)  :: eos_type
@@ -107,7 +107,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: tempi,mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
- real :: r,omega,bigH,polyk_new,r1,r2
+ real :: r,omega,bigH,polyk_new,r1,r2,r3
  real :: gammai,temperaturei,mui,imui,X_i,Z_i
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  integer :: ierr
@@ -337,6 +337,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     spsoundi = cgsspsoundi / unit_velocity
     if (present(mu_local)) mu_local = 1./imui
     if (present(tempi)) tempi = temperaturei
+
+  case(21)
+ !
+ !--locally isothermal prescription from Farris et al. (2014) for triple system
+ !
+     r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
+     r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
+     r3=sqrt((xi-xyzmh_ptmass(1,3))**2+(yi-xyzmh_ptmass(2,3))**2 + (zi-xyzmh_ptmass(3,3))**2)
+ !  ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
+     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2+xyzmh_ptmass(4,3)/r3)**(2*qfacdisc)/(xyzmh_ptmass(4,1))**(2*qfacdisc)
+     spsoundi=sqrt(ponrhoi)
+     if (present(tempi)) tempi = temperature_coef*mui*ponrhoi
 
  case default
     spsoundi = 0. ! avoids compiler warnings
