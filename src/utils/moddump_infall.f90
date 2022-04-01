@@ -173,10 +173,7 @@ if (in_orbit == 1) then
 
    ! Initial velocity, all initially in x direction
    a = -mtot/v_inf**2
-   print*, "a is ", a
    vx0 = sqrt(mtot*(2/r_init - 1/a))
-   print*, "r_init is", r_init
-   print*, "vx0 is ", vx0
    vy0 = 0.0
    vz0 = 0.0
    vp = (/vx0, vy0, vz0/)

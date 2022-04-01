@@ -93,6 +93,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             "'          tau_kh = ',f10.3,',      v_0 = ',f6.3,/)") &
        denscloud,rcloud,denszero,przero,vzero/spsound,spsound,taukh,vzero
 
+ !
+ ! default value of npartx = 100
+ !
+ npartx = 100
+
  call prompt('enter number of particles in x dir',npartx,8)
  deltax = dxbound/npartx
 

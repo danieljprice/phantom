@@ -19,7 +19,7 @@ or for a column density rendering:
 .. code-block:: bash
 
    splash -r 6 dump_0*
-   
+
 and press Enter for "Hollywood mode". You can also use splash to convert to ascii:
 
 .. code-block:: bash
@@ -31,7 +31,7 @@ or to interpolate to a 3D grid:
 .. code-block:: bash
 
    splash to grid dump_0*
-   
+
 To make a movie, just give "/png" as the output:
 
 .. code-block:: bash
@@ -52,6 +52,10 @@ Analysis modules exist for many common tasks, including interpolating to
 a 3D grid (both fixed and AMR), computing PDFs, structure functions and
 power spectra, getting disc surface density profiles, and converting to
 other formats, and it is simple to write your own.
+
+The data format
+~~~~~~~~~~~~~~~
+A fuller description of the data format can be found :doc:`here <dumpfile>`.
 
 Global quantities
 ~~~~~~~~~~~~~~~~~

@@ -14,10 +14,11 @@ module utils_dumpfiles_hdf5
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, part, utils_hdf5
+! :Dependencies: dim, eos, part, utils_hdf5
 !
  use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
  use part,       only:eos_vars_label,igasP,itemp,maxirad
+ use eos,        only:ieos,eos_is_nonideal,eos_outputs_gasP
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
                       create_hdf5file,  &
@@ -165,7 +166,6 @@ module utils_dumpfiles_hdf5
                h2chemistry,            &
                lightcurve,             &
                prdrag,                 &
-               store_temperature,      &
                store_dust_temperature, &
                radiation,              &
                krome,                  &
@@ -398,10 +398,10 @@ subroutine write_hdf5_arrays( &
  if (.not.array_options%isothermal) then
     call write_to_hdf5(vxyzu(4,1:npart), 'u', group_id, error)
  endif
- if (ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) then
+ if (eos_outputs_gasP(ieos)) then
     call write_to_hdf5(eos_vars(igasP,1:npart), eos_vars_label(igasP), group_id, error)
  endif
- if (array_options%store_temperature) then
+ if (eos_is_nonideal(ieos)) then
     call write_to_hdf5(eos_vars(itemp,1:npart), eos_vars_label(itemp), group_id, error)
  endif
  if (array_options%lightcurve) then
@@ -884,7 +884,7 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(vxyzu(4,:), 'u', group_id, got, error)
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
- if (array_options%store_temperature) then
+ if (eos_is_nonideal(ieos)) then
     call read_from_hdf5(eos_vars(itemp,:), eos_vars_label(itemp), group_id, got_arrays%got_temp, error)
  endif
 

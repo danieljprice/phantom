@@ -19,7 +19,7 @@ module initial
 !   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpiderivs, mpidomain, mpistack, mpiutils, nicil, nicil_sup, omputils,
+!   mpiderivs, mpidomain, mpimemory, mpiutils, nicil, nicil_sup, omputils,
 !   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
 !   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
 !   writeheader
@@ -54,8 +54,6 @@ subroutine initialise()
  use mpidomain,        only:init_domains
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
- use mpiderivs,        only:init_tree_comms
- use mpistack,         only:init_mpi_memory
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
 !
@@ -100,10 +98,6 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
- if (mpi) then
-    call init_tree_comms()
-    call init_mpi_memory()
- endif
 
  call init_readwrite_dumps()
 
@@ -141,7 +135,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef GR
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
- use eos,              only:equationofstate,ieos
+ use eos,              only:ieos
  use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
@@ -481,13 +475,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     rhofinal1 = 0.0
  endif
  if (nptmass > 0) then
-    write(iprint,"(a,i12)") ' nptmass       = ',nptmass
+    if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n)
     dtsinksink = C_force*dtsinksink
-    write(iprint,*) 'dt(sink-sink) = ',dtsinksink
+    if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
 
     ! compute initial sink-gas forces and get timestep
@@ -516,7 +510,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     dtextforce = reduceall_mpi('min',dtextforce)
  endif
  call init_ptmass(nptmass,logfile)
- if (gravity .and. icreate_sinks > 0) then
+ if (gravity .and. icreate_sinks > 0 .and. id==master) then
     write(iprint,*) 'Sink radius and critical densities:'
     write(iprint,*) ' h_acc                    == ',h_acc*udist,'cm'
     write(iprint,*) ' h_fact*(m/rho_crit)^(1/3) = ',hfactfile*(massoftype(igas)/rho_crit)**(1./3.)*udist,'cm'
@@ -715,10 +709,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  toll = 1.0d-2
  if (get_conserv > 0.0) then
     get_conserv = -1.
-    if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
-    if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-    if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-    call warning('initial','consider changing code-units to have box length closer to unity')
+    if (id==master) then
+       if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
+       if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
+       if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+      call warning('initial','consider changing code-units to have box length closer to unity')
+    endif
  endif
 !
 !--write initial conditions to output file
@@ -771,11 +767,11 @@ end subroutine startrun
 subroutine finalise()
  use dim, only: mpi
  use mpiderivs, only:finish_tree_comms
- use mpistack,  only:finish_mpi_memory
+ use mpimemory, only:deallocate_mpi_memory
 
  if (mpi) then
     call finish_tree_comms()
-    call finish_mpi_memory()
+    call deallocate_mpi_memory()
  endif
 
 end subroutine finalise

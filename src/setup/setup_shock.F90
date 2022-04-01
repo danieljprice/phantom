@@ -120,7 +120,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120)               :: shkfile, filename
  logical                          :: iexist,jexist,use_closepacked
 
- if (gr) call set_units(G=1.,c=1.)
+ if (gr) call set_units(dist=100.*au,c=1.)
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
@@ -587,10 +587,10 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        polyk       = uthermconst
        densleft    = 10.
        densright   = 1.
-       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.)
+       call equationofstate(ieos,pondens,spsound,densleft,0.,0.,0.,Tgas)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
        leftstate(1:iBz)  = (/densleft,pondens*densleft,0.,0.,0.,0.,0.,0./)
-       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.)
+       call equationofstate(ieos,pondens,spsound,densright,0.,0.,0.,Tgas)
        rightstate(1:iBz) = (/densright,pondens*densright,0.,0.,0.,0.,0.,0./)
        if (abs(spsound/soundspeed)-1.>1.e-10) call fatal('setup','eos soundspeed does not match chosen sound speed')
     case default
