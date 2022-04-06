@@ -40,6 +40,9 @@ module options
 
 ! gr
  integer, public :: ien_type
+ integer, public, parameter :: &
+      ien_entropy = 1, &
+      ien_etotal  = 2
 
 ! additional .ev data
  logical, public :: calc_erot
@@ -106,6 +109,7 @@ subroutine set_default_options
  iresistive_heating = 1
  icooling           = 0
  ien_type           = 0
+ if (gr) ien_type   = ien_entropy
  polyk2             = 0. ! only used for ieos=8
 
  ! artificial viscosity
