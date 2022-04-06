@@ -491,8 +491,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
 
  ! perturb the state
- dens2 = dens**2
- u2 = u**2
+ dens2 = 2.*dens
+ u2 = 2.*u
  t2 = -1.
 
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
