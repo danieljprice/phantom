@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer      :: i,j,nbad,itype,nunity,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas_mean
+ real         :: hi,hmin,hmax,dust_to_gas
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -387,7 +387,7 @@ subroutine check_setup(nerror,nwarn,restart)
  if (use_dustfrac) then
     nbad = 0
     nunity = 0
-    dust_to_gas_mean = 0.
+    dust_to_gas = 0.
     do i=1,npart
        do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
@@ -396,11 +396,10 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo
-    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
@@ -418,7 +417,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
+    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
  endif
 
 #ifdef GR
@@ -713,7 +712,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
  if (ien_type /= ien_etotal .and. ien_type /= ien_entropy) then
     print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
-                                 mien_entropy, ' or ', ien_etotal, ' but get ', ien_type
+                                 ien_entropy, ' or ', ien_etotal, ' but get ', ien_type
     nerror = nerror + 1
  endif
 
