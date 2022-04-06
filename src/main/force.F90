@@ -851,14 +851,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ien_type
+ use options,     only:overcleanfac,use_dustfrac,ien_type,ien_entropy,ien_etotal
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
 #endif
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
- use cons2primsolver, only:ien_entropy,ien_etotal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1460,7 +1459,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
           endif
           if (ien_type == ien_etotal) then ! total energy for idealplusrad
-             dudtdissi = pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
                                  (pro2j + qrho2j)*projvi*grkernj)
           else
              dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
@@ -2382,7 +2381,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,ien_type
+                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
@@ -2419,7 +2418,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use physcon,        only:c
  use units,          only:unit_velocity
  use timestep,       only:C_rad
- use cons2primsolver,only:ien_entropy,ien_etotal
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
