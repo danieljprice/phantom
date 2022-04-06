@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120)               :: shkfile, filename
  logical                          :: iexist,jexist,use_closepacked
 
- if (gr) call set_units(dist=100.*au,c=1.,mass=1.e-4*solarm)
+ if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
