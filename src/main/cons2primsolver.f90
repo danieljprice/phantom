@@ -17,15 +17,12 @@ module cons2primsolver
 ! :Dependencies: eos, io, metric_tools, units, utils_gr
 !
  use eos, only:ieos,polyk
+ use options, only:ien_etotal,ien_entropy
  implicit none
 
  public :: conservative2primitive,primitive2conservative
 
  private :: get_u,conservative2primitive_con_gamma,conservative2primitive_var_gamma
-
- integer, public, parameter :: &
-      ien_entropy = 1, &
-      ien_etotal  = 2
 
 
 !!!!!!====================================================
