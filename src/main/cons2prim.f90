@@ -17,7 +17,6 @@ module cons2prim
 ! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
 !   options, part, radiation_utils, utils_gr
 !
- use cons2primsolver, only:ien_entropy,ien_etotal
  implicit none
 
  public :: cons2primall,cons2prim_everything
