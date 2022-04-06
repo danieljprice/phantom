@@ -400,6 +400,7 @@ subroutine check_setup(nerror,nwarn,restart)
           endif
        enddo
     enddo
+    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
