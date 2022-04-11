@@ -18,7 +18,7 @@ module utils_dumpfiles_hdf5
 !
  use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
  use part,       only:eos_vars_label,igasP,itemp,maxirad
- use eos,        only:ieos,eos_is_nonideal,eos_outputs_gasP
+ use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
                       create_hdf5file,  &
@@ -401,7 +401,7 @@ subroutine write_hdf5_arrays( &
  if (eos_outputs_gasP(ieos)) then
     call write_to_hdf5(eos_vars(igasP,1:npart), eos_vars_label(igasP), group_id, error)
  endif
- if (eos_is_nonideal(ieos)) then
+ if (eos_is_non_ideal(ieos)) then
     call write_to_hdf5(eos_vars(itemp,1:npart), eos_vars_label(itemp), group_id, error)
  endif
  if (array_options%lightcurve) then
@@ -884,7 +884,7 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(vxyzu(4,:), 'u', group_id, got, error)
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
- if (eos_is_nonideal(ieos)) then
+ if (eos_is_non_ideal(ieos)) then
     call read_from_hdf5(eos_vars(itemp,:), eos_vars_label(itemp), group_id, got_arrays%got_temp, error)
  endif
 
