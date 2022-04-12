@@ -1233,12 +1233,12 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
 
-             !--taper dust disc
-             iprofiledust = 0
-             if (itaperdust(i,j)) iprofiledust = 1
-             if (itapersetdust(i,j) == 1) iprofiledust = 2
-             if (use_sigmadust_file(i,j)) iprofiledust = 3
-
+                !--taper dust disc
+                iprofiledust = 0
+                if (itaperdust(i,j)) iprofiledust = 1
+                if (itapersetdust(i,j) == 1) iprofiledust = 2
+                if (use_sigmadust_file(i,j)) iprofiledust = 3
+   
 
                 call set_disc(id,master      = master,             &
                               npart          = npindustdisc,       &
@@ -2792,7 +2792,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  real    :: sigma_dust
 
  dusttogas_array = 0.
- if(sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(i),R_out(i))
+ if(sigmaprofilegas(disc_index)==6) call init_grid_sigma(R_in(disc_index),R_out(disc_index))
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))

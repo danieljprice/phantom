@@ -27,7 +27,8 @@ module load_from_file
  integer, intent(in), optional :: nhead
  integer           :: nrows,mcolumns,nheadlines,iunit,ierr,i
  character :: c
- real, dimension(:,:), allocatable, intent(inout) :: datafile
+ real, dimension(:,:), allocatable, intent(inout) :: datafile 
+ !N.B.: datafile will be deallocated in grids_for_setup.f90:deallocate_sigma()
 
  ierr=0
  iunit=155

@@ -18,6 +18,7 @@ module grids_for_setup
     real, intent(in) :: Rin,Rout
 
     sigma_initialised=.true.
+    print*,'init grid sigma with Rin, Rout:',Rin,Rout
     call load_data_file('sigma_grid.dat',datasigma,nhead=1)
     call rescale(Rin,Rout,datasigma)
     call differentiate(datasigma(:,2),datasigma(:,1),dsigmadx)
@@ -28,6 +29,7 @@ module grids_for_setup
     real, intent(in) :: Rin,Rout
 
     ecc_initialised=.true.
+    print*,'init grid ecc with Rin, Rout:',Rin,Rout
     call load_data_file('ecc_grid.dat',dataecc,nhead=1)
     call rescale(Rin,Rout,dataecc)
     call differentiate(dataecc(:,2),dataecc(:,1),deda)
@@ -54,7 +56,7 @@ module grids_for_setup
         sigma_initialised=.false.
         write(*,*) '(grids_for_setup) Deallocating: datasigma, dsigmadx'
     else
-       call error('grids_for_setup','Trying to deallocate dataecc without having initialised it')
+       call error('grids_for_setup','Trying to deallocate datasigma without having initialised it')
     endif
  end subroutine deallocate_sigma
 

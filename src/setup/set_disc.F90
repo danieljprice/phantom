@@ -1002,7 +1002,6 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  integer :: i
  real    :: T0,T_ref,sig,dR,R
 
-! if(sigmaprofile==6) call init_grid_sigma(R_in,R_out) 
  write(iunit,"(/,a)") '# '//trim(labeltype(itype))//' disc parameters - this file is NOT read by setup'
  call write_inopt(R_in,'R_in','inner disc boundary',iunit)
  call write_inopt(R_ref,'R_ref','reference radius',iunit)
@@ -1086,7 +1085,6 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,') (1-exp(R-',R_out,')) (1 - sqrt(',R_in,'/R))'
  endif
  write(iunit,"(a,es9.2,a,/)") '# Disc total angular momentum = ',L_tot_mag,' g*cm^2/sec'
-! if(sigmaprofile==6) call deallocate_sigma()
 
  return
 end subroutine write_discinfo

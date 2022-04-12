@@ -28,8 +28,8 @@ function interpolate_1d(x,dataset,dydx) result(y)
 
     if(uniform) then
        Nref=floor((x-x0(1))/dx+1)
-       if (Nref<1.) then
-          print*,'cannot interpolate a value out of the grid'
+       if (Nref<1) then
+          print*,'cannot interpolate a value out of the grid: x = ',x,y0(:),Nref
           stop
        endif
     else
@@ -53,14 +53,16 @@ end function interpolate_1d
 subroutine differentiate(y,x,dydx) 
    !-- based on numpy gradient
    real, intent(in) :: y(:),x(:)
-   real,  dimension(size(y)-1) :: dx,dx1,dx2
-   real, dimension(:), allocatable :: dydx
-   real, dimension(size(y))    :: a,b,c
+   real, dimension(:), allocatable :: dx,dx1,dx2
+   real, intent(inout), dimension(:), allocatable :: dydx !will be deallocated in grids_for_setup.f90:deallocate_sigma()
+   real, dimension(:), allocatable :: a,b,c
    integer :: Nsize, Nsizedx,i
 
    Nsize = size(x)
    allocate(dydx(Nsize))
    Nsizedx = Nsize-1
+   allocate(dx(Nsizedx),dx1(Nsizedx),dx2(Nsizedx))
+   allocate(a(Nsize),b(Nsize),c(Nsize))
 
    dx = x(2:)-x(1:Nsize-1)
    dx1 = dx(1:Nsizedx-1)
@@ -94,7 +96,10 @@ subroutine differentiate(y,x,dydx)
 
  
    dydx(Nsize) = a(1) * y(Nsize-2) + b(1) * y(Nsize-1) + c(1) * y(Nsize)
-   
+  
+   deallocate(dx,dx1,dx2)
+   deallocate(a,b,c) 
+  
 !   do i=1,size(x)
  !     print*,i,x(i)
   ! enddo
