@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
- use eos, only:ieos,iopacity_type ! so this is available via options module
+ use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  implicit none
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
@@ -53,12 +53,10 @@ module options
  ! radiation
  logical,public :: exchange_radiation_energy, limit_radiation_flux
 
- ! variable composition
- logical,public :: use_variable_composition
-
  public :: set_default_options
  public :: ieos
  public :: iopacity_type
+ public :: use_var_comp  ! use variable composition
 
  private
 
@@ -104,7 +102,7 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
- polyk2             = 0 ! only used for ieos=8
+ polyk2             = 0. ! only used for ieos=8
 
  ! artificial viscosity
  if (maxalpha>0 .and. maxalpha==maxp) then
@@ -156,7 +154,7 @@ subroutine set_default_options
  endif
 
  ! variable composition
- use_variable_composition = .false.
+ use_var_comp = .false.
 
 end subroutine set_default_options
 

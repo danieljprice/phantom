@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -37,9 +37,9 @@ module evwrite
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
-!   fileutils, gravwaveutils, io, nicil, options, part, ptmass, timestep,
-!   units, viscosity
+! :Dependencies: boundary, dim, energies, eos, extern_binary,
+!   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
+!   part, ptmass, timestep, units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
@@ -78,22 +78,26 @@ subroutine init_evfile(iunit,evfile,open_file)
  use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
  use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use units,     only:c_is_unity
- use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes
+ use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
  use gravwaveutils, only:calc_gravitwaves
+ use mpiutils,  only:reduceall_mpi
+ use eos,       only:ieos,eos_is_non_ideal,eos_outputs_gasP
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
  character(len= 27)             :: ev_fmt
  character(len= 11)             :: dustname
  integer                        :: i,j,k
+ integer(kind=8)                :: npartoftypetot(maxtypes)
  !
  !--Initialise additional variables
  !
+ npartoftypetot = reduceall_mpi('+', npartoftype)
  gas_only  = .true.
  do i = 2,maxtypes
-    if (npartoftype(i) > 0) gas_only = .false.
+    if (npartoftypetot(i) > 0) gas_only = .false.
  enddo
  write(ev_fmt,'(a)') "(1x,'[',i2.2,1x,a11,']',2x)"
  !
@@ -122,21 +126,25 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)
  if (.not. gas_only) then
-    if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
-    if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
-    if (npartoftype(iboundary)   > 0) call fill_ev_tag(ev_fmt,iev_rhop(3),'rho bdy', 'xa',i,j)
-    if (npartoftype(istar)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(4),'rho star','xa',i,j)
-    if (npartoftype(idarkmatter) > 0) call fill_ev_tag(ev_fmt,iev_rhop(5),'rho dm',  'xa',i,j)
-    if (npartoftype(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
+    if (npartoftypetot(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
+    if (npartoftypetot(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
+    if (npartoftypetot(iboundary)   > 0) call fill_ev_tag(ev_fmt,iev_rhop(3),'rho bdy', 'xa',i,j)
+    if (npartoftypetot(istar)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(4),'rho star','xa',i,j)
+    if (npartoftypetot(idarkmatter) > 0) call fill_ev_tag(ev_fmt,iev_rhop(5),'rho dm',  'xa',i,j)
+    if (npartoftypetot(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
  endif
- if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
+ if (maxalpha==maxp) then
+    call fill_ev_tag(ev_fmt,      iev_alpha,  'alpha',  'x',  i,j)
+ endif
+ if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+    call fill_ev_tag(ev_fmt,      iev_temp,   'temp',   'xan',i,j)
+ endif
  if ( mhd ) then
     call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
     call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_beta,   'beta_P', 'xan',i,j)
     if (mhd_nonideal) then
-       call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
        if (use_ohm) then
           call fill_ev_tag(ev_fmt,iev_etao,   'eta_o',    'xan',i,j)
        endif
