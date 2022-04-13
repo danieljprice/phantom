@@ -1043,7 +1043,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        case(1)
           !--circumbinary
           ! Check if there is a triple
-          if (iuse_disc(1)) then
+          if (triple) then
              ! Find CoM location and velocity
              xorigini  = (1/(q2+1)*xyzmh_ptmass(1:3,3) + q2/(q2+1)*xyzmh_ptmass(1:3,2))
              ! Velocity should be negative of mass weighted velocity of outer star
