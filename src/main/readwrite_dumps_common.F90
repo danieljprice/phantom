@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ contains
 character(len=lenid) function fileident(firstchar,codestring)
  use part,    only:h2chemistry,mhd,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature
+ use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation
  use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
@@ -53,9 +53,7 @@ character(len=lenid) function fileident(firstchar,codestring)
  if (use_dustgrowth) string = trim(string)//'+dustgrowth'
  if (use_krome) string = trim(string)//'+krome'
  if (store_dust_temperature) string = trim(string)//'+Tdust'
-#ifdef NUCLEATION
- string = trim(string)//'+nucleation'
-#endif
+ if (do_nucleation) string = trim(string)//'+nucleation'
  if (present(codestring)) then
     fileident = firstchar//':'//trim(codestring)//':'//trim(phantom_version_string)//':'//gitsha
  else
@@ -118,21 +116,20 @@ end subroutine get_options_from_fileid
 !  and perform basic sanity checks
 !+
 !---------------------------------------------------------------
-subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
+subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,store_temperature,&
-                use_dustgrowth,gr,do_radiation,store_dust_temperature
- use eos,  only:polyk,gamma
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,do_radiation,store_dust_temperature
+ use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
- use options,    only:alpha,use_dustfrac,use_variable_composition
+ use options,    only:alpha,use_dustfrac,use_var_comp
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
- integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
+ integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
@@ -247,10 +244,10 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
     return
  endif
 #endif
- if (store_temperature .and. .not.got_temp) then
+ if (eos_is_non_ideal(ieos) .and. .not.got_temp) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
  endif
- use_variable_composition = (got_x .and. got_z .and. got_mu)
+ use_var_comp = (got_x .and. got_z .and. got_mu)
  if (store_dust_temperature .and. .not.got_Tdust) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
  endif
@@ -372,7 +369,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
 !
  if (.not.got_iorig) then
     do i=i1,i2
-       iorig(i) = i
+       iorig(i) = i + noffset
     enddo
     norig = i2
     if (id==master .and. i1==1) write(*,*) 'WARNING: Particle IDs not in dump; resetting IDs'
