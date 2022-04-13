@@ -313,19 +313,19 @@ end subroutine rho_evrard
 !+
 !-----------------------------------------------------------------------
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
- use physcon,   only:solarm
+ use physcon,   only:solarm,solarr
  use eos,       only:X_in,Z_in
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- integer                                    :: lines,rows,i,ncols,nheaderlines
+ integer                                    :: lines,rows,i,ncols,nheaderlines,iu
  character(len=*), intent(in)               :: filepath
  logical, intent(in), optional              :: cgsunits
  integer, intent(out)                       :: ierr
  character(len=10000)                       :: dumc
  character(len=120)                         :: fullfilepath
  character(len=24),allocatable              :: header(:),dum(:)
- logical                                    :: iexist,usecgs
+ logical                                    :: iexist,usecgs,ismesafile
  real,allocatable,dimension(:,:)            :: dat
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
@@ -345,18 +345,20 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
- open(unit=40,file=fullfilepath,status='old')
- call get_ncolumns(40,ncols,nheaderlines)
+ open(newunit=iu,file=fullfilepath,status='old')
+ call get_ncolumns(iu,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
-    read(40,'()')
-    read(40,'()')
-    read(40,*) lines,lines
-    read(40,'()')
-    read(40,'()')
+    read(iu,'()')
+    read(iu,'()')
+    read(iu,*) lines,lines
+    read(iu,'()')
+    read(iu,'()')
+    ismesafile = .true.
  else
+    ismesafile = .false.
     lines = lines - nheaderlines
-    do i=1,nheaderlines-1
-       read(40,'()')
+    do i = 1,nheaderlines-1
+       read(iu,'()')
     enddo
  endif
  if (lines <= 0) then ! file not found
@@ -364,7 +366,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     return
  endif
 
- read(40,'(a)') dumc! counting rows
+ read(iu,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
  call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
@@ -380,35 +382,41 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  header(1:rows) = dum(1:rows)
  deallocate(dum)
  do i = 1,lines
-    read(40,*) dat(lines-i+1,1:rows)
+    read(iu,*) dat(lines-i+1,1:rows)
  enddo
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
              temp(lines),Xfrac(lines),Yfrac(lines))
 
- close(40)
+ close(iu)
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
     if (header(i)(1:1) == '#') then
        print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
-       stop 'read_mesa'
+       ierr = 2
+       return
     endif
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
     case('mass')
        m = dat(1:lines,i)
-       if (nheaderlines == 6) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
+       if (ismesafile) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
     case('logrho')
        rho = 10**(dat(1:lines,i))
     case('energy','e_int')
        ene = dat(1:lines,i)
-    case('radius','radius_cm')
+    case('radius_cm')
        r = dat(1:lines,i)
+    case('radius')
+       r = dat(1:lines,i)
+       if (ismesafile) r = r * solarr
+    case('logr')
+       r = (10**dat(1:lines,i)) * solarr
     case('pressure')
        pres = dat(1:lines,i)
     case('temperature')
