@@ -54,6 +54,7 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  use table_utils, only:yinterp
  use deriv,       only:get_derivs_global
+ use dim,         only:maxp
  use part,        only:vxyzu
  use step_lf_global, only:init_step,step
  use initial,       only:initialise
@@ -118,7 +119,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  ! compute derivatives the first time around (needed if using actual step routine)
  !
  t = 0.
- call allocate_memory(int(2*npart,kind=8))
+ call allocate_memory(int(min(2*npart,maxp),kind=8))
  call get_derivs_global()
  call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)
