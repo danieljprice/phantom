@@ -329,16 +329,18 @@ end subroutine separation_vs_time
 !+
 !----------------------------------------------------------------
 subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
+ use eos, only:entropy
  real, intent(in)               :: time,xyzh(:,:),vxyzu(:,:),particlemass
  character(len=17), allocatable :: columns(:)
  real, dimension(3)             :: planet_com,planet_vel,sep,vel
- real                           :: rhoi,rhoprev,sepi
+ real                           :: rhoi,rhoprev,sepi,si,smin,presi
  real, allocatable              :: data_cols(:),Rmasks(:),mass(:)
- integer                        :: i,j,ncols,maxrho_ID,Nmasks
+ integer                        :: i,j,ncols,maxrho_ID,Nmasks,ientropy
  integer, save                  :: nplanet
  integer, allocatable, save     :: planetIDs(:)
+ logical                        :: isfulldump
 
- ncols = 14
+ ncols = 15
  allocate(data_cols(ncols))
  allocate(columns(ncols))
  columns = (/'       x sep', &
@@ -354,28 +356,47 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
              '          m3', &
              '          m4', &
              '          m5', &
-             '      rhomax'/)
+             '      rhomax', &
+             '        smin'/)
  
  if (dump_number == 0) call get_planetIDs(nplanet,planetIDs)
+ isfulldump = (vxyzu(4,1) > 0.)
 
  Nmasks = 5  ! number of radius masks for calculating planet mass
  allocate(Rmasks(Nmasks),mass(Nmasks))
  Rmasks = (/0.15, 0.18, 0.21, 0.24, 0.27/)  ! Entries must be in ascending order
 
- ! Find planet particle with highest density
+ ! Find highest density and lowest entropy in planet
  rhoprev = 0.
  maxrho_ID = 1
+ smin = huge(0.)
+ ientropy = 1
+ ieos = 2
+ gamma = 5./3.
  do i = 1,nplanet
     rhoi = rhoh(xyzh(4,planetIDs(i)), particlemass)
     if (rhoi > rhoprev) then
        maxrho_ID = planetIDs(i)
        rhoprev = rhoi
     endif
+
+    if (isfulldump) then
+       presi = (gamma-1.)*vxyzu(4,i)
+       si = entropy(rhoi*unit_density,presi*unit_pressure,gmw,ientropy)
+       smin = min(smin,si)
+    endif
  enddo
+
  planet_com = xyzh(1:3,maxrho_ID)
- planet_vel = vxyzu(1:3,maxrho_ID)
  sep = planet_com - xyzmh_ptmass(1:3,1)
- vel = planet_vel - vxyz_ptmass(1:3,1)
+
+ if (isfulldump) then
+    planet_vel = vxyzu(1:3,maxrho_ID)
+    vel = planet_vel - vxyz_ptmass(1:3,1)
+ else
+    vel = 0.
+    smin = 0.
+ endif
 
  ! Sum planet mass according to criterion
  mass = 0.
@@ -392,7 +413,7 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
 
  data_cols = (/ sep(1), sep(2), sep(3), distance(planet_com),&
                 vel(1), vel(2), vel(3), distance(vel),&
-                mass(1), mass(2), mass(3), mass(4), mass(5), rhoprev/)
+                mass(1), mass(2), mass(3), mass(4), mass(5), rhoprev, smin/)
  call write_time_file('planet_rvm', columns, time, data_cols, ncols, dump_number)
  deallocate(columns)
 
