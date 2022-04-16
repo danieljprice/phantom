@@ -216,13 +216,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  case(7)
 !
 !-- z-dependent locally isothermal eos
+!
     r2 = xi**2 + yi**2
     cs2mid = polyk * r2**(-qfacdisc)
     cs2atm = polyk2 * r2**(-qfacdisc2)
     zq = z0 * r2**(0.5*beta_z)
 
     ! modified equation 6 from Law et al. (2021)
-    cs2      = (cs2mid**4 + 0.5*(1 + tanh((zi - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
+    cs2      = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
     ponrhoi  = cs2
     spsoundi = sqrt(cs2)
     tempi    = temperature_coef*mui*ponrhoi
