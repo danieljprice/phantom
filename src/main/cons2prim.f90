@@ -17,7 +17,6 @@ module cons2prim
 ! :Dependencies: cons2primsolver, cullendehnen, dim, eos, io, nicil,
 !   options, part, radiation_utils, utils_gr
 !
- use cons2primsolver, only:ien_entropy
  implicit none
 
  public :: cons2primall,cons2prim_everything
@@ -35,6 +34,7 @@ contains
 
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  use part,         only:isdead_or_accreted
+ use options,      only:ien_type
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
@@ -53,24 +53,25 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type) &
 !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens)
+       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens,ien_type)
     endif
  enddo
 !$omp end parallel do
 
 end subroutine prim2consall
 
-subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
+subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens,ien_type)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
  real, intent(inout)             :: dens_i
+ integer,            intent(in)  :: ien_type
  real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
  logical :: usedens
@@ -96,7 +97,7 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens)
  endif
  call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),temperaturei,ui)
  pi = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_entropy)
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
 
 end subroutine prim2consi
 
@@ -111,6 +112,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
  use io,              only:fatal
  use eos,             only:equationofstate,ieos,gamma,done_init_eos,init_eos
+ use options,         only:ien_type
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
@@ -122,7 +124,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,gamma,eos_vars) &
+!$omp shared(ieos,gamma,eos_vars,ien_type) &
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi,temperaturei)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -131,7 +133,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        p_guess = pondens*dens(i)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_entropy)
+                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
        eos_vars(igasP,i) = p_guess
        eos_vars(ics,i)   = spsound
        if (ierr > 0) then

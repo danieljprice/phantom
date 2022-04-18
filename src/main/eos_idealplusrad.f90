@@ -45,7 +45,7 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,gamma,tempi,ierr)
 
  gasfac = 1./(gamma-1.)
  imu = 1./mu
- if (tempi <= 0.) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
+ if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
  ierr = 0
  iter = 0
@@ -64,7 +64,7 @@ end subroutine get_idealplusrad_temp
 
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
  real, intent(in)    :: rhoi,mu
- real, intent(inout) :: tempi
+ real, intent(in)    :: tempi
  real, intent(out)   :: presi
 
  presi = Rg*rhoi*tempi/mu + 1./3.*radconst*tempi**4 ! Eq 13.2 (Kippenhahn et al.)
