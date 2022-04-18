@@ -22,7 +22,7 @@ module ionization_mod
  logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
  real, private                            :: frec,edge,tanh_c,dtanh_c
- real, parameter, private                 :: tanh_edge = 3.6467
+ real, parameter, private                 :: tanh_edge = 3.64673859532966
 
  interface rapid_tanh
   module procedure rapid_tanhs,rapid_tanhv
