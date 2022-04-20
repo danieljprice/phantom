@@ -30,7 +30,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,       only:igas,isdead_or_accreted,xyzmh_ptmass
  use units,      only:udist,utime,get_G_code
  use io,         only:id,master,fatal
- use spherical,  only:set_sphere
+ use spherical,  only:set_sphere,set_ellipse
  use stretchmap, only:rho_func
  use physcon,    only:pi
  use vectorutils,only:rotatevec
@@ -45,9 +45,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: in_shape,in_orbit,ipart,i,n_add,np
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
- real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_in,inc,big_omega
+ real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_in,r_a,inc,big_omega
  real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc
- real    :: vp(3), xp(3), rot_axis(3)
+ real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number
  real    :: unit_velocity, G
  logical :: lrhofunc
@@ -83,17 +83,26 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  #endif
 
  ! Prompt user for infall material shape
- call prompt('Enter the infall material shape (0=sphere, 1=cylinder)',in_shape,0,1)
+ call prompt('Enter the infall material shape (0=sphere, 1=ellipse, 2=cylinder)',in_shape,0,2)
 
- if (in_shape == 1) then
+ if (in_shape == 2) then
    write(*,*), "Cylinder not yet implemented."
    stop
  endif
 
+ if (in_shape == 0) then
  call prompt('Enter radius of shape:', r_in, 0.1)
+ elseif (in_shape == 1) then
+   call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
+   call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
+   rellipsoid(1) = r_in
+   rellipsoid(2) = r_a
+   rellipsoid(3) = r_in
+ endif
  call prompt('Enter infall mass in Msun:', in_mass, 0.01)
  call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
  call prompt('Enter initial radial distance in au:', r_init, 0.0)
+
 
  if (r_slope > tiny_number) then
     prhofunc => rhofunc
@@ -136,7 +145,7 @@ write(*,*), "Notation: 0 degrees is prograde on xy-plane. 180 degrees is retrogr
 call prompt('Enter inclination of infall:', inc, 0., 360.)
 call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
 
-if (in_orbit == 1) then
+ if (in_orbit == 1) then
    ! Parabolic orbit, taken from set_flyby
    dma = r_close
    n0  = r_init/r_close
@@ -155,14 +164,6 @@ if (in_orbit == 1) then
    y0 = dma*(1.0-(x0/pf)**2)
    z0 = 0.0
    xp = (/x0,y0,z0/)
-
-   !--perturber initial velocity
-   r0  = sqrt(x0**2+y0**2+z0**2)
-   vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
-   vy0 = -(x0/r0)*sqrt(mtot/pf)
-   vz0 = 0.0
-   vp  = (/vx0,vy0,vz0/)
-
  elseif (in_orbit == 2) then
    ! Dullemond+2019
    ! Initial position is x=r_init and y=b (impact parameter)
@@ -170,18 +171,8 @@ if (in_orbit == 1) then
    y0 = b
    z0 = 0.0
    xp = (/x0, y0, z0/)
-
-   ! Initial velocity, all initially in x direction
-   a = -mtot/v_inf**2
-   vx0 = sqrt(mtot*(2/r_init - 1/a))
-   vy0 = 0.0
-   vz0 = 0.0
-   vp = (/vx0, vy0, vz0/)
-
- endif
-
- write(*,*), "Initial cloud centre is: ", xp
- write(*,*), "Initial velocity velocity is ", vp
+endif
+  write(*,*), "Initial cloud centre is: ", xp
 
  ! Number of injected particles is given by existing particle mass and total
  ! added disc mass
@@ -195,20 +186,71 @@ if (in_orbit == 1) then
  np = 0
  if (in_shape == 0) then
     if (lrhofunc) then
-      call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=(/x0, y0, z0/),&
+      call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=xp,&
         np_requested=n_add, nptot=nptot,rhofunc=prhofunc)
     else
-       call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=(/x0, y0, z0/),&
+       call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=xp,&
           np_requested=n_add, nptot=nptot)
     endif
- endif
  write(*,*), "The sphere has been succesfully initialised."
+ elseif (in_shape == 1) then
+   !set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask)
+   call set_ellipse('random',id,master,rellipsoid,delta,hfact,xyzh_add,np,xyz_origin=xp,&
+     np_requested=n_add, nptot=nptot)
+   write(*,*), "The ellipse has been succesfully initialised."
+ endif
 
- ! Initiate initial velocity of the particles in the shape
- vxyzu_add(1, :) = vx0
- vxyzu_add(2, :) = vy0
- vxyzu_add(3, :) = vz0
- vxyzu_add(4, :) = vxyzu(4, 1)
+
+ ! Set up velocities
+ if (in_orbit == 1) then
+
+    !--perturber initial velocity
+    r0  = sqrt(x0**2+y0**2+z0**2)
+    vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+    vy0 = -(x0/r0)*sqrt(mtot/pf)
+    vz0 = 0.0
+    vp  = (/vx0,vy0,vz0/)
+
+    if (in_shape == 0) then
+      ! Initiate initial velocity of the particles in the shape
+      vxyzu_add(1, :) = vx0
+      vxyzu_add(2, :) = vy0
+      vxyzu_add(3, :) = vz0
+
+    elseif (in_shape == 1) then
+      do i=1,n_add
+        x0 = xyzh_add(1, i)
+        y0 = xyzh_add(2, i)
+        z0 = xyzh_add(3, i)
+
+        r0  = sqrt(x0**2+y0**2+z0**2)
+        vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+        vy0 = -(x0/r0)*sqrt(mtot/pf)
+        vz0 = 0.0
+
+        vxyzu_add(1, i) = vx0
+        vxyzu_add(2, i) = vy0
+        vxyzu_add(3, i) = vz0
+      enddo
+    endif
+
+    vxyzu_add(4, :) = vxyzu(4, 1)
+
+  elseif (in_orbit == 2) then
+    ! Dullemond+2019
+    ! Initial velocity, all initially in x direction
+    a = -mtot/v_inf**2
+    vx0 = sqrt(mtot*(2/r_init - 1/a))
+    vy0 = 0.0
+    vz0 = 0.0
+    vp = (/vx0, vy0, vz0/)
+    vxyzu_add(1, :) = vx0
+    vxyzu_add(2, :) = vy0
+    vxyzu_add(3, :) = vz0
+    vxyzu_add(4, :) = vxyzu(4, 1)
+  endif
+
+  write(*,*), "Initial velocity of cloud centre is ", vp
 
  ! Now rotate and add those new particles to existing disc
  ! Default is prograde orbit

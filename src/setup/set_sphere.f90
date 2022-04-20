@@ -96,7 +96,6 @@ subroutine set_sphere(lattice,id,master,rmin,rmax,delta,hfact,np,xyzh, &
  !--Create a sphere of uniform density
  !
  if (lattice=='random' .and. present(np_requested)) then
-    print*, 'Calling set_sphere_mc'
     call set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh,ierr,nptot,my_mask)
  elseif ( use_sphereN ) then
     vol_sphere = 4.0/3.0*pi*rmax**3
@@ -399,7 +398,7 @@ end subroutine set_unifdis_sphereN
 !  Wrapper to set an ellipse
 !+
 !-----------------------------------------------------------------------
-subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask)
+subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask,xyz_origin)
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,np_requested
  integer,          intent(inout) :: np
@@ -407,9 +406,10 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
  integer(kind=8),  intent(inout) :: nptot
+ real,             intent(in),    optional :: xyz_origin(3)
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
- integer                         :: ierr
+ integer                         :: ierr,i,npin
  real                            :: xi,yi,zi,vol_ellipse
 
  if (present(mask)) then
@@ -420,6 +420,7 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  xi = 1.5*r_ellipsoid(1)
  yi = 1.5*r_ellipsoid(2)
  zi = 1.5*r_ellipsoid(3)
+ npin = np
 
  if (trim(lattice)=='random') then
     call set_unifdis(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,xyzh,.false.,npnew_in=np_requested,&
@@ -428,6 +429,16 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
     vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
     call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
                              vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
+ endif
+
+ if (present(xyz_origin)) then
+    if (id==master) write(*,"(1x,a,3(es10.3,1x))") 'shifting origin to ',xyz_origin(:)
+    do i=npin+1,np
+       ! shift positions and velocities to specified origin
+       xyzh(1,i) = xyzh(1,i) + xyz_origin(1)
+       xyzh(2,i) = xyzh(2,i) + xyz_origin(2)
+       xyzh(3,i) = xyzh(3,i) + xyz_origin(3)
+    enddo
  endif
 
 end subroutine set_ellipse
