@@ -14,7 +14,6 @@ module externalforces
 !
 ! :Runtime parameters:
 !   - accradius1      : *soft accretion radius of central object*
-!   - accradius1_hard : *hard accretion radius of central object*
 !   - eps_soft        : *softening length (Plummer) for central potential in code units*
 !   - mass1           : *mass of central object in code units*
 !
@@ -44,7 +43,6 @@ module externalforces
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
- real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
 
  !
@@ -66,12 +64,13 @@ module externalforces
    iext_staticsine    = 13, &
    iext_gwinspiral    = 14, &
    iext_discgravity   = 15, &
-   iext_corot_binary  = 16
+   iext_corot_binary  = 16, &
+   iext_geopot        = 17
 
  !
  ! Human-readable labels for these
  !
- integer, parameter, public  :: iexternalforce_max = 16
+ integer, parameter, public  :: iexternalforce_max = 17
  character(len=*), parameter, public :: externalforcetype(iexternalforce_max) = (/ &
     'star                 ', &
     'corotate             ', &
@@ -88,7 +87,8 @@ module externalforces
     'static sinusoid      ', &
     'grav. wave inspiral  ', &
     'disc gravity         ', &
-    'corotating binary    '/)
+    'corotating binary    ', &
+    'geopotential model   '/)
 
 contains
 !-----------------------------------------------------------------------
@@ -113,6 +113,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
  use extern_gwinspiral,  only:get_gw_force_i
+ use extern_geopot,      only:get_geopot_force
  use units,              only:udist,umass,utime
  use physcon,            only:pc,pi,gg
  use io,                 only:fatal
@@ -139,7 +140,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 
  select case(iexternalforce)
 
- case(iext_star, iext_lensethirring)
+ case(iext_star,iext_lensethirring,iext_geopot)
 !
 !--1/r^2 force from central point mass
 !
@@ -156,6 +157,10 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        fextyi = fextyi - yi*dr3
        fextzi = fextzi - zi*dr3
        phi    = -mass1*dr
+    endif
+
+    if (iexternalforce==iext_geopot) then
+       call get_geopot_force(xi,yi,zi,dr,dr3,accradius1,fextxi,fextyi,fextzi,phi)
     endif
 
  case(iext_corotate)
@@ -577,8 +582,6 @@ end subroutine update_externalforce
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  use extern_binary, only:binary_accreted,accradius1
- use part,          only:set_particle_type,iboundary,maxphase,maxp,igas
- !use part,          only:npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -641,6 +644,7 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  use extern_Bfield,        only:write_options_externB
  use extern_staticsine,    only:write_options_staticsine
  use extern_gwinspiral,    only:write_options_gwinspiral
+ use extern_geopot,        only:write_options_geopot
  integer, intent(in) :: iunit,iexternalforce
  character(len=80) :: string
 
@@ -650,11 +654,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  call write_inopt(iexternalforce,'iexternalforce',trim(string),iunit)
 
  select case(iexternalforce)
- case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
-    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
     call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
-    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
  end select
 
  select case(iexternalforce)
@@ -682,6 +684,8 @@ subroutine write_options_externalforces(iunit,iexternalforce)
     call write_options_staticsine(iunit)
  case(iext_gwinspiral)
     call write_options_gwinspiral(iunit)
+ case(iext_geopot)
+    call write_options_geopot(iunit)
  end select
 
 end subroutine write_options_externalforces
@@ -747,6 +751,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  use extern_Bfield,        only:read_options_externB
  use extern_staticsine,    only:read_options_staticsine
  use extern_gwinspiral,    only:read_options_gwinspiral
+ use extern_geopot,        only:read_options_geopot
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr
@@ -754,7 +759,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  integer, save :: ngot = 0
  logical :: igotallcorotate,igotallbinary,igotallprdrag
  logical :: igotallltforce,igotallspiral,igotallexternB
- logical :: igotallstaticsine,igotallgwinspiral
+ logical :: igotallstaticsine,igotallgwinspiral,igotallgeopot
  character(len=30), parameter :: tag = 'externalforces'
 
  imatch            = .true.
@@ -767,6 +772,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  igotallltforce    = .true.
  igotallstaticsine = .true.
  igotallgwinspiral = .true.
+ igotallgeopot     = .true.
 
  !call read_inopt(db,'iexternalforce',iexternalforce,min=0,max=9,required=true)
  !if (imatch) ngot = ngot + 1
@@ -785,10 +791,6 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
- case('accradius1_hard')
-    read(valstring,*,iostat=ierr) accradius1_hard
-    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1_hard value')
-    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case('eps_soft')
     read(valstring,*,iostat=ierr) eps_soft
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
@@ -816,17 +818,19 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
        call read_options_staticsine(name,valstring,imatch,igotallstaticsine,ierr)
     case(iext_gwinspiral)
        call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
+    case(iext_geopot)
+       call read_options_geopot(name,valstring,imatch,igotallgwinspiral,ierr)
     end select
  end select
  igotall = (ngot >= 1      .and. igotallcorotate   .and. &
             igotallbinary  .and. igotallprdrag     .and. &
             igotallspiral  .and. igotallltforce    .and. &
             igotallexternB .and. igotallstaticsine .and. &
-            igotallgwinspiral)
+            igotallgwinspiral .and. igotallgeopot)
 
  !--make sure mass is read where relevant
  select case(iexternalforce)
- case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
     igotall = igotall .and. (ngot >= 2)
  end select
 

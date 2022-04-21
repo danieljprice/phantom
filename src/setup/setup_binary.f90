@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,     only:set_units
  use physcon,   only:solarm,au,pi
  use options,   only:iexternalforce
- use externalforces, only:iext_corotate,omega_corotate
+ use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,        only:master
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -103,6 +103,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
  else
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ endif
+
+ if (iexternalforce==iext_geopot .or. iexternalforce==iext_star) then
+    ! delete first sink particle and copy its properties to the central potential
+    nptmass = nptmass - 1
+    mass1 = m1
+    accradius1 = hacc1
+    xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
+    vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
  endif
 
 end subroutine setpart

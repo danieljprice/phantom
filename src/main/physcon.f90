@@ -26,6 +26,7 @@ module physcon
  real(kind=8), parameter :: piontwo  =  1.5707963268d0
  real(kind=8), parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
  real(kind=8), parameter :: roottwo  =  1.4142135624d0
+ real(kind=8), parameter :: deg_to_rad = pi/180d0
 !
 !--Physical constants
 !
