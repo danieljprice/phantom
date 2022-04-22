@@ -32,7 +32,8 @@ module part
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
+               inucleation,itau_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -194,6 +195,10 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
+!
+!-- Ray tracing : optical depth
+!
+ real, allocatable :: tau(:)
 !
 !--Dust formation - theory of moments
 !
@@ -362,6 +367,7 @@ module part
    +maxeosvars                          &  ! eos_vars
 #ifdef SINK_RADIATION
    +1                                   &  ! dust temperature
+   +1                                   &  ! optical depth
 #endif
 #ifdef GRAVITY
  +1                                   &  ! poten
@@ -488,6 +494,7 @@ subroutine allocate_part
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
+ call allocate_array('tau', tau, maxp*itau_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -552,6 +559,7 @@ subroutine deallocate_part
  if (allocated(twas))         deallocate(twas)
 #endif
  if (allocated(nucleation))   deallocate(nucleation)
+ if (allocated(tau))          deallocate(tau)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -1261,6 +1269,7 @@ subroutine copy_particle_all(src,dst,new_part)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+ if (itau_alloc == 1) tau(dst) = tau(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)

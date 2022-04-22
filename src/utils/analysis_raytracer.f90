@@ -18,13 +18,12 @@ module analysis
 !
    use raytracer_copy,   only:get_all_tau_inwards, get_all_tau_adaptive
    use raytracer,        only:get_all_tau
-   use part,             only:rhoh,isdead_or_accreted
+   use part,             only:rhoh,isdead_or_accreted,nsinkproperties,iReff
    use dump_utils,       only:read_array_from_file!, read_header, dump_h, print_header, open_dumpfile_r, lenid, read_block_header
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                               neighcount,neighb,neighmax
    use dust_formation,   only:calc_kappa_bowen
-   use physcon,          only:kboltz,mass_proton_cgs,au
-   use units,            only:udist
+   use physcon,          only:kboltz,mass_proton_cgs,au,solarm
    use linklist, only:set_linklist,allocate_linklist,deallocate_linklist
 
    implicit none
@@ -39,7 +38,8 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
-   Use omp_lib
+   use omp_lib
+
    character(len=*), intent(in) :: dumpfile
    integer,          intent(in) :: num,npart,iunit
    real(kind=8),     intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -48,15 +48,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    logical :: existneigh
    character(100) :: neighbourfile
    character(100)   :: jstring, kstring
-   real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), xyzh2(4,npart), vxyzu2(4,npart)
+   real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), &
+        xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
    real, dimension(:), allocatable :: tau
    integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2!,iu
    integer :: start, finish, method, analyses, minOrder, maxOrder, order
    real :: totalTime, timeTau, Rstar, Rcomp
    logical :: SPH, calcInwards
 
+   real, parameter :: udist = au, umass = solarm
+
    Rstar = 2.37686663
    Rcomp = 0.1
+   xyzmh_ptmass = 0.
+   xyzmh_ptmass(iReff,1) = Rstar
+   xyzmh_ptmass(iReff,2) = Rcomp
    ! type(dump_h)  :: dump
    ! character(len=lenid) :: fileid
    ! integer(kind=8) :: appel(5)
@@ -217,11 +223,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             print*, 'Start calculating optical depth inwards'
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, Rstar, tau)
+               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, Rstar, tau, primsec(:,2),Rcomp)
+               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -249,13 +255,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             print*, 'Start calculating optical depth outwards: ', trim(jstring)
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau(primsec(:,1), xyzh2, kappa*au, &
-                                          Rstar, j, tau)
+               call get_all_tau(npart, 1, xyzmh_ptmass, xyzh2, kappa, j, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau(primsec(:,1), xyzh2, kappa*au, &
-                                          Rstar, j, tau, primsec(:,2),Rcomp)
+               call get_all_tau(npart, 2, xyzmh_ptmass, xyzh2, kappa, j, tau)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -280,11 +284,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             print*, 'Start calculating optical depth inwards'
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, Rstar, tau)
+               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, Rstar, tau, primsec(:,2),Rcomp)
+               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -314,11 +318,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                print*, 'Start calculating optical depth outwards: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
                if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                   call system_clock(start)
-                  call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa*au, Rstar, j, k, tau)
+                  call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa, Rstar, j, k, tau)
                   call system_clock(finish)
                else
                   call system_clock(start)
-                  call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa*au, Rstar, j, k, tau, primsec(:,2),Rcomp)
+                  call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa, Rstar, j, k, tau, primsec(:,2),Rcomp)
                   call system_clock(finish)
                endif
                timeTau = (finish-start)/1000.
@@ -349,11 +353,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             call set_linklist(npart2,npart2,xyzh2,vxyzu)
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau(primsec(:,1), xyzh2, kappa*au, Rstar, order, tau)
+               call get_all_tau(npart, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau(primsec(:,1), xyzh2, kappa*au, Rstar, order, tau, primsec(:,2),Rcomp)
+               call get_all_tau(npart, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -369,13 +373,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*, 'Start calculating optical depth inwards'
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
             call system_clock(start)
-            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, &
-                                       Rstar, tau)
+            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
             call system_clock(finish)
          else
             call system_clock(start)
-            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa*au, &
-                                       Rstar, tau, primsec(:,2),Rcomp)
+            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
             call system_clock(finish)
          endif
          timeTau = (finish-start)/1000.
@@ -394,11 +396,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*, 'Start calculating optical depth outwards: ', trim(jstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
             call system_clock(start)
-            call get_all_tau(primsec(:,1), xyzh2, kappa*au, Rstar, j, tau)
+            call get_all_tau(npart, 1, xyzmh_ptmass, xyzh2, kappa, j, tau)
             call system_clock(finish)
          else
             call system_clock(start)
-            call get_all_tau(primsec(:,1), xyzh2, kappa*au, Rstar, j, tau, primsec(:,2),Rcomp)
+            call get_all_tau(npart, 2, xyzmh_ptmass, xyzh2, kappa, j, tau)
             call system_clock(finish)
          endif
          timeTau = (finish-start)/1000.
@@ -413,13 +415,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*, 'Start calculating optical depth adaptive: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
             call system_clock(start)
-            call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa*au, &
-                                       Rstar, j, k, tau)
+            call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa, Rstar, j, k, tau)
             call system_clock(finish)
          else
             call system_clock(start)
-            call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa*au, &
-                                       Rstar, j, k, tau, primsec(:,2),Rcomp)
+            call get_all_tau_adaptive(primsec(:,1), xyzh2, kappa, Rstar, j, k, tau, primsec(:,2),Rcomp)
             call system_clock(finish)
          endif
          timeTau = (finish-start)/1000.
@@ -451,7 +451,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       order = 7
       print*, 'Start calculating optical depth outwards, order=',order
       call system_clock(start)
-      call get_all_tau(primsec(:,1), xyzh2, kappa*au, Rstar, order, tau, primsec(:,2),Rcomp)
+      call get_all_tau(npart, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
       call system_clock(finish)
       timeTau = (finish-start)/1000.
       print*,'Time = ',timeTau,' seconds.'
