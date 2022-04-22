@@ -28,7 +28,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2022 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -44,7 +44,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 18
+ integer, parameter :: nsinkproperties = 19
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL

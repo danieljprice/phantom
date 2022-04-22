@@ -491,12 +491,13 @@ end function in_range
 
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
+                iJ2,ispinx,ispinz,iReff
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r,hsink
+ real :: r,hsink,hsoft,J2
 
  if (gr .and. nptmass > 0) then
     print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
@@ -525,7 +526,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
-          print*,'Error in setup: sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
+          print*,'ERROR! sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
           nerror = nerror + 1
        elseif (r <= max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihacc,j))) then
           print*,'Warning: sinks ',i,' and ',j,' within each others accretion radii: sep =',&
@@ -542,7 +543,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  do i=1,nptmass
     if (.not.in_range(xyzmh_ptmass(4,i))) then
        nerror = nerror + 1
-       print*,' Error in setup: sink ',i,' mass = ',xyzmh_ptmass(4,i)
+       print*,' ERROR! sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
        n = n + 1
@@ -554,15 +555,45 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) < 0.) cycle
-    hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
+    hsoft = xyzmh_ptmass(ihsoft,i)
+    hsink = max(xyzmh_ptmass(ihacc,i),hsoft)
     if (hsink <= 0.) then
        nerror = nerror + 1
-       print*,'Error in setup: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
+       print*,'ERROR! sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
               ' and softening radius ',xyzmh_ptmass(ihsoft,i)
     elseif (hsink <= 0.5*hmin .and. hmin > 0.) then
        nwarn = nwarn + 1
        print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
+    endif
+    !
+    ! check that softening and J2 are not used at the same time
+    !
+    J2 = abs(xyzmh_ptmass(iJ2,i))
+    if (hsoft > 0. .and. J2 > 0.) then
+       nerror = nerror + 1
+       print*,'ERROR! sink ',i,' cannot have both J2 and softening length set'
+    endif
+    !
+    ! check that J2 is a small number
+    !
+    if (J2 > 0.1) then
+       nwarn = nwarn + 1
+       print*,'WARNING! J2 (oblateness) is ridiculously large on sink particle ',i,': J2 = ',J2
+    endif
+    !
+    ! if J2 is set then the spin of a sink particle should be non-zero to begin with
+    ! in order to specify the rotation direction
+    !
+    if (J2 > 0.) then
+       if (dot_product(xyzmh_ptmass(ispinx:ispinz,i),xyzmh_ptmass(ispinx:ispinz,i)) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires non-zero spin on sink particle ',i
+       endif
+       if (xyzmh_ptmass(iReff,i) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires radius (Reff) to be specified on sink particle',i
+       endif
     endif
  enddo
  !
@@ -597,7 +628,7 @@ subroutine check_setup_growth(npart,nerror)
 
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR! ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1
     endif
  enddo

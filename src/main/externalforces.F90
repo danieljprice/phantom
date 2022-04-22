@@ -113,7 +113,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
  use extern_gwinspiral,  only:get_gw_force_i
- use extern_geopot,      only:get_geopot_force
+ use extern_geopot,      only:get_geopot_force,J2,spinvec
  use units,              only:udist,umass,utime
  use physcon,            only:pc,pi,gg
  use io,                 only:fatal
@@ -160,7 +160,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     endif
 
     if (iexternalforce==iext_geopot) then
-       call get_geopot_force(xi,yi,zi,dr,dr3,accradius1,fextxi,fextyi,fextzi,phi)
+       call get_geopot_force(xi,yi,zi,dr,dr3,accradius1,J2,spinvec,fextxi,fextyi,fextzi,phi)
     endif
 
  case(iext_corotate)

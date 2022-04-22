@@ -38,10 +38,10 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,iJ2,ispinx,ispinz,iReff
  use setbinary, only:set_binary,get_a_from_period
  use units,     only:set_units
- use physcon,   only:solarm,au,pi
+ use physcon,   only:solarm,au,pi,deg_to_rad
  use options,   only:iexternalforce
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,        only:master
@@ -57,6 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
+ real :: angle
 !
 !--units
 !
@@ -112,6 +113,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     accradius1 = hacc1
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
+ else
+    ! set J2 for sink particle 1 to be equal to oblateness of Saturn
+    xyzmh_ptmass(iJ2,1) = 0.01629
+    angle = 30.*deg_to_rad
+    xyzmh_ptmass(ispinx,1) = sin(angle)
+    xyzmh_ptmass(ispinz,1) = cos(angle)
+    xyzmh_ptmass(iReff,1) = xyzmh_ptmass(ihacc,1)
  endif
 
 end subroutine setpart

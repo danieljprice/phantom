@@ -94,12 +94,12 @@ end subroutine test_ptmass
 subroutine test_binary(ntests,npass)
  use dim,        only:periodic,gravity,ind_timesteps
  use io,         only:id,master,iverbose
- use physcon,    only:pi
+ use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas,f_acc
- use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fext,&
+ use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
-                      hfact,igas,epot_sinksink,init_part
+                      hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispinz,iReff
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
@@ -116,9 +116,10 @@ subroutine test_binary(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
- integer, parameter :: nbinary_tests = 3
+ integer, parameter :: nbinary_tests = 4
  real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,mred,tolen,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
+ real :: angle
  real :: fxyz_sinksink(4,2) ! we only use 2 sink particles in the tests here
  character(len=20) :: dumpfile
  real, parameter :: tolgw = 1.2e-2
@@ -133,6 +134,8 @@ subroutine test_binary(ntests,npass)
 
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)
+    case(4)
+       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
     case(2,3)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
@@ -151,11 +154,13 @@ subroutine test_binary(ntests,npass)
     !--setup sink-sink binary (no gas particles)
     !
 !      time = 0.
+    npart = 0
+    npartoftype = 0
     nptmass = 0
     m1    = 1.
     m2    = 1.
     a     = 1.
-    if (itest==3) then
+    if (itest==3 .or. itest==4) then
        ecc = 0.5
     else
        ecc = 0.
@@ -184,6 +189,19 @@ subroutine test_binary(ntests,npass)
        call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
        !call checkval(nwarn,0,0,nfailed(2),'no warnings during disc setup')
        call update_test_scores(ntests,nfailed,npass)
+    elseif (itest==4) then
+       ! set oblateness
+       xyzmh_ptmass(iJ2,1) = 0.01629
+       angle = 10.*deg_to_rad
+       xyzmh_ptmass(ispinx,1) = 1e2*sin(angle)
+       xyzmh_ptmass(ispinz,1) = 1e2*cos(angle)
+       xyzmh_ptmass(iReff,1) = hacc1
+
+       ! make sure the tests pass
+       nfailed = 0
+       call check_setup(nerr,nwarn)
+       call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
+       call update_test_scores(ntests,nfailed,npass)
     endif
 
     tolv = 1.e3
@@ -194,7 +212,8 @@ subroutine test_binary(ntests,npass)
     ! initialise forces
     !
     if (id==master) then
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     endif
     fxyz_ptmass(:,:) = 0.
     call bcast_mpi(epot_sinksink)
@@ -207,10 +226,11 @@ subroutine test_binary(ntests,npass)
     enddo
     if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+
     !
     !--take the sink-sink timestep specified by the get_forces routine
     !
-    if (id==master) print*,' dt for sinks = ',C_force*dtsinksink
     dt      = C_force*dtsinksink !2.0/(nsteps)
     dtmax   = dt  ! required prior to derivs call, as used to set ibin
     !
@@ -251,7 +271,7 @@ subroutine test_binary(ntests,npass)
     else
        norbits = 100
     endif
-    if (id==master) print*,' nsteps per orbit = ',nsteps,' norbits = ',norbits
+    if (id==master) print*,'steps/orbit = ',nsteps,' norbits = ',norbits,' dt = ',dt
     nsteps = nsteps*norbits
     errmax = 0.; errgw = 0.
     nfailgw = 0; ncheckgw = 0
@@ -301,9 +321,13 @@ subroutine test_binary(ntests,npass)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
-       call checkval(angtot,angmomin,3.e-14,nfailed(3),'angular momentum')
+       call checkval(angtot,angmomin,3.1e-14,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-       call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
+       if (itest==4) then ! energy conservation is ok but etot is small compared to ekin
+          call checkval(etotin+errmax,etotin,1.3e-2,nfailed(1),'total energy')
+       else
+          call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
+      endif
     end select
     !
     !--check energy conservation
@@ -328,7 +352,7 @@ subroutine test_softening(ntests,npass)
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                       get_accel_sink_gas
  use part,       only:npart,npartoftype,epot_sinksink,&
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
+                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass
  use energies,   only:angtot,etot,totmom,compute_energies,epot
  use timestep,   only:dtmax,C_force
  use setbinary,  only:set_binary
@@ -376,7 +400,8 @@ subroutine test_softening(ntests,npass)
  vxyz_ptmass(1,2) = 0.
  vxyz_ptmass(2,2) = -v_c2
  vxyz_ptmass(3,2) = 0.
- call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
  call compute_energies(t)
  etotin   = etot
  totmomin = totmom
@@ -704,7 +729,7 @@ subroutine test_merger(ntests,npass)
  use dim,            only:periodic
  use io,             only:id,master,iverbose
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          npart,ihacc,epot_sinksink
+                          npart,ihacc,epot_sinksink,dsdt_ptmass
  use ptmass,         only:h_acc,h_soft_sinksink,get_accel_sink_sink, &
                           r_merge_uncond,r_merge_cond,r_merge_uncond2,&
                           r_merge_cond2,r_merge2
@@ -811,7 +836,8 @@ subroutine test_merger(ntests,npass)
     ! initialise forces
     !
     if (id==master) then
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,dtsinksink,0,0.,merge_ij,merge_n)
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     endif
     fxyz_ptmass(:,:) = 0.
     call bcast_mpi(epot_sinksink)
