@@ -41,9 +41,9 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omp_cache, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
-!   timestep_ind, timestep_sts, units, utils_gr, viscosity
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
+!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -224,6 +224,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
+ use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -278,6 +279,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  logical                   :: remote_export(nprocs), do_export
  type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+
+ real(kind=4)              :: t1,t2,tcpu1,tcpu2
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -431,9 +434,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dustfrac) &
 !$omp shared(ddustevol) &
 !$omp shared(deltav) &
-!$omp shared(ibin_wake,ibinnow_m1)
+!$omp shared(ibin_wake,ibinnow_m1) &
+!$omp shared(t1) &
+!$omp shared(t2) &
+!$omp shared(tcpu1) &
+!$omp shared(tcpu2)
 
-!$omp do schedule(runtime)
+ !$omp single
+ call get_timings(t1,tcpu1)
+ !$omp end single
+
+ !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
 
@@ -498,15 +509,21 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     endif
 
  enddo over_cells
-!$omp enddo
+ !$omp enddo
 
-!$omp barrier
+ !$omp barrier
 
-!$omp single
+ !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
  call reset_cell_counters
-!$omp end single
+ !$omp end single
+
+ !$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
+ call get_timings(t1,tcpu1)
+ !$omp end single
 
  igot_remote: if (stack_remote%n > 0) then
     !$omp do schedule(runtime)
@@ -542,11 +559,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif igot_remote
 
-!$omp barrier
+ !$omp barrier
 
-!$omp single
+ !$omp single
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
-!$omp end single
+ !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
@@ -583,6 +600,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 !$omp single
  call finish_cell_exchange(irequestrecv,xsendbuf)
+!$omp end single
+
+!$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
 !$omp end single
 
 #ifdef GRAVITY
