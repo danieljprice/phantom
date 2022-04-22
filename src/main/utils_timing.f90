@@ -45,10 +45,11 @@ module timing
                                  itimer_balance   = 5,  &
                                  itimer_dens      = 6,  &
                                  itimer_force     = 7,  &
-                                 itimer_extf      = 8,  &
-                                 itimer_ev        = 9,  &
-                                 itimer_io        = 10
- integer, public, parameter :: ntimers = 10 ! should be equal to the largest itimer index
+                                 itimer_c2p       = 8,  &
+                                 itimer_extf      = 9,  &
+                                 itimer_ev        = 10, &
+                                 itimer_io        = 11
+ integer, public, parameter :: ntimers = 11 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -72,6 +73,7 @@ subroutine setup_timers
  call init_timer(itimer_dens     , 'density',     itimer_step )
  call init_timer(itimer_force    , 'force',       itimer_step )
  call init_timer(itimer_extf     , 'extf',        itimer_step )
+ call init_timer(itimer_c2p      , 'cons2prim',   itimer_step )
  call init_timer(itimer_ev       , 'write_ev',    0           )
  call init_timer(itimer_io       , 'write_dump',  0           )
 
