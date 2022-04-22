@@ -289,7 +289,8 @@ module dim
 ! Dust formation
 !--------------------
  logical :: do_nucleation = .false.
- integer :: inucleation = 0
+ integer :: inucleation   = 0
+ integer :: itau_alloc    = 0
 #ifdef DUST_NUCLEATION
 #ifdef STAR
  logical :: star_radiation = .true.

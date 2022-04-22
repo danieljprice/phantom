@@ -38,7 +38,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,itau_alloc
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -64,8 +64,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use part,           only:VrelVf
 #endif
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
- use ptmass_radiation, only:get_dust_temperature_from_ptmass
- use part,             only:dust_temp
+ use dust_formation,   only:calc_kappa_bowen,idust_opacity
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
+ use part,             only:ikappa,dust_temp,nucleation,tau
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
@@ -77,6 +78,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
+ use raytracer
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -101,6 +103,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(inout) :: pxyzu(:,:), dens(:)
  real,         intent(inout) :: metrics(:,:,:,:)
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
+
 
  t1    = 0.
  tcpu1 = 0.
@@ -191,9 +194,19 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
 #endif
 
+
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  !compute dust temperature
  call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
+ if (itau_alloc == 1) then
+    if (idust_opacity == 2) then
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
+    else
+       !allocate
+       !kappa = calc_kappa_bowen(dust_temp)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp), iray_resolution, tau)
+    endif
+ endif
 #endif
 !
 ! set new timestep from Courant/forces condition

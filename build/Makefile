@@ -887,14 +887,14 @@ endif
 ifeq ($(SETUP), radwind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= utils_getneighbours.f90 utils_healpix.f90 utils_raytracer_copy.F90 utils_raytracer.F90 analysis_raytracer.f90
+    ANALYSIS= utils_getneighbours.f90 utils_raytracer_copy.F90 analysis_raytracer.f90
     WIND=yes
 endif
 
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90 utils_healpix.f90 utils_raytracer.F90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no

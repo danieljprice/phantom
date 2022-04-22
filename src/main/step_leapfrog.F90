@@ -233,6 +233,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !omp end parallel do
  if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
+
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
 ! accretion onto sinks/potentials also happens during substepping
@@ -1053,7 +1054,7 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1065,7 +1066,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dust_temp
+                          fxyz_ptmass_sinksink,dust_temp,tau
  use chem,           only:update_abundances,get_dphot
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1347,7 +1348,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp end parallel
 
     if (nptmass > 0 .and. isink_radiation > 0) then
-       call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+       if (itau_alloc == 1) then
+          call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
+       else
+          call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+       endif
        fextx = fextx + fextrad(1)
        fexty = fexty + fextrad(2)
        fextz = fextz + fextrad(3)

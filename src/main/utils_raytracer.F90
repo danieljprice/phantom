@@ -19,7 +19,7 @@ module raytracer
 ! :Owner: Esseldeurs Mats
 !
 ! :Runtime parameters:
-!   - TODO
+!   - TODO : stop calculation of tau when > tau_max
 !
 ! :Dependencies: linklist, kernel, part, healpix
 !
@@ -35,28 +35,28 @@ module raytracer
    !  Returns the optical depth to each SPH particle, using the uniform outwards
    !  ray-tracing scheme.
    !+
-   !  IN: primary:         The xyz coordinates of the primary star
+   !  IN: npart:           The number of SPH particles
+   !  IN: nptmass:         The number of sink particles
+   !  IN: xyzm_ptmass:     The array containing the properties of the sink particle
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: opacities:       The array containing the opacities of all SPH particles
-   !  IN: Rstar:           The radius of the primary star
+   !  IN: xyzh:            The array containing the particles position+smooting lenght
+   !  IN: kappa_cgs:       The array containing the opacities of all SPH particles
    !  IN: order:           The healpix order which is used for the uniform ray sampling
    !+
-   !  OUT: taus:           The array of optical depths to each SPH particle
-   !+
-   !  OPT: companion:      The xyz coordinates of the companion
-   !  OPT: Rcomp:          The radius of the companion
+   !  OUT: tau:            The array of optical depths for each SPH particle
    !+
    !--------------------------------------------------------------------------
-   subroutine get_all_tau(primary, xyzh, opacities, Rstar, order, taus, companion, Rcomp)
-      integer, intent(in) :: order
-      real, intent(in)    :: primary(3), opacities(:), Rstar, xyzh(:,:)
-      real, optional      :: Rcomp, companion(3)
-      real, intent(out)   :: taus(:)
+     subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
+      use part, only: iReff
+      integer, intent(in) :: npart, order, nptmass
+      real, intent(in)    :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:)
+      real, intent(out)   :: tau(:)
 
-      if (present(companion) .and. present(Rcomp)) then
-         call get_all_tau_companion(primary, xyzh, opacities, Rstar, companion, Rcomp, order, taus)
+      if (nptmass == 2 ) then
+         call get_all_tau_companion(npart, xyzmh_ptmass(1:3,1), xyzh, kappa_cgs, &
+              xyzmh_ptmass(iReff,1), xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
       else
-         call get_all_tau_single(primary, xyzh, opacities, Rstar, order, taus)
+         call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzh, kappa_cgs, xyzmh_ptmass(iReff,1), order, tau)
       endif
    end subroutine get_all_tau
 
@@ -67,67 +67,76 @@ module raytracer
    !
    !  Relies on healpix, for more information: https://healpix.sourceforge.io/
    !+
+   !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: opacities:       The array containing the opacities of all SPH particles
+   !  IN: kappa:           The array containing the kappa of all SPH particles
    !  IN: Rstar:           The radius of the primary star
    !  IN: order:           The healpix order which is used for the uniform ray sampling
    !+
    !  OUT: taus:           The array of optical depths to each SPH particle
    !+
    !--------------------------------------------------------------------------
-   subroutine get_all_tau_single(primary, xyzh, opacities, Rstar, order, taus)
-      integer, intent(in) :: order
-      real, intent(in)    :: primary(3), opacities(:), Rstar, xyzh(:,:)
-      real, intent(out)   :: taus(:)
+   subroutine get_all_tau_single(npart, primary, xyzh, kappa, Rstar, order, tau)
+      use part, only : isdead_or_accreted
+      integer, intent(in) :: npart,order
+      real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
+      real, intent(out)   :: tau(:)
 
-      integer  :: i, nrays, nsides, len, npart
-      real     :: ray_dir(3)
-      real, dimension(:,:), allocatable  :: AllDistances, AllTaus
-      real, dimension(:), allocatable    :: tau, dist
-      integer, dimension(:), allocatable :: listOfLens
+      integer  :: i, nrays, nsides
+      real     :: ray_dir(3),part_dir(3)
+      real, dimension(:,:), allocatable  :: rays_dist, rays_tau
+      integer, dimension(:), allocatable :: rays_dim
       integer, parameter :: ndim = 200
+
       nrays = 12*4**order ! The number of rays traced given the healpix order
       nsides = 2**order   ! The healpix nsides given the healpix order
 
-      allocate(AllDistances(ndim, nrays))
-      allocate(AllTaus(ndim, nrays))
-      allocate(listOfLens(nrays))
-      allocate(tau(ndim))
-      allocate(dist(ndim))
+      allocate(rays_dist(ndim, nrays))
+      allocate(rays_tau(ndim, nrays))
+      allocate(rays_dim(nrays))
 
       !-------------------------------------------
       ! CONSTRUCT the RAYS given the ORDER
       ! and determine the optical depth along them
       !-------------------------------------------
 
-      !$omp parallel do private(ray_dir,tau,dist,len)
+!!!!! NOT SURE THIS IS WORTH PARALLELIZING ?
+
+!$omp parallel default(none) &
+!$omp private(ray_dir) &
+!$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,rays_dist,rays_tau,rays_dim)
+!$omp do
       do i = 1, nrays
-         tau   = 0.
-         dist  = 0.
-         !returns ray_dir(3), the unit vector identifying ray number i-1; i-1 as healpix starts counting at 0 and fortran at 1
+         !returns ray_dir, the unit vector identifying ray (index i-1 becase healpix starts counting at index 0)
          call pix2vec_nest(nsides, i-1, ray_dir)
-         !calculate the optical depth along a given ray, len is the number of points on the ray
-         call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len)
-         AllTaus(:,i)      = tau
-         AllDistances(:,i) = dist
-         listOfLens(i)     = len
+         !calculate the properties along the ray
+         call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
       enddo
-      !$omp end parallel do
+!$omp enddo
+!$omp end parallel
+
 
       !_----------------------------------------------
       ! DETERMINE the optical depth for each particle
       ! using the values available on the rays
       !-----------------------------------------------
 
-      taus  = 0.
-      npart = size(taus)
-      !$omp parallel do private(ray_dir)
+!$omp parallel default(none) &
+!$omp private(part_dir) &
+!$omp shared(npart,primary,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
+!$omp do
       do i = 1,npart
-         ray_dir = xyzh(1:3,i)-primary
-         call interpolate_tau(nsides, ray_dir, AllTaus, AllDistances, listOfLens, taus(i))
+         if (.not.isdead_or_accreted(xyzh(4,i))) then
+            part_dir = xyzh(1:3,i)-primary
+            call interpolate_tau(nsides, part_dir, rays_tau, rays_dist, rays_dim, tau(i))
+         else
+            tau(i) = -99.
+         endif
       enddo
-      !$omp end parallel do
+!$omp enddo
+!$omp end parallel
+
    end subroutine get_all_tau_single
 
    !--------------------------------------------------------------------------
@@ -137,39 +146,39 @@ module raytracer
    !
    !  Relies on healpix, for more information: https://healpix.sourceforge.io/
    !+
+   !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: opacities:       The array containing the opacities of all the SPH particles
+   !  IN: kappa:           The array containing the opacity of all the SPH particles
    !  IN: Rstar:           The radius of the primary star
-   !  IN: order:           The healpix order which is used for the uniform ray sampling
    !  IN: companion:       The xyz coordinates of the companion
    !  IN: Rcomp:           The radius of the companion
+   !  IN: order:           The healpix order which is used for the uniform ray sampling
    !+
-   !  OUT: taus:           The array of optical depths to each SPH particle
+   !  OUT: tau:            The array of optical depths for each SPH particle
    !+
    !--------------------------------------------------------------------------
-   subroutine get_all_tau_companion(primary, xyzh, opacities, Rstar, companion, Rcomp, order, taus)
-      integer, intent(in) :: order
-      real, intent(in)    :: primary(3), companion(3), opacities(:), Rstar, xyzh(:,:), Rcomp
-      real, intent(out)   :: taus(:)
+   subroutine get_all_tau_companion(npart, primary, xyzh, kappa, Rstar, companion, Rcomp, order, tau)
+      use part, only : isdead_or_accreted
+      integer, intent(in) :: npart, order
+      real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, xyzh(:,:), Rcomp
+      real, intent(out)   :: tau(:)
 
-      integer  :: i, nrays, nsides, len, npart
-      real     :: normCompanion = 0., theta0 = 0., uvecCompanion(3) = 0.
-      real     :: theta, sep, root, ray_dir(3), phi = 0., cosphi = 0., sinphi = 0.
+      integer  :: i, nrays, nsides
+      real     :: normCompanion,theta0,phi,cosphi,sinphi,theta,sep,root
+      real     :: ray_dir(3),part_dir(3),uvecCompanion(3)
       real, dimension(:,:), allocatable  :: dirs
-      real, dimension(:,:), allocatable  :: AllDistances, AllTaus
-      real, dimension(:), allocatable    :: tau, dist
-      integer, dimension(:), allocatable :: listOfLens
+      real, dimension(:,:), allocatable  :: rays_dist, rays_tau
+      integer, dimension(:), allocatable :: rays_dim
       integer, parameter :: ndim = 200
+
       nrays = 12*4**order ! The number of rays traced given the healpix order
       nsides = 2**order   ! The healpix nsides given the healpix order
 
       allocate(dirs(3, nrays))
-      allocate(AllDistances(ndim, nrays))
-      allocate(AllTaus(ndim, nrays))
-      allocate(listOfLens(nrays))
-      allocate(tau(ndim))
-      allocate(dist(ndim))
+      allocate(rays_dist(ndim, nrays))
+      allocate(rays_tau(ndim, nrays))
+      allocate(rays_dim(nrays))
 
       uvecCompanion = companion-primary
       normCompanion = norm2(uvecCompanion)
@@ -184,42 +193,53 @@ module raytracer
       ! and determine the optical depth along them
       !-------------------------------------------
 
-      !$omp parallel do private(ray_dir,tau,dist,sep,root,theta,len)
+!!!!! NOT SURE THIS IS WORTH PARALLELIZING ?
+
+!$omp parallel default(none) &
+!$omp private(ray_dir,theta,root,sep) &
+!$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rcomp,rays_dist,rays_tau,rays_dim) &
+!$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0)
+!$omp do
       do i = 1, nrays
-         tau   = 0.
-         dist  = 0.
-         !returns ray_dir, the unit vector identifying ray number i-1; i-1 as healpix starts counting at 0 and fortran at 1
+         !returns ray_dir, the unit vector identifying ray (index i-1 becase healpix starts counting at index 0)
          call pix2vec_nest(nsides, i-1, ray_dir)
+         !rotate ray vectors by an angle = phi so the main axis points to the companion (This is because along the
+         !main axis (1,0,0) rays are distributed more uniformally
          ray_dir = (/cosphi*ray_dir(1) - sinphi*ray_dir(2),sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
          theta   = acos(dot_product(uvecCompanion, ray_dir))
          !the ray intersects the companion: only calculate tau up to the companion
          if (theta < theta0) then
             root  = sqrt(Rcomp**2-normCompanion**2*sin(theta)**2)
             sep   = normCompanion*cos(theta)-root
-            call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len, sep)
+            call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,rays_tau(:,i),rays_dist(:,i),rays_dim(i), sep)
          else
-            call ray_tracer(primary, ray_dir, xyzh, opacities, Rstar, tau, dist, len)
+            call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
          endif
-         AllTaus(:,i)      = tau
-         AllDistances(:,i) = dist
-         listOfLens(i)     = len
       enddo
-      !$omp end parallel do
+!$omp enddo
+!$omp end parallel
 
       !-----------------------------------------------
       ! DETERMINE the optical depth for each particle
       ! using the values available on the rays
       !-----------------------------------------------
 
-      taus  = 0.
-      npart = size(taus)
-      !$omp parallel do private(ray_dir)
+!$omp parallel default(none) &
+!$omp private(part_dir) &
+!$omp shared(npart,primary,cosphi,sinphi,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
+!$omp do
       do i = 1, npart
-         ray_dir = xyzh(1:3,i)-primary
-         ray_dir = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
-         call interpolate_tau(nsides, ray_dir, AllTaus, AllDistances, listOfLens, taus(i))
+         if (.not.isdead_or_accreted(xyzh(4,i))) then
+            part_dir = xyzh(1:3,i)-primary
+            part_dir = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
+            call interpolate_tau(nsides, ray_dir, rays_tau, rays_dist, rays_dim, tau(i))
+         else
+            tau(i) = -99.
+         endif
       enddo
-      !$omp end parallel do
+!$omp enddo
+!$omp end parallel
+
    end subroutine get_all_tau_companion
 
    !--------------------------------------------------------------------------
@@ -233,32 +253,33 @@ module raytracer
    !+
    !  IN: nsides:          The healpix nsides of the simulation
    !  IN: vec:             The vector from the primary to a point
-   !  IN: AllTaus:         2-dimensional array containing the cumulative optical
+   !  IN: rays_tau:        2-dimensional array containing the cumulative optical
    !                       depts along each ray
-   !  IN: AllDistances:    2-dimensional array containing the distances from the
+   !  IN: rays_dist:       2-dimensional array containing the distances from the
    !                       primary along each ray
-   !  IN: listOflens:      The vector containing the number of points defined along each ray
+   !  IN: rays_dim:        The vector containing the number of points defined along each ray
    !+
-   !  OUT: tau:            The interpolated optical depth
+   !  OUT: tau:            The interpolated optical depth at the particle's location
    !+
    !--------------------------------------------------------------------------
-   subroutine interpolate_tau(nsides, vec, AllTaus, AllDistances, listOfLens, tau)
-      integer, intent(in) :: nsides, listOfLens(:)
-      real, intent(in)    :: vec(:), AllDistances(:,:), AllTaus(:,:)
+   subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
+     use units,        only:umass,udist
+     integer, intent(in) :: nsides, rays_dim(:)
+      real, intent(in)    :: vec(:), rays_dist(:,:), rays_tau(:,:)
       real, intent(out)   :: tau
 
-      integer :: rayIndex, neighIndex, neighbours(8), nneigh, i
+      integer :: rayIndex, neighbours(8), nneigh, i, k
       real    :: tautemp, ray(3), vectemp(3), weight, tempdist(8), distRay_sq, vec_norm2
       logical :: mask(8)
 
       vec_norm2 = norm2(vec)
-      !returns index, the index of the ray vector that points to the particle (direction vec)
+      !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
       call vec2pix_nest(nsides, vec, rayIndex)
       !returns ray(3), the unit vector identifying the ray number index
       call pix2vec_nest(nsides, rayIndex, ray)
       vectemp       = vec - vec_norm2*ray
       distRay_sq    = dot_product(vectemp,vectemp)
-      call get_tau_on_ray(vec_norm2, AllTaus(:,rayIndex+1), AllDistances(:,rayIndex+1), listOfLens(rayIndex+1), tautemp)
+      call get_tau_on_ray(vec_norm2, rays_tau(:,rayIndex+1), rays_dist(:,rayIndex+1), rays_dim(rayIndex+1), tautemp)
       tau           = tautemp/distRay_sq
       weight        = 1./distRay_sq
 
@@ -275,14 +296,15 @@ module raytracer
       if (nneigh <8) mask(nneigh+1:8) = .false.
       !take tau contribution from the 3 closest rays
       do i=1,3
-         neighIndex       = minloc(tempdist,1,mask)
-         mask(neighIndex) = .false.
-         call get_tau_on_ray(norm2(vec), AllTaus(:,neighbours(neighIndex)), &
-                AllDistances(:,neighbours(neighIndex)), listOfLens(neighbours(neighIndex)), tautemp)
-         tau    = tau + tautemp/tempdist(neighIndex)
-         weight = weight + 1./tempdist(neighIndex)
+         k       = minloc(tempdist,1,mask)
+         mask(k) = .false.
+         call get_tau_on_ray(vec_norm2, rays_tau(:,neighbours(k)), &
+                rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
+         tau    = tau + tautemp/tempdist(k)
+         weight = weight + 1./tempdist(k)
       enddo
-      tau = tau / weight
+      !fix units for tau (kappa is in cgs while rho & r are in code units)
+      tau = tau / weight * umass/udist**2
    end subroutine interpolate_tau
 
 
@@ -310,7 +332,7 @@ module raytracer
       if (distance .lt. dist_along_ray(1)) then
          tau = 0.
       else if (distance .gt. dist_along_ray(len)) then
-         tau = 1e10
+         tau = 99.
       else
          L = 2
          R = len-1
@@ -337,7 +359,7 @@ module raytracer
    !  IN: ray:             The unit vector of the direction in which the
    !                       optical depts will be calculated
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: opacities:       The array containing the particles opacity
+   !  IN: kappa:           The array containing the particles opacity
    !  IN: Rstar:           The radius of the star
    !+
    !  OUT: tau_along_ray:  The vector of cumulative optical depts along the ray
@@ -347,30 +369,30 @@ module raytracer
    !  OPT: maxDistance:    The maximal distance the ray needs to be traced
    !+
    !--------------------------------------------------------------------------
-   subroutine ray_tracer(primary, ray, xyzh, opacities, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
-      real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), opacities(:)
+   subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
+      real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
 
       real    :: distance, nextDistance, h, dtaudr, previousdtaudr, nextdtaudr, totalDistance
-      integer :: Inext, i
+      integer :: inext, i
 
       h = Rstar/100.
-      Inext=0
-      do while (Inext==0)
+      inext=0
+      do while (inext==0)
          h = h*2.
          !find the next point along the ray : index next
-         call find_next(primary+Rstar*ray, h, ray, xyzh, opacities, previousdtaudr, distance, Inext)
+         call find_next(primary+Rstar*ray, h, ray, xyzh, kappa, previousdtaudr, distance, inext)
       enddo
 
       i = 1
       tau_along_ray(1)   = 0.
       totalDistance      = Rstar
       dist_along_ray(i)  = TotalDistance
-      do while (hasNext(Inext,totalDistance,maxDistance))
+      do while (hasNext(inext,totalDistance,maxDistance))
          totalDistance = totalDistance+distance
-         call find_next(primary + totalDistance*ray, xyzh(4,Inext), ray, xyzh, opacities, nextdtaudr, nextDistance, Inext)
+         call find_next(primary + totalDistance*ray, xyzh(4,inext), ray, xyzh, kappa, nextdtaudr, nextDistance, inext)
          i = i + 1
          dtaudr             = (nextdtaudr+previousdtaudr)/2.
          previousdtaudr     = nextdtaudr
@@ -381,14 +403,14 @@ module raytracer
       len = i
    end subroutine ray_tracer
 
-   logical function hasNext(Inext, distance, maxDistance)
-      integer, intent(in) :: Inext
+   logical function hasNext(inext, distance, maxDistance)
+      integer, intent(in) :: inext
       real, intent(in)    :: distance
       real, optional      :: maxDistance
       if (present(maxDistance)) then
-         hasNext = Inext /= 0 .and. distance .lt. maxDistance
+         hasNext = inext /= 0 .and. distance .lt. maxDistance
       else
-         hasNext = Inext /= 0
+         hasNext = inext /= 0
       endif
    end function hasNext
 
@@ -404,35 +426,35 @@ module raytracer
    !  IN: ray:             The unit vector of the direction in which the next
    !                       point will be calculated
    !  IN: xyzh:            The array containing the particles position+smoothing length
-   !  IN: opacities:       The array containing the particles opacity
-   !  IN: Inext:           The index of the initial point
+   !  IN: kappa:           The array containing the particles opacity
+   !  IN: inext:           The index of the initial point
    !                       (this point will not be considered as possible next point)
    !+
    !  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
    !  OUT: distance:       The distance to the next point
-   !  OUT: Inext:          The index of the next point on the ray
+   !  OUT: inext:          The index of the next point on the ray
    !+
    !--------------------------------------------------------------------------
-   subroutine find_next(inpoint, h, ray, xyzh, opacities, dtaudr, distance, Inext)
+   subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
       use linklist, only:getneigh_pos,ifirstincell,listneigh
       use kernel,   only:radkern,cnormk,wkern
       use part,     only:hfact,rhoh,massoftype,igas
-      real, intent(in)       :: xyzh(:,:), opacities(:), inpoint(:), ray(:), h
-      integer, intent(inout) :: Inext
-      real, intent(out)      :: distance, dtaudr
+      real,    intent(in)    :: xyzh(:,:), kappa(:), inpoint(:), ray(:), h
+      integer, intent(inout) :: inext
+      real,    intent(out)   :: distance, dtaudr
 
-      integer, parameter :: maxcache = 0
-      real, allocatable  :: xyzcache(:,:)
+      integer, parameter :: nmaxcache = 0
+      real  :: xyzcache(0,nmaxcache)
 
       integer  :: nneigh, i, prev
       real     :: dmin, vec(3), dr, raydistance, q, norm_sq
 
-      prev     = Inext
-      Inext    = 0
+      prev     = inext
+      inext    = 0
       distance = 0.
 
       !for a given point (inpoint), returns the list of neighbouring particles (listneigh) within a radius h*radkern
-      call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
+      call getneigh_pos(inpoint,0.,h*radkern,3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
 
       dtaudr = 0
       dmin = huge(0.)
@@ -442,7 +464,7 @@ module raytracer
          norm_sq = dot_product(vec,vec)
          q       = sqrt(norm_sq)/xyzh(4,listneigh(i))
          !add optical depth contribution from each particle
-         dtaudr = dtaudr+wkern(q*q,q)*opacities(listneigh(i))*rhoh(xyzh(4,listneigh(i)), massoftype(igas))
+         dtaudr = dtaudr+wkern(q*q,q)*kappa(listneigh(i))*rhoh(xyzh(4,listneigh(i)), massoftype(igas))
 
          ! find the next particle : among the neighbours find the particle located the closest to the ray
          if (listneigh(i) .ne. prev) then
@@ -452,7 +474,7 @@ module raytracer
                raydistance = norm_sq - dr**2
                if (raydistance < dmin) then
                   dmin     = raydistance
-                  Inext    = listneigh(i)
+                  inext    = listneigh(i)
                   distance = dr
                end if
             end if

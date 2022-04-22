@@ -30,6 +30,7 @@ module ptmass_radiation
  implicit none
  integer, public  :: isink_radiation = 0
  integer, public  :: iget_tdust      = 0
+ integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: alpha_rad       = 0.
 
@@ -57,6 +58,7 @@ subroutine init_radiation_ptmass(ierr)
 
  ierr = 0
 
+
 end subroutine init_radiation_ptmass
 
 !-----------------------------------------------------------------------
@@ -64,7 +66,7 @@ end subroutine init_radiation_ptmass
 !  compute radiative acceleration from ALL sink particles
 !+
 !-----------------------------------------------------------------------
-subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
+subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
  use part,    only:ilum
  use units,   only:umass,unit_energ,utime
  use dim,     only:star_radiation
@@ -72,6 +74,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:)
  real,     intent(in)    :: xyzmh_ptmass(:,:)
+ real,     intent(in), optional  :: tau(:)
  real,     intent(inout) :: fext(:,:)
  real                    :: xa,ya,za,Mstar_cgs,Lstar_cgs
  integer                 :: j
@@ -83,7 +86,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
        xa = xyzmh_ptmass(1,1)
        ya = xyzmh_ptmass(2,1)
        za = xyzmh_ptmass(3,1)
-       call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+       call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
     endif
  else
     do j=1,nptmass
@@ -95,7 +98,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
           xa = xyzmh_ptmass(1,j)
           ya = xyzmh_ptmass(2,j)
           za = xyzmh_ptmass(3,j)
-          call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+          call calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
        endif
     enddo
  endif
@@ -107,12 +110,13 @@ end subroutine get_rad_accel_from_ptmass
 !  compute radiative acceleration on all particles
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext)
+subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation
  use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
+ real,     intent(in), optional  :: tau(:)
  real,     intent(in)    :: xa,ya,za,Lstar_cgs,Mstar_cgs
  real,     intent(inout) :: fext(:,:)
  real                    :: dx,dy,dz,r,ax,ay,az,alpha,kappa
@@ -121,7 +125,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
  !$omp parallel  do default(none) &
  !$omp shared(nucleation,do_nucleation)&
  !$omp shared(dust_temp) &
- !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext) &
+ !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext,tau) &
  !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -131,11 +135,11 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
           call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
        else
           kappa = calc_kappa_bowen(dust_temp(i))
           call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-               kappa,ax,ay,az,alpha)
+               kappa,ax,ay,az,alpha,tau(i))
        endif
        fext(1,i) = fext(1,i) + ax
        fext(2,i) = fext(2,i) + ay
@@ -153,10 +157,11 @@ end subroutine calc_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     kappa,ax,ay,az,alpha)
+     kappa,ax,ay,az,alpha,tau)
  use units,          only:umass
  use dust_formation, only:calc_Eddington_factor
  real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
+ real, intent(in), optional  :: tau
  real, intent(out)   :: ax,ay,az,alpha
  real :: fac
 
@@ -166,10 +171,10 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
-    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa)
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau)
  case (3)
     ! radiation pressure on dust + alpha_rad (=1+2)
-    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa) + alpha_rad
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
  case default
     ! no radiation pressure
     alpha = 0.
@@ -531,6 +536,7 @@ subroutine write_options_ptmass_radiation(iunit)
        call write_inopt(Mstar_msun,'Mstar','Stellar mass (in Msun)',iunit)
     endif
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))',iunit)
+    call write_inopt(iray_resolution,'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
  if (iget_tdust == 1 ) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
@@ -546,7 +552,7 @@ end subroutine write_options_ptmass_radiation
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
- use dim,     only:star_radiation
+ use dim,     only:star_radiation,itau_alloc
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
@@ -580,6 +586,10 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,3])')
  case('tdust_exp')
     read(valstring,*,iostat=ierr) tdust_exp
+    ngot = ngot + 1
+ case('iray_resolution')
+    read(valstring,*,iostat=ierr) iray_resolution
+    if (iray_resolution >= 0) itau_alloc = 1
     ngot = ngot + 1
  case default
     imatch = .false.
