@@ -276,8 +276,7 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,&
-                          ibin_dts)
+subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
  integer,         intent(in)    :: npart,nbins,dtmax_ifactor
  integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
  real,            intent(in)    :: time
