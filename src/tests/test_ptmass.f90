@@ -222,7 +222,7 @@ subroutine test_binary(ntests,npass)
     fext(:,:) = 0.
     do i=1,npart
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dum,dum2)
+                fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
     enddo
     if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))

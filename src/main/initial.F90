@@ -496,7 +496,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
              pmassi = massoftype(iamtype(iphase(i)))
           endif
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo

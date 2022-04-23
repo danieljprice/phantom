@@ -117,7 +117,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
@@ -129,11 +129,12 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi
- real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass)
+ real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
+ real                             :: fxj,fyj,fzj,dsx,dsy,dsz
  integer                          :: j
  logical                          :: tofrom
  !
@@ -168,6 +169,12 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 #else
     ddr    = 1./sqrt(rr2)
 #endif
+    dsx = 0.
+    dsy = 0.
+    dsz = 0.
+    fxj = 0.
+    fyj = 0.
+    fzj = 0.
     if (rr2 < (radkern*hsoft)**2) then
        !
        ! if the sink particle is given a softening length, soften the
@@ -199,22 +206,28 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        ftmpzi = ftmpzi - dz*f1
        phi    = phi    - pmassj*ddr      ! potential (GM/r)
 
+       ! acceleration of sink from gas
+       if (tofrom) f2 = pmassi*dr3
+
        ! additional accelerations due to oblateness
        if (abs(J2) > 0.) then
           shat = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
           Rsink = xyzmh_ptmass(iReff,j)
-          call get_geopot_force(dx,dy,dz,ddr,f1,Rsink,J2,shat,ftmpxi,ftmpyi,ftmpzi,phi)
+          call get_geopot_force(dx,dy,dz,ddr,f1,Rsink,J2,shat,ftmpxi,ftmpyi,ftmpzi,phi,dsx,dsy,dsz,fxj,fyj,fzj)
        endif
-
-       ! acceleration of sink from gas
-       if (tofrom) f2 = pmassi*dr3
     endif
 
     if (tofrom) then
        ! backreaction of gas onto sink
-       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
-       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
-       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
+       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2 + fxj*pmassi/pmassj
+       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2 + fyj*pmassi/pmassj
+       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2 + fzj*pmassi/pmassj
+
+       ! backreaction torque of gas onto oblate sink
+       dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
+       dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
+       dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
     endif

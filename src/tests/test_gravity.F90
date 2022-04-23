@@ -475,7 +475,7 @@ subroutine test_directsum(ntests,npass)
     do i=1,npart
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fxyzu(1,i),fxyzu(2,i),fxyzu(3,i),&
-                               phii,pmassi,fxyz_ptmass_gas,fonrmax,dtsinksink)
+                               phii,pmassi,fxyz_ptmass_gas,dsdt_ptmass,fonrmax,dtsinksink)
        epot_gas_sink = epot_gas_sink + pmassi*phii
        epoti = epoti + poten(i)
     enddo
