@@ -36,7 +36,9 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(4)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(4),&
+                               iev_eccx,iev_eccy,iev_psiR,iev_psiI !--codecomparison
+                               
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -122,7 +124,8 @@ subroutine compute_energies(t)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
 
  real    :: axyz(3,npart),hx,hp,hxx,hpp
-
+ ! codecomparison
+ real    :: Eni,Mbin,ai,phasei,phii,ri,ecci,angzi,psiR,psiI,eccx,eccy
  ! initialise values
  itype  = igas
  pmassi = massoftype(igas)
@@ -161,6 +164,13 @@ subroutine compute_energies(t)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
  ierrlist = 0
+ ! codecomparison
+ eccx = 0.
+ eccy = 0.
+ psiR = 0.
+ psiI = 0.
+ Mbin = 1.
+
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -182,10 +192,12 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
+!$omp shared(Mbin,iev_psiR,iev_psiI,iev_eccx,iev_eccy) &
 #ifdef KROME
 !$omp shared(gamma_chem) &
 #endif
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
+!$omp private(ri,Eni,phii,phasei,ai,ecci,angzi) &
 !$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
@@ -207,7 +219,8 @@ subroutine compute_energies(t)
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
-!$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist)
+!$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist) &
+!$omp reduction(+:psiR,psiI,eccx,eccy)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread = 0
 !$omp do
@@ -304,7 +317,22 @@ subroutine compute_energies(t)
        v2i  = vxi*vxi + vyi*vyi + vzi*vzi
        ekin = ekin + pmassi*v2i
 #endif
+       ! codecomparison assumption is Mbin=1 
+       ri = sqrt(xi**2+yi**2+zi**2)
+       phii = atan2(yi,xi)
+      
+       Eni = 0.5*v2i-Mbin/ri
+       ai = -0.5*Mbin/(Eni)
+       angzi = xi*vyi - yi*vxi
+       ecci = sqrt(1.-angzi**2/(Mbin*ai))
+       phasei=atan2((-angzi/Mbin*vxi-yi/ri),(angzi/Mbin*vyi-xi/ri))
 
+       if(ecci>0.5)  print*,'e,a,ri,En,phase:',ecci,ai,ri,Eni,phasei
+       psiR = ri*cos(phii)
+       psiI = ri*sin(phii)
+       eccx = ecci*cos(phasei)
+       eccy = ecci*sin(phasei) 
+ 
        vrms = vrms + v2i
 
        ! rotational energy around each axis through the Centre of mass
@@ -315,6 +343,11 @@ subroutine compute_energies(t)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
        endif
+       call ev_data_update(ev_data_thread,iev_psiR,psiR)
+       call ev_data_update(ev_data_thread,iev_psiI,psiI)
+       call ev_data_update(ev_data_thread,iev_eccx,eccx)
+       call ev_data_update(ev_data_thread,iev_eccy,eccy)
+
 
        if (iexternalforce > 0) then
           dumx = 0.
@@ -334,6 +367,7 @@ subroutine compute_energies(t)
           dumz = 0.
           call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,dumx,dumy,dumz,epoti)
           epot = epot + pmassi*epoti
+          
        endif
        if (gravity) epot = epot + poten(i)
 #ifdef DUST

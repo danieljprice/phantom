@@ -165,7 +165,7 @@ module part
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
- real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmassR1(:,:),fxyz_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
@@ -423,6 +423,7 @@ subroutine allocate_part
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
+ call allocate_array('fxyz_ptmassR1', fxyz_ptmassR1, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
  call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
@@ -502,6 +503,7 @@ subroutine deallocate_part
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
+ if (allocated(fxyz_ptmassR1))  deallocate(fxyz_ptmassR1)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
  if (allocated(nden_nimhd))   deallocate(nden_nimhd)

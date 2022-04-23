@@ -108,7 +108,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                                       pmassi,fxyz_ptmass,fonrmax,dtphi2,fxyz_ptmassR1)
 #ifdef FINVSQRT
  use fastmath, only:finvsqrt
 #endif
@@ -119,7 +119,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    optional, intent(in)    :: pmassi
- real,    optional, intent(inout) :: fxyz_ptmass(4,maxptmass)
+ real,    optional, intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmassR1(4,maxptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj
@@ -196,6 +196,13 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
        fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
        fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
+       !codecomparison
+       if(present(fxyz_ptmassR1) .and. (xi**2+yi**2+zi**2)>1.) then
+          !print*,'ciao',j,fxyz_ptmass(:,j),fxyz_ptmassR1(:,j) 
+          fxyz_ptmassR1(1,j) = fxyz_ptmassR1(1,j) + dx*f2
+          fxyz_ptmassR1(2,j) = fxyz_ptmassR1(2,j) + dy*f2
+          fxyz_ptmassR1(3,j) = fxyz_ptmassR1(3,j) + dz*f2
+       endif
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
     endif
@@ -234,6 +241,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
 #endif
  use externalforces, only:externalforce
  use kernel,         only:kernel_softening,radkern
+ use part,           only:fxyz_ptmassR1
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,maxptmass)
  real,    intent(out) :: fxyz_ptmass(4,maxptmass)
@@ -250,6 +258,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
  phitot = 0.
+ fxyz_ptmassR1(:,:) = 0.
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -266,7 +275,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,fxyz_ptmassR1) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,ddr,dr3,f1,f2) &
@@ -363,6 +372,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
     fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
+
+    fxyz_ptmassR1(1,i) = fxyz_ptmassR1(1,i) + fxi
+    fxyz_ptmassR1(2,i) = fxyz_ptmassR1(2,i) + fyi
+    fxyz_ptmassR1(3,i) = fxyz_ptmassR1(3,i) + fzi
+    fxyz_ptmassR1(4,i) = fxyz_ptmassR1(4,i) + phii
+    
+    
  enddo
  !$omp end parallel do
 
@@ -824,7 +840,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  use boundary, only:dxbound,dybound,dzbound
 #endif
 #ifdef IND_TIMESTEPS
- use part,     only:ibin,ibin_wake
+ use part,     only:ibin,ibin_wake,fxyz_ptmassR1
 #endif
  use linklist, only:getneigh_pos,ifirstincell
  use eos,      only:equationofstate,gamma,gamma_pwp,utherm
@@ -864,6 +880,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real(4) :: divvi,potenj_min,poteni
  integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
  logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot
+
 
  ifail       = 0
  ifail_array = 0
@@ -1326,6 +1343,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
     ! update ptmass position, spin, velocity, acceleration, and mass
     fxyz_ptmass(:,nptmass) = 0.0
+    fxyz_ptmassR1(:,nptmass) = 0.0
     fxyz_ptmass_sinksink(:,nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
@@ -1343,7 +1361,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     else
        call pt_open_sinkev(nptmass)
     endif
-    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+    call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,fxyz_ptmassR1)
  else
     !
     ! record failure reason for summary
@@ -1451,7 +1469,7 @@ subroutine pt_open_sinkev(num)
  if (write_one_ptfile) then
     write(iunit,'(a)') 'To extract one file per sink: make sinks; ./phantomsinks '
  endif
- write(iunit,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',23(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',    &
           2,'x',       &
           3,'y',       &
@@ -1471,7 +1489,10 @@ subroutine pt_open_sinkev(num)
          17,'fssy',    &
          18,'fssz',    &
          19,'sink ID', &
-         20,'nptmass'
+         20,'nptmass', &
+         21,'fxR1',    &
+         22,'fyR1',    &
+         23,'fzR1'     
 
 end subroutine pt_open_sinkev
 !-----------------------------------------------------------------------
@@ -1497,19 +1518,20 @@ end subroutine pt_close_sinkev
 !  write sink data to files
 !+
 !-----------------------------------------------------------------------
-subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,fxyz_ptmassR1)
  use part,        only: ispinx,ispiny,ispinz,imacc
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real,    intent(in) :: fxyz_ptmassR1(:,:)
  integer             :: i,iunit
 
  iunit = iskfile
  do i = 1,nptmass
     if (.not. write_one_ptfile) iunit = iskfile+i
-    write(iunit,"(18(1pe18.9,1x),2(I18,1x))") &
+    write(iunit,"(18(1pe18.9,1x),2(I18,1x),3(1pe18.9,1x))") &
     time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
     xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),i,nptmass
+    xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),i,nptmass,fxyz_ptmassR1(1:3,i)
     if (i==nptmass .or. (.not. write_one_ptfile)) call flush(iunit)
  enddo
 

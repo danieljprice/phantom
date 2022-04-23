@@ -1023,7 +1023,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,idamp
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dust_temp
+                          fxyz_ptmass_sinksink,dust_temp,fxyz_ptmassR1
  use chem,           only:update_abundances,get_dphot
  use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1062,7 +1062,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real            :: abundi(nabn),gmwvar
  logical         :: accreted,extf_is_velocity_dependent
  logical         :: last_step,done
-
+ real, allocatable :: fxyz_ptmassR1prov(:,:)
 
 !
 ! determine whether or not to use substepping
@@ -1086,6 +1086,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  done           = .false.
  ! allocate memory for dptmass array (avoids ifort bug)
  allocate(dptmass(ndptmass,nptmass))
+ !this is a trick otherwise fxyz_ptmassR1 should be passed as a variable like
+ !for fxyz_ptmass, since there is an omp cycle we use the prov for the reduction
+ allocate(fxyz_ptmassR1prov(4,nptmass))
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
@@ -1122,9 +1125,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei)
           fxyz_ptmass_sinksink=fxyz_ptmass
+          fxyz_ptmassR1prov=fxyz_ptmassR1
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
-          fxyz_ptmass(:,:) = 0.
+          fxyz_ptmass(:,:) = 0
+          fxyz_ptmassR1prov(:,:) = 0
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
@@ -1161,7 +1166,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp reduction(+:accretedmass) &
     !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
     !$omp reduction(max:fonrmax) &
-    !$omp reduction(+:fxyz_ptmass)
+    !$omp reduction(+:fxyz_ptmass) &
+    !$omp reduction(+:fxyz_ptmassR1prov) 
     !$omp do
     predictor: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -1190,7 +1196,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           fextz = 0.
           if (nptmass > 0) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,fonrmaxi,dtphi2i)
+                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,fonrmaxi,dtphi2i,fxyz_ptmassR1prov)
              fonrmax = max(fonrmax,fonrmaxi)
              dtphi2  = min(dtphi2,dtphi2i)
           endif
@@ -1309,6 +1315,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     ! reduction of sink-gas forces from each MPI thread
     !
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',fxyz_ptmassR1prov(:,1:nptmass))
+
+    fxyz_ptmassR1 = fxyz_ptmassR1prov
 
     !---------------------------
     ! corrector during substeps
@@ -1415,7 +1424,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        call summary_accrete(nptmass)
        ! only write to .ev during substeps if no gas particles present
        if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
-                                          fxyz_ptmass,fxyz_ptmass_sinksink)
+                                          fxyz_ptmass,fxyz_ptmass_sinksink,fxyz_ptmassR1)
     endif
     !
     ! check if timestep criterion was violated during substeps
@@ -1445,7 +1454,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  enddo substeps
 
  deallocate(dptmass)
-
+ deallocate(fxyz_ptmassR1prov)
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
        write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &

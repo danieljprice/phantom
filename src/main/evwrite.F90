@@ -53,8 +53,8 @@ module evwrite
                            iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
                            iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
                            iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws
-
+                           iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,&
+                           iev_eccx,iev_eccy,iev_psiR,iev_psiI
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
  private                   :: fill_ev_tag, fill_ev_header
@@ -118,6 +118,12 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_com(1), 'xcom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(2), 'ycom',     '0', i,j)
  call fill_ev_tag(ev_fmt,iev_com(3), 'zcom',     '0', i,j)
+ !--codecomparison
+ call fill_ev_tag(ev_fmt,iev_eccx, 'eccx',     'ax', i,j)
+ call fill_ev_tag(ev_fmt,iev_eccy, 'eccy',     'ax', i,j)
+ call fill_ev_tag(ev_fmt,iev_psiR, 'psiR',     'ax', i,j)
+ call fill_ev_tag(ev_fmt,iev_psiI, 'psiI',     'ax', i,j)
+
  if (.not. gas_only) then
     if (npartoftype(igas)        > 0) call fill_ev_tag(ev_fmt,iev_rhop(1),'rho gas', 'xa',i,j)
     if (npartoftype(idust)       > 0) call fill_ev_tag(ev_fmt,iev_rhop(2),'rho dust','xa',i,j)
