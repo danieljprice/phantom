@@ -50,10 +50,11 @@ module timing
                                  itimer_force         = 9,  &
                                  itimer_force_local   = 10, &
                                  itimer_force_remote  = 11, &
-                                 itimer_extf          = 12, &
-                                 itimer_ev            = 13, &
-                                 itimer_io            = 14
- integer, public, parameter :: ntimers = 14 ! should be equal to the largest itimer index
+                                 itimer_c2p           = 12, &
+                                 itimer_extf          = 13, &
+                                 itimer_ev            = 14, &
+                                 itimer_io            = 15
+ integer, public, parameter :: ntimers = 15 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -80,6 +81,7 @@ subroutine setup_timers
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_c2p         , 'cons2prim',   itimer_step  )
  call init_timer(itimer_extf        , 'extf',        itimer_step  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
