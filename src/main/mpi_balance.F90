@@ -53,10 +53,10 @@ subroutine allocate_balance_arrays
 end subroutine allocate_balance_arrays
 
 subroutine deallocate_balance_arrays
-   if (allocated(nsent       )) deallocate(nsent       )
-   if (allocated(nexpect     )) deallocate(nexpect     )
-   if (allocated(nrecv       )) deallocate(nrecv       )
-   if (allocated(countrequest)) deallocate(countrequest)
+ if (allocated(nsent       )) deallocate(nsent       )
+ if (allocated(nexpect     )) deallocate(nexpect     )
+ if (allocated(nrecv       )) deallocate(nrecv       )
+ if (allocated(countrequest)) deallocate(countrequest)
 end subroutine deallocate_balance_arrays
 
 !----------------------------------------------------------------
