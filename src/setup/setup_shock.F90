@@ -96,12 +96,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,          only:radkern,hfact_default
  use prompting,       only:prompt
  use set_dust,        only:set_dustfrac
- use units,           only:set_units,unit_opacity
+ use units,           only:set_units,unit_opacity,unit_pressure,unit_density,unit_ergg
  use dust,            only:idrag
  use unifdis,         only:is_closepacked,is_valid_lattice
  use physcon,         only:au,solarm
  use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
+ use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
 #ifdef NONIDEALMHD
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
 #endif
@@ -115,12 +116,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real                             :: delta,gam1,xshock,fac,dtg
- real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright,rholeft,rhoright
+ real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright
+ real                             :: rholeft,rhoright,denscgs,Pcgs,ucgs,temp
  integer                          :: i,ierr,nbpts,iverbose
  character(len=120)               :: shkfile, filename
  logical                          :: iexist,jexist,use_closepacked
 
- if (gr) call set_units(dist=100.*au,c=1.)
+ if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
  if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
@@ -252,13 +254,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! now set particle properties
  !
- gam1 = gamma - 1.
- if (abs(gam1) > 1.e-3) then
-    uuleft  = leftstate(ipr)/(gam1*leftstate(idens))
-    uuright = rightstate(ipr)/(gam1*rightstate(idens))
+ if (ieos == 12) then
+    Pcgs = leftstate(ipr) * unit_pressure
+    denscgs = leftstate(idens) * unit_density
+    call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    uuleft = ucgs/unit_ergg
+    Pcgs = rightstate(ipr) * unit_pressure
+    denscgs = rightstate(idens) * unit_density
+    call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    uuright = ucgs/unit_ergg
  else
-    uuleft  = 3.*leftstate(ipr)/(2.*leftstate(idens))
-    uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
+    gam1 = gamma - 1.
+    if (abs(gam1) > 1.e-3) then
+       uuleft  = leftstate(ipr)/(gam1*leftstate(idens))
+       uuright = rightstate(ipr)/(gam1*rightstate(idens))
+    else
+       uuleft  = 3.*leftstate(ipr)/(2.*leftstate(idens))
+       uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
+    endif
  endif
 
  Bxyz = 0.
@@ -690,7 +705,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  if (ierr1 /= 0) write(*,*) 'ERROR writing nx'
 
  write(lu,"(/,a)") '# Equation-of-state properties'
- call write_inopt(gamma,'gamma','Adiabatic index',lu,ierr1)
+ call write_inopt(gamma,'gamma','Adiabatic index (no effect if ieos=12)',lu,ierr1)
  if (maxvxyzu==3) then
     call write_inopt(polyk,'polyk','square of the isothermal sound speed',lu,ierr1)
  endif
