@@ -194,7 +194,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(30) ! Analyse disk around companion
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  case(31) ! Recombination energy vs. time
-    call erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+    call erec_vs_t(time,npart,particlemass,xyzh)
  case(32) ! Sound crossing time profile
     call tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(33) ! Planet coordinates and mass
@@ -528,6 +528,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum1,dum2,dum3,phii)
        rhopart = rhoh(xyzh(4,i), particlemass)
+       tempi = eos_vars(itemp,i)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        call cross(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv) ! Angular momentum w.r.t. CoM
        call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),gamma,ethi)
@@ -1212,9 +1213,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real                         :: quant(4,npart)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
- Nquantities = 10
+ Nquantities = 12
  if (dump_number == 0) then
-    print "(10(a,/))",&
+    print "(12(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
@@ -1225,7 +1226,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '8) Specific recombination energy', &
            '9) Total energy (kin + pot)', &
            '10) Mass coordinate', &
-           '11) Gas omega w.r.t. CoM'
+           '11) Gas omega w.r.t. CoM', &
+           '12) Gas omega w.r.t. sink 1'
     ans = 1
     call prompt('Choose first quantity to compute ',ans,1,Nquantities)
     quantities_to_calculate(1) = ans
@@ -1240,7 +1242,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     quantities_to_calculate(4) = ans
  endif
 
- ! Calculations performed outside particle loop
+ ! Calculations performed outside loop over particles
  call compute_energies(time)
  com_xyz = 0.
  com_vxyz = 0.
@@ -1248,12 +1250,15 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  do k=1,4
     select case (quantities_to_calculate(k))
     case(1,2,3,6,8,9) ! Nothing to do
-    case(4,5,11) ! Fractional difference between gas and orbital omega
+    case(4,5,11,12) ! Fractional difference between gas and orbital omega
        if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
           com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                      / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
           com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
                      / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       elseif (quantities_to_calculate(k) == 12) then
+          com_xyz = xyzmh_ptmass(1:3,i)
+          com_vxyz = vxyz_ptmass(1:3,i)
        endif
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
@@ -1304,14 +1309,14 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              quant(k,i) = 0.
           endif
 
-       case(4,11) ! Gas omega w.r.t. effective CoM
-          xyz_a(1:3)  = xyzh(1:3,i)  - com_xyz(1:3)
-          vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+       case(4,11,12) ! Gas omega w.r.t. effective CoM
+          xyz_a  = xyzh(1:3,i)  - com_xyz(1:3)
+          vxyz_a = vxyzu(1:3,i) - com_vxyz(1:3)
           quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
 
        case(5) ! Fractional difference between gas and orbital omega
-          xyz_a(1:3)  = xyzh(1:3,i)  - com_xyz(1:3)
-          vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
+          xyz_a  = xyzh(1:3,i)  - com_xyz(1:3)
+          vxyz_a = vxyzu(1:3,i) - com_vxyz(1:3)
           quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
           quant(k,i) = (quant(k,i) - omega_orb) / omega_orb
 
@@ -1781,6 +1786,110 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  enddo
 
 end subroutine energy_hist
+
+
+!----------------------------------------------------------------
+!+
+!  Planet mass profile
+!+
+!----------------------------------------------------------------
+subroutine planet_mass_profile(time,npart,particlemass,xyzh,vxyzu)
+ use part,              only:eos_vars,itemp
+ use eos,               only:entropy
+ use mesa_microphysics, only:getvalue_mesa
+ use ionization_mod,    only:calc_thermal_energy
+ integer, intent(in)    :: npart
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: coord
+ real, allocatable      :: hist(:),quant(:,:)
+ real                   :: ekini,einti,epoti,ethi,phii,pgas,mu,dum,rhopart,ponrhoi,spsoundi,tempi,&
+                           maxcoord,mincoord,xh0,xh1,xhe0,xhe1,xhe2
+ character(len=17), allocatable :: filename(:),headerline(:)
+ character(len=40)      :: data_formatter
+ integer                :: i,k,unitnum,ierr,iorder(npart),ientropy,nvars
+  
+ if (dump_number == 0) call get_planetIDs(nplanet,planetIDs)
+ nbins = 500
+ allocate(hist(nbins))
+ rmax  = 1.
+
+ ! Find highest density in planet
+ rhoprev = 0.
+ maxrho_ID = 1
+ do i = 1,nplanet
+    rhoi = rhoh(xyzh(4,planetIDs(i)), particlemass)
+    if (rhoi > rhoprev) then
+       maxrho_ID = planetIDs(i)
+       rhoprev = rhoi
+    endif
+ enddo
+ planet_com = xyzh(1:3,maxrho_ID)
+
+  ! Sum planet mass according to criterion
+ mass = 0.
+ do i = 1,nplanet
+    sepi = separation(xyzh(1:3,planetIDs(i)), planet_com)
+    do j = 1,Nmasks
+       if (sepi < Rmasks(j)) then
+          mass(j:Nmasks) = mass(j:Nmasks) + 1.
+          exit
+       endif
+    enddo
+ enddo
+ mass = mass * particlemass
+
+ 
+ nvars = 1
+ allocate(filename(nvars),headerline(nvars),quant(npart,nvars))
+ 
+ coord = 0.
+ quant = 0.
+ filename = '     mass_prof.ev'
+ headerline = '# Mass profile   '
+ 
+ 
+
+
+
+ if (use_mass_coord) then
+    call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ else
+    iorder = (/(i, i=1,npart, 1)/) ! Have iorder(k) be same as k
+ endif
+ 
+ do k=1,npart
+    i = iorder(k) ! Loop from innermost to outermost particle
+    if (use_mass_coord) then
+       coord(i) = real(k-1) ! Number of particles interior to particle k
+    else
+       coord(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    endif
+ 
+    rhopart = rhoh(xyzh(4,i), particlemass)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+ enddo
+ 
+ if (use_mass_coord) coord = coord * particlemass + xyzmh_ptmass(4,1)
+ 
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ do i=1,nvars
+    call histogram_setup(coord,quant(:,i),hist,npart,0.,rmax,nbins,.true.,ilogbins)
+    if (dump_number == 0) then
+       unitnum = 1000
+       open(unit=unitnum, file=trim(adjustl(filename(i))), status='replace')
+       write(unitnum, "(a)") trim(headerline(i))
+       close(unit=unitnum)
+    endif
+    unitnum=1001+i
+    open(unit=unitnum, file=trim(adjustl(filename(i))), status='old', position='append')
+    write(unitnum,data_formatter) time,hist
+    close(unit=unitnum)
+ enddo
+end subroutine energy_profile
+
 
 !----------------------------------------------------------------
 !+
@@ -2998,11 +3107,11 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
+subroutine erec_vs_t(time,npart,particlemass,xyzh)
  use ionization_mod, only:get_erec_components
  integer, intent(in) :: npart
  real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real, intent(inout) :: xyzh(:,:)
  character(len=17)   :: filename,columns(4)
  integer             :: i
  real                :: ereci(4),erec(4),tempi,rhoi
@@ -3079,9 +3188,6 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  einti = particlemass * vxyzu(4)
  etoti = epoti + ekini + einti
 end subroutine calc_gas_energies
-
-
-
 
 
 subroutine adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_c,dump_number)
