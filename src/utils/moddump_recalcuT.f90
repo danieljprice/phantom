@@ -23,7 +23,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
-                         gmw,X_in,Z_in,irecomb,gamma,eosinfo
+                         gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
  use part,          only:rhoh,eos_vars,itemp,igasP,igas
