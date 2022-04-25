@@ -24,10 +24,13 @@ module raytracer
 ! :Dependencies: linklist, kernel, part, healpix
 !
    use healpix
+
    implicit none
    public :: get_all_tau
+
    private
-   contains
+
+ contains
 
    !--------------------------------------------------------------------------
    !+
@@ -263,8 +266,7 @@ module raytracer
    !+
    !--------------------------------------------------------------------------
    subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
-     use units,        only:umass,udist
-     integer, intent(in) :: nsides, rays_dim(:)
+      integer, intent(in) :: nsides, rays_dim(:)
       real, intent(in)    :: vec(:), rays_dist(:,:), rays_tau(:,:)
       real, intent(out)   :: tau
 
@@ -303,8 +305,7 @@ module raytracer
          tau    = tau + tautemp/tempdist(k)
          weight = weight + 1./tempdist(k)
       enddo
-      !fix units for tau (kappa is in cgs while rho & r are in code units)
-      tau = tau / weight * umass/udist**2
+      tau = tau / weight
    end subroutine interpolate_tau
 
 
@@ -370,12 +371,13 @@ module raytracer
    !+
    !--------------------------------------------------------------------------
    subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
+     use units, only:umass,udist
       real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
 
-      real    :: distance, nextDistance, h, dtaudr, previousdtaudr, nextdtaudr, totalDistance
+      real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
       integer :: inext, i
 
       h = Rstar/100.
@@ -383,34 +385,36 @@ module raytracer
       do while (inext==0)
          h = h*2.
          !find the next point along the ray : index next
-         call find_next(primary+Rstar*ray, h, ray, xyzh, kappa, previousdtaudr, distance, inext)
+         call find_next(primary+Rstar*ray, h, ray, xyzh, kappa, previousdtaudr, dr, inext)
       enddo
 
       i = 1
-      tau_along_ray(1)   = 0.
-      totalDistance      = Rstar
-      dist_along_ray(i)  = TotalDistance
-      do while (hasNext(inext,totalDistance,maxDistance))
-         totalDistance = totalDistance+distance
-         call find_next(primary + totalDistance*ray, xyzh(4,inext), ray, xyzh, kappa, nextdtaudr, nextDistance, inext)
+      tau_along_ray(1)  = 0.
+      distance          = Rstar
+      dist_along_ray(i) = distance
+      do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
+         distance = distance+dr
+         call find_next(primary + distance*ray, xyzh(4,inext), ray, xyzh, kappa, nextdtaudr, next_dr, inext)
          i = i + 1
-         dtaudr             = (nextdtaudr+previousdtaudr)/2.
-         previousdtaudr     = nextdtaudr
-         tau_along_ray(i)   = tau_along_ray(i-1)+(distance)*dtaudr
-         dist_along_ray(i)  = TotalDistance
-         distance           = nextDistance
+         dtaudr            = (nextdtaudr+previousdtaudr)/2.
+         previousdtaudr    = nextdtaudr
+         !fix units for tau (kappa is in cgs while rho & r are in code units)
+         tau_along_ray(i)  = tau_along_ray(i-1)+dr*dtaudr*umass/(udist**2)
+         dist_along_ray(i) = distance
+         dr                = next_dr
       enddo
       len = i
    end subroutine ray_tracer
 
-   logical function hasNext(inext, distance, maxDistance)
+   logical function hasNext(inext, tau, distance, maxDistance)
       integer, intent(in) :: inext
-      real, intent(in)    :: distance
+      real, intent(in)    :: distance, tau
       real, optional      :: maxDistance
+      real, parameter :: tau_max = 99.
       if (present(maxDistance)) then
-         hasNext = inext /= 0 .and. distance .lt. maxDistance
+         hasNext = inext /= 0 .and. distance < maxDistance .and. tau < tau_max
       else
-         hasNext = inext /= 0
+         hasNext = inext /= 0 .and. tau < tau_max
       endif
    end function hasNext
 
