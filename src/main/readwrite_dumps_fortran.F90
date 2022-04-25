@@ -1222,7 +1222,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (do_nucleation) then
                 call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-             if (itau_alloc) then
+             if (itau_alloc == 1) then
                 call read_array(tau,'tau',got_ray_tracer,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_dust_temperature) then
