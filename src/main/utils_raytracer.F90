@@ -233,9 +233,10 @@ module raytracer
 !$omp do
       do i = 1, npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
+            !vector joining the source to the particle
             part_dir = xyzh(1:3,i)-primary
-            part_dir = (/cosphi*ray_dir(1) + sinphi*ray_dir(2),-sinphi*ray_dir(1) + cosphi*ray_dir(2), ray_dir(3)/)
-            call interpolate_tau(nsides, ray_dir, rays_tau, rays_dist, rays_dim, tau(i))
+            part_dir = (/cosphi*part_dir(1) + sinphi*part_dir(2),-sinphi*part_dir(1) + cosphi*part_dir(2), part_dir(3)/)
+            call interpolate_tau(nsides, part_dir, rays_tau, rays_dist, rays_dim, tau(i))
          else
             tau(i) = -99.
          endif
