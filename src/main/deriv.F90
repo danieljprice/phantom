@@ -104,7 +104,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(inout) :: metrics(:,:,:,:)
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
-
  t1    = 0.
  tcpu1 = 0.
  call get_timings(t1,tcpu1)
@@ -202,9 +201,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (idust_opacity == 2) then
        call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
     else
-       !allocate
-       !kappa = calc_kappa_bowen(dust_temp)
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp), iray_resolution, tau)
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
     endif
  endif
 #endif
