@@ -471,8 +471,8 @@ end subroutine test_metric_derivs_i
 !+
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
- use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy, &
-                           ien_etotal
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use options,         only:ien_entropy,ien_etotal
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
  use physcon,         only:radconst,kb_on_mh
@@ -491,15 +491,15 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
 
  ! perturb the state
- dens2 = dens**2
- u2 = u**2
+ dens2 = 2.*dens
+ u2 = 2.*u
  t2 = -1.
 
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
  P2 = pondens2 * dens2
  v2 = v
 
- over_energy_variables: do i = 1,1
+ over_energy_variables: do i = 1,2
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
@@ -509,9 +509,12 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     nfailprev = nfail
 
     call pack_metric(x,metrici)
-    if (i == 2) then
+    if (i == 1 .and. ieos /= 12) then
        ien_type = ien_entropy
        toli = 1.5e-11
+    elseif (i == 1 .and. ieos == 12) then
+       ! entropy cannot use for gasplusrad eos
+       cycle
     else
        ien_type = ien_etotal
        toli = 1.5e-9
@@ -534,6 +537,8 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
 
     if (nfail > nfailprev .and. nfail < 10) then
        print*,'-- cons2prim test failed with'
+       print*,'   ien_type =',ien_type
+       print*,'   ieos     =',ieos
        print*,'  - IN:'
        print*,'     x    =',x
        print*,'     v    =',v2
