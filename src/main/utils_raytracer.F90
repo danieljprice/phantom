@@ -277,13 +277,19 @@ module raytracer
       vec_norm2 = norm2(vec)
       !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
       call vec2pix_nest(nsides, vec, rayIndex)
-      !returns ray(3), the unit vector identifying the ray number index
+      !returns ray(3), the unit vector identifying the ray with index number rayIndex
       call pix2vec_nest(nsides, rayIndex, ray)
       vectemp       = vec - vec_norm2*ray
       distRay_sq    = dot_product(vectemp,vectemp)
       call get_tau_on_ray(vec_norm2, rays_tau(:,rayIndex+1), rays_dist(:,rayIndex+1), rays_dim(rayIndex+1), tautemp)
-      tau           = tautemp/distRay_sq
-      weight        = 1./distRay_sq
+      if (distRay_sq > 0.) then
+         tau    = tautemp/distRay_sq
+         weight = 1./distRay_sq
+      else
+         ! the particle sits exactly on the ray, no need to get the neighbours
+         tau    = tautemp
+         return
+      endif
 
       !returns the number nneigh and list of vectors (n) neighbouring the ray number index
       call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
@@ -389,7 +395,7 @@ module raytracer
       enddo
 
       i = 1
-      tau_along_ray(1)  = 0.
+      tau_along_ray(i)  = 0.
       distance          = Rstar
       dist_along_ray(i) = distance
       do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
