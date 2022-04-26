@@ -2684,6 +2684,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef KROME
                 fxyz4 = fxyz4 + (gamma_chem(i) - 1.)*rhoi**(1.-gamma_chem(i))*fsum(idudtdissi)
 #else
+                !LS if do_nucleation one should use the local gamma : nucleation(idgamma,i)
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
 #endif
              endif

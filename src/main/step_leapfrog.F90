@@ -1097,7 +1097,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
- real            :: dudtcool,fextv(3),poti,fextrad(3),ui,rhoi
+ real            :: dudtcool,fextv(3),poti,ui,rhoi
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
@@ -1353,9 +1353,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
        else
           call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
        endif
-       fextx = fextx + fextrad(1)
-       fexty = fexty + fextrad(2)
-       fextz = fextz + fextrad(3)
     endif
 
     !
