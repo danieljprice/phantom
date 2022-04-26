@@ -268,7 +268,11 @@ subroutine reduce_timer_mpi(itimer)
  if (nprocs > 1) then
     max = reduce_mpi('max',timers(itimer)%cpu)
     mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
-    timers(itimer)%loadbal = mean / max
+    if (max > 0.) then
+       timers(itimer)%loadbal = mean / max
+    else
+       timers(itimer)%loadbal = 0.0_4 ! to indicate an error
+    endif
  else
     timers(itimer)%loadbal = 1.0_4
  endif
