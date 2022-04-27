@@ -1200,7 +1200,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(gamma_chem,mu_chem,dudt_chem) &
 #endif
     !$omp private(dphot,abundi,gmwvar) &
-    !$omp private(fextrad,ui,rhoi) &
+    !$omp private(ui,rhoi) &
     !$omp private(i,ichem,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
