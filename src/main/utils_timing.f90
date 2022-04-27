@@ -258,7 +258,7 @@ subroutine reduce_timer_mpi(itimer)
  use io,       only:nprocs
  use mpiutils, only:reduce_mpi
  integer, intent(in) :: itimer
- real(kind=4) :: mean,max,cputot
+ real(kind=4) :: mean,cpumax,cputot
 
  cputot = reduce_mpi('+',timers(itimer)%cpu)
 
@@ -266,10 +266,10 @@ subroutine reduce_timer_mpi(itimer)
  ! where the average is taken over all tasks except for the max
  ! When every time takes the same time, loadbal = 1
  if (nprocs > 1) then
-    max = reduce_mpi('max',timers(itimer)%cpu)
-    mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
-    if (max > 0.0_4) then
-       timers(itimer)%loadbal = mean / max
+    cpumax = reduce_mpi('max',timers(itimer)%cpu)
+    mean   = (cputot - cpumax) / (real(nprocs,kind=4) - 1.0_4)
+    if (cpumax > 0.0_4) then
+       timers(itimer)%loadbal = mean / cpumax
     else
        timers(itimer)%loadbal = 0.0_4 ! to indicate an error
     endif
