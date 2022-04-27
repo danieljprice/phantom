@@ -115,7 +115,7 @@ subroutine init_cooling(id,master,iprint,ierr)
 #else
     !if no cooling flag activated, disable cooling
     if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+relax_Stefan) == 0 &
-       .and. do_molecular_cooling) then
+       .and. .not.do_molecular_cooling) then
        icooling = 0
        return
     elseif (icooling == 1 .and. do_molecular_cooling) then
@@ -595,7 +595,7 @@ subroutine implicit_cooling (r, ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
 
  real, parameter :: tol = 1.d-4 ! to be adjusted
  integer, parameter :: iter_max = 200
- real :: u,Q,dlnQ_dlnT,T,mu,T_on_u,delta_u,term1,term2,term3
+ real :: u,Q,dlnQ_dlnT,T,mu,T_on_u,delta_u,term1,term2
  real :: r    ! in au
  integer :: iter
 
@@ -611,18 +611,17 @@ subroutine implicit_cooling (r, ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
  !The pdv_work also depends on the internal energy and could also be included
  !in this loop provided this contribution was not accounted for in Force.F90
  ! see PP flag : IMPLICIT COOLING - pb: we need div(v) and it is only real*4
- !term2 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
- term2 = 1.
- term1 = u !initial internal energy without cooling contributions
+ !term1 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
+ term1 = 1.
  do while (abs(delta_u) > tol .and. iter < iter_max)
     T = u*T_on_u
     call calc_cooling_rate(r,Q,dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
-    term3 = u*term2-Q*dt
-    delta_u = (term1-term3)/(term2-Q*dlnQ_dlnT*dt/u)
+    term2 = u*term1-Q*dt
+    delta_u = (ui-term2)/(term1-Q*dlnQ_dlnT*dt/u)
     u = u+delta_u
     iter = iter + 1
  enddo
- dudt =(u-term1)/dt
+ dudt =(u-ui)/dt
  if (u < 0. .or. isnan(u)) then
     print *,u
     stop ' u<0'
@@ -652,10 +651,10 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  case(1)
 !     call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
     call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
- case (3)
-    call cooling_Gammie(xi,yi,zi,ui,dudt)
  case (2)
     call exact_cooling_table(ui,rho,dt,dudt,mu,polyIndex)
+ case (3)
+    call cooling_Gammie(xi,yi,zi,ui,dudt)
  case (5)
     if (present(Tgas)) then
        call cooling_KoyamaInutuska_explicit(rho,Tgas,dudt)
