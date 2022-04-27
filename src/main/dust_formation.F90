@@ -207,11 +207,17 @@ end subroutine evolve_chem
 !  Bowen dust opacity formula
 !
 !------------------------------------
-pure real function calc_kappa_bowen(Teq)
+pure elemental real function calc_kappa_bowen(Teq)
 !all quantities in cgs
  real,    intent(in)  :: Teq
+ real :: dlnT
 
- calc_kappa_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta)) + kappa_gas
+ dlnT = (Teq-bowen_Tcond)/bowen_delta
+ if (dlnT > 50.) then
+    calc_kappa_bowen = 0.
+ else
+    calc_kappa_bowen = bowen_kmax/(1.d0 + exp(dlnT)) + kappa_gas
+ endif
 
 end function calc_kappa_bowen
 
@@ -245,12 +251,17 @@ end function calc_kappa_dust
 !  calculate alpha, reduced gravity factor
 !
 !-----------------------------------------------------------------------
-pure real function calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa_cgs)
+pure real function calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa_cgs, tau)
 !all quantities in cgs
  use physcon, only:c,Gg
  real, intent(in) :: Mstar_cgs,Lstar_cgs,kappa_cgs
+ real, intent(in), optional :: tau
 
- calc_Eddington_factor = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ if (present(tau)) then
+    calc_Eddington_factor = Lstar_cgs*exp(-tau)/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ else
+    calc_Eddington_factor = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ endif
 end function calc_Eddington_factor
 
 !----------------------------
