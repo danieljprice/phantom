@@ -67,6 +67,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use dust_formation,   only:calc_kappa_bowen,idust_opacity
  use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
  use part,             only:ikappa,dust_temp,nucleation,tau
+ use raytracer
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
@@ -78,7 +79,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use raytracer
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
