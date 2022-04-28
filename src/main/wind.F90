@@ -297,11 +297,11 @@ subroutine wind_step(state)
  alpha_old  = state%alpha
  if (idust_opacity == 2) then
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
-    state%mu             = state%JKmuS(idmu)
-    state%gamma          = state%JKmuS(idgamma)
-    state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
+    state%mu    = state%JKmuS(idmu)
+    state%gamma = state%JKmuS(idgamma)
+    state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
  elseif (idust_opacity == 1) then
-    state%kappa        = calc_kappa_bowen(state%Tdust)
+    state%kappa = calc_kappa_bowen(state%Tdust)
  endif
  if (itau_alloc == 1) then
    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)

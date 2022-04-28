@@ -112,7 +112,7 @@ end subroutine get_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
- use dim,   only:do_nucleation
+ use dim,   only:do_nucleation, itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
@@ -123,7 +123,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
  integer                 :: i
 
  !$omp parallel  do default(none) &
- !$omp shared(nucleation,do_nucleation)&
+ !$omp shared(nucleation,do_nucleation,itau_alloc)&
  !$omp shared(dust_temp) &
  !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext,tau) &
  !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
@@ -134,12 +134,22 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        dz = xyzh(3,i) - za
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+          if (itau_alloc == 1) then
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
+          else
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
+          endif
        else
           kappa = calc_kappa_bowen(dust_temp(i))
-          call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+          if (itau_alloc == 1) then
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                kappa,ax,ay,az,alpha,tau(i))
+          else
+             call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
+               kappa,ax,ay,az,alpha)
+          endif
        endif
        fext(1,i) = fext(1,i) + ax
        fext(2,i) = fext(2,i) + ay
@@ -160,9 +170,9 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
      kappa,ax,ay,az,alpha,tau)
  use units,          only:umass
  use dust_formation, only:calc_Eddington_factor
- real, intent(in)    :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
+ real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau
- real, intent(out)   :: ax,ay,az,alpha
+ real, intent(out)           :: ax,ay,az,alpha
  real :: fac
 
  select case (isink_radiation)
