@@ -74,9 +74,9 @@ subroutine get_geopot_force(xi,yi,zi,dr,mdr3,Rp,J2i,si,fxi,fyi,fzi,phi,&
  endif
  if (present(fxj)) then
     ! acceleration on j due to i, needs to be multiplied by mi/mj later
-    fxj = fxj - term1*xi + term2*si(1) ! 2nd term does not change sign
-    fyj = fyj - term1*yi + term2*si(2)
-    fzj = fzj - term1*zi + term2*si(3)
+    fxj = fxj - term1*xi - term2*si(1)
+    fyj = fyj - term1*yi - term2*si(2)
+    fzj = fzj - term1*zi - term2*si(3)
  endif
 
  ! potential is as given in wikipedia except we replace z/r with r_dot_s
