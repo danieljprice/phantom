@@ -35,6 +35,7 @@ module setup
  integer :: np, norbits
  real :: R_in, R_out, HoverRinput, sig0, sig_in, alphaSS
  real :: p_indexinput, q_indexinput
+ logical :: kitp
 
  private
 
@@ -66,10 +67,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,               intent(out)           :: massoftype(:)
  real,               intent(inout)         :: time
  character (len=20), intent (in), optional :: fileprefix
- !integer :: i
+ integer :: i,iprofile,ierr
 
  !real :: xbinary(10),vbinary(6)
  real :: a0
+ real :: r,phi,omegab,omega0,omega,v0,vr,vphi
 
  logical :: iexist
  character(len=100) :: filename
@@ -100,13 +102,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  p_indexinput = 0.
  q_indexinput = 0.5
  ramp = .true.
- norbits = 100
+ kitp = .false.
+ norbits = 200
 
  print "(a,/)",'Phantomsetup: routine to setup planet-disc interaction with fixed planet orbit '
  inquire(file=filename,exist=iexist)
- if (iexist) then
-    call read_setupfile(filename)
- elseif (id==master) then
+
+ if (iexist) call read_setupfile(filename,ierr)
+ if (iexist .and. ierr /= 0) then
+    if (id==master) then
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
+ elseif (id==master .and. .not.iexist) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
     !
     !--set default options
@@ -134,7 +143,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     print "(a)",'>>> rerun phantomsetup using the options set in '//trim(filename)//' <<<'
     stop
- else
+ elseif (.not.iexist) then
     stop
  endif
 
@@ -145,6 +154,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--set sig_in as required for set_disc (sig_norm at R=Rin)
  sig_in = sig0*R_in**p_indexinput
+ iprofile = 0
+ if (kitp) iprofile = 6
 
  call set_disc(id,master     = master,        &
                npart         = np,            &
@@ -162,7 +173,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,         &
                polyk         = polyk,         &
                alpha         = alpha,         &
-               prefix        = fileprefix)
+               prefix        = fileprefix, indexprofile=iprofile)
  !
  !--set default options for the input file
  !
@@ -184,7 +195,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
 ! enddo
 
- return
+ if (kitp) then
+    print "(a)",' Using KITP parameters...'
+    omegab = 1.
+    v0 = 1.e-4*omegab*a0
+    do i=1,npart
+       r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       phi = atan2(xyzh(2,i),xyzh(1,i))
+       vr = v0*sin(phi)*r/a0*exp(-(r/(3.5*a0))**6)
+       omega0 = sqrt((1./r**3)*(1.-HoverRinput**2))
+       omega = (omega0**(-4) + omegab**(-4))**(-0.25)
+       vphi = r*omega
+       vxyzu(1,i) = vr*cos(phi) - vphi*sin(phi)
+       vxyzu(2,i) = vr*sin(phi) + vphi*cos(phi)
+       vxyzu(3,i) = 0.
+    enddo
+    ramp = .false.
+    eps_soft1 = accradius1
+    eps_soft2 = accradius2
+ endif
+
 end subroutine setpart
 
 
@@ -206,13 +236,14 @@ subroutine write_setupfile(filename)
 
  write(iunit,"(/,a)") '# options for binary'
 
- call write_inopt(binarymassr,'mplanet','m1/(m1+m2)',iunit)
+ call write_inopt(binarymassr,'binarymassr','m1/(m1+m2)',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
  call write_inopt(norbits, 'norbits', 'number of orbits', iunit)
 
  write(iunit,"(/,a)") '# options for accretion disc'
 
+ call write_inopt(kitp,'kitp','setup using kitp binary-disc model parameters?',iunit)
  call write_inopt(R_in,'R_in','inner radius',iunit)
  call write_inopt(R_out,'R_out', 'outer radius',iunit)
  call write_inopt(HoverRinput,'HoverRinput','H/R at R_in',iunit)
@@ -225,32 +256,35 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename)
+subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use extern_binary, only:accradius1,accradius2,binary_posvel
  use extern_binary, only:binarymassr
  implicit none
  character(len=*), intent(in) :: filename
+ integer, intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: ierr
+ integer :: nerr
  type(inopts), dimension(:), allocatable :: db
 
  print "(a)",'reading setup options from '//trim(filename)
 
  call open_db_from_file(db,filename,iunit,ierr)
-
- call read_inopt(np,'np',db,ierr)
- call read_inopt(binarymassr,'mplanet',db,ierr)
- call read_inopt(accradius1,'accradius1',db,ierr)
- call read_inopt(accradius2,'accradius2',db,ierr)
- call read_inopt(R_in,'R_in',db,ierr)
- call read_inopt(R_out,'R_out',db,ierr)
- call read_inopt(HoverRinput,'HoverRinput',db,ierr)
- call read_inopt(sig0,'sig0',db,ierr)
- call read_inopt(p_indexinput,'p_indexinput',db,ierr)
- call read_inopt(q_indexinput,'q_indexinput',db,ierr)
- call read_inopt(alphaSS,'alphaSS',db,ierr)
- call read_inopt(norbits,'norbits',db,ierr,min=1)
+ nerr = 0
+ call read_inopt(np,'np',db,errcount=nerr)
+ call read_inopt(kitp,'kitp',db,errcount=nerr)
+ call read_inopt(binarymassr,'binarymassr',db,errcount=nerr)
+ call read_inopt(accradius1,'accradius1',db,errcount=nerr)
+ call read_inopt(accradius2,'accradius2',db,errcount=nerr)
+ call read_inopt(R_in,'R_in',db,errcount=nerr)
+ call read_inopt(R_out,'R_out',db,errcount=nerr)
+ call read_inopt(HoverRinput,'HoverRinput',db,errcount=nerr)
+ call read_inopt(sig0,'sig0',db,errcount=nerr)
+ call read_inopt(p_indexinput,'p_indexinput',db,errcount=nerr)
+ call read_inopt(q_indexinput,'q_indexinput',db,errcount=nerr)
+ call read_inopt(alphaSS,'alphaSS',db,errcount=nerr)
+ call read_inopt(norbits,'norbits',db,errcount=nerr,min=1)
+ ierr = nerr
 
  call close_db(db)
  close(iunit)

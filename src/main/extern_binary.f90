@@ -24,6 +24,7 @@ module extern_binary
 !
 ! :Dependencies: dump_utils, infile_utils, io, physcon
 !
+ use part, only:x1,y1,x2,y2
  implicit none
  !
  !--code input parameters: these are the default values
@@ -44,8 +45,6 @@ module extern_binary
  public :: write_options_externbinary, read_options_externbinary
  public :: write_headeropts_externbinary, read_headeropts_externbinary
  private
-
- real, private :: x1,y1,x2,y2
 
  ! Required for HDF5 compatibility
  real, public :: a0 = 0.

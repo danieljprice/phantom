@@ -1112,6 +1112,9 @@ end subroutine get_honH
 !    5) alternative taper with smoothing
 !         sigma ~ (R/Rref)^-p * [1 - exp(R-Rout)] * (1 - sqrt(Rin/R))
 !
+!    6) KITP comparison project
+!         sigma ~  exp(-(R_in/R)**12)*(1. - 1./(1. + exp(-2*(R-R_out))))
+!
 !    TODO: accept any surface density profile from function or file
 !
 !------------------------------------------------------------------------
@@ -1120,7 +1123,7 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
  real,    intent(in)  :: R_in,R_out,R_c
  integer, intent(in)  :: sigmaprofile
 
- real :: sigma
+ real :: sigma,fr,delta
 
  select case (sigmaprofile)
  case (0)
@@ -1135,6 +1138,10 @@ function scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c) result(sigma)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))
  case (5)
     sigma = (R/R_ref)**(-pindex)*(1-exp(R-R_out))*(1-sqrt(R_in/R))
+ case (6)
+    fr = (1. - 1./(1. + exp(-2.*(R-R_out))))
+    delta = 1.e-5
+    sigma = ((1.-delta)*exp(-(R_in/R)**12) + delta)*fr
  case default
     call error('set_disc','unavailable sigmaprofile; surface density is set to zero')
     sigma = 0.
