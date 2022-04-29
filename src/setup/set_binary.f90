@@ -584,10 +584,14 @@ real function Rochelobe_estimate(m1,m2,sep)
  real, intent(in) :: m1,m2,sep
  real :: q,q13,q23
 
- q = m2/m1
- q13 = q**(1./3.)
- q23 = q13*q13
- Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ if (m1 > 0. .and. m2 > 0.) then
+    q = m2/m1
+    q13 = q**(1./3.)
+    q23 = q13*q13
+    Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ else
+    Rochelobe_estimate = sep
+ endif
 
 end function Rochelobe_estimate
 
