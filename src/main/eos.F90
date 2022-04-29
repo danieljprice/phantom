@@ -97,7 +97,7 @@ contains
 !----------------------------------------------------------------
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
- use part,          only:xyzmh_ptmass
+ use part,          only:xyzmh_ptmass,nptmass,x1,y1,x2,y2
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use physcon,       only:kb_on_mh,radconst
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
@@ -115,7 +115,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout), optional :: mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
  integer :: ierr
- real    :: r1,r2
+ real    :: r1,r2,m1,m2
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
@@ -284,9 +284,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--locally isothermal prescription from Farris et al. (2014) for binary system
 !
-    r1 = sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
-    r2 = sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
-    ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2))**(2*qfacdisc)
+    if (nptmass < 2) then
+       r1 = sqrt((xi-x1)**2+(yi-y1)**2 + (zi)**2)
+       r2 = sqrt((xi-x2)**2+(yi-y2)**2 + (zi)**2)
+       m1 = 0.5
+       m2 = 0.5
+    else
+       r1 = sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
+       r2 = sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
+       m1 = xyzmh_ptmass(4,1)
+       m2 = xyzmh_ptmass(4,2)
+    endif
+    ponrhoi=polyk*(m1/r1+m2/r2)**(2*qfacdisc)/(m1 + m2)**(2*qfacdisc)
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
@@ -356,6 +365,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use dim,            only:maxvxyzu,do_radiation
+ use part,           only:nptmass,x1,x2,y1,y2
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -412,6 +422,11 @@ subroutine init_eos(eos_type,ierr)
        ierr = ierr_option_conflict
     endif
 
+ case(14)
+    !if (nptmass < 2 .and. abs(x2-x1) < tiny(0.) .and. abs(y2-y1) < tiny(0.)) then
+   !    call error('eos','ieos=14 requires at least 2 sink particles, but ',var='nptmass',ival=nptmass)
+   !    ierr = ierr_option_conflict
+    !endif
  case(15)
 
     call eos_helmholtz_init(ierr)

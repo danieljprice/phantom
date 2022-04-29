@@ -378,7 +378,7 @@ module part
  +1                                   &  ! iorig
  +0
 
- real            :: hfact,Bextx,Bexty,Bextz
+ real            :: hfact,Bextx,Bexty,Bextz,x1,x2,y1,y2
  integer         :: npart
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0
