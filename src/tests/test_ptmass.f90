@@ -31,7 +31,7 @@ subroutine test_ptmass(ntests,npass)
  use io,      only:id,master,iskfile
  use eos,     only:polyk,gamma
  use part,    only:nptmass
- use options, only:iexternalforce
+ use options, only:iexternalforce,alpha
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr
@@ -50,6 +50,7 @@ subroutine test_ptmass(ntests,npass)
  polyk = 0.
  gamma = 1.
  iexternalforce = 0
+ alpha = 0.01
  !
  !  Tests of a sink particle binary
  !
@@ -99,7 +100,7 @@ subroutine test_binary(ntests,npass)
                       get_accel_sink_gas,f_acc
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
-                      hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispinz,iReff
+                      hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
  use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
@@ -116,10 +117,10 @@ subroutine test_binary(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
- integer, parameter :: nbinary_tests = 4
- real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,mred,tolen,hp_exact,hx_exact
+ integer, parameter :: nbinary_tests = 5
+ real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
- real :: angle
+ real :: angle,rin,rout
  real :: fxyz_sinksink(4,2) ! we only use 2 sink particles in the tests here
  character(len=20) :: dumpfile
  real, parameter :: tolgw = 1.2e-2
@@ -136,12 +137,14 @@ subroutine test_binary(ntests,npass)
     select case(itest)
     case(4)
        if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
-    case(2,3)
+    case(2,3,5)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
           cycle binary_tests
        else
-          if (itest==3) then
+          if (itest==5) then
+             if (id==master) write(*,"(/,a)") '--> testing integration of disc around oblate star'
+          elseif (itest==3) then
              if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
           else
              if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'
@@ -160,6 +163,13 @@ subroutine test_binary(ntests,npass)
     m1    = 1.
     m2    = 1.
     a     = 1.
+    rin   = 1.5*a
+    rout  = 15.*a
+    if (itest==5) then
+       m2 = 0.0
+       rin = 1.
+       rout = 5.
+    endif
     if (itest==3 .or. itest==4) then
        ecc = 0.5
     else
@@ -168,41 +178,39 @@ subroutine test_binary(ntests,npass)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
+    omega   = sqrt((m1+m2)/a**3)
     t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
     if (ierr /= 0) nerr = nerr + 1
-    if (itest==2 .or. itest==3) then
+
+    if (itest==2 .or. itest==3 .or. itest==5) then
        !  add a circumbinary gas disc around it
        nparttot = 1000
-       call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=1.5*a,rmax=15.*a,p_index=1.5,q_index=0.75,&
+       call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=rin,rmax=rout,p_index=1.0,q_index=0.75,&
                      HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
                      particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                      polyk=polyk,verbose=.false.)
-       npartoftype(1) = npart
+       npartoftype(igas) = npart
+    endif
 
-       !
-       ! check that no errors occurred when setting up disc
-       !
-       nfailed = 0
-       call check_setup(nerr,nwarn)
-       call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
-       !call checkval(nwarn,0,0,nfailed(2),'no warnings during disc setup')
-       call update_test_scores(ntests,nfailed,npass)
-    elseif (itest==4) then
+    if (itest==4 .or. itest==5) then
+       if (itest==5) nptmass = 1
        ! set oblateness
        xyzmh_ptmass(iJ2,1) = 0.01629
-       angle = 10.*deg_to_rad
+       angle = 45.*deg_to_rad
        xyzmh_ptmass(ispinx,1) = 1e2*sin(angle)
+       xyzmh_ptmass(ispiny,1) = 0.
        xyzmh_ptmass(ispinz,1) = 1e2*cos(angle)
        xyzmh_ptmass(iReff,1) = hacc1
-
-       ! make sure the tests pass
-       nfailed = 0
-       call check_setup(nerr,nwarn)
-       call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
-       call update_test_scores(ntests,nfailed,npass)
     endif
+    !
+    ! check that no errors occurred when setting up initial conditions
+    !
+    nfailed = 0
+    call check_setup(nerr,nwarn)
+    call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
+    call update_test_scores(ntests,nfailed,npass)
 
     tolv = 1.e3
     iverbose = 0
@@ -231,12 +239,12 @@ subroutine test_binary(ntests,npass)
     !
     !--take the sink-sink timestep specified by the get_forces routine
     !
-    dt      = C_force*dtsinksink !2.0/(nsteps)
+    dt      = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega)) !2.0/(nsteps)
     dtmax   = dt  ! required prior to derivs call, as used to set ibin
     !
     !--compute SPH forces
     !
-    if (itest==2 .or. itest==3) then
+    if (npart > 0) then
        fxyzu(:,:) = 0.
        call get_derivs_global()
     endif
@@ -263,10 +271,8 @@ subroutine test_binary(ntests,npass)
     !
     !--determine number of steps per orbit for information
     !
-    mred    = m1*m2/(m1 + m2)
-    omega   = sqrt(mred/a**3)
     nsteps  = int(2.*pi/omega/dt) + 1
-    if (itest==2 .or. itest==3) then
+    if (itest==2 .or. itest==3 .or. itest==5) then
        norbits = 10
     else
        norbits = 100
@@ -308,30 +314,28 @@ subroutine test_binary(ntests,npass)
           call checkval(angtot,angmomin,1.2e-6,nfailed(3),'angular momentum')
           call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
        endif
-       call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
+       tolen = 1.2e-2
     case(2)
        call checkval(angtot,angmomin,4.e-7,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,6.e-14,nfailed(2),'linear momentum')
        tolen = 2.e-3
        if (gravity) tolen = 3.1e-3
-       call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
     case default
-       if (calc_gravitwaves) then
+       if (calc_gravitwaves .and. itest==1) then
           call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
        call checkval(angtot,angmomin,3.1e-14,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-       if (itest==4) then ! energy conservation is ok but etot is small compared to ekin
-          call checkval(etotin+errmax,etotin,1.3e-2,nfailed(1),'total energy')
-       else
-          call checkval(etotin+errmax,etotin,3.e-8,nfailed(1),'total energy')
-      endif
+       tolen = 3.e-8
+       if (itest==4) tolen = 1.6e-2 ! etot is small compared to ekin
+       if (itest==5) tolen = 5.7e-1
     end select
     !
     !--check energy conservation
     !
+    call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
     do i=1,3
        call update_test_scores(ntests,nfailed(i:i),npass)
     enddo
