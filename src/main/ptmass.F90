@@ -291,6 +291,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
+ if (nptmass <= 1) return
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -405,10 +406,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              if (rr2 < rr2j) merge_ij(i) = j
           endif
        endif
-!       phitot = phitot + 0.5*pmassi*pmassj*pterm  ! total potential (G M_1 M_2/r)
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
-
 
     !
     !--apply external forces
