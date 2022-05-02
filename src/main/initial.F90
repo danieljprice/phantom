@@ -118,7 +118,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
-                            externalforce_vdependent
+                            externalforce_vdependent,iext_binary
  use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
@@ -211,6 +211,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
+ use torques,          only:init_torques,write_torques
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -627,6 +628,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call binpos_init(ibinpos,evfile) !take evfile in input to create string.binpos
  call binpos_write(time, dt)
 #endif
+ if (iexternalforce==iext_binary) then
+    call init_torques(evfile)
+    call write_torques(time)
+ endif
 !
 !--Determine the maximum separation of particles
  xmax = -huge(xmax)

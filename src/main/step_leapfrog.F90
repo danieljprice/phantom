@@ -1058,7 +1058,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
-                          update_vdependent_extforce_leapfrog,is_velocity_dependent
+                          update_vdependent_extforce_leapfrog,is_velocity_dependent,iext_binary
  use ptmass,         only:ptmass_predictor,ptmass_corrector,ptmass_accrete, &
                           get_accel_sink_gas,get_accel_sink_sink,merge_sinks,f_acc,pt_write_sinkev, &
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
@@ -1086,6 +1086,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
  use krome_interface, only: update_krome
 #endif
+ use torques, only:write_torques
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -1498,6 +1499,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           last_step = .true.
        endif
     endif
+
+    if (iexternalforce==iext_binary) call write_torques(timei)
+
  enddo substeps
 
  deallocate(dptmass)

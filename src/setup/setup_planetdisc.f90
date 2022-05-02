@@ -200,7 +200,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     omegab = 1.
     v0 = 1.e-4*omegab*a0
     do i=1,npart
-       r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       r = sqrt(dot_product(xyzh(1:2,i),xyzh(1:2,i)))
        phi = atan2(xyzh(2,i),xyzh(1,i))
        vr = v0*sin(phi)*r/a0*exp(-(r/(3.5*a0))**6)
        omega0 = sqrt((1./r**3)*(1.-HoverRinput**2))
@@ -213,6 +213,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ramp = .false.
     eps_soft1 = accradius1
     eps_soft2 = accradius2
+    dtmax = dtmax/10.
  endif
 
 end subroutine setpart

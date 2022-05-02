@@ -365,7 +365,8 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use dim,            only:maxvxyzu,do_radiation
- use part,           only:nptmass,x1,x2,y1,y2
+ use options,        only:iexternalforce
+ use part,           only:nptmass
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -423,10 +424,10 @@ subroutine init_eos(eos_type,ierr)
     endif
 
  case(14)
-    !if (nptmass < 2 .and. abs(x2-x1) < tiny(0.) .and. abs(y2-y1) < tiny(0.)) then
-   !    call error('eos','ieos=14 requires at least 2 sink particles, but ',var='nptmass',ival=nptmass)
-   !    ierr = ierr_option_conflict
-    !endif
+    if (nptmass < 2 .and. .not. iexternalforce==3) then
+       call error('eos','ieos=14 requires at least 2 sink particles, but ',var='nptmass',ival=nptmass)
+       ierr = ierr_option_conflict
+    endif
  case(15)
 
     call eos_helmholtz_init(ierr)
