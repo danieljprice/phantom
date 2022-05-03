@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer      :: i,j,nbad,itype,nunity,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas
+ real         :: hi,hmin,hmax,dust_to_gas_mean
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -387,7 +387,7 @@ subroutine check_setup(nerror,nwarn,restart)
  if (use_dustfrac) then
     nbad = 0
     nunity = 0
-    dust_to_gas = 0.
+    dust_to_gas_mean = 0.
     do i=1,npart
        do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
@@ -396,10 +396,11 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo
+    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
@@ -417,7 +418,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
+    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
  endif
 
 #ifdef GR
@@ -671,6 +672,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use utils_gr,     only:get_u0
  use part,         only:isdead_or_accreted
  use units,        only:in_geometric_units,get_G_code,get_c_code
+ use options,      only:ien_type,ien_entropy,ien_etotal
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
@@ -706,6 +708,12 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
  if (nbad > 0) then
     print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nbad,' of ',npart,' particles have |v| > 1 or u > 1, giving undefined U^0'
+    nerror = nerror + 1
+ endif
+
+ if (ien_type /= ien_etotal .and. ien_type /= ien_entropy) then
+    print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
+                                 ien_entropy, ' or ', ien_etotal, ' but get ', ien_type
     nerror = nerror + 1
  endif
 
