@@ -186,9 +186,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
-#ifdef DUST_NUCLEATION
  use dust_formation,   only:init_nucleation
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -523,10 +521,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
  endif
-#if defined(DUST_NUCLEATION) && !defined(INJECT_PARTICLES)
  !initialize nucleation array at the start of the run only
  if (do_nucleation .and. time == 0.) call init_nucleation
-#endif
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
