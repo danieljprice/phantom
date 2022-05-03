@@ -93,11 +93,12 @@ module setup
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid
  use options,          only:use_mcfost,use_mcfost_stellar_parameters,mcfost_computes_Lacc
- use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
+ use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,&
+                            iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,rad,radprop,ikappa,iradxi
- use physcon,          only:au,solarm,jupiterm,earthm,pi,years
+ use physcon,          only:au,solarm,jupiterm,jupiterr,earthm,earthr,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
@@ -186,6 +187,8 @@ module setup
  integer :: nplanets,discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: J2planet(maxplanets),spin_period(maxplanets),obliquity(maxplanets)
+ real    :: planet_size(maxplanets),kfac(maxplanets)
  real    :: period_planet_longest
 
  !--planetary atmosphere
@@ -432,6 +435,11 @@ subroutine set_default_options()
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
  accrplanet    = 0.25
  inclplan      = 0.
+ J2planet      = 0.
+ spin_period   = 0.
+ obliquity     = 0.
+ planet_size   = 0.
+ kfac          = 0.205
 
  !--stratification
  istratify     = .false.
@@ -774,7 +782,7 @@ subroutine setup_central_objects()
        xyzmh_ptmass(1:3,nptmass)    = 0.
        xyzmh_ptmass(4,nptmass)      = m1
        xyzmh_ptmass(ihacc,nptmass)  = accr1
-       xyzmh_ptmass(ihsoft,nptmass) = accr1
+       xyzmh_ptmass(ihsoft,nptmass) = 0.
        vxyz_ptmass                  = 0.
        mcentral                     = m1
     case (2)
@@ -1531,7 +1539,8 @@ end subroutine print_dust
 !
 !--------------------------------------------------------------------------
 subroutine set_planets(npart,massoftype,xyzh)
- use vectorutils, only:rotatevec
+ use vectorutils, only:rotatevec,unitvec,mag
+ use units,       only:unit_angmom
  integer, intent(in) :: npart
  real,    intent(in) :: massoftype(:)
  real,    intent(in) :: xyzh(:,:)
@@ -1539,14 +1548,13 @@ subroutine set_planets(npart,massoftype,xyzh)
  integer :: i,j,itype
  real    :: dist_bt_sinks
  real    :: phi,vphi,sinphi,cosphi,omega,r2,disc_m_within_r
- real    :: Hill(maxplanets)
+ real    :: Hill(maxplanets),planet_radius,planet_spin_period,spin_am
  real    :: u(3)
 
  period_planet_longest = 0.
  if (nplanets > 0) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
-
        nptmass = nptmass + 1
        phi = 0.
        phi = phi*pi/180.
@@ -1579,7 +1587,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
        xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
-       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)*Hill(i)
+       xyzmh_ptmass(ihsoft,nptmass) = 0.
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
@@ -1594,10 +1602,24 @@ subroutine set_planets(npart,massoftype,xyzh)
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
 
+       !--compute obliquity and spin angular momentum
+       if (J2planet(i) > 0.) then
+          xyzmh_ptmass(iJ2,nptmass) = J2planet(i)
+          ! compute spin angular momentum of the planet
+          planet_radius = planet_size(i)*jupiterr/udist
+          planet_spin_period = spin_period(i)*hours/utime
+          spin_am = twopi*kfac(i)*(xyzmh_ptmass(4,nptmass)*planet_radius**2)/planet_spin_period
+          xyzmh_ptmass(ispinx,nptmass) = spin_am*sin(obliquity(i)*deg_to_rad)
+          xyzmh_ptmass(ispinz,nptmass) = spin_am*cos(obliquity(i)*deg_to_rad)
+          xyzmh_ptmass(iReff,nptmass) = planet_radius
+       else
+          planet_spin_period = 0.
+       endif
+
        !--print planet information
        omega = vphi/rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
-       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' AU'
+       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' au'
        print "(a,g10.3,a,2pf7.3,a)", '          M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
                                      ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
        print "(a,g10.3,a)",          '    planet mass: ',mplanet(i),' MJup'
@@ -1605,14 +1627,28 @@ subroutine set_planets(npart,massoftype,xyzh)
        print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/solarm,' MSun'
        print "(a,2(g10.3,a))",       ' orbital period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
                                                  2*pi*rplanet(i)/vphi,' in code units'
-       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' AU'
-       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' AU or ', &
+       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' au'
+       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' au or ', &
                                                  int(100*xyzmh_ptmass(ihacc,nptmass)/Hill(i)), ' % of Hill radius'
        print "(a,g10.3,a)",          '     resonances:'
-       print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
+       print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' au'
+       if (abs(xyzmh_ptmass(iJ2,nptmass)) > 0.) then
+          print "(a,g10.3)",      '      J2 moment: ',xyzmh_ptmass(iJ2,nptmass)
+          print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,nptmass)*udist/jupiterr,' Jupiter radii'
+          print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,nptmass)*udist/earthr,' Earth radii'
+          print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,nptmass)*udist/au,' au'
+          u = unitvec(xyzmh_ptmass(ispinx:ispinz,nptmass))
+          print "(a,g10.3,a)",    '      obliquity: ',acos(u(3))/deg_to_rad,' degrees to z=0 plane'
+          print "(a,g10.3,a)",    '         period: ',planet_spin_period*utime/hours,' hrs'
+          print "(a,3(g10.3,1x))",'       spin vec: ',u
+          print "(/,a,g10.3,a)",    '# Planet total angular momentum =  ',&
+                mag(xyzmh_ptmass(ispinx:ispinz,nptmass))*unit_angmom,' g cm^2 / s'
+          print "(/,a,'(',3(es10.2,1x),')')",' Planet specific angular momentum = ',&
+                xyzmh_ptmass(ispinx:ispinz,nptmass)/xyzmh_ptmass(4,nptmass)
+       endif
 
        !--check planet accretion radii
        if (accrplanet(i) < 0.05) then
@@ -1621,6 +1657,12 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
        elseif (accrplanet(i)*Hill(i) > accr1) then
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
+       endif
+       if (xyzmh_ptmass(iReff,nptmass) > 0.25*Hill(i)) then
+          call warning('setup_disc','planet size exceeds 1/4 of Hill radius: too large')
+       endif
+       if (xyzmh_ptmass(iReff,nptmass) > max(xyzmh_ptmass(ihacc,nptmass),xyzmh_ptmass(ihsoft,nptmass))) then
+          call warning('setup_disc','planet size exceeds accretion radius: too large')
        endif
        print *, ''
 
@@ -2361,6 +2403,13 @@ subroutine write_setupfile(filename)
        call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'planet distance from star',iunit)
        call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet orbital inclination (deg)',iunit)
        call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet accretion radius (in Hill radius)',iunit)
+       call write_inopt(J2planet(i),'J2planet'//trim(planets(i)),'planet J2 moment',iunit)
+       if (abs(J2planet(i)) > 0.) then
+          call write_inopt(planet_size(i),'size'//trim(planets(i)),'planet radius (Jupiter radii)',iunit)
+          call write_inopt(spin_period(i),'spin_period'//trim(planets(i)),'planet spin period (hrs)',iunit)
+          call write_inopt(kfac(i),'kfac'//trim(planets(i)),'planet concentration parameter',iunit)
+          call write_inopt(obliquity(i),'obliquity'//trim(planets(i)),'planet obliquity (degrees)',iunit)
+       endif
     enddo
  endif
  ! stratification
@@ -2699,6 +2748,13 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
     call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
     call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(J2planet(i),'J2planet'//trim(planets(i)),db,min=-1.0,max=1.0) ! optional, no error if not read
+    if (abs(J2planet(i)) > 0.) then
+       call read_inopt(planet_size(i),'size'//trim(planets(i)),db,errcount=nerr)
+       call read_inopt(spin_period(i),'spin_period'//trim(planets(i)),db,errcount=nerr)
+       call read_inopt(kfac(i),'kfac'//trim(planets(i)),db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(obliquity(i),'obliquity'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
+    endif
  enddo
  !--timestepping
  !  following two are optional: not an error if not present

@@ -19,7 +19,7 @@ module vectorutils
 !
  implicit none
  public :: minmaxave,cross_product3D,curl3D_epsijk,det
- public :: matrixinvert3D,rotatevec,unitvec
+ public :: matrixinvert3D,rotatevec,unitvec,mag
 
  private
 
@@ -171,5 +171,18 @@ pure function unitvec(u) result(uhat)
  endif
 
 end function unitvec
+
+!------------------------------------------------------------------------
+!+
+!  magnitude of a vector
+!+
+!------------------------------------------------------------------------
+pure function mag(u) result(umag)
+ real, intent(in) :: u(3)
+ real :: umag
+
+ umag = sqrt(dot_product(u,u))
+
+end function mag
 
 end module vectorutils

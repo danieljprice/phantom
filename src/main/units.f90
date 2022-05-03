@@ -26,7 +26,7 @@ module units
 !
  real(kind=8), public :: udist = 1.d0, umass = 1.d0, utime = 1.d0
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
- real(kind=8), public :: unit_pressure, unit_density
+ real(kind=8), public :: unit_pressure, unit_density, unit_angmom
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity
 
  public :: set_units, set_units_extra, print_units
@@ -138,6 +138,7 @@ subroutine set_units_extra()
  unit_ergg     = unit_velocity**2
  unit_energ    = umass*unit_ergg
  unit_opacity  = udist**2/umass
+ unit_angmom   = umass*udist*unit_velocity  ! mr x v
 
 end subroutine set_units_extra
 
