@@ -101,6 +101,71 @@ ifeq ($(SYSTEM), ozstar)
     WALLTIME='168:00:00'
 endif
 
+ifeq ($(SYSTEM), irustyarch)
+#   Flatiron rusty cluster rome node, AMD EPYC 7742
+    include Makefile_defaults_ifort
+    FFLAGS= -Ofast -mcmodel=medium -march=core-avx2
+    NOMP=64
+    QSYS = slurm
+    QNAME='rome'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), irustyopt)
+#   Flatiron rusty cluster rome node, AMD EPYC 7742
+    include Makefile_defaults_ifort
+    FFLAGS= -Ofast -mcmodel=medium
+    NOMP=64
+    QSYS = slurm
+    QNAME='rome'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), irusty)
+#   Flatiron rusty cluster rome node, AMD EPYC 7742
+    include Makefile_defaults_ifort
+    FFLAGS= -mcmodel=medium
+    NOMP=64
+    QSYS = slurm
+    QNAME='rome'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), ipopeyearch)
+#   Flatiron popeye cluster icelake node
+    include Makefile_defaults_ifort
+    FFLAGS= -Ofast -mcmodel=medium -march=core-avx2
+    NOMP=64
+    QSYS = slurm
+    QNAME='icelake'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), ipopeyeopt)
+#   Flatiron popeye cluster icelake node
+    include Makefile_defaults_ifort
+    FFLAGS= -Ofast -mcmodel=medium
+    NOMP=64
+    QSYS = slurm
+    QNAME='icelake'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+ifeq ($(SYSTEM), ipopeye)
+#   Flatiron popeye cluster icelake node
+    include Makefile_defaults_ifort
+    FFLAGS= -mcmodel=medium
+    NOMP=64
+    QSYS = slurm
+    QNAME='icelake'
+    QPARTITION='cca'
+    WALLTIME='168:00:00'
+endif
+
 ifeq ($(SYSTEM), monarch)
     include Makefile_defaults_ifort
     OMPFLAGS=-qopenmp -qopt-report
