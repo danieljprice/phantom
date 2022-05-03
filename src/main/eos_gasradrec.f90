@@ -60,11 +60,12 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
        T = T-corr
        Tdot = 0.
     endif
+    print*,n,T,corr,eint/d,erec
     if (abs(corr)<eoserr*T) exit
     if (n>50) dt=0.5
  enddo
  if (n > 500) then
-    print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu
+    print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  p = ( Rg*imu*d + radconst*T**3/3. )*T

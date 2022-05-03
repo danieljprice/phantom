@@ -149,7 +149,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call set_sinkproperties(xyzmh_ptmass)
     end select
 
- else
+ else  ! One or fewer point masses
     !choose what to do with the star: set a binary or setup a magnetic field
     print "(9(/,a))",'1) Set up a binary system by adding a sink companion', &
                      '2) Set up a magnetic field in the star', &
