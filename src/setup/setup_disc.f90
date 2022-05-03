@@ -766,7 +766,7 @@ subroutine setup_central_objects()
        mass1                = m1
        accradius1           = accr1
        blackhole_spin       = bhspin
-       blackhole_spin_angle = bhspinangle*(pi/180.0)
+       blackhole_spin_angle = bhspinangle*deg_to_rad
        mcentral             = m1
     end select
     call update_externalforce(iexternalforce,tinitial,0.)
@@ -1010,8 +1010,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  character(len=100) :: dustprefix(maxdusttypes)
 
  hfact = hfact_default
- incl    = incl*(pi/180.0)
- posangl = posangl*(pi/180.0)
+ incl    = incl*deg_to_rad
+ posangl = posangl*deg_to_rad
  if (maxalpha==0) alpha = alphaSS
  npart = 0
  npartoftype(:) = 0
@@ -1557,9 +1557,8 @@ subroutine set_planets(npart,massoftype,xyzh)
     do i=1,nplanets
        nptmass = nptmass + 1
        phi = 0.
-       phi = phi*pi/180.
-       cosphi = cos(phi)
-       sinphi = sin(phi)
+       cosphi = cos(phi*deg_to_rad)
+       sinphi = sin(phi*deg_to_rad)
        disc_m_within_r = 0.
 
        !--disc mass correction
@@ -1597,7 +1596,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        endif
 
        !--incline positions and velocities
-       inclplan(i) = inclplan(i)*pi/180.
+       inclplan(i) = inclplan(i)*deg_to_rad
        u = (/-sin(phi),cos(phi),0./)
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
