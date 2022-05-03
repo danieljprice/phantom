@@ -68,7 +68,6 @@ module setup
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
-!   - setplanets    : *add planets? (0=no,1=yes)*
 !   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - temp_atm0     : *atmosphere temperature scaling factor*
@@ -183,8 +182,8 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: questplanets,istratify
- integer :: nplanets,setplanets, discstrat
+ logical :: istratify
+ integer :: nplanets,discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
  real    :: period_planet_longest
@@ -428,8 +427,6 @@ subroutine set_default_options()
  np_dust = np/maxdustlarge/5
 
  !--planets
- questplanets  = .false.
- setplanets    = 0
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
@@ -1546,7 +1543,7 @@ subroutine set_planets(npart,massoftype,xyzh)
  real    :: u(3)
 
  period_planet_longest = 0.
- if (setplanets==1) then
+ if (nplanets > 0) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
 
@@ -1682,7 +1679,7 @@ subroutine set_tmax_dtmax()
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
- elseif (setplanets==1) then
+ elseif (nplanets > 0) then
     !--outer planet orbital period
     period = period_planet_longest
  elseif (iwarp(onlydisc)) then
@@ -2041,18 +2038,13 @@ subroutine setup_interactive()
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
  print "(a)",  '================='
- call prompt('Do you want to add planets?',questplanets)
- if (questplanets) then
-    setplanets = 1
-    nplanets   = 1
-    call prompt('Enter the number of planets',nplanets,1,maxplanets)
- endif
+ call prompt('How many planets?',nplanets,0,maxplanets)
 
  !--simulation time
  print "(/,a)",'================'
  print "(a)",  '+++  OUTPUT  +++'
  print "(a)",  '================'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
@@ -2361,9 +2353,8 @@ subroutine write_setupfile(filename)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
- call write_inopt(setplanets,'setplanets','add planets? (0=no,1=yes)',iunit)
- if (setplanets==1) then
-    call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ if (nplanets > 0) then
     do i=1,nplanets
        write(iunit,"(/,a)") '# planet:'//trim(planets(i))
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
@@ -2386,7 +2377,7 @@ subroutine write_setupfile(filename)
  endif
  !--timestepping
  write(iunit,"(/,a)") '# timestepping'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
  elseif (icentral==1 .and. nsinks>=2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
@@ -2702,16 +2693,13 @@ subroutine read_setupfile(filename,ierr)
  enddo
  if (maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  !--planets
- call read_inopt(setplanets,'setplanets',db,min=0,max=1,errcount=nerr)
- if (setplanets==1) then
-    call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
-    do i=1,nplanets
-       call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
-       call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-    enddo
- endif
+ call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
+ do i=1,nplanets
+    call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
+    call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+ enddo
  !--timestepping
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
