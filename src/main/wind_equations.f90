@@ -70,21 +70,21 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
        dt_next = 0.
        exit
     endif
-#ifdef MYMETHOD
-    !my empirical method requires slightly less iterations
-    if (err > rvt_tol) then
-       dt = dt * 0.1
-    else
-       if (err < 1.d-3) then
-          !dt_next = dt * 1.05
-          dt_next = min(dt*1.25,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
-          !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
-       else
-          dt_next = dt
-       endif
-       exit
-    endif
-#else
+
+    ! my empirical method requires slightly less iterations
+    ! if (err > rvt_tol) then
+    !    dt = dt * 0.1
+    ! else
+    !    if (err < 1.d-3) then
+    !       !dt_next = dt * 1.05
+    !       dt_next = min(dt*1.25,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
+    !       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
+    !    else
+    !       dt_next = dt
+    !    endif
+    !    exit
+    ! endif
+
     !rkqs version
     errmax = err/rvt_tol
     if (errmax > 1.) then
@@ -104,7 +104,7 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
        endif
        exit
     endif
-#endif
+
  enddo
  rvT = new_rvT
 
