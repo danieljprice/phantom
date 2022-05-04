@@ -2139,26 +2139,25 @@ subroutine print_velocities(time,num,npart,particlemass,xyzh,vxyzu)
  integer, intent(in) :: npart,num
  real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter
- character(len=40) :: file_name
- integer :: i,iu,ncols
- real :: vpart2(npart),vpart(npart)
+ character(len=40)   :: file_name
+ integer             :: i,iu,ncols
+ real                :: vr(npart)
 
  do i = 1,npart
-    vpart2(i) = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+    vr(i) = dot_product(xyzh(1:3,i),vxyzu(1:3,i)) / sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
  enddo
- vpart = sqrt(vpart2)
 
  ncols = npart
- write(data_formatter, "(a,I2.2,a)") "(", ncols+1, "(2x,es18.11e2))"
+ write(data_formatter, "(a,I6.6,a)") "(", ncols+1, "(2x,es18.11e2))"
  file_name = "particle_vel.ev"
 
  if (num == 0) then
     open(newunit=iu, file=file_name, status='replace')
  else
-    open(unit=iu, file=file_name, position='append')
+    open(newunit=iu, file=file_name, position='append')
  endif
 
- write(iu,data_formatter) time, vpart
+ write(iu,data_formatter) time,vr
  close(unit=iu)
 
 end subroutine print_velocities
