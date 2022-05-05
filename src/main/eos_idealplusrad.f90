@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module eos_idealplusrad
 !
  use physcon,  only:Rg,radconst
  implicit none
- real, parameter :: tolerance = 1d-15
+ real, parameter :: tolerance = 1e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
@@ -45,7 +45,7 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,gamma,tempi,ierr)
 
  gasfac = 1./(gamma-1.)
  imu = 1./mu
- if (tempi <= 0.) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
+ if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
  ierr = 0
  iter = 0
@@ -64,7 +64,7 @@ end subroutine get_idealplusrad_temp
 
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
  real, intent(in)    :: rhoi,mu
- real, intent(inout) :: tempi
+ real, intent(in)    :: tempi
  real, intent(out)   :: presi
 
  presi = Rg*rhoi*tempi/mu + 1./3.*radconst*tempi**4 ! Eq 13.2 (Kippenhahn et al.)

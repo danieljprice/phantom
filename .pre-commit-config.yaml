@@ -1,0 +1,6 @@
+-   repo: local
+    hooks:
+    -   id: bots
+        name: Run bots
+        entry: scripts/bots.sh --apply --file
+        language: script

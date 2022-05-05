@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, kernel, part, units
+! :Dependencies: dim, dust_formation, kernel, part, units
 !
 
  implicit none
@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
 
- real    :: r,L_star,T_star,R_star,xa,ya,za
+ real    :: L_star,T_star,R_star,xa,ya,za
  integer :: j
 
  call set_abundances
@@ -65,7 +65,7 @@ end subroutine do_analysis
 !+
 !-------------------------------------------------------------------------------
 subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
- use part,  only:isdead_or_accreted,nucleation
+ use part,  only:isdead_or_accreted,nucleation,idK3
  use dim,   only:do_nucleation
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
@@ -94,10 +94,10 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
        !d2_axis = sq_distance_to_z(r)
        d2_axis = sq_distance_to_line(r,u)
        if (d2_axis < 4.*xyzh(4,i)*xyzh(4,i)) then
-          !$omp critical
+          !$omp critical (naxis_add)
           naxis = naxis+1
           idx_axis(naxis) = i
-          !$omp end critical
+          !$omp end critical (naxis_add)
        endif
     endif
  enddo
@@ -108,10 +108,11 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
 
  if (do_nucleation) then
     call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
-         rho_over_r2, dust_temp, Teq,nucleation(5,:), K3)
+         rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  else
-    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho_over_r2, dust_temp, Teq)
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+         rho_over_r2, dust_temp, Teq)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
  endif
  call interpolate_on_particles(npart, N, dmax, r0, Teq, dust_temp, xyzh)
@@ -124,7 +125,7 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,kappa_dust_bowen,idust_opacity
+ use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
  real,    optional, intent(in) :: K3(N)
@@ -161,12 +162,12 @@ subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
     do i=N-1,istart+1,-1
        if (idust_opacity == 2) then
           if (rho(i) > 0.) then
-             call calc_kappa_dust(K3(i),Teq(i),rho(i),kappa(i))
+             kappa(i) = calc_kappa_dust(K3(i),Teq(i),rho(i))
           else
              kappa(i) = 0.d0
           endif
        elseif (idust_opacity == 1) then
-          kappa(i) = kappa_dust_bowen(Teq(i))
+          kappa(i) = calc_kappa_bowen(Teq(i))
        endif
        rho_on_r2(i) = rho_over_r2(N-i)+rho_over_r2(N-i+1)+rho_over_r2(N+i+1)+rho_over_r2(N+i+2)
        !if (iter >= 1) print *,'teq loop',i,K3(i),Teq(i),kappa(i),rho_on_r2(i)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -100,9 +100,10 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'period           :',period, &
         'eccentricity     :',eccentricity, &
         'pericentre       :',semimajoraxis*(1. - eccentricity), &
-        'apocentre        :',semimajoraxis*(1. + eccentricity)
+        'apocentre        :',semimajoraxis*(1. + eccentricity), &
+        'Roche lobe #1    :',Rochelobe1, &
+        'Roche lobe #2    :',Rochelobe2
  endif
-
  if (accretion_radius1 > Rochelobe1) then
     print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
  endif
@@ -194,7 +195,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  ! positions of each star so centre of mass is at zero
  x1 = -dx*m2/mtot
  x2 =  dx*m1/mtot
- 
+
  ! velocities
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
  v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
@@ -369,7 +370,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              rel_arg_peri = arg_peri
              rel_incl = incl
           endif
-          
+
           mtot = data(i, 3)
           m_comp = data(i, 4)
           a_comp = data(i, 5)
@@ -390,12 +391,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           q2=m2/m1
           mprimary = mtot/(1+q2)
           msecondary = mtot*q2/(1+q2)
-          
-          ! test Jolien
-          !print "(3(2x,a,g12.3,/),2x,a,g12.3)", &
-          !  'mprimary     :',mprimary, &
-          !  'msecondary   :',msecondary
-    
+
           io=1
           exit
        endif
@@ -436,7 +432,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     nptmass = nptmass-1
     i1 = subst_index
     i2 = nptmass
-  
+
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
 
@@ -446,7 +442,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 !     'mass i1:',xyzmh_ptmass(4,i1), &
 !     'i2     :',i2, &
 !     'mass i2:',xyzmh_ptmass(4,i2)
-    
+
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 

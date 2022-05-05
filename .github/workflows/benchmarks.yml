@@ -26,6 +26,7 @@ env:
 jobs:
 
   extract:
+    if: github.repository == 'danieljprice/phantom'
     runs-on: ubuntu-latest
     outputs:
       setups: ${{ steps.extract_step.outputs.setups }}
@@ -48,7 +49,6 @@ jobs:
         setup: ${{fromJson(needs.extract.outputs.setups)}}
 
     name: bench (SETUP=${{ matrix.setup }})
-
     runs-on: self-hosted
 
     steps:
@@ -108,7 +108,7 @@ jobs:
   plot:
     runs-on: ubuntu-latest
     needs: bench
-    if: ${{ always() && github.event_name == 'schedule' }}
+    if: ${{ always() && github.event_name == 'schedule' && github.repository == 'danieljprice/phantom' }}
     steps:
 
     - name: "Clone phantom"
