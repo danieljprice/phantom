@@ -298,7 +298,7 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wind setup routine'
  if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff_au > 0.) &
-      primary_Teff = (primary_lum_lsun*solarl/(4.*pi*(steboltz*primary_Reff_au*au)**2))**0.25
+      primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*(primary_Reff_au*au)**2))**0.25
  if (primary_Reff_au == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) &
       primary_Reff_au = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/au
  if (primary_Reff_au > 0. .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) &
