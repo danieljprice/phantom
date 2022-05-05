@@ -86,7 +86,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz
- use units,     only: umass, set_units,unit_velocity
+ use units,     only: umass,set_units,unit_velocity
  use inject,    only: init_inject
  use setbinary, only: set_binary
  use io,        only: master
@@ -187,9 +187,11 @@ subroutine setup_interactive()
  use units,     only:umass,udist
  use io,        only:fatal
 
+#ifdef ISOTHERMAL
+ iwind = 2
+#else
  iwind = 1
  call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
-#ifndef ISOTHERMAL
  if (iwind == 2 .or. iwind == 3) then
     call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
  endif
