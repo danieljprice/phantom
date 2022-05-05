@@ -571,7 +571,7 @@ edit: checksetup
 # these are the sources for anything which uses the readwrite_dumps module
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
-         utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
+         utils_omp.F90 utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
          mpi_dens.F90 mpi_force.F90 \
          mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
@@ -748,7 +748,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = utils_omp.F90 prompting.o set_Bfield.o density_profiles.o ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
