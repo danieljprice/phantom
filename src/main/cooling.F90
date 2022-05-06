@@ -319,8 +319,8 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
                     call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1 .and. present(kappa)) &
                     call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
- if (do_molecular_cooling) &
-                    call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
+ !if (do_molecular_cooling) &
+ !                   call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
  if (Q_cgs == 0.) then
@@ -863,7 +863,7 @@ subroutine write_options_cooling(iunit)
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)',iunit)
     select case(icooling)
     case(1)
-       call write_options_molecularcooling(iunit)
+       !call write_options_molecularcooling(iunit)
        call write_inopt(excitation_HI,'excitation_HI','cooling via electron excitation of HI [1=on/0=off]',iunit)
        call write_inopt(relax_bowen,'relax_bowen','Bowen (diffusive) relaxation [1=on/0=off]',iunit)
        call write_inopt(relax_stefan,'relax_stefan','radiative relaxation [1=on/0=off]',iunit)
@@ -946,7 +946,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
  end select
- if (icooling > 0 .and. .not. imatch) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
+ !if (icooling > 0 .and. .not. imatch) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
  if (icooling == 1 .and. ngot >= 9) igotall = .true.
