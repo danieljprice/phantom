@@ -557,7 +557,7 @@ end subroutine cooling_KoyamaInutuska_implicit
 !   explicit cooling
 !
 !-----------------------------------------------------------------------
-subroutine explicit_cooling (xi,yi,zi,ui, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
+subroutine explicit_cooling (xi,yi,zi, ui, dudt, rho, dt, mu, gamma, Trad, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
  real, intent(in) :: xi, yi, zi, ui, rho, dt, Trad, mu, gamma !code units
@@ -585,29 +585,24 @@ end subroutine explicit_cooling
 !   implicit cooling
 !
 !-----------------------------------------------------------------------
-subroutine implicit_cooling (r, ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
- use eos,     only:gamma,gmw
+subroutine implicit_cooling (xi,yi,zi, ui, dudt, rho, dt, mu, gamma, Trad, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
- real, intent(in) :: ui, rho, dt
- real, intent(in), optional :: Trad, mu_in, K2, kappa
+ real, intent(in) :: xi,yi,zi, ui, rho, dt, mu, gamma
+ real, intent(in), optional :: Trad, K2, kappa
  real, intent(out) :: dudt
 
  real, parameter :: tol = 1.d-4 ! to be adjusted
  integer, parameter :: iter_max = 200
- real :: u,Q,dlnQ_dlnT,T,mu,T_on_u,delta_u,term1,term2
+ real :: u,Q,dlnQ_dlnT,T,T_on_u,delta_u,term1,term2
  real :: r    ! in au
  integer :: iter
 
- if (.not.present(mu_in)) then
-    mu = gmw
- else
-    mu = mu_in
- endif
  u = ui
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  delta_u = 1.d-3
  iter = 0
+ r = sqrt(xi**2+yi**2+zi**2)
  !The pdv_work also depends on the internal energy and could also be included
  !in this loop provided this contribution was not accounted for in Force.F90
  ! see PP flag : IMPLICIT COOLING - pb: we need div(v) and it is only real*4
@@ -649,8 +644,9 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
 
  select case (icooling)
  case(1)
-    call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
-    !call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
+    call implicit_cooling (xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
+    !call explicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
+    !call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt ,mu, polyIndex, Trad, K2, kappa)
  case (2)
     call exact_cooling_table(ui,rho,dt,dudt,mu,polyIndex)
  case (3)
@@ -664,10 +660,10 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  case (6)
     call cooling_KoyamaInutuska_implicit(ui,rho,dt,dudt)
  case default
-    !call exact_cooling(r, u, dudt, rho, dt, Trad, mu_in, K2, kappa)
-    !call implicit_cooling(u, dudt, rho, dt, Trad, mu_in, K2, kappa)
+    !call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
+    !call implicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
     if (present(Trad) .and. present(K2) .and. present(kappa)) then
-       call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu_in, K2, kappa)
+       call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
     else
        call fatal('energ_cooling','default requires optional arguments; change icooling or ask D Price or L Siess to patch')
     endif
@@ -681,10 +677,10 @@ end subroutine energ_cooling
 !   analytical cooling rate prescriptions
 !
 !-----------------------------------------------------------------------
-subroutine exact_cooling (xi,yi,zi, u, dudt, rho, dt, Trad, mu, gamma, K2, kappa)
+subroutine exact_cooling    (xi,yi,zi, ui, dudt, rho, dt, mu, gamma, Trad, K2, kappa)
  use physcon, only:Rg
  use units,   only:unit_ergg
- real, intent(in) :: xi,yi,zi, u, rho, dt, Trad, mu, gamma
+ real, intent(in) :: xi,yi,zi, ui, rho, dt, Trad, mu, gamma
  real, intent(in), optional :: K2, kappa
  real, intent(out) :: dudt
 
@@ -695,7 +691,7 @@ subroutine exact_cooling (xi,yi,zi, u, dudt, rho, dt, Trad, mu, gamma, K2, kappa
 
  r  = sqrt(xi*xi + yi*yi + zi*zi)
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
- T = T_on_u*u
+ T = T_on_u*ui
 
  if (T < T_floor) then
     Temp = T_floor
