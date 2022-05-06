@@ -50,10 +50,11 @@ module timing
                                  itimer_force         = 9,  &
                                  itimer_force_local   = 10, &
                                  itimer_force_remote  = 11, &
-                                 itimer_extf          = 12, &
-                                 itimer_ev            = 13, &
-                                 itimer_io            = 14
- integer, public, parameter :: ntimers = 14 ! should be equal to the largest itimer index
+                                 itimer_cons2prim     = 12, &
+                                 itimer_extf          = 13, &
+                                 itimer_ev            = 14, &
+                                 itimer_io            = 15
+ integer, public, parameter :: ntimers = 15 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -80,6 +81,7 @@ subroutine setup_timers
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_extf        , 'extf',        itimer_step  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
@@ -106,8 +108,9 @@ subroutine init_timer(itimer,label,parent)
  !--Innitialise timer variables
  !
  call reset_timer(itimer)
- timers(itimer)%label  = trim(label)
- timers(itimer)%parent = parent
+ timers(itimer)%label   = trim(label)
+ timers(itimer)%parent  = parent
+ timers(itimer)%loadbal = 1._4
 
  !
  !--Determine ASCII characters for printing the tree
@@ -231,8 +234,8 @@ end subroutine finish_timer_tree_symbols
 subroutine reset_timer(itimer)
  integer, intent(in)        :: itimer
 
- timers(itimer)%wall = 0.0
- timers(itimer)%cpu = 0.0
+ timers(itimer)%wall = 0.0_4
+ timers(itimer)%cpu  = 0.0_4
 
 end subroutine reset_timer
 
@@ -254,25 +257,29 @@ end subroutine reduce_timers
 
 subroutine reduce_timer_mpi(itimer)
  use io,       only:nprocs
- use mpiutils, only:reduce_mpi
+ use mpiutils, only:reduceall_mpi
  integer, intent(in) :: itimer
- real(kind=4) :: mean,max,cputot
+ real(kind=4) :: mean,cpumax,cputot
 
- cputot = reduce_mpi('+',timers(itimer)%cpu)
+ cputot = reduceall_mpi('+',timers(itimer)%cpu)
 
  ! load balance = average time / max time (cpu)
  ! where the average is taken over all tasks except for the max
  ! When every time takes the same time, loadbal = 1
  if (nprocs > 1) then
-    max = reduce_mpi('max',timers(itimer)%cpu)
-    mean = (cputot - max) / (real(nprocs,kind=4) - 1.0_4)
-    timers(itimer)%loadbal = mean / max
+    cpumax = reduceall_mpi('max',timers(itimer)%cpu)
+    mean   = (cputot - cpumax) / (real(nprocs,kind=4) - 1.0_4)
+    if (cpumax > 0.0_4) then
+       timers(itimer)%loadbal = mean / cpumax
+    else
+       timers(itimer)%loadbal = 0.0_4 ! to indicate an error
+    endif
  else
     timers(itimer)%loadbal = 1.0_4
  endif
 
  timers(itimer)%cpu  = cputot
- timers(itimer)%wall = reduce_mpi('max',timers(itimer)%wall)
+ timers(itimer)%wall = reduceall_mpi('max',timers(itimer)%wall)
 
 end subroutine reduce_timer_mpi
 

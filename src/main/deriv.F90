@@ -170,7 +170,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #else
  call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
 #endif
-
+ call do_timing('cons2prim',tlast,tcpulast)
 !
 ! compute forces
 !
