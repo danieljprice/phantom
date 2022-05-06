@@ -946,7 +946,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
        call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
     endif
  end select
- if (icooling > 0 ) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
+ if (icooling > 0 .and. .not. imatch) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 2 .and. ngot >= 3) igotall = .true.
  if (icooling == 1 .and. ngot >= 9) igotall = .true.
