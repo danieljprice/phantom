@@ -844,7 +844,8 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           vr = vkep*ecc*sin(phi)/sqrt(1.-ecc**2)
        else
           vphi = 0.5*(term_bh + sqrt(det))
-          vr=0.
+          !vr=0. for the codecomparison here using a seed of eccentricity
+          vr=1.E-4*sin(phi)*R*exp(-(R/3.5)**(6))
        endif
        !
        !--set velocities -- move to origin below

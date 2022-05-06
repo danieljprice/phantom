@@ -16,6 +16,59 @@ import os
 import sys
 import fnmatch
 
+def loadevfile():
+        #find sink files in directory
+        listFiles1=[]
+        files=os.listdir("./") #can alaso use os.listdir("./")
+        for evfiles in files:
+                if fnmatch.fnmatch(evfiles, '*[!N][0-9][0-9].ev'):
+                        listFiles1.append(evfiles)
+        
+#        filename= sys.argv[j]+"Sink"+
+#       print "Prefix: ",filename
+
+        ######################################################################
+        #--------------------------------------------
+        #    THIS IS JUST A HACK TO COMPUTE NUMBER OF COLUMNS
+        #    Get column number and header lines 
+        #    Print the number of columns for each line in a prov file.
+        #    Number of columns given when ncols is equal for 4 lines.
+        #    Assuming that the header lenght is less than 20 lines
+        #----------------------------------------------
+
+        listFiles1.sort()
+        for filename in listFiles1:
+                print(filename)
+                ncols = 0
+                nrowh = 0
+                n = 21
+
+                command1="awk 'NR<"+ str(n)+" {print NF}' "+filename+">prov"
+                os.system(command1)
+
+                prov=np.loadtxt("prov")
+
+                for i in range(n-4):
+                    if (prov[i]==ncols and prov[i+1]==ncols and prov[i+2]==ncols and prov[i+3]==ncols): 
+                        nrowh=i+1
+                        break
+                    ncols=prov[i]
+
+                ncols=prov[i]
+                os.system("rm prov")  
+                skiph=nrowh-3
+        #########################################################
+                
+                if "data1" in locals():
+                        dataProv=np.loadtxt(filename,skiprows=int(skiph))
+                        data1=np.vstack((data1,dataProv))
+                else:
+                        data1=np.loadtxt(filename,skiprows=int(skiph))
+
+        return data1
+
+
+
 def loadSink():
         #find sink files in directory
         listFiles1=[]
@@ -60,13 +113,14 @@ def loadSink():
 
                 ncols=prov[i]
                 os.system("rm prov")  
+                skiph=nrowh-3
         #########################################################
                 
                 if "data1" in locals():
-                        dataProv=np.loadtxt(filename,skiprows=int(nrowh))
+                        dataProv=np.loadtxt(filename,skiprows=int(skiph))
                         data1=np.vstack((data1,dataProv))
                 else:
-                        data1=np.loadtxt(filename,skiprows=int(nrowh))
+                        data1=np.loadtxt(filename,skiprows=int(skiph))
 
         for filename in listFiles2:
                 print(filename)
@@ -89,13 +143,14 @@ def loadSink():
 
                 ncols=prov[i]
                 os.system("rm prov")  
+                skiph=nrowh-3
         ###################################
 
                 if "data2" in locals():
-                        dataProv=np.loadtxt(filename,skiprows=int(nrowh))
+                        dataProv=np.loadtxt(filename,skiprows=int(skiph))
                         data2=np.vstack((data2,dataProv))
                 else:
-                        data2=np.loadtxt(filename,skiprows=int(nrowh))
+                        data2=np.loadtxt(filename,skiprows=int(skiph))
 
 
         return data1,data2
@@ -116,6 +171,12 @@ def FindOrbEvo(sink1,sink2):
         vy2=sink2[:,6]
         vz2=sink2[:,7]
         M2=sink2[:,4]
+        f1=sink1[:,12:15]
+        f2=sink2[:,12:15]
+        f1R1=sink1[:,20:23] # note that 23 is beyon the last element but syntax require 20:23 or 20: for loading 
+        f2R1=sink2[:,20:23] # the last 3 columns.
+
+       
 
         xx1=np.array([x1,y1,z1])
         xx2=np.array([x2,y2,z2])
@@ -155,11 +216,15 @@ def FindOrbEvo(sink1,sink2):
 
 
         j1=x1*vy1-y1*vx1
+        Tor1=(x1*f1[:,1]-y1*f1[:,0])*M1
+        Tor1R1=(x1*f1R1[:,1]-y1*f1R1[:,0])*M1
         R1=np.sqrt(x1**2+y1**2+z1**2)
         v1Tot=np.sqrt(vx1**2+vy1**2+vz1**2)
 
 
         j2=x2*vy2-y2*vx2
+        Tor2=(x2*f2[:,1]-y2*f2[:,0])*M2
+        Tor2R1=(x2*f2R1[:,1]-y2*f2R1[:,0])*M2
         R2=np.sqrt(x2**2+y2**2+z2**2)
         v2Tot=np.sqrt(vx2**2+vy2**2+vz2**2)
 
@@ -175,36 +240,45 @@ def FindOrbEvo(sink1,sink2):
         eccConf=np.sqrt(1-j1**2/((M1+M2)*a1**4)*a**3)
         #needs to be computed in the CM centred in the focus of the orbit (i.e. M_*)
         Phase=np.arctan2(-(j2S*vx2S/(M1+M2)+y2S/R2S),j2S*vy2S/(M1+M2)-x2S/R2S)+np.pi
+        Torque=Tor1+Tor2
+        TorqueR1=Tor1R1+Tor2R1
 
-        return Time,ecc,a,Phase
+        return Time,ecc,a,Phase,Torque,TorqueR1
 
 if __name__=="__main__":
         
         drawdirect=True
         sink1,sink2=loadSink()
-        Time,ecc,a,Phase=FindOrbEvo(sink1,sink2)
-
-
-        plt.figure(1)
-        plt.plot(Time,ecc)
-        plt.title("ecc vs time")
-        plt.xlabel("$t$")
-        plt.ylabel("$e$")
-
-        plt.figure(2)
-        plt.plot(Time,a)
-        plt.title("a vs time")
-        plt.xlabel("$t$")
-        plt.ylabel("$a$")
-
-        plt.figure(3)
-        plt.plot(Time,Phase,marker=".",linestyle="")
-        plt.title("Phase vs time")
-        plt.xlabel("$t$")
-        plt.ylabel("$\\Phi$")
-
+        Time,ecc,a,Phase,Torque,TorqueR1=FindOrbEvo(sink1,sink2)
 
         if(drawdirect):
+
+            plt.figure(1)
+            plt.plot(Time,ecc)
+            plt.title("ecc vs time")
+            plt.xlabel("$t$")
+            plt.ylabel("$e$")
+    
+            plt.figure(2)
+            plt.plot(Time,a)
+            plt.title("a vs time")
+            plt.xlabel("$t$")
+            plt.ylabel("$a$")
+    
+            plt.figure(3)
+            plt.plot(Time,Phase,marker=".",linestyle="")
+            plt.title("Phase vs time")
+            plt.xlabel("$t$")
+            plt.ylabel("$\\Phi$")
+
+            plt.figure(4)
+            plt.plot(Time,Torque,marker=".",linestyle="")
+            plt.title("Torque vs time")
+            plt.xlabel("$t$")
+            plt.ylabel("$(\\bar R x\\bar F)_z$")
+
+
+
             plt.draw()
             plt.pause(1)
 
