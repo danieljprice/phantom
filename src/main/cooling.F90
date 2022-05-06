@@ -649,8 +649,8 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
 
  select case (icooling)
  case(1)
-!     call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
-    call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
+    call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, Trad, mu, polyIndex, K2, kappa)
+    !call exact_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu,polyIndex,K2,kappa)
  case (2)
     call exact_cooling_table(ui,rho,dt,dudt,mu,polyIndex)
  case (3)
