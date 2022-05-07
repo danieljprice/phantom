@@ -667,7 +667,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
  integer                :: j,iu
  real                   :: xi,phi,func,containedmass,dxi,dfunc,rho,dphi
- real                   :: rBE0,fac_close
+ real                   :: rBE0,fac_close,facBEm,facBEr
  real                   :: mtab(npts)
  logical                :: write_BE_profile = .true.
  logical                :: override_critical = .false.  ! if true, will not error out if the density ratio is too small
@@ -727,7 +727,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     mtab(j)   = mtab(j) * central_density*rBE0**3
     rhotab(j) = central_density * rhotab(j)
 
-    if ((iBEparam == 1 .or. iBEparam==6 .or. iBEparam == 4) .and. rtab(j) < rBE) then
+    if ((iBEparam == 1 .or. iBEparam == 4) .and. rtab(j) < rBE) then
        iBElast = j
     elseif (iBEparam == 3 .and. mtab(j) < mBE) then
        iBElast = j
@@ -736,19 +736,22 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  !--Set the remaining properties
  if (iBEparam==4) then
     central_density = central_density*facBE
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab*facBE
  endif
  if (iBEparam==5) then
     central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab/sqrt(facBE)
  endif
  if (iBEparam==6) then
-    facBE           = mBE/mtab(iBElast)
-    central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
-    rhotab          = rhotab/sqrt(facBE)
+    facBEr          = rBE/rtab(iBElast)
+    facBEm          = mBE/mtab(iBElast)
+    rtab            = rtab*facBEr
+    mtab            = mtab*facBEm
+    facBE           = facBEm/facBEr**3
+    rhotab          = rhotab*facBE
+    central_density = central_density*facBE
  endif
  mBE = mtab(iBElast)
  rBE = rtab(iBElast)
@@ -778,6 +781,21 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
        ierr = 1
        return
     endif
+ endif
+ !--Sanity check on enclosed mass
+ containedmass = 0.
+ do j = 1,iBElast
+    if (j == 1) then
+       containedmass = containedmass + 4.0*pi/3.0*rhotab(j)*rtab(j)**3
+    else
+       containedmass = containedmass + 4.0*pi*rhotab(j)*rtab(j)**2*(rtab(j)-rtab(j-1))
+    endif
+ enddo
+ print*, 'By density, the contained mass is ',containedmass
+ if (abs(containedmass-mBE)/mBE > 0.05) then
+    print*, 'WARNING! The defined mass and input mass are not the same! Aborting.'
+    ierr = 1
+    return
  endif
 
  !--Write the scaled BE profile that is to be used
