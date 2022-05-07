@@ -672,7 +672,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
        call fatal(label,'cooling requires shock and work contributions')
 #ifdef WIND
-    if (((isink_radiation == 1 .and. idust_opacity == 0 ) .or. isink_radiation == 3 ) &
+    if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
        .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
        call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad/iray_resolution')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
