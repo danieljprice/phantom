@@ -2288,13 +2288,13 @@ end subroutine unbound_profiles
 !----------------------------------------------------------------
 subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy
+ use ionization_mod, only:calc_thermal_energy,get_xion
  integer, intent(in)       :: npart
  real,    intent(in)       :: time,particlemass
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  character(len=17)         :: columns(5)
  integer                   :: i
- real                      :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,&
+ real                      :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,xion(1:4),&
                               ponrhoi,spsoundi,tempi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
  logical, allocatable, save :: prev_unbound(:),prev_bound(:)
  real, allocatable, save :: ionfrac(:,:)
@@ -2320,10 +2320,22 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),gamma,ethi)
     etoti = ekini + epoti + ethi
-    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
-    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
     if ((etoti > 0.) .and. (.not. prev_unbound(i))) then
+       if (ieos == 10) then  ! MESA EoS
+          call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature)
+          call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+       elseif (ieos == 20) then  ! Gas + radiation + recombination EoS
+          call get_xion(log10(rhopart*unit_density),eos_vars(itemp,i),X_in,Y_in,xion)
+          xh0 = 1.-xion(2)
+          xh1 = xion(2)
+          xhe0 = 1.-xion(3)-xion(4)
+          xhe1 = xion(3)
+          xhe2 = xion(4)
+       else  ! Not supported
+          print*,"Error, insensible to use unbound_ionfrac when not using MESA EoS (ieos=10) or gas+rad+rec EoS (ieos=20)"
+          stop
+       endif
        ionfrac(i,1) = xh0
        ionfrac(i,2) = xh1
        ionfrac(i,3) = xhe0
