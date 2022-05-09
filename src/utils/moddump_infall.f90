@@ -37,6 +37,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use eos,        only:ieos,isink
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -333,6 +334,17 @@ endif
                            vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
    enddo
 
+   ! Update eos
+   print*, "ieos is ", ieos
+   if (ieos==3) then
+     print*, "ieos == 3"
+     ! centred at 0,0,0, change to centred on isink=1 if nptmass == 1
+     if (nptmass==1) then
+       print*, "nptmass == 1"
+       ieos = 6
+       isink = 1
+     endif
+   endif
    write(*,*),  " ###### Added infall successfully ###### "
    deallocate(xyzh_add,vxyzu_add)
 else
