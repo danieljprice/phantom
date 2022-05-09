@@ -158,9 +158,23 @@ endif
 
 ! Incline the infall
 if (call_prompt) then
-  write(*,*), "Notation: 0 degrees is prograde on xy-plane. 180 degrees is retrograde."
-  call prompt('Enter inclination of infall:', inc, 0., 360.)
-  call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
+  if (use_star==1) then
+    !--incline orbit about ascending node
+    ! if incl 0 = prograde orbit
+    ! if incl 180 = retrograde orbit
+    ! Convention: clock-wise rotation in the zx-plane
+    write(*,*), "Rotating the star. Notation same as flyby setup"
+    write(*,*), "if incl 0 = prograde orbit."
+    write(*,*), "if incl 180 = retrograde orbit."
+    write(*,*), "Convention: clock-wise rotation in the zx-plane."
+    call prompt('Enter inclination of infall:', inc, 0., 360.)
+    call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
+  else
+    write(*,*), "Rotating the infalling gas."
+    write(*,*), "Convention: clock-wise rotation in the xy-plane."
+    call prompt('Enter rotation on z axis:', inc, 0., 360.)
+    ! call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
+ endif
 endif
 
  if (in_orbit == 1) then
@@ -228,6 +242,7 @@ endif
      np_requested=n_add, nptot=nptot)
      ! Need to correct the ellipse
      y0t = maxval(xyzh_add(2, :))
+     print*, "n_add is ", n_add
 
      do i = 1,n_add
        x1 = xyzh_add(1, i)
@@ -296,19 +311,21 @@ endif
   write(*,*), "Initial velocity of object centre is ", vp
 
  ! Now rotate and add those new particles to existing disc
- ! Default is prograde orbit
- inc = pi-inc*pi/180.
- big_omega = big_omega*pi/180.
 
- !--incline orbit about ascending node
- ! if incl 0 = prograde orbit
- ! if incl 180 = retrograde orbit
- ! Convention: clock-wise rotation in the zx-plane
- rot_axis = (/sin(big_omega),-cos(big_omega),0./)
  if (use_star==0) then
    ipart = npart ! The initial particle number (post shuffle)
+   inc = inc*pi/180.
+   rot_axis = (/0.,0.,1./)
    do i = 1,n_add
       ! Rotate particle to correct position and velocity
+      ! Only rotating in xy plane for now
+
+      ! First rotate to get the right initial position
+      ! Need to do this due to the parabolic orbit notation 
+      call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
+      call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
+
+      ! Now rotate around z axis
       call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
       call rotatevec(vxyzu_add(1:3,i),rot_axis,inc)
 
@@ -321,6 +338,16 @@ endif
    write(*,*),  " ###### Added infall successfully ###### "
    deallocate(xyzh_add,vxyzu_add)
 else
+  !--incline orbit about ascending node
+  ! if incl 0 = prograde orbit
+  ! if incl 180 = retrograde orbit
+  ! Convention: clock-wise rotation in the zx-plane
+  inc = pi-inc*pi/180.
+  big_omega = big_omega*pi/180.
+  rot_axis = (/sin(big_omega),-cos(big_omega),0./)
+  call rotatevec(xp,rot_axis,inc)
+  call rotatevec(vp,rot_axis,inc)
+
   nptmass = nptmass + 1
 
   xyzmh_ptmass(1:3,nptmass)   = xp
@@ -328,6 +355,7 @@ else
   xyzmh_ptmass(ihacc,nptmass)  = accr_star
   xyzmh_ptmass(ihsoft,nptmass) = accr_star
   vxyz_ptmass(1:3,nptmass)    = vp
+
   write(*,*),  " ###### Added star successfully ###### "
   call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 endif
