@@ -27,7 +27,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use partinject, only:add_or_update_particle
- use part,       only:igas,isdead_or_accreted,xyzmh_ptmass
+ use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass
  use units,      only:udist,utime,get_G_code
  use io,         only:id,master,fatal
  use spherical,  only:set_sphere,set_ellipse
@@ -42,13 +42,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add(:,:)
- integer :: in_shape,in_orbit,ipart,i,n_add,np
+ integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
  real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_in,r_a,inc,big_omega
- real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc
+ real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
  real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3)
- real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number
+ real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang
  real    :: unit_velocity, G
  logical :: lrhofunc
  procedure(rho_func), pointer :: prhofunc
@@ -67,6 +67,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  v_inf = 1.0
  theta_def = 90.0
  b_frac = 1.0
+ use_star = 0
+ accr_star = 10.
 
  ! udist default is cm
  unit_velocity = udist/utime ! cm/s
@@ -83,31 +85,38 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  #endif
 
  ! Prompt user for infall material shape
- call prompt('Enter the infall material shape (0=sphere, 1=ellipse, 2=cylinder)',in_shape,0,2)
+ call prompt('Star or gas infall? (0=gas, 1=star)',use_star,0,1)
+ if (use_star==0) then
+   call prompt('Enter the infall material shape (0=sphere, 1=ellipse, 2=cylinder)',in_shape,0,2)
 
- if (in_shape == 2) then
-   write(*,*), "Cylinder not yet implemented."
-   stop
- endif
+   if (in_shape == 2) then
+     write(*,*), "Cylinder not yet implemented."
+     stop
+   endif
 
- if (in_shape == 0) then
- call prompt('Enter radius of shape:', r_in, 0.1)
- elseif (in_shape == 1) then
-   call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
-   call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
-   rellipsoid(1) = r_in
-   rellipsoid(2) = r_a
-   rellipsoid(3) = r_in
- endif
- call prompt('Enter infall mass in Msun:', in_mass, 0.01)
- call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
- call prompt('Enter initial radial distance in au:', r_init, 0.0)
+   if (in_shape == 0) then
+   call prompt('Enter radius of shape:', r_in, 0.1)
+   elseif (in_shape == 1) then
+     call prompt('Enter semi-minor axis of ellipse:', r_in, 0.1)
+     call prompt('Enter semi-major axis of ellipse:', r_a, 0.1)
+     rellipsoid(1) = r_in
+     rellipsoid(2) = r_a
+     rellipsoid(3) = r_in
+   endif
+   call prompt('Enter infall mass in Msun:', in_mass, 0.01)
+   call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
+   call prompt('Enter initial radial distance in au:', r_init, 0.0)
 
 
- if (r_slope > tiny_number) then
-    prhofunc => rhofunc
-    lrhofunc = .true.
-    call prompt('Enter softening radius:', r_soft, 0.1)
+   if (r_slope > tiny_number) then
+      prhofunc => rhofunc
+      lrhofunc = .true.
+      call prompt('Enter softening radius:', r_soft, 0.1)
+   endif
+ else
+   call prompt('Enter star mass in Msun:', in_mass, 0.1)
+   call prompt('Enter accretion radius in au:', accr_star, 0.0)
+   call prompt('Enter initial radial distance in au:', r_init, 0.0)
  endif
 
  ! Prompt user for the infall material orbit
@@ -164,6 +173,9 @@ call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
    y0 = dma*(1.0-(x0/pf)**2)
    z0 = 0.0
    xp = (/x0,y0,z0/)
+   ang = atan(x0/y0) - pi/2
+   rot_axis = (/0., 0., 1./)
+   call rotatevec(xp,rot_axis,ang)
  elseif (in_orbit == 2) then
    ! Dullemond+2019
    ! Initial position is x=r_init and y=b (impact parameter)
@@ -172,14 +184,15 @@ call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
    z0 = 0.0
    xp = (/x0, y0, z0/)
 endif
-  write(*,*), "Initial cloud centre is: ", xp
+  write(*,*), "Initial centre is: ", xp
 
  ! Number of injected particles is given by existing particle mass and total
  ! added disc mass
+ if (use_star==0) then
 
  n_add = int(in_mass/pmass)
  write(*,*), "Number of particles that will be added ", n_add
- allocate(xyzh_add(4,n_add),vxyzu_add(4,n_add))
+ allocate(xyzh_add(4,n_add+int(0.1*n_add)),vxyzu_add(4,n_add+int(0.1*n_add)))
  hfact = 1.2
  delta = 1.0 ! no idea what this is
  nptot = n_add + npartoftype(igas)
@@ -197,9 +210,11 @@ endif
    !set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask)
    call set_ellipse('random',id,master,rellipsoid,delta,hfact,xyzh_add,np,xyz_origin=xp,&
      np_requested=n_add, nptot=nptot)
+   ! Need to correct the ellipse
+
    write(*,*), "The ellipse has been succesfully initialised."
  endif
-
+endif
 
  ! Set up velocities
  if (in_orbit == 1) then
@@ -210,31 +225,32 @@ endif
     vy0 = -(x0/r0)*sqrt(mtot/pf)
     vz0 = 0.0
     vp  = (/vx0,vy0,vz0/)
+    if (use_star==0) then
+      if (in_shape == 0) then
+        ! Initiate initial velocity of the particles in the shape
+        vxyzu_add(1, :) = vx0
+        vxyzu_add(2, :) = vy0
+        vxyzu_add(3, :) = vz0
 
-    if (in_shape == 0) then
-      ! Initiate initial velocity of the particles in the shape
-      vxyzu_add(1, :) = vx0
-      vxyzu_add(2, :) = vy0
-      vxyzu_add(3, :) = vz0
+      elseif (in_shape == 1) then
+        do i=1,n_add
+          x0 = xyzh_add(1, i)
+          y0 = xyzh_add(2, i)
+          z0 = xyzh_add(3, i)
 
-    elseif (in_shape == 1) then
-      do i=1,n_add
-        x0 = xyzh_add(1, i)
-        y0 = xyzh_add(2, i)
-        z0 = xyzh_add(3, i)
+          r0  = sqrt(x0**2+y0**2+z0**2)
+          vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
+          vy0 = -(x0/r0)*sqrt(mtot/pf)
+          vz0 = 0.0
 
-        r0  = sqrt(x0**2+y0**2+z0**2)
-        vx0 = (1. + (y0/r0))*sqrt(mtot/pf)
-        vy0 = -(x0/r0)*sqrt(mtot/pf)
-        vz0 = 0.0
+          vxyzu_add(1, i) = vx0
+          vxyzu_add(2, i) = vy0
+          vxyzu_add(3, i) = vz0
 
-        vxyzu_add(1, i) = vx0
-        vxyzu_add(2, i) = vy0
-        vxyzu_add(3, i) = vz0
-      enddo
+        enddo
+      vxyzu_add(4, :) = vxyzu(4, 1)
+     endif
     endif
-
-    vxyzu_add(4, :) = vxyzu(4, 1)
 
   elseif (in_orbit == 2) then
     ! Dullemond+2019
@@ -244,13 +260,15 @@ endif
     vy0 = 0.0
     vz0 = 0.0
     vp = (/vx0, vy0, vz0/)
-    vxyzu_add(1, :) = vx0
-    vxyzu_add(2, :) = vy0
-    vxyzu_add(3, :) = vz0
-    vxyzu_add(4, :) = vxyzu(4, 1)
+    if (use_star==0) then
+      vxyzu_add(1, :) = vx0
+      vxyzu_add(2, :) = vy0
+      vxyzu_add(3, :) = vz0
+      vxyzu_add(4, :) = vxyzu(4, 1)
+    endif
   endif
 
-  write(*,*), "Initial velocity of cloud centre is ", vp
+  write(*,*), "Initial velocity of object centre is ", vp
 
  ! Now rotate and add those new particles to existing disc
  ! Default is prograde orbit
@@ -259,11 +277,12 @@ endif
 
  ! Convention: clock-wise rotation in the zx-plane
  rot_axis = (/sin(big_omega),-cos(big_omega),0./)
+ if (use_star==0) then
  ipart = npart ! The initial particle number (post shuffle)
  do i = 1,n_add
     ! Rotate particle to correct position and velocity
     call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
-    call rotatevec(vxyzu_add(1:3,i), rot_axis,inc)
+    call rotatevec(vxyzu_add(1:3,i),rot_axis,inc)
 
     ! Add the particle
     ipart = ipart + 1
@@ -272,8 +291,25 @@ endif
  enddo
 
  write(*,*),  " ###### Added infall successfully ###### "
-
  deallocate(xyzh_add,vxyzu_add)
+else
+  print*, "xyzhm ", xyzmh_ptmass(:, 1:5)
+  print*, "vxyz ", vxyz_ptmass(:, 1:5)
+  nptmass = nptmass + 1
+
+  xyzmh_ptmass(1:3,nptmass)   = xp
+  xyzmh_ptmass(4,nptmass)     = in_mass
+  xyzmh_ptmass(ihacc,nptmass)  = accr_star
+  xyzmh_ptmass(ihsoft,nptmass) = accr_star
+  vxyz_ptmass(1:3,nptmass)    = vp
+
+  print*, "xyzhm ", xyzmh_ptmass(:, 1:5)
+  print*, "vxyz ", vxyz_ptmass(:, 1:5)
+  write(*,*),  " ###### Added star successfully ###### "
+  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+endif
+
+
 
  return
 end subroutine modify_dump
