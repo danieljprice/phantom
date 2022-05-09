@@ -114,7 +114,7 @@ if (call_prompt) then
       call prompt('Enter softening radius:', r_soft, 0.1)
    endif
  else
-   call prompt('Enter star mass in Msun:', in_mass, 0.1)
+   call prompt('Enter star mass in Msun:', in_mass, 0.0)
    call prompt('Enter accretion radius in au:', accr_star, 0.0)
    call prompt('Enter initial radial distance in au:', r_init, 0.0)
  endif
@@ -318,10 +318,8 @@ endif
    rot_axis = (/0.,0.,1./)
    do i = 1,n_add
       ! Rotate particle to correct position and velocity
-      ! Only rotating in xy plane for now
-
       ! First rotate to get the right initial position
-      ! Need to do this due to the parabolic orbit notation 
+      ! Need to do this due to the parabolic orbit notation
       call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
       call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
 
