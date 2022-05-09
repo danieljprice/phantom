@@ -103,7 +103,7 @@ if (call_prompt) then
      rellipsoid(2) = r_a
      rellipsoid(3) = r_in
    endif
-   call prompt('Enter infall mass in Msun:', in_mass, 0.01)
+   call prompt('Enter infall mass in Msun:', in_mass, 0.0)
    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
    write(*,*), "Initial radial distance is either centre of star/sphere, or tip of ellipse."
    call prompt('Enter initial radial distance in au:', r_init, 0.0)
