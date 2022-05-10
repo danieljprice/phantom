@@ -18,9 +18,6 @@ module raytracer
 !
 ! :Owner: Esseldeurs Mats
 !
-! :Runtime parameters:
-!   - TODO : stop calculation of tau when > tau_max
-!
 ! :Dependencies: linklist, kernel, part, healpix
 !
    use healpix
@@ -103,8 +100,6 @@ module raytracer
       ! CONSTRUCT the RAYS given the ORDER
       ! and determine the optical depth along them
       !-------------------------------------------
-
-!!!!! NOT SURE THIS IS WORTH PARALLELIZING ?
 
 !$omp parallel default(none) &
 !$omp private(ray_dir) &
@@ -196,8 +191,6 @@ module raytracer
       ! and determine the optical depth along them
       !-------------------------------------------
 
-!!!!! NOT SURE THIS IS WORTH PARALLELIZING ?
-
 !$omp parallel default(none) &
 !$omp private(ray_dir,theta,root,sep) &
 !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rcomp,rays_dist,rays_tau,rays_dim) &
@@ -243,7 +236,6 @@ module raytracer
       enddo
 !$omp enddo
 !$omp end parallel
-
    end subroutine get_all_tau_companion
 
    !--------------------------------------------------------------------------
@@ -368,7 +360,7 @@ module raytracer
    !                       optical depts will be calculated
    !  IN: xyzh:            The array containing the particles position+smooting lenght
    !  IN: kappa:           The array containing the particles opacity
-   !  IN: Rstar:           The radius of the star
+   !  IN: Rstar:           The radius of the primary star
    !+
    !  OUT: tau_along_ray:  The vector of cumulative optical depts along the ray
    !  OUT: dist_along_ray: The vector of distances from the primary along the ray
