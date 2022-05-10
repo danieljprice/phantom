@@ -16,10 +16,10 @@ module analysis
 !
 ! :Dependencies: raytracer, part, dump_utils, dust_formation, linklist
 !
-   use raytracer_copy,   only:get_all_tau_inwards, get_all_tau_adaptive
+   use raytracer_all,   only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
    use raytracer,        only:get_all_tau
    use part,             only:rhoh,isdead_or_accreted,nsinkproperties,iReff
-   use dump_utils,       only:read_array_from_file!, read_header, dump_h, print_header, open_dumpfile_r, lenid, read_block_header
+   use dump_utils,       only:read_array_from_file
    use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                               neighcount,neighb,neighmax
    use dust_formation,   only:calc_kappa_bowen
@@ -117,8 +117,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print *,'What do you want to an analyses?'
    print *, '(1) Analysis'
    print *, '(2) Method'
-   print *, '(3) Calculate tau as in phantom'
-   print *, '(3) Preloaded settings'
+   print *, '(3) Calculate tau as done in realtime in PHANTOM'
+   print *, '(4) Preloaded settings'
    read *,analyses
    ! analyses=4
 
@@ -149,8 +149,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    else if (analyses == 2) then
       print *,'Which algorithm would you like to run?'
       print *, '(1) Inwards'
-      print *, '(2) Outwards'
-      print *, '(3) Adaptive'
+      print *, '(2) Outwards (realtime)'
+      print *, '(3) Outwards (interpolation)'
+      print *, '(4) Adaptive'
       read *,method
       if (method == 1) then
          print *,'Do you want to use SPH neighbours? (T/F)'
@@ -160,6 +161,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          read*,j
          write(jstring,'(i0)') j
       else if (method == 3) then
+         print *,'What order do you want to run?'
+         read*,j
+         write(jstring,'(i0)') j
+         print *,'What interpolation scheme would you like to use'
+         print *,'(0) 1 ray,  no interpolation'
+         print *,'(1) 4 rays, linear interpolation'
+         print *,'(2) 9 rays, linear interpolation'
+         print *,'(3) 4 rays, square interpolation'
+         print *,'(4) 9 rays, square interpolation'
+         print *,'(5) 4 rays, cubed  interpolation'
+         print *,'(6) 9 rays, cubed  interpolation'
+         read*,k
+         write(kstring,'(i0)') k
+      else if (method == 4) then
          print *,'What order do you want to run? (integer below 7)'
          read*,j
          write(jstring,'(i0)') j
@@ -213,11 +228,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             print*, 'Start calculating optical depth inwards'
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
+               call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
+               call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -274,11 +289,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             print*, 'Start calculating optical depth inwards'
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
+               call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
                call system_clock(finish)
             else
                call system_clock(start)
-               call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
+               call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
                call system_clock(finish)
             endif
             timeTau = (finish-start)/1000.
@@ -391,11 +406,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*, 'Start calculating optical depth inwards'
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
             call system_clock(start)
-            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
+            call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau)
             call system_clock(finish)
          else
             call system_clock(start)
-            call get_all_tau_inwards(primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
+            call get_all_tau_inwards(npart2, primsec(:,1), xyzh2, neighb, kappa, Rstar, tau, primsec(:,2),Rcomp)
             call system_clock(finish)
          endif
          timeTau = (finish-start)/1000.
@@ -430,6 +445,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          close(iu2)
       else if (method == 3) then
          print*,''
+         print*, 'Start calculating optical depth outwards: ', trim(jstring)
+         if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
+            call system_clock(start)
+            call get_all_tau_outwards(npart2, primsec(:,1), xyzh2, kappa, Rstar, j, k, tau)
+            call system_clock(finish)
+         else
+            call system_clock(start)
+            call get_all_tau_outwards(npart2, primsec(:,1), xyzh2, kappa, Rstar, j, k, tau, primsec(:,2),Rcomp)
+            call system_clock(finish)
+         endif
+         timeTau = (finish-start)/1000.
+         print*,'Time = ',timeTau,' seconds.'
+         open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+         do i=1, size(tau)
+            write(iu2, *) tau(i)
+         enddo
+         close(iu2)
+      else if (method == 4) then
+         print*,''
          print*, 'Start calculating optical depth adaptive: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
             call system_clock(start)
@@ -452,7 +486,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       endif
 
    else if (analyses == 3) then
-      order = 4
+      order = 5
       print*,'Start calculating optical depth'
       if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
          call system_clock(start)
@@ -465,11 +499,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       endif
       timeTau = (finish-start)/1000.
       print*,'Time = ',timeTau,' seconds.'
-      open(newunit=iu, file='taus_'//dumpfile//'.txt', status='replace', action='write')
+      open(newunit=iu4, file='taus_'//dumpfile//'.txt', status='replace', action='write')
       do i=1, size(tau)
-         write(iu, *) tau(i)
+         write(iu4, *) tau(i)
       enddo
-      close(iu)
+      close(iu4)
 
    else if (analyses == 4) then
       do i=1,npart
