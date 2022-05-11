@@ -52,8 +52,7 @@ module cooling
  public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table, implicit_cooling, exact_cooling
- logical, public :: cooling_implicit
- logical, public :: cooling_explicit
+ logical, public :: cooling_in_step
  real,    public :: bowen_Cprime = 3.000d-5
  real,    public :: GammaKI_cgs = 2.d-26 ! [erg/s] heating rate for Koyama & Inutuska cooling
 
@@ -72,7 +71,6 @@ module cooling
  real    :: KI02_rho_max_cgs = 1.0d-14  ! maximum density of the KI02 cooling curve
  real    :: KI02_rho_min,KI02_rho_max
  integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
- integer :: icool_radiation_H0 = 0, icool_relax_Bowen = 0, icool_dust_collision = 0, icool_relax_Stefan = 0
  character(len=120) :: cooltable = 'cooltable.dat'
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0. ! [K]; set in .in file.  On if Tfloor > 0.
@@ -138,15 +136,14 @@ subroutine init_cooling(id,master,iprint,ierr)
  endif
 
  !--Determine if this is implicit or explicit cooling
- cooling_implicit = .false.
- cooling_explicit = .false.
+ cooling_in_step = .false.
  if (h2chemistry) then
-    if (icooling > 0) cooling_implicit = .true.    ! cooling is calculated implicitly in step
+    if (icooling > 0) cooling_in_step = .true.    ! cooling is calculated implicitly in step
  elseif (icooling > 0) then
     if (icooling == 3 .or. icooling == 5) then
-       cooling_explicit = .true.                   ! cooling is calculated explicitly in force
+       cooling_in_step = .false.                  ! cooling is calculated explicitly in force
     else
-       cooling_implicit = .true.                   ! cooling is calculated implicitly in step
+       cooling_in_step = .true.                   ! cooling is calculated implicitly in step
     endif
  endif
 
