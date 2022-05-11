@@ -540,8 +540,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        icount = icount+1
     enddo
     if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs,', icount=',icount
-    if (icount == ncount_max .or. v0/cs < v_over_cs_min) call fatal(label, &
-    		'cannot find v0min, change wind_temperature or wind_injection_radius ?')
+    if (icount == ncount_max .or. v0/cs < v_over_cs_min) &
+         call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
 
     ! Find upper bound for initial velocity
@@ -744,7 +744,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
  integer :: indx,j
 
  ltime = local_time*utime
- call find_near_index(trvurho_1D(1,:),ltime,indx)
+ call find_nearest_index(trvurho_1D(1,:),ltime,indx)
 
  r   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(2,indx),trvurho_1D(2,indx+1))/udist
  v   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(3,indx),trvurho_1D(3,indx+1))/unit_velocity
@@ -778,7 +778,7 @@ end subroutine interp_wind_profile
 !  Find index of nearest lower value in array
 !+
 !-----------------------------------------------------------------------
-subroutine find_near_index(arr,val,indx)
+subroutine find_nearest_index(arr,val,indx)
  real, intent(in)     :: arr(:), val
  integer, intent(out) :: indx
  integer              :: istart,istop,i
@@ -786,7 +786,7 @@ subroutine find_near_index(arr,val,indx)
  istart = 1
  istop  = size(arr)
  if (val >= arr(istop)) then
-    indx = istop
+    indx = istop-1   ! -1 to avoid array index overflow
  elseif (val <= arr(istart)) then
     indx = istart
  else
@@ -799,7 +799,7 @@ subroutine find_near_index(arr,val,indx)
        i = i+1
     enddo
  endif
-end subroutine find_near_index
+end subroutine find_nearest_index
 
 !-----------------------------------------------------------------------
 !+
@@ -819,11 +819,10 @@ end function interp_1d
 !-----------------------------------------------------------------------
 subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  use physcon,  only:au
- use units,    only:utime
- use timestep, only:tmax
+ !use units,    only:utime
  use dust_formation, only:idust_opacity
  real, intent(in) :: r0, v0, T0, tend, rout
- real, intent(out) :: tcross
+ real, intent(out) :: tcross          !time to cross the entire integration domain
  character(*), intent(in) :: filename
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
@@ -838,7 +837,8 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
  write (*,'("Saving 1D model to ",A)') trim(filename)
- time_end = tmax*utime
+ !time_end = tmax*utime
+ time_end = tend
  call init_wind(r0, v0, T0, tend, state)
 
  open(unit=1337,file=filename)
@@ -881,7 +881,6 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
        T_base     = state%Tg
        mu_base    = state%mu
        gamma_base = state%gamma
-
        trvurho_temp(:,writeline) = (/state%time,state%r,state%v,state%u,state%rho/)
        if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
 

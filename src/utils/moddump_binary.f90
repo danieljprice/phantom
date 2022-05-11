@@ -25,7 +25,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                              delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,&
-                             kill_particle,copy_particle,igas
+                             kill_particle,copy_particle
  use setbinary,         only:set_binary
  use units,             only:umass,udist,utime
  use physcon,           only:au,solarm,solarr,gg,pi
@@ -50,7 +50,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                   :: i,ierr,setup_case,ioption=1,irhomax,n
  integer                   :: iremove = 2
  integer                   :: nstar1,nstar2,nptmass1
- real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2
+ real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2,pmass1,pmass2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
  real                      :: a1,a2,e,vr,hsoft_default = 3.
  real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
@@ -182,6 +182,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
 
        print*, 'Current mass unit is ', umass,'g):'
+       pmass1 = massoftype(igas)
+       print*, 'Current particle mass in code units are ', pmass1
        call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
        print*, 'Current length unit is ', udist ,'cm):'
        print*, 'Current stellar radius in code units is ', Rstar
@@ -271,6 +273,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
        elseif (setup_case == 8) then
           nstar1 = npart ! save npart in star 1
+          nptmass1 = nptmass  ! stash nptmass for dump 1, as read_dumps overwrites it
           dumpname = ''
           call prompt('Enter name of second dumpfile',dumpname)
           nstar2 = nstar1
@@ -288,10 +291,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           endif
 
           ! read dump file containing star 2
-          nptmass1 = nptmass  ! stash nptmass for dump 1, as read_dumps overwrites it
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
           nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2
+          pmass2 = massoftype(igas)
           if (ierr /= 0) stop 'error reading second dump file'
+          if ( abs(1.-pmass2/pmass1) > 1.e-3) then
+             print*, 'ERROR: pmass2/pmass1 = ',pmass2/pmass1
+             stop
+          endif
+          print*,'Setting gas mass to be that from first dump,',pmass1
+          massoftype(igas) = pmass1
 
           if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar2+i
              do i=1,nstar1
