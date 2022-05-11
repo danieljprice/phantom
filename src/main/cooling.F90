@@ -9,12 +9,12 @@ module cooling
 ! Gas cooling
 !  Current options:
 !     0 = none
-!     1 = 'explicit' cooling [implicitly calculated, ironically] [default]
-!         (not sure what this actually means, but requires a lot of non-default inputs)
-!     2 = Townsend (2009) cooling tables [implicitly calculated]
-!     3 = Gammie cooling [explicitly calculated]
-!     5 = Koyama & Inutuska (2002) [explicitly calculated]
-!     6 = Koyama & Inutuska (2002) [implicitly calculated]
+!     1 = Wind cooling                    [implicit/exact]
+!     2 = Wind cooling                    [explicit]
+!     3 = Gammie cooling                  [explicit]
+!     4 = Townsend (2009) cooling tables  [implicit]
+!     5 = Koyama & Inutuska (2002)        [explicit]
+!     6 = Koyama & Inutuska (2002)        [implicit]
 !
 ! :References:
 !   Koyama & Inutsuka (2002), ApJL 564, 97-100
@@ -33,7 +33,7 @@ module cooling
 !   - dust_collision : *dust collision [1=on/0=off]*
 !   - excitation_HI  : *cooling via electron excitation of HI [1=on/0=off]*
 !   - habund         : *Hydrogen abundance assumed in cooling function*
-!   - icooling       : *cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)*
+!   - icooling       : *cooling function (0=off, 1,2=wind cooling, 4=Townsend table, 3=Gammie, 5,6=KI02)*
 !   - relax_bowen    : *Bowen (diffusive) relaxation [1=on/0=off]*
 !   - relax_stefan   : *radiative relaxation [1=on/0=off]*
 !   - temp_floor     : *Minimum allowed temperature in K for Townsend cooling table*
@@ -52,7 +52,7 @@ module cooling
  public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table, implicit_cooling, exact_cooling
- logical, public :: cooling_in_step
+ logical, public :: cooling_in_step = .true.
  real,    public :: bowen_Cprime = 3.000d-5
  real,    public :: GammaKI_cgs = 2.d-26 ! [erg/s] heating rate for Koyama & Inutuska cooling
 
@@ -64,13 +64,14 @@ module cooling
  real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt),rhov4_KI02(2,maxt)
  real    :: beta_cool  = 3.
  real    :: habund     = 0.7
- real    :: temp_floor = 1.e4                       ! required for exact_cooling_table
+ real    :: temp_floor = 1.e4                       ! required for cooling_Townsend_table
  real    :: Tgrid(nTg)
  real    :: LambdaKI_coef,GammaKI
  real    :: KI02_rho_min_cgs = 1.0d-30  ! minimum density of the KI02 cooling curve
  real    :: KI02_rho_max_cgs = 1.0d-14  ! maximum density of the KI02 cooling curve
  real    :: KI02_rho_min,KI02_rho_max
  integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
+ integer :: icool_method = 0
  character(len=120) :: cooltable = 'cooltable.dat'
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0. ! [K]; set in .in file.  On if Tfloor > 0.
@@ -84,12 +85,11 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_cooling(id,master,iprint,ierr)
- use dim,       only:maxvxyzu
+ use dim,       only:maxvxyzu,h2chemistry
  use units,     only:utime,umass,udist,unit_ergg
  use physcon,   only:mass_proton_cgs,kboltz
  use io,        only:fatal
  use eos,       only:gamma,gmw
- use part,      only:h2chemistry
  use h2cooling, only:init_h2cooling
  use chem,      only:init_chem
  use cooling_molecular, only:do_molecular_cooling,init_cooling_molec
@@ -111,39 +111,47 @@ subroutine init_cooling(id,master,iprint,ierr)
     excitation_HI = 0
     dust_collision = 0
 #else
+    if ( icooling == 1 .or. icooling == 2 ) then
     !if no cooling flag activated, disable cooling
-    if (icooling == 1 .and. (excitation_HI+relax_Bowen+dust_collision+relax_Stefan) == 0 &
-       .and. .not.do_molecular_cooling) then
-       icooling = 0
-       return
-    elseif (icooling == 1 .and. do_molecular_cooling) then
+       if ( (excitation_HI+relax_Bowen+dust_collision+relax_Stefan) == 0 .and. &
+            .not. do_molecular_cooling) then
+          print *,'no cooling prescription activated, reset icooling = 0'
+          icooling     = 0
+          icool_method = 0
+          return
+       elseif ( do_molecular_cooling) then
        ! Initialise cooling tables
-       call init_cooling_molec
+          call init_cooling_molec
+       endif
     endif
 #endif
 
     !--initialise remaining variables
-    if (icooling == 2) then
+    if (icooling == 4) then
        call init_cooltable(ierr)
     elseif (icooling == 5 .or. icooling == 6) then
        LambdaKI_coef = GammaKI_cgs*umass*utime**3/(mass_proton_cgs**2 * udist**5)
        GammaKI       = GammaKI_cgs*utime**3/(mass_proton_cgs*udist**2)
        call init_hv4table(ierr)
        if (ierr > 0) call fatal('init_cooling','Failed to create KI02 cooling table')
-    elseif (icooling > 0) then
+    elseif (icool_method == 1) then
        call set_Tgrid
     endif
  endif
 
  !--Determine if this is implicit or explicit cooling
- cooling_in_step = .false.
- if (h2chemistry) then
-    if (icooling > 0) cooling_in_step = .true.    ! cooling is calculated implicitly in step
- elseif (icooling > 0) then
-    if (icooling == 3 .or. icooling == 5) then
-       cooling_in_step = .false.                  ! cooling is calculated explicitly in force
+ if (icooling > 0) then
+    if (h2chemistry) then
+       cooling_in_step = .true.         ! cooling is calculated implicitly in step
     else
-       cooling_in_step = .true.                   ! cooling is calculated implicitly in step
+       select case (icooling)
+       ! cooling is calculated explicitly in force
+       case (2,3,5)
+          cooling_in_step = .false.
+       ! cooling is calculated implicitly in step
+       case default
+          cooling_in_step = .true.
+       end select
     endif
  endif
 
@@ -640,14 +648,16 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  if (present(mu_in))    mu        = mu_in
 
  select case (icooling)
- case(1)
-    call implicit_cooling (xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
-    !call explicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
-    !call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt ,mu, polyIndex, Trad, K2, kappa)
- case (2)
-    call exact_cooling_table(ui,rho,dt,dudt,mu,polyIndex)
+ case(1,2)
+    if (icool_method == 1) then
+       call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt ,mu, polyIndex, Trad, K2, kappa)
+    else
+       call implicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
+    endif
  case (3)
     call cooling_Gammie(xi,yi,zi,ui,dudt)
+ case (4)
+    call cooling_Townsend_table(ui,rho,dt,dudt,mu,polyIndex)
  case (5)
     if (present(Tgas)) then
        call cooling_KoyamaInutuska_explicit(rho,Tgas,dudt)
@@ -747,7 +757,7 @@ end subroutine exact_cooling
 !   produced e.g. by CLOUDY.
 !+
 !-----------------------------------------------------------------------
-subroutine exact_cooling_table(uu,rho,dt,dudt,mu,gamma)
+subroutine cooling_Townsend_table(uu,rho,dt,dudt,mu,gamma)
  use physcon, only:atomic_mass_unit,kboltz,Rg
  use units,   only:unit_density,unit_ergg,utime
  real, intent(in)  :: uu, rho,dt,mu,gamma
@@ -801,7 +811,7 @@ subroutine exact_cooling_table(uu,rho,dt,dudt,mu,gamma)
 
  dudt = (temp1 - temp)*Rg/(gam1*mu*unit_ergg)/dt
 
-end subroutine exact_cooling_table
+end subroutine cooling_Townsend_table
 
 !-----------------------------------------------------------------------
 !+
@@ -849,25 +859,24 @@ subroutine write_options_cooling(iunit)
  call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  if (h2chemistry) then
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
-    if (icooling > 0) then
-       call write_options_h2cooling(iunit)
-    endif
+    if (icooling > 0) call write_options_h2cooling(iunit)
  else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=explicit, 2=Townsend table, 3=Gammie, 5,6=KI02)',iunit)
+    call write_inopt(icooling,'icooling','cooling function (0=off, 1,2=physics, 3=Gammie, 4=Townsend table, 5,6=KI02)',iunit)
     select case(icooling)
-    case(1)
+    case(1,2)
        !call write_options_molecularcooling(iunit)
+       if (icooling == 1) call write_inopt(icool_method,'icool_method','integration method (0) implicit (1) exact solution',iunit)
        call write_inopt(excitation_HI,'excitation_HI','cooling via electron excitation of HI [1=on/0=off]',iunit)
        call write_inopt(relax_bowen,'relax_bowen','Bowen (diffusive) relaxation [1=on/0=off]',iunit)
        call write_inopt(relax_stefan,'relax_stefan','radiative relaxation [1=on/0=off]',iunit)
        call write_inopt(dust_collision,'dust_collision','dust collision [1=on/0=off]',iunit)
        call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
-    case(2)
+    case(3)
+       call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
+    case(4)
        call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
        call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
        call write_inopt(temp_floor,'temp_floor','Minimum allowed temperature in K for Townsend cooling table',iunit)
-    case(3)
-       call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
     end select
  endif
  if (icooling > 0) call write_inopt(Tfloor,'Tfloor','temperature floor (K); on if > 0',iunit)
@@ -890,14 +899,18 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  integer, save :: ngot = 0
  logical :: igotallh2,igotallcf,igotallmol
 
- imatch  = .true.
- igotall = .false.  ! cooling options are compulsory
- igotallh2 = .true.
- igotallcf = .true.
+ imatch     = .true.
+ igotall    = .false.  ! cooling options are compulsory
+ igotallh2  = .true.
+ igotallcf  = .true.
  igotallmol = .true.
+
  select case(trim(name))
  case('icooling')
     read(valstring,*,iostat=ierr) icooling
+    ngot = ngot + 1
+ case('icool_method')
+    read(valstring,*,iostat=ierr) icool_method
     ngot = ngot + 1
  case('excitation_HI')
     read(valstring,*,iostat=ierr) excitation_HI
@@ -940,10 +953,12 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     endif
  end select
  !if (icooling > 0 .and. .not. imatch) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
+ if (icooling == 0 .and. ngot >= 2) igotall = .true.
+ if (icooling == 1 .and. ngot >= 8) igotall = .true.
+ if (icooling == 2 .and. ngot >= 7) igotall = .true.
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
- if (icooling == 2 .and. ngot >= 3) igotall = .true.
- if (icooling == 1 .and. ngot >= 9) igotall = .true.
- if (igotallh2 .and. ngot >= 1) igotall = .true.
+ if (icooling == 4 .and. ngot >= 3) igotall = .true.
+ if (h2chemistry .and. igotallh2 .and. ngot >= 1) igotall = .true.
 
 end subroutine read_options_cooling
 
