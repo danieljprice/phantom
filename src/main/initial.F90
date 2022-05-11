@@ -522,7 +522,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
  endif
  !initialize nucleation array at the start of the run only
- if (do_nucleation .and. time == 0.) call init_nucleation
+ if (do_nucleation .and. abs(time) <= tiny(0.)) call init_nucleation
 !
 !--inject particles at t=0, and get timestep constraint on this
 !
