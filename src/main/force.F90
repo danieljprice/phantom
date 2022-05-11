@@ -2406,7 +2406,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
- use cooling,        only:energ_cooling,cooling_explicit
+ use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -2769,7 +2769,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (cooling_explicit) then
+             if (.not. cooling_in_step) then
                 dudtcool = 0.
                 call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
                 fxyz4 = fxyz4 + fac*dudtcool

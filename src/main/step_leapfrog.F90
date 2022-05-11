@@ -103,7 +103,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use cooling,        only:cooling_implicit,ufloor
+ use cooling,        only:cooling_in_step,ufloor
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -249,7 +249,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  endif
 
 #else
- if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_implicit .or. idamp > 0) then
+ if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
     call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
  else
@@ -1077,7 +1077,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,        only:calc_damp,apply_damp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
- use cooling,        only:energ_cooling,cooling_implicit
+ use cooling,        only:energ_cooling,cooling_in_step
  use dust_formation, only:evolve_dust
 #ifdef KROME
  use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
@@ -1187,7 +1187,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
-    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_implicit) &
+    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
@@ -1308,7 +1308,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !
              ! COOLING
              !
-             if (cooling_implicit) then
+             if (cooling_in_step) then
                 if (h2chemistry) then
                    !
                    ! Call cooling routine, requiring total density, some distance measure and
@@ -1330,7 +1330,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              endif
 #endif
              ! update internal energy
-             if (cooling_implicit .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+             if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
           endif
        endif
     enddo predictor
