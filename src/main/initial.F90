@@ -186,9 +186,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
-#ifdef DUST_NUCLEATION
  use dust_formation,   only:init_nucleation
-#endif
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -228,7 +226,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
- integer :: ncount(maxtypes)
  character(len=len(dumpfile)) :: dumpfileold,file1D
  character(len=7) :: dust_label(maxdusttypes)
 
@@ -523,13 +520,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
  endif
-#if defined(DUST_NUCLEATION) && !defined(INJECT_PARTICLES)
- !initialize nucleation array at the start of the run only
- if (do_nucleation .and. time == 0.) call init_nucleation
-#endif
-!initialize optical depth array tau
-if (itau_alloc == 1 .and. time == 0.) tau = 0.
-
+ if (abs(time) <= tiny(0.)) then
+   !initialize nucleation array at the start of the run only
+   if (do_nucleation) call init_nucleation
+   !initialize optical depth array tau
+   if (itau_alloc == 1) tau = 0.
+ endif
 !
 !--inject particles at t=0, and get timestep constraint on this
 !

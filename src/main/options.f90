@@ -38,6 +38,12 @@ module options
  real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
+! gr
+ integer, public :: ien_type
+ integer, public, parameter :: &
+      ien_entropy = 1, &
+      ien_etotal  = 2
+
 ! additional .ev data
  logical, public :: calc_erot
 ! final maximum density
@@ -102,6 +108,8 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
+ ien_type           = 0
+ if (gr) ien_type   = ien_entropy
  polyk2             = 0. ! only used for ieos=8
 
  ! artificial viscosity

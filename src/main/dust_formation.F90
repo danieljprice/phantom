@@ -25,6 +25,7 @@ module dust_formation
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
  use physcon, only:kboltz,pi,atomic_mass_unit
+ use dim,     only:nElements
 
  implicit none
  integer, public :: idust_opacity = 0
@@ -47,7 +48,7 @@ module dust_formation
  real :: bowen_delta = 60.
 
 ! Indices for elements and molecules:
- integer, parameter :: nElements = 10, nMolecules = 25
+ integer, parameter :: nMolecules = 25
  integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
  integer, parameter :: iH2=1, iOH=2, iH2O=3, iCO=4, iCO2=5, iCH4=6, iC2H=7, iC2H2=8, iN2=9, iNH3=10, iCN=11, &
        iHCN=12, iSi2=13, iSi3=14, iSiO=15, iSi2C=16, iSiH4=17, iS2=18, iHS=19, iH2S=20, iSiS=21, &
@@ -84,7 +85,7 @@ module dust_formation
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
  real, public :: mass_per_H, eps(nElements)
- real, public, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
+ real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
 contains
 

@@ -41,8 +41,8 @@ end subroutine set_dustfrac
 
 !--------------------------------------------------------------------------
 !+
-!  utility function to set the dust fraction given the dust-to-gas ratio,
-!  grain sizes, and slope of dust number density distribution in size
+!  utility function to set the percentage of dust mass in each dust bin
+!  given the grain sizes and the slope of the number density distribution
 !+
 !--------------------------------------------------------------------------
 subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
@@ -80,8 +80,7 @@ subroutine set_dustbinfrac(smin,smax,sindex,dustbinfrac,grainsize)
     endif
  enddo
 
- !--Calculate the normalisation factor (∝ 1/rhotot) and scale the dust fractions
- !  Note: dust density and dust fraction have the same power-law dependence on s.
+ !--Calculate the percentage of dust in each size bin (NOT equal to dustfrac)
  dustbinfrac(:) = rhodust(:)/sum(rhodust)
 
  !--Check to make sure the integral determining the contributions is correct
