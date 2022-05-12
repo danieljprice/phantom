@@ -128,7 +128,7 @@ subroutine init_cooling(id,master,iprint,ierr)
 
     !--initialise remaining variables
     if (icooling == 4) then
-       call init_cooltable(ierr)
+       call init_Townsend_table(ierr)
     elseif (icooling == 5 .or. icooling == 6) then
        LambdaKI_coef = GammaKI_cgs*umass*utime**3/(mass_proton_cgs**2 * udist**5)
        GammaKI       = GammaKI_cgs*utime**3/(mass_proton_cgs*udist**2)
@@ -174,7 +174,7 @@ end subroutine init_cooling
 !  read cooling table from file and initialise arrays
 !+
 !-----------------------------------------------------------------------
-subroutine init_cooltable(ierr)
+subroutine init_Townsend_table(ierr)
  use io,        only:fatal
  use datafiles, only:find_phantom_datafile
  integer, intent(out) :: ierr
@@ -220,7 +220,7 @@ subroutine init_cooltable(ierr)
                  *(1.- (temper(i)/temper(i+1))**(slope(i) - 1.))
     endif
  enddo
-end subroutine init_cooltable
+end subroutine init_Townsend_table
 
 !-----------------------------------------------------------------------
 !+
@@ -294,7 +294,7 @@ end subroutine init_hv4table
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  use units,             only:unit_ergg,unit_density
- use cooling_molecular, only:do_molecular_cooling,calc_cool_molecular
+ !use cooling_molecular, only:do_molecular_cooling,calc_cool_molecular
 
  real, intent(in) :: rho, T, Teq               !rho in code units
  real, intent(in) :: r, mu, gamma
@@ -608,14 +608,11 @@ subroutine implicit_cooling (xi,yi,zi, ui, dudt, rho, dt, mu, gamma, Trad, K2, k
  delta_u = 1.d-3
  iter = 0
  r = sqrt(xi**2+yi**2+zi**2)
- !The pdv_work also depends on the internal energy and could also be included
- !in this loop provided this contribution was not accounted for in Force.F90
- ! see PP flag : IMPLICIT COOLING - pb: we need div(v) and it is only real*4
  !term1 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
  term1 = 1.
  do while (abs(delta_u) > tol .and. iter < iter_max)
     T = u*T_on_u
-    call calc_cooling_rate(r,Q,dlnQ_dlnT, rho, T, Trad, mu, K2, kappa)
+    call calc_cooling_rate(r,Q,dlnQ_dlnT, rho, T, Trad, mu, gamma, K2, kappa)
     term2 = u*term1-Q*dt
     delta_u = (ui-term2)/(term1-Q*dlnQ_dlnT*dt/u)
     u = u+delta_u
@@ -639,9 +636,10 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  use eos, only: gmw,gamma
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
  real, intent(in), optional :: Tgas,Trad,mu_in,gamma_in,K2,kappa   ! in cgs
- real, intent(inout)        :: dudt                                ! in code units
+ real, intent(out)          :: dudt                                ! in code units
  real                       :: mu,polyIndex
 
+ dudt       = 0.
  mu         = gmw
  polyIndex  = gamma
  if (present(gamma_in)) polyIndex = gamma_in
@@ -649,10 +647,12 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
 
  select case (icooling)
  case(1,2)
-    if (icool_method == 1) then
+    if (icool_method == 2) then
        call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt ,mu, polyIndex, Trad, K2, kappa)
-    else
+    elseif (icool_method == 0) then
        call implicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
+    else
+       call explicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
     endif
  case (3)
     call cooling_Gammie(xi,yi,zi,ui,dudt)
@@ -667,13 +667,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad,mu_in,gamma_in,K2,kappa,Tg
  case (6)
     call cooling_KoyamaInutuska_implicit(ui,rho,dt,dudt)
  case default
-    !call exact_cooling   (xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
-    !call implicit_cooling(xi,yi,zi, ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
-    if (present(Trad) .and. present(K2) .and. present(kappa)) then
-       call explicit_cooling(xi,yi,zi,ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
-    else
-       call fatal('energ_cooling','default requires optional arguments; change icooling or ask D Price or L Siess to patch')
-    endif
+    call implicit_cooling(xi,yi,zi,ui, dudt, rho, dt, mu, polyIndex, Trad, K2, kappa)
  end select
 
 end subroutine energ_cooling
@@ -865,7 +859,8 @@ subroutine write_options_cooling(iunit)
     select case(icooling)
     case(1,2)
        !call write_options_molecularcooling(iunit)
-       if (icooling == 1) call write_inopt(icool_method,'icool_method','integration method (0) implicit (1) exact solution',iunit)
+       if (icooling == 1) call write_inopt(icool_method,'icool_method',&
+            'integration method (0) implicit  (1) explicit (2) exact solution',iunit)
        call write_inopt(excitation_HI,'excitation_HI','cooling via electron excitation of HI [1=on/0=off]',iunit)
        call write_inopt(relax_bowen,'relax_bowen','Bowen (diffusive) relaxation [1=on/0=off]',iunit)
        call write_inopt(relax_stefan,'relax_stefan','radiative relaxation [1=on/0=off]',iunit)
