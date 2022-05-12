@@ -1065,7 +1065,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
- use options,        only:iexternalforce,idamp
+ use options,        only:iexternalforce,idamp,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
@@ -1187,7 +1187,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
-    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step) &
+    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
@@ -1308,7 +1308,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              !
              ! COOLING
              !
-             if (cooling_in_step) then
+             if (icooling > 0 .and. cooling_in_step) then
                 if (h2chemistry) then
                    !
                    ! Call cooling routine, requiring total density, some distance measure and
@@ -1318,8 +1318,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,&
-                           dt, dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,&
+                           dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
                    else
                       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
                    endif

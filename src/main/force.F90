@@ -2400,12 +2400,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
+                          store_dust_temperature,do_nucleation
  use eos,            only:use_entropy,gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
+                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal,icooling
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating, &
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
@@ -2740,13 +2742,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
           else ! eni is the internal energy
              fac = rhoi/rhogasi
-#ifndef IMPLICIT_COOLING
              pdv_work = pri*rho1i*rho1i*drhodti
-             !the pdv_work is accounted for in wind_cooling.F90
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
-#endif
              if (ishock_heating > 0) then
                 if (fsum(idudtdissi) < -epsilon(0.)) &
                    call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
@@ -2769,9 +2768,18 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (.not. cooling_in_step) then
-                dudtcool = 0.
-                call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
+             if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
+                if (store_dust_temperature) then
+                   if (do_nucleation) then
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i),&
+                           nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   else
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                   endif
+                else
+                   ! cooling without stored dust temperature
+                   call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt)
+                endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
              !  if (nuclear_burning) then
