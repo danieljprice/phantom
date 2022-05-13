@@ -150,6 +150,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  dtforce    = dttemp3(2)
  dterr      = dttemp3(3)
 #endif
+
  if (abs(1.0-dtsum/dt) >= (sqrt(real(Nmegasts_now))*time_tol)) then
     write(iprint,'(a,I4,3Es16.7)') 'Super-timestepping: Nmegasts,dt,dt_sum,abs(1.0-dt_sum/dt)  : ' &
     ,Nmegasts_now,dt,dtsum,abs(1.0-dtsum/dt)
