@@ -482,7 +482,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
 
  open(newunit=iu, file = outputpath, status = 'replace')
  write(iu,'(a)') headers
- 101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  do i=1,size(r)
     if (noptionalcols <= 0) then
        write(iu,101) m(i),pres(i),temp(i),r(i),rho(i),ene(i)
