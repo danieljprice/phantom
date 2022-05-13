@@ -652,7 +652,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     r_crit          = r_crit_setup
     h_acc           = h_acc_setup
     if (binary) h_soft_sinksink = h_soft_sinksink_setup
-    hdivbbmax_max   = 512.
+    hdivbbmax_max   = 1.0 ! 512.
     if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
