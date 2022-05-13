@@ -824,6 +824,7 @@ module raytracer_all
    subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
       use linklist, only:getneigh_pos,ifirstincell,listneigh
       use kernel,   only:radkern
+      use units, only:umass,udist
       real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
@@ -861,6 +862,7 @@ module raytracer_all
          call find_next(primary, ray, distance, xyzh, listneigh, inext,nneigh)
       enddo
       len = i
+      tau_along_ray = tau_along_ray*umass/(udist**2)
    end subroutine ray_tracer
 
    logical function hasNext(inext, tau, distance, maxDistance)
@@ -965,24 +967,22 @@ module raytracer_all
       real, intent(out)   :: tau(:)
       
       integer :: i
-      real    :: normCompanion, theta0, unitCompanion(3), norm, theta, root, norm0
+      real    :: normCompanion, theta0, uvecCompanion(3), norm, theta, root, norm0
       
-      normCompanion = 0.
-      theta0 = 0.
-      unitCompanion = 0.
-      normCompanion = norm2(companion-primary)
-      theta0 = asin(Rcomp/normCompanion)
-      unitCompanion = (companion-primary)/normCompanion
+      uvecCompanion = companion-primary
+      normCompanion = norm2(uvecCompanion)
+      uvecCompanion = uvecCompanion/normCompanion
+      theta0        = asin(Rcomp/normCompanion)
       
       !$omp parallel do private(norm,theta,root,norm0)
       do i = 1, npart
-         norm = norm2(xyzh(1:3,i)-primary)
-         theta = acos(dot_product(unitCompanion, xyzh(1:3,i)-primary)/norm)
+         norm  = norm2(xyzh(1:3,i)-primary)
+         theta = acos(dot_product(uvecCompanion, xyzh(1:3,i)-primary)/norm)
          if (theta < theta0) then
             root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
             norm0 = normCompanion*cos(theta)-root
             if (norm > norm0) then
-                  tau = 1e10
+                  tau(i) = 99.
             else
                call get_tau_inwards(i, primary, xyzh, neighbors, kappa, Rstar, tau(i))
             endif
