@@ -150,7 +150,7 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin
+ use part,         only:twas,ibin,ibin_old
 #endif
  use part,         only:norig,iorig,iphase,igas,iunknown
 #ifdef GR
@@ -176,6 +176,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  !--Exit if particles not added or updated
  !
  if (npartold==npart .and. .not.updated_particle) return
+
 #ifdef GR
  !
  ! after injecting particles, reinitialise metrics on all particles
@@ -186,6 +187,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
  endif
 #endif
+
 #ifdef IND_TIMESTEPS
  ! find timestep bin associated with dtinject
  nbinmaxprev = nbinmax
@@ -195,8 +197,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  endif
  ! put all injected particles on shortest bin
  do i=npartold+1,npart
-    ibin(i) = nbinmax
-    twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+    ibin(i)     = nbinmax
+    ibin_old(i) = nbinmax ! for particle waking to ensure that neighbouring particles are promptly woken
+    twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
  enddo
 #else
  ! For global timestepping, reset the timestep, since this is otherwise
@@ -216,8 +219,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
        if (iphase(i) == iunknown) then
           iphase(i) = igas
 #ifdef IND_TIMESTEPS
-          ibin(i) = nbinmax
-          twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+          ibin(i)     = nbinmax
+          ibin_old(i) = nbinmax
+          twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
 #endif
        endif
     enddo
