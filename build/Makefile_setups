@@ -398,7 +398,7 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
-    SETUPFILE= setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90  setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
@@ -810,7 +810,7 @@ endif
 
 ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
-    SETUPFILE= setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     #ANALYSIS= analysis_jet.f90
     ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
@@ -824,7 +824,7 @@ endif
 
 ifeq ($(SETUP), jetnimhd)
 #   Simulation from Wurster, Price & Bate (2016,2017) et seq
-    SETUPFILE= setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
     PERIODIC=yes
     GRAVITY=yes
@@ -834,6 +834,17 @@ ifeq ($(SETUP), jetnimhd)
     IND_TIMESTEPS=yes
     STS_TIMESTEPS=yes
     MODFILE=moddump_CoM.f90
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), jetdusty)
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
+    PERIODIC=yes
+    GRAVITY=yes
+    ISOTHERMAL=yes
+    MHD=no
+    IND_TIMESTEPS=yes
+    DUST=yes
     KNOWN_SETUP=yes
 endif
 
@@ -1012,7 +1023,7 @@ endif
 ifeq ($(SETUP), sfmcfost) # [buildbot skip]
 #   live feedback from mcfost in star formation calculation
     PERIODIC=yes
-    SETUPFILE= setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     ANALYSIS= analysis_mcfost.f90
     LIVE_ANALYSIS=yes
     ISOTHERMAL=no
