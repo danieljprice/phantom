@@ -33,22 +33,28 @@ module timing
     character(len=10)            :: label
     real(kind=4)                 :: wall
     real(kind=4)                 :: cpu
+    real(kind=4)                 :: loadbal
     integer                      :: parent
     integer                      :: treesymbol(5) = -1
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter ::   itimer_fromstart = 1,  &
-                                 itimer_lastdump  = 2,  &
-                                 itimer_step      = 3,  &
-                                 itimer_link      = 4,  &
-                                 itimer_balance   = 5,  &
-                                 itimer_dens      = 6,  &
-                                 itimer_force     = 7,  &
-                                 itimer_extf      = 8,  &
-                                 itimer_ev        = 9,  &
-                                 itimer_io        = 10
- integer, public, parameter :: ntimers = 10 ! should be equal to the largest itimer index
+ integer, public, parameter ::   itimer_fromstart     = 1,  &
+                                 itimer_lastdump      = 2,  &
+                                 itimer_step          = 3,  &
+                                 itimer_link          = 4,  &
+                                 itimer_balance       = 5,  &
+                                 itimer_dens          = 6,  &
+                                 itimer_dens_local    = 7,  &
+                                 itimer_dens_remote   = 8,  &
+                                 itimer_force         = 9,  &
+                                 itimer_force_local   = 10, &
+                                 itimer_force_remote  = 11, &
+                                 itimer_cons2prim     = 12, &
+                                 itimer_extf          = 13, &
+                                 itimer_ev            = 14, &
+                                 itimer_io            = 15
+ integer, public, parameter :: ntimers = 15 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -63,17 +69,22 @@ subroutine setup_timers
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
- !               timer from array  label          parent
- call init_timer(itimer_fromstart, 'all',         0           )
- call init_timer(itimer_lastdump , 'last',        0           )
- call init_timer(itimer_step     , 'step',        0           )
- call init_timer(itimer_link     , 'tree',        itimer_step )
- call init_timer(itimer_balance  , 'balance',     itimer_link )
- call init_timer(itimer_dens     , 'density',     itimer_step )
- call init_timer(itimer_force    , 'force',       itimer_step )
- call init_timer(itimer_extf     , 'extf',        itimer_step )
- call init_timer(itimer_ev       , 'write_ev',    0           )
- call init_timer(itimer_io       , 'write_dump',  0           )
+ !               timer from array     label          parent
+ call init_timer(itimer_fromstart   , 'all',         0            )
+ call init_timer(itimer_lastdump    , 'last',        0            )
+ call init_timer(itimer_step        , 'step',        0            )
+ call init_timer(itimer_link        , 'tree',        itimer_step  )
+ call init_timer(itimer_balance     , 'balance',     itimer_link  )
+ call init_timer(itimer_dens        , 'density',     itimer_step  )
+ call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
+ call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )
+ call init_timer(itimer_force       , 'force',       itimer_step  )
+ call init_timer(itimer_force_local , 'local',       itimer_force )
+ call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
+ call init_timer(itimer_extf        , 'extf',        itimer_step  )
+ call init_timer(itimer_ev          , 'write_ev',    0            )
+ call init_timer(itimer_io          , 'write_dump',  0            )
 
  ! When the timer is initialised, the tree structure is defined as an arary of integers
  ! because the special ASCII characters take up more than 1 space in a character array,
@@ -97,8 +108,9 @@ subroutine init_timer(itimer,label,parent)
  !--Innitialise timer variables
  !
  call reset_timer(itimer)
- timers(itimer)%label  = trim(label)
- timers(itimer)%parent = parent
+ timers(itimer)%label   = trim(label)
+ timers(itimer)%parent  = parent
+ timers(itimer)%loadbal = 1._4
 
  !
  !--Determine ASCII characters for printing the tree
@@ -222,8 +234,8 @@ end subroutine finish_timer_tree_symbols
 subroutine reset_timer(itimer)
  integer, intent(in)        :: itimer
 
- timers(itimer)%wall = 0.0
- timers(itimer)%cpu = 0.0
+ timers(itimer)%wall = 0.0_4
+ timers(itimer)%cpu  = 0.0_4
 
 end subroutine reset_timer
 
@@ -244,11 +256,31 @@ subroutine reduce_timers
 end subroutine reduce_timers
 
 subroutine reduce_timer_mpi(itimer)
- use mpiutils, only:reduce_mpi
+ use io,       only:nprocs
+ use mpiutils, only:reduceall_mpi
  integer, intent(in) :: itimer
+ real(kind=4) :: mean,cpumax,cputot
 
- timers(itimer)%cpu = reduce_mpi('+',timers(itimer)%cpu)
- timers(itimer)%wall = reduce_mpi('max',timers(itimer)%wall)
+ cputot = reduceall_mpi('+',timers(itimer)%cpu)
+
+ ! load balance = average time / max time (cpu)
+ ! where the average is taken over all tasks except for the max
+ ! When every time takes the same time, loadbal = 1
+ if (nprocs > 1) then
+    cpumax = reduceall_mpi('max',timers(itimer)%cpu)
+    mean   = (cputot - cpumax) / (real(nprocs,kind=4) - 1.0_4)
+    if (cpumax > 0.0_4) then
+       timers(itimer)%loadbal = mean / cpumax
+    else
+       timers(itimer)%loadbal = 0.0_4 ! to indicate an error
+    endif
+ else
+    timers(itimer)%loadbal = 1.0_4
+ endif
+
+ timers(itimer)%cpu  = cputot
+ timers(itimer)%wall = reduceall_mpi('max',timers(itimer)%wall)
+
 end subroutine reduce_timer_mpi
 
 !-----------------------------------------------
@@ -267,22 +299,25 @@ subroutine print_timer(lu,itimer,time_total)
  ! Print timings
  if (timers(itimer)%wall > epsilon(0._4)) then
     if (time_total > 7200.0) then
-       write(lu,"(f7.2,'h   ',f7.2,'h   ',f6.2,'   ',f6.2,'%')")  &
+       write(lu,"('  ',f7.2,'h   ',f8.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/3600.,&
             timers(itimer)%cpu/3600.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     elseif (time_total > 120.0) then
-       write(lu,"(f7.2,'min ',f7.2,'min ',f6.2,'   ',f6.2,'%')")  &
+       write(lu,"(f7.2,'min ',f8.2,'min    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/60.,&
             timers(itimer)%cpu/60.,&
             timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     else
-       write(lu,"(f7.2,'s   ',f7.2,'s   ',f6.2,'   ',f6.2,'%')")  &
+       write(lu,"('  ',f7.2,'s   ',f8.2,'s    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall,&
             timers(itimer)%cpu,&
             timers(itimer)%cpu/timers(itimer)%wall,&
+            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     endif
  else

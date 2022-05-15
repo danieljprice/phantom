@@ -68,7 +68,8 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc, &
+                     ien_type
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -217,6 +218,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     if (mhd) then
        call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
     endif
+    if (gr) then
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy)',iwritein)
+    endif
  endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
@@ -314,7 +318,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef GR
- use metric,        only:read_options_metric
+ use metric,          only:read_options_metric
 #endif
 #ifdef PHOTO
  use photoevap,       only:read_options_photoevap
@@ -478,6 +482,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) ishock_heating
     case('iresistive_heating')
        read(valstring,*,iostat=ierr) iresistive_heating
+    case('ien_type')
+       read(valstring,*,iostat=ierr) ien_type
     case('irealvisc')
        read(valstring,*,iostat=ierr) irealvisc
     case('shearparam')

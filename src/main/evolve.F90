@@ -45,8 +45,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
- setup_timers,timers,reduce_timers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev,&
- itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_extf,itimer_io
+                            setup_timers,timers,reduce_timers,ntimers,&
+                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
  use part,             only:ibin,iphase
@@ -103,7 +103,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
+ integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
@@ -542,16 +542,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
        twalllast = t2
        tcpulast = tcpu2
-       call reset_timer(itimer_fromstart)
-       call reset_timer(itimer_lastdump )
-       call reset_timer(itimer_step     )
-       call reset_timer(itimer_link     )
-       call reset_timer(itimer_balance  )
-       call reset_timer(itimer_dens     )
-       call reset_timer(itimer_force    )
-       call reset_timer(itimer_extf     )
-       call reset_timer(itimer_io       )
-       call reset_timer(itimer_ev       )
+       do i = 1,ntimers
+          call reset_timer(i)
+       enddo
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1
@@ -609,7 +602,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
- write(iprint,"(/,25x,a)") 'wall        cpu  cpu/wall     frac'
+ write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall  load bal      frac'
 
  ! skip the first 2 timers
  ! 1: from start

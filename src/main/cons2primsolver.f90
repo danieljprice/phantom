@@ -17,15 +17,12 @@ module cons2primsolver
 ! :Dependencies: eos, io, metric_tools, units, utils_gr
 !
  use eos, only:ieos,polyk
+ use options, only:ien_etotal,ien_entropy
  implicit none
 
  public :: conservative2primitive,primitive2conservative
 
  private :: get_u,conservative2primitive_con_gamma,conservative2primitive_var_gamma
-
- integer, public, parameter :: &
-      ien_etotal  = 1, &
-      ien_entropy = 2
 
 
 !!!!!!====================================================
@@ -109,7 +106,9 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
     enddo
  enddo
 
- if (ien_type == ien_entropy) then
+ if (ien_type == ien_etotal) then
+    en = U0*enth*gvv + (1.+u)/U0
+ else
     if (u > 0) then
        gam1 = 1. + P/(dens*u)
        en = P/(dens**gam1)
@@ -117,8 +116,6 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
        ! handle the case for u = 0
        en = P/dens
     endif
- else
-    en = U0*enth*gvv + (1.+u)/U0
  endif
 
 end subroutine primitive2conservative
@@ -220,15 +217,9 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
  gamma_rad = 4./3.
  call conservative2primitive_con_gamma(x,metrici,v,dens_in,u_in,P_in,gamma_rad,enth_rad,rho,pmom,en,ierr2,ien_type)
 
- if (ien_type == ien_entropy) then
-    enth_min = enth_gas
-    enth_max = enth_rad
-    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
- else
-    enth_min = enth_rad
-    enth_max = enth_gas
-    if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
- endif
+ enth_min = enth_rad
+ enth_max = enth_gas
+ if (enth_min < 1.) enth_min = (enth_max-1.) / 1.6 + 1.
 
  enth = 0.5*(enth_max+enth_min)
 
@@ -243,13 +234,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
 
-    if (ien_type == ien_entropy) then
-       p = en*dens**gamma
-    elseif (ieos==4) then
-       p = (gamma-1.)*dens*polyk
-    else
-       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
-    endif
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
 
     if (P > 0.) then
        ucgs = u*unit_ergg
@@ -266,18 +251,10 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
 
     f = 1. + u + P/dens - enth_old
 
-    if (ien_type == ien_etotal) then
-       if (f < 0) then
-          enth_min = enth_old
-       else
-          enth_max = enth_old
-       endif
+    if (f < 0) then
+       enth_min = enth_old
     else
-       if (f > 0) then
-          enth_min = enth_old
-       else
-          enth_max = enth_old
-       endif
+       enth_max = enth_old
     endif
 
     enth = 0.5*(enth_min + enth_max)
@@ -364,23 +341,23 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
 
-    if (ien_type == ien_entropy) then
-       p = en*dens**gamma
+    if (ien_type == ien_etotal) then
+       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     elseif (ieos==4) then
        p = (gamma-1.)*dens*polyk
     else
-       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+       p = en*dens**gamma
     endif
 
     f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
-    if (ien_type == ien_entropy) then
-       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
+    if (ien_type == ien_etotal) then
+       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     else
-       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
+       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
     enth = enth_old - f/df
@@ -398,10 +375,12 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
 
- if (ien_type == ien_entropy) then
-    p = en*dens**gamma
+ if (ien_type == ien_etotal) then
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+ elseif (ieos==4) then
+    p = (gamma-1.)*dens*polyk
  else
-    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+    p = en*dens**gamma
  endif
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
