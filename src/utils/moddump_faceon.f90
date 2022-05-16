@@ -74,7 +74,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call cross_product3D(Lunit,z_axis,axis)
  angle = acos(dot_product(Lunit,z_axis))
 
-
  ! Now we rotate everything about this axis
  do i = 1,npart
     call rotatevec(xyzh(1:3,i),axis,angle)
