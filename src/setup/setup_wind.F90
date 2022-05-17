@@ -70,7 +70,7 @@ module setup
  !real :: primary_lum_lsun      = 20000.
  !real :: primary_Reff_au       = 0.
 #endif
- integer, public :: icompanion_star = 0
+ integer :: icompanion_star = 0
  integer :: iwind
  real :: semi_major_axis       = 4.0
  real :: eccentricity          = 0.
@@ -304,11 +304,11 @@ subroutine setup_interactive()
  !Hierarchical triple system
  if (icompanion_star == 2) then
     !select the tight binary
-    subst = 1
-    print "(a)",'Star to be substituted by tight binary'
-    print "(a)",' 1: primary' ,' 2: companion'
-    call prompt('Select star to be substituted',subst,1,2)
-    subst = subst+10
+    ichoice = 1
+    print "(a)",'Star to be substituted by a tight binary'
+    print "(a)",' 1: primary (2+1)' ,' 2: companion (1+2)'
+    call prompt('Select star to be substituted',ichoice,1,2)
+    subst = ichoice+10
 
     !select orbital parameters for outer binary
     semi_major_axis_au = 15.
@@ -321,11 +321,12 @@ subroutine setup_interactive()
        call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
        call prompt('enter eccentricity',eccentricity,0.)
     endif
-    semi_major_axis = semi_major_axis * au / udist
+    semi_major_axis = semi_major_axis_au * au / udist
     ichoice = 1
-    !replace companion by tight binary system
+
+    !replace companion by tight binary system : 1+2
     if (subst == 12) then
-        print "(a)",'Primary star parameters'
+        print "(a)",'Primary star parameters (the single wind launching central star)'
         print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
         ' 1: Mass = 1.5 Msun, accretion radius = 1.2568 au', &
         ' 0: custom'
@@ -347,7 +348,7 @@ subroutine setup_interactive()
         primary_racc = primary_racc_au * (au / udist)
 
         ichoice = 1
-        print "(a)",'Total mass of tight binary'
+        print "(a)",'Total mass of tight binary system (1+2)'
         print "(a)",' 1: Total mass tight binary = 1.0 Msun',' 0: custom'
         secondary_mass_msun = 1.
         call prompt('select mass',ichoice,0,1)
@@ -358,6 +359,7 @@ subroutine setup_interactive()
         secondary_mass = secondary_mass_msun * (solarm / umass)
 
         ichoice = 1
+        print "(a)",'Mass ratio and accretion radii of stars in tight orbit:'
         print "(a)",' 1: mass ratio m2b/m2a = 1, accretion radius a = 0.01 au, accretion radius b = 0.01 au',' 0: custom'
         call prompt('select mass ratio and accretion radii of tight binary',ichoice,0,1)
         select case(ichoice)
@@ -377,11 +379,11 @@ subroutine setup_interactive()
         racc2b = racc2b_au * (au / udist)
         secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
-    !replace primary by tight binary system
+    !replace primary by tight binary system : 2+1
     else if (subst == 11) then
-        print "(a)",'Secondary star parameters'
+        print "(a)",'Stellar parameters of the remote single star (2+1)'
         print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
-        call prompt('select mass and radius of secondary',ichoice,0,1)
+        call prompt('select mass and radius of remote single star',ichoice,0,1)
         select case(ichoice)
         case(1)
             secondary_mass_msun = 1.
@@ -389,18 +391,18 @@ subroutine setup_interactive()
         case default
             secondary_mass_msun = 1.
             secondary_racc_au   = 0.1
-            call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
+            call prompt('enter mass of remote single star',secondary_mass_msun,0.,100.)
             call prompt('enter accretion radius in au ',secondary_racc_au,0.)
         end select
         secondary_mass = secondary_mass_msun * (solarm / umass)
         secondary_racc = secondary_racc_au * (au / udist)
 
         ichoice = 1
-        print "(a)",'Primary (wind-launching) star accretion radius'
+        print "(a)",'wind-launching star accretion radius in tigh orbit (called primary)'
         print "(a)",' 2: accretion radius primary = 0.2568 au',&
         ' 1: accretion radius primary = 1.2568 au', &
         ' 0: custom'
-        call prompt('select radius of primary',ichoice,0,2)
+        call prompt('select accretion radius of wind launching star',ichoice,0,2)
         select case(ichoice)
         case(2)
             primary_racc_au = 0.2568
@@ -413,8 +415,7 @@ subroutine setup_interactive()
         primary_racc = primary_racc_au * (au / udist)
 
         ichoice = 1
-        print "(a)",'Tight binary parameters:'
-        print "(a)",'Total mass:'
+        print "(a)",'Total mass of the tight binary system (2+1):'
         print "(a)",' 2: Total mass tight binary = 1.2 Msun',&
         ' 1: Total mass tight binary = 1.5 Msun', &
         ' 0: custom'
@@ -431,8 +432,8 @@ subroutine setup_interactive()
         primary_mass = primary_mass_msun * (solarm / umass)
 
         ichoice = 1
-        print "(a)",'Mass ratio and accretion radius of secondary:'
-        print "(a)",' 1: mass ratio m2b/m2a = 0.3, accretion radius b = 0.01 au',' 0: custom'
+        print "(a)",'Mass ratio and accretion radius of secondary in tight orbit:'
+        print "(a)",' 1: mass ratio m1b/m1a = 0.3, accretion radius b = 0.01 au',' 0: custom'
         call prompt('select mass ratio and accretion radius of tight binary',ichoice,0,1)
         select case(ichoice)
         case(1)
@@ -471,6 +472,7 @@ subroutine setup_interactive()
     case(1)
         binary2_i = 0.
     case default
+        binary2_i = 0.
         call prompt('enter inclination',binary2_i,0.,90.)
     end select
 
@@ -503,7 +505,7 @@ subroutine setup_interactive()
     primary_racc = primary_racc_au * (au / udist)
 
     if (icompanion_star == 1) then
-       ichoice = 1
+        ichoice = 1
         print "(a)",'Secondary star parameters'
         print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
         call prompt('select mass and radius of secondary',ichoice,0,1)
@@ -520,6 +522,7 @@ subroutine setup_interactive()
         secondary_mass = secondary_mass_msun * (solarm / umass)
         secondary_racc = secondary_racc_au * (au / udist)
 
+        ichoice = 1
         print "(a)",'Orbital parameters'
         print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0',' 0: custom'
         call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
