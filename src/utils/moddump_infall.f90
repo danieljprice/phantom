@@ -200,10 +200,6 @@ endif
    y0 = dma*(1.0-(x0/pf)**2)
    z0 = 0.0
    xp = (/x0,y0,z0/)
-   ! ang = atan(x0/y0) - pi/2
-   ! rot_axis = (/0., 0., 1./)
-   ! print*, "ang is ", ang
-   ! call rotatevec(xp,rot_axis,ang)
   elseif (in_orbit == 2) then
    ! Dullemond+2019
    ! Initial position is x=r_init and y=b (impact parameter)
@@ -334,15 +330,16 @@ endif
                            vxyzu_add(4,i), ipart, npart, npartoftype, xyzh, vxyzu)
    enddo
 
-   ! Update eos
-   print*, "ieos is ", ieos
+   ! Update if ieos=3 since this will no longer make sense
    if (ieos==3) then
-     print*, "ieos == 3"
      ! centred at 0,0,0, change to centred on isink=1 if nptmass == 1
      if (nptmass==1) then
-       print*, "nptmass == 1"
+       write(*,*), "WARNING: Changing ieos from 3 to 6."
        ieos = 6
        isink = 1
+    elseif (nptmass==2) then
+      write(*,*), "WARNING: Changing ieos from 3 to 14."
+      ieos = 14
      endif
    endif
    write(*,*),  " ###### Added infall successfully ###### "
