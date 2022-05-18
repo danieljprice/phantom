@@ -125,8 +125,8 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
- use physcon,   only: au, solarm, mass_proton_cgs, kboltz
- use units,     only: umass,set_units,unit_velocity
+ use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
+ use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: init_inject
  use setbinary, only: set_binary,set_multiple
  use io,        only: master
@@ -142,7 +142,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=*),  intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
- integer :: ierr
+ integer :: ierr,k
  logical :: iexist
 
  call set_units(dist=au,mass=solarm,G=1.)
@@ -208,7 +208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             accretion_radius1=primary_racc,accretion_radius2=secondary_racc, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-       if (subst == 12) then
+        if (subst == 12) then
             call set_multiple(secondary_mass/(q2+1),secondary_mass*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
                 accretion_radius1=racc2a,accretion_radius2=racc2b, &
                 xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
@@ -224,9 +224,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             xyzmh_ptmass(iReff,3) = Reff2b
             xyzmh_ptmass(iLum,3)  = lum2b
 
-       else if (subst == 11) then     !AGB as secondary, because that is the one from whcih the wind is launched
-            call set_multiple(primary_mass/(q2+1),primary_mass*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
-                accretion_radius1=primary_racc,accretion_radius2=racc2b, &
+       else if (subst == 11) then
+            call set_multiple(primary_mass*q2/(q2+1),primary_mass/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+                accretion_radius1=racc2b,accretion_radius2=primary_racc, &
                 xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
                 posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
 
@@ -241,6 +241,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             xyzmh_ptmass(iLum,3)  = lum2b
        endif
 
+       print *,'Sink particles summary'
+       print *,'  #    mass       racc      lum         Reff'
+       do k=1,nptmass
+          print '(i4,2(2x,f9.5),2(2x,es10.3))',k,xyzmh_ptmass(4:5,k),xyzmh_ptmass(iLum,k)/(solarl*utime/unit_energ),&
+               xyzmh_ptmass(iReff,k)*udist/au
+       enddo
+       print *,''
 
  else
     nptmass = 1
