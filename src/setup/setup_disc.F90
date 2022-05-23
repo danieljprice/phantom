@@ -621,7 +621,7 @@ subroutine equation_of_state(gamma)
        endif
     else
        !--single disc
-       if (qindex(onlydisc) > 0.) then
+       if (qindex(onlydisc)>= 0.) then
           do i=1,maxdiscs
              !--eos around sink
              if (iuse_disc(i)) isink = i-1
@@ -636,6 +636,8 @@ subroutine equation_of_state(gamma)
              print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
           endif
           qfacdisc = qindex(onlydisc)
+       else
+          call warning('setup_disc','setting qindex < 0.')
        endif
     endif
 
