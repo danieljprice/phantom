@@ -27,7 +27,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use partinject, only:add_or_update_particle
- use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass
+ use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass,gravity
  use units,      only:udist,utime,get_G_code
  use io,         only:id,master,fatal
  use spherical,  only:set_sphere,set_ellipse
@@ -82,12 +82,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Gas particle properties
  pmass = massoftype(igas)
 
- #ifdef GRAVITY
+ if (gravity) then
    write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
- #else
+ else
    mtot=sum(xyzmh_ptmass(4,:))
- #endif
+ endif
 
 if (call_prompt) then
  ! Prompt user for infall material shape
