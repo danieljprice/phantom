@@ -60,7 +60,6 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
        T = T-corr
        Tdot = 0.
     endif
-    print*,n,T,corr,eint/d,erec
     if (abs(corr)<eoserr*T) exit
     if (n>50) dt=0.5
  enddo
