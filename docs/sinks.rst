@@ -3,7 +3,7 @@ Sink particles in phantom
 
 Sink particles (Bate et al. 1995) are used to represent point masses (usually stars or planets) in phantom calculations.
 These particles are treated separately to the SPH particles and have the following
-properties::
+properties:
 
 - sink-sink gravity is always computed by direct sum
 - sink-gas gravity is mutual and computed by direct sum
@@ -30,17 +30,17 @@ gain or lose angular momentum to the disc, and will gain mass due to accretion.
 
 Sink particle properties
 -------------------------
-As well as position, velocity, mass and acceleration, sink particle have the following properties::
+As well as position, velocity, mass and acceleration, sink particle have the following properties:
 
 - hacc: accretion radius, inside of which gas particles are tested for accretion
 - hsoft: softening length for gas-sink interaction (zero by default)
 - macc: total accreted mass (to avoid round-off error, as this is often a small fraction of total mass)
 
-The full list of extended properties (extracted from part.F90) is as follows::
+The full list of extended properties (extracted from `part.F90 <https://github.com/danieljprice/phantom/blob/master/src/main/part.F90>`__) is as follows:
 
 .. include:: sink-properties.rst
 
-These are stored in the following arrays::
+These are stored in the following arrays:
 
 - xyzmh_ptmass (positions, mass, accretion radius and extended properties)
 - vxyz_ptmass (velocities)
