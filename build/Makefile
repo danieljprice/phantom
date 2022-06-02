@@ -1276,6 +1276,12 @@ include .depends
 getdims:
 	@echo $(MAXP)
 
+get_setup_opts:
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation}  ${H2CHEM:yes=H2_Chemistry} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+
+get_setup_file:
+	@echo "$(SETUPFILE)"
+
 err:
 	$(error aborting);
 

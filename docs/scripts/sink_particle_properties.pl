@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# @(#) Perl script to extract release notes from src/splash.f90
+# @(#) Perl script to extract sink particle properties from src/main/part.F90
 #
 my $start = 0;
 open(FILE,'../../src/main/part.F90');
