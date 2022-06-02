@@ -32,6 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use io,         only:id,master,fatal
  use spherical,  only:set_sphere,set_ellipse
  use stretchmap, only:rho_func
+ use kernel,     only:hfact_default
  use physcon,    only:pi
  use vectorutils,only:rotatevec
  use prompting,      only:prompt
@@ -49,7 +50,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega
  real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
  real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3)
- real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang
+ real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang,n1
  real    :: y1,x1,dx,x_prime,y_prime,theta
  real    :: unit_velocity, G
  logical :: lrhofunc,call_prompt
@@ -107,10 +108,8 @@ if (call_prompt) then
    call prompt('Enter infall mass in Msun:', in_mass, 0.0)
    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
    write(*,*), "Initial radial distance is centre of star/sphere or ellipse."
-   r_init_min = 0.0
-   ! if (in_shape == 1) then
-   !   r_init_min = r_a/2
-   ! endif
+   r_init_min = r_a + r_close
+   r_init = r_init_min
    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
 
    if (r_slope > tiny_number) then
@@ -185,11 +184,12 @@ endif
  if (in_orbit == 1) then
    ! Parabolic orbit, taken from set_flyby
    dma = r_close
-   if (in_shape==1) then
-     n0  = (r_init+r_a)/r_close
-   else
-     n0  = r_init/r_close
-   endif
+   ! if (in_shape==1) then
+   !   n0  = (r_init+r_a)/r_close
+   ! else
+   !   n0  = r_init/r_close
+   ! endif
+   n0  = r_init/r_close
    !--focal parameter dma = pf/2
    pf = 2*dma
 
@@ -225,36 +225,37 @@ endif
  n_add = int(in_mass/pmass)
  write(*,*), "Number of particles that will be added ", n_add
  allocate(xyzh_add(4,n_add+int(0.1*n_add)),vxyzu_add(4,n_add+int(0.1*n_add)))
- hfact = 1.2
  delta = 1.0 ! no idea what this is
  nptot = n_add + npartoftype(igas)
  np = 0
  if (in_shape == 0) then
     if (lrhofunc) then
-      call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=xp,&
+      call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
         np_requested=n_add, nptot=nptot,rhofunc=prhofunc)
     else
-       call set_sphere('random',id,master,0.,r_in,delta,hfact,np,xyzh_add,xyz_origin=xp,&
+       call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
           np_requested=n_add, nptot=nptot)
     endif
  write(*,*), "The sphere has been succesfully initialised."
  elseif (in_shape == 1) then
-    call set_ellipse('random',id,master,rellipsoid,delta,hfact,xyzh_add,np,xyz_origin=xp,&
+    call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,xyzh_add,np,xyz_origin=xp,&
      np_requested=n_add, nptot=nptot)
+     print*, "The origin is ", xp
      ! Need to correct the ellipse
      do i = 1,n_add
        x1 = xyzh_add(1, i)
        y1 = xyzh_add(2, i)
        dma = r_close
-       n0  = (sqrt(x1**2 + y1**2))/r_close
+       n0  = (sqrt(xp(1)**2 + xp(2)**2))/dma
        pf = 2*dma
-       m0 = 2*sqrt(n0-1.0)
+       n1 = (xp(2)-y1)/dma
+       m0 = 2*sqrt(n0-n1-1.0)
        x0 = -m0*dma
        y0 = dma*(1.0-(x0/pf)**2)
-       theta = atan(abs(y0)/(x0-abs(y0)/2))
        dx = xyzh_add(1, i) - xp(1)
-       x_prime = dx * cos(theta)
-       y_prime = dx * sin(theta)
+       y_prime = 4*dma/x0 *dx
+       x_prime = dx
+
        xyzh_add(1, i) = x0 + x_prime
        xyzh_add(2, i) = y0 + y_prime
      enddo
