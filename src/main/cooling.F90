@@ -1026,20 +1026,23 @@ end subroutine read_options_cooling
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute electron equilibrium abundance (Palla et al 1983)
+!  UTILITY: compute electron equilibrium abundance using LTE network
+!           Warning: Unable to re-derive p and q factors used below,
+!                    use with caution!
 !+
 !-----------------------------------------------------------------------
-real function abun_e(T_gas)
+real function n_e_old(T_gas, rho_gas, mu, nH, nHe)
 
- real, intent(in) :: T_gas
+ real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
  
- real             :: Te, k1, k2, k3, k8, k9, p, q
+ real             :: n_gas, Te, k1, k2, k3, k8, k9, p, q
  
- ! Most reaction rates have been updated since Palla et al. (1983)
- ! A more up-to-date summary can be found in Vorobyov et al. (2020)
- ! Also, a significant overview of primordial reactions
- ! including electron reactions can be found in Glover & Abel (2008)
+ ! An up-to-date summary of the relevant electron reations can be found in Vorobyov et al. (2020)
+ ! Additionally, a significant overview of primordial reactions, including a large amount of
+ ! electron reactions can be found in Glover & Abel (2008)
 
+ n_gas  = rho_gas/(mu*mass_proton_cgs)
+ 
  k1 = 2.753d-14*(315614/T_gas)**1.5*(1.0+(115188/T_gas))**(-2.242) ! Ferland et al (1992)
  if (T_gas < 6000.) then                                            ! Wishart (1979)
     k2 = 10**(-17.845+0.762*log10(T_gas)+0.1523*log10(T_gas)**2 &
@@ -1062,7 +1065,8 @@ real function abun_e(T_gas)
                          +1.11954395d-4*log(Te)**7 &
                          -2.03914985d-6*log(Te)**8)
  k9 = 1.27d-17*sqrt(T_gas)*exp(-15800/T_gas)                       ! Black (1981)
- 
+
+! original rates from Palla et al. 1983
 !  k1 = 1.88d-10 * T_gas**-0.644
 !  k2 = 1.83d-18 * T_gas
 !  k3 = 1.35d-9
@@ -1072,13 +1076,14 @@ real function abun_e(T_gas)
  p = .5*k8/k9
  q = k1*(k2+k3)/(k3*k9)
  
- abun_e = (p + sqrt(q+p**2))/q
+ n_e_old = ((p + sqrt(q+p**2))/q)*n_gas
  
-end function abun_e
+end function n_e_old
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute LTE electron density (following D'Angelo & Bodenheimer 2013)
+!  UTILITY: compute LTE electron density from SAHA equations
+!           (following D'Angelo & Bodenheimer 2013)
 !+
 !-----------------------------------------------------------------------
 real function n_e(T_gas, rho_gas, mu, nH, nHe)
@@ -1155,7 +1160,7 @@ end function MaxBol_cumul
 !           mean grain size a, and specific density of the grain
 !+
 !-----------------------------------------------------------------------
-real function n_dust(rho_gas,d2g,a,rho_grain)
+real function n_dust(rho_gas, d2g, a, rho_grain)
 
  use physcon, only: pi
 
