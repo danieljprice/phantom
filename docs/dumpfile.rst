@@ -7,8 +7,8 @@ This makes phantom easy to compile. The file format is common to phantom and als
 Why you should not try to read this format directly
 ----------------------------------------------------
 It is NOT recommended to delve into gritty details of the file format yourself.
-Instead, phantom provides several `plug-and-play' utilities that allow
-you to perform post-simulation analysis or modify dump files. These utilities will read the file for you and hand you the necessary information
+Instead, phantom provides several plug-and-play utilities that allow
+you to perform :doc:`post-simulation analysis <analysis>` or :doc:`modify dump files <moddump>`. These utilities will read the file for you and hand you the necessary information
 needed.
 
 splash
@@ -23,29 +23,29 @@ from the code. It reads the raw data files and gives you plots and visualisation
 phantomanalysis
 ~~~~~~~~~~~~~~~~
 phantomanalysis is a phantom utility which allows you
-to write a plug-in module (src/utils/analysis_blah.f90)
+to write a plug-in module (e.g. `src/utils/analysis_CoM.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_CoM.f90>`__)
 to perform the analysis you desire. In your run directory you can compile this as follows::
 
    make analysis
   ./phantomanalysis file_00000
 
-More details can be found :doc:`here <analysis>`.
+More details can be found :doc:`here <analysis>`. Other example analysis modules can be found in the `src/utils <https://github.com/danieljprice/phantom/tree/master/src/utils>`__ directory.
 
 phantommoddump
 ~~~~~~~~~~~~~~~~
 phantommoddump is a phantom utility which allows you
-to write a plug-in module (src/utils/moddump_blah.f90)
+to write a plug-in module (e.g. `src/utils/moddump_sink.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/moddump_sink.f90>`__)
 to perform modifications on the data files. In your run directory you can compile this as follows::
 
    make moddump
   ./phantommoddump file_00000 fileout_00000 0.
 
-More details can be found :doc:`here <analysis>`.
+More details can be found :doc:`here <analysis>`. Other example moddump plugins can be found in the  `src/utils <https://github.com/danieljprice/phantom/tree/master/src/utils>`__ directory.
 
 showheader
 ~~~~~~~~~~
 There are two simple utilities provided as part of phantom that can show you the basic contents of the output file. These are showheader and showarrays
-Compile showheader in your run directory as follows::
+Compile `showheader <https://github.com/danieljprice/phantom/blob/master/src/utils/showheader.f90>`__ in your run directory as follows::
 
   $ make showheader
    $ ./showheader file_00000
@@ -61,7 +61,7 @@ Compile showheader in your run directory as follows::
 
 showarrays
 ~~~~~~~~~~
-Compile showheader in your run directory as follows::
+Compile `showarrays <https://github.com/danieljprice/phantom/blob/master/src/utils/showarrays.f90>`__  in your run directory as follows::
 
   $ make showarrays
    $ ./showarrays file_00000
@@ -82,7 +82,7 @@ Compile showheader in your run directory as follows::
 Reading datafiles into Python
 ------------------------------
 If your aim is to read the raw datafiles into Python you can use the
-pre-cooked python script for this::
+`pre-cooked python script <https://github.com/danieljprice/phantom/blob/master/scripts/readPhantomDump.py>`__ for this::
 
   phantom/scripts/readPhantomDump.py
 
@@ -111,12 +111,12 @@ which can be plotted with::
 
 An alternative to splash with similar functionality in Python is Plonk. The main
 limitation is that currently Plonk cannot read the native file format
-and requires conversion to hdf5 format first (the best way is using the readPhantomDump.py Python script).
+and requires conversion to hdf5 format first (the best way is using the `readPhantomDump.py <https://github.com/danieljprice/phantom/blob/master/scripts/readPhantomDump.py>`__ Python script).
 
 A portable Fortran module for reading the datafiles
 ----------------------------------------------------
 If you are STILL not satisfied with the above pre-cooked utilities, we provide
-a portable, dependency-free Fortran module (src/main/utils_dumpfiles.f90)
+a portable, dependency-free Fortran module (`src/main/utils_dumpfiles.f90 <https://github.com/danieljprice/phantom/blob/master/src/main/utils_dumpfiles.f90>`__)
 that can be incorporated into the source code of other codes. This provides
 high level functionality that can be used to read the file format.
 This library is what is used within Phantom itself to read/write the data files
