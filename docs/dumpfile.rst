@@ -7,7 +7,7 @@ This makes phantom easy to compile. The file format is common to phantom and als
 Why you should not try to read this format directly
 ----------------------------------------------------
 It is NOT recommended to delve into gritty details of the file format yourself.
-Instead, phantom provides several `plug-and-play' utilities that allow
+Instead, phantom provides several plug-and-play utilities that allow
 you to perform :doc:`post-simulation analysis <analysis>` or :doc:`modify dump files <moddump>`. These utilities will read the file for you and hand you the necessary information
 needed.
 
