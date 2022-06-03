@@ -9,7 +9,6 @@ This section contains the basic user guide for Phantom.
    config
    setups
    infile
-   setup
    qscript
    sweeps
    analysis
