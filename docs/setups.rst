@@ -29,4 +29,4 @@ The full list of pre-cooked configurations (taken from `build/Makefile_setups <h
 
 More information
 ~~~~~~~~~~~~~~~~~
-For a fuller explanation of compile-time configuration options in Phantom, see :doc:`<config>`.
+For a fuller explanation of compile-time configuration options in Phantom, see :doc:`Compile-time configuration <config>`.

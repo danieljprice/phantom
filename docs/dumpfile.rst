@@ -1,15 +1,11 @@
 The phantom native binary format
 ================================
 
-The phantom native file format is a self-describing binary file format that can be written/read in native Fortran code with no dependent libraries.
-This makes phantom easy to compile. The file format is common to phantom and also the sphNG code by Matthew Bate.
+The phantom native file format is a self-describing binary file format that can be written/read in native Fortran code with no dependent libraries. This makes phantom easy to compile. The file format is common to phantom and also the sphNG code by Matthew Bate.
 
 Why you should not try to read this format directly
 ----------------------------------------------------
-It is NOT recommended to delve into gritty details of the file format yourself.
-Instead, phantom provides several plug-and-play utilities that allow
-you to perform :doc:`post-simulation analysis <analysis>` or :doc:`modify dump files <moddump>`. These utilities will read the file for you and hand you the necessary information
-needed.
+It is NOT recommended to delve into gritty details of the file format yourself. Instead, phantom provides several plug-and-play utilities that allow you to perform :doc:`post-simulation analysis <analysis>` or :doc:`modify dump files <moddump>`. These utilities will read the file for you and hand you the necessary information needed.
 
 splash
 ~~~~~~
