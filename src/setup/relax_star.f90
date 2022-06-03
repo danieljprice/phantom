@@ -195,7 +195,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
        !
        ! write dump files
        !
-       if (mod(nits,5)==0) then
+       if (mod(nits,50)==0) then
           filename = getnextfilename(filename)
           call write_fulldump(t,filename)
           call flush(iunit)
