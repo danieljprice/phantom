@@ -14,7 +14,9 @@ module setstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
+!   radiation_utils, rho_profile, setsoftenedcore, setup_params, sortutils,
+!   spherical, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
  implicit none
