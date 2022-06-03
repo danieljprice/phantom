@@ -14,7 +14,7 @@ module cons2primsolver
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, units, utils_gr
+! :Dependencies: eos, io, metric_tools, options, units, utils_gr
 !
  use eos, only:ieos,polyk
  use options, only:ien_etotal,ien_entropy
