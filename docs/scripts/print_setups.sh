@@ -15,7 +15,7 @@ printf -- '-%.0s' {1..52}
 printf "+"
 printf -- '-%.0s' {1..123}
 printf "+\n"
-printf "| %-16s | %-61s | %-50s | %-121s |  \n" "setup" "description" "compile-time options"  "initial conditions file"
+printf "| %-16s | %-61s | %-50s | %-121s |  \n" "SETUP=" "description" "compile-time options"  "initial conditions file"
 printf "+"
 printf -- '=%.0s' {1..18}
 printf "+"
@@ -48,7 +48,7 @@ print_setup()
   printf "+\n"
 }
 if [ "$1" == "best" ]; then
-   listofsetups='disc star cluster turb'
+   listofsetups='disc star jet turb cluster'
 else
    listofsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | sort`
 fi

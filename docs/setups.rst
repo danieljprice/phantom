@@ -1,5 +1,5 @@
-Pre-cooked compile-time configurations
-=======================================
+Initial conditions / pre-cooked configurations
+==============================================
 
 How to select a pre-cooked compile-time configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -17,7 +17,7 @@ Possible values of the SETUP variable are listed below.
 Well-maintained setups
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The most used, well-maintained and supported options are:
+The most used, well-maintained and supported options for the SETUP variable are:
 
 .. include:: setups-best.rst
 
