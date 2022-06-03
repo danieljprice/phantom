@@ -123,7 +123,7 @@ endif
 ifeq ($(SETUP), turb)
 #   driven supersonic turbulence (hydro, mhd, dusty)
     FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    SETUPFILE     = setup_turb.F90
+    SETUPFILE     = setup_turb.f90
     SRCTURB       = forcing.F90
     IND_TIMESTEPS = yes
     KNOWN_SETUP   = yes

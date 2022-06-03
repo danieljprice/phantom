@@ -64,7 +64,7 @@ be present in the subroutine).
 Utility routines
 ~~~~~~~~~~~~~~~~
 
-There are several routines in the :doc:`libsetup <api/setup>` library to assist with setting up the
+There are several routines in the :doc:`libsetup </api/setup>` library to assist with setting up the
 particle positions:
 
 +---------------------------------------+-----------------------------------------------+
