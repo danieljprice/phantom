@@ -753,7 +753,7 @@ subroutine write_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,smaxt
  end select
  call write_inopt(sind ,sindtag ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
 
- end subroutine write_log_dist_options
+end subroutine write_log_dist_options
 
 !--------------------------------------------------------------------------
 !+
