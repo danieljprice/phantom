@@ -293,7 +293,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,
  logical, intent(in)    :: relaxed,use_var_comp
  real,    intent(in)    :: initialtemp
  integer :: eos_type,i,ierr
- real    :: xi,yi,zi,hi,densi,presi,tempi,eni,ri,p_on_rhogas,spsoundi
+ real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi
+ real    :: rho_cgs,p_cgs
 
  if (do_radiation) then
     eos_type=12  ! Calculate temperature from both gas and radiation pressure
@@ -324,11 +325,13 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,
        vxyzu(4,i) = eni
        eos_vars(itemp,i) = initialtemp
     case default ! Recalculate eint and temp for each particle according to EoS
+       rho_cgs = densi*unit_density
+       p_cgs = presi*unit_pressure
        if (use_var_comp) then
-          call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr,&
+          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,&
                                  mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
        else
-          call calc_temp_and_ene(eos_type,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
+          call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr)
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
