@@ -71,6 +71,7 @@ module mpiderivs
  public :: tree_bcast
  public :: finish_tree_comms
  public :: reset_cell_counters
+ public :: check_complete
 
  private
 
@@ -198,11 +199,10 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(celldens),     intent(out)    :: xsendbuf
-
+#ifdef MPI
  integer                            :: newproc
  integer                            :: tag
 
-#ifdef MPI
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
@@ -229,11 +229,10 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(cellforce),    intent(out)    :: xsendbuf
-
+#ifdef MPI
  integer                            :: newproc
  integer                            :: tag
 
-#ifdef MPI
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
@@ -342,9 +341,9 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+#ifdef MPI
  integer             :: newproc
 
-#ifdef MPI
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
@@ -463,9 +462,9 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
  use mpidens,  only:celldens
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: newproc,iproc
  type(celldens), intent(in)         :: xsendbuf
 #ifdef MPI
+ integer                            :: newproc,iproc
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -491,9 +490,9 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
  use mpiforce, only:cellforce
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: newproc,iproc
  type(cellforce), intent(in)        :: xsendbuf
 #ifdef MPI
+ integer                            :: newproc,iproc
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -619,6 +618,8 @@ function reduce_group_real(x,string,level) result(xg)
  end select
 
  xg = ired
+#else
+ xg = x
 #endif
 
 end function reduce_group_real
@@ -647,6 +648,8 @@ function reduce_group_int(x,string,level) result(xg)
  end select
 
  xg = ired
+#else
+ xg = x
 #endif
 end function reduce_group_int
 
