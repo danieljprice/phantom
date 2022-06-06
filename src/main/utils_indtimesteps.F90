@@ -465,7 +465,7 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  integer(kind=8), intent(in) :: np
  character(len=120) :: string
  character(len=14) :: tmp
- integer, save :: nplast = 0
+ integer(kind=8), save :: nplast = 0
 
  call formatint(ifrac,tmp)
  string = '> step '//tmp

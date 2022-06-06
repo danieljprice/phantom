@@ -73,7 +73,7 @@ subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
  real,            intent(in), optional :: dtprint,dtinj
  integer(kind=8), intent(in) :: np
  character(len=20) :: str
- integer, save :: nplast = 0
+ integer(kind=8), save :: nplast = 0
 
  str = ''
  if (np /= nplast) then
