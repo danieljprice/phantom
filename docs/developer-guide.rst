@@ -9,6 +9,7 @@ Here is the Phantom developer guide.
    fortran
    philosophy
    styleguide
+   setup
    testing
    datafiles
    staging

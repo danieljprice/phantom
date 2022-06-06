@@ -16,7 +16,7 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, domain, io, kdtree, kernel, linklist, part,
+! :Dependencies: dim, io, kdtree, kernel, linklist, mpidomain, part,
 !   testutils, timing, unifdis
 !
  implicit none
@@ -40,7 +40,7 @@ subroutine test_kdtree(ntests,npass)
  use unifdis,   only:set_unifdis
  use testutils, only:checkvalbuf,checkvalbuf_end,update_test_scores
  use timing,    only:print_time,getused
- use domain,    only:i_belong
+ use mpidomain, only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
  integer :: i,nfailed(12),nchecked(12)

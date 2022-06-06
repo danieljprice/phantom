@@ -15,7 +15,7 @@ module setup
 ! :Runtime parameters:
 !   - npartx : *number of particles in x-direction*
 !
-! :Dependencies: boundary, domain, infile_utils, io, kernel, mpiutils,
+! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, setup_params, timestep, unifdis,
 !   units
 !
@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:igas,periodic
  use mpiutils,     only:bcast_mpi,reduceall_mpi
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)

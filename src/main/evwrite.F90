@@ -37,9 +37,9 @@ module evwrite
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, energies, extern_binary, externalforces,
-!   fileutils, gravwaveutils, io, mpiutils, nicil, options, part, ptmass,
-!   timestep, units, viscosity
+! :Dependencies: boundary, dim, energies, eos, extern_binary,
+!   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
+!   part, ptmass, timestep, units, viscosity
 !
  use io,             only:fatal,iverbose
  use options,        only:iexternalforce
@@ -83,6 +83,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  use viscosity, only:irealvisc
  use gravwaveutils, only:calc_gravitwaves
  use mpiutils,  only:reduceall_mpi
+ use eos,       only:ieos,eos_is_non_ideal,eos_outputs_gasP
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
@@ -132,14 +133,18 @@ subroutine init_evfile(iunit,evfile,open_file)
     if (npartoftypetot(idarkmatter) > 0) call fill_ev_tag(ev_fmt,iev_rhop(5),'rho dm',  'xa',i,j)
     if (npartoftypetot(ibulge)      > 0) call fill_ev_tag(ev_fmt,iev_rhop(6),'rho blg', 'xa',i,j)
  endif
- if (maxalpha==maxp)                  call fill_ev_tag(ev_fmt,iev_alpha,  'alpha',   'x' ,i,j)
+ if (maxalpha==maxp) then
+    call fill_ev_tag(ev_fmt,      iev_alpha,  'alpha',  'x',  i,j)
+ endif
+ if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+    call fill_ev_tag(ev_fmt,      iev_temp,   'temp',   'xan',i,j)
+ endif
  if ( mhd ) then
     call fill_ev_tag(ev_fmt,      iev_B,      'B',      'xan',i,j)
     call fill_ev_tag(ev_fmt,      iev_divB,   'divB',   'xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_hdivB,  'hdivB/B','xa' ,i,j)
     call fill_ev_tag(ev_fmt,      iev_beta,   'beta_P', 'xan',i,j)
     if (mhd_nonideal) then
-       call fill_ev_tag(ev_fmt,   iev_temp,   'temp',     'xan',i,j)
        if (use_ohm) then
           call fill_ev_tag(ev_fmt,iev_etao,   'eta_o',    'xan',i,j)
        endif
@@ -438,7 +443,7 @@ subroutine write_evlog(iprint)
 
  if (use_dustfrac) then
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
-         'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
+         'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg),ev_data(iev_min,iev_dtg)
     write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
  endif
  if (use_dust) then

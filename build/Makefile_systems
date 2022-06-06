@@ -1,0 +1,243 @@
+#----------------------------------------------------------------
+# Sensible compiler options for different compute systems
+#----------------------------------------------------------------
+
+ifeq ($(SYSTEM),cray)
+    FC=ftn
+    FFLAGS=-Oaggress -Ovector3 -Oipa4
+    DBLFLAG= -s real64
+    CC=cc
+    CCFLAGS=-O3
+    KNOWN_SYSTEM=yes
+ifeq ($(MAP),yes)
+    LDFLAGS+=-dynamic -L/${ALLINEA_DIR}/allinea -lmap-sampler -Wl,--eh-frame-hdr
+    FFLAGS+= -G2
+endif
+endif
+
+ifeq ($(SYSTEM),daint)
+    include Makefile_defaults_ifort
+    FC=ftn
+    FFLAGS+= -heap-arrays
+    QSYS = slurm
+ifeq ($(MPI),daint)
+    USEMPI=yes
+endif
+endif
+
+ifeq ($(SYSTEM),xc40)
+#massively copied from the Daint system
+    include Makefile_defaults_ifort
+    FC=ftn
+    FFLAGS+= -heap-arrays -dynamic
+    KNOWN_SYSTEM=yes
+    CC = cc
+    QSYS = slurm
+    OMPFLAGS = -openmp
+ifeq ($(MPI),xc40)
+    USEMPI=yes
+endif
+endif
+
+ifeq ($(SYSTEM), msg)
+    include Makefile_defaults_ifort
+    QSYS = sge
+    QSHELL = tcsh
+    ifeq ($(OPENMP),yes)
+        QPE = smp
+        NOMP = '$$NSLOTS'
+        ifndef NPAR
+            NPAR = '4-32'
+        endif
+    endif
+    ifeq ($(MPI),yes)
+        QPE = mpi
+        ifeq ($(OPENMP),yes)
+            QPE = mqu4
+            NOMP = 4
+        endif
+    endif
+    #QEXTRA='-l dpod=true -q mqu2'
+    #HDF5=yes
+#    HDF5ROOT=/opt/sw/hdf5-1.8.0/
+endif
+
+ifeq ($(SYSTEM), m2)
+#   MASSIVE facility: massive.org.au
+    include Makefile_defaults_ifort
+    QSYS = pbs
+    ifeq ($(OPENMP),yes)
+        NOMP='12'
+    else
+        NOMP='1'
+    endif
+    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
+    WALLTIME='500:00:00'
+endif
+
+ifeq ($(SYSTEM), g2)
+#   gstar facility
+#   Note: gstar has nomp=12; sstar has nomp=16
+    include Makefile_defaults_ifort
+    QSYS = pbs
+    ifeq ($(OPENMP),yes)
+        NOMP='16'
+    else
+        NOMP='1'
+    endif
+    QNAME='sstar'
+    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
+    WALLTIME='168:00:00'
+    MPIEXEC='mpiexec -npernode 1'
+endif
+
+ifeq ($(SYSTEM), ozstar)
+#   ozstar facility
+    include Makefile_defaults_ifort
+    OMPFLAGS=-qopenmp
+    NOMP=32
+    #QNAME='skylake'
+    QSYS = slurm
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), monarch)
+    include Makefile_defaults_ifort
+    OMPFLAGS=-qopenmp -qopt-report
+    QSYS = slurm
+    QPROJECT='p01'
+    WALLTIME='100:59:59'
+    QPARTITION='comp'
+endif
+
+ifeq ($(SYSTEM), monarchpsxe)
+    include Makefile_defaults_ifort
+    QSYS = slurm
+    QPROJECT='p01'
+endif
+
+ifeq ($(SYSTEM), nci)
+#   gadi (NCI machine)
+    include Makefile_defaults_ifort
+    #MPI=intel
+    FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
+    DEBUGFLAG+= -fpe0 -fp-stack-check
+    CCFLAGS= -O3 -ip
+    QSYS= pbs
+    #PBSRESUBMIT=yes
+    NOMP=48
+    ifeq ($(MPI),yes)
+        NPAR=32
+    endif
+    QPROJECT='fu7'
+    QNAME='normal'
+    WALLTIME='48:00:00'
+    MPIEXEC='mpiexec -npernode 1'
+    QNODES='ncpus='$(NPAR)
+    QEXTRA='-l other=hyperthread'
+endif
+
+ifeq ($(SYSTEM), gfortran)
+    include Makefile_defaults_gfortran
+ifneq ($(UNAME), Darwin)
+    FFLAGS+= -mcmodel=medium
+endif
+endif
+
+ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
+    include Makefile_defaults_gfortran
+endif
+
+ifeq ($(SYSTEM), gfortran44)
+    include Makefile_defaults_gfortran
+    FC= gfortran -gdwarf-2
+    FFLAGS= -O3 -Wall -frecord-marker=4 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
+    DEBUGFLAG= -g -frange-check -ffpe-trap=invalid,denormal -finit-real=nan -finit-integer=nan -fbacktrace
+endif
+
+ifeq ($(SYSTEM), gfortran47)
+    include Makefile_defaults_gfortran
+    FC= gfortran-mp-4.7 -gdwarf-2
+    FFLAGS= -Wall -m64 -O3 -ffast-math -funroll-loops -ftree-loop-linear \
+            -finline-functions-called-once \
+            -fomit-frame-pointer -finline-limit=3000 --param min-vect-loop-bound=2
+    DEBUGFLAG= -Wextra -g -frange-check -fcheck=all -ffpe-trap=denormal -finit-real=nan -finit-integer=nan -fbacktrace
+endif
+
+ifeq ($(SYSTEM), complexity)
+#   complexity.leicester.dirac.ac.uk
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+    QSYS=pbs
+    QNAME=q64
+    WALLTIME='48:00:00'
+endif
+
+ifeq ($(SYSTEM), isca)
+    # local cluster at the University of Exeter
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -axAVX -mcmodel=medium \
+            -warn uninitialized -warn truncated_source\
+            -warn interfaces -nogen-interfaces
+    OMPFLAGS= -qopenmp
+    DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
+    QNAME=pq
+    WALLTIME='168:00:00'
+endif
+
+ifeq ($(SYSTEM), skylake)
+# HPCs Skylake cluster at Cambridge
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn \
+            truncated_source -xCORE-AVX512 -ipo
+    OMPFLAGS = -qopenmp
+    CCFLAGS = -O3 -mcmodel=medium -xCORE-AVX512 -ipo
+    QSYS = slurm
+    QPROJECT='DIRAC-DP005-CPU'
+    WALLTIME='36:00:00'
+endif
+
+ifeq ($(SYSTEM), kennedy)
+# HPCs cluster at University of St. Andrews
+    include Makefile_defaults_ifort
+    OMPFLAGS = -qopenmp
+    QSYS = slurm
+endif
+
+ifeq ($(SYSTEM), ifort)
+    include Makefile_defaults_ifort
+endif
+
+ifeq ($(SYSTEM), ifortmac)
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+endif
+
+ifeq ($(SYSTEM), ifortgcc)
+    include Makefile_defaults_ifort
+    CC = gcc
+    CCFLAGS = -O3
+endif
+
+ifeq ($(SYSTEM), hydra)
+# this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
+            -warn unused -warn truncated_source
+    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
+    CCFLAGS = -O3 -ipo -mcmodel=medium
+endif
+
+ifeq ($(SYSTEM), lyoccf)
+# LIO CCF cluster
+    include Makefile_defaults_ifort
+    FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
+            -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
+            -warn unused -warn truncated_source
+    LIBCXX = -cxxlib
+endif

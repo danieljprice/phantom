@@ -16,12 +16,11 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, centreofmass, checkconserved, derivutils, dim,
-!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
-!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: analysis, centreofmass, checkconserved, dim, energies,
+!   evwrite, externalforces, fileutils, forcing, inject, io, io_summary,
+!   mf_write, mpiutils, options, part, partinject, ptmass, quitdump,
+!   radiation_utils, readwrite_dumps, readwrite_infile, step_lf_global,
+!   supertimestep, timestep, timestep_ind, timestep_sts, timing
 !
  implicit none
  public :: evol
@@ -45,8 +44,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
- use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
- use derivutils,       only:timer_dens,timer_force,timer_link,timer_extf
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
+                            setup_timers,timers,reduce_timers,ntimers,&
+                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
  use part,             only:ibin,iphase
@@ -103,7 +103,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
+ integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
@@ -130,7 +130,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: should_conserve_dustmass
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
- type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
  real, parameter :: xor(3)=0.
 
  tprint    = 0.
@@ -174,7 +173,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  endif
 #else
  use_global_dt = .true.
- nskip   = npart
+ nskip   = int(ntot)
  nactive = npart
  istepfrac = 0 ! dummy values
  nbinmax   = 0
@@ -199,17 +198,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  call get_timings(twalllast,tcpulast)
  tstart    = twalllast
  tcpustart = tcpulast
- call reset_timer(timer_fromstart,'all')
- call reset_timer(timer_lastdump,'last')
- call reset_timer(timer_step,'step')
- call reset_timer(timer_io,'write_dump')
- call reset_timer(timer_ev,'write_ev')
- call reset_timer(timer_dens,'density')
- call reset_timer(timer_force,'force')
- call reset_timer(timer_link,'link')
- call reset_timer(timer_extf,'extf')
+
+ call setup_timers
 
  call flush(iprint)
+
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -232,7 +225,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
-       twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+       twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
@@ -251,6 +244,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--print summary of timestep bins
     if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+#else
+    !--If not using individual timestepping, set nskip to the total number of particles
+    !  across all nodes
+    nskip = int(ntot)
 #endif
 
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
@@ -288,7 +285,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--timings for step call
     call get_timings(t2,tcpu2)
-    call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
 
 #ifdef IND_TIMESTEPS
@@ -307,7 +304,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (abs(tcheck-time) > 1.e-4) call warning('evolve','time out of sync',var='error',val=abs(tcheck-time))
 
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,npart)
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,ntot)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -333,7 +330,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
 !--write log every step (NB: must print after dt has been set in order to identify timestep constraint)
 !
-    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,npart)
+    if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
 #endif
 
 !   check that MPI threads are synchronised in time
@@ -345,7 +342,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--Update timer from last dump to see if dtmax needs to be reduced
 !
     call get_timings(t2,tcpu2)
-    call increment_timer(timer_lastdump,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_lastdump,t2-t1,tcpu2-tcpu1)
 !
 !--Determine if this is the correct time to write to the data file
 !
@@ -394,7 +391,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call binpos_write(time,dt)
 #endif
        call get_timings(t2,tcpu2)
-       call increment_timer(timer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
+       call increment_timer(itimer_ev,t2-t1,tcpu2-tcpu1)  ! time taken for write_ev operation
     endif
 !-- Print out the sink particle properties & reset dt_changed.
 !-- Added total force on sink particles and sink-sink forces to write statement (fxyz_ptmass,fxyz_ptmass_sinksink)
@@ -428,7 +425,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifndef IND_TIMESTEPS
 !
 !--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
-       twallperdump = timer_lastdump%wall
+       twallperdump = timers(itimer_lastdump)%wall
        call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
 #endif
@@ -439,11 +436,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !   move timer_lastdump outside at_dump_time block so that dtmax can
 !   be reduced it too long between dumps)
 !
-       call increment_timer(timer_fromstart,t2-tstart,tcpu2-tcpustart)
-       timer_fromstart%cpu  = reduce_mpi('+',timer_fromstart%cpu)
-       timer_lastdump%cpu   = reduce_mpi('+',timer_lastdump%cpu)
-       timer_step%cpu       = reduce_mpi('+',timer_step%cpu)
-       timer_ev%cpu         = reduce_mpi('+',timer_ev%cpu)
+       call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
 
        fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
 !
@@ -456,8 +449,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !
        abortrun = .false.
        if (twallmax > 1.) then
-          twallused    = timer_fromstart%wall
-          twallperdump = timer_lastdump%wall
+          twallused    = timers(itimer_fromstart)%wall
+          twallperdump = timers(itimer_lastdump)%wall
           if (fulldump) then
              if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
                 abortrun = .true.
@@ -465,7 +458,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           else
              if ((twallused + 3.0*twallperdump) > twallmax) then
                 fulldump = .true.
-                write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
+                if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
                 nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
                 if ((twallused + twallperdump) > twallmax) abortrun = .true.
              endif
@@ -502,8 +495,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           endif
        endif
        call get_timings(t2,tcpu2)
-       call increment_timer(timer_io,t2-t1,tcpu2-tcpu1)
-       timer_io%cpu   = reduce_mpi('+',timer_io%cpu)
+       call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
 
 #ifdef LIVE_ANALYSIS
        if (id==master) then
@@ -511,9 +503,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
                            massoftype(igas),npart,time,ianalysis)
        endif
 #endif
+       call reduce_timers
        if (id==master) then
-          call print_timinginfo(iprint,nsteps,nsteplast,timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                                             timer_dens,timer_force,timer_link,timer_extf)
+          call print_timinginfo(iprint,nsteps,nsteplast)
           !--Write out summary to log file
           call summary_printout(iprint,nptmass)
        endif
@@ -522,7 +514,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        if (iverbose >= 0) then
           call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
           timeperbin(:) = 0.
-          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timer_lastdump%wall,2)
+          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
        endif
        tlast = tprint
        istepfrac = 0
@@ -535,28 +527,24 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        !  based on the wall time between the last two dumps added to the current total walltime used.
        !
        if (abortrun) then
-          call print_time(t2-tstart,'>> WALL TIME = ',iprint)
-          call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
-          write(iprint,"(1x,a)") '>> ABORTING... '
+          if (id==master) then
+             call print_time(t2-tstart,'>> WALL TIME = ',iprint)
+             call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
+             write(iprint,"(1x,a)") '>> ABORTING... '
+          endif
           return
        endif
 
        if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
-          write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
+          if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
           return
        endif
 
        twalllast = t2
        tcpulast = tcpu2
-       call reset_timer(timer_fromstart)
-       call reset_timer(timer_lastdump)
-       call reset_timer(timer_step)
-       call reset_timer(timer_ev)
-       call reset_timer(timer_io)
-       call reset_timer(timer_dens)
-       call reset_timer(timer_force)
-       call reset_timer(timer_link)
-       call reset_timer(timer_extf)
+       do i = 1,ntimers
+          call reset_timer(i)
+       enddo
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1
@@ -588,44 +576,44 @@ end subroutine evol
 !  routine to print out the timing information at each full dump
 !+
 !----------------------------------------------------------------
-subroutine print_timinginfo(iprint,nsteps,nsteplast,&
-           timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-           timer_dens,timer_force,timer_link,timer_extf)
+subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
- use timing, only:timer,print_timer
+ use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
+                  itimer_step,itimer_link,itimer_balance,itimer_dens,&
+                  itimer_force,itimer_extf,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
- type(timer),  intent(in) :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io,&
-                             timer_dens,timer_force,timer_link,timer_extf
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
  character(len=20)        :: string,string1,string2,string3
+ integer                  :: itimer
 
  write(string,"(i12)") nsteps
- call formatreal(real(timer_fromstart%wall),string1)
- call formatreal(real(timer_fromstart%cpu),string2)
- call formatreal(real(timer_fromstart%cpu/(timer_fromstart%wall+epsilon(0._4))),string3)
+ call formatreal(real(timers(itimer_fromstart)%wall),string1)
+ call formatreal(real(timers(itimer_fromstart)%cpu),string2)
+ call formatreal(real(timers(itimer_fromstart)%cpu/(timers(itimer_fromstart)%wall+epsilon(0._4))),string3)
  write(iprint,"(1x,'Since code start: ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  write(string,"(i12)") nsteps-nsteplast
- call formatreal(real(timer_lastdump%wall),string1)
- call formatreal(real(timer_lastdump%cpu),string2)
- call formatreal(real(timer_lastdump%cpu/(timer_lastdump%wall+epsilon(0._4))),string3)
+ call formatreal(real(timers(itimer_lastdump)%wall),string1)
+ call formatreal(real(timers(itimer_lastdump)%cpu),string2)
+ call formatreal(real(timers(itimer_lastdump)%cpu/(timers(itimer_lastdump)%wall+epsilon(0._4))),string3)
  write(iprint,"(1x,'Since last dump : ',a,' timesteps, wall: ',a,'s cpu: ',a,'s cpu/wall: ',a)") &
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
- time_fullstep = timer_lastdump%wall + timer_ev%wall + timer_io%wall
- write(iprint,"(/,16x,a)") ' wall        cpu    cpu/wall   frac'
- call print_timer(iprint,timer_step%label,timer_step, time_fullstep)
- call print_timer(iprint,"step (force)",  timer_force,time_fullstep)
- call print_timer(iprint,"step (dens) ",  timer_dens, time_fullstep)
- call print_timer(iprint,"step (link) ",  timer_link, time_fullstep)
- call print_timer(iprint,"step (extf) ",  timer_extf, time_fullstep)
- call print_timer(iprint,timer_ev%label,  timer_ev,   time_fullstep)
- call print_timer(iprint,timer_io%label,  timer_io,   time_fullstep)
+ time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
+ write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall  load bal      frac'
 
- dfrac = 1./(timer_lastdump%wall + epsilon(0._4))
- fracinstep = timer_step%wall*dfrac
+ ! skip the first 2 timers
+ ! 1: from start
+ ! 2: from last dump
+ ! 3: step
+ do itimer = 3, ntimers
+    call print_timer(iprint,itimer,time_fullstep)
+ enddo
+
+ dfrac = 1./(timers(itimer_lastdump)%wall + epsilon(0._4))
+ fracinstep = timers(itimer_step)%wall*dfrac
  if (fracinstep < 0.99) then
     write(iprint,"(1x,a,f6.2,a)") 'WARNING: ',100.*(1.-fracinstep),'% of time was in unusual routines (not dens/force/link)'
  endif

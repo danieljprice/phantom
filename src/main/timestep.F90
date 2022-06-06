@@ -68,12 +68,12 @@ end subroutine set_defaults_timestep
 !-----------------------------------------------------------------
 subroutine print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,&
                        dtrad,dtprint,dtinj,np)
- integer, intent(in) :: iprint
- real,    intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
- real,    intent(in), optional :: dtprint,dtinj
- integer, intent(in) :: np
+ integer,         intent(in) :: iprint
+ real,            intent(in) :: time,dt,dtforce,dtcourant,dterr,dtmax,dtrad
+ real,            intent(in), optional :: dtprint,dtinj
+ integer(kind=8), intent(in) :: np
  character(len=20) :: str
- integer, save :: nplast = 0
+ integer(kind=8), save :: nplast = 0
 
  str = ''
  if (np /= nplast) then
@@ -132,6 +132,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  else
     dtmax_global = dtmax0 ! dtmax never be the default negative value
  endif
+ dtmax_global = dtmax_global - epsilon(dtmax_global) ! just to be sure that we are not accidentally increasing dtmax
 
  ! modify dtmax based upon wall time constraint, if requested
  if ( dtwallmax > 0.0 ) then

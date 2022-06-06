@@ -28,10 +28,11 @@ contains
 !  as in --arg=blah
 !+
 !-------------------------------------------------------------------
-integer function get_command_option(variable,default) result(val)
+function get_command_option(variable,default) result(val)
  character(len=*), intent(in) :: variable
- integer, intent(in), optional   :: default
+ integer, intent(in), optional :: default
  character(len=80) :: string
+ integer(kind=8)   :: val
  integer :: ierr,nargs,ieq,iarg
 
  val = 0.

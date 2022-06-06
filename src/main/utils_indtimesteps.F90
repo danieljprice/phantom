@@ -276,8 +276,7 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,&
-                          ibin_dts)
+subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
  integer,         intent(in)    :: npart,nbins,dtmax_ifactor
  integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
  real,            intent(in)    :: time
@@ -463,10 +462,10 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  real,            intent(in) :: time,dt
  integer(kind=8), intent(in) :: nactive
  real(kind=4),    intent(in) :: tcpu
- integer,         intent(in) :: np
+ integer(kind=8), intent(in) :: np
  character(len=120) :: string
  character(len=14) :: tmp
- integer, save :: nplast = 0
+ integer(kind=8), save :: nplast = 0
 
  call formatint(ifrac,tmp)
  string = '> step '//tmp
