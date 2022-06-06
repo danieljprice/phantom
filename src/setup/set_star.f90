@@ -201,14 +201,12 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=np,mask=mask)
-
  !
  ! get total particle number across all MPI threads
  ! and use this to set the particle mass
  !
  ntot = int(npart_total,kind=(kind(ntot)))
  massoftype(igas) = Mstar/ntot
-
  !
  ! set particle type as gas particles
  !
@@ -216,7 +214,6 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  do i=1,npart
     call set_particle_type(i,igas)
  enddo
-
  !
  ! mean density
  !
