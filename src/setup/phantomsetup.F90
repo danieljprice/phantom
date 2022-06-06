@@ -41,6 +41,7 @@ program phantomsetup
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
+ use systemutils,     only:get_command_option
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
 #endif
@@ -49,10 +50,10 @@ program phantomsetup
 #endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
- integer(kind=8)             :: ntotal
+ integer(kind=8)             :: ntotal,n_alloc
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
- character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,string
+ character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
  real                        :: time,pmassi
  logical                     :: iexist
 
@@ -65,7 +66,7 @@ program phantomsetup
  nargs = command_argument_count()
  if (nargs < 1) then
     print "(a,/)",trim(tagline)
-    print "(a)",' Usage: phantomsetup fileprefix [nprocsfake]'
+    print "(a)",' Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1'
     print "(/,a)",' e.g. "phantomsetup mysim"'
     stop
  endif
@@ -93,7 +94,8 @@ program phantomsetup
 !  also rely on maxp being set to the number of desired particles. Allocate only
 !  part, not kdtree or linklist
 !
- call allocate_memory(int(maxp_hard,kind=8), part_only=.true.)
+ n_alloc = get_command_option('maxp',default=maxp_hard)
+ call allocate_memory(n_alloc, part_only=.true.)
 
  call set_default_options
 !
@@ -116,12 +118,7 @@ program phantomsetup
     call init_domains(nprocs)
     nprocsfake = 1
  else ! non-mpi
-    if (nargs >= 3) then
-       call get_command_argument(3,string)
-       read(string,*) nprocsfake
-    else
-       nprocsfake = 1
-    endif
+    nprocsfake = get_command_option('nprocsfake',default=1)
     nprocs= nprocsfake
     print*,' nprocs = ',nprocs
     call init_domains(nprocs)
