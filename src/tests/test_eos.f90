@@ -10,7 +10,7 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Terrence Tricco
 !
 ! :Runtime parameters: None
 !
