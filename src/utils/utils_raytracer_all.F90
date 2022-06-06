@@ -676,7 +676,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 4 rays, cubed interpolation
-      else if (raypolation==3) then
+      else if (raypolation==5) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -717,7 +717,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 9 rays, cubed interpolation
-      else if (raypolation==4) then
+      else if (raypolation==6) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
