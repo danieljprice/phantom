@@ -116,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer                          :: npts,ierr
+ integer                          :: npts,ierr,ierr_relax
  real                             :: rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  logical                          :: setexists
@@ -133,6 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  relax_star_in_setup = .false.
  write_rho_to_file = .false.
  input_polyk  = .false.
+ ierr_relax = 0
  !
  ! set default options
  !
@@ -246,7 +247,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (relax_star_in_setup) then
     if (reduceall_mpi('+',npart)==npart) then
-       call relax_star(npts,den,pres,r,npart,xyzh)
+       call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr_relax)
     else
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
@@ -294,6 +295,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     write(*,'(a)') 'WARNING! This setup may not be stable'
  endif
  write(*,"(70('='))")
+ if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
 
 end subroutine setpart
 
