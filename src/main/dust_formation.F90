@@ -137,13 +137,13 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  real,    intent(inout) :: JKmuS(:)
 
  integer, parameter :: wind_emitting_sink = 1
- real :: dt, T, rho_cgs, vxyzui(4)
+ real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
- dt        = dtsph* utime
+ dt_cgs    = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
  T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
- call evolve_chem(dt, T, rho_cgs, JKmuS)
+ call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
 end subroutine evolve_dust

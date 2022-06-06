@@ -100,9 +100,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'period           :',period, &
         'eccentricity     :',eccentricity, &
         'pericentre       :',semimajoraxis*(1. - eccentricity), &
-        'apocentre        :',semimajoraxis*(1. + eccentricity), &
-        'Roche lobe #1    :',Rochelobe1, &
-        'Roche lobe #2    :',Rochelobe2
+        'apocentre        :',semimajoraxis*(1. + eccentricity)
  endif
  if (accretion_radius1 > Rochelobe1) then
     print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
