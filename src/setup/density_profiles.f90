@@ -325,7 +325,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  character(len=10000)                       :: dumc
  character(len=120)                         :: fullfilepath
  character(len=24),allocatable              :: header(:),dum(:)
- logical                                    :: iexist,usecgs,ismesafile
+ logical                                    :: iexist,usecgs,ismesafile,got_column
  real,allocatable,dimension(:,:)            :: dat
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
@@ -371,13 +371,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
-101 do i = 1,500
+101 continue
+ do i = 1,500
     if (dum(i)=='aaa') then
        rows = i-1
        exit
     endif
  enddo
-
  allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
@@ -393,22 +393,23 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
-    if (header(i)(1:1) == '#') then
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
        print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
        ierr = 2
        return
     endif
+    got_column = .true.
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
-    case('mass')
+    case('mass','#mass')
        m = dat(1:lines,i)
        if (ismesafile) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
     case('logrho')
        rho = 10**(dat(1:lines,i))
-    case('energy','e_int')
+    case('energy','e_int','e_internal')
        ene = dat(1:lines,i)
     case('radius_cm')
        r = dat(1:lines,i)
@@ -425,7 +426,10 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        Xfrac = dat(1:lines,i)
     case('y_mass_fraction_he','yfrac')
        Yfrac = dat(1:lines,i)
+    case default
+       got_column = .false.
     end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
  enddo
 
  if (.not. usecgs) then
