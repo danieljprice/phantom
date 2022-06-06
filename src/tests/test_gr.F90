@@ -15,8 +15,8 @@ module testgr
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!   io, metric, metric_tools, part, physcon, step_lf_global, testutils,
-!   units, utils_gr, vectorutils
+!   io, metric, metric_tools, options, part, physcon, step_lf_global,
+!   testutils, units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -290,7 +290,7 @@ subroutine test_combinations(ntests,npass)
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
  real    :: utherm(7),density(7),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
- real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,dens,u,pondens,spsound
+ real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,t,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
  integer :: i,j,k,l,m,n,ii,jj
  integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim
@@ -331,6 +331,8 @@ subroutine test_combinations(ntests,npass)
  utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
  density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
 
+ t = -1. ! initial temperature guess to avoid complier warning
+
  do i=1,size(radii)
     ri = radii(i)
     do j=1,size(theta)
@@ -370,7 +372,7 @@ subroutine test_combinations(ntests,npass)
                          u = utherm(ii)
                          do jj=1,size(density)
                             dens = density(jj)
-                            call equationofstate(ieos,pondens,spsound,dens,x,y,z,u)
+                            call equationofstate(ieos,pondens,spsound,dens,x,y,z,t,u)
                             p = pondens*dens
                             call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
                          enddo
@@ -469,26 +471,31 @@ end subroutine test_metric_derivs_i
 !+
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
- use cons2primsolver, only:conservative2primitive,primitive2conservative,ien_entropy,ien_etotal
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use options,         only:ien_entropy,ien_etotal
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
- use physcon,         only:radconst
+ use physcon,         only:radconst,kb_on_mh
+
  real, intent(in) :: x(1:3),v(1:3),dens,p,tol
  real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
  real :: rho2,pmom2(1:3),en2
- real :: p2,u2,dens2,gamma2,v2(1:3)
+ real :: p2,u2,t2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
  real :: toli
  integer :: ierr,i,j,nfailprev,ien_type
+ real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
 
- dens2 = dens**2. ! perturb the state
+ ! perturb the state
+ dens2 = 2.*dens
+ u2 = 2.*u
+ t2 = -1.
 
- u2 = u
- call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),u2)
+ call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
  P2 = pondens2 * dens2
  v2 = v
 
@@ -502,12 +509,15 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     nfailprev = nfail
 
     call pack_metric(x,metrici)
-    if (i == 2) then
+    if (i == 1 .and. ieos /= 12) then
        ien_type = ien_entropy
        toli = 1.5e-11
+    elseif (i == 1 .and. ieos == 12) then
+       ! entropy cannot use for gasplusrad eos
+       cycle
     else
        ien_type = ien_etotal
-       toli = 5.e-10
+       toli = 1.5e-9
     endif
 
     call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
@@ -522,11 +532,13 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
     enddo
     call checkvalbuf(dens_out,dens2,toli,'[F]: dens_out',nfail,ncheck,errmax)
     call checkvalbuf(u_out,u2,toli,'[F]: u_out',nfail,ncheck,errmax)
-    call checkvalbuf(p_out,p2,toli,'[F]: p_out',nfail,ncheck,errmax)
-    call checkvalbuf(gamma_out,gamma2,toli,'[F]: gamma_out',nfail,ncheck,errmax)
+    call checkvalbuf(p_out,p2,tolp,'[F]: p_out',nfail,ncheck,errmax)
+    call checkvalbuf(gamma_out,gamma2,tolg,'[F]: gamma_out',nfail,ncheck,errmax)
 
     if (nfail > nfailprev .and. nfail < 10) then
        print*,'-- cons2prim test failed with'
+       print*,'   ien_type =',ien_type
+       print*,'   ieos     =',ieos
        print*,'  - IN:'
        print*,'     x    =',x
        print*,'     v    =',v2

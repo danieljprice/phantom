@@ -26,13 +26,13 @@ module part
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
-               maxp_h2,nabundances,maxtemp,periodic,&
+               maxp_h2,nabundances,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,use_dustgrowth,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
+               use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran,n_nden_phantom
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -198,11 +198,22 @@ module part
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
- integer, parameter :: n_nucleation = 8
-#ifdef NUCLEATION
+ integer, parameter :: n_nucleation = 10
  real, allocatable :: nucleation(:,:)
- character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
-#endif
+ ! please note that in nucleation, we save the *normalized* moments, i.e. \hat{K}_i = K_i/n<H>
+ character(len=*), parameter :: nucleation_label(n_nucleation) = &
+       (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
+         'mu   ','gamma','S    ','kappa','alphw'/)
+ integer, parameter :: idJstar = 1, &
+                       idK0    = 2, &
+                       idK1    = 3, &
+                       idK2    = 4, &
+                       idK3    = 5, &
+                       idmu    = 6, &
+                       idgamma = 7, &
+                       idsat   = 8, & !for logging
+                       idkappa = 9, & !for logging
+                       idalpha = 10   !for logging
 !
 !--KROME variables
 !
@@ -228,7 +239,7 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       iradP = 8, &
+                       iradP  = 8, &
                        maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
     (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
@@ -288,13 +299,18 @@ module part
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
 !
-!--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
+!--size of the buffer required for transferring particle
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
+#ifdef GR
+   +maxvxyzu                            &  ! pxyzu
+   +maxvxyzu                            &  ! ppred
+   +1                                   &  ! dens
+#endif
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
@@ -306,7 +322,7 @@ module part
 #endif
 #ifdef MHD
  +maxBevol                            &  ! Bevol
- +maxBevol                            &  ! Bpred
+   +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
  +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
@@ -327,31 +343,35 @@ module part
 #ifdef H2CHEM
  +nabundances                         &  ! abundance
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  +1                                   &  ! nucleation rate
- +4                                   &  ! moments
+ +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
  +1                                   &  ! mean molecular weight
+ +1                                   &  ! gamma
+ +1                                   &  ! super saturation ratio
+ +1                                   &  ! kappa dust
+ +1                                   &  ! alpha
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
- +1                                   &  ! variable gamma
- +1                                   &  ! variable mu
- +1                                   &  ! temperature
- +1                                   &  ! cooling rate
+   +1                                   &  ! variable gamma
+   +1                                   &  ! variable mu
+   +1                                   &  ! temperature
+   +1                                   &  ! cooling rate
 #endif
- +maxeosvars                          &  ! eos_vars
+   +maxeosvars                          &  ! eos_vars
+#ifdef SINK_RADIATION
+   +1                                   &  ! dust temperature
+#endif
 #ifdef GRAVITY
  +1                                   &  ! poten
 #endif
-#ifdef SINK_RADIATION
- +1                                   &  ! dust temperature
-#endif
 #ifdef IND_TIMESTEPS
  +1                                   &  ! ibin
- +1                                   &  ! ibin_old
- +1                                   &  ! ibin_wake
- +1                                   &  ! dt_in
- +1                                   &  ! twas
+   +1                                   &  ! ibin_old
+   +1                                   &  ! ibin_wake
+   +1                                   &  ! dt_in
+   +1                                   &  ! twas
 #endif
  +1                                   &  ! iorig
  +0
@@ -361,8 +381,9 @@ module part
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0
 
- integer :: npartoftype(maxtypes)
- real    :: massoftype(maxtypes)
+ integer         :: npartoftype(maxtypes)
+ integer(kind=8) :: npartoftypetot(maxtypes)
+ real            :: massoftype(maxtypes)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -466,9 +487,7 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
-#ifdef NUCLEATION
- call allocate_array('nucleation', nucleation, n_nucleation, maxsp)
-#endif
+ call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -532,9 +551,7 @@ subroutine deallocate_part
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
 #endif
-#ifdef NUCLEATION
  if (allocated(nucleation))   deallocate(nucleation)
-#endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -564,6 +581,7 @@ subroutine init_part
  npart = 0
  nptmass = 0
  npartoftype(:) = 0
+ npartoftypetot(:) = 0
  massoftype(:)  = 0.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
@@ -615,6 +633,8 @@ subroutine init_part
  ibin(:)       = 0
  ibin_old(:)   = 0
  ibin_wake(:)  = 0
+ dt_in(:)      = 0.
+ twas(:)       = 0.
 #endif
 
  ideadhead = 0
@@ -1194,7 +1214,14 @@ subroutine copy_particle_all(src,dst,new_part)
     radprop(:,dst) = radprop(:,src)
     drad(:,dst) = drad(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+    pxyzu(:,dst) = pxyzu(:,src)
+    if (maxgran==maxp) then
+       ppred(:,dst) = ppred(:,src)
+    endif
+    dens(dst) = dens(src)
+ endif
+
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
@@ -1233,9 +1260,8 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
-#ifdef NUCLEATION
- nucleation(:,dst) = nucleation(:,src)
-#endif
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
@@ -1295,7 +1321,8 @@ end subroutine reorder_particles
 !+
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
- use io, only:fatal
+ use io,  only:fatal
+ use dim, only: mpi
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -1306,9 +1333,7 @@ subroutine shuffle_part(np)
           ! move particle to new position
           call copy_particle_all(np,newpart,.false.)
           ! move ibelong to new position
-#ifdef MPI
-          ibelong(newpart) = ibelong(np)
-#endif
+          if (mpi) ibelong(newpart) = ibelong(np)
           ! update deadhead
           ideadhead = ll(newpart)
        endif
@@ -1401,6 +1426,11 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
     call fill_buffer(xtemp,vpred(:,i),nbuf)
+    if (gr) then
+       call fill_buffer(xtemp,pxyzu(:,i),nbuf)
+       call fill_buffer(xtemp,ppred(:,i),nbuf)
+       call fill_buffer(xtemp,dens(i),nbuf)
+    endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
     if (ndivcurlv > 0) then
@@ -1475,6 +1505,11 @@ subroutine unfill_buffer(ipart,xbuf)
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ if (gr) then
+    pxyzu(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    ppred(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    dens(ipart)          = unfill_buf(xbuf,j)
+ endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv > 0) then
@@ -1802,5 +1837,12 @@ real function Omega_k(i)
  endif
 
 end function Omega_k
+
+subroutine update_npartoftypetot
+ use mpiutils, only:reduceall_mpi
+
+ npartoftypetot = reduceall_mpi('+',npartoftype)
+
+end subroutine update_npartoftypetot
 
 end module part

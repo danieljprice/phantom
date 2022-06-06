@@ -1,0 +1,53 @@
+#----------------------------------------------------
+# this is a utility to test the fast sqrt functions
+# to see if they are faster than the native calls
+# if so, then the appropriate pre-processor flags
+# are added
+#
+.PHONY: .make_mathflags .make_nofastmath getmathflags checkmath
+ifndef FASTSQRT
+    FASTSQRT=${shell if [ -e .make_nofastmath ]; then echo no; fi}
+endif
+
+ifeq ($(FASTSQRT), no)
+    OBJTESTMATH=
+    FASTMATH=no
+else
+    OBJTESTMATH= random.o io.o fastmath.o mpi_utils.o test_fastmath.o getmathflags.o
+    FASTMATH=${shell if [ -e .make_mathflags ]; then cat .make_mathflags; fi}
+endif
+
+.make_mathflags: checksys $(OBJTESTMATH)
+     ifeq ($(FASTSQRT), no)
+	@touch .make_mathflags
+     else
+	@if [ ! -e $@ ]; then \
+	    $(FC) $(FFLAGS) -o $(BINDIR)/getmathflags $(OBJTESTMATH) || ${MAKE} fastmathlinkerr; \
+	    $(BINDIR)/getmathflags > .make_mathflags; \
+	fi
+     endif
+
+ifeq ($(FASTMATH), yes)
+    SRCFASTMATH=fastmath.o
+    TEST_FASTMATH=test_fastmath.F90
+    FPPFLAGS+=-DFINVSQRT
+else
+    SRCFASTMATH=
+    TEST_FASTMATH=
+endif
+
+fastmath.o: fastmath.f90
+	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
+test_fastmath.o: test_fastmath.F90
+	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
+getmathflags.o: getmathflags.f90
+	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
+
+fastmathlinkerr:
+	@echo "***********************************************************************"
+	@echo "*** ERROR linking fastsqrt stuff (requires Fortran->C call)         ***"
+	@echo "*** Type make again to ignore this and compile without it           ***"
+	@echo "***********************************************************************"
+	@touch .make_mathflags
+	@touch .make_nofastmath
+	${MAKE} err;

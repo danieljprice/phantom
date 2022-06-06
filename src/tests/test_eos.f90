@@ -31,9 +31,10 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_eos(ntests,npass)
- use io,        only:id,master,stdout
- use physcon,   only:solarm
- use units,     only:set_units
+ use io,            only:id,master,stdout
+ use physcon,       only:solarm
+ use units,         only:set_units
+ use eos_gasradrec, only:irecomb
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -44,7 +45,10 @@ subroutine test_eos(ntests,npass)
  call test_barotropic(ntests, npass)
 !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
- call test_hormone(ntests,npass)
+
+ do irecomb = 0,3
+    call test_hormone(ntests,npass)
+ enddo
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -136,7 +140,7 @@ subroutine test_idealplusrad(ntests, npass)
        code_eni = eni/unit_ergg
        temp = eni*mu/kb_on_mh
        rhocodei = rhogrid(i)/unit_density
-       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,code_eni,tempi=temp,mu_local=mu,gamma_local=gamma)
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,temp,code_eni,mu_local=mu,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
 
        call checkvalbuf(temp,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(1),ncheck(1),errmax(1))
@@ -181,9 +185,10 @@ subroutine test_hormone(ntests, npass)
  ! Testing
  dum = 0.
  tol = 1.e-12
- tempi = 1.
+ tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
- if (.not. done_init_eos) call init_eos(ieos,ierr)
+ call init_eos(ieos,ierr)
+
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T
@@ -196,9 +201,10 @@ subroutine test_hormone(ntests, npass)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate P, T from rho, u, mu
+       tempi = -1.
        eni_code = eni/unit_ergg
        rhocodei = rhogrid(i)/unit_density
-       call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,eni_code,tempi,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
+       call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
        call checkvalbuf(tempi,Tgrid(j),tol,'Check recovery of T from rho, u',nfail(1),ncheck(1),errmax(1))
        call checkvalbuf(pres2,presi,tol,'Check recovery of P from rho, u',nfail(2),ncheck(2),errmax(2))
@@ -230,10 +236,10 @@ subroutine get_rhoT_grid(npts,rhogrid,Tgrid)
  real :: delta_logQ,delta_logT,logQi,logTi
 
  ! Initialise grids in Q and T (cgs units)
- npts = 10
- logQmin = -6.
+ npts = 30
+ logQmin = -10.
  logQmax = -2.
- logTmin = 3.
+ logTmin = 1.
  logTmax = 8.
 
  ! Note: logQ = logrho - 2logT + 12 in cgs units
@@ -265,7 +271,7 @@ subroutine test_barotropic(ntests, npass)
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: i,ierr,maxpts,ierrmax,ieos
- real    :: rhoi,xi,yi,zi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
+ real    :: rhoi,xi,yi,zi,tempi,ponrhoi,spsoundi,ponrhoprev,spsoundprev
  real    :: errmax
 
  if (id==master) write(*,"(/,a)") '--> testing barotropic equation of state'
@@ -292,10 +298,11 @@ subroutine test_barotropic(ntests, npass)
  maxpts = 5000
  errmax = 0.
  rhoi   = 1.e-6*rhocrit1cgs/unit_density
+ tempi  = -1. ! initial guess to avoid compiler warning
 
  do i=1,maxpts
     rhoi = 1.01*rhoi
-    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi)
+    call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
     !write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
     if (i > 1) call checkvalbuf(ponrhoi,ponrhoprev,1.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
     !if (i > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',nfailed(2),ncheck(2),errmax)
@@ -368,7 +375,7 @@ subroutine test_helmholtz(ntests, npass)
     ! run through density in log space
     do j=1,maxpts
        rhoi = 10**(logrhomin + j * logdrho)
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi)
+       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni)
        write(1,*) rhoi*unit_density,ponrhoi,ponrhoi*rhoi,spsoundi
        if (j > 1) call checkvalbuf(ponrhoi, ponrhoprev, 5.e-2,'p/rho is continuous',nfailed(1),ncheck(1),errmax)
        !if (j > 1) call checkvalbuf(spsoundi,spsoundprev,1.e-2,'cs is continuous',   nfailed(2),ncheck(2),errmax)
