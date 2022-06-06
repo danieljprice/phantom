@@ -345,6 +345,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
+ print "(1x,a)",trim(fullfilepath)
  open(newunit=iu,file=fullfilepath,status='old')
  call get_ncolumns(iu,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
@@ -431,6 +432,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     end select
     if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
  enddo
+ print "(a)"
 
  if (.not. usecgs) then
     m = m / umass

@@ -228,7 +228,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                         Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                        isoftcore,isofteningopt,rcore,outputfilename)
+                        isoftcore,isofteningopt,rcore,hsoft,outputfilename)
  !
  ! set up particles to represent the desired stellar profile
  !

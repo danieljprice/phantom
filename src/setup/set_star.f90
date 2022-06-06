@@ -60,7 +60,7 @@ contains
 !-------------------------------------------------------------------------------
 subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                              Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                             isoftcore,isofteningopt,rcore,outputfilename)
+                             isoftcore,isofteningopt,rcore,hsoft,outputfilename)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
@@ -76,17 +76,18 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
  real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:)
  integer,           intent(out)   :: npts
- real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre
+ real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
  integer :: ierr,i
  logical :: calc_polyk,iexist
- real    :: hsoft,eni,tempi,guessene
+ real    :: eni,tempi,guessene
  procedure(func), pointer :: get_dPdrho
  !
  ! set up tabulated density profile
  !
  calc_polyk = .true.
+ hsoft = 0.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
 
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
