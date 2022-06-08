@@ -35,7 +35,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  pmass = massoftype(igas)
 
- system_type = 3 ! 1 = Single star (or centered on isink=1), 2 = binary, 3 = triple (centered on binary), 4 = triple (centred on external)
+ system_type = 2 ! 1 = Single star (or centered on isink=1), 2 = binary, 3 = triple (centered on binary), 4 = triple (centred on external)
  outer_radius = 500. ! The outer radius from centre of mass that we want to measure L
 
  select case(system_type)
