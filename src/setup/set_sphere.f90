@@ -196,7 +196,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     if (mask(iparttot)) then
        np = np + 1
        if (np > maxp) then
-          print*,' ERROR: np > maxp'
+          print*,' ERROR: np > array size: use ./phantomsetup --maxp=',np_requested
           return
        endif
        xyzh(1:3,np) = rr*dir
@@ -206,7 +206,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     if (mask(iparttot)) then
        np = np + 1
        if (np > maxp) then
-          print*,' ERROR: np > maxp'
+          print*,' ERROR: np > array size: use ./phantomsetup --maxp=',np_requested
           return
        endif
        xyzh(1:3,np) = -rr*dir
