@@ -22,8 +22,7 @@ Show available software
 
    $ module avail
 
-Load intel compiler and SPLASH (currently Phantom works best with this
-compiler)
+Load intel compiler and SPLASH (currently Phantom works best with this compiler)
 
 ::
 
@@ -138,8 +137,16 @@ The resulting submission script should look something like
    ./phantom shock.in >& $outfile
 
 You will need to enter the email destination, job name and account
-number as required (without the brackets). You can then submit this to
-the queue using
+number as required (without the brackets).
+
+For short jobs or for testing, you can submit your script to the development queue.  Do this by resetting the wall time to a maximum of two hours and selecting the queue:
+
+::
+
+   #PBS -l walltime=2:00:00
+   #PBS -q devel
+
+You can then submit this to the queue using
 
 ::
 
