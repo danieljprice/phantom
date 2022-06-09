@@ -1010,7 +1010,7 @@ end subroutine read_options_cooling
 !=======================================================================
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !
-!  Cooling physics utilities
+!  Physics required for cooling functions below
 !
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !=======================================================================
@@ -1026,9 +1026,9 @@ end subroutine read_options_cooling
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute electron equilibrium abundance using LTE network
-!           Warning: Unable to re-derive p and q factors used below,
-!                    use with caution!
+!  ADDITIONAL PHYSICS: compute electron equilibrium abundance using LTE network
+!                      Warning: Unable to re-derive p and q factors used below,
+!                      use with caution!
 !+
 !-----------------------------------------------------------------------
 real function n_e_old(T_gas, rho_gas, mu, nH, nHe)
@@ -1043,7 +1043,7 @@ real function n_e_old(T_gas, rho_gas, mu, nH, nHe)
 
  n_gas  = rho_gas/(mu*mass_proton_cgs)
  
- k1 = 2.753d-14*(315614/T_gas)**1.5*(1.0+(115188/T_gas))**(-2.242) ! Ferland et al (1992)
+ k1 = 2.753d-14*(315614/T_gas)**1.5*(1.0+(115188/T_gas))**(-2.242)  ! Ferland et al (1992)
  if (T_gas < 6000.) then                                            ! Wishart (1979)
     k2 = 10**(-17.845+0.762*log10(T_gas)+0.1523*log10(T_gas)**2 &
               -0.03274*log10(T_gas)**3)
@@ -1082,8 +1082,8 @@ end function n_e_old
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute LTE electron density from SAHA equations
-!           (following D'Angelo & Bodenheimer 2013)
+!  ADDITIONAL PHYSICS: compute LTE electron density from SAHA equations
+!                      (following D'Angelo & Bodenheimer 2013)
 !+
 !-----------------------------------------------------------------------
 real function n_e(T_gas, rho_gas, mu, nH, nHe)
@@ -1119,7 +1119,7 @@ end function n_e
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute mean thermal speed of molecules
+!  ADDITIONAL PHYSICS: compute mean thermal speed of molecules
 !+
 !-----------------------------------------------------------------------
 real function vth(T_gas,mu)
@@ -1135,9 +1135,9 @@ end function vth
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute fraction of gas that has speeds lower than v_crit
-!           from the cumulative distribution function of the 
-!           Maxwell-Boltzmann distribution
+!  ADDITIONAL PHYSICS: compute fraction of gas that has speeds lower than v_crit
+!                      from the cumulative distribution function of the 
+!                      Maxwell-Boltzmann distribution
 !+
 !-----------------------------------------------------------------------
 real function MaxBol_cumul(T_gas, mu,  v_crit)
@@ -1156,8 +1156,8 @@ end function MaxBol_cumul
 
 !-----------------------------------------------------------------------
 !+
-!  UTILITY: compute dust number density from dust-to-gas mass ratio,
-!           mean grain size a, and specific density of the grain
+!  ADDITIONAL PHYSICS: compute dust number density from dust-to-gas mass ratio,
+!                      mean grain size a, and specific density of the grain
 !+
 !-----------------------------------------------------------------------
 real function n_dust(rho_gas, d2g, a, rho_grain)
@@ -1182,7 +1182,7 @@ end function n_dust
 !=======================================================================
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !
-!  Cooling physics
+!  Cooling functions
 !
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !=======================================================================
@@ -1225,8 +1225,8 @@ real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust)
  real, parameter   :: alpha = 0.0
  real              :: n_gas, sigma_dust, d2g, a, rho_grain
  
- sigma_dust = 2.*pi*a**2.
- n_gas      = rho_gas/(mu*mass_proton_cgs)
+ sigma_dust                 = 2.*pi*a**2.
+ n_gas                      = rho_gas/(mu*mass_proton_cgs)
  cool_dust_discrete_contact = alpha*n_gas*n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*vth(T_gas,mu)*kboltz*(T_dust-T_gas)
  
 end function cool_dust_discrete_contact
@@ -1255,8 +1255,8 @@ real function heat_dust_friction(rho_gas)
 
  real, intent(in)  :: rho_gas
  
- real              :: sigma_dust, v_drift, d2g,a,rho_grain
- real, parameter   :: alpha = 0.33 ! see Burke & Hollenbach 1983
+ real              :: sigma_dust, v_drift, d2g, a, rho_grain
+ real, parameter   :: alpha = 0.33                            ! see Burke & Hollenbach 1983
  
  ! Warning, alpha depends on the type of dust 
  
@@ -1622,7 +1622,7 @@ end function calc_Q
 
 !-----------------------------------------------------------------------
 !+
-!  calculate dlnQ/dlnT
+!  UTILITY: Calculate dlnQ/dlnT
 !+
 !-----------------------------------------------------------------------
 
@@ -1657,7 +1657,7 @@ real function calc_dlnQdlnT(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, ka
  dQdT      = (dQ1-dQ2)/(2.*dT)
  dlnQ_dlnT = (T_gas/Qtot)*dQdT 
  
-! gradient can become extremele large at discontinuous physical temperature boundaries of Q (see e.g. atomic and chemical cooling)
+! gradient can become large at discontinuous physical temperature boundaries of Q (see e.g. atomic and chemical cooling)
  if (dlnQ_dlnT > bignumber) then
     dlnQ_dlnT = 0.0
  endif   
