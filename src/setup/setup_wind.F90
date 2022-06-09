@@ -182,7 +182,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
     xyzmh_ptmass(iTeff,2) = secondary_Teff
-    xyzmh_ptmass(iReff,2) = secondary_Reff
+    if (secondary_Reff == 0.0) then
+       xyzmh_ptmass(iReff,2) = secondary_Reff
+    else
+       xyzmh_ptmass(iReff,2) = secondary_racc
+    endif
     xyzmh_ptmass(iLum,2)  = secondary_lum
  else if (icompanion_star == 2) then
     !-- hierarchical triple
@@ -645,18 +649,22 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     if (icompanion_star == 1) then
-        if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
-            secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
-        if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
-            secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
-        if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
-            secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
-        secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+!         if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
+!             secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
+!         if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
+!             secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
+!         if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
+!             secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
+!         secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
         call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
         call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
         call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
         call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
-        call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
+        if (secondary_Reff == 0.0) then
+           call write_inopt(secondary_racc_au,'secondary_Reff','secondary star effective radius (au)',iunit)
+        else
+           call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
+        endif
         call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
         call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
@@ -786,17 +794,17 @@ subroutine read_setupfile(filename,ierr)
     ichange = ichange+1
     primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff*udist)**2/solarl
  endif
- if (icompanion_star == 1) then
-    if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
-       ichange = ichange+1
-       secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff*udist)**2))**0.25
-    endif
-    if (secondary_Reff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) then
-       ichange = ichange+1
-       secondary_Reff = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/udist
-       secondary_Reff_au = secondary_Reff * udist / au
-    endif
- endif
+!  if (icompanion_star == 1) then
+!     if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
+!        ichange = ichange+1
+!        secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff*udist)**2))**0.25
+!     endif
+!     if (secondary_Reff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) then
+!        ichange = ichange+1
+!        secondary_Reff = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/udist
+!        secondary_Reff_au = secondary_Reff * udist / au
+!     endif
+!  endif
  ierr = nerr
  call write_setupfile(filename)
 
