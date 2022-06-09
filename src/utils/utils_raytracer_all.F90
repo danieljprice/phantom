@@ -14,25 +14,27 @@ module raytracer_all
    !  Calculate the optical depth of each particle, using the adaptive ray-
    !  tracing scheme
    !+
-   !  IN: primary:         The location of the primary star
-   !  IN: xyzh:            The xyzh of all the particles
-   !  IN: opacities:       The list of the opacities of the particles
+   !  IN: npart:           The number of SPH particles
+   !  IN: primary:         The xyz coordinates of the primary star
+   !  IN: xyzh:            The array containing the particles position+smooting lenght
+   !  IN: kappa:           The array containing the kappa of all SPH particles
    !  IN: Rstar:           The radius of the star
    !  IN: minOrder:        The minimal order in which the rays are sampled
    !  IN: refineLevel:     The amount of orders in which the rays can be
    !                       sampled deeper
+   !  IN: refineScheme:    The refinement scheme used for adaptive ray selection
    !+
    !  OUT: taus:           The list of optical depths for each particle
    !+
-   !  OPT: companion:      The location of the companion
-   !  OPT: R:              The radius of the companion
+   !  OPT: companion:      The xyz coordinates of the companion
+   !  OPT: Rcomp:          The radius of the companion
    !+
    !--------------------------------------------------------------------------
-   subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
-                                   Rstar, minOrder, refineLevel, taus, companion, R)
-      integer, intent(in) :: minOrder, refineLevel
-      real, intent(in)    :: primary(3), opacities(:), xyzh(:,:), Rstar
-      real, optional      :: R, companion(3)
+   subroutine get_all_tau_adaptive(npart, primary, xyzh, kappa, Rstar, minOrder,&
+                                   refineLevel, refineScheme, taus, companion, Rcomp)
+      integer, intent(in) :: npart, minOrder, refineLevel, refineScheme
+      real, intent(in)    :: primary(3), kappa(:), xyzh(:,:), Rstar
+      real, optional      :: Rcomp, companion(3)
       real, intent(out)   :: taus(:)
    
       integer     :: i, nrays, nsides, index
@@ -42,13 +44,13 @@ module raytracer_all
       integer, dimension(:), allocatable :: indices, rays_dim
       real, dimension(:), allocatable    :: tau, dists
 
-      if (present(companion) .and. present(R)) then
+      if (present(companion) .and. present(Rcomp)) then
          unitCompanion = companion-primary
          normCompanion = norm2(unitCompanion)
-         theta0 = asin(R/normCompanion)
+         theta0 = asin(Rcomp/normCompanion)
          unitCompanion = unitCompanion/normCompanion
 
-         call get_rays(primary, companion, xyzh, size(taus), minOrder, refineLevel, R, dirs, indices, nrays)
+         call get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLevel, refineScheme, dirs, indices, nrays)
          allocate(listsOfDists(200, nrays))
          allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
          allocate(tau(size(listsOfDists(:,1))))
@@ -62,11 +64,11 @@ module raytracer_all
             dir = dirs(:,i)
             theta = acos(dot_product(unitCompanion, dir))
             if (theta < theta0) then
-               root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
+               root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
                dist = normCompanion*cos(theta)-root
-               call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, rays_dim(i), dist)
+               call ray_tracer(primary, dir, xyzh, kappa, Rstar, tau, dists, rays_dim(i), dist)
             else
-               call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, rays_dim(i))
+               call ray_tracer(primary, dir, xyzh, kappa, Rstar, tau, dists, rays_dim(i))
             endif
             listsOfTaus(:,i) = tau
             listsOfDists(:,i) = dists
@@ -76,7 +78,7 @@ module raytracer_all
          nsides = 2**(minOrder+refineLevel)
          taus = 0.
          !$omp parallel do private(index,vec)
-         do i = 1, size(taus(:))
+         do i = 1, npart
             vec = xyzh(1:3,i)-primary
             call vec2pix_nest(nsides, vec, index)
             index = indices(index + 1)
@@ -85,7 +87,7 @@ module raytracer_all
          !$omp end parallel do
 
       else
-         call get_all_tau_outwards_single(size(taus(:)), primary, xyzh, opacities, &
+         call get_all_tau_outwards_single(npart, primary, xyzh, kappa, &
          Rstar, minOrder+refineLevel, 0, taus)
       endif
    end subroutine get_all_tau_adaptive
@@ -95,24 +97,26 @@ module raytracer_all
    !  Return all the directions of the rays that need to be traced for the
    !  adaptive ray-tracing scheme
    !+
+   !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: companion:       The xyz coordinates of the companion
+   !  IN: Rcomp:           The radius of the companion
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: npart:           The number of particles in the simulation
    !  IN: minOrder:        The minimal order in which the rays are sampled
    !  IN: refineLevel:     The amount of orders in which the rays can be
    !                       sampled deeper
-   !  IN: R:               The radius of the companion
+   !  IN: refineScheme:    The refinement scheme used for adaptive ray selection
    !+
    !  OUT: rays:           A list containing the rays that need to be traced 
    !                       in the adaptive ray-tracing scheme
    !  OUT: indices:        A list containing a link between the index in the
    !                       deepest order and the rays in the adaptive ray-tracing scheme
+   !  OUT: nrays:          The number of rays after the ray selection
    !+
    !--------------------------------------------------------------------------
-   subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, rays, indices, nrays)
-      real, intent(in)     :: primary(3), companion(3), xyzh(:,:), R
-      integer, intent(in)  :: minOrder, refineLevel, npart
+   subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLevel, refineScheme, rays, indices, nrays)
+      integer, intent(in)  :: npart, minOrder, refineLevel, refineScheme
+      real, intent(in)     :: primary(3), companion(3), xyzh(:,:), Rcomp
       real, allocatable, intent(out)    :: rays(:,:)
       integer, allocatable, intent(out) :: indices(:)
       integer, intent(out) :: nrays
@@ -123,7 +127,7 @@ module raytracer_all
       integer, dimension(:,:), allocatable  :: distrs
 
       maxOrder = minOrder+refineLevel
-      nrays = 12*4**(maxOrder)!int(12*4**minOrder*(-1+2**(refineLevel) + 2**(refineLevel+1))/2)!
+      nrays = 12*4**(maxOrder)
       allocate(rays(3, nrays))
       allocate(indices(12*4**(maxOrder)))
       rays = 0.
@@ -151,7 +155,7 @@ module raytracer_all
 
       !Make sure the companion is described using the highest refinement
       dist = norm2(primary-companion)
-      theta = asin(R/dist)
+      theta = asin(Rcomp/dist)
       phi = atan2(companion(2)-primary(2),companion(1)-primary(1))
       cosphi = cos(phi)
       sinphi = sin(phi)
@@ -182,22 +186,44 @@ module raytracer_all
 
       !Fill the rays array walking through the orders
       ind=1
-      do i=0, refineLevel-1
-         call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
-         j=1
-         do while (distrs(distr(j),refineLevel-i+1)<npart/(12*4**(minOrder+i)))
-            call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
-            indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
-            ind=ind+1
-            distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
-            j=j+1
-         enddo
-         do j = j, 12*4**(minOrder+i)
-            if (distrs(distr(j),refineLevel-i+1) == max) then
+
+      ! refine half in each order
+      if (refineScheme == 1) then
+         do i=0, refineLevel-1
+            call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
+            do j=1, 6*4**minOrder*2**(i)
+               call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
+               indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
+               ind=ind+1
                distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
-            endif
+            enddo
+            do j = j+1, 12*4**(minOrder+i)
+               if (distrs(distr(j),refineLevel-i+1) == max) then
+                  distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+               endif
+            enddo
          enddo
-      enddo
+
+      ! refine overdens regions in each order
+      else if (refineScheme == 2) then
+         do i=0, refineLevel-1
+            call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
+            j=1
+            do while (distrs(distr(j),refineLevel-i+1)<npart/(12*4**(minOrder+i)))
+               call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
+               indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
+               ind=ind+1
+               distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+               j=j+1
+            enddo
+            do j = j, 12*4**(minOrder+i)
+               if (distrs(distr(j),refineLevel-i+1) == max) then
+                  distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+               endif
+            enddo
+         enddo
+      endif
+
       do i=1, 12*4**maxOrder
          if (distrs(i,1) .ne. max) then
             call pix2vec_nest(2**maxOrder, i-1, rays(:,ind))
@@ -279,6 +305,7 @@ module raytracer_all
    !  IN: kappa:           The array containing the kappa of all SPH particles
    !  IN: Rstar:           The radius of the star
    !  IN: order:           The order in which the rays are sampled
+   !  IN: raypolation:     The interpolation scheme used for the ray interpolation
    !+
    !  OUT: taus:           The list of optical depths for each particle
    !+
@@ -312,6 +339,7 @@ module raytracer_all
    !  IN: kappa:           The array containing the kappa of all SPH particles
    !  IN: Rstar:           The radius of the primary star
    !  IN: order:           The healpix order which is used for the uniform ray sampling
+   !  IN: raypolation:     The interpolation scheme used for the ray interpolation
    !+
    !  OUT: taus:           The array of optical depths to each SPH particle
    !+
@@ -390,6 +418,7 @@ module raytracer_all
    !  IN: companion:       The xyz coordinates of the companion
    !  IN: Rcomp:           The radius of the companion
    !  IN: order:           The healpix order which is used for the uniform ray sampling
+   !  IN: raypolation:     The interpolation scheme used for the ray interpolation
    !+
    !  OUT: tau:            The array of optical depths for each SPH particle
    !+
@@ -492,6 +521,7 @@ module raytracer_all
    !  IN: rays_dist:       2-dimensional array containing the distances from the
    !                       primary along each ray
    !  IN: rays_dim:        The vector containing the number of points defined along each ray
+   !  IN: raypolation:     The interpolation scheme used for the ray interpolation
    !+
    !  OUT: tau:            The interpolated optical depth at the particle's location
    !+
@@ -676,7 +706,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 4 rays, cubed interpolation
-      else if (raypolation==3) then
+      else if (raypolation==5) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -717,7 +747,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 9 rays, cubed interpolation
-      else if (raypolation==4) then
+      else if (raypolation==6) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -1003,7 +1033,7 @@ module raytracer_all
    !  IN: xyzh:            The array containing the particles position+smooting lenght
    !  IN: neighbors:       A list containing the indices of the neighbors of 
    !                       each particle
-   !  IN: opacities:       The list of the opacities of the particles
+   !  IN: kappa:           The array containing the opacity of all the SPH particles
    !  IN: Rstar:           The radius of the star
    !+
    !  OUT: tau:           The list of optical depth of the given particle
