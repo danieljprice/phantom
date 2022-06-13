@@ -131,6 +131,12 @@ and check status using the squeue command and your username, e.g.
             375869 singlenod cuetwo_s     jhw  PD       0:00      1 (Priority)
             375527 singlenod  ncl_ncl     jhw   R 1-13:34:53      1 kennedy119
 
+If your simulation has not yet started, you can see when it is predicted to start by
+
+::
+
+   $ squeue --start -u [USERNAME]
+
 You can cancel a run (before or during execution) by
 
 ::
