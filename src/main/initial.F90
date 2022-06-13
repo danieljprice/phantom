@@ -225,9 +225,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
- integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold,file1D
+ character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
+#ifdef INJECT_PARTICLES
+ character(len=len(dumpfile)) :: file1D
+#endif
+
 
  read_input_files = .true.
  if (present(noread)) read_input_files = .not.noread
