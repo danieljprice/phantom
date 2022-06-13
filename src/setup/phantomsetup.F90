@@ -134,8 +134,7 @@ program phantomsetup
 !--setup magnetic field if code compiled with MHD
 !
     if (mhd .and. .not.ihavesetupB) then
-       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bxyz,Bextx,Bexty,Bextz)
+       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,Bxyz,Bextx,Bexty,Bextz)
     endif
 !
 !--perform sanity checks on the output of setpart routine
