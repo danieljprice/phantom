@@ -161,6 +161,12 @@ and check status using the qstat command and your username, e.g.
    Job ID                  Username  Queue    Jobname  SessID  NDS   TSK   Memory      Time  S  Time
    22054.master.cm.cluste  [......]  dirac25x dp005    6678     1     36     16gb  01:00:00  Q
 
+If your simulation has not yet started, you can see when it is predicted to start by
+
+::
+
+   $ showstart [Job ID]
+
 You can cancel a run (before or during execution) by
 
 ::
@@ -234,5 +240,7 @@ ST/R001014/1. DiRAC is part of the National e-Infrastructure.
 More info
 ---------
 
-More info is available on the DiAL website:
-https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/dirac
+More info is available on the following websites:
+https://dirac.ac.uk/
+https://dirac.ac.uk/resources/#DataIntensive1
+https://www630.lamp.le.ac.uk/Getting_started/connecting_dial3/
