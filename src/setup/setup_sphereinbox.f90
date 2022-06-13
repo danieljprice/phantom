@@ -408,7 +408,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  dens_sphere = rhozero
  if (BEsphere) then
     dens_medium = edge_density/density_contrast
-    cs_medium   = cs_sphere*central_density/edge_density
+    cs_medium   = cs_sphere*sqrt(edge_density/dens_medium)
  else
     dens_medium = dens_sphere/density_contrast
     cs_medium   = cs_sphere*sqrt(density_contrast)
