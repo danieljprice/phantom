@@ -305,6 +305,10 @@ subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) rhocrit3cgs
     if (rhocrit3cgs <= 0.) call fatal(label,'rhocrit3 <= 0')
     ngot = ngot + 1
+ case('rhocrit4')
+    read(valstring,*,iostat=ierr) rhocrit4cgs
+    if (rhocrit4cgs <= 0.) call fatal(label,'rhocrit4 <= 0')
+    ngot = ngot + 1
  case('gamma1')
     read(valstring,*,iostat=ierr) gamma1
     if (gamma1 < 1.) call fatal(label,'gamma1 < 1.0')
@@ -316,6 +320,10 @@ subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
  case('gamma3')
     read(valstring,*,iostat=ierr) gamma3
     if (gamma3 < 1.) call fatal(label,'gamma3 < 1.0')
+    ngot = ngot + 1
+ case('gamma4')
+    read(valstring,*,iostat=ierr) gamma4
+    if (gamma4 < 1.) call fatal(label,'gamma4 < 1.0')
     ngot = ngot + 1
  case default
     imatch = .false.
