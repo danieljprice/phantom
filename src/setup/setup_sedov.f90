@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters:
 !   - lattice       : *particle lattice (random,cubic,closepacked,hcp,hexagonal)*
