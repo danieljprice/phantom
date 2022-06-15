@@ -12,12 +12,12 @@ program phantomsetup
 !
 ! :Owner: Daniel Price
 !
-! :Usage: phantomsetup fileprefix [nprocsfake]
+! :Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1
 !
 ! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
 !   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
-!   setup_params, units
+!   setup_params, systemutils, units
 !
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,mpi,&

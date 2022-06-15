@@ -12,7 +12,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters:
 !   - BEfac             : *over-density factor of the BE sphere [code units]*

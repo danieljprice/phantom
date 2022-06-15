@@ -17,10 +17,12 @@ module eos_barotropic
 !   - gamma1   : *adiabatic index 1 (barotropic eos)*
 !   - gamma2   : *adiabatic index 2 (barotropic eos)*
 !   - gamma3   : *adiabatic index 3 (barotropic eos)*
+!   - gamma4   : *adiabatic index 4 (barotropic eos)*
 !   - rhocrit0 : *critical density 0 in g/cm^3 (barotropic eos)*
 !   - rhocrit1 : *critical density 1 in g/cm^3 (barotropic eos)*
 !   - rhocrit2 : *critical density 2 in g/cm^3 (barotropic eos)*
 !   - rhocrit3 : *critical density 3 in g/cm^3 (barotropic eos)*
+!   - rhocrit4 : *critical density 4 in g/cm^3 (barotropic eos)*
 !
 ! :Dependencies: infile_utils, io, units
 !
