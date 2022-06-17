@@ -17,10 +17,12 @@ module eos_barotropic
 !   - gamma1   : *adiabatic index 1 (barotropic eos)*
 !   - gamma2   : *adiabatic index 2 (barotropic eos)*
 !   - gamma3   : *adiabatic index 3 (barotropic eos)*
+!   - gamma4   : *adiabatic index 4 (barotropic eos)*
 !   - rhocrit0 : *critical density 0 in g/cm^3 (barotropic eos)*
 !   - rhocrit1 : *critical density 1 in g/cm^3 (barotropic eos)*
 !   - rhocrit2 : *critical density 2 in g/cm^3 (barotropic eos)*
 !   - rhocrit3 : *critical density 3 in g/cm^3 (barotropic eos)*
+!   - rhocrit4 : *critical density 4 in g/cm^3 (barotropic eos)*
 !
 ! :Dependencies: infile_utils, io, units
 !
@@ -32,12 +34,14 @@ module eos_barotropic
  real,    public :: rhocrit1cgs = 1.e-14
  real,    public :: rhocrit2cgs = 1.e-10
  real,    public :: rhocrit3cgs = 1.e-3
+ real,    public :: rhocrit4cgs = 1.e-1
  real,    public :: gamma1      = 1.4
  real,    public :: gamma2      = 1.1
  real,    public :: gamma3      = 5./3.
+ real,    public :: gamma4      = 1.1
 
- real :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3
- real :: fac2,fac3,log10polyk2,log10rhocritT,rhocritT0slope
+ real :: rhocritT,rhocrit0,rhocrit1,rhocrit2,rhocrit3,rhocrit4
+ real :: fac2,fac3,fac4,log10polyk2,log10rhocritT,rhocritT0slope
 
  public :: init_eos_barotropic
  public :: get_eos_barotropic,eos_info_barotropic
@@ -70,13 +74,16 @@ subroutine init_eos_barotropic(polyk,polyk2,ierr)
  rhocrit1 = rhocrit1cgs/unit_density
  rhocrit2 = rhocrit2cgs/unit_density
  rhocrit3 = rhocrit3cgs/unit_density
+ rhocrit4 = rhocrit4cgs/unit_density
  fac2     = polyk*(rhocrit2/rhocrit1)**(gamma1-1.)
  fac3     =  fac2*(rhocrit3/rhocrit2)**(gamma2-1.)
+ fac4     =  fac3*(rhocrit4/rhocrit3)**(gamma3-1.)
 
  ! verify that the rhocrit's are in the correct order
  call verify_less_than(ierr,rhocrit0,rhocrit1)
  call verify_less_than(ierr,rhocrit1,rhocrit2)
  call verify_less_than(ierr,rhocrit2,rhocrit3)
+ call verify_less_than(ierr,rhocrit3,rhocrit4)
  ! Calculate values for the first transition region (no transition if drhocrit0=0)
  if (polyk < tiny(polyk) .or. polyk2 < tiny(polyk2)) drhocrit0 = 0.0
 
@@ -116,6 +123,7 @@ subroutine get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
  ! variables calculated in the eos initialisation routine:
  !    fac2 = polyk*(rhocrit2/rhocrit1)**(gamma1-1.)
  !    fac3 =  fac2*(rhocrit3/rhocrit2)**(gamma2-1.)
+ !    fac4 =  fac3*(rhocrit4/rhocrit3)**(gamma2-1.)
  !    rhocritT0slope = (log10(polyk)-log10(polyk2)) &
  !                   /(log10(rhocritT)-log10(rhocrit0)))
  !
@@ -134,9 +142,12 @@ subroutine get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
  elseif (rhoi < rhocrit3) then
     gammai  = gamma2
     ponrhoi = fac2*(rhoi/rhocrit2)**(gamma2-1.)
- else
+ elseif (rhoi < rhocrit4) then
     gammai  = gamma3
     ponrhoi = fac3*(rhoi/rhocrit3)**(gamma3-1.)
+ else
+    gammai  = gamma4
+    ponrhoi = fac4*(rhoi/rhocrit4)**(gamma4-1.)
  endif
  spsoundi = sqrt(gammai*ponrhoi)
 
@@ -161,8 +172,10 @@ real function gamma_barotropic(rhoi) result(gammai)
     gammai  = gamma1
  elseif (rhoi < rhocrit3) then
     gammai  = gamma2
- else
+ elseif (rhoi < rhocrit4) then
     gammai  = gamma3
+ else
+    gammai  = gamma4
  endif
 
 end function gamma_barotropic
@@ -173,9 +186,9 @@ end function gamma_barotropic
 !+
 !-----------------------------------------------------------------------
 subroutine eos_info_barotropic(polyk,polyk2,iprint)
- real, intent(in) :: polyk,polyk2
+ real,    intent(in) :: polyk,polyk2
  integer, intent(in) :: iprint
- character(len=*), parameter :: cu = ' code units = '
+ character(len=*), parameter :: cu   = ' code units = '
  character(len=*), parameter :: baro = ' Barotropic eq of state: '
 
  write(iprint,"(a)") ' '
@@ -194,24 +207,27 @@ subroutine eos_info_barotropic(polyk,polyk2,iprint)
  write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit1 == rho1 = ',rhocrit1,    cu,rhocrit1*unit_density,     ' g/cm^3'
  write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit2 == rho2 = ',rhocrit2,    cu,rhocrit2*unit_density,     ' g/cm^3'
  write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit3 == rho3 = ',rhocrit3,    cu,rhocrit3*unit_density,     ' g/cm^3'
+ write(iprint,"(  2a,2(es10.3,a))")    baro, 'rhocrit4 == rho4 = ',rhocrit4,    cu,rhocrit4*unit_density,     ' g/cm^3'
  write(iprint,"(a)")                   baro
  if (drhocrit0 > 0.0) then
-    write(iprint,"(2a,53x,a)")         baro, 'P = cs_ld*rho','for         rho < rhoT'
-    write(iprint,"(2a,11x,a)")         baro, 'P = 10**(log10(cs_ld**2) + M*(log10(rhoT)-log10(rho)))',' for rhoT <= rho < rho0'
+    write(iprint,"(2a)")       baro, '        rho < rhoT: P = cs_ld^2*rho'
+    write(iprint,"(2a)")       baro, 'rhoT <= rho < rho0: P = 10**(log10(cs_ld^2) + M*(log10(rhoT)-log10(rho)))'
  else
     if (polyk2 > 0.0) then
-       write(iprint,"(2a,53x,a)")      baro, 'P = cs_ld*rho','for         rho < rho0'
+       write(iprint,"(2a)")    baro, '        rho < rho0: P = cs_ld^2*rho'
     endif
  endif
  if (polyk2 > 0.0) then
-    write(iprint,"(2a,56x,a)")         baro, 'P = cs*rho','for rho0 <= rho < rho1'
+    write(iprint,"(2a)")       baro, 'rho0 <= rho < rho1: P = cs^2*rho'
  else
-    write(iprint,"(2a,56x,a)")         baro, 'P = cs*rho','for         rho < rho1'
+    write(iprint,"(2a)")       baro, '        rho < rho1: P = cs^2*rho'
  endif
- write(iprint,"(2a,f5.3,37x,a)")       baro, 'P = cs*rho1*(rho /rho1)^',gamma1,'for rho1 <= rho < rho2'
- write(iprint,"(a,2(a,f5.3),18x,a)")   baro, 'P = cs*rho1*(rho2/rho1)^',gamma1,'*(rho /rho2)^',gamma2,' for rho2 <= rho < rho3'
- write(iprint,"(a,3(a,f5.3),a)")       baro, 'P = cs*rho1*(rho2/rho1)^',gamma1,'*(rho3/rho2)^',gamma2, &
-                                                                               '*(rho /rho3)^',gamma3,' for rho3 <= rho'
+ write(iprint,"(2a,f5.3)")     baro, 'rho1 <= rho < rho2: P = cs^2*rho1*(rho /rho1)^',gamma1
+ write(iprint,"(a,2(a,f5.3))") baro, 'rho2 <= rho < rho3: P = cs^2*rho1*(rho2/rho1)^',gamma1,'*(rho /rho2)^',gamma2
+ write(iprint,"(a,3(a,f5.3))") baro, 'rho3 <= rho < rho4: P = cs^2*rho1*(rho2/rho1)^',gamma1,'*(rho3/rho2)^',gamma2, &
+                                                                      '*(rho /rho3)^',gamma3
+ write(iprint,"(a,4(a,f5.3))") baro, 'rho4 <= rho:        P = cs^2*rho1*(rho2/rho1)^',gamma1,'*(rho3/rho2)^',gamma2, &
+                                                                      '*(rho4/rho3)^',gamma3,'*(rho /rho4)^',gamma4
 
 end subroutine eos_info_barotropic
 
@@ -245,9 +261,11 @@ subroutine write_options_eos_barotropic(iunit)
  call write_inopt(rhocrit1cgs,'rhocrit1','critical density 1 in g/cm^3 (barotropic eos)',iunit)
  call write_inopt(rhocrit2cgs,'rhocrit2','critical density 2 in g/cm^3 (barotropic eos)',iunit)
  call write_inopt(rhocrit3cgs,'rhocrit3','critical density 3 in g/cm^3 (barotropic eos)',iunit,exp=.true.)
+ call write_inopt(rhocrit4cgs,'rhocrit4','critical density 4 in g/cm^3 (barotropic eos)',iunit,exp=.true.)
  call write_inopt(gamma1,'gamma1','adiabatic index 1 (barotropic eos)',iunit)
  call write_inopt(gamma2,'gamma2','adiabatic index 2 (barotropic eos)',iunit)
  call write_inopt(gamma3,'gamma3','adiabatic index 3 (barotropic eos)',iunit)
+ call write_inopt(gamma4,'gamma4','adiabatic index 4 (barotropic eos)',iunit)
 
 end subroutine write_options_eos_barotropic
 
@@ -287,6 +305,10 @@ subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) rhocrit3cgs
     if (rhocrit3cgs <= 0.) call fatal(label,'rhocrit3 <= 0')
     ngot = ngot + 1
+ case('rhocrit4')
+    read(valstring,*,iostat=ierr) rhocrit4cgs
+    if (rhocrit4cgs <= 0.) call fatal(label,'rhocrit4 <= 0')
+    ngot = ngot + 1
  case('gamma1')
     read(valstring,*,iostat=ierr) gamma1
     if (gamma1 < 1.) call fatal(label,'gamma1 < 1.0')
@@ -298,6 +320,10 @@ subroutine read_options_eos_barotropic(name,valstring,imatch,igotall,ierr)
  case('gamma3')
     read(valstring,*,iostat=ierr) gamma3
     if (gamma3 < 1.) call fatal(label,'gamma3 < 1.0')
+    ngot = ngot + 1
+ case('gamma4')
+    read(valstring,*,iostat=ierr) gamma4
+    if (gamma4 < 1.) call fatal(label,'gamma4 < 1.0')
     ngot = ngot + 1
  case default
     imatch = .false.
