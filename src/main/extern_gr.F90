@@ -19,7 +19,7 @@ module extern_gr
 !
  implicit none
 
- public :: get_grforce, get_grforce_all, update_grforce_leapfrog
+ public :: get_grforce, get_grforce_all, update_grforce_leapfrog, get_tmunu_all
 
  private
 
@@ -222,5 +222,89 @@ subroutine update_grforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
 !  fzi = fzi + fexti(3)
 
 end subroutine update_grforce_leapfrog
+
+subroutine get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
+   use eos,         only:ieos,get_pressure
+   use part,        only:isdead_or_accreted
+   integer, intent(in) :: npart
+   real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
+   real, intent(inout) :: vxyzu(:,:),tmunus(:,:,:)
+   real                :: pi 
+   integer             :: i
+   logical             :: verbose 
+
+   verbose = .false.
+   ! TODO write openmp parallel code
+   do i=1, npart
+      !print*, "i: ", i 
+      if (i==1) then 
+          verbose = .true.
+      else 
+         verbose = .false.
+      endif 
+      if (.not.isdead_or_accreted(xyzh(4,i))) then
+         pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
+         call get_tmunu(xyzh(:,i),metrics(:,:,:,i), metricderivs(:,:,:,i), &
+         vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,tmunus(:,:,i),verbose)
+      endif 
+   enddo 
+   !print*, "tmunu calc val is: ", tmunus(0,0,5)
+end subroutine get_tmunu_all
+
+! Subroutine to calculate the covariant form of the stress energy tensor 
+! For a particle at position p
+subroutine get_tmunu(x,metrici,metricderivsi,v,dens,u,p,tmunu,verbose)
+   use metric_tools,     only:unpack_metric
+   real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
+   real,    intent(out) :: tmunu(0:3,0:3)
+   logical, optional, intent(in) :: verbose 
+   real                 :: w,v4(0:3),vcov(3),lorentz
+   real                 :: gcov(0:3,0:3), gcon(0:3,0:3)
+   real                 :: gammaijdown(1:3,1:3),betadown(3),alpha
+   real                 :: velshiftterm
+   integer              :: i,j
+
+   ! Calculate the enthalpy
+   w = 1 + u + p/dens
+   
+   ! Get cov and con versions of the metric + spatial metric and lapse and shift
+   ! Not entirely convinced that the lapse and shift calculations are acccurate for the general case!!
+   !print*, "Before unpack metric "
+   call unpack_metric(metrici,gcov=gcov,gcon=gcon,gammaijdown=gammaijdown,alpha=alpha,betadown=betadown)
+   !print*, "After unpack metric"
+   if (present(verbose) .and. verbose) then 
+      ! Do we get sensible values 
+      print*, "Unpacked metric quantities..."
+      print*, "gcov: ", gcov
+      print*, "gcon: ", gcon
+      print*, "gammaijdown: ", gammaijdown
+      print* , "alpha: ", alpha 
+      print*, "betadown: ", betadown
+   endif 
+
+   ! We need the covariant version of the 3 velocity 
+   ! gamma_ij v^j = v_i where gamma_ij is the spatial metric
+   do i=1, 3
+      vcov(i) = gammaijdown(i,1)*v4(1) + gammaijdown(i,2)*v4(2) + gammaijdown(i,3)*v4(3) 
+   enddo 
+
+   ! Calculate the lorentz factor
+   lorentz = (1. -  (vcov(1)*v(1) + vcov(2)*v(2) + vcov(3)*v(3)))**(-0.5)
+   
+   ! Calculate the 4-velocity
+   velshiftterm = vcov(1)*betadown(1) + vcov(2)*betadown(2) + vcov(3)*betadown(3)
+   v4(0) = lorentz*(-alpha + velshiftterm)
+   v4(1:3) = lorentz*v(1:3)
+
+   ! Stress energy tensor
+   do j=0,3
+      do i=0,3
+         tmunu(i,j) = dens*w*v4(i)*v4(j) + p*gcov(i,j)
+      enddo 
+   enddo 
+   if (verbose) then 
+      print*, "tmunu part: ", tmunu
+   endif 
+end subroutine get_tmunu
 
 end module extern_gr

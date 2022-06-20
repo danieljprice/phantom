@@ -155,7 +155,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
-
+ print*, "npart: ", npart
 ! determine twas for each ibin
 #ifdef IND_TIMESTEPS
  if (sts_it_n) then
@@ -240,9 +240,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call get_timings(t1,tcpu1)
 #ifdef GR
  if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
+    print*, "before cons2prim"
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    print*, "after cons2prim"
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+    print*, "after get_grforce"
     call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+    print*, "after step extern"
  else
     call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  endif
@@ -368,6 +372,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+ print*, "after predict_sph"
  if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
 
 !
@@ -379,10 +384,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     dt_too_small = .false.
+    print*, "before derivs"
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
+    print*, "after derivs"
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
        ! dt < dtmax/2**nbinmax and exit
@@ -582,6 +589,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
+print*, "after corrector"
     if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
     if (gr) then
@@ -661,7 +669,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     endif
  enddo iterations
-
+ print*, "after iterations"
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
@@ -682,7 +690,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #ifdef GR
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 #endif
-
+print*, "after second cons2primall"
  return
 end subroutine step
 
@@ -788,7 +796,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 !
  if (dtextforce < dtsph) then
     dt = dtextforce
-    last_step = .false.
+    last_step = .true. ! Just to check if things are working
  else
     dt = dtsph
     last_step = .true.
@@ -801,7 +809,9 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
-
+ print*, "t_end_step : ", t_end_step
+ print*, "dtextforce: ", dtextforce 
+ print*, "dtsph: ", dtsph
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
@@ -813,7 +823,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
     endif
-
+    print*, "before predictor"
     !---------------------------
     ! predictor during substeps
     !---------------------------
@@ -922,7 +932,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     enddo predictor
     !$omp enddo
     !$omp end parallel
-
+print*, "after predictor"
     if (iverbose >= 2 .and. id==master) then
        write(iprint,*)                '------ Iterations summary: -------------------------------'
        write(iprint,"(a,i2,a,f14.6)") 'Most pmom iterations = ',pitsmax,' | max error = ',perrmax
@@ -936,7 +946,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     accretedmass = 0.
     naccreted    = 0
     dtextforce_min = bignumber
-
+print*, "before corrector"
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp shared(maxphase,maxp) &
@@ -983,7 +993,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     enddo accreteloop
     !$omp enddo
     !$omp end parallel
-
+print*, "after corrector"
+print*, "time is: ", timei 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted. Mass accreted = ',accretedmass
 
@@ -1001,7 +1012,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     endif
 
  enddo substeps
-
+print*, "outside of substeps"
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
        write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
@@ -1010,7 +1021,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
     call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
  endif
-
+print*, "step extern_gr done!"
 end subroutine step_extern_gr
 
 #endif

@@ -133,11 +133,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
 #ifdef GR
- use part,             only:metricderivs
+ use part,             only:metricderivs,tmunus
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
- use extern_gr,        only:get_grforce_all
+ use extern_gr,        only:get_grforce_all,get_tmunu_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
+ use einsteintk_utils
+ use tmunu2grid  
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid
@@ -416,13 +418,24 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
 #ifndef PRIM2CONS_FIRST
 ! COMPUTE METRIC HERE
+ call print_etgrid
+ print*, "Before init metric!"
  call init_metric(npart,xyzh,metrics,metricderivs)
+ print*, "metric val is: ", metrics(:,:,:,1)
+ print*, "Before prims2consall"
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
+    print*, "Before get_grforce_all"
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+    print*, "Before get_tmunu_all"
+    call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
+    print*, "get_tmunu_all finished!"
+    !print*, "tmunus: ", tmunus
+    !stop 
+    call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  endif
 #else
  if (iexternalforce > 0) then

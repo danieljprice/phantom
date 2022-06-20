@@ -150,6 +150,8 @@ module part
  real, allocatable :: dens(:) !dens(maxgr)
  real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
+ real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 !
 !--sink particles
 !
@@ -450,6 +452,8 @@ subroutine allocate_part
  call allocate_array('dens', dens, maxgr)
  call allocate_array('metrics', metrics, 4, 4, 2, maxgr)
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
+ call allocate_array('tmunus', tmunus, 4, 4, maxgr)
+ call allocate_array('sqrtgs', sqrtgs, maxgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)

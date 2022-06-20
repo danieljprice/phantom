@@ -71,7 +71,7 @@ end subroutine get_u
 !+
 !----------------------------------------------------------------
 subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
- use utils_gr,     only:get_u0
+ use utils_gr,     only:get_u0, get_sqrtg
  use metric_tools, only:unpack_metric
  use io,           only:error
  real, intent(in)  :: x(1:3),metrici(:,:,:)
@@ -89,8 +89,10 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  enth = 1. + u + P/dens
 
  ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
- sqrtg = 1.
+ ! NO BAD!! 
+ !sqrtg = 1.
  call unpack_metric(metrici,gcov=gcov)
+ call get_sqrtg(gcov,sqrtg)
 
  call get_u0(gcov,v,U0,ierror)
  if (ierror > 0) call error('get_u0 in prim2cons','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
@@ -157,6 +159,7 @@ end subroutine conservative2primitive
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+ use utils_gr,     only:get_sqrtg
  use metric_tools, only:unpack_metric
  use units,        only:unit_ergg,unit_density,unit_pressure
  use eos,          only:calc_temp_and_ene,ieos
@@ -172,18 +175,19 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
  real :: u_in,P_in,dens_in,ucgs,Pcgs,denscgs,enth0,gamma0,enth_min,enth_max
  real :: enth_rad,enth_gas,gamma_rad,gamma_gas
  integer :: niter,i,ierr1,ierr2
- real, parameter :: tol = 1.e-12
- integer, parameter :: nitermax = 500
+ real, parameter :: tol = 1.e-3
+ integer, parameter :: nitermax = 100000
  logical :: converged
+ real    :: gcov(0:3,0:3)
  ierr = 0
 
- ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
- sqrtg = 1.
- sqrtg_inv = 1./sqrtg
-
  ! Get metric components from metric array
- call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
+ call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
+ ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
+ !sqrtg = 1.
+ call get_sqrtg(gcov,sqrtg)
+ sqrtg_inv = 1./sqrtg
  pmom2 = 0.
  do i=1,3
     pmom2 = pmom2 + pmom(i)*dot_product(gammaijUP(:,i),pmom(:))
@@ -296,6 +300,7 @@ end subroutine conservative2primitive_var_gamma
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
+ use utils_gr,     only:get_sqrtg
  use metric_tools, only:unpack_metric
  use eos,          only:calc_temp_and_ene,ieos
  real, intent(in)    :: x(1:3),metrici(:,:,:),gamma
@@ -308,17 +313,18 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv
  integer :: niter, i
- real, parameter :: tol = 1.e-12
- integer, parameter :: nitermax = 100
+ real, parameter :: tol = 1.e-3
+ integer, parameter :: nitermax = 100000
  logical :: converged
+ real    :: gcov(0:3,0:3)
  ierr = 0
 
- ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
- sqrtg = 1.
- sqrtg_inv = 1./sqrtg
-
  ! Get metric components from metric array
- call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
+ call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
+ 
+ ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
+ call get_sqrtg(gcov, sqrtg)
+ sqrtg_inv = 1./sqrtg
 
  pmom2 = 0.
  do i=1,3

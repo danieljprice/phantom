@@ -925,6 +925,15 @@ ifeq ($(SETUP), testgr)
     SETUPFILE= setup_grdisc.f90
 endif
 
+ifeq ($(SETUP), flrw)
+ GR=yes
+ KNOWN_SETUP=yes
+ IND_TIMESTEPS=no
+ METRIC=et
+ SETUPFILE= setup_unifdis.f90
+ PERIODIC=yes
+endif
+
 ifeq ($(SETUP), default)
 #   default setup, uniform box
     KNOWN_SETUP=yes
