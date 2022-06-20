@@ -35,7 +35,7 @@ module evolve
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
  setup_timers,timers,reduce_timers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev,&
- itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_extf,itimer_io
+ itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_extf,itimer_io, ntimers
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
  init_conservation_checks,check_conservation_error
 
@@ -701,8 +701,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #endif
  logical         :: fulldump,abortrun,at_dump_time,writedump
  
- integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
+ integer         :: i,j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  real, parameter :: xor(3)=0.
+
 
  tprint    = 0.
  nsteps    = 0
